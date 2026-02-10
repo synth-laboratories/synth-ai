@@ -1,7 +1,7 @@
-use url::Url;
 use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::env;
+use url::Url;
 
 pub fn normalize_chat_completion_url(url: &str) -> String {
     let trimmed = url.trim().trim_end_matches('/');
@@ -16,20 +16,21 @@ pub fn normalize_chat_completion_url(url: &str) -> String {
                 return parsed.to_string();
             }
 
-            let new_path = if (path.contains("/v1/") && !path.ends_with("/v1")) || path.ends_with("/v1") {
-                format!("{}/chat/completions", path)
-            } else if path.ends_with("/completions") {
-                let base = path.rsplitn(2, '/').nth(1).unwrap_or("");
-                if base.is_empty() {
-                    "/chat/completions".to_string()
+            let new_path =
+                if (path.contains("/v1/") && !path.ends_with("/v1")) || path.ends_with("/v1") {
+                    format!("{}/chat/completions", path)
+                } else if path.ends_with("/completions") {
+                    let base = path.rsplitn(2, '/').nth(1).unwrap_or("");
+                    if base.is_empty() {
+                        "/chat/completions".to_string()
+                    } else {
+                        format!("{}/chat/completions", base)
+                    }
+                } else if path.is_empty() {
+                    "/v1/chat/completions".to_string()
                 } else {
-                    format!("{}/chat/completions", base)
-                }
-            } else if path.is_empty() {
-                "/v1/chat/completions".to_string()
-            } else {
-                format!("{}/v1/chat/completions", path)
-            };
+                    format!("{}/v1/chat/completions", path)
+                };
 
             parsed.set_path(&new_path);
             return parsed.to_string();
@@ -179,7 +180,10 @@ pub fn parse_tool_calls_from_response(
             .get("function")
             .and_then(|v| v.as_object())
             .unwrap_or(&empty_map3);
-        let name = function_block.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let name = function_block
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         if let Some(expected) = expected_tool_name {
             if !name.is_empty() && name != expected {
                 return Err(format!("Unexpected tool name: {}", name));

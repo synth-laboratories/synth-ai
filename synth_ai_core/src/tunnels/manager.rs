@@ -11,14 +11,16 @@ use crate::tunnels::errors::TunnelError;
 use crate::tunnels::gateway::get_gateway;
 use crate::tunnels::lease_client::LeaseClient;
 use crate::tunnels::types::{LeaseInfo, LeaseState, TunnelBackend, TunnelHandle};
-use crate::tunnels::{connector::get_connector, cloudflared};
+use crate::tunnels::{cloudflared, connector::get_connector};
 
 const DEFAULT_LOCAL_READY_TIMEOUT: f64 = 30.0;
 const DEFAULT_PUBLIC_READY_TIMEOUT: f64 = 60.0;
 
 fn client_instance_path() -> Result<PathBuf, TunnelError> {
     let home = std::env::var("HOME").map_err(|_| TunnelError::config("HOME not set"))?;
-    Ok(PathBuf::from(home).join(".synth").join("client_instance_id"))
+    Ok(PathBuf::from(home)
+        .join(".synth")
+        .join("client_instance_id"))
 }
 
 fn get_client_instance_id() -> String {
@@ -155,7 +157,8 @@ impl TunnelManager {
             backend: TunnelBackend::CloudflareManagedLease,
             process_id: None,
         };
-        self.active_handles.insert(lease.lease_id.clone(), handle.clone());
+        self.active_handles
+            .insert(lease.lease_id.clone(), handle.clone());
         let lease_id = lease.lease_id.clone();
         let client = self.client().await?.clone();
         let connector = get_connector();
@@ -165,7 +168,9 @@ impl TunnelManager {
                 tokio::time::sleep(Duration::from_secs(30)).await;
                 let connected = connector.lock().is_connected();
                 let gateway_ready = gateway.lock().is_running();
-                let _ = client.heartbeat(&lease_id, connected, gateway_ready, true, None).await;
+                let _ = client
+                    .heartbeat(&lease_id, connected, gateway_ready, true, None)
+                    .await;
             }
         });
         self.heartbeat_tasks.insert(lease.lease_id.clone(), task);
@@ -191,12 +196,18 @@ impl TunnelManager {
     }
 }
 
-async fn verify_public_ready(lease: &LeaseInfo, api_key: Option<String>) -> Result<(), TunnelError> {
+async fn verify_public_ready(
+    lease: &LeaseInfo,
+    api_key: Option<String>,
+) -> Result<(), TunnelError> {
     let hostname = &lease.hostname;
     let route = &lease.route_prefix;
     let ready_url = format!("https://{hostname}{route}/__synth/ready");
-    let deadline = std::time::Instant::now() + Duration::from_secs_f64(DEFAULT_PUBLIC_READY_TIMEOUT);
-    let mut resolved_ip = resolve_hostname_with_explicit_resolvers(hostname).await.ok();
+    let deadline =
+        std::time::Instant::now() + Duration::from_secs_f64(DEFAULT_PUBLIC_READY_TIMEOUT);
+    let mut resolved_ip = resolve_hostname_with_explicit_resolvers(hostname)
+        .await
+        .ok();
     while std::time::Instant::now() < deadline {
         let mut builder = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
@@ -204,7 +215,9 @@ async fn verify_public_ready(lease: &LeaseInfo, api_key: Option<String>) -> Resu
         if let Some(ip) = resolved_ip {
             builder = builder.resolve(hostname, (ip, 443).into());
         }
-        let client = builder.build().map_err(|e| TunnelError::dns(e.to_string()))?;
+        let client = builder
+            .build()
+            .map_err(|e| TunnelError::dns(e.to_string()))?;
         let mut req = client.get(&ready_url);
         if let Some(key) = api_key.clone() {
             req = req.header("X-API-Key", key);
@@ -224,9 +237,13 @@ async fn verify_public_ready(lease: &LeaseInfo, api_key: Option<String>) -> Resu
     Ok(())
 }
 
-static MANAGER: Lazy<Mutex<TunnelManager>> = Lazy::new(|| Mutex::new(TunnelManager::new(None, None)));
+static MANAGER: Lazy<Mutex<TunnelManager>> =
+    Lazy::new(|| Mutex::new(TunnelManager::new(None, None)));
 
-pub fn get_manager(api_key: Option<String>, backend_url: Option<String>) -> &'static Mutex<TunnelManager> {
+pub fn get_manager(
+    api_key: Option<String>,
+    backend_url: Option<String>,
+) -> &'static Mutex<TunnelManager> {
     if api_key.is_some() || backend_url.is_some() {
         let mut guard = MANAGER.lock();
         guard.api_key = api_key.or_else(|| guard.api_key.clone());

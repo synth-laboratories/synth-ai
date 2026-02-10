@@ -35,6 +35,8 @@ from urllib.parse import urlparse
 import aiohttp
 import httpx
 
+from synth_ai.core.utils.urls import normalize_backend_base
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_BACKEND_URL = "https://api.usesynth.ai"
@@ -128,7 +130,7 @@ class SynthTunnelClient:
         if not api_key or not str(api_key).strip():
             raise ValueError("api_key is required to create SynthTunnel leases")
         self.api_key = api_key
-        self.backend_url = (
+        self.backend_url = normalize_backend_base(
             backend_url or os.getenv("SYNTH_BACKEND_URL") or DEFAULT_BACKEND_URL
         ).rstrip("/")
 
@@ -151,7 +153,8 @@ class SynthTunnelClient:
             "capabilities": capabilities or {},
         }
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
+        async with httpx.AsyncClient(timeout=timeout_sec) as client:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
@@ -174,7 +177,8 @@ class SynthTunnelClient:
     async def close_lease(self, lease_id: str) -> None:
         url = f"{self.backend_url}/api/v1/synthtunnel/leases/{lease_id}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
+        async with httpx.AsyncClient(timeout=timeout_sec) as client:
             resp = await client.delete(url, headers=headers)
             resp.raise_for_status()
 

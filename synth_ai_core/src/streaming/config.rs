@@ -100,7 +100,9 @@ impl StreamConfig {
     /// Create a config for errors and warnings only.
     pub fn errors_only() -> Self {
         Self {
-            enabled_streams: [StreamType::Status, StreamType::Events].into_iter().collect(),
+            enabled_streams: [StreamType::Status, StreamType::Events]
+                .into_iter()
+                .collect(),
             event_types: None,
             event_types_exclude: None,
             event_levels: Some(["error", "warning"].iter().map(|s| s.to_string()).collect()),
@@ -117,7 +119,9 @@ impl StreamConfig {
     /// Create a config for metrics only.
     pub fn metrics_only() -> Self {
         Self {
-            enabled_streams: [StreamType::Status, StreamType::Metrics].into_iter().collect(),
+            enabled_streams: [StreamType::Status, StreamType::Metrics]
+                .into_iter()
+                .collect(),
             event_types: None,
             event_types_exclude: None,
             event_levels: None,

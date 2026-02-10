@@ -8,6 +8,7 @@ TERMINAL_STATUSES = {
     "canceled",
     "error",
     "completed",
+    "paused",
 }
 
 # Terminal event types (success/failure) across FT and RL

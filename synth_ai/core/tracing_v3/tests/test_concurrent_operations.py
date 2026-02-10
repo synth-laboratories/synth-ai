@@ -1,16 +1,7 @@
 #!/usr/bin/env python3
-"""
-Tests for concurrent operations in Turso/sqld.
-
-These tests verify that the Turso implementation properly handles
-concurrent operations that would cause race conditions in DuckDB.
-These tests should PASS with Turso's multi-writer MVCC.
-"""
+"""Tests for concurrent operations using SQLite."""
 
 import asyncio
-import os
-import shutil
-import tempfile
 import time
 import uuid
 
@@ -23,84 +14,19 @@ from ..abstractions import (
     RuntimeEvent,
     TimeRecord,
 )
-from ..config import CONFIG
 from ..session_tracer import SessionTracer
-from ..turso.daemon import SqldDaemon
 from ..turso.native_manager import NativeLibsqlTraceManager
-
-
-if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
-    pytest.skip(
-        "sqld binary not available; install Turso sqld or set SQLD_BINARY to skip these tests",
-        allow_module_level=True,
-    )
-
-# Proactively verify that sqld can start in this environment. Some sandboxed CI
-# environments block the process from binding to localhost, resulting in
-# `Operation not permitted` errors when the daemon launches. If we detect that
-# condition, skip the module instead of failing all tests.
-with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
-    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
-    try:
-        _probe_daemon.start()
-    except RuntimeError as exc:  # pragma: no cover - environment dependent
-        if "Operation not permitted" in str(exc) or "Permission denied" in str(exc):
-            pytest.skip(
-                "sqld daemon cannot start in this environment (Operation not permitted)",
-                allow_module_level=True,
-            )
-        raise
-    finally:
-        try:
-            _probe_daemon.stop()
-        except Exception:
-            pass
 
 
 @pytest.mark.asyncio
 class TestConcurrentOperations:
-    """Test concurrent operations with Turso/sqld."""
+    """Test concurrent operations with SQLite."""
 
     @pytest_asyncio.fixture
-    async def sqld_daemon(self):
-        """Start sqld daemon for concurrent tests."""
-        # Create a unique database path
-        db_path = os.path.join(tempfile.gettempdir(), f"test_sqld_{uuid.uuid4().hex}.db")
-        http_port = 9100 + int(uuid.uuid4().hex[:4], 16) % 500  # Random port 9100-9600
-
-        daemon = SqldDaemon(db_path=db_path, http_port=http_port)
-        daemon.start()
-
-        # Wait for daemon to fully initialize
-        await asyncio.sleep(2)
-
-        # Initialize schema once before tests
-        actual_db_file = os.path.join(db_path, "dbs", "default", "data")
-        db_url = f"sqlite+aiosqlite:///{actual_db_file}"
-
-        manager = NativeLibsqlTraceManager(db_url=db_url)
-        await manager.initialize()
-        await manager.close()
-
-        yield daemon
-
-        daemon.stop()
-        # Wait a bit for daemon to fully stop before cleanup
-        await asyncio.sleep(0.5)
-        # Clean up the database file if it exists
-        if os.path.exists(db_path):
-            try:
-                os.unlink(db_path)
-            except PermissionError:
-                pass  # File might still be locked on some systems
-
-    @pytest_asyncio.fixture
-    async def db_url(self, sqld_daemon):
-        """Get the database URL for the running daemon."""
-        # Return the actual SQLite file path inside sqld's directory structure
-        # sqld creates: {db_path}/dbs/default/data
-        actual_db_file = os.path.join(sqld_daemon.db_path, "dbs", "default", "data")
-        return f"sqlite+aiosqlite:///{actual_db_file}"
+    async def db_url(self, tmp_path):
+        """Get a sqlite database URL for tests."""
+        db_path = tmp_path / f"test_sqlite_{uuid.uuid4().hex}.db"
+        return f"sqlite+aiosqlite:///{db_path}"
 
     @pytest.mark.fast
     async def test_concurrent_session_insertion_no_race_condition(self, db_url):

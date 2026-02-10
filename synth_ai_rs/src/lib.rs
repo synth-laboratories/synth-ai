@@ -25,10 +25,15 @@
 //! }
 //! ```
 
-use std::env;
-use std::time::Duration;
 use serde_json::Value;
+use std::env;
+use std::path::Path;
+use std::time::Duration;
 use thiserror::Error;
+
+pub mod environment_pools;
+
+pub use environment_pools::EnvironmentPoolsClient;
 
 // Re-export core for advanced usage
 pub use synth_ai_core as core;
@@ -36,43 +41,86 @@ pub use synth_ai_core_types as types;
 
 // Re-export commonly used core types
 pub use synth_ai_core::{
-    // API types
-    SynthClient as CoreClient,
-    api::{PolicyJobStatus, EvalJobStatus, GepaJobRequest, MiproJobRequest, EvalJobRequest},
-    api::{GraphCompletionRequest, GraphCompletionResponse, GraphInfo, ListGraphsResponse, RlmOptions, VerifierOptions, VerifierResponse},
     api::GraphEvolveClient,
     api::PromptLearningResult,
-    // Orchestration
-    orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
-    orchestration::{GEPAProgress, ProgressTracker, CandidateInfo},
-    graph_evolve::GraphEvolveJob,
-    verifier::VerifierClient,
-    // Streaming
-    StreamType, StreamMessage, StreamConfig, StreamEndpoints,
-    StreamHandler, CallbackHandler, BufferedHandler, JsonHandler, JobStreamer,
-    // Data types
-    JobType, Rubric, Criterion, ObjectiveSpec, RewardObservation,
-    OutcomeObjectiveAssignment, EventObjectiveAssignment, InstanceObjectiveAssignment,
-    RubricAssignment, CriterionScoreData, Judgement, SynthModelName,
-    OutcomeRewardRecord, EventRewardRecord, RewardAggregates, CalibrationExample, GoldExample,
-    Artifact, ContextOverride, ContextOverrideStatus, ApplicationStatus, ApplicationErrorType,
-    // Tracing
-    SessionTracer, TracingEvent, SessionTrace, SessionTimeStep, TimeRecord,
-    MessageContent, MarkovBlanketMessage,
-    LLMCallRecord, LLMMessage, LLMUsage, LLMRequestParams, LLMChunk, LLMContentPart,
-    ToolCallSpec, ToolCallResult,
-    tracing::LibsqlTraceStorage,
-    // Tunnels
-    tunnels::types::{TunnelBackend, TunnelHandle},
-    tunnels::open_tunnel,
-    tunnels::errors::TunnelError,
-    // Errors
-    CoreError,
+    api::{EvalJobRequest, EvalJobStatus, GepaJobRequest, MiproJobRequest, PolicyJobStatus},
+    api::{
+        GraphCompletionRequest, GraphCompletionResponse, RlmOptions, VerifierOptions,
+        VerifierResponse,
+    },
     // Local API
     localapi::TaskAppClient,
+    orchestration::{CandidateInfo, GEPAProgress, ProgressTracker},
+    // Orchestration
+    orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
+    tunnels::errors::TunnelError,
+    tunnels::open_tunnel,
+    // Tunnels
+    tunnels::types::{TunnelBackend, TunnelHandle},
+    ApplicationErrorType,
+    ApplicationStatus,
+    Artifact,
+    BufferedHandler,
+    CallbackHandler,
+    ContextOverride,
+    ContextOverrideStatus,
+    // Errors
+    CoreError,
+    Criterion,
+    CriterionScoreData,
+    EventObjectiveAssignment,
+    // Graph evolve
+    GraphEvolveJob,
+    JobStreamer,
+    // Data types
+    JobType,
+    JsonHandler,
+    Judgement,
+    LLMCallRecord,
+    LLMContentPart,
+    LLMMessage,
+    LLMUsage,
+    LocalApiDeployResponse,
+    LocalApiDeploySpec,
+    LocalApiDeployStatus,
+    LocalApiDeploymentInfo,
+    LocalApiLimits,
+    MarkovBlanketMessage,
+    MessageContent,
+    ObjectiveSpec,
+    OutcomeObjectiveAssignment,
+    RewardObservation,
+    Rubric,
+    RubricAssignment,
+    SessionTimeStep,
+    SessionTrace,
+    // Tracing
+    SessionTracer,
+    StreamConfig,
+    StreamEndpoints,
+    StreamHandler,
+    StreamMessage,
+    // Streaming
+    StreamType,
+    // API types
+    SynthClient as CoreClient,
+    TimeRecord,
+    ToolCallResult,
+    ToolCallSpec,
     // Trace upload
-    TraceUploadInfo, TraceUploader, AUTO_UPLOAD_THRESHOLD_BYTES, MAX_TRACE_SIZE_BYTES,
+    TraceUploadClient,
+    TracingEvent,
+    UploadUrlResponse,
 };
+
+#[cfg(feature = "libsql")]
+pub use synth_ai_core::tracing::LibsqlTraceStorage;
+
+pub use synth_ai_core::data::{
+    CalibrationExample, EventRewardRecord, GoldExample, InstanceObjectiveAssignment,
+    OutcomeRewardRecord, RewardAggregates, SynthModelName,
+};
+pub use synth_ai_core::tracing::{LLMChunk, LLMRequestParams};
 
 /// SDK version.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -157,8 +205,8 @@ impl Synth {
         let api_key = api_key.into();
         let base_url = base_url.unwrap_or(DEFAULT_BASE_URL).to_string();
 
-        let client = synth_ai_core::SynthClient::new(&api_key, Some(&base_url))
-            .map_err(Error::Core)?;
+        let client =
+            synth_ai_core::SynthClient::new(&api_key, Some(&base_url)).map_err(Error::Core)?;
 
         Ok(Self {
             api_key,
@@ -187,6 +235,11 @@ impl Synth {
     /// Access the underlying core client.
     pub fn core(&self) -> &synth_ai_core::SynthClient {
         &self.client
+    }
+
+    /// Create an Environment Pools client.
+    pub fn environment_pools(&self) -> Result<EnvironmentPoolsClient> {
+        EnvironmentPoolsClient::new(self.api_key.clone(), Some(&self.base_url))
     }
 
     // -------------------------------------------------------------------------
@@ -282,8 +335,29 @@ impl Synth {
             .map_err(Error::Core)
     }
 
+    /// Pause a job.
+    pub async fn pause_job(&self, job_id: &str, reason: Option<&str>) -> Result<()> {
+        self.client
+            .jobs()
+            .pause(job_id, reason)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Resume a paused job.
+    pub async fn resume_job(&self, job_id: &str, reason: Option<&str>) -> Result<()> {
+        self.client
+            .jobs()
+            .resume(job_id, reason)
+            .await
+            .map_err(Error::Core)
+    }
+
     /// Run graph completion.
-    pub async fn complete(&self, request: GraphCompletionRequest) -> Result<GraphCompletionResponse> {
+    pub async fn complete(
+        &self,
+        request: GraphCompletionRequest,
+    ) -> Result<GraphCompletionResponse> {
         self.client
             .graphs()
             .complete(request)
@@ -292,7 +366,7 @@ impl Synth {
     }
 
     /// List registered graphs.
-    pub async fn list_graphs(&self, kind: Option<&str>, limit: Option<i32>) -> Result<ListGraphsResponse> {
+    pub async fn list_graphs(&self, kind: Option<&str>, limit: Option<i32>) -> Result<Value> {
         self.client
             .graphs()
             .list_graphs(kind, limit)
@@ -345,33 +419,59 @@ impl Synth {
             .map_err(Error::Core)
     }
 
-    /// Get a verifier client wrapper.
-    pub fn verifier(&self) -> VerifierClient<'_> {
-        VerifierClient::new(&self.client)
-    }
-
     /// Verify a trace against a rubric with default options.
     pub async fn verify_rubric(&self, trace: Value, rubric: Value) -> Result<VerifierResponse> {
-        self.verifier().verify(trace, rubric, None).await.map_err(Error::Core)
-    }
-
-    /// Stream a graph completion via SSE.
-    pub async fn stream_graph_completion(
-        &self,
-        request: GraphCompletionRequest,
-        timeout: Option<Duration>,
-    ) -> Result<synth_ai_core::sse::SseStream> {
-        self.client
-            .graphs()
-            .stream_completion(request, timeout)
-            .await
-            .map_err(Error::Core)
+        self.verify(trace, rubric, None).await
     }
 
     /// Create a LocalAPI task app client.
     pub fn task_app_client(&self, base_url: &str, api_key: Option<&str>) -> TaskAppClient {
         let key = api_key.unwrap_or(self.api_key.as_str());
         TaskAppClient::new(base_url, Some(key))
+    }
+
+    /// Deploy a managed LocalAPI from a context directory.
+    pub async fn deploy_localapi_from_dir(
+        &self,
+        spec: LocalApiDeploySpec,
+        context_dir: impl AsRef<Path>,
+        wait_for_ready: bool,
+        build_timeout_s: f64,
+    ) -> Result<LocalApiDeployResponse> {
+        self.client
+            .localapi()
+            .deploy_from_dir(spec, context_dir, wait_for_ready, build_timeout_s)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// List managed LocalAPI deployments for the current org.
+    pub async fn list_localapi_deployments(&self) -> Result<Vec<LocalApiDeploymentInfo>> {
+        self.client.localapi().list().await.map_err(Error::Core)
+    }
+
+    /// Fetch a managed LocalAPI deployment by ID.
+    pub async fn get_localapi_deployment(
+        &self,
+        deployment_id: &str,
+    ) -> Result<LocalApiDeploymentInfo> {
+        self.client
+            .localapi()
+            .get(deployment_id)
+            .await
+            .map_err(Error::Core)
+    }
+
+    /// Fetch managed LocalAPI deployment status by ID.
+    pub async fn get_localapi_deployment_status(
+        &self,
+        deployment_id: &str,
+    ) -> Result<LocalApiDeployStatus> {
+        self.client
+            .localapi()
+            .status(deployment_id)
+            .await
+            .map_err(Error::Core)
     }
 
     /// Fetch detailed eval results.
@@ -393,14 +493,21 @@ impl Synth {
     }
 
     /// Create a trace uploader for large traces.
-    pub fn trace_uploader(&self) -> Result<TraceUploader> {
-        TraceUploader::new(&self.api_key, Some(&self.base_url)).map_err(Error::Core)
+    pub fn trace_uploader(&self) -> Result<TraceUploadClient> {
+        TraceUploadClient::new(&self.base_url, &self.api_key, 120).map_err(Error::Core)
     }
 
     /// Upload a trace and return its trace_ref.
-    pub async fn upload_trace(&self, trace: Value, expires_in_seconds: Option<i64>) -> Result<String> {
+    pub async fn upload_trace(
+        &self,
+        trace: Value,
+        expires_in_seconds: Option<i64>,
+    ) -> Result<String> {
         let uploader = self.trace_uploader()?;
-        uploader.upload_trace(&trace, expires_in_seconds).await.map_err(Error::Core)
+        uploader
+            .upload_trace(&trace, None, expires_in_seconds)
+            .await
+            .map_err(Error::Core)
     }
 
     /// Stream job events with a callback and return final status.
@@ -413,8 +520,8 @@ impl Synth {
     where
         F: Fn(&StreamMessage) + Send + Sync + 'static,
     {
-        let mut streamer = JobStreamer::new(&self.base_url, &self.api_key, job_id)
-            .with_endpoints(endpoints);
+        let mut streamer =
+            JobStreamer::new(&self.base_url, &self.api_key, job_id).with_endpoints(endpoints);
         streamer.add_handler(CallbackHandler::new(callback));
         streamer.stream_until_terminal().await.map_err(Error::Core)
     }
@@ -506,13 +613,9 @@ impl OptimizeBuilder {
         }
 
         // Create and run job
-        let mut job = PromptLearningJob::from_dict(
-            config,
-            Some(&self.api_key),
-            Some(&self.base_url),
-            None,
-        )
-        .map_err(Error::Core)?;
+        let mut job =
+            PromptLearningJob::from_dict(config, Some(&self.api_key), Some(&self.base_url), None)
+                .map_err(Error::Core)?;
 
         let job_id = job.submit().await.map_err(Error::Core)?;
 
@@ -628,6 +731,7 @@ impl EvalBuilder {
         let request = EvalJobRequest {
             app_id: None,
             task_app_url,
+            task_app_worker_token: None,
             task_app_api_key: None,
             env_name: "default".to_string(),
             env_config: None,
@@ -638,11 +742,7 @@ impl EvalBuilder {
             timeout: None,
         };
 
-        let job_id = client
-            .eval()
-            .submit(request)
-            .await
-            .map_err(Error::Core)?;
+        let job_id = client.eval().submit(request).await.map_err(Error::Core)?;
 
         let status = client
             .eval()
@@ -662,12 +762,28 @@ impl EvalBuilder {
 ///
 /// This is a convenience function for simple use cases.
 pub async fn optimize(task_app_url: &str) -> Result<OptimizeResult> {
-    Synth::from_env()?.optimize().task_app(task_app_url).run().await
+    Synth::from_env()?
+        .optimize()
+        .task_app(task_app_url)
+        .run()
+        .await
 }
 
 /// Create a client from environment and run a quick evaluation.
 pub async fn eval(task_app_url: &str, seeds: Vec<i64>) -> Result<synth_ai_core::api::EvalResult> {
-    Synth::from_env()?.eval().task_app(task_app_url).seeds(seeds).run().await
+    Synth::from_env()?
+        .eval()
+        .task_app(task_app_url)
+        .seeds(seeds)
+        .run()
+        .await
+}
+
+/// Convert a GEPA seed candidate mapping into a Synth prompt pattern.
+///
+/// See: specifications/tanha/master_specification.md
+pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value> {
+    synth_ai_core::config::gepa_candidate_to_initial_prompt(seed_candidate).map_err(Error::Core)
 }
 
 #[cfg(test)]

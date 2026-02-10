@@ -27,42 +27,49 @@
 //! }
 //! ```
 
-pub mod types;
 pub mod client;
-pub mod jobs;
 pub mod eval;
+pub mod graph_evolve;
 pub mod graphs;
 pub mod inference;
-pub mod graph_evolve;
+pub mod jobs;
+pub mod localapi;
+pub mod types;
 
 // Re-export main types for convenience
 pub use client::SynthClient;
+pub use eval::EvalClient;
+pub use graph_evolve::GraphEvolveClient;
+pub use graphs::{build_verifier_request, resolve_graph_job_id, GraphsClient};
+pub use inference::InferenceClient;
+pub use jobs::JobsClient;
+pub use localapi::LocalApiDeployClient;
 pub use types::{
-    // Job status
-    PolicyJobStatus,
+    EvalJobRequest,
     EvalJobStatus,
-    // Config types
-    PolicyConfig,
+    EvalResult,
     GepaConfig,
-    MiproConfig,
     // Request types
     GepaJobRequest,
-    MiproJobRequest,
-    EvalJobRequest,
-    // Response types
-    JobSubmitResponse,
-    PromptLearningResult,
-    EvalResult,
     // Graph types
     GraphCompletionRequest,
     GraphCompletionResponse,
-    VerifierOptions,
-    VerifierResponse,
+    // Response types
+    JobSubmitResponse,
+    LocalApiDeployResponse,
+    LocalApiDeploySpec,
+    LocalApiDeployStatus,
+    LocalApiDeploymentInfo,
+    LocalApiLimits,
+    MiproConfig,
+    MiproJobRequest,
+    // Config types
+    PolicyConfig,
+    // Job status
+    PolicyJobStatus,
+    PromptLearningResult,
     RlmOptions,
     Usage,
+    VerifierOptions,
+    VerifierResponse,
 };
-pub use jobs::JobsClient;
-pub use eval::EvalClient;
-pub use graphs::{GraphsClient, build_verifier_request, resolve_graph_job_id};
-pub use inference::InferenceClient;
-pub use graph_evolve::GraphEvolveClient;

@@ -108,7 +108,10 @@ pub fn normalize_response_format_for_groq(model: Option<&str>, payload: &mut Map
     if !supports_json_schema {
         if let Some(Value::String(kind)) = response_format.get("type") {
             if kind == "json_schema" {
-                payload.insert("response_format".to_string(), json!({"type": "json_object"}));
+                payload.insert(
+                    "response_format".to_string(),
+                    json!({"type": "json_object"}),
+                );
             }
         }
     }
@@ -243,7 +246,14 @@ pub fn parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
 
     if let Ok(value) = serde_json::from_str::<Value>(text) {
         if let Some((actions, reasoning)) = parse_actions_candidate(&value) {
-            return (actions, if reasoning.is_empty() { text.to_string() } else { reasoning });
+            return (
+                actions,
+                if reasoning.is_empty() {
+                    text.to_string()
+                } else {
+                    reasoning
+                },
+            );
         }
     }
 
@@ -251,7 +261,14 @@ pub fn parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
     for cap in json_like.find_iter(text) {
         if let Ok(value) = serde_json::from_str::<Value>(cap.as_str()) {
             if let Some((actions, reasoning)) = parse_actions_candidate(&value) {
-                return (actions, if reasoning.is_empty() { text.to_string() } else { reasoning });
+                return (
+                    actions,
+                    if reasoning.is_empty() {
+                        text.to_string()
+                    } else {
+                        reasoning
+                    },
+                );
             }
         }
     }
@@ -298,10 +315,7 @@ pub fn parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
     (Vec::new(), text.to_string())
 }
 
-pub fn synthesize_tool_call_if_missing(
-    openai_response: &Value,
-    fallback_tool_name: &str,
-) -> Value {
+pub fn synthesize_tool_call_if_missing(openai_response: &Value, fallback_tool_name: &str) -> Value {
     let mut response = match openai_response {
         Value::Object(map) => map.clone(),
         _ => return openai_response.clone(),
@@ -342,7 +356,10 @@ pub fn synthesize_tool_call_if_missing(
         .collect::<Vec<_>>();
     payload.insert("actions".to_string(), Value::Array(actions_value));
     if !reasoning.trim().is_empty() {
-        payload.insert("reasoning".to_string(), Value::String(reasoning.trim().to_string()));
+        payload.insert(
+            "reasoning".to_string(),
+            Value::String(reasoning.trim().to_string()),
+        );
     }
 
     let tool_call = json!({

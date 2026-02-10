@@ -22,6 +22,7 @@ except Exception:  # pragma: no cover - optional dependency
 import uvicorn
 from uvicorn._types import ASGIApplication
 
+from synth_ai.core.tunnels import TunnelBackend, TunneledLocalAPI
 from synth_ai.core.tunnels.errors import LocalAppError
 from synth_ai.core.tunnels.rust import (
     create_tunnel,
@@ -77,6 +78,35 @@ async def _wait_for_local_health_check(
         f"health check failed: {url} not ready after {timeout:.0f}s",
         port=port,
     )
+
+
+def _normalize_tunnel_backend(value: TunnelBackend | str) -> TunnelBackend:
+    if isinstance(value, TunnelBackend):
+        return value
+    key = str(value).strip().lower()
+    aliases: dict[str, TunnelBackend] = {
+        "synthtunnel": TunnelBackend.SynthTunnel,
+        "synth_tunnel": TunnelBackend.SynthTunnel,
+        "synth-tunnel": TunnelBackend.SynthTunnel,
+        "cloudflare_quick": TunnelBackend.CloudflareQuickTunnel,
+        "cloudflare-quick": TunnelBackend.CloudflareQuickTunnel,
+        "quick": TunnelBackend.CloudflareQuickTunnel,
+        "cloudflare_managed_lease": TunnelBackend.CloudflareManagedLease,
+        "cloudflare-managed-lease": TunnelBackend.CloudflareManagedLease,
+        "managed_lease": TunnelBackend.CloudflareManagedLease,
+        "managed-lease": TunnelBackend.CloudflareManagedLease,
+        "cloudflare_managed": TunnelBackend.CloudflareManagedTunnel,
+        "cloudflare-managed": TunnelBackend.CloudflareManagedTunnel,
+        "managed": TunnelBackend.CloudflareManagedTunnel,
+        "localhost": TunnelBackend.Localhost,
+        "local": TunnelBackend.Localhost,
+    }
+    if key in aliases:
+        return aliases[key]
+    try:
+        return TunnelBackend(key)
+    except ValueError as exc:  # pragma: no cover - defensive
+        raise ValueError(f"Unknown tunnel backend: {value}") from exc
 
 
 def _find_available_port(host: str, start_port: int, max_attempts: int = 100) -> int:
@@ -484,11 +514,16 @@ class InProcessTaskApp:
     - Local API file path (fallback for compatibility)
 
     Tunnel modes:
-    - "quick": Cloudflare quick tunnel (default for local dev)
-    - "named": Cloudflare named/managed tunnel
+    - "synthtunnel": SynthTunnel (default, recommended)
+    - "quick": Cloudflare quick tunnel
+    - "named": Cloudflare named/managed tunnel (legacy flow)
     - "local": No tunnel, use localhost URL directly
     - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
       SYNTH_TASK_APP_URL env var). Useful for ngrok or other external tunnel providers.
+
+    Advanced: Use `tunnel_backend` to select a specific backend from TunnelBackend,
+    e.g. "cloudflare_managed_lease" or "cloudflare_quick". This bypasses legacy
+    tunnel_mode handling.
 
     Attributes:
         url: The public URL of the running Local API (tunnel URL or localhost).
@@ -532,7 +567,8 @@ class InProcessTaskApp:
         task_app_path: Optional[Path | str] = None,
         port: int = 8114,
         host: str = "127.0.0.1",
-        tunnel_mode: str = "quick",
+        tunnel_mode: str = "synthtunnel",
+        tunnel_backend: TunnelBackend | str | None = None,
         preconfigured_url: Optional[str] = None,
         preconfigured_auth_header: Optional[str] = None,
         preconfigured_auth_token: Optional[str] = None,
@@ -553,7 +589,8 @@ class InProcessTaskApp:
             task_app_path: Path to Local API .py file (fallback, alias: task app)
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
-            tunnel_mode: Tunnel mode - "quick", "named", "local", or "preconfigured"
+            tunnel_mode: Tunnel mode - "synthtunnel", "quick", "named", "local", or "preconfigured"
+            tunnel_backend: Explicit tunnel backend (overrides tunnel_mode when set)
             preconfigured_url: External tunnel URL to use when tunnel_mode="preconfigured".
                               Can also be set via SYNTH_TASK_APP_URL env var.
             preconfigured_auth_header: Optional auth header name for preconfigured URL
@@ -592,7 +629,19 @@ class InProcessTaskApp:
             )
 
         # Validate tunnel_mode
-        valid_modes = ("local", "quick", "named", "preconfigured")
+        valid_modes = (
+            "local",
+            "localhost",
+            "quick",
+            "cloudflare_quick",
+            "cloudflare_managed_lease",
+            "cloudflare_managed",
+            "managed_lease",
+            "managed",
+            "named",
+            "preconfigured",
+            "synthtunnel",
+        )
         if tunnel_mode not in valid_modes:
             raise ValueError(f"tunnel_mode must be one of {valid_modes}, got {tunnel_mode}")
 
@@ -612,6 +661,7 @@ class InProcessTaskApp:
         self.port = port
         self.host = host
         self.tunnel_mode = tunnel_mode
+        self.tunnel_backend = tunnel_backend
         self.preconfigured_url = preconfigured_url
         self.preconfigured_auth_header = preconfigured_auth_header
         self.preconfigured_auth_token = preconfigured_auth_token
@@ -625,12 +675,14 @@ class InProcessTaskApp:
 
         self.url: Optional[str] = None
         self._tunnel_proc: Optional[Any] = None
+        self._tunnel_handle: Optional[TunneledLocalAPI] = None
         self._app: Optional[ASGIApplication] = None
         self._uvicorn_server: Optional[uvicorn.Server] = None
         self._server_thread: Optional[Any] = None
         self._original_port = port  # Track original requested port
         self._is_preconfigured = False  # Track if using preconfigured URL
         self._dns_verified_by_backend = False  # Track if backend verified DNS propagation
+        self.task_app_worker_token: Optional[str] = None
 
     async def __aenter__(self) -> "InProcessTaskApp":
         """Start task app and tunnel."""
@@ -765,6 +817,10 @@ class InProcessTaskApp:
             port=self.port,
             reload=False,
             log_level="info",
+            # In-process task apps can receive high request volumes (e.g. rollouts).
+            # Access logs go to stdout and can block if the parent process isn't
+            # continuously draining output (common in notebooks/CLI runners).
+            access_log=False,
         )
         self._uvicorn_server = uvicorn.Server(config)
 
@@ -806,6 +862,21 @@ class InProcessTaskApp:
 
         override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
 
+        # Prefer explicit tunnel_backend when provided (except preconfigured URLs)
+        backend: TunnelBackend | None = None
+        if mode != "preconfigured" and self.tunnel_backend is not None:
+            backend = _normalize_tunnel_backend(self.tunnel_backend)
+
+        # Allow modern backends to be selected via tunnel_mode string
+        if backend is None and mode in (
+            "synthtunnel",
+            "cloudflare_quick",
+            "cloudflare_managed_lease",
+            "cloudflare_managed",
+            "localhost",
+        ):
+            backend = _normalize_tunnel_backend(mode)
+
         if mode == "preconfigured":
             # Preconfigured mode: use externally-provided URL (e.g., ngrok, localtunnel)
             # This bypasses Cloudflare entirely - the caller is responsible for the tunnel
@@ -843,6 +914,27 @@ class InProcessTaskApp:
                         f"Preconfigured URL {self.url} may not be accessible. "
                         "Proceeding anyway - set skip_tunnel_verification=True to suppress this warning."
                     )
+        elif backend is not None:
+            # Modern tunnel backends (SynthTunnel + Cloudflare variants)
+            from synth_ai.core.utils.env import get_api_key as get_synth_api_key
+
+            synth_api_key = get_synth_api_key()
+            api_key = self.api_key or self._get_api_key()
+            backend_url = os.getenv("SYNTH_BACKEND_URL")
+
+            self._tunnel_handle = await TunneledLocalAPI.create(
+                local_port=self.port,
+                backend=backend,
+                api_key=synth_api_key,
+                env_api_key=api_key,
+                backend_url=backend_url,
+                verify_dns=not self.skip_tunnel_verification,
+                progress=True,
+            )
+            self.url = self._tunnel_handle.url
+            if backend == TunnelBackend.SynthTunnel:
+                self.task_app_worker_token = self._tunnel_handle.worker_token
+            logger.info(f"Using tunnel backend={backend} url={self.url}")
         elif mode == "local":
             # Local mode: skip tunnel, use localhost
             self.url = f"http://{self.host}:{self.port}"
@@ -1146,6 +1238,13 @@ class InProcessTaskApp:
                 logger.warning(f"on_stop callback raised exception: {e}")
 
         # Stop tunnel
+        if self._tunnel_handle:
+            logger.debug("Closing tunnel handle...")
+            try:
+                self._tunnel_handle.close()
+            except Exception as e:
+                logger.warning(f"Failed to close tunnel handle: {e}")
+            self._tunnel_handle = None
         if self._tunnel_proc:
             logger.debug("Stopping Cloudflare tunnel...")
             stop_tunnel(self._tunnel_proc)

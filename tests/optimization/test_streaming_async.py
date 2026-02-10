@@ -41,7 +41,10 @@ def test_prompt_learning_streaming_async(monkeypatch) -> None:
                     "provider": "openai",
                     "model": "gpt-4o-mini",
                 },
-                "gepa": {"evaluation": {"train_seeds": [0], "val_seeds": [1]}},
+                "gepa": {
+                    "evaluation": {"train_seeds": list(range(70)), "val_seeds": list(range(70, 80))},
+                    "archive": {"pareto_set_size": 10},
+                },
             }
         },
         backend_url="http://example.com",
@@ -50,9 +53,11 @@ def test_prompt_learning_streaming_async(monkeypatch) -> None:
     )
     job = PromptLearningJob(config, job_id="pl_test", skip_health_check=True)
 
-    result = asyncio.run(job.stream_until_complete_async(timeout=0.1))
+    # Pass handlers=[] to bypass the Rust-native streaming path and use the
+    # Python streamer that we monkeypatched above.
+    result = asyncio.run(job.stream_until_complete_async(timeout=0.1, handlers=[]))
     assert result.succeeded
-    assert result.best_score == 0.9
+    assert result.best_reward == 0.9
 
 
 def test_graph_evolve_streaming_async(monkeypatch) -> None:

@@ -738,6 +738,46 @@ class PolicyOptimizationJob:
         delegate = self._get_delegate()
         return delegate.get_best_prompt_text(rank=rank)
 
+    def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Pause a running job.
+
+        Args:
+            reason: Optional reason for pausing
+
+        Returns:
+            Dict with pause status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "pause"):
+            raise RuntimeError("Pause is not supported for this job type.")
+        return delegate.pause(reason=reason)
+
+    def resume(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Resume a paused job.
+
+        Args:
+            reason: Optional reason for resuming
+
+        Returns:
+            Dict with resume status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "resume"):
+            raise RuntimeError("Resume is not supported for this job type.")
+        return delegate.resume(reason=reason)
+
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Cancel a running job.
 

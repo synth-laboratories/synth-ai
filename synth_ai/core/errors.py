@@ -111,6 +111,31 @@ class UsageLimitError(SynthError):
         )
 
 
+@dataclass
+class PlanGatingError(SynthError):
+    """Raised when a feature requires a higher subscription plan.
+
+    Attributes:
+        feature: The feature that was denied (e.g., "environment_pools")
+        current_plan: The user's current plan tier
+        required_plans: Plans that grant access to this feature
+        upgrade_url: URL to upgrade plan
+    """
+
+    feature: str
+    current_plan: str = "free"
+    required_plans: tuple[str, ...] = ("pro", "team")
+    upgrade_url: str = "https://usesynth.ai/pricing"
+
+    def __str__(self) -> str:
+        plans = ", ".join(self.required_plans)
+        return (
+            f"Environment Pools requires a {plans} plan. "
+            f"Your current plan is '{self.current_plan}'. "
+            f"Upgrade at {self.upgrade_url}"
+        )
+
+
 __all__ = [
     "SynthError",
     "ConfigError",
@@ -122,4 +147,5 @@ __all__ = [
     "StorageError",
     "ModelNotSupportedError",
     "UsageLimitError",
+    "PlanGatingError",
 ]

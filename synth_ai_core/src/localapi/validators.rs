@@ -114,7 +114,11 @@ pub fn normalize_inference_url(url: Option<&str>, default: &str) -> Result<Strin
             path = format!("{}{}", path.trim_end_matches('/'), query_path);
         }
         parsed.set_path(path.as_str());
-        parsed.set_query(if merged_query.is_empty() { None } else { Some(&merged_query) });
+        parsed.set_query(if merged_query.is_empty() {
+            None
+        } else {
+            Some(&merged_query)
+        });
         query = parsed.query().unwrap_or("").to_string();
         path = parsed.path().trim_end_matches('/').to_string();
     }
@@ -122,7 +126,11 @@ pub fn normalize_inference_url(url: Option<&str>, default: &str) -> Result<Strin
     if path.ends_with("/v1/chat/completions") || path.ends_with("/chat/completions") {
         if !query.is_empty() && query.contains('/') {
             let trimmed = query.splitn(2, '/').next().unwrap_or("");
-            parsed.set_query(if trimmed.is_empty() { None } else { Some(trimmed) });
+            parsed.set_query(if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            });
         }
         return Ok(parsed.to_string());
     }
@@ -140,7 +148,11 @@ pub fn normalize_inference_url(url: Option<&str>, default: &str) -> Result<Strin
     parsed.set_path(new_path.as_str());
     if !query.is_empty() && query.contains('/') {
         let trimmed = query.splitn(2, '/').next().unwrap_or("");
-        parsed.set_query(if trimmed.is_empty() { None } else { Some(trimmed) });
+        parsed.set_query(if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        });
     }
 
     Ok(parsed.to_string())

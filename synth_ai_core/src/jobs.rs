@@ -16,6 +16,7 @@ pub enum JobStatus {
     Pending,
     Queued,
     Running,
+    Paused,
     Succeeded,
     Failed,
     Cancelled,
@@ -49,6 +50,7 @@ impl JobStatus {
             "pending" => Some(JobStatus::Pending),
             "queued" => Some(JobStatus::Queued),
             "running" | "in_progress" => Some(JobStatus::Running),
+            "paused" => Some(JobStatus::Paused),
             "succeeded" | "success" | "completed" | "complete" => Some(JobStatus::Succeeded),
             "failed" | "failure" | "error" => Some(JobStatus::Failed),
             "cancelled" | "canceled" | "cancel" => Some(JobStatus::Cancelled),
@@ -62,6 +64,7 @@ impl JobStatus {
             JobStatus::Pending => "pending",
             JobStatus::Queued => "queued",
             JobStatus::Running => "running",
+            JobStatus::Paused => "paused",
             JobStatus::Succeeded => "succeeded",
             JobStatus::Failed => "failed",
             JobStatus::Cancelled => "cancelled",
@@ -399,6 +402,7 @@ mod tests {
         assert_eq!(JobStatus::from_str("pending"), Some(JobStatus::Pending));
         assert_eq!(JobStatus::from_str("RUNNING"), Some(JobStatus::Running));
         assert_eq!(JobStatus::from_str("in_progress"), Some(JobStatus::Running));
+        assert_eq!(JobStatus::from_str("paused"), Some(JobStatus::Paused));
         assert_eq!(JobStatus::from_str("success"), Some(JobStatus::Succeeded));
         assert_eq!(JobStatus::from_str("completed"), Some(JobStatus::Succeeded));
         assert_eq!(JobStatus::from_str("failed"), Some(JobStatus::Failed));
@@ -412,6 +416,7 @@ mod tests {
         assert!(!JobStatus::Pending.is_terminal());
         assert!(!JobStatus::Queued.is_terminal());
         assert!(!JobStatus::Running.is_terminal());
+        assert!(!JobStatus::Paused.is_terminal());
         assert!(JobStatus::Succeeded.is_terminal());
         assert!(JobStatus::Failed.is_terminal());
         assert!(JobStatus::Cancelled.is_terminal());

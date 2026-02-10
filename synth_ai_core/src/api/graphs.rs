@@ -2,8 +2,8 @@
 //!
 //! This module provides methods for graph completions and verifier inference.
 
-use serde_json::{json, Value};
 use serde_json::Map;
+use serde_json::{json, Value};
 
 use crate::http::HttpError;
 use crate::CoreError;
@@ -73,7 +73,11 @@ impl<'a> GraphsClient<'a> {
     }
 
     /// List graphs registered to the org.
-    pub async fn list_graphs(&self, kind: Option<&str>, limit: Option<i32>) -> Result<Value, CoreError> {
+    pub async fn list_graphs(
+        &self,
+        kind: Option<&str>,
+        limit: Option<i32>,
+    ) -> Result<Value, CoreError> {
         let mut params = Vec::new();
         let limit_str;
         if let Some(limit_val) = limit {
@@ -149,10 +153,7 @@ impl<'a> GraphsClient<'a> {
         options: Option<VerifierOptions>,
     ) -> Result<VerifierResponse, CoreError> {
         let options = options.unwrap_or_default();
-        let verifier_id = options
-            .verifier_id
-            .as_deref()
-            .unwrap_or(DEFAULT_VERIFIER);
+        let verifier_id = options.verifier_id.as_deref().unwrap_or(DEFAULT_VERIFIER);
 
         let mut input = json!({
             "trace": trace,
@@ -325,7 +326,11 @@ pub fn build_verifier_request(
                 "rlm"
             } else {
                 let tokens = estimate_trace_tokens(trace_content.as_ref().unwrap())?;
-                if tokens < 50_000 { "single" } else { "rlm" }
+                if tokens < 50_000 {
+                    "single"
+                } else {
+                    "rlm"
+                }
             }
         }
     };
@@ -391,20 +396,22 @@ fn estimate_trace_tokens(trace: &Value) -> Result<usize, CoreError> {
 /// Resolve a graph job ID from explicit job_id or graph target spec.
 ///
 /// Mirrors the Python SDK logic for graph target resolution.
-pub fn resolve_graph_job_id(job_id: Option<String>, graph: Option<Value>) -> Result<String, CoreError> {
+pub fn resolve_graph_job_id(
+    job_id: Option<String>,
+    graph: Option<Value>,
+) -> Result<String, CoreError> {
     if let Some(job_id) = job_id {
         if !job_id.trim().is_empty() {
             return Ok(job_id);
         }
     }
 
-    let graph = graph.ok_or_else(|| {
-        CoreError::Validation("graph_completions_missing_job_id".to_string())
-    })?;
+    let graph = graph
+        .ok_or_else(|| CoreError::Validation("graph_completions_missing_job_id".to_string()))?;
 
-    let graph_obj = graph.as_object().ok_or_else(|| {
-        CoreError::Validation("graph target must be an object".to_string())
-    })?;
+    let graph_obj = graph
+        .as_object()
+        .ok_or_else(|| CoreError::Validation("graph target must be an object".to_string()))?;
 
     if let Some(Value::String(job_id)) = graph_obj.get("job_id") {
         if !job_id.trim().is_empty() {
@@ -427,10 +434,7 @@ pub fn resolve_graph_job_id(job_id: Option<String>, graph: Option<Value>) -> Res
     }
 
     if kind == "graphgen" {
-        if let Some(graphgen_job_id) = graph_obj
-            .get("graphgen_job_id")
-            .and_then(|v| v.as_str())
-        {
+        if let Some(graphgen_job_id) = graph_obj.get("graphgen_job_id").and_then(|v| v.as_str()) {
             return Ok(graphgen_job_id.to_string());
         }
         return Err(CoreError::Validation(

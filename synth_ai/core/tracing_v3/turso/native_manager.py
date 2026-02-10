@@ -1,9 +1,4 @@
-"""LibSQL-native trace manager prototype.
-
-This module provides the Turso/libsql-backed trace storage implementation. It
-mirrors the public surface area of the historical SQLAlchemy manager while
-executing all operations directly via libsql.
-"""
+"""SQLite-native trace manager (stdlib sqlite3)."""
 
 from __future__ import annotations
 
@@ -11,14 +6,13 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Callable
+import sqlite3
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-import libsql
 from sqlalchemy.engine import make_url
 
 from ..abstractions import (
@@ -33,17 +27,9 @@ from ..storage.base import TraceStorage
 from .models import analytics_views
 
 if TYPE_CHECKING:
-    from sqlite3 import Connection as LibsqlConnection
+    from sqlite3 import Connection as SQLiteConnection
 else:  # pragma: no cover - runtime fallback for typing only
-    LibsqlConnection = Any  # type: ignore[assignment]
-
-_LIBSQL_CONNECT_ATTR = getattr(libsql, "connect", None)
-if _LIBSQL_CONNECT_ATTR is None:  # pragma: no cover - defensive guard
-    raise RuntimeError("libsql.connect is required for NativeLibsqlTraceManager")
-_libsql_connect: Callable[..., LibsqlConnection] = cast(
-    Callable[..., LibsqlConnection],
-    _LIBSQL_CONNECT_ATTR,
-)
+    SQLiteConnection = Any  # type: ignore[assignment]
 
 try:  # pragma: no cover - exercised only when pandas present
     import pandas as pd  # type: ignore
@@ -53,13 +39,18 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
+def _ga(obj: Any, name: str) -> Any:
+    """Get attribute from pyclass or dict."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name, None)
+
+
 @dataclass(slots=True)
 class _ConnectionTarget:
-    """Resolved connection target for libsql."""
+    """Resolved connection target for sqlite."""
 
     database: str
-    sync_url: str | None = None
-    auth_token: str | None = None
 
 
 def _strip_auth_component(url: str) -> tuple[str, str | None]:
@@ -75,26 +66,19 @@ def _strip_auth_component(url: str) -> tuple[str, str | None]:
     return sanitised, token
 
 
-def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _ConnectionTarget:
-    """Normalise the configured database URL."""
+def _resolve_connection_target(db_url: str | None) -> _ConnectionTarget:
+    """Normalise the configured database URL (SQLite-only)."""
     url = db_url or CONFIG.db_url
-    sanitised, token_from_url = _strip_auth_component(url)
-    effective_token = auth_token or token_from_url or CONFIG.auth_token
+    sanitised, _ = _strip_auth_component(url)
 
-    # SQLAlchemy-compatible libsql scheme (`sqlite+libsql://<endpoint or path>`)
     if sanitised.startswith("sqlite+libsql://"):
-        raise RuntimeError("sqlite+libsql scheme is no longer supported; use libsql://")
+        raise RuntimeError("sqlite+libsql scheme is no longer supported; use a file path.")
 
     # Plain SQLite files: file://, /absolute/path, or relative path
-    # libsql.connect() handles these without sync_url or auth_token
     if sanitised.startswith("file://") or sanitised.startswith("/") or "://" not in sanitised:
-        # Strip file:// prefix if present, libsql.connect handles both formats
+        # Strip file:// prefix if present, sqlite3 handles both formats
         db_path = sanitised.replace("file://", "") if sanitised.startswith("file://") else sanitised
-        return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
-
-    # Native libsql URLs (`libsql://...`).
-    if sanitised.startswith("libsql://"):
-        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
+        return _ConnectionTarget(database=db_path)
 
     # Fallback to SQLAlchemy URL parsing for anything else we missed.
     try:
@@ -112,22 +96,13 @@ def _resolve_connection_target(db_url: str | None, auth_token: str | None) -> _C
                 db_path = ":memory:"
             else:
                 raise RuntimeError("SQLite URL missing database path.")
-            return _ConnectionTarget(database=db_path, sync_url=None, auth_token=None)
-        if driver.startswith("libsql"):
-            database = parsed.render_as_string(hide_password=False)
-            return _ConnectionTarget(
-                database=database, sync_url=database, auth_token=effective_token
-            )
+            return _ConnectionTarget(database=db_path)
     except Exception:  # pragma: no cover - defensive guardrail
         logger.debug("Unable to parse db_url via SQLAlchemy", exc_info=True)
 
-    # Python libsql client uses HTTP API for http:// URLs, not Hrana WebSocket
-    # For local sqld with http:// URL, we need to ensure it points to the HTTP API port
-    # sqld uses two ports: Hrana WebSocket (e.g. 8080) and HTTP API (e.g. 8081)
-    # libsql.connect() with http:// uses HTTP API, so URL should point to HTTP API port
-    if sanitised.startswith(("http://", "https://", "libsql://")):
-        return _ConnectionTarget(database=sanitised, sync_url=sanitised, auth_token=effective_token)
-    raise RuntimeError(f"Unsupported tracing database URL: {sanitised}")
+    raise RuntimeError(
+        "Unsupported tracing database URL. Only local SQLite paths/URLs are supported."
+    )
 
 
 def _json_dumps(value: Any) -> str | None:
@@ -152,6 +127,53 @@ def _maybe_datetime(value: Any) -> Any:
         except ValueError:
             pass
     return value
+
+
+def _datetime_to_iso(value: Any, *, default_now: bool = False) -> str | None:
+    if value is None:
+        return datetime.now(UTC).isoformat() if default_now else None
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, str):
+        return value
+    return str(value)
+
+
+def _time_record_values(time_record: Any) -> tuple[float | None, int | None]:
+    if isinstance(time_record, dict):
+        return time_record.get("event_time"), time_record.get("message_time")
+    return getattr(time_record, "event_time", None), getattr(time_record, "message_time", None)
+
+
+def _message_content_text(content: Any) -> str | None:
+    if hasattr(content, "as_text"):
+        return content.as_text()
+    text = getattr(content, "text", None)
+    if text:
+        return text
+    json_payload = getattr(content, "json_payload", None)
+    if json_payload is not None:
+        if isinstance(json_payload, str):
+            return json_payload
+        try:
+            return json.dumps(json_payload, default=str)
+        except Exception:
+            return str(json_payload)
+    if hasattr(content, "to_dict"):
+        try:
+            data = content.to_dict()
+            if isinstance(data, dict):
+                if data.get("text"):
+                    return data["text"]
+                if data.get("json_payload") is not None:
+                    json_payload = data["json_payload"]
+                    if isinstance(json_payload, str):
+                        return json_payload
+                    return json.dumps(json_payload, default=str)
+            return json.dumps(data, default=str)
+        except Exception:
+            pass
+    return str(content)
 
 
 def _load_json(value: Any) -> Any:
@@ -359,33 +381,29 @@ _INDEX_DEFINITIONS: tuple[str, ...] = (
 )
 
 
-class NativeLibsqlTraceManager(TraceStorage):
-    """Libsql-backed trace manager."""
+class SQLiteTraceManager(TraceStorage):
+    """SQLite-backed trace manager (stdlib sqlite3)."""
 
     def __init__(
         self,
         db_url: str | None = None,
-        *,
-        auth_token: str | None = None,
     ):
-        self._config_auth_token = auth_token
-        self._target = _resolve_connection_target(db_url, auth_token)
-        self._conn: LibsqlConnection | None = None
+        self._target = _resolve_connection_target(db_url)
+        self._conn: SQLiteConnection | None = None
         self._conn_lock = asyncio.Lock()
         self._op_lock = asyncio.Lock()
         self._initialized = False
 
-    def _open_connection(self) -> LibsqlConnection:
-        """Open a libsql connection for the resolved target."""
-        kwargs: dict[str, Any] = {}
-        if self._target.sync_url and self._target.sync_url.startswith("libsql://"):
-            kwargs["sync_url"] = self._target.sync_url
-        if self._target.auth_token:
-            kwargs["auth_token"] = self._target.auth_token
-        # Disable automatic background sync; ReplicaSync drives this explicitly.
-        kwargs.setdefault("sync_interval", 0)
-        logger.debug("Opening libsql connection to %s", self._target.database)
-        return _libsql_connect(self._target.database, **kwargs)
+    def _open_connection(self) -> SQLiteConnection:
+        """Open a sqlite3 connection for the resolved target."""
+        logger.debug("Opening sqlite connection to %s", self._target.database)
+        conn = sqlite3.connect(self._target.database, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=NORMAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.execute("PRAGMA busy_timeout=5000")
+        return conn
 
     async def initialize(self):
         """Initialise the backend."""
@@ -393,64 +411,16 @@ class NativeLibsqlTraceManager(TraceStorage):
             if self._initialized:
                 return
 
-            # Fast-fail preflight: if using remote endpoint or local sqld, check health
-            # Skip health check for plain SQLite files (sync_url is None)
-            if self._target.sync_url:
-                try:
-                    parsed = urlparse(self._target.database or "")
-                    # Check for local sqld: http://, https://, or libsql://
-                    if parsed.scheme in ("http", "https", "libsql"):
-                        host_port = parsed.netloc or ""
-                        host = (host_port.split(":", 1)[0] or "").strip().lower()
-                        if host in {"127.0.0.1", "localhost"} and host_port:
-                            # For http:// URLs, the port should already be the HTTP API port
-                            # For libsql:// URLs, we need to calculate health check port
-                            if ":" in host_port:
-                                port = int(host_port.split(":", 1)[1])
-                                if parsed.scheme == "libsql":
-                                    # libsql:// uses Hrana port, health check is on HTTP API port (Hrana + 1)
-                                    health_url = f"http://{host}:{port + 1}/health"
-                                else:
-                                    # http:// already points to HTTP API port
-                                    health_url = f"http://{host}:{port}/health"
-                            else:
-                                health_url = f"http://{host_port}/health"
-                            try:
-                                import urllib.request
-
-                                async def _check_health() -> int:
-                                    def _do_request() -> int:
-                                        req = urllib.request.Request(health_url, method="GET")
-                                        with urllib.request.urlopen(req, timeout=1.0) as resp:
-                                            return int(getattr(resp, "status", 200))
-
-                                    return await asyncio.to_thread(_do_request)
-
-                                status = await _check_health()
-                                if status != 200:
-                                    raise RuntimeError(
-                                        f"Tracing backend unhealthy at {health_url} (status={status})"
-                                    )
-                            except Exception as exc:  # pragma: no cover - network env dependent
-                                raise RuntimeError(
-                                    f"Tracing backend not reachable at {health_url}. "
-                                    f"Start sqld with both ports: sqld --db-path <path> --hrana-listen-addr {host}:HRANA_PORT --http-listen-addr {host}:HTTP_PORT "
-                                    f"or disable tracing (TASKAPP_TRACING_ENABLED=0)."
-                                ) from exc
-                except Exception:
-                    # Propagate any preflight failure to abort early
-                    raise
-
-            # Establish a libsql connection for future native operations.
+            # Establish a sqlite connection for future operations.
             self._conn = self._open_connection()
             self._ensure_schema()
             self._initialized = True
 
     async def close(self):
-        """Close the libsql connection."""
+        """Close the sqlite connection."""
         async with self._conn_lock:
             if self._conn:
-                logger.debug("Closing libsql connection to %s", self._target.database)
+                logger.debug("Closing sqlite connection to %s", self._target.database)
                 self._conn.close()
                 self._conn = None
             self._initialized = False
@@ -490,7 +460,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                 conn.commit()
             # Skip events and timesteps to ensure idempotency
         else:
-            created_at = trace.created_at or datetime.now(UTC)
+            created_at_val = _datetime_to_iso(trace.created_at, default_now=True)
 
             async with self._op_lock:
                 conn = self._conn
@@ -509,7 +479,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     """,
                     (
                         trace.session_id,
-                        created_at.isoformat(),
+                        created_at_val,
                         _json_dumps(trace.metadata or {}),
                     ),
                 )
@@ -520,18 +490,18 @@ class NativeLibsqlTraceManager(TraceStorage):
             for step in trace.session_time_steps:
                 step_db_id = await self.ensure_timestep(
                     trace.session_id,
-                    step_id=step.step_id,
-                    step_index=step.step_index,
-                    turn_number=step.turn_number,
-                    started_at=step.timestamp,
-                    completed_at=step.completed_at,
-                    metadata=step.step_metadata or {},
+                    step_id=_ga(step, "step_id"),
+                    step_index=_ga(step, "step_index"),
+                    turn_number=_ga(step, "turn_number"),
+                    started_at=_ga(step, "timestamp"),
+                    completed_at=_ga(step, "completed_at"),
+                    metadata=_ga(step, "step_metadata") or {},
                 )
-                step_id_map[step.step_id] = step_db_id
+                step_id_map[_ga(step, "step_id")] = step_db_id
 
             for event in trace.event_history:
                 step_ref = None
-                metadata = event.metadata or {}
+                metadata = _ga(event, "metadata") or {}
                 if isinstance(metadata, dict):
                     step_ref = metadata.get("step_id")
                 timestep_db_id = step_id_map.get(step_ref) if step_ref else None
@@ -539,7 +509,7 @@ class NativeLibsqlTraceManager(TraceStorage):
                     trace.session_id,
                     timestep_db_id=timestep_db_id,
                     event=event,
-                    metadata_override=event.metadata or {},
+                    metadata_override=_ga(event, "metadata") or {},
                 )
 
         import logging as _logging
@@ -552,35 +522,54 @@ class NativeLibsqlTraceManager(TraceStorage):
         # Only insert messages if this is a new session (for idempotency)
         if not session_exists:
             for idx, msg in enumerate(trace.markov_blanket_message_history):
-                metadata = dict(getattr(msg, "metadata", {}) or {})
+                metadata = dict(_ga(msg, "metadata") or {})
                 step_ref = metadata.get("step_id")
-                content_value = msg.content
-                if isinstance(msg.content, SessionMessageContent):
-                    if msg.content.json_payload:
-                        metadata.setdefault("json_payload", msg.content.json_payload)
-                        content_value = msg.content.json_payload
+                content_raw = _ga(msg, "content")
+                content_value = content_raw
+                if isinstance(content_raw, SessionMessageContent):
+                    if content_raw.json_payload:
+                        metadata.setdefault("json_payload", content_raw.json_payload)
+                        content_value = content_raw.json_payload
                     else:
-                        content_value = msg.content.as_text()
-                        if msg.content.text:
-                            metadata.setdefault("text", msg.content.text)
+                        content_value = _message_content_text(content_raw)
+                        if content_raw.text:
+                            metadata.setdefault("text", content_raw.text)
+                elif isinstance(content_raw, dict):
+                    jp = content_raw.get("json_payload")
+                    txt = content_raw.get("text")
+                    if jp:
+                        metadata.setdefault("json_payload", jp)
+                        content_value = jp
+                    elif txt:
+                        metadata.setdefault("text", txt)
+                        content_value = txt
+                    else:
+                        content_value = json.dumps(content_raw, ensure_ascii=False)
                 elif not isinstance(content_value, str):
                     try:
                         content_value = json.dumps(content_value, ensure_ascii=False)
                     except (TypeError, ValueError):
                         content_value = str(content_value)
 
+                msg_type = _ga(msg, "message_type") or ""
                 _logger.info(
-                    f"[TRACE_DEBUG]   Message {idx + 1}: type={msg.message_type}, content_len={len(str(content_value))}"
+                    f"[TRACE_DEBUG]   Message {idx + 1}: type={msg_type}, content_len={len(str(content_value))}"
                 )
 
                 try:
+                    time_rec = _ga(msg, "time_record")
+                    if isinstance(time_rec, dict):
+                        event_time = time_rec.get("event_time", 0.0)
+                        message_time = time_rec.get("message_time")
+                    else:
+                        event_time, message_time = _time_record_values(time_rec)
                     await self.insert_message_row(
                         trace.session_id,
                         timestep_db_id=step_id_map.get(step_ref) if step_ref else None,
-                        message_type=msg.message_type,
+                        message_type=msg_type,
                         content=content_value,
-                        event_time=msg.time_record.event_time,
-                        message_time=msg.time_record.message_time,
+                        event_time=event_time,
+                        message_time=message_time,
                         metadata=metadata,
                     )
                     _logger.info(f"[TRACE_DEBUG]   Message {idx + 1}: saved successfully")
@@ -1042,7 +1031,7 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> None:
         await self.initialize()
 
-        created_at_val = (created_at or datetime.now(UTC)).isoformat()
+        created_at_val = _datetime_to_iso(created_at, default_now=True)
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -1074,8 +1063,8 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        started_at_val = (started_at or datetime.now(UTC)).isoformat()
-        completed_at_val = completed_at.isoformat() if completed_at else None
+        started_at_val = _datetime_to_iso(started_at, default_now=True)
+        completed_at_val = _datetime_to_iso(completed_at, default_now=False)
         metadata_json = _json_dumps(metadata or {})
 
         async with self._op_lock:
@@ -1140,63 +1129,84 @@ class NativeLibsqlTraceManager(TraceStorage):
     ) -> int:
         await self.initialize()
 
-        if not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
+        # Handle both pyclass instances and dicts (from __getattr__ on Rust models)
+        is_dict = isinstance(event, dict)
+        if is_dict:
+            event_type = event.get("event_type", "")
+        elif not isinstance(event, EnvironmentEvent | LMCAISEvent | RuntimeEvent):
             raise TypeError(f"Unsupported event type for native manager: {type(event)!r}")
+        else:
+            event_type = ""
 
-        metadata_json = metadata_override or event.metadata or {}
-        event_extra_metadata = getattr(event, "event_metadata", None)
-        system_state_before = getattr(event, "system_state_before", None)
-        system_state_after = getattr(event, "system_state_after", None)
+        metadata_json = metadata_override or _ga(event, "metadata") or {}
+        event_extra_metadata = _ga(event, "event_metadata")
+        system_state_before = _ga(event, "system_state_before")
+        system_state_after = _ga(event, "system_state_after")
+
+        time_record = _ga(event, "time_record")
+        if isinstance(time_record, dict):
+            ev_time = time_record.get("event_time", 0.0)
+            msg_time = time_record.get("message_time")
+        else:
+            ev_time, msg_time = _time_record_values(time_record)
 
         payload: dict[str, Any] = {
             "session_id": session_id,
             "timestep_id": timestep_db_id,
-            "system_instance_id": event.system_instance_id,
-            "event_time": event.time_record.event_time,
-            "message_time": event.time_record.message_time,
+            "system_instance_id": _ga(event, "system_instance_id"),
+            "event_time": ev_time,
+            "message_time": msg_time,
             "metadata": metadata_json,
             "event_metadata": event_extra_metadata,
             "system_state_before": system_state_before,
             "system_state_after": system_state_after,
         }
 
-        if isinstance(event, LMCAISEvent):
+        is_cais = isinstance(event, LMCAISEvent) or (is_dict and event_type == "cais")
+        is_env = isinstance(event, EnvironmentEvent) or (is_dict and event_type == "environment")
+        is_runtime = isinstance(event, RuntimeEvent) or (is_dict and event_type == "runtime")
+
+        if is_cais:
+            raw_call_records = _ga(event, "call_records")
             call_records = None
-            if getattr(event, "call_records", None):
-                # Handle both dataclass instances and dicts (from deserialization)
+            if raw_call_records:
                 call_records = [
-                    asdict(record) if not isinstance(record, dict) else record
-                    for record in event.call_records
+                    r
+                    if isinstance(r, dict)
+                    else (r.to_dict() if hasattr(r, "to_dict") else asdict(r))
+                    for r in raw_call_records
                 ]
+            cost = _ga(event, "cost_usd")
             payload.update(
                 {
                     "event_type": "cais",
-                    "model_name": event.model_name,
-                    "provider": event.provider,
-                    "input_tokens": event.input_tokens,
-                    "output_tokens": event.output_tokens,
-                    "total_tokens": event.total_tokens,
-                    "cost_usd": int(event.cost_usd * 100) if event.cost_usd is not None else None,
-                    "latency_ms": event.latency_ms,
-                    "span_id": event.span_id,
-                    "trace_id": event.trace_id,
+                    "model_name": _ga(event, "model_name"),
+                    "provider": _ga(event, "provider"),
+                    "input_tokens": _ga(event, "input_tokens"),
+                    "output_tokens": _ga(event, "output_tokens"),
+                    "total_tokens": _ga(event, "total_tokens"),
+                    "cost_usd": int(cost * 100) if cost is not None else None,
+                    "latency_ms": _ga(event, "latency_ms"),
+                    "span_id": _ga(event, "span_id"),
+                    "trace_id": _ga(event, "trace_id"),
                     "call_records": call_records,
                 }
             )
-        elif isinstance(event, EnvironmentEvent):
+        elif is_env:
             payload.update(
                 {
                     "event_type": "environment",
-                    "reward": event.reward,
-                    "terminated": event.terminated,
-                    "truncated": event.truncated,
+                    "reward": _ga(event, "reward"),
+                    "terminated": _ga(event, "terminated"),
+                    "truncated": _ga(event, "truncated"),
                 }
             )
-        elif isinstance(event, RuntimeEvent):
+        elif is_runtime:
+            md = _ga(event, "metadata") or {}
             payload.update(
                 {
                     "event_type": "runtime",
-                    "metadata": {**(event.metadata or {}), "actions": event.actions},
+                    "metadata": {**md, "actions": _ga(event, "actions") or []},
                 }
             )
 
@@ -1456,3 +1466,7 @@ class NativeLibsqlTraceManager(TraceStorage):
             )
             conn.commit()
             return int(cur.lastrowid or 0)
+
+
+# Backwards-compat alias
+NativeLibsqlTraceManager = SQLiteTraceManager

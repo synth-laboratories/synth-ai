@@ -188,9 +188,7 @@ fn json_to_libsql(value: &Value) -> LibsqlValue {
             }
         }
         Value::String(s) => LibsqlValue::Text(s.clone()),
-        Value::Array(_) | Value::Object(_) => {
-            LibsqlValue::Text(value.to_string())
-        }
+        Value::Array(_) | Value::Object(_) => LibsqlValue::Text(value.to_string()),
     }
 }
 
@@ -198,9 +196,9 @@ fn libsql_to_json(value: LibsqlValue) -> Value {
     match value {
         LibsqlValue::Null => Value::Null,
         LibsqlValue::Integer(i) => Value::Number(i.into()),
-        LibsqlValue::Real(f) => {
-            serde_json::Number::from_f64(f).map(Value::Number).unwrap_or(Value::Null)
-        }
+        LibsqlValue::Real(f) => serde_json::Number::from_f64(f)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
         LibsqlValue::Text(s) => Value::String(s),
         LibsqlValue::Blob(blob) => {
             let arr = blob.into_iter().map(|b| Value::Number(b.into())).collect();
@@ -651,7 +649,10 @@ impl TraceStorage for LibsqlTraceStorage {
         let mut rows = match params {
             QueryParams::None => conn.query(sql, ()).await?,
             QueryParams::Positional(values) => {
-                let params = values.into_iter().map(|v| json_to_libsql(&v)).collect::<Vec<_>>();
+                let params = values
+                    .into_iter()
+                    .map(|v| json_to_libsql(&v))
+                    .collect::<Vec<_>>();
                 conn.query(sql, params).await?
             }
             QueryParams::Named(values) => {
@@ -759,7 +760,10 @@ mod tests {
             ..Default::default()
         });
 
-        let event_id = storage.insert_event(session_id, None, &event).await.unwrap();
+        let event_id = storage
+            .insert_event(session_id, None, &event)
+            .await
+            .unwrap();
         assert!(event_id > 0);
     }
 
@@ -780,7 +784,10 @@ mod tests {
             metadata: Default::default(),
         };
 
-        let msg_id = storage.insert_message(session_id, None, &msg).await.unwrap();
+        let msg_id = storage
+            .insert_message(session_id, None, &msg)
+            .await
+            .unwrap();
         assert!(msg_id > 0);
     }
 

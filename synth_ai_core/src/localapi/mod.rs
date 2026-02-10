@@ -6,69 +6,71 @@
 //! - Health checking and waiting
 //! - Rollout execution
 
-pub mod client;
 pub mod auth;
-pub mod helpers;
+pub mod client;
 pub mod datasets;
-pub mod override_helpers;
-pub mod tracing_utils;
-pub mod llm_guards;
 pub mod health;
+pub mod helpers;
+pub mod llm_guards;
+pub mod override_helpers;
 pub mod proxy;
-pub mod trace_helpers;
-pub mod validation;
 pub mod rollout_helpers;
+pub mod trace_helpers;
+pub mod tracing_utils;
+pub mod types;
+pub mod validation;
 pub mod validators;
 pub mod vendors;
-pub mod types;
 
-pub use client::{EnvClient, TaskAppClient};
 pub use auth::{
-    ensure_localapi_auth, encrypt_for_backend, mint_environment_api_key,
-    setup_environment_api_key, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_NAME,
-    ENVIRONMENT_API_KEY_ALIASES_NAME, MAX_ENVIRONMENT_API_KEY_BYTES, SEALED_BOX_ALGORITHM,
-    normalize_environment_api_key, allowed_environment_api_keys, is_api_key_header_authorized,
+    allowed_environment_api_keys, encrypt_for_backend, ensure_localapi_auth,
+    is_api_key_header_authorized, mint_environment_api_key, normalize_environment_api_key,
+    setup_environment_api_key, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME,
+    ENVIRONMENT_API_KEY_NAME, MAX_ENVIRONMENT_API_KEY_BYTES, SEALED_BOX_ALGORITHM,
+};
+pub use client::{EnvClient, TaskAppClient};
+pub use datasets::{ensure_split, normalise_seed, TaskDatasetSpec};
+pub use health::task_app_health;
+pub use helpers::{
+    extract_api_key, get_default_max_completion_tokens, normalize_chat_completion_url,
+    parse_tool_calls_from_response,
+};
+pub use llm_guards::is_direct_provider_call;
+pub use override_helpers::{
+    apply_context_overrides, get_agent_skills_path, get_applied_env_vars, MAX_ENV_VARS,
+    MAX_ENV_VAR_VALUE_LENGTH, MAX_FILES_PER_OVERRIDE, MAX_FILE_SIZE_BYTES, MAX_TOTAL_SIZE_BYTES,
+    PREFLIGHT_SCRIPT_TIMEOUT_SECONDS,
 };
 pub use proxy::{
-    prepare_for_openai, prepare_for_groq, normalize_response_format_for_groq,
-    inject_system_hint, extract_message_text, parse_tool_call_from_text,
+    extract_message_text, inject_system_hint, normalize_response_format_for_groq,
+    parse_tool_call_from_text, prepare_for_groq, prepare_for_openai,
     synthesize_tool_call_if_missing,
 };
-pub use validators::{
-    validate_rollout_response_for_rl, normalize_inference_url, validate_task_app_url,
-};
-pub use helpers::{
-    normalize_chat_completion_url, get_default_max_completion_tokens,
-    extract_api_key, parse_tool_calls_from_response,
-};
-pub use datasets::{TaskDatasetSpec, ensure_split, normalise_seed};
-pub use tracing_utils::{tracing_env_enabled, resolve_tracing_db_url, resolve_sft_output_dir, unique_sft_path};
-pub use llm_guards::is_direct_provider_call;
-pub use health::task_app_health;
-pub use override_helpers::{
-    get_agent_skills_path, apply_context_overrides, get_applied_env_vars,
-    MAX_FILE_SIZE_BYTES, MAX_TOTAL_SIZE_BYTES, MAX_FILES_PER_OVERRIDE, MAX_ENV_VARS,
-    MAX_ENV_VAR_VALUE_LENGTH, PREFLIGHT_SCRIPT_TIMEOUT_SECONDS,
-};
+pub use rollout_helpers::build_rollout_response;
 pub use trace_helpers::{
-    extract_trace_correlation_id, validate_trace_correlation_id,
-    include_trace_correlation_id_in_response, build_trace_payload, build_trajectory_trace,
+    build_trace_payload, build_trajectory_trace, extract_trace_correlation_id,
     include_event_history_in_response, include_event_history_in_trajectories,
+    include_trace_correlation_id_in_response, validate_trace_correlation_id,
     verify_trace_correlation_id_in_response,
 };
-pub use validation::{
-    MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES, MAX_ARTIFACTS_PER_ROLLOUT,
-    MAX_ARTIFACT_METADATA_BYTES, MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_CONTEXT_SNAPSHOT_BYTES,
-    MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, validate_artifact_size, validate_artifacts_list,
-    validate_context_overrides, validate_context_snapshot,
+pub use tracing_utils::{
+    resolve_sft_output_dir, resolve_tracing_db_url, tracing_env_enabled, unique_sft_path,
 };
-pub use rollout_helpers::build_rollout_response;
-pub use vendors::{normalize_vendor_keys, get_openai_key, get_groq_key, normalize_single};
 pub use types::{
-    AuthInfo, DatasetInfo, HealthResponse, InfoResponse, InferenceInfo, LimitsInfo,
-    RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec, RolloutRequest, RolloutResponse,
-    RolloutSafetyConfig, TaskDescriptor, TaskInfo,
+    AuthInfo, DatasetInfo, HealthResponse, InferenceInfo, InfoResponse, LimitsInfo, RolloutEnvSpec,
+    RolloutMetrics, RolloutPolicySpec, RolloutRequest, RolloutResponse, RolloutSafetyConfig,
+    TaskDescriptor, TaskInfo,
 };
+pub use validation::{
+    validate_artifact_size, validate_artifacts_list, validate_context_overrides,
+    validate_context_snapshot, MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH,
+    MAX_ARTIFACT_METADATA_BYTES, MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES,
+    MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
+};
+pub use validators::{
+    normalize_inference_url, validate_rollout_response_for_rl, validate_task_app_url,
+};
+pub use vendors::{get_groq_key, get_openai_key, normalize_single, normalize_vendor_keys};
 
 #[cfg(test)]
 mod tests {

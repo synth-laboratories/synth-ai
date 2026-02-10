@@ -16,6 +16,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct TimeRecord {
     /// Unix timestamp for the event
+    #[serde(default)]
     pub event_time: f64,
     /// Optional message-specific timestamp
     #[serde(default)]
@@ -96,8 +97,10 @@ impl std::fmt::Display for EventType {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BaseEventFields {
     /// System/component instance ID
+    #[serde(default)]
     pub system_instance_id: String,
     /// Time record
+    #[serde(default)]
     pub time_record: TimeRecord,
     /// Event metadata (key-value pairs)
     #[serde(default)]
@@ -126,6 +129,7 @@ pub struct LMCAISEvent {
     #[serde(flatten)]
     pub base: BaseEventFields,
     /// Model name (e.g., "gpt-4", "claude-3-opus")
+    #[serde(default)]
     pub model_name: String,
     /// Provider (e.g., "openai", "anthropic")
     #[serde(default)]
@@ -308,7 +312,7 @@ pub struct LLMRequestParams {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLMContentPart {
     /// Content type (text, image, audio, etc.)
-    #[serde(rename = "type")]
+    #[serde(rename = "type", default)]
     pub content_type: String,
     /// Text content
     #[serde(default)]
@@ -367,6 +371,7 @@ impl LLMContentPart {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLMMessage {
     /// Role (system, user, assistant, tool)
+    #[serde(default)]
     pub role: String,
     /// Message content parts
     #[serde(default)]
@@ -404,8 +409,10 @@ impl LLMMessage {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ToolCallSpec {
     /// Tool/function name
+    #[serde(default)]
     pub name: String,
     /// Arguments as JSON string
+    #[serde(default)]
     pub arguments_json: String,
     /// Parsed arguments (optional)
     #[serde(default)]
@@ -459,7 +466,9 @@ pub struct ToolCallResult {
 /// Optional streaming chunk representation.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLMChunk {
+    #[serde(default)]
     pub sequence_index: i32,
+    #[serde(default = "Utc::now")]
     pub received_at: DateTime<Utc>,
     #[serde(default)]
     pub event_type: Option<String>,
@@ -479,8 +488,10 @@ pub struct LLMChunk {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LLMCallRecord {
     /// Unique call ID
+    #[serde(default)]
     pub call_id: String,
     /// API type (chat_completions, completions, responses)
+    #[serde(default)]
     pub api_type: String,
     /// Provider (openai, anthropic, etc.)
     #[serde(default)]
@@ -582,10 +593,13 @@ pub struct LLMCallRecord {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MarkovBlanketMessage {
     /// Message content
+    #[serde(default)]
     pub content: MessageContent,
     /// Message type (user, assistant, system, tool_use, tool_result)
+    #[serde(default)]
     pub message_type: String,
     /// Time record
+    #[serde(default)]
     pub time_record: TimeRecord,
     /// Additional metadata
     #[serde(default)]
@@ -596,10 +610,13 @@ pub struct MarkovBlanketMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionTimeStep {
     /// Unique step ID
+    #[serde(default)]
     pub step_id: String,
     /// Sequential step index
+    #[serde(default)]
     pub step_index: i32,
     /// Step start time
+    #[serde(default = "Utc::now")]
     pub timestamp: DateTime<Utc>,
     /// Conversation turn number
     #[serde(default)]
@@ -643,8 +660,10 @@ impl SessionTimeStep {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionTrace {
     /// Session ID
+    #[serde(default)]
     pub session_id: String,
     /// Session creation time
+    #[serde(default = "Utc::now")]
     pub created_at: DateTime<Utc>,
     /// Ordered timesteps
     #[serde(default)]

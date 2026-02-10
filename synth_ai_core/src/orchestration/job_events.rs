@@ -64,6 +64,7 @@ fn event_type_map() -> &'static [(&'static str, &'static str)] {
     &[
         ("job.started", "job.started"),
         ("job.in_progress", "job.in_progress"),
+        ("job.paused", "job.paused"),
         ("job.completed", "job.completed"),
         ("job.failed", "job.failed"),
         ("job.cancelled", "job.cancelled"),
@@ -85,10 +86,22 @@ fn event_type_map() -> &'static [(&'static str, &'static str)] {
         ("candidate.added", "candidate.added"),
         ("candidate.evaluated", "candidate.evaluated"),
         ("candidate.completed", "candidate.completed"),
-        ("learning.policy.gepa.candidate.new_best", "candidate.evaluated"),
-        ("learning.policy.gepa.candidate.evaluated", "candidate.evaluated"),
-        ("learning.policy.mipro.candidate.new_best", "candidate.evaluated"),
-        ("learning.graph.gepa.candidate.evaluated", "candidate.evaluated"),
+        (
+            "learning.policy.gepa.candidate.new_best",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.policy.gepa.candidate.evaluated",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.policy.mipro.candidate.new_best",
+            "candidate.evaluated",
+        ),
+        (
+            "learning.graph.gepa.candidate.evaluated",
+            "candidate.evaluated",
+        ),
     ]
 }
 
@@ -135,6 +148,7 @@ fn map_event_type(raw_type: &str) -> Option<&'static str> {
 fn infer_job_status(event_type: &str) -> Option<&'static str> {
     match event_type {
         "job.started" | "job.in_progress" => Some("in_progress"),
+        "job.paused" => Some("paused"),
         "job.completed" => Some("completed"),
         "job.failed" => Some("failed"),
         "job.cancelled" => Some("cancelled"),
@@ -192,7 +206,10 @@ pub fn parse_job_event(raw: &Value, job_id: Option<&str>) -> Option<ParsedJobEve
         .get("data")
         .cloned()
         .unwrap_or_else(|| Value::Object(Map::new()));
-    let run_id = raw.get("run_id").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let run_id = raw
+        .get("run_id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let mut candidate_id = None;
     if let Some(map) = data.as_object() {
         if let Some(cid) = map.get("candidate_id").and_then(|v| v.as_str()) {
@@ -285,7 +302,10 @@ fn validate_enum(value: &Value, allowed: &[&str], path: &str) -> Option<Validati
 
 /// Validate an event against the base job event schema.
 pub fn validate_base_event(value: &Value) -> ValidationResult {
-    let event_type = value.get("type").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let event_type = value
+        .get("type")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let map = match value.as_object() {
         Some(m) => m,
         None => {

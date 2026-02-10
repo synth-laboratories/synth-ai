@@ -58,7 +58,13 @@ pub async fn open_tunnel(
             let proc = cloudflared::open_managed_tunnel_with_connection_wait(&token, 30.0).await?;
             let process_id = cloudflared::track_process(proc);
             if verify_dns {
-                cloudflared::verify_tunnel_dns_resolution(&url, "tunnel", 60.0, local_api_key.clone()).await?;
+                cloudflared::verify_tunnel_dns_resolution(
+                    &url,
+                    "tunnel",
+                    60.0,
+                    local_api_key.clone(),
+                )
+                .await?;
             }
             Ok(TunnelHandle {
                 url,
@@ -73,7 +79,7 @@ pub async fn open_tunnel(
         }
         TunnelBackend::SynthTunnel => {
             return Err(TunnelError::config(
-                "SynthTunnel uses synth_tunnel::start_agent() directly; do not call open_tunnel()"
+                "SynthTunnel uses synth_tunnel::start_agent() directly; do not call open_tunnel()",
             ));
         }
         TunnelBackend::CloudflareQuick => {

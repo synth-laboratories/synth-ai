@@ -383,9 +383,16 @@ except AttributeError:
     pass
 
 
+# Aliases used by session_tracer to allow duck-typing against either the
+# Rust-backed pyclasses or the pure-Python dataclasses.
+PySessionTrace = SessionTrace
+PySessionTimeStep = SessionTimeStep
+
 __all__ = [
     "SessionTrace",
     "SessionTimeStep",
+    "PySessionTrace",
+    "PySessionTimeStep",
     "BaseEvent",
     "RuntimeEvent",
     "EnvironmentEvent",

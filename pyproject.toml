@@ -1,15 +1,17 @@
 [project]
 name = "synth-ai"
-version = "0.7.7"
+version = "0.7.15"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
+license-files = ["synth_ai_py/LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     # Core dependencies
     "pydantic>=2.0.0",
     "requests>=2.32.3",
+    "pynacl>=1.5.0",
     "tqdm>=4.66.4",
     "typing_extensions>=4.0.0",
     # AI/LLM providers (only OpenAI required - others are optional via [providers])
@@ -20,17 +22,13 @@ dependencies = [
     "uvicorn>=0.34.2",
     "numpy>=2.2.3",
     "sqlalchemy>=2.0.42",
-    "libsql>=0.1.8",
-    "pynacl>=1.5.0",
     "click>=8.1.7,<8.2", # For CLI (pin to signature compatible with Typer)
     "aiohttp>=3.8.0", # For async HTTP requests
     "nest_asyncio>=1.6.0", # For nested event loops in sync callbacks
     "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
-    # Dataset loading - used by many task apps (banking77, math, hotpotqa, etc.)
+    # Dataset loading - used by localapi dataset helpers
     "datasets>=4.0.0",
-    "daytona-sdk>=0.130.0",
     "jsonschema>=4.23.0",
-    "openenv>=0.1.13",
 ]
 
 [project.scripts]
@@ -59,28 +57,11 @@ dev = [
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
 ]
-research = [
-    # Heavy game environment dependencies
-    "crafter>=1.8.3",
-    "datasets>=4.0.0",  # For math environments
-]
-swe = [
-    "morphcloud>=0.1.3",
-    "swebench>=2.3.0",
-]
 all = [
     # Include providers
     "anthropic>=0.42.0",
     "groq>=0.30.0",
     "google-genai>=1.26.0",
-    # Include research and swe dependencies in all
-    "crafter>=1.8.3",
-    "datasets>=4.0.0",
-    "morphcloud>=0.1.3",
-    "swebench>=2.3.0",
-    "pyboy>=2.6.0",
-    "transformers>=4.56.1",
-    "redis>=6.2.0",
 ]
 analytics = [
     "pandas>=2.2.3",
@@ -98,7 +79,7 @@ build-backend = "maturin"
 [tool.maturin]
 module-name = "synth_ai_py"
 python-source = "."
-python-packages = ["synth_ai"]
+python-packages = ["synth_ai", "gepa"]
 bindings = "pyo3"
 manifest-path = "synth_ai_py/Cargo.toml"
 sdist-include = [
@@ -112,7 +93,7 @@ sdist-include = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*"]
+include = ["synth_ai*", "gepa*"]
 exclude = [
     "docs*",
     "tests*",
@@ -141,8 +122,6 @@ include-package-data = true
 [tool.setuptools.package-data]
 "synth_ai" = [
     "config/supported_models.json",
-    "demos/demo_task_apps/math/config.toml",
-    "demos/demo_task_apps/math/deploy_task_app.sh",
 ]
 
 [tool.pytest.ini_options]
@@ -236,7 +215,6 @@ dev = [
     "pyright>=1.1.350",
     "responses>=0.25.7",
     "httpx>=0.28.1",
-    "crafter>=1.8.3",
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
     "nbstripout>=0.8.2",

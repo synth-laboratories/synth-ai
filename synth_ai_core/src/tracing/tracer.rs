@@ -143,7 +143,10 @@ impl SessionTracer {
 
         // Trigger hook
         let context = HookContext::new().with_session(&session_id);
-        self.hooks.lock().await.trigger(HookEvent::SessionStart, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::SessionStart, &context);
 
         *current = Some(trace);
 
@@ -171,12 +174,17 @@ impl SessionTracer {
 
         // Update session counts
         if self.auto_save || save {
-            self.storage.update_session_counts(&trace.session_id).await?;
+            self.storage
+                .update_session_counts(&trace.session_id)
+                .await?;
         }
 
         // Trigger hook
         let context = HookContext::new().with_session(&trace.session_id);
-        self.hooks.lock().await.trigger(HookEvent::SessionEnd, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::SessionEnd, &context);
 
         Ok(trace)
     }
@@ -191,11 +199,7 @@ impl SessionTracer {
     }
 
     /// Execute a raw SQL query against the underlying storage.
-    pub async fn query(
-        &self,
-        sql: &str,
-        params: QueryParams,
-    ) -> Result<Vec<Value>, TracingError> {
+    pub async fn query(&self, sql: &str, params: QueryParams) -> Result<Vec<Value>, TracingError> {
         self.storage.query(sql, params).await
     }
 
@@ -218,8 +222,13 @@ impl SessionTracer {
     ) -> Result<(), TracingError> {
         let (session_id, step_index) = {
             let session_guard = self.current_session.lock().await;
-            let session = session_guard.as_ref().ok_or(TracingError::NoActiveSession)?;
-            (session.session_id.clone(), session.session_time_steps.len() as i32)
+            let session = session_guard
+                .as_ref()
+                .ok_or(TracingError::NoActiveSession)?;
+            (
+                session.session_id.clone(),
+                session.session_time_steps.len() as i32,
+            )
         };
 
         // End any previous timestep
@@ -242,7 +251,10 @@ impl SessionTracer {
         let context = HookContext::new()
             .with_session(&session_id)
             .with_step(step_id);
-        self.hooks.lock().await.trigger(HookEvent::TimestepStart, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::TimestepStart, &context);
 
         *self.current_step.lock().await = Some(CurrentStep { step, db_id });
 
@@ -251,7 +263,10 @@ impl SessionTracer {
 
     /// End the current timestep.
     pub async fn end_timestep(&self) -> Result<(), TracingError> {
-        let session_id = self.current_session_id().await.ok_or(TracingError::NoActiveSession)?;
+        let session_id = self
+            .current_session_id()
+            .await
+            .ok_or(TracingError::NoActiveSession)?;
 
         let mut current_step = self.current_step.lock().await;
         let mut step_data = current_step.take().ok_or(TracingError::NoActiveTimestep)?;
@@ -261,7 +276,11 @@ impl SessionTracer {
         // Update storage
         if self.auto_save {
             self.storage
-                .update_timestep(&session_id, &step_data.step.step_id, step_data.step.completed_at)
+                .update_timestep(
+                    &session_id,
+                    &step_data.step.step_id,
+                    step_data.step.completed_at,
+                )
                 .await?;
         }
 
@@ -269,7 +288,10 @@ impl SessionTracer {
         let context = HookContext::new()
             .with_session(&session_id)
             .with_step(&step_data.step.step_id);
-        self.hooks.lock().await.trigger(HookEvent::TimestepEnd, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::TimestepEnd, &context);
 
         // Add to session
         let mut session = self.current_session.lock().await;
@@ -303,9 +325,17 @@ impl SessionTracer {
     ///
     /// The database ID of the event (if auto_save is enabled).
     pub async fn record_event(&self, event: TracingEvent) -> Result<Option<i64>, TracingError> {
-        let session_id = self.current_session_id().await.ok_or(TracingError::NoActiveSession)?;
+        let session_id = self
+            .current_session_id()
+            .await
+            .ok_or(TracingError::NoActiveSession)?;
 
-        let timestep_db_id = self.current_step.lock().await.as_ref().and_then(|s| s.db_id);
+        let timestep_db_id = self
+            .current_step
+            .lock()
+            .await
+            .as_ref()
+            .and_then(|s| s.db_id);
 
         // Persist to storage
         let event_id = if self.auto_save {
@@ -322,7 +352,10 @@ impl SessionTracer {
         let context = HookContext::new()
             .with_session(&session_id)
             .with_event(event.clone());
-        self.hooks.lock().await.trigger(HookEvent::EventRecorded, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::EventRecorded, &context);
 
         // Add to session history
         let mut session = self.current_session.lock().await;
@@ -360,9 +393,17 @@ impl SessionTracer {
         message_type: &str,
         metadata: HashMap<String, Value>,
     ) -> Result<Option<i64>, TracingError> {
-        let session_id = self.current_session_id().await.ok_or(TracingError::NoActiveSession)?;
+        let session_id = self
+            .current_session_id()
+            .await
+            .ok_or(TracingError::NoActiveSession)?;
 
-        let timestep_db_id = self.current_step.lock().await.as_ref().and_then(|s| s.db_id);
+        let timestep_db_id = self
+            .current_step
+            .lock()
+            .await
+            .as_ref()
+            .and_then(|s| s.db_id);
 
         let msg = MarkovBlanketMessage {
             content,
@@ -386,7 +427,10 @@ impl SessionTracer {
         let context = HookContext::new()
             .with_session(&session_id)
             .with_message(msg.clone());
-        self.hooks.lock().await.trigger(HookEvent::MessageRecorded, &context);
+        self.hooks
+            .lock()
+            .await
+            .trigger(HookEvent::MessageRecorded, &context);
 
         // Add to session history
         let mut session = self.current_session.lock().await;
@@ -412,7 +456,10 @@ impl SessionTracer {
         &self,
         reward: OutcomeReward,
     ) -> Result<Option<i64>, TracingError> {
-        let session_id = self.current_session_id().await.ok_or(TracingError::NoActiveSession)?;
+        let session_id = self
+            .current_session_id()
+            .await
+            .ok_or(TracingError::NoActiveSession)?;
 
         let reward_id = if self.auto_save {
             Some(
@@ -433,7 +480,10 @@ impl SessionTracer {
         event_id: i64,
         reward: EventReward,
     ) -> Result<Option<i64>, TracingError> {
-        let session_id = self.current_session_id().await.ok_or(TracingError::NoActiveSession)?;
+        let session_id = self
+            .current_session_id()
+            .await
+            .ok_or(TracingError::NoActiveSession)?;
 
         let turn_number = self
             .current_step
@@ -460,7 +510,10 @@ impl SessionTracer {
     // ========================================================================
 
     /// Get a session trace by ID from storage.
-    pub async fn get_session(&self, session_id: &str) -> Result<Option<SessionTrace>, TracingError> {
+    pub async fn get_session(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<SessionTrace>, TracingError> {
         self.storage.get_session(session_id).await
     }
 
@@ -470,7 +523,7 @@ impl SessionTracer {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "libsql"))]
 mod tests {
     use super::*;
     use crate::tracing::libsql_storage::LibsqlTraceStorage;
@@ -503,7 +556,10 @@ mod tests {
     async fn test_timestep_lifecycle() {
         let tracer = create_test_tracer().await;
 
-        tracer.start_session(None, Default::default()).await.unwrap();
+        tracer
+            .start_session(None, Default::default())
+            .await
+            .unwrap();
 
         // Start timestep
         tracer
@@ -524,7 +580,10 @@ mod tests {
     async fn test_event_recording() {
         let tracer = create_test_tracer().await;
 
-        tracer.start_session(None, Default::default()).await.unwrap();
+        tracer
+            .start_session(None, Default::default())
+            .await
+            .unwrap();
         tracer
             .start_timestep("step-1", Some(1), Default::default())
             .await
@@ -554,7 +613,10 @@ mod tests {
     async fn test_message_recording() {
         let tracer = create_test_tracer().await;
 
-        tracer.start_session(None, Default::default()).await.unwrap();
+        tracer
+            .start_session(None, Default::default())
+            .await
+            .unwrap();
         tracer
             .start_timestep("step-1", Some(1), Default::default())
             .await
@@ -606,7 +668,10 @@ mod tests {
     async fn test_no_duplicate_sessions() {
         let tracer = create_test_tracer().await;
 
-        tracer.start_session(None, Default::default()).await.unwrap();
+        tracer
+            .start_session(None, Default::default())
+            .await
+            .unwrap();
 
         // Try to start another session
         let result = tracer.start_session(None, Default::default()).await;

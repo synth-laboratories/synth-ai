@@ -47,7 +47,11 @@ class _JobStatusMixin(_StrEnum):
 
     @classmethod
     def active_statuses(cls) -> Set[JobStatus]:
-        return {cls.QUEUED, cls.PENDING, cls.RUNNING, cls.IN_PROGRESS}
+        statuses = {cls.QUEUED, cls.PENDING, cls.RUNNING, cls.IN_PROGRESS}
+        paused = getattr(cls, "PAUSED", None)
+        if paused is not None:
+            statuses.add(paused)
+        return statuses
 
 
 def _build_enum(name: str, values: dict[str, str], mixin: type[Enum] | None = None):

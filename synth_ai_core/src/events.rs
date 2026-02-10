@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::time::Duration;
 
 use crate::config::{BackendAuth, CoreConfig};
-use crate::shared_client::{DEFAULT_POOL_SIZE, DEFAULT_CONNECT_TIMEOUT_SECS};
+use crate::shared_client::{DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_POOL_SIZE};
 use crate::CoreError;
 use synth_ai_core_types::{CoreEvent, EventPollResponse};
 
@@ -15,7 +15,9 @@ pub enum EventKind {
 impl EventKind {
     pub fn from_str(kind: &str) -> Option<Self> {
         match kind {
-            "prompt_learning" | "prompt-learning" | "promptlearning" => Some(EventKind::PromptLearning),
+            "prompt_learning" | "prompt-learning" | "promptlearning" => {
+                Some(EventKind::PromptLearning)
+            }
             "eval" | "evaluation" => Some(EventKind::Eval),
             _ => None,
         }
@@ -23,7 +25,9 @@ impl EventKind {
 
     fn path(&self, job_id: &str) -> String {
         match self {
-            EventKind::PromptLearning => format!("/api/prompt-learning/online/jobs/{job_id}/events"),
+            EventKind::PromptLearning => {
+                format!("/api/prompt-learning/online/jobs/{job_id}/events")
+            }
             EventKind::Eval => format!("/api/eval/jobs/{job_id}/events"),
         }
     }
@@ -92,7 +96,11 @@ fn extract_next_seq(payload: &Value, events: &[CoreEvent]) -> Option<i64> {
     if let Some(next) = payload.get("next_seq").and_then(|v| v.as_i64()) {
         return Some(next);
     }
-    if let Some(max_seq) = events.iter().filter_map(|e| (e.seq >= 0).then_some(e.seq)).max() {
+    if let Some(max_seq) = events
+        .iter()
+        .filter_map(|e| (e.seq >= 0).then_some(e.seq))
+        .max()
+    {
         return Some(max_seq + 1);
     }
     None
@@ -159,4 +167,3 @@ pub async fn poll_events(
         has_more,
     })
 }
-

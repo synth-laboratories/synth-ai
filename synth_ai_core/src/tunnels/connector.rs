@@ -23,9 +23,15 @@ static CONNECT_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
 
 static ERROR_PATTERNS: Lazy<Vec<(Regex, &'static str)>> = Lazy::new(|| {
     vec![
-        (Regex::new("failed to connect").unwrap(), "Connection failed"),
+        (
+            Regex::new("failed to connect").unwrap(),
+            "Connection failed",
+        ),
         (Regex::new("invalid.*token").unwrap(), "Invalid token"),
-        (Regex::new("tunnel.*not.*found").unwrap(), "Tunnel not found"),
+        (
+            Regex::new("tunnel.*not.*found").unwrap(),
+            "Tunnel not found",
+        ),
         (Regex::new("unauthorized").unwrap(), "Unauthorized"),
         (Regex::new("rate.*limit").unwrap(), "Rate limited"),
     ]
@@ -75,8 +81,16 @@ impl TunnelConnector {
         self.state == ConnectorState::Connected
     }
 
-    pub async fn start(&mut self, token: &str, timeout: Duration, force_restart: bool) -> Result<(), TunnelError> {
-        if self.state != ConnectorState::Stopped && self.current_token.as_deref() == Some(token) && !force_restart {
+    pub async fn start(
+        &mut self,
+        token: &str,
+        timeout: Duration,
+        force_restart: bool,
+    ) -> Result<(), TunnelError> {
+        if self.state != ConnectorState::Stopped
+            && self.current_token.as_deref() == Some(token)
+            && !force_restart
+        {
             self.cancel_idle_timer();
             return Ok(());
         }
@@ -86,8 +100,11 @@ impl TunnelConnector {
         let bin = require_cloudflared().await?;
         let mut cmd = tokio::process::Command::new(bin);
         cmd.arg("tunnel").arg("run").arg("--token").arg(token);
-        cmd.stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped());
-        let mut child = cmd.spawn().map_err(|e| TunnelError::connector(e.to_string()))?;
+        cmd.stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| TunnelError::connector(e.to_string()))?;
 
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
@@ -127,7 +144,9 @@ impl TunnelConnector {
         let deadline = Instant::now() + timeout;
         loop {
             if Instant::now() > deadline {
-                return Err(TunnelError::connector("timeout waiting for cloudflared connection"));
+                return Err(TunnelError::connector(
+                    "timeout waiting for cloudflared connection",
+                ));
             }
             if let Some(proc) = &mut self.process {
                 if let Ok(Some(status)) = proc.try_wait() {

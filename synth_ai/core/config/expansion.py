@@ -271,6 +271,53 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     return synth_ai_py.expand_gepa_config(minimal)
 
 
+def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str, Any]:
+    """Convert a GEPA seed candidate mapping into a Synth prompt pattern."""
+    # See: specifications/tanha/master_specification.md
+    if hasattr(synth_ai_py, "gepa_candidate_to_initial_prompt"):
+        return synth_ai_py.gepa_candidate_to_initial_prompt(seed_candidate)
+
+    if not isinstance(seed_candidate, dict) or not seed_candidate:
+        raise ValueError("seed_candidate must be a non-empty dict.")
+
+    def _extract(*keys: str) -> str | None:
+        for key in keys:
+            value = seed_candidate.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    messages: list[dict[str, Any]] = []
+    order = 0
+
+    def _push(role: str, prompt: str) -> None:
+        nonlocal order
+        messages.append({"role": role, "pattern": prompt, "order": order})
+        order += 1
+
+    system_prompt = _extract("system_prompt", "instruction", "prompt", "system")
+    if system_prompt:
+        _push("system", system_prompt)
+
+    user_prompt = _extract("user_prompt", "user_message", "user")
+    if user_prompt:
+        _push("user", user_prompt)
+
+    assistant_prompt = _extract("assistant_prompt", "assistant_message", "assistant")
+    if assistant_prompt:
+        _push("assistant", assistant_prompt)
+
+    if not messages and len(seed_candidate) == 1:
+        value = next(iter(seed_candidate.values()))
+        if isinstance(value, str) and value.strip():
+            _push("system", value.strip())
+
+    if not messages:
+        raise ValueError("seed_candidate must include a system prompt or a single prompt string.")
+
+    return {"messages": messages, "wildcards": {}}
+
+
 def build_termination_config(minimal: dict[str, Any]) -> dict[str, Any] | None:
     """Build termination config from optional budget constraints.
 

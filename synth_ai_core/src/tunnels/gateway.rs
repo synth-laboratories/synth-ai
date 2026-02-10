@@ -15,10 +15,10 @@ use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::ports::{is_port_available, kill_port};
 use crate::tunnels::types::{GatewayState, GatewayStatus};
-use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 
 pub struct TunnelGateway {
     port: u16,
@@ -144,7 +144,9 @@ async fn handle_req(
         return Ok(Response::builder()
             .status(StatusCode::OK)
             .header("content-type", "application/json")
-            .body(Full::new(Bytes::from_static(b"{\"status\":\"ok\",\"gateway\":\"running\"}")))
+            .body(Full::new(Bytes::from_static(
+                b"{\"status\":\"ok\",\"gateway\":\"running\"}",
+            )))
             .unwrap());
     }
 
@@ -226,7 +228,9 @@ async fn handle_req(
 
     let method = req.method().clone();
     // Capture headers before consuming the body
-    let req_headers: Vec<_> = req.headers().iter()
+    let req_headers: Vec<_> = req
+        .headers()
+        .iter()
         .filter(|(k, _)| !is_hop_by_hop(k.as_str()))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
@@ -246,8 +250,12 @@ async fn handle_req(
         Ok(resp) => {
             let status = resp.status();
             // Capture headers before consuming the body
-            let resp_headers: Vec<_> = resp.headers().iter()
-                .filter(|(k, _)| k.as_str() != "content-length" && k.as_str() != "transfer-encoding")
+            let resp_headers: Vec<_> = resp
+                .headers()
+                .iter()
+                .filter(|(k, _)| {
+                    k.as_str() != "content-length" && k.as_str() != "transfer-encoding"
+                })
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
             let bytes = resp.bytes().await.unwrap_or_default();

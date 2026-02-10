@@ -1,5 +1,13 @@
-"""TUI package for synth-ai CLI experiences."""
+"""DEPRECATED: The synth-ai TUI has moved to the synth-tui repo/package.
 
-from .launcher import run_tui
+Install:
+  brew install synth-laboratories/tap/synth-tui
+or:
+  pip install synth-tui
+"""
 
-__all__ = ["run_tui"]
+raise ImportError(
+    "synth-ai TUI has moved to synth-tui. "
+    "Install with: brew install synth-laboratories/tap/synth-tui "
+    "or pip install synth-tui."
+)

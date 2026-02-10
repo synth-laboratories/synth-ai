@@ -58,7 +58,10 @@ impl TraceUploadClient {
             Value::String(content_type.unwrap_or("application/json").to_string()),
         );
         if let Some(expires) = expires_in_seconds {
-            payload.insert("expires_in_seconds".to_string(), Value::Number(expires.into()));
+            payload.insert(
+                "expires_in_seconds".to_string(),
+                Value::Number(expires.into()),
+            );
         }
 
         let path = "/v1/traces/upload-url";

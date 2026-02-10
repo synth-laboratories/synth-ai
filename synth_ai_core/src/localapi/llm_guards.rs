@@ -21,7 +21,7 @@ pub fn is_direct_provider_call(url: &str) -> bool {
         None => return false,
     };
 
-    PROVIDER_DOMAINS.iter().any(|domain| {
-        host == *domain || host.ends_with(&format!(".{domain}"))
-    })
+    PROVIDER_DOMAINS
+        .iter()
+        .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
 }

@@ -202,7 +202,10 @@ pub fn build_graph_evolve_payload(
             .get("problem_spec")
             .and_then(|v| v.as_str())
             .unwrap_or("Optimizing prompt graph...");
-        dataset_map.insert("initial_prompt".to_string(), Value::String(fallback.to_string()));
+        dataset_map.insert(
+            "initial_prompt".to_string(),
+            Value::String(fallback.to_string()),
+        );
     }
 
     let mut metadata_map = match metadata {
@@ -384,9 +387,8 @@ impl GraphEvolveJob {
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
-            None => crate::auth::get_api_key(None).ok_or_else(|| {
-                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
-            })?,
+            None => crate::auth::get_api_key(None)
+                .ok_or_else(|| CoreError::Authentication("SYNTH_API_KEY not found".to_string()))?,
         };
 
         let client = SynthClient::new(&api_key, base_url)?;
@@ -407,9 +409,8 @@ impl GraphEvolveJob {
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
-            None => crate::auth::get_api_key(None).ok_or_else(|| {
-                CoreError::Authentication("SYNTH_API_KEY not found".to_string())
-            })?,
+            None => crate::auth::get_api_key(None)
+                .ok_or_else(|| CoreError::Authentication("SYNTH_API_KEY not found".to_string()))?,
         };
 
         let client = SynthClient::new(&api_key, base_url)?;
@@ -449,9 +450,7 @@ impl GraphEvolveJob {
     /// Submit the job and return the backend response.
     pub async fn submit(&mut self) -> Result<Value, CoreError> {
         if self.job_id.is_some() || self.legacy_graphgen_job_id.is_some() {
-            return Err(CoreError::Validation(
-                "job already submitted".to_string(),
-            ));
+            return Err(CoreError::Validation("job already submitted".to_string()));
         }
         let payload = self
             .payload
@@ -463,16 +462,10 @@ impl GraphEvolveJob {
             .submit_job(payload.clone())
             .await?;
 
-        if let Some(id) = response
-            .get("graph_evolve_job_id")
-            .and_then(|v| v.as_str())
-        {
+        if let Some(id) = response.get("graph_evolve_job_id").and_then(|v| v.as_str()) {
             self.job_id = Some(id.to_string());
         }
-        if let Some(id) = response
-            .get("graphgen_job_id")
-            .and_then(|v| v.as_str())
-        {
+        if let Some(id) = response.get("graphgen_job_id").and_then(|v| v.as_str()) {
             self.legacy_graphgen_job_id = Some(id.to_string());
             if self.job_id.is_none() {
                 self.job_id = Some(id.to_string());
@@ -543,6 +536,9 @@ impl GraphEvolveJob {
     /// Query workflow state.
     pub async fn query_workflow_state(&self) -> Result<Value, CoreError> {
         let job_id = self.require_job_id()?;
-        self.client.graph_evolve().query_workflow_state(job_id).await
+        self.client
+            .graph_evolve()
+            .query_workflow_state(job_id)
+            .await
     }
 }

@@ -14,6 +14,7 @@ pub enum JobType {
     Gspo,
     Eval,
     ResearchAgent,
+    Inference,
 }
 
 impl Default for JobType {
@@ -29,6 +30,7 @@ pub enum JobStatus {
     Pending,
     Queued,
     Running,
+    Paused,
     Succeeded,
     Failed,
     Cancelled,
@@ -352,6 +354,7 @@ mod tests {
     fn test_job_status_terminal() {
         assert!(!JobStatus::Pending.is_terminal());
         assert!(!JobStatus::Running.is_terminal());
+        assert!(!JobStatus::Paused.is_terminal());
         assert!(JobStatus::Succeeded.is_terminal());
         assert!(JobStatus::Failed.is_terminal());
         assert!(JobStatus::Cancelled.is_terminal());

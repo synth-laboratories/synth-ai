@@ -156,7 +156,9 @@ impl Artifact {
 
     /// Validate artifact size against a maximum.
     pub fn validate_size(&self, max_size_bytes: i64) -> Result<(), String> {
-        let size = self.size_bytes.unwrap_or_else(|| self.content.size_bytes() as i64);
+        let size = self
+            .size_bytes
+            .unwrap_or_else(|| self.content.size_bytes() as i64);
         if size > max_size_bytes {
             return Err(format!(
                 "Artifact size {} bytes exceeds maximum {} bytes",
@@ -205,21 +207,30 @@ impl ArtifactBundle {
 
     /// Get total size of all artifacts.
     pub fn compute_total_size(&mut self) -> i64 {
-        let total: i64 = self.artifacts.iter().map(|a| {
-            a.size_bytes.unwrap_or_else(|| a.content.size_bytes() as i64)
-        }).sum();
+        let total: i64 = self
+            .artifacts
+            .iter()
+            .map(|a| {
+                a.size_bytes
+                    .unwrap_or_else(|| a.content.size_bytes() as i64)
+            })
+            .sum();
         self.total_size_bytes = Some(total);
         total
     }
 
     /// Get artifact by ID.
     pub fn get_by_id(&self, id: &str) -> Option<&Artifact> {
-        self.artifacts.iter().find(|a| a.artifact_id.as_deref() == Some(id))
+        self.artifacts
+            .iter()
+            .find(|a| a.artifact_id.as_deref() == Some(id))
     }
 
     /// Get artifact by name.
     pub fn get_by_name(&self, name: &str) -> Option<&Artifact> {
-        self.artifacts.iter().find(|a| a.name.as_deref() == Some(name))
+        self.artifacts
+            .iter()
+            .find(|a| a.name.as_deref() == Some(name))
     }
 }
 
@@ -269,8 +280,7 @@ mod tests {
 
     #[test]
     fn test_serde() {
-        let artifact = Artifact::text("test content")
-            .with_id("test-id");
+        let artifact = Artifact::text("test content").with_id("test-id");
 
         let json = serde_json::to_string(&artifact).unwrap();
         let parsed: Artifact = serde_json::from_str(&json).unwrap();

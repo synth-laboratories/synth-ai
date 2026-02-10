@@ -7,7 +7,13 @@ pub fn detect_provider(model_name: Option<&str>) -> String {
         return "unknown".to_string();
     }
 
-    let openai_tokens = ["gpt-", "text-davinci", "text-curie", "text-babbage", "text-ada"];
+    let openai_tokens = [
+        "gpt-",
+        "text-davinci",
+        "text-curie",
+        "text-babbage",
+        "text-ada",
+    ];
     if openai_tokens.iter().any(|token| name.contains(token)) {
         return "openai".to_string();
     }

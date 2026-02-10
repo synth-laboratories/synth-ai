@@ -1,6 +1,6 @@
+use crate::data::{Artifact, SuccessStatus};
 use crate::errors::CoreError;
 use crate::localapi::types::{RolloutMetrics, RolloutRequest, RolloutResponse};
-use crate::data::{Artifact, SuccessStatus};
 use serde_json::{Map, Number, Value};
 
 pub fn build_rollout_response(

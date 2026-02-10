@@ -30,8 +30,8 @@ pub use enums::{
 };
 pub use judgements::{CriterionScoreData, Judgement, RubricAssignment};
 pub use objectives::{
-    EventObjectiveAssignment, InstanceObjectiveAssignment, ObjectiveSpec, OutcomeObjectiveAssignment,
-    RewardObservation,
+    EventObjectiveAssignment, InstanceObjectiveAssignment, ObjectiveSpec,
+    OutcomeObjectiveAssignment, RewardObservation,
 };
 pub use rewards::{
     CalibrationExample, EventRewardRecord, GoldExample, OutcomeRewardRecord, RewardAggregates,

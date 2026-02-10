@@ -11,7 +11,6 @@ from ..config import resolve_trace_db_auth_token, resolve_trace_db_settings
 class StorageBackend(str, Enum):
     """Supported storage backends."""
 
-    TURSO_NATIVE = "turso_native"
     SQLITE = "sqlite"
     POSTGRES = "postgres"  # Future support
 
@@ -40,9 +39,6 @@ class StorageConfig:
     max_content_length: int = int(os.getenv("STORAGE_MAX_CONTENT_LENGTH", "1000000"))  # 1MB
 
     def __post_init__(self):
-        # Allow legacy override while keeping compatibility with existing TURSO_NATIVE env flag
-        native_env = os.getenv("TURSO_NATIVE")
-        native_flag = _is_enabled(native_env) if native_env is not None else None
         resolved_url: str | None = self.connection_string
         resolved_token: str | None = self.turso_auth_token
 
@@ -59,15 +55,9 @@ class StorageConfig:
         if self.backend is None:
             self.backend = self._infer_backend(self.connection_string or "")
 
-        if native_flag is False:
+        if self.backend not in (StorageBackend.SQLITE, StorageBackend.POSTGRES):
             raise RuntimeError(
-                "TURSO_NATIVE=false is no longer supported; only Turso/libSQL backend is available."
-            )
-
-        # Allow both TURSO_NATIVE and SQLITE backends (both use libsql.connect)
-        if self.backend not in (StorageBackend.TURSO_NATIVE, StorageBackend.SQLITE):
-            raise RuntimeError(
-                f"Unsupported backend: {self.backend}. Only Turso/libSQL and SQLite are supported."
+                f"Unsupported backend: {self.backend}. Only SQLite is supported for tracing v3."
             )
 
     @staticmethod
@@ -84,10 +74,6 @@ class StorageConfig:
         ):
             return StorageBackend.SQLITE
 
-        # Turso/sqld: libsql://, http://, https://
-        if scheme.startswith("libsql") or "libsql" in scheme or scheme in ("http", "https"):
-            return StorageBackend.TURSO_NATIVE
-
         raise RuntimeError(f"Unsupported tracing backend scheme: {scheme}")
 
     def get_connection_string(self) -> str:
@@ -95,17 +81,10 @@ class StorageConfig:
         if self.connection_string:
             return self.connection_string
 
-        if self.backend == StorageBackend.TURSO_NATIVE:
-            return self.connection_string or ""
         raise ValueError(f"Unsupported backend: {self.backend}")
 
     def get_backend_config(self) -> dict[str, Any]:
         """Get backend-specific configuration."""
-        if self.backend == StorageBackend.TURSO_NATIVE:
-            config = {}
-            if self.turso_auth_token:
-                config["auth_token"] = self.turso_auth_token
-            return config
         return {}
 
 

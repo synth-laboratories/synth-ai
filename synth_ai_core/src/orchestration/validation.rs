@@ -3,9 +3,9 @@
 //! Mirrors the Python SDK prompt_learning_validation logic so both
 //! Rust and Python clients share the same core validation behavior.
 
+use once_cell::sync::Lazy;
 use serde_json::{Map, Value};
 use std::collections::HashSet;
-use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Default)]
 pub struct PromptLearningValidationResult {
@@ -137,7 +137,8 @@ const KNOWN_GEPA_FIELDS: &[&str] = &[
     "use_byok",
 ];
 
-const KNOWN_GEPA_ROLLOUT_FIELDS: &[&str] = &["budget", "max_concurrent", "minibatch_size", "timeout"];
+const KNOWN_GEPA_ROLLOUT_FIELDS: &[&str] =
+    &["budget", "max_concurrent", "minibatch_size", "timeout"];
 
 const KNOWN_GEPA_EVALUATION_FIELDS: &[&str] = &[
     "seeds",
@@ -169,8 +170,12 @@ const KNOWN_GEPA_POPULATION_FIELDS: &[&str] = &[
 const KNOWN_GEPA_ARCHIVE_FIELDS: &[&str] =
     &["size", "pareto_set_size", "pareto_eps", "feedback_fraction"];
 
-const KNOWN_GEPA_TOKEN_FIELDS: &[&str] =
-    &["max_limit", "counting_model", "enforce_pattern_limit", "max_spend_usd"];
+const KNOWN_GEPA_TOKEN_FIELDS: &[&str] = &[
+    "max_limit",
+    "counting_model",
+    "enforce_pattern_limit",
+    "max_spend_usd",
+];
 
 const KNOWN_MIPRO_FIELDS: &[&str] = &[
     "task_app_url",
@@ -347,8 +352,12 @@ fn validate_gepa_config(
 ) {
     check_unknown_fields(gepa, KNOWN_GEPA_FIELDS, "prompt_learning.gepa", result);
 
-    for field in ["rollout_budget", "max_concurrent_rollouts", "evaluation_seeds", "validation_seeds"]
-    {
+    for field in [
+        "rollout_budget",
+        "max_concurrent_rollouts",
+        "evaluation_seeds",
+        "validation_seeds",
+    ] {
         if gepa.contains_key(field) {
             result.add_info(format!(
                 "Using flat '{}' in [prompt_learning.gepa] - consider migrating to nested structure for clarity",
@@ -829,10 +838,7 @@ fn validate_adaptive_pool_config(
     let section = match adaptive_pool_section.as_object() {
         Some(map) => map,
         None => {
-            errors.push(format!(
-                "❌ {} must be a table/dict when provided",
-                prefix
-            ));
+            errors.push(format!("❌ {} must be a table/dict when provided", prefix));
             return;
         }
     };
@@ -957,12 +963,7 @@ fn validate_adaptive_pool_config(
 
     if let Some(val) = section.get("heatup_trigger") {
         let trigger = value_to_string(val).unwrap_or_default();
-        if ![
-            "after_min_size",
-            "immediate",
-            "every_N_trials_after_min",
-        ]
-        .contains(&trigger.as_str())
+        if !["after_min_size", "immediate", "every_N_trials_after_min"].contains(&trigger.as_str())
         {
             errors.push(format!(
                 "❌ {}.heatup_trigger must be 'after_min_size', 'immediate', or 'every_N_trials_after_min', got '{}'",
@@ -1235,8 +1236,17 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         match proxy_models.as_object() {
             Some(map) => {
                 for field in ["hi_provider", "hi_model", "lo_provider", "lo_model"] {
-                    if map.get(field).and_then(|v| v.as_str()).unwrap_or("").trim().is_empty() {
-                        errors.push(format!("prompt_learning.proxy_models.{} is required", field));
+                    if map
+                        .get(field)
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .trim()
+                        .is_empty()
+                    {
+                        errors.push(format!(
+                            "prompt_learning.proxy_models.{} is required",
+                            field
+                        ));
                     }
                 }
                 for (field, min_val) in [
@@ -1277,10 +1287,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     .get("hi_provider")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                let hi_model = map
-                    .get("hi_model")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let hi_model = map.get("hi_model").and_then(|v| v.as_str()).unwrap_or("");
                 if !hi_provider.is_empty() && !hi_model.is_empty() {
                     errors.extend(validate_model_for_provider(
                         hi_model,
@@ -1294,10 +1301,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     .get("lo_provider")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                let lo_model = map
-                    .get("lo_model")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let lo_model = map.get("lo_model").and_then(|v| v.as_str()).unwrap_or("");
                 if !lo_provider.is_empty() && !lo_model.is_empty() {
                     errors.extend(validate_model_for_provider(
                         lo_model,
@@ -1337,14 +1341,17 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     let weight_event_f = weight_event.and_then(parse_float);
                     let weight_outcome_f = weight_outcome.and_then(parse_float);
                     if weight_event.is_some() && weight_event_f.is_none() {
-                        errors.push("prompt_learning.verifier.weight_event must be numeric".to_string());
+                        errors.push(
+                            "prompt_learning.verifier.weight_event must be numeric".to_string(),
+                        );
                     }
                     if weight_outcome.is_some() && weight_outcome_f.is_none() {
                         errors.push(
                             "prompt_learning.verifier.weight_outcome must be numeric".to_string(),
                         );
                     }
-                    if weight_event_f.unwrap_or(0.0) <= 0.0 && weight_outcome_f.unwrap_or(0.0) <= 0.0
+                    if weight_event_f.unwrap_or(0.0) <= 0.0
+                        && weight_outcome_f.unwrap_or(0.0) <= 0.0
                     {
                         errors.push(
                             "prompt_learning.verifier.reward_source='fused' requires weight_event > 0 or weight_outcome > 0"
@@ -1369,7 +1376,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
             let gepa_map = match gepa_config.and_then(|v| v.as_object()) {
                 Some(map) => map,
                 None => {
-                    errors.push("Missing [prompt_learning.gepa] section for GEPA algorithm".to_string());
+                    errors.push(
+                        "Missing [prompt_learning.gepa] section for GEPA algorithm".to_string(),
+                    );
                     return errors;
                 }
             };
@@ -1392,10 +1401,8 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                         }
                         let pipeline_set: HashSet<String> =
                             pipeline_modules.iter().cloned().collect();
-                        let missing: Vec<String> = pipeline_set
-                            .difference(&module_ids)
-                            .cloned()
-                            .collect();
+                        let missing: Vec<String> =
+                            pipeline_set.difference(&module_ids).cloned().collect();
                         if !missing.is_empty() {
                             errors.push(format!(
                                 "Pipeline modules {:?} are missing from [prompt_learning.gepa.modules]. Each pipeline module must have a corresponding module config with matching module_id.",
@@ -1420,10 +1427,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                 errors.push(format!("prompt_learning.gepa.{} must be > 0", name));
                             }
                         }
-                        None => errors.push(format!(
-                            "prompt_learning.gepa.{} must be an integer",
-                            name
-                        )),
+                        None => {
+                            errors.push(format!("prompt_learning.gepa.{} must be an integer", name))
+                        }
                     }
                 }
             };
@@ -1435,10 +1441,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                 errors.push(format!("prompt_learning.gepa.{} must be >= 0", name));
                             }
                         }
-                        None => errors.push(format!(
-                            "prompt_learning.gepa.{} must be an integer",
-                            name
-                        )),
+                        None => {
+                            errors.push(format!("prompt_learning.gepa.{} must be an integer", name))
+                        }
                     }
                 }
             };
@@ -1453,10 +1458,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                 ));
                             }
                         }
-                        None => errors.push(format!(
-                            "prompt_learning.gepa.{} must be numeric",
-                            name
-                        )),
+                        None => {
+                            errors.push(format!("prompt_learning.gepa.{} must be numeric", name))
+                        }
                     }
                 }
             };
@@ -1468,10 +1472,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                 errors.push(format!("prompt_learning.gepa.{} must be > 0", name));
                             }
                         }
-                        None => errors.push(format!(
-                            "prompt_learning.gepa.{} must be numeric",
-                            name
-                        )),
+                        None => {
+                            errors.push(format!("prompt_learning.gepa.{} must be numeric", name))
+                        }
                     }
                 }
             };
@@ -1516,7 +1519,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
             if let Some(val) = gepa_map.get("selection_pressure") {
                 if let Some(sp) = parse_float(val) {
                     if sp < 1.0 {
-                        errors.push("prompt_learning.gepa.selection_pressure must be >= 1.0".to_string());
+                        errors.push(
+                            "prompt_learning.gepa.selection_pressure must be >= 1.0".to_string(),
+                        );
                     }
                 }
             }
@@ -1561,7 +1566,8 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                             );
                         }
                     }
-                    None => errors.push("prompt_learning.gepa.max_spend_usd must be numeric".to_string()),
+                    None => errors
+                        .push("prompt_learning.gepa.max_spend_usd must be numeric".to_string()),
                 }
             }
 
@@ -1637,7 +1643,12 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
             }
 
             if proposer_type == "spec" {
-                if gepa_map.get("spec_path").and_then(|v| v.as_str()).unwrap_or("").is_empty() {
+                if gepa_map
+                    .get("spec_path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .is_empty()
+                {
                     errors.push(
                         "Missing required field: prompt_learning.gepa.spec_path\n  Required when proposer_type='spec'\n  Example:\n    [prompt_learning.gepa]\n    proposer_type = \"spec\"\n    spec_path = \"examples/task_apps/banking77/banking77_spec.json\""
                             .to_string(),
@@ -1647,10 +1658,16 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                         match parse_int(val) {
                             Some(ival) => {
                                 if ival <= 0 {
-                                    errors.push("prompt_learning.gepa.spec_max_tokens must be > 0".to_string());
+                                    errors.push(
+                                        "prompt_learning.gepa.spec_max_tokens must be > 0"
+                                            .to_string(),
+                                    );
                                 }
                             }
-                            None => errors.push("prompt_learning.gepa.spec_max_tokens must be an integer".to_string()),
+                            None => errors.push(
+                                "prompt_learning.gepa.spec_max_tokens must be an integer"
+                                    .to_string(),
+                            ),
                         }
                     }
                     if let Some(val) = gepa_map.get("spec_priority_threshold") {
@@ -1658,11 +1675,15 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                             Some(ival) => {
                                 if ival < 0 {
                                     errors.push(
-                                        "prompt_learning.gepa.spec_priority_threshold must be >= 0".to_string(),
+                                        "prompt_learning.gepa.spec_priority_threshold must be >= 0"
+                                            .to_string(),
                                     );
                                 }
                             }
-                            None => errors.push("prompt_learning.gepa.spec_priority_threshold must be an integer".to_string()),
+                            None => errors.push(
+                                "prompt_learning.gepa.spec_priority_threshold must be an integer"
+                                    .to_string(),
+                            ),
                         }
                     }
                 }
@@ -1754,7 +1775,10 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                             errors.push("prompt_learning.gepa.archive.pareto_eps (or pareto_eps) should be < 1.0 (typically 1e-6)".to_string());
                         }
                     }
-                    None => errors.push("prompt_learning.gepa.archive.pareto_eps (or pareto_eps) must be numeric".to_string()),
+                    None => errors.push(
+                        "prompt_learning.gepa.archive.pareto_eps (or pareto_eps) must be numeric"
+                            .to_string(),
+                    ),
                 }
             }
 
@@ -1914,7 +1938,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
             let mipro_map = match mipro_config.and_then(|v| v.as_object()) {
                 Some(map) => map,
                 None => {
-                    errors.push("Missing [prompt_learning.mipro] section for MIPRO algorithm".to_string());
+                    errors.push(
+                        "Missing [prompt_learning.mipro] section for MIPRO algorithm".to_string(),
+                    );
                     return errors;
                 }
             };
@@ -1927,10 +1953,8 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                 errors.push(format!("prompt_learning.mipro.{} must be > 0", name));
                             }
                         }
-                        None => errors.push(format!(
-                            "prompt_learning.mipro.{} must be an integer",
-                            name
-                        )),
+                        None => errors
+                            .push(format!("prompt_learning.mipro.{} must be an integer", name)),
                     }
                 }
             };
@@ -1996,12 +2020,14 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     Some(ival) => {
                         if ival <= 0 {
                             errors.push(
-                                "prompt_learning.mipro.meta_model_max_tokens must be > 0".to_string(),
+                                "prompt_learning.mipro.meta_model_max_tokens must be > 0"
+                                    .to_string(),
                             );
                         }
                     }
                     None => errors.push(
-                        "prompt_learning.mipro.meta_model_max_tokens must be an integer".to_string(),
+                        "prompt_learning.mipro.meta_model_max_tokens must be an integer"
+                            .to_string(),
                     ),
                 }
             }
@@ -2032,25 +2058,39 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                 }
             }
 
-            if mipro_map.get("spec_path").and_then(|v| v.as_str()).is_some() {
+            if mipro_map
+                .get("spec_path")
+                .and_then(|v| v.as_str())
+                .is_some()
+            {
                 if let Some(val) = mipro_map.get("spec_max_tokens") {
                     match parse_int(val) {
                         Some(ival) => {
                             if ival <= 0 {
-                                errors.push("prompt_learning.mipro.spec_max_tokens must be > 0".to_string());
+                                errors.push(
+                                    "prompt_learning.mipro.spec_max_tokens must be > 0".to_string(),
+                                );
                             }
                         }
-                        None => errors.push("prompt_learning.mipro.spec_max_tokens must be an integer".to_string()),
+                        None => errors.push(
+                            "prompt_learning.mipro.spec_max_tokens must be an integer".to_string(),
+                        ),
                     }
                 }
                 if let Some(val) = mipro_map.get("spec_priority_threshold") {
                     match parse_int(val) {
                         Some(ival) => {
                             if ival < 0 {
-                                errors.push("prompt_learning.mipro.spec_priority_threshold must be >= 0".to_string());
+                                errors.push(
+                                    "prompt_learning.mipro.spec_priority_threshold must be >= 0"
+                                        .to_string(),
+                                );
                             }
                         }
-                        None => errors.push("prompt_learning.mipro.spec_priority_threshold must be an integer".to_string()),
+                        None => errors.push(
+                            "prompt_learning.mipro.spec_priority_threshold must be an integer"
+                                .to_string(),
+                        ),
                     }
                 }
             }
@@ -2060,7 +2100,10 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     .get("max_instruction_sets")
                     .and_then(parse_int)
                     .unwrap_or(128);
-                let max_demo_sets = mipro_map.get("max_demo_sets").and_then(parse_int).unwrap_or(128);
+                let max_demo_sets = mipro_map
+                    .get("max_demo_sets")
+                    .and_then(parse_int)
+                    .unwrap_or(128);
                 let mut seen_module_ids = HashSet::new();
                 let mut seen_stage_ids = HashSet::new();
 
@@ -2207,15 +2250,25 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                                         continue;
                                     };
 
-                                    let source_str = value_to_string(&source).unwrap_or_default().trim().to_string();
-                                    let target_str = value_to_string(&target).unwrap_or_default().trim().to_string();
-                                    if !source_str.is_empty() && !stage_ids_in_module.contains(&source_str) {
+                                    let source_str = value_to_string(&source)
+                                        .unwrap_or_default()
+                                        .trim()
+                                        .to_string();
+                                    let target_str = value_to_string(&target)
+                                        .unwrap_or_default()
+                                        .trim()
+                                        .to_string();
+                                    if !source_str.is_empty()
+                                        && !stage_ids_in_module.contains(&source_str)
+                                    {
                                         errors.push(format!(
                                             "prompt_learning.mipro.modules[{}].edges[{}] references unknown source stage '{}'",
                                             module_idx, edge_idx, source_str
                                         ));
                                     }
-                                    if !target_str.is_empty() && !stage_ids_in_module.contains(&target_str) {
+                                    if !target_str.is_empty()
+                                        && !stage_ids_in_module.contains(&target_str)
+                                    {
                                         errors.push(format!(
                                             "prompt_learning.mipro.modules[{}].edges[{}] references unknown target stage '{}'",
                                             module_idx, edge_idx, target_str
@@ -2273,7 +2326,8 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                         }
                     }
                     None => errors.push(
-                        "prompt_learning.mipro.few_shot_score_threshold must be a number".to_string(),
+                        "prompt_learning.mipro.few_shot_score_threshold must be a number"
+                            .to_string(),
                     ),
                 }
             }
@@ -2283,7 +2337,8 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     Some(ival) => {
                         if ival < 0 {
                             errors.push(
-                                "prompt_learning.mipro.min_bootstrap_demos must be >= 0".to_string(),
+                                "prompt_learning.mipro.min_bootstrap_demos must be >= 0"
+                                    .to_string(),
                             );
                         } else if let Some(Value::Array(arr)) = bootstrap_seeds {
                             if ival as usize > arr.len() {
@@ -2301,8 +2356,9 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                 }
             }
 
-            if let Some(reference_pool) =
-                mipro_map.get("reference_pool").or_else(|| pl_section.get("reference_pool"))
+            if let Some(reference_pool) = mipro_map
+                .get("reference_pool")
+                .or_else(|| pl_section.get("reference_pool"))
             {
                 match reference_pool.as_array() {
                     Some(ref_list) => {

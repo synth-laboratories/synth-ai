@@ -25,7 +25,9 @@ from .local_api import check_local_api_health
 from .pollers import JobPoller, PollOutcome
 from .prompt_learning_service import (
     cancel_prompt_learning_job,
+    pause_prompt_learning_job,
     query_prompt_learning_workflow_state,
+    resume_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
 
@@ -165,6 +167,9 @@ class PromptLearningJobConfig:
                     "task_app_worker_token is required for SynthTunnel task_app_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
+            # For SynthTunnel: the backend resolves task_app_api_key from
+            # customer_credentials DB, and the SynthTunnel agent injects
+            # local_api_keys on the task app side. No need for SDK to send it.
             self.task_app_api_key = None
         else:
             # Get task_app_api_key from environment if not provided
@@ -187,7 +192,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/policy-optimization/online/jobs/{job_id}")
+        return super().poll(f"/api/jobs/{job_id}")
 
 
 class PromptLearningJob:
@@ -408,7 +413,9 @@ class PromptLearningJob:
                 "task_app_url"
             ) or config_dict.get("prompt_learning", {}).get("local_api_url")
             if task_url and (
-                ".trycloudflare.com" in task_url.lower() or ".cfargotunnel.com" in task_url.lower()
+                ".trycloudflare.com" in task_url.lower()
+                or ".cfargotunnel.com" in task_url.lower()
+                or "/s/rt_" in task_url
             ):
                 skip_health_check = True
 
@@ -515,6 +522,26 @@ class PromptLearningJob:
                 "Pass tunnel.worker_token when submitting jobs."
             )
 
+        # Ensure Temporal workers can authenticate to SynthTunnel relay traffic.
+        #
+        # The backend persists `request.metadata` into the job row (and later rehydrates it
+        # inside the Temporal worker). We still send the worker token via the dedicated
+        # `X-SynthTunnel-Worker-Token` header in Rust, but also include it in metadata as a
+        # belt-and-suspenders fallback in case proxies strip custom headers.
+        config_payload = build.payload
+        if is_synth:
+            try:
+                payload_dict = dict(config_payload) if isinstance(config_payload, dict) else {}
+                meta = payload_dict.get("metadata")
+                if not isinstance(meta, dict):
+                    meta = {}
+                meta.setdefault("worker_token", self.config.task_app_worker_token)
+                payload_dict["metadata"] = meta
+                config_payload = payload_dict
+            except Exception:
+                # If anything goes wrong, fall back to the original payload.
+                config_payload = build.payload
+
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check:
             if is_synth:
@@ -534,7 +561,7 @@ class PromptLearningJob:
         logger = logging.getLogger(__name__)
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
-        rust_job = self._ensure_rust_job(config_payload=build.payload)
+        rust_job = self._ensure_rust_job(config_payload=config_payload)
         job_id = rust_job.submit()
         if not job_id:
             raise RuntimeError("Response missing job ID")
@@ -627,6 +654,16 @@ class PromptLearningJob:
                 last_data = dict(payload) if isinstance(payload, dict) else {}
                 error_count = 0
 
+                # DEBUG: Always log status for troubleshooting stuck polling
+                raw_status = last_data.get("status", "MISSING")
+                logger.debug(
+                    "[poll_debug] job=%s raw_status=%r is_terminal=%s elapsed=%.0fs",
+                    self._job_id,
+                    raw_status,
+                    PromptLearningResult.from_response(self._job_id, last_data).is_terminal,
+                    time.time() - start_time,
+                )
+
                 if progress:
                     elapsed = time.time() - start_time
                     mins, secs = divmod(int(elapsed), 60)
@@ -685,6 +722,9 @@ class PromptLearningJob:
                         logger.warning("Job %s was cancelled", self._job_id)
                     else:
                         logger.info("Job %s completed: %s", self._job_id, result.status.value)
+                    return result
+                if result.status == PolicyJobStatus.PAUSED:
+                    logger.warning("Job %s is paused", self._job_id)
                     return result
             except Exception as exc:
                 error_count += 1
@@ -823,6 +863,50 @@ class PromptLearningJob:
         return run_sync(
             self.get_best_prompt_text_async(rank=rank),
             label="get_best_prompt_text() (use get_best_prompt_text_async in async contexts)",
+        )
+
+    def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Pause a running prompt learning job.
+
+        Args:
+            reason: Optional reason for pausing
+
+        Returns:
+            Dict with pause status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        return pause_prompt_learning_job(
+            backend_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            reason=reason,
+        )
+
+    def resume(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
+        """Resume a paused prompt learning job.
+
+        Args:
+            reason: Optional reason for resuming
+
+        Returns:
+            Dict with resume status
+
+        Raises:
+            RuntimeError: If job hasn't been submitted yet
+        """
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+
+        return resume_prompt_learning_job(
+            backend_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            job_id=self._job_id,
+            reason=reason,
         )
 
     def cancel(self, *, reason: Optional[str] = None) -> Dict[str, Any]:

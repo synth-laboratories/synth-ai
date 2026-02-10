@@ -397,12 +397,15 @@ impl ProgressTracker {
         for item in instance_objectives {
             let reward_val = if let Some(obj) = item.as_object() {
                 if let Some(objectives) = obj.get("objectives").and_then(|v| v.as_object()) {
-                    objectives
-                        .get("reward")
-                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                    objectives.get("reward").and_then(|v| {
+                        v.as_f64()
+                            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                    })
                 } else {
-                    obj.get("reward")
-                        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                    obj.get("reward").and_then(|v| {
+                        v.as_f64()
+                            .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                    })
                 }
             } else {
                 None
@@ -507,7 +510,9 @@ impl ProgressTracker {
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
-                        .filter_map(|item| serde_json::from_value::<RolloutSample>(item.clone()).ok())
+                        .filter_map(|item| {
+                            serde_json::from_value::<RolloutSample>(item.clone()).ok()
+                        })
                         .collect()
                 })
                 .unwrap_or_default(),
@@ -535,7 +540,11 @@ impl ProgressTracker {
             || data.parent_id.is_none();
 
         let mut merged_data = event.data.as_object().cloned().unwrap_or_default();
-        if let Some(program_candidate) = event.data.get("program_candidate").and_then(|v| v.as_object()) {
+        if let Some(program_candidate) = event
+            .data
+            .get("program_candidate")
+            .and_then(|v| v.as_object())
+        {
             for (k, v) in program_candidate {
                 merged_data.insert(k.clone(), v.clone());
             }
@@ -550,7 +559,9 @@ impl ProgressTracker {
                 let map = val?.as_object()?;
                 let mut out = HashMap::new();
                 for (k, v) in map {
-                    let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()));
+                    let val = v
+                        .as_f64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()));
                     let val = match val {
                         Some(val) => val,
                         None => return None,
@@ -561,13 +572,12 @@ impl ProgressTracker {
             };
 
             // Try top-level objectives, then score.objectives
-            let objectives = parse_f64_map(candidate_view.get("objectives"))
-                .or_else(|| {
-                    candidate_view
-                        .get("score")
-                        .and_then(|v| v.as_object())
-                        .and_then(|score| parse_f64_map(score.get("objectives")))
-                });
+            let objectives = parse_f64_map(candidate_view.get("objectives")).or_else(|| {
+                candidate_view
+                    .get("score")
+                    .and_then(|v| v.as_object())
+                    .and_then(|score| parse_f64_map(score.get("objectives")))
+            });
 
             let accuracy = objectives
                 .as_ref()
@@ -580,7 +590,9 @@ impl ProgressTracker {
                         .get("score")
                         .and_then(|v| v.as_object())
                         .and_then(|score| {
-                            score.get("reward").and_then(|v| v.as_f64())
+                            score
+                                .get("reward")
+                                .and_then(|v| v.as_f64())
                                 .or_else(|| score.get("mean_reward").and_then(|v| v.as_f64()))
                         })
                 });
@@ -600,7 +612,9 @@ impl ProgressTracker {
                 .and_then(|arr| {
                     let mut out = Vec::with_capacity(arr.len());
                     for item in arr {
-                        let val = item.as_f64().or_else(|| item.as_str().and_then(|s| s.parse().ok()))?;
+                        let val = item
+                            .as_f64()
+                            .or_else(|| item.as_str().and_then(|s| s.parse().ok()))?;
                         out.push(val);
                     }
                     Some(out)
@@ -617,7 +631,9 @@ impl ProgressTracker {
                         let obj = item.as_object()?;
                         let mut map = HashMap::new();
                         for (k, v) in obj {
-                            let val = v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))?;
+                            let val = v
+                                .as_f64()
+                                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))?;
                             map.insert(k.clone(), val);
                         }
                         out.push(map);
@@ -642,7 +658,9 @@ impl ProgressTracker {
                     .and_then(|v| v.as_array())
                     .map(|arr| {
                         arr.iter()
-                            .filter_map(|item| serde_json::from_value::<RolloutSample>(item.clone()).ok())
+                            .filter_map(|item| {
+                                serde_json::from_value::<RolloutSample>(item.clone()).ok()
+                            })
                             .collect()
                     })
                     .unwrap_or_default(),
@@ -715,10 +733,16 @@ impl ProgressTracker {
             candidate.evaluation_duration_ms = Some(duration);
         }
 
-        if let Some(scores) = merged_data.get("minibatch_scores").and_then(|v| v.as_array()) {
+        if let Some(scores) = merged_data
+            .get("minibatch_scores")
+            .and_then(|v| v.as_array())
+        {
             candidate.minibatch_rewards = scores
                 .iter()
-                .filter_map(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+                .filter_map(|v| {
+                    v.as_f64()
+                        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+                })
                 .collect();
         } else if let Some(score) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
             candidate.minibatch_rewards = vec![score];
@@ -758,11 +782,17 @@ impl ProgressTracker {
             }
         }
 
-        if let Some(mutation_params) = merged_data.get("mutation_params").and_then(|v| v.as_object()) {
+        if let Some(mutation_params) = merged_data
+            .get("mutation_params")
+            .and_then(|v| v.as_object())
+        {
             candidate.mutation_params = Some(mutation_params.clone().into_iter().collect());
         }
 
-        if let Some(transformation) = merged_data.get("transformation").and_then(|v| v.as_object()) {
+        if let Some(transformation) = merged_data
+            .get("transformation")
+            .and_then(|v| v.as_object())
+        {
             candidate.transformation = Some(transformation.clone().into_iter().collect());
         }
 
@@ -790,7 +820,11 @@ impl ProgressTracker {
                 for stage_id in stage_ids {
                     if let Some(stage) = candidate.stages.get(stage_id) {
                         if !stage.instruction.is_empty() {
-                            parts.push(format!("[{}]: {}", stage_id.to_uppercase(), stage.instruction));
+                            parts.push(format!(
+                                "[{}]: {}",
+                                stage_id.to_uppercase(),
+                                stage.instruction
+                            ));
                         }
                     }
                 }
@@ -838,7 +872,11 @@ impl ProgressTracker {
             frontier_objectives: data.frontier_objectives,
             frontier_size: data.frontier_size,
             optimistic_reward: data.best_reward,
-            generation: event.data.get("generation").and_then(|v| v.as_i64()).map(|v| v as i32),
+            generation: event
+                .data
+                .get("generation")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
             baseline_reward: event.data.get("baseline_score").and_then(|v| v.as_f64()),
             timestamp_ms: event.timestamp_ms,
         };
@@ -895,10 +933,7 @@ impl ProgressTracker {
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default(),
-            duration_ms: event
-                .data
-                .get("duration_ms")
-                .and_then(|v| v.as_f64()),
+            duration_ms: event.data.get("duration_ms").and_then(|v| v.as_f64()),
             timestamp: event
                 .data
                 .get("timestamp")
@@ -1058,7 +1093,10 @@ mod tests {
         })));
 
         assert_eq!(tracker.progress.phase, "complete");
-        assert_eq!(tracker.progress.finish_reason, Some("budget_exhausted".to_string()));
+        assert_eq!(
+            tracker.progress.finish_reason,
+            Some("budget_exhausted".to_string())
+        );
         assert_eq!(tracker.best_reward(), 0.92);
     }
 }

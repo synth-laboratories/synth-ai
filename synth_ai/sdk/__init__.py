@@ -26,10 +26,52 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from synth_ai.core.auth import get_or_mint_synth_api_key
+    from synth_ai.sdk.environment_pools import (
+        EnvironmentPoolsClient,
+        PlanGatingError,
+        PoolTask,
+        cancel_rollout,
+        create_pool,
+        create_pool_task,
+        create_rollout,
+        create_rollouts_batch,
+        delete_pool,
+        delete_pool_task,
+        download_artifacts_zip,
+        fetch_artifact,
+        get_capabilities,
+        get_openapi_schema,
+        get_pool,
+        get_pool_metrics,
+        get_queue_status,
+        get_rollout,
+        get_rollout_summary,
+        get_rollout_support_bundle,
+        get_rollout_usage,
+        get_schema_json,
+        list_pool_tasks,
+        list_pools,
+        list_rollout_artifacts,
+        list_rollouts,
+        replay_rollout,
+        stream_rollout_events,
+        update_pool,
+        update_pool_task,
+        validate_rollout,
+    )
     from synth_ai.sdk.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
     from synth_ai.sdk.graphs.verifier_schemas import VerifierOptions, VerifierScoreResponse
-    from synth_ai.sdk.inference import InferenceClient
+    from synth_ai.sdk.inference import (
+        InferenceArtifactSpec,
+        InferenceClient,
+        InferenceJobRequest,
+        InferenceJobsClient,
+        create_inference_job,
+        create_inference_job_from_path,
+        download_inference_artifact,
+        get_inference_job,
+    )
     from synth_ai.sdk.localapi import (
         InProcessTaskApp,
         LocalAPIClient,
@@ -43,6 +85,13 @@ if TYPE_CHECKING:
         resolve_backend_api_base,
         run_in_process_job,
         run_in_process_job_sync,
+    )
+    from synth_ai.sdk.managed_pools import (
+        create_managed_pool_s3_data_source,
+        create_managed_pool_upload_data_source,
+        create_managed_pool_upload_url,
+        upload_managed_pool_bytes,
+        upload_managed_pool_file,
     )
     from synth_ai.sdk.optimization import (
         GraphOptimizationJob,
@@ -64,6 +113,14 @@ if TYPE_CHECKING:
     )
     from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenTaskSet as GraphEvolveTaskSet,
+    )
+    from synth_ai.sdk.task_apps import (
+        TaskApp as TaskAppModel,
+    )
+    from synth_ai.sdk.task_apps import (
+        TaskAppsClient,
+        TaskAppSpec,
+        TaskAppType,
     )
 
     # Legacy aliases
@@ -120,6 +177,13 @@ __all__ = [
     "GraphTarget",
     # Inference
     "InferenceClient",
+    "InferenceJobsClient",
+    "InferenceArtifactSpec",
+    "InferenceJobRequest",
+    "create_inference_job",
+    "create_inference_job_from_path",
+    "get_inference_job",
+    "download_inference_artifact",
     # Auth helpers
     "get_or_mint_synth_api_key",
     # Tunnels
@@ -133,10 +197,62 @@ __all__ = [
     "kill_port",
     "is_port_available",
     "find_available_port",
+    "create_managed_pool_upload_url",
+    "upload_managed_pool_bytes",
+    "upload_managed_pool_file",
+    "create_managed_pool_upload_data_source",
+    "create_managed_pool_s3_data_source",
+    # Environment Pools
+    "create_rollout",
+    "validate_rollout",
+    "list_rollouts",
+    "create_rollouts_batch",
+    "get_rollout",
+    "get_rollout_summary",
+    "get_rollout_usage",
+    "get_rollout_support_bundle",
+    "replay_rollout",
+    "stream_rollout_events",
+    "list_rollout_artifacts",
+    "download_artifacts_zip",
+    "fetch_artifact",
+    "cancel_rollout",
+    "list_pools",
+    "get_pool",
+    "create_pool",
+    "update_pool",
+    "delete_pool",
+    "get_pool_metrics",
+    "list_pool_tasks",
+    "create_pool_task",
+    "update_pool_task",
+    "delete_pool_task",
+    "get_queue_status",
+    "get_capabilities",
+    "get_openapi_schema",
+    "get_schema_json",
+    "EnvironmentPoolsClient",
+    "PoolTask",
+    "PlanGatingError",
+    # Hosted Task Apps
+    "TaskAppsClient",
+    "TaskAppSpec",
+    "TaskAppModel",
+    "TaskAppType",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
     "InferenceClient": ("synth_ai.sdk.inference", "InferenceClient"),
+    "InferenceJobsClient": ("synth_ai.sdk.inference", "InferenceJobsClient"),
+    "InferenceArtifactSpec": ("synth_ai.sdk.inference", "InferenceArtifactSpec"),
+    "InferenceJobRequest": ("synth_ai.sdk.inference", "InferenceJobRequest"),
+    "create_inference_job": ("synth_ai.sdk.inference", "create_inference_job"),
+    "create_inference_job_from_path": ("synth_ai.sdk.inference", "create_inference_job_from_path"),
+    "get_inference_job": ("synth_ai.sdk.inference", "get_inference_job"),
+    "download_inference_artifact": (
+        "synth_ai.sdk.inference",
+        "download_inference_artifact",
+    ),
     "EvalJob": ("synth_ai.sdk.eval", "EvalJob"),
     "EvalJobConfig": ("synth_ai.sdk.eval", "EvalJobConfig"),
     "get_or_mint_synth_api_key": ("synth_ai.core.auth", "get_or_mint_synth_api_key"),
@@ -188,6 +304,66 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "track_process": ("synth_ai.core.tunnels", "track_process"),
     "verify_tunnel_dns_resolution": ("synth_ai.core.tunnels", "verify_tunnel_dns_resolution"),
     "wait_for_health_check": ("synth_ai.core.tunnels", "wait_for_health_check"),
+    "create_managed_pool_upload_url": (
+        "synth_ai.sdk.managed_pools",
+        "create_managed_pool_upload_url",
+    ),
+    "upload_managed_pool_bytes": (
+        "synth_ai.sdk.managed_pools",
+        "upload_managed_pool_bytes",
+    ),
+    "upload_managed_pool_file": (
+        "synth_ai.sdk.managed_pools",
+        "upload_managed_pool_file",
+    ),
+    "create_managed_pool_upload_data_source": (
+        "synth_ai.sdk.managed_pools",
+        "create_managed_pool_upload_data_source",
+    ),
+    "create_managed_pool_s3_data_source": (
+        "synth_ai.sdk.managed_pools",
+        "create_managed_pool_s3_data_source",
+    ),
+    "create_rollout": ("synth_ai.sdk.environment_pools", "create_rollout"),
+    "validate_rollout": ("synth_ai.sdk.environment_pools", "validate_rollout"),
+    "list_rollouts": ("synth_ai.sdk.environment_pools", "list_rollouts"),
+    "create_rollouts_batch": ("synth_ai.sdk.environment_pools", "create_rollouts_batch"),
+    "get_rollout": ("synth_ai.sdk.environment_pools", "get_rollout"),
+    "get_rollout_summary": ("synth_ai.sdk.environment_pools", "get_rollout_summary"),
+    "get_rollout_usage": ("synth_ai.sdk.environment_pools", "get_rollout_usage"),
+    "get_rollout_support_bundle": (
+        "synth_ai.sdk.environment_pools",
+        "get_rollout_support_bundle",
+    ),
+    "replay_rollout": ("synth_ai.sdk.environment_pools", "replay_rollout"),
+    "stream_rollout_events": ("synth_ai.sdk.environment_pools", "stream_rollout_events"),
+    "list_rollout_artifacts": ("synth_ai.sdk.environment_pools", "list_rollout_artifacts"),
+    "download_artifacts_zip": ("synth_ai.sdk.environment_pools", "download_artifacts_zip"),
+    "fetch_artifact": ("synth_ai.sdk.environment_pools", "fetch_artifact"),
+    "cancel_rollout": ("synth_ai.sdk.environment_pools", "cancel_rollout"),
+    "list_pools": ("synth_ai.sdk.environment_pools", "list_pools"),
+    "get_pool": ("synth_ai.sdk.environment_pools", "get_pool"),
+    "create_pool": ("synth_ai.sdk.environment_pools", "create_pool"),
+    "update_pool": ("synth_ai.sdk.environment_pools", "update_pool"),
+    "delete_pool": ("synth_ai.sdk.environment_pools", "delete_pool"),
+    "get_pool_metrics": ("synth_ai.sdk.environment_pools", "get_pool_metrics"),
+    "list_pool_tasks": ("synth_ai.sdk.environment_pools", "list_pool_tasks"),
+    "create_pool_task": ("synth_ai.sdk.environment_pools", "create_pool_task"),
+    "update_pool_task": ("synth_ai.sdk.environment_pools", "update_pool_task"),
+    "delete_pool_task": ("synth_ai.sdk.environment_pools", "delete_pool_task"),
+    "get_queue_status": ("synth_ai.sdk.environment_pools", "get_queue_status"),
+    "get_capabilities": ("synth_ai.sdk.environment_pools", "get_capabilities"),
+    "get_openapi_schema": ("synth_ai.sdk.environment_pools", "get_openapi_schema"),
+    "get_schema_json": ("synth_ai.sdk.environment_pools", "get_schema_json"),
+    "EnvironmentPoolsClient": ("synth_ai.sdk.environment_pools", "EnvironmentPoolsClient"),
+    "PoolResponse": ("synth_ai.sdk.environment_pools", "PoolResponse"),
+    "PoolTask": ("synth_ai.sdk.environment_pools", "PoolTask"),
+    "PoolTemplate": ("synth_ai.sdk.environment_pools", "PoolTemplate"),
+    "PlanGatingError": ("synth_ai.core.errors", "PlanGatingError"),
+    "TaskAppsClient": ("synth_ai.sdk.task_apps", "TaskAppsClient"),
+    "TaskAppSpec": ("synth_ai.sdk.task_apps", "TaskAppSpec"),
+    "TaskAppModel": ("synth_ai.sdk.task_apps", "TaskApp"),
+    "TaskAppType": ("synth_ai.sdk.task_apps", "TaskAppType"),
 }
 
 _OPTIONAL_EXPORTS: set[str] = set()

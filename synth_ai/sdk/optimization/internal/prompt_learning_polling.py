@@ -36,8 +36,11 @@ def poll_prompt_learning_until_complete(
 
     while elapsed <= timeout:
         try:
-            url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
+            url = f"{base_url}/jobs/{job_id}"
             resp = http_get(url, headers=headers, timeout=request_timeout)
+            if resp.status_code == 404:
+                legacy_url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
+                resp = http_get(legacy_url, headers=headers, timeout=request_timeout)
             last_data = parse_json_response(resp, context="Prompt learning status")
             error_count = 0
 
@@ -79,6 +82,10 @@ def poll_prompt_learning_until_complete(
                     logger.warning("Job %s was cancelled", job_id)
                 else:
                     logger.info("Job %s completed with status: %s", job_id, status.value)
+                return PromptLearningResult.from_response(job_id, last_data)
+
+            if status == JobStatus.PAUSED:
+                logger.warning("Job %s is paused", job_id)
                 return PromptLearningResult.from_response(job_id, last_data)
 
         except Exception as exc:

@@ -213,6 +213,7 @@ class EvalJobConfig:
     backend_url: Optional[str] = field(default="")
     task_app_api_key: Optional[str] = None
     task_app_worker_token: Optional[str] = field(default=None, repr=False)
+    task_app_id: Optional[str] = None
     app_id: Optional[str] = None
     env_name: Optional[str] = None
     seeds: List[int] = field(default_factory=list)
@@ -233,8 +234,22 @@ class EvalJobConfig:
         if self.local_api_key and not self.task_app_api_key:
             self.task_app_api_key = self.local_api_key
 
+        # Resolve task_app_id → task_app_url via the TaskAppsClient
+        if self.task_app_id and not self.task_app_url:
+            from synth_ai.sdk.task_apps import TaskAppsClient
+
+            client = TaskAppsClient(
+                api_key=self.api_key or None,
+                backend_base=self.backend_url or None,
+            )
+            resolved_app = client.get(self.task_app_id)
+            if resolved_app.internal_url:
+                self.task_app_url = resolved_app.internal_url
+            if not self.app_id:
+                self.app_id = self.task_app_id
+
         if not self.task_app_url:
-            raise ValueError("task_app_url (or local_api_url) is required")
+            raise ValueError("task_app_url (or local_api_url or task_app_id) is required")
         # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
         if not self.backend_url:
             self.backend_url = BACKEND_URL_BASE
@@ -251,8 +266,9 @@ class EvalJobConfig:
                     "task_app_worker_token is required for SynthTunnel task_app_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
-            # Do not send ENVIRONMENT_API_KEY to SynthTunnel gateway
-            self.task_app_api_key = None
+            # Only auto-mint keys for direct task app URLs; keep explicit keys for SynthTunnel.
+            if not self.task_app_api_key:
+                self.task_app_api_key = None
         else:
             # Get task_app_api_key from environment if not provided
             if not self.task_app_api_key:
@@ -331,6 +347,7 @@ class EvalJob:
         task_app_api_key: Optional[str] = None,
         task_app_worker_token: Optional[str] = None,
         task_app_url: Optional[str] = None,
+        task_app_id: Optional[str] = None,
         seeds: Optional[List[int]] = None,
     ) -> "EvalJob":
         """Create a job from a TOML config file.
@@ -400,11 +417,12 @@ class EvalJob:
                 )
 
         # Build config with overrides
+        final_task_app_id = task_app_id or eval_config.get("task_app_id")
         final_task_app_url = (
-            task_app_url or eval_config.get("url") or eval_config.get("task_app_url")
+            task_app_url or eval_config.get("url") or eval_config.get("task_app_url") or ""
         )
-        if not final_task_app_url:
-            raise ValueError("task_app_url is required (in config or as argument)")
+        if not final_task_app_url and not final_task_app_id:
+            raise ValueError("task_app_url or task_app_id is required (in config or as argument)")
 
         final_seeds = seeds or eval_config.get("seeds", [])
         if not final_seeds:
@@ -416,6 +434,7 @@ class EvalJob:
             api_key=api_key,
             task_app_api_key=task_app_api_key,
             task_app_worker_token=task_app_worker_token,
+            task_app_id=final_task_app_id,
             app_id=eval_config.get("app_id"),
             env_name=eval_config.get("env_name"),
             seeds=list(final_seeds),
@@ -512,6 +531,7 @@ class EvalJob:
             "task_app_url": self.config.task_app_url,
             "task_app_api_key": self.config.task_app_api_key,
             "task_app_worker_token": self.config.task_app_worker_token,
+            "task_app_id": self.config.task_app_id,
             "app_id": self.config.app_id,
             "env_name": self.config.env_name,
             "seeds": self.config.seeds,

@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, List, Optional
 
+from synth_ai.data.traces import PySessionTimeStep, PySessionTrace
+
 from .abstractions import (
     BaseEvent,
     SessionEventMarkovBlanketMessage,
@@ -24,9 +26,78 @@ from .storage.config import StorageConfig
 from .storage.factory import create_storage
 from .utils import generate_session_id
 
+TraceClass = PySessionTrace
+TimeStepClass = PySessionTimeStep
+
+
+def _using_rust_models() -> bool:
+    return TraceClass.__module__ == "builtins"
+
+
+def _wrap_as_tracing_event(event: BaseEvent) -> Any:
+    """Wrap a concrete event (RuntimeEvent, etc.) into a TracingEvent for Rust tagged enum."""
+    if not _using_rust_models():
+        return event
+    import synth_ai_py as _m
+    d = event.to_dict()
+    type_name = type(event).__name__
+    if type_name == "RuntimeEvent":
+        d["event_type"] = "runtime"
+    elif type_name == "EnvironmentEvent":
+        d["event_type"] = "environment"
+    elif type_name == "LMCAISEvent":
+        d["event_type"] = "cais"
+    else:
+        d["event_type"] = type_name.lower()
+    return _m.TracingEvent(**d)
+
+
+def _maybe_iso(dt_value: datetime) -> datetime | str:
+    return dt_value.isoformat() if _using_rust_models() else dt_value
+
+
+def _message_content_to_text(payload: SessionMessageContent) -> str:
+    if hasattr(payload, "as_text"):
+        return payload.as_text()
+    text = getattr(payload, "text", None)
+    if text:
+        return text
+    json_payload = getattr(payload, "json_payload", None)
+    if json_payload is not None:
+        if isinstance(json_payload, str):
+            return json_payload
+        try:
+            return json.dumps(json_payload, default=str)
+        except Exception:
+            return str(json_payload)
+    if hasattr(payload, "to_dict"):
+        try:
+            data = payload.to_dict()
+            if isinstance(data, dict):
+                if data.get("text"):
+                    return data["text"]
+                if data.get("json_payload") is not None:
+                    json_payload = data["json_payload"]
+                    if isinstance(json_payload, str):
+                        return json_payload
+                    return json.dumps(json_payload, default=str)
+            return json.dumps(data, default=str)
+        except Exception:
+            pass
+    return str(payload)
+
+
+def _append_model_list(container: Any, attr: str, item: Any) -> None:
+    if _using_rust_models():
+        current = list(getattr(container, attr))
+        current.append(item)
+        setattr(container, attr, current)
+    else:
+        getattr(container, attr).append(item)
+
 
 class SessionTracer:
-    """Async session tracer with Turso/sqld backend."""
+    """Async session tracer with SQLite backend."""
 
     def __init__(
         self,
@@ -51,6 +122,7 @@ class SessionTracer:
         self.db: TraceStorage | None = storage
         self.auto_save = auto_save
         self._current_step: SessionTimeStep | None = None
+        self._steps: list[SessionTimeStep] = []  # shadow list for Rust model compat
 
     @property
     def current_session(self) -> SessionTrace | None:
@@ -104,9 +176,11 @@ class SessionTracer:
             set_session_id(session_id)
             set_session_tracer(self)
 
-            self._current_trace = SessionTrace(
+            created_at = datetime.now(UTC)
+            self._steps = []
+            self._current_trace = TraceClass(
                 session_id=session_id,
-                created_at=datetime.now(UTC),
+                created_at=_maybe_iso(created_at),
                 session_time_steps=[],
                 event_history=[],
                 markov_blanket_message_history=[],
@@ -149,16 +223,18 @@ class SessionTracer:
         if self._current_trace is None:
             raise RuntimeError("No active session. Start a session first.")
 
-        step = SessionTimeStep(
+        timestamp = _maybe_iso(datetime.now(UTC))
+        step = TimeStepClass(
             step_id=step_id,
             step_index=len(self._current_trace.session_time_steps),
-            timestamp=datetime.now(UTC),
+            timestamp=timestamp,
             turn_number=turn_number,
             step_metadata=metadata or {},
         )
 
-        self._current_trace.session_time_steps.append(step)
+        _append_model_list(self._current_trace, "session_time_steps", step)
         self._current_step = step
+        self._steps.append(step)
 
         if turn_number is not None:
             set_turn_number(turn_number)
@@ -187,9 +263,9 @@ class SessionTracer:
             raise RuntimeError("No active session")
 
         if step_id:
-            # Find specific step
+            # Find specific step from shadow list (avoids __getattr__ dict issue)
             step = next(
-                (s for s in self._current_trace.session_time_steps if s.step_id == step_id), None
+                (s for s in self._steps if s.step_id == step_id), None
             )
             if not step:
                 raise ValueError(f"Step {step_id} not found")
@@ -197,7 +273,7 @@ class SessionTracer:
             step = self._current_step
 
         if step and step.completed_at is None:
-            step.completed_at = datetime.now(UTC)
+            step.completed_at = _maybe_iso(datetime.now(UTC))
 
             # Trigger hooks
             await self.hooks.trigger(
@@ -218,15 +294,21 @@ class SessionTracer:
 
         # Add step_id to event metadata if in a timestep
         if self._current_step:
-            event.metadata["step_id"] = self._current_step.step_id
+            if _using_rust_models():
+                md = dict(event.metadata)
+                md["step_id"] = self._current_step.step_id
+                event.metadata = md
+            else:
+                event.metadata["step_id"] = self._current_step.step_id
 
         # Trigger pre-recording hooks
         await self.hooks.trigger("event_recorded", event_obj=event)
 
-        # Add to histories
-        self._current_trace.event_history.append(event)
+        # Add to histories (wrap for Rust tagged enum)
+        wrapped = _wrap_as_tracing_event(event)
+        _append_model_list(self._current_trace, "event_history", wrapped)
         if self._current_step:
-            self._current_step.events.append(event)
+            _append_model_list(self._current_step, "events", wrapped)
 
         # Persist incrementally if DB is available; return DB event id
         if self.db:
@@ -301,15 +383,20 @@ class SessionTracer:
 
         # Add step_id to metadata if in a timestep
         if self._current_step:
-            msg.metadata["step_id"] = self._current_step.step_id
+            if _using_rust_models():
+                md = dict(msg.metadata)
+                md["step_id"] = self._current_step.step_id
+                msg.metadata = md
+            else:
+                msg.metadata["step_id"] = self._current_step.step_id
 
         # Trigger hooks
         await self.hooks.trigger("message_recorded", message=msg)
 
         # Add to histories
-        self._current_trace.markov_blanket_message_history.append(msg)
+        _append_model_list(self._current_trace, "markov_blanket_message_history", msg)
         if self._current_step:
-            self._current_step.markov_blanket_messages.append(msg)
+            _append_model_list(self._current_step, "markov_blanket_messages", msg)
 
         # Persist incrementally and return DB message id
         if self.db:
@@ -324,14 +411,22 @@ class SessionTracer:
                     completed_at=self._current_step.completed_at,
                     metadata=self._current_step.step_metadata,
                 )
+            # Handle Rust model where time_record returns dict
+            time_rec = msg.time_record
+            if isinstance(time_rec, dict):
+                ev_time = time_rec.get("event_time", 0.0)
+                msg_time = time_rec.get("message_time")
+            else:
+                ev_time = time_rec.event_time
+                msg_time = time_rec.message_time
             message_id = await self.db.insert_message_row(
                 self._current_trace.session_id,
                 timestep_db_id=timestep_db_id,
                 message_type=message_type,
                 content=content_str,
-                event_time=msg.time_record.event_time,
-                message_time=msg.time_record.message_time,
-                metadata=msg.metadata,
+                event_time=ev_time,
+                message_time=msg_time,
+                metadata=msg.metadata if not isinstance(msg.metadata, dict) else msg.metadata,
             )
             return message_id
         return None
@@ -339,18 +434,18 @@ class SessionTracer:
     @staticmethod
     def _normalise_message_content(content: Any) -> tuple[SessionMessageContent, str]:
         if isinstance(content, SessionMessageContent):
-            return content, content.as_text()
+            return content, _message_content_to_text(content)
         if isinstance(content, str):
             payload = SessionMessageContent(text=content)
-            return payload, payload.as_text()
+            return payload, _message_content_to_text(payload)
         try:
             serialized = json.dumps(content, ensure_ascii=False)
             payload = SessionMessageContent(json_payload=serialized)
-            return payload, serialized
+            return payload, _message_content_to_text(payload)
         except (TypeError, ValueError):
             text = str(content)
             payload = SessionMessageContent(text=text)
-            return payload, text
+            return payload, _message_content_to_text(payload)
 
     async def end_session(self, save: bool | None = None) -> SessionTrace:
         """End the current session.
@@ -365,10 +460,10 @@ class SessionTracer:
             if self._current_trace is None:
                 raise RuntimeError("No active session")
 
-            # End any open timesteps
-            for step in self._current_trace.session_time_steps:
+            # End any open timesteps (use shadow list for Rust compat)
+            for step in self._steps:
                 if step.completed_at is None:
-                    step.completed_at = datetime.now(UTC)
+                    step.completed_at = _maybe_iso(datetime.now(UTC))
 
             # Trigger pre-save hooks
             await self.hooks.trigger("before_save", session=self._current_trace)

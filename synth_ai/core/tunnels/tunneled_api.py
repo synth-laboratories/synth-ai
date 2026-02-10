@@ -226,6 +226,42 @@ class TunneledLocalAPI:
                     "DEV_ENVIRONMENT_API_KEY"
                 )
 
+            async def _wait_for_agent_online(
+                public_url: str,
+                worker_token: str,
+                *,
+                timeout_sec: float = 10.0,
+            ) -> None:
+                """Wait until the relay can reach the local task app.
+
+                The Rust WS agent may take a moment to connect. If we submit jobs
+                before it is online, the backend will fail with AGENT_OFFLINE.
+                """
+                import time
+
+                import httpx
+
+                health_url = f"{public_url.rstrip('/')}/health"
+                headers = {"Authorization": f"Bearer {worker_token}"}
+                deadline = time.time() + timeout_sec
+                last_err: Exception | None = None
+
+                while time.time() < deadline:
+                    try:
+                        async with httpx.AsyncClient(timeout=5.0) as http_client:
+                            resp = await http_client.get(health_url, headers=headers)
+                        if resp.status_code == 200:
+                            return
+                    except Exception as exc:
+                        last_err = exc
+                    await asyncio.sleep(0.5)
+
+                if last_err:
+                    raise RuntimeError(
+                        f"SynthTunnel agent did not come online for {health_url}: {last_err}"
+                    )
+                raise RuntimeError(f"SynthTunnel agent did not come online for {health_url}")
+
             # Step 1: Create lease via Python (simple HTTP POST, works fine)
             from .synth_tunnel import (
                 SynthTunnelClient,
@@ -258,6 +294,9 @@ class TunneledLocalAPI:
                 local_api_keys,
                 max_inflight,
             )
+
+            # Ensure the agent is actually online before returning.
+            await _wait_for_agent_online(lease.public_url, lease.worker_token)
 
             url = lease.public_url
             return cls(

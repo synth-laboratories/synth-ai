@@ -2,8 +2,8 @@ use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::CoreError;
 use super::progress::{SeedInfo, StageInfo, TokenUsage};
+use crate::CoreError;
 
 fn value_to_f64(value: &Value) -> Option<f64> {
     value
@@ -119,7 +119,10 @@ fn collect_text_replacements(candidate: &Value, obj: &Map<String, Value>) -> Vec
     {
         return arr.clone();
     }
-    if let Some(arr) = candidate.get("text_replacements").and_then(|v| v.as_array()) {
+    if let Some(arr) = candidate
+        .get("text_replacements")
+        .and_then(|v| v.as_array())
+    {
         return arr.clone();
     }
     Vec::new()
@@ -166,7 +169,12 @@ pub fn extract_stages_from_candidate(
 
     let cid = candidate_id
         .map(|s| s.to_string())
-        .or_else(|| candidate.get("version_id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .or_else(|| {
+            candidate
+                .get("version_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| "unknown".to_string());
 
     let mut stages: HashMap<String, StageInfo> = HashMap::new();
@@ -194,9 +202,7 @@ pub fn extract_stages_from_candidate(
                         let rules = gene
                             .get("rules")
                             .and_then(|v| v.as_object())
-                            .map(|map| {
-                                map.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
-                            })
+                            .map(|map| map.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
                             .unwrap_or_default();
                         let temperature = gene.get("temperature").and_then(|v| v.as_f64());
                         stages.insert(
@@ -459,7 +465,10 @@ pub fn extract_program_candidate_content(candidate: &Value) -> String {
                 candidate
                     .get("transformation")
                     .and_then(|v| v.as_object())
-                    .and_then(|map| map.get("instruction_text").or_else(|| map.get("prompt_text")))
+                    .and_then(|map| {
+                        map.get("instruction_text")
+                            .or_else(|| map.get("prompt_text"))
+                    })
                     .and_then(|v| v.as_str())
             });
         if let Some(text) = instruction {
@@ -522,8 +531,18 @@ pub fn build_program_candidate(
 ) -> Value {
     let cid = candidate_id
         .map(|s| s.to_string())
-        .or_else(|| candidate.get("version_id").and_then(|v| v.as_str()).map(|s| s.to_string()))
-        .or_else(|| candidate.get("candidate_id").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .or_else(|| {
+            candidate
+                .get("version_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
+        .or_else(|| {
+            candidate
+                .get("candidate_id")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        })
         .unwrap_or_else(|| "unknown".to_string());
 
     let stages = extract_stages_from_candidate(candidate, false, Some(&cid))
@@ -582,14 +601,18 @@ pub fn build_program_candidate(
         }
     }
 
-    let objectives = candidate
-        .get("objectives")
-        .cloned()
-        .or_else(|| candidate.get("score").and_then(|v| v.get("objectives")).cloned());
-    let instance_objectives = candidate
-        .get("instance_objectives")
-        .cloned()
-        .or_else(|| candidate.get("score").and_then(|v| v.get("instance_objectives")).cloned());
+    let objectives = candidate.get("objectives").cloned().or_else(|| {
+        candidate
+            .get("score")
+            .and_then(|v| v.get("objectives"))
+            .cloned()
+    });
+    let instance_objectives = candidate.get("instance_objectives").cloned().or_else(|| {
+        candidate
+            .get("score")
+            .and_then(|v| v.get("instance_objectives"))
+            .cloned()
+    });
 
     let transformation = candidate
         .get("transformation")
@@ -610,14 +633,20 @@ pub fn build_program_candidate(
     map.insert("stages".to_string(), Value::Object(stage_map));
 
     if let Some(parent_id) = candidate.get("parent_id").and_then(|v| v.as_str()) {
-        map.insert("parent_id".to_string(), Value::String(parent_id.to_string()));
+        map.insert(
+            "parent_id".to_string(),
+            Value::String(parent_id.to_string()),
+        );
     }
     let mutation_type = candidate
         .get("mutation_type")
         .and_then(|v| v.as_str())
         .or_else(|| candidate.get("operator").and_then(|v| v.as_str()))
         .unwrap_or("unknown");
-    map.insert("mutation_type".to_string(), Value::String(mutation_type.to_string()));
+    map.insert(
+        "mutation_type".to_string(),
+        Value::String(mutation_type.to_string()),
+    );
 
     if let Some(params) = candidate.get("mutation_params") {
         map.insert("mutation_params".to_string(), params.clone());
@@ -644,7 +673,10 @@ pub fn build_program_candidate(
         }
     }
 
-    if let Some(val) = candidate.get("minibatch_score").and_then(|v| value_to_f64(v)) {
+    if let Some(val) = candidate
+        .get("minibatch_score")
+        .and_then(|v| value_to_f64(v))
+    {
         if let Some(num) = serde_json::Number::from_f64(val) {
             map.insert("minibatch_reward".to_string(), Value::Number(num));
         }
@@ -699,11 +731,7 @@ pub fn build_program_candidate(
 
     map.insert(
         "timestamp_ms".to_string(),
-        Value::Number(
-            timestamp_ms
-                .unwrap_or_else(now_timestamp_ms)
-                .into(),
-        ),
+        Value::Number(timestamp_ms.unwrap_or_else(now_timestamp_ms).into()),
     );
 
     if let Some(val) = candidate.get("evaluation_duration_ms") {

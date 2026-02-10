@@ -1,3 +1,4 @@
+use futures_util::StreamExt;
 use once_cell::sync::Lazy;
 use pyo3::exceptions::{PyAttributeError, PyValueError};
 use pyo3::prelude::*;
@@ -8,9 +9,8 @@ use pyo3::types::{
 };
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
-use futures_util::StreamExt;
-use serde_json::Value;
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -20,111 +20,102 @@ use std::time::Duration;
 use base64::{engine::general_purpose, Engine as _};
 
 use synth_ai_core::config::CoreConfig;
+use synth_ai_core::data::{
+    data_enum_values as core_data_enum_values, Artifact as RustArtifact,
+    ArtifactBundle as RustArtifactBundle, CalibrationExample as RustCalibrationExample,
+    ContextOverride as RustContextOverride, ContextOverrideStatus as RustContextOverrideStatus,
+    Criterion as RustCriterion, CriterionExample as RustCriterionExample,
+    CriterionScoreData as RustCriterionScoreData,
+    EventObjectiveAssignment as RustEventObjectiveAssignment,
+    EventRewardRecord as RustEventRewardRecord, GoldExample as RustGoldExample,
+    InstanceObjectiveAssignment as RustInstanceObjectiveAssignment, Judgement as RustJudgement,
+    ObjectiveSpec as RustObjectiveSpec,
+    OutcomeObjectiveAssignment as RustOutcomeObjectiveAssignment,
+    OutcomeRewardRecord as RustOutcomeRewardRecord, RewardAggregates as RustRewardAggregates,
+    RewardObservation as RustRewardObservation, Rubric as RustRubric,
+    RubricAssignment as RustRubricAssignment,
+};
 use synth_ai_core::data::{Artifact, ContextOverride, SuccessStatus};
 use synth_ai_core::events::{poll_events as core_poll_events, EventKind};
-use synth_ai_core::http::{HttpClient as RustHttpClient, HttpError as RustHttpError, MultipartFile as RustMultipartFile};
-use synth_ai_core::tunnels;
-use synth_ai_core::tunnels::cloudflared::ManagedProcess;
-use synth_ai_core::tunnels::lease_client::LeaseClient as RustLeaseClient;
-use synth_ai_core::tunnels::types::TunnelBackend;
-use synth_ai_core::tunnels::types::{
-    LeaseInfo as RustLeaseInfo, ConnectorStatus as RustConnectorStatus,
-    GatewayStatus as RustGatewayStatus, Diagnostics as RustDiagnostics,
-    TunnelHandle as RustTunnelHandle,
+use synth_ai_core::http::{
+    HttpClient as RustHttpClient, HttpError as RustHttpError, MultipartFile as RustMultipartFile,
 };
-use synth_ai_core::tunnels::errors::TunnelError;
-use synth_ai_core::urls::{
-    make_local_api_url as core_make_local_api_url,
-    normalize_backend_base as core_normalize_backend_base,
-    normalize_inference_base as core_normalize_inference_base,
-    validate_task_app_url as core_validate_task_app_url,
-    backend_url_base as core_backend_url_base,
-    backend_url_api as core_backend_url_api,
-    backend_url_synth_research_base as core_backend_url_synth_research_base,
-    backend_url_synth_research_openai as core_backend_url_synth_research_openai,
-    backend_url_synth_research_anthropic as core_backend_url_synth_research_anthropic,
-    frontend_url_base as core_frontend_url_base,
-    join_url as core_join_url,
-    local_backend_url as core_local_backend_url,
-    backend_health_url as core_backend_health_url,
-    backend_me_url as core_backend_me_url,
-    backend_demo_keys_url as core_backend_demo_keys_url,
-};
-use synth_ai_core::CoreError;
-use synth_ai_core::localapi::{EnvClient as RustEnvClient, TaskAppClient as RustTaskAppClient};
 use synth_ai_core::localapi::auth as core_localapi_auth;
-use synth_ai_core::localapi::helpers as core_localapi_helpers;
-use synth_ai_core::localapi::health as core_localapi_health;
 use synth_ai_core::localapi::datasets as core_localapi_datasets;
+use synth_ai_core::localapi::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
+use synth_ai_core::localapi::health as core_localapi_health;
+use synth_ai_core::localapi::helpers as core_localapi_helpers;
+use synth_ai_core::localapi::llm_guards as core_localapi_llm_guards;
 use synth_ai_core::localapi::override_helpers as core_localapi_override;
 use synth_ai_core::localapi::proxy as core_localapi_proxy;
 use synth_ai_core::localapi::rollout_helpers as core_localapi_rollout;
-use synth_ai_core::localapi::tracing_utils as core_localapi_tracing_utils;
-use synth_ai_core::localapi::llm_guards as core_localapi_llm_guards;
 use synth_ai_core::localapi::trace_helpers as core_localapi_trace;
+use synth_ai_core::localapi::tracing_utils as core_localapi_tracing_utils;
 use synth_ai_core::localapi::validation as core_localapi_validation;
 use synth_ai_core::localapi::validators as core_localapi_validators;
-use synth_ai_core::localapi::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
 use synth_ai_core::localapi::vendors as core_localapi_vendors;
+use synth_ai_core::localapi::{EnvClient as RustEnvClient, TaskAppClient as RustTaskAppClient};
 use synth_ai_core::models as core_models;
+use synth_ai_core::orchestration::base_events::{
+    BaseJobEvent as RustBaseJobEvent, CandidateEvent as RustCandidateEvent,
+    JobEvent as RustJobEvent,
+};
+use synth_ai_core::orchestration::schemas::{
+    MutationSummary as RustMutationSummary, MutationTypeStats as RustMutationTypeStats,
+    PhaseSummary as RustPhaseSummary, ProgramCandidate as RustProgramCandidate,
+    SeedAnalysis as RustSeedAnalysis, SeedInfo as RustSeedInfo, StageInfo as RustStageInfo,
+    TokenUsage as RustSchemaTokenUsage, MAX_INSTRUCTION_LENGTH as RUST_MAX_INSTRUCTION_LENGTH,
+    MAX_ROLLOUT_SAMPLES as RUST_MAX_ROLLOUT_SAMPLES,
+    MAX_SEED_INFO_COUNT as RUST_MAX_SEED_INFO_COUNT,
+};
+use synth_ai_core::sse::stream_sse_request as core_stream_sse_request;
+use synth_ai_core::sse::SseStream as CoreSseStream;
 use synth_ai_core::streaming::{
     JobStreamer as RustJobStreamer, StreamConfig as RustStreamConfig,
     StreamEndpoints as RustStreamEndpoints, StreamType as RustStreamType,
 };
-use synth_ai_core::sse::stream_sse_request as core_stream_sse_request;
-use synth_ai_core::sse::SseStream as CoreSseStream;
 use synth_ai_core::trace_upload::{
-    TraceUploadClient as RustTraceUploadClient,
-    UploadUrlResponse as RustUploadUrlResponse,
+    TraceUploadClient as RustTraceUploadClient, UploadUrlResponse as RustUploadUrlResponse,
+};
+use synth_ai_core::tracing::{
+    BaseEventFields as RustBaseEventFields, EnvironmentEvent as RustEnvironmentEvent,
+    EventReward as RustEventReward, LLMCallRecord as RustLLMCallRecord, LLMChunk as RustLLMChunk,
+    LLMContentPart as RustLLMContentPart, LLMMessage as RustLLMMessage,
+    LLMRequestParams as RustLLMRequestParams, LLMUsage as RustLLMUsage,
+    LMCAISEvent as RustLMCAISEvent, LibsqlTraceStorage,
+    MarkovBlanketMessage as RustMarkovBlanketMessage, MessageContent as RustMessageContent,
+    OutcomeReward as RustOutcomeReward, QueryParams as RustQueryParams,
+    RuntimeEvent as RustRuntimeEvent, SessionTimeStep as RustSessionTimeStep,
+    SessionTrace as RustSessionTrace, SessionTracer as RustSessionTracer,
+    StorageConfig as RustStorageConfig, TimeRecord as RustTimeRecord,
+    ToolCallResult as RustToolCallResult, ToolCallSpec as RustToolCallSpec,
+    TraceStorage as RustTraceStorage, TracingEvent as RustTracingEvent,
+};
+use synth_ai_core::tunnels;
+use synth_ai_core::tunnels::cloudflared::ManagedProcess;
+use synth_ai_core::tunnels::errors::TunnelError;
+use synth_ai_core::tunnels::lease_client::LeaseClient as RustLeaseClient;
+use synth_ai_core::tunnels::types::TunnelBackend;
+use synth_ai_core::tunnels::types::{
+    ConnectorStatus as RustConnectorStatus, Diagnostics as RustDiagnostics,
+    GatewayStatus as RustGatewayStatus, LeaseInfo as RustLeaseInfo,
+    TunnelHandle as RustTunnelHandle,
+};
+use synth_ai_core::urls::{
+    backend_demo_keys_url as core_backend_demo_keys_url,
+    backend_health_url as core_backend_health_url, backend_me_url as core_backend_me_url,
+    backend_url_api as core_backend_url_api, backend_url_base as core_backend_url_base,
+    backend_url_synth_research_anthropic as core_backend_url_synth_research_anthropic,
+    backend_url_synth_research_base as core_backend_url_synth_research_base,
+    backend_url_synth_research_openai as core_backend_url_synth_research_openai,
+    frontend_url_base as core_frontend_url_base, join_url as core_join_url,
+    local_backend_url as core_local_backend_url, make_local_api_url as core_make_local_api_url,
+    normalize_backend_base as core_normalize_backend_base,
+    normalize_inference_base as core_normalize_inference_base,
+    validate_task_app_url as core_validate_task_app_url,
 };
 use synth_ai_core::utils as core_utils;
-use synth_ai_core::tracing::{
-    EventReward as RustEventReward, LibsqlTraceStorage, MarkovBlanketMessage as RustMarkovBlanketMessage,
-    OutcomeReward as RustOutcomeReward, SessionTrace as RustSessionTrace, LLMCallRecord as RustLLMCallRecord,
-    SessionTracer as RustSessionTracer, StorageConfig as RustStorageConfig,
-    TraceStorage as RustTraceStorage, TracingEvent as RustTracingEvent, QueryParams as RustQueryParams,
-    TimeRecord as RustTimeRecord, MessageContent as RustMessageContent, BaseEventFields as RustBaseEventFields,
-    LMCAISEvent as RustLMCAISEvent, EnvironmentEvent as RustEnvironmentEvent, RuntimeEvent as RustRuntimeEvent,
-    SessionTimeStep as RustSessionTimeStep, LLMUsage as RustLLMUsage,
-    LLMRequestParams as RustLLMRequestParams, LLMContentPart as RustLLMContentPart,
-    LLMMessage as RustLLMMessage, ToolCallSpec as RustToolCallSpec, ToolCallResult as RustToolCallResult,
-    LLMChunk as RustLLMChunk,
-};
-use synth_ai_core::data::{
-    Rubric as RustRubric, Criterion as RustCriterion, CriterionExample as RustCriterionExample,
-    Judgement as RustJudgement, CriterionScoreData as RustCriterionScoreData,
-    RubricAssignment as RustRubricAssignment,
-    ObjectiveSpec as RustObjectiveSpec, RewardObservation as RustRewardObservation,
-    OutcomeObjectiveAssignment as RustOutcomeObjectiveAssignment,
-    EventObjectiveAssignment as RustEventObjectiveAssignment,
-    InstanceObjectiveAssignment as RustInstanceObjectiveAssignment,
-    OutcomeRewardRecord as RustOutcomeRewardRecord,
-    EventRewardRecord as RustEventRewardRecord,
-    RewardAggregates as RustRewardAggregates,
-    CalibrationExample as RustCalibrationExample,
-    GoldExample as RustGoldExample,
-    ContextOverride as RustContextOverride, ContextOverrideStatus as RustContextOverrideStatus,
-    Artifact as RustArtifact, ArtifactBundle as RustArtifactBundle,
-    data_enum_values as core_data_enum_values,
-};
-use synth_ai_core::orchestration::schemas::{
-    MutationTypeStats as RustMutationTypeStats,
-    MutationSummary as RustMutationSummary,
-    SeedAnalysis as RustSeedAnalysis,
-    PhaseSummary as RustPhaseSummary,
-    ProgramCandidate as RustProgramCandidate,
-    StageInfo as RustStageInfo,
-    SeedInfo as RustSeedInfo,
-    TokenUsage as RustSchemaTokenUsage,
-    MAX_INSTRUCTION_LENGTH as RUST_MAX_INSTRUCTION_LENGTH,
-    MAX_ROLLOUT_SAMPLES as RUST_MAX_ROLLOUT_SAMPLES,
-    MAX_SEED_INFO_COUNT as RUST_MAX_SEED_INFO_COUNT,
-};
-use synth_ai_core::orchestration::base_events::{
-    BaseJobEvent as RustBaseJobEvent,
-    JobEvent as RustJobEvent,
-    CandidateEvent as RustCandidateEvent,
-};
+use synth_ai_core::CoreError;
 
 static RUNTIME: Lazy<tokio::runtime::Runtime> =
     Lazy::new(|| tokio::runtime::Runtime::new().expect("tokio runtime"));
@@ -281,9 +272,16 @@ impl LeaseClientPy {
     ) -> PyResult<Vec<LeaseInfoPy>> {
         let client = self.inner.clone();
         let leases = RUNTIME
-            .block_on(async move { client.list_leases(client_instance_id, include_expired).await })
+            .block_on(async move {
+                client
+                    .list_leases(client_instance_id, include_expired)
+                    .await
+            })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(leases.into_iter().map(|lease| LeaseInfoPy { inner: lease }).collect())
+        Ok(leases
+            .into_iter()
+            .map(|lease| LeaseInfoPy { inner: lease })
+            .collect())
     }
 }
 
@@ -341,9 +339,8 @@ impl TunnelHandlePy {
             return result.map_err(|e| PyValueError::new_err(e.to_string()));
         }
         if let Some(process_id) = self.process_id {
-            let result = RUNTIME.block_on(async move {
-                tunnels::cloudflared::stop_tracked(process_id).await
-            });
+            let result = RUNTIME
+                .block_on(async move { tunnels::cloudflared::stop_tracked(process_id).await });
             return result.map_err(|e| PyValueError::new_err(e.to_string()));
         }
         Ok(())
@@ -361,7 +358,9 @@ fn map_core_err(py: Python, err: CoreError) -> PyErr {
                     }
                 }
             }
-            CoreError::Validation(msg) | CoreError::InvalidInput(msg) | CoreError::Protocol(msg) => {
+            CoreError::Validation(msg)
+            | CoreError::InvalidInput(msg)
+            | CoreError::Protocol(msg) => {
                 if let Ok(cls) = errors.getattr("ValidationError") {
                     if let Ok(instance) = cls.call1((msg.clone(),)) {
                         return PyErr::from_value_bound(instance);
@@ -423,13 +422,9 @@ fn map_core_err(py: Python, err: CoreError) -> PyErr {
                 let status = err.status().map(|s| s.as_u16()).unwrap_or(0);
                 let detail: Option<PyObject> = None;
                 if let Ok(cls) = errors.getattr("HTTPError") {
-                    if let Ok(instance) = cls.call1((
-                        status,
-                        "",
-                        err.to_string(),
-                        Option::<String>::None,
-                        detail,
-                    )) {
+                    if let Ok(instance) =
+                        cls.call1((status, "", err.to_string(), Option::<String>::None, detail))
+                    {
                         return PyErr::from_value_bound(instance);
                     }
                 }
@@ -481,10 +476,10 @@ fn normalize_value<T>(py: Python, obj: PyObject) -> PyResult<PyObject>
 where
     T: DeserializeOwned + Serialize,
 {
-    let value: Value = pythonize::depythonize(obj.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let parsed: T = serde_json::from_value(value)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let value: Value =
+        pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let parsed: T =
+        serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &parsed)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -660,7 +655,9 @@ fn parse_query_params(py: Python, params: Option<PyObject>) -> PyResult<Vec<(Str
         return Ok(out);
     }
 
-    Err(PyValueError::new_err("params must be dict or list of (str, str) tuples"))
+    Err(PyValueError::new_err(
+        "params must be dict or list of (str, str) tuples",
+    ))
 }
 
 fn parse_form_data(py: Python, data: Option<PyObject>) -> PyResult<HashMap<String, String>> {
@@ -668,8 +665,8 @@ fn parse_form_data(py: Python, data: Option<PyObject>) -> PyResult<HashMap<Strin
     let Some(obj) = data else {
         return Ok(out);
     };
-    let value: Value = pythonize::depythonize(obj.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let value: Value =
+        pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     if let Value::Object(map) = value {
         for (k, v) in map {
             let text = match v {
@@ -687,7 +684,9 @@ fn parse_multipart_files(py: Python, files: Option<PyObject>) -> PyResult<Vec<Ru
     let Some(obj) = files else {
         return Ok(Vec::new());
     };
-    let dict = obj.bind(py).downcast::<PyDict>()
+    let dict = obj
+        .bind(py)
+        .downcast::<PyDict>()
         .map_err(|_| PyValueError::new_err("files must be a dict"))?;
     let mut out = Vec::new();
 
@@ -707,12 +706,7 @@ fn parse_multipart_files(py: Python, files: Option<PyObject>) -> PyResult<Vec<Ru
         }
         if let Ok((filename, bytes)) = v.extract::<(String, Py<PyBytes>)>() {
             let bytes_vec = bytes.bind(py).as_bytes().to_vec();
-            out.push(RustMultipartFile::new(
-                field,
-                filename,
-                bytes_vec,
-                None,
-            ));
+            out.push(RustMultipartFile::new(field, filename, bytes_vec, None));
             continue;
         }
         return Err(PyValueError::new_err(
@@ -762,7 +756,7 @@ fn merge_json_map(target: &mut serde_json::Map<String, Value>, value: Value) {
 #[pyfunction]
 fn normalize_backend_base(py: Python, url: &str) -> PyResult<String> {
     core_normalize_backend_base(url)
-        .map(|u| u.to_string())
+        .map(|u| u.to_string().trim_end_matches('/').to_string())
         .map_err(|e| map_core_err(py, e))
 }
 
@@ -885,12 +879,16 @@ fn synth_home_dir() -> String {
 
 #[pyfunction]
 fn synth_user_config_path() -> String {
-    core_utils::synth_user_config_path().to_string_lossy().to_string()
+    core_utils::synth_user_config_path()
+        .to_string_lossy()
+        .to_string()
 }
 
 #[pyfunction]
 fn synth_localapi_config_path() -> String {
-    core_utils::synth_localapi_config_path().to_string_lossy().to_string()
+    core_utils::synth_localapi_config_path()
+        .to_string_lossy()
+        .to_string()
 }
 
 #[pyfunction]
@@ -905,8 +903,7 @@ fn is_file_type(path: &str, ext: &str) -> bool {
 
 #[pyfunction]
 fn validate_file_type(py: Python, path: &str, ext: &str) -> PyResult<()> {
-    core_utils::validate_file_type(Path::new(path), ext)
-        .map_err(|e| map_core_err(py, e))
+    core_utils::validate_file_type(Path::new(path), ext).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -943,8 +940,7 @@ fn compute_import_paths(app: &str, repo_root: Option<String>) -> Vec<String> {
 
 #[pyfunction]
 fn cleanup_paths(py: Python, file: &str, dir: &str) -> PyResult<()> {
-    core_utils::cleanup_paths(Path::new(file), Path::new(dir))
-        .map_err(|e| map_core_err(py, e))
+    core_utils::cleanup_paths(Path::new(file), Path::new(dir)).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -1001,10 +997,14 @@ fn poll_events(
         .ok_or_else(|| PyValueError::new_err(format!("unknown event kind: {kind}")))?;
 
     let response = RUNTIME
-        .block_on(core_poll_events(event_kind, job_id, &config, since_seq, limit))
+        .block_on(core_poll_events(
+            event_kind, job_id, &config, since_seq, limit,
+        ))
         .map_err(|e| map_core_err(py, e))?;
 
-    pythonize::pythonize(py, &response).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    pythonize::pythonize(py, &response)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn store_process(proc: ManagedProcess) -> ProcessHandle {
@@ -1014,21 +1014,24 @@ fn store_process(proc: ManagedProcess) -> ProcessHandle {
     ProcessHandle { id, pid }
 }
 
-fn with_process<T>(
-    id: &str,
-    f: impl FnOnce(&mut ManagedProcess) -> T,
-) -> PyResult<T> {
+fn with_process<T>(id: &str, f: impl FnOnce(&mut ManagedProcess) -> T) -> PyResult<T> {
     let mut registry = PROCESS_REGISTRY.lock().unwrap();
-    let proc = registry.get_mut(id).ok_or_else(|| PyValueError::new_err("process not found"))?;
+    let proc = registry
+        .get_mut(id)
+        .ok_or_else(|| PyValueError::new_err("process not found"))?;
     Ok(f(proc))
 }
 
-
 #[pyfunction]
 #[pyo3(signature = (port, wait_s=None))]
-fn open_quick_tunnel(py: Python, port: u16, wait_s: Option<f64>) -> PyResult<(String, ProcessHandle)> {
+fn open_quick_tunnel(
+    py: Python,
+    port: u16,
+    wait_s: Option<f64>,
+) -> PyResult<(String, ProcessHandle)> {
     let wait = wait_s.unwrap_or(10.0);
-    let result = RUNTIME.block_on(async move { tunnels::cloudflared::open_quick_tunnel(port, wait).await });
+    let result =
+        RUNTIME.block_on(async move { tunnels::cloudflared::open_quick_tunnel(port, wait).await });
     match result {
         Ok((url, proc)) => Ok((url, store_process(proc))),
         Err(e) => Err(map_tunnel_err(py, e)),
@@ -1046,7 +1049,10 @@ fn open_quick_tunnel_with_dns_verification(
 ) -> PyResult<(String, ProcessHandle)> {
     let wait = wait_s.unwrap_or(10.0);
     let result = RUNTIME.block_on(async move {
-        tunnels::cloudflared::open_quick_tunnel_with_dns_verification(port, wait, verify_dns, api_key).await
+        tunnels::cloudflared::open_quick_tunnel_with_dns_verification(
+            port, wait, verify_dns, api_key,
+        )
+        .await
     });
     match result {
         Ok((url, proc)) => Ok((url, store_process(proc))),
@@ -1056,7 +1062,8 @@ fn open_quick_tunnel_with_dns_verification(
 
 #[pyfunction]
 fn open_managed_tunnel(py: Python, token: String) -> PyResult<ProcessHandle> {
-    let result = RUNTIME.block_on(async move { tunnels::cloudflared::open_managed_tunnel(&token).await });
+    let result =
+        RUNTIME.block_on(async move { tunnels::cloudflared::open_managed_tunnel(&token).await });
     match result {
         Ok(proc) => Ok(store_process(proc)),
         Err(e) => Err(map_tunnel_err(py, e)),
@@ -1091,7 +1098,12 @@ fn stop_tunnel(handle: ProcessHandle) -> PyResult<()> {
 
 #[pyfunction]
 #[pyo3(signature = (api_key, port, backend_url=None))]
-fn rotate_tunnel(py: Python, api_key: String, port: u16, backend_url: Option<String>) -> PyResult<PyObject> {
+fn rotate_tunnel(
+    py: Python,
+    api_key: String,
+    port: u16,
+    backend_url: Option<String>,
+) -> PyResult<PyObject> {
     let result = RUNTIME.block_on(async move {
         tunnels::cloudflared::rotate_tunnel(&api_key, port, backend_url).await
     });
@@ -1105,7 +1117,12 @@ fn rotate_tunnel(py: Python, api_key: String, port: u16, backend_url: Option<Str
 
 #[pyfunction]
 #[pyo3(signature = (api_key, port, subdomain=None))]
-fn create_tunnel(py: Python, api_key: String, port: u16, subdomain: Option<String>) -> PyResult<PyObject> {
+fn create_tunnel(
+    py: Python,
+    api_key: String,
+    port: u16,
+    subdomain: Option<String>,
+) -> PyResult<PyObject> {
     let result = RUNTIME.block_on(async move {
         tunnels::cloudflared::create_tunnel(&api_key, port, subdomain).await
     });
@@ -1159,7 +1176,8 @@ fn get_cloudflared_path(prefer_system: Option<bool>) -> PyResult<Option<String>>
 #[pyo3(signature = (force=None))]
 fn ensure_cloudflared_installed(py: Python, force: Option<bool>) -> PyResult<String> {
     let force = force.unwrap_or(false);
-    let result = RUNTIME.block_on(async move { tunnels::cloudflared::ensure_cloudflared_installed(force).await });
+    let result = RUNTIME
+        .block_on(async move { tunnels::cloudflared::ensure_cloudflared_installed(force).await });
     result
         .map(|p| p.to_string_lossy().to_string())
         .map_err(|e| map_tunnel_err(py, e))
@@ -1357,41 +1375,80 @@ impl JobLifecycle {
     }
 
     #[pyo3(signature = (data=None, message=None))]
-    fn start(&mut self, py: Python, data: Option<PyObject>, message: Option<&str>) -> PyResult<PyObject> {
-        let data_value = data.map(|d| pythonize::depythonize(d.bind(py))).transpose()
+    fn start(
+        &mut self,
+        py: Python,
+        data: Option<PyObject>,
+        message: Option<&str>,
+    ) -> PyResult<PyObject> {
+        let data_value = data
+            .map(|d| pythonize::depythonize(d.bind(py)))
+            .transpose()
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let event = self.inner.start_with_data(data_value, message)
+        let event = self
+            .inner
+            .start_with_data(data_value, message)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &event).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::pythonize(py, &event)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (data=None, message=None))]
-    fn complete(&mut self, py: Python, data: Option<PyObject>, message: Option<&str>) -> PyResult<PyObject> {
-        let data_value = data.map(|d| pythonize::depythonize(d.bind(py))).transpose()
+    fn complete(
+        &mut self,
+        py: Python,
+        data: Option<PyObject>,
+        message: Option<&str>,
+    ) -> PyResult<PyObject> {
+        let data_value = data
+            .map(|d| pythonize::depythonize(d.bind(py)))
+            .transpose()
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let event = self.inner.complete_with_message(data_value, message)
+        let event = self
+            .inner
+            .complete_with_message(data_value, message)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &event).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::pythonize(py, &event)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (error=None, data=None))]
-    fn fail(&mut self, py: Python, error: Option<&str>, data: Option<PyObject>) -> PyResult<PyObject> {
-        let data_value = data.map(|d| pythonize::depythonize(d.bind(py))).transpose()
+    fn fail(
+        &mut self,
+        py: Python,
+        error: Option<&str>,
+        data: Option<PyObject>,
+    ) -> PyResult<PyObject> {
+        let data_value = data
+            .map(|d| pythonize::depythonize(d.bind(py)))
+            .transpose()
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let event = self.inner.fail_with_data(error, data_value)
+        let event = self
+            .inner
+            .fail_with_data(error, data_value)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &event).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::pythonize(py, &event)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (message=None))]
     fn cancel(&mut self, py: Python, message: Option<&str>) -> PyResult<PyObject> {
-        let event = self.inner.cancel_with_message(message)
+        let event = self
+            .inner
+            .cancel_with_message(message)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &event).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::pythonize(py, &event)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn events(&self, py: Python) -> PyResult<PyObject> {
-        pythonize::pythonize(py, self.inner.events()).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::pythonize(py, self.inner.events())
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
 
@@ -1411,8 +1468,8 @@ fn job_status_from_str(status: &str) -> Option<String> {
 // Auth Module - API key resolution
 // =============================================================================
 
-use synth_ai_core::auth;
 use std::path::PathBuf;
+use synth_ai_core::auth;
 
 #[pyfunction]
 #[pyo3(signature = (env_key=None))]
@@ -1428,19 +1485,25 @@ fn get_api_key_from_env(env_key: Option<&str>) -> Option<String> {
 
 #[pyfunction]
 #[pyo3(signature = (backend_url=None, allow_mint=true))]
-fn get_or_mint_api_key(py: Python, backend_url: Option<String>, allow_mint: bool) -> PyResult<String> {
-    RUNTIME.block_on(async {
-        auth::get_or_mint_api_key(backend_url.as_deref(), allow_mint).await
-    }).map_err(|e| map_core_err(py, e))
+fn get_or_mint_api_key(
+    py: Python,
+    backend_url: Option<String>,
+    allow_mint: bool,
+) -> PyResult<String> {
+    RUNTIME
+        .block_on(async { auth::get_or_mint_api_key(backend_url.as_deref(), allow_mint).await })
+        .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 #[pyo3(signature = (frontend_url=None))]
 fn init_device_auth(py: Python, frontend_url: Option<String>) -> PyResult<PyObject> {
-    let session = RUNTIME.block_on(async {
-        auth::init_device_auth(frontend_url.as_deref()).await
-    }).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &session).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let session = RUNTIME
+        .block_on(async { auth::init_device_auth(frontend_url.as_deref()).await })
+        .map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &session)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -1452,23 +1515,32 @@ fn poll_device_token(
     poll_interval_secs: Option<u64>,
     timeout_secs: Option<u64>,
 ) -> PyResult<PyObject> {
-    let creds = RUNTIME.block_on(async {
-        auth::poll_device_token(
-            frontend_url.as_deref(),
-            device_code,
-            poll_interval_secs,
-            timeout_secs,
-        ).await
-    }).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &creds).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let creds = RUNTIME
+        .block_on(async {
+            auth::poll_device_token(
+                frontend_url.as_deref(),
+                device_code,
+                poll_interval_secs,
+                timeout_secs,
+            )
+            .await
+        })
+        .map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &creds)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 #[pyo3(signature = (backend_url=None, ttl_hours=None))]
-fn mint_demo_key(py: Python, backend_url: Option<String>, ttl_hours: Option<u32>) -> PyResult<String> {
-    RUNTIME.block_on(async {
-        auth::mint_demo_key(backend_url.as_deref(), ttl_hours).await
-    }).map_err(|e| map_core_err(py, e))
+fn mint_demo_key(
+    py: Python,
+    backend_url: Option<String>,
+    ttl_hours: Option<u32>,
+) -> PyResult<String> {
+    RUNTIME
+        .block_on(async { auth::mint_demo_key(backend_url.as_deref(), ttl_hours).await })
+        .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -1490,8 +1562,7 @@ fn auth_config_path() -> String {
 #[pyo3(signature = (config_path=None))]
 fn auth_load_credentials(py: Python, config_path: Option<String>) -> PyResult<PyObject> {
     let path = config_path.map(PathBuf::from);
-    let creds = auth::load_credentials(path.as_deref())
-        .map_err(|e| map_core_err(py, e))?;
+    let creds = auth::load_credentials(path.as_deref()).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &creds)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -1499,29 +1570,34 @@ fn auth_load_credentials(py: Python, config_path: Option<String>) -> PyResult<Py
 
 #[pyfunction]
 #[pyo3(signature = (credentials, config_path=None))]
-fn auth_store_credentials(py: Python, credentials: PyObject, config_path: Option<String>) -> PyResult<()> {
+fn auth_store_credentials(
+    py: Python,
+    credentials: PyObject,
+    config_path: Option<String>,
+) -> PyResult<()> {
     let values: HashMap<String, String> = pythonize::depythonize(credentials.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let path = config_path.map(PathBuf::from);
-    auth::store_credentials(&values, path.as_deref())
-        .map_err(|e| map_core_err(py, e))
+    auth::store_credentials(&values, path.as_deref()).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 #[pyo3(signature = (credentials, config_path=None))]
-fn auth_store_credentials_atomic(py: Python, credentials: PyObject, config_path: Option<String>) -> PyResult<()> {
+fn auth_store_credentials_atomic(
+    py: Python,
+    credentials: PyObject,
+    config_path: Option<String>,
+) -> PyResult<()> {
     let values: HashMap<String, String> = pythonize::depythonize(credentials.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let path = config_path.map(PathBuf::from);
-    auth::store_credentials_atomic(&values, path.as_deref())
-        .map_err(|e| map_core_err(py, e))
+    auth::store_credentials_atomic(&values, path.as_deref()).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 #[pyo3(signature = (override_env=true))]
 fn auth_load_user_env(py: Python, override_env: bool) -> PyResult<PyObject> {
-    let values = auth::load_user_env_with(override_env)
-        .map_err(|e| map_core_err(py, e))?;
+    let values = auth::load_user_env_with(override_env).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &values)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -1529,8 +1605,7 @@ fn auth_load_user_env(py: Python, override_env: bool) -> PyResult<PyObject> {
 
 #[pyfunction]
 fn auth_load_user_config(py: Python) -> PyResult<PyObject> {
-    let values = auth::load_user_config()
-        .map_err(|e| map_core_err(py, e))?;
+    let values = auth::load_user_config().map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &values)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -1540,16 +1615,14 @@ fn auth_load_user_config(py: Python) -> PyResult<PyObject> {
 fn auth_save_user_config(py: Python, config: PyObject) -> PyResult<()> {
     let values: HashMap<String, Value> = pythonize::depythonize(config.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    auth::save_user_config(&values)
-        .map_err(|e| map_core_err(py, e))
+    auth::save_user_config(&values).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 fn auth_update_user_config(py: Python, updates: PyObject) -> PyResult<PyObject> {
     let values: HashMap<String, Value> = pythonize::depythonize(updates.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let updated = auth::update_user_config(&values)
-        .map_err(|e| map_core_err(py, e))?;
+    let updated = auth::update_user_config(&values).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &updated)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -1801,10 +1874,12 @@ fn localapi_verify_trace_correlation_id_in_response(
     expected_correlation_id: Option<String>,
 ) -> PyResult<bool> {
     let value = value_from_pyobject(py, response_data)?;
-    Ok(core_localapi_trace::verify_trace_correlation_id_in_response(
-        &value,
-        expected_correlation_id.as_deref(),
-    ))
+    Ok(
+        core_localapi_trace::verify_trace_correlation_id_in_response(
+            &value,
+            expected_correlation_id.as_deref(),
+        ),
+    )
 }
 
 // LocalAPI validation helpers
@@ -1817,8 +1892,8 @@ fn localapi_validate_artifact_size(
     max_bytes: Option<usize>,
 ) -> PyResult<()> {
     let value = value_from_pyobject(py, artifact)?;
-    let artifact: Artifact = serde_json::from_value(value)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let artifact: Artifact =
+        serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let max_bytes = max_bytes.unwrap_or(core_localapi_validation::MAX_INLINE_ARTIFACT_BYTES);
     core_localapi_validation::validate_artifact_size(&artifact, max_bytes)
         .map_err(|e| map_core_err(py, e))?;
@@ -1828,8 +1903,8 @@ fn localapi_validate_artifact_size(
 #[pyfunction]
 fn localapi_validate_artifacts_list(py: Python, artifacts: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, artifacts)?;
-    let artifacts: Vec<Artifact> = serde_json::from_value(value)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let artifacts: Vec<Artifact> =
+        serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     core_localapi_validation::validate_artifacts_list(&artifacts)
         .map_err(|e| map_core_err(py, e))?;
     Ok(())
@@ -1838,8 +1913,8 @@ fn localapi_validate_artifacts_list(py: Python, artifacts: PyObject) -> PyResult
 #[pyfunction]
 fn localapi_validate_context_overrides(py: Python, overrides: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, overrides)?;
-    let overrides: Vec<ContextOverride> = serde_json::from_value(value)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let overrides: Vec<ContextOverride> =
+        serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     core_localapi_validation::validate_context_overrides(&overrides)
         .map_err(|e| map_core_err(py, e))?;
     Ok(())
@@ -1848,8 +1923,7 @@ fn localapi_validate_context_overrides(py: Python, overrides: PyObject) -> PyRes
 #[pyfunction]
 fn localapi_validate_context_snapshot(py: Python, snapshot: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, snapshot)?;
-    core_localapi_validation::validate_context_snapshot(&value)
-        .map_err(|e| map_core_err(py, e))?;
+    core_localapi_validation::validate_context_snapshot(&value).map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
@@ -1869,8 +1943,8 @@ fn localapi_extract_api_key(
     default_env_keys: Option<PyObject>,
 ) -> PyResult<Option<String>> {
     let headers_value = value_from_pyobject(py, headers)?;
-    let headers_map: HashMap<String, String> = serde_json::from_value(headers_value)
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let headers_map: HashMap<String, String> =
+        serde_json::from_value(headers_value).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let policy_value = value_from_pyobject(py, policy_config)?;
     let default_map = match default_env_keys {
         Some(obj) => {
@@ -1907,7 +1981,8 @@ fn localapi_parse_tool_calls_from_response(
 
 #[pyfunction]
 fn localapi_task_app_health(py: Python, task_app_url: String) -> PyResult<PyObject> {
-    let result = RUNTIME.block_on(async { core_localapi_health::task_app_health(&task_app_url).await });
+    let result =
+        RUNTIME.block_on(async { core_localapi_health::task_app_health(&task_app_url).await });
     match result {
         Ok(value) => value_to_pyobject(py, &value),
         Err(err) => Err(map_core_err(py, err)),
@@ -1945,7 +2020,9 @@ fn localapi_get_shared_http_client(py: Python) -> PyResult<PyObject> {
     client_kwargs.set_item("timeout", timeout)?;
     client_kwargs.set_item("follow_redirects", false)?;
 
-    let client = httpx.getattr("AsyncClient")?.call((), Some(&client_kwargs))?;
+    let client = httpx
+        .getattr("AsyncClient")?
+        .call((), Some(&client_kwargs))?;
     let client_obj = client.to_object(py);
     *guard = Some(client_obj.clone_ref(py));
     Ok(client_obj)
@@ -2007,8 +2084,7 @@ fn localapi_apply_context_overrides(
     let value = value_from_pyobject(py, overrides)?;
     let overrides: Vec<ContextOverride> = match value {
         Value::Null => Vec::new(),
-        other => serde_json::from_value(other)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?,
+        other => serde_json::from_value(other).map_err(|e| PyValueError::new_err(e.to_string()))?,
     };
     let statuses = core_localapi_override::apply_context_overrides(
         &overrides,
@@ -2024,12 +2100,14 @@ fn localapi_apply_context_overrides(
 }
 
 #[pyfunction]
-fn localapi_get_applied_env_vars(py: Python, overrides: PyObject) -> PyResult<HashMap<String, String>> {
+fn localapi_get_applied_env_vars(
+    py: Python,
+    overrides: PyObject,
+) -> PyResult<HashMap<String, String>> {
     let value = value_from_pyobject(py, overrides)?;
     let overrides: Vec<ContextOverride> = match value {
         Value::Null => Vec::new(),
-        other => serde_json::from_value(other)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?,
+        other => serde_json::from_value(other).map_err(|e| PyValueError::new_err(e.to_string()))?,
     };
     Ok(core_localapi_override::get_applied_env_vars(&overrides))
 }
@@ -2107,7 +2185,11 @@ fn localapi_build_rollout_response(
 
 #[pyfunction]
 #[pyo3(signature = (payload, model=None))]
-fn localapi_prepare_for_openai(py: Python, payload: PyObject, model: Option<String>) -> PyResult<PyObject> {
+fn localapi_prepare_for_openai(
+    py: Python,
+    payload: PyObject,
+    model: Option<String>,
+) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
     let result = core_localapi_proxy::prepare_for_openai(model.as_deref(), &value);
     value_to_pyobject(py, &result)
@@ -2115,7 +2197,11 @@ fn localapi_prepare_for_openai(py: Python, payload: PyObject, model: Option<Stri
 
 #[pyfunction]
 #[pyo3(signature = (payload, model=None))]
-fn localapi_prepare_for_groq(py: Python, payload: PyObject, model: Option<String>) -> PyResult<PyObject> {
+fn localapi_prepare_for_groq(
+    py: Python,
+    payload: PyObject,
+    model: Option<String>,
+) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
     let result = core_localapi_proxy::prepare_for_groq(model.as_deref(), &value);
     value_to_pyobject(py, &result)
@@ -2186,15 +2272,15 @@ fn localapi_normalize_inference_url(
     url: Option<String>,
     default: Option<String>,
 ) -> PyResult<String> {
-    let default = default.unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
+    let default =
+        default.unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
     core_localapi_validators::normalize_inference_url(url.as_deref(), &default)
         .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 fn localapi_validate_task_app_url(py: Python, url: String) -> PyResult<String> {
-    core_localapi_validators::validate_task_app_url(&url)
-        .map_err(|e| map_core_err(py, e))
+    core_localapi_validators::validate_task_app_url(&url).map_err(|e| map_core_err(py, e))
 }
 
 // LocalAPI vendor keys
@@ -2215,6 +2301,163 @@ fn localapi_get_openai_key() -> Option<String> {
 #[pyfunction]
 fn localapi_get_groq_key() -> Option<String> {
     core_localapi_vendors::get_groq_key()
+}
+
+// =============================================================================
+// LocalAPI Deployments
+// =============================================================================
+
+fn resolve_synth_client(
+    api_key: Option<String>,
+    backend_url: Option<String>,
+) -> Result<RustSynthClient, CoreError> {
+    if let Some(key) = api_key {
+        return RustSynthClient::new(&key, backend_url.as_deref());
+    }
+    if let Some(url) = backend_url.as_deref() {
+        let key = auth::get_api_key(None).ok_or_else(|| {
+            CoreError::Authentication("SYNTH_API_KEY environment variable not set".to_string())
+        })?;
+        return RustSynthClient::new(&key, Some(url));
+    }
+    RustSynthClient::from_env()
+}
+
+#[pyfunction]
+#[pyo3(signature = (
+    name,
+    dockerfile_path,
+    context_dir,
+    entrypoint,
+    entrypoint_mode=None,
+    description=None,
+    env_vars=None,
+    limits=None,
+    backend_url=None,
+    api_key=None,
+    wait_for_ready=false,
+    build_timeout_s=600.0,
+    port=8000,
+    metadata=None
+))]
+fn localapi_deploy_from_dir(
+    py: Python,
+    name: String,
+    dockerfile_path: String,
+    context_dir: String,
+    entrypoint: String,
+    entrypoint_mode: Option<String>,
+    description: Option<String>,
+    env_vars: Option<PyObject>,
+    limits: Option<PyObject>,
+    backend_url: Option<String>,
+    api_key: Option<String>,
+    wait_for_ready: bool,
+    build_timeout_s: f64,
+    port: i32,
+    metadata: Option<PyObject>,
+) -> PyResult<PyObject> {
+    let env_vars: HashMap<String, String> = match env_vars {
+        Some(obj) => pythonize::depythonize(obj.bind(py))
+            .map_err(|e| PyValueError::new_err(format!("invalid env_vars: {}", e)))?,
+        None => HashMap::new(),
+    };
+
+    let limits: LocalApiLimits = match limits {
+        Some(obj) => pythonize::depythonize(obj.bind(py))
+            .map_err(|e| PyValueError::new_err(format!("invalid limits: {}", e)))?,
+        None => LocalApiLimits::default(),
+    };
+
+    let metadata: HashMap<String, Value> = match metadata {
+        Some(obj) => pythonize::depythonize(obj.bind(py))
+            .map_err(|e| PyValueError::new_err(format!("invalid metadata: {}", e)))?,
+        None => HashMap::new(),
+    };
+
+    let entrypoint_mode = entrypoint_mode.unwrap_or_else(|| "stdio".to_string());
+
+    let spec = LocalApiDeploySpec {
+        name,
+        dockerfile_path,
+        entrypoint,
+        entrypoint_mode,
+        port,
+        description,
+        env_vars,
+        limits,
+        metadata,
+    };
+
+    let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
+
+    let response: LocalApiDeployResponse = RUNTIME
+        .block_on(async {
+            client
+                .localapi()
+                .deploy_from_dir(
+                    spec,
+                    Path::new(&context_dir),
+                    wait_for_ready,
+                    build_timeout_s,
+                )
+                .await
+        })
+        .map_err(|e| map_core_err(py, e))?;
+
+    pythonize::pythonize(py, &response)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (deployment_id, backend_url=None, api_key=None))]
+fn localapi_get_deployment_status(
+    py: Python,
+    deployment_id: String,
+    backend_url: Option<String>,
+    api_key: Option<String>,
+) -> PyResult<PyObject> {
+    let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
+    let response: LocalApiDeployStatus = RUNTIME
+        .block_on(async { client.localapi().status(&deployment_id).await })
+        .map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &response)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (deployment_id, backend_url=None, api_key=None))]
+fn localapi_get_deployment(
+    py: Python,
+    deployment_id: String,
+    backend_url: Option<String>,
+    api_key: Option<String>,
+) -> PyResult<PyObject> {
+    let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
+    let response: LocalApiDeploymentInfo = RUNTIME
+        .block_on(async { client.localapi().get(&deployment_id).await })
+        .map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &response)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (backend_url=None, api_key=None))]
+fn localapi_list_deployments(
+    py: Python,
+    backend_url: Option<String>,
+    api_key: Option<String>,
+) -> PyResult<PyObject> {
+    let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
+    let response: Vec<LocalApiDeploymentInfo> = RUNTIME
+        .block_on(async { client.localapi().list().await })
+        .map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &response)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // =============================================================================
@@ -2254,13 +2497,15 @@ impl HttpClientPy {
             .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect();
-        let result: Value = RUNTIME.block_on(async {
-            if params_refs.is_empty() {
-                self.inner.get_json(path, None).await
-            } else {
-                self.inner.get_json(path, Some(&params_refs)).await
-            }
-        }).map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
+        let result: Value = RUNTIME
+            .block_on(async {
+                if params_refs.is_empty() {
+                    self.inner.get_json(path, None).await
+                } else {
+                    self.inner.get_json(path, Some(&params_refs)).await
+                }
+            })
+            .map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2270,9 +2515,9 @@ impl HttpClientPy {
     fn post_json(&self, py: Python, path: &str, body: PyObject) -> PyResult<PyObject> {
         let body_value: Value = pythonize::depythonize(body.bind(py))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let result: Value = RUNTIME.block_on(async {
-            self.inner.post_json(path, &body_value).await
-        }).map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
+        let result: Value = RUNTIME
+            .block_on(async { self.inner.post_json(path, &body_value).await })
+            .map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2289,9 +2534,13 @@ impl HttpClientPy {
         let data_map = parse_form_data(py, data)?;
         let data_pairs: Vec<(String, String)> = data_map.into_iter().collect();
         let file_list = parse_multipart_files(py, files)?;
-        let result: Value = RUNTIME.block_on(async {
-            self.inner.post_multipart(path, &data_pairs, &file_list).await
-        }).map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
+        let result: Value = RUNTIME
+            .block_on(async {
+                self.inner
+                    .post_multipart(path, &data_pairs, &file_list)
+                    .await
+            })
+            .map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2330,9 +2579,8 @@ impl SseEventIterator {
         };
 
         loop {
-            let next = py.allow_threads(|| {
-                RUNTIME.block_on(async { stream.as_mut().next().await })
-            });
+            let next =
+                py.allow_threads(|| RUNTIME.block_on(async { stream.as_mut().next().await }));
 
             match next {
                 Some(Ok(event)) => {
@@ -2404,26 +2652,30 @@ use synth_ai_core::config;
 
 #[pyfunction]
 fn parse_toml(py: Python, content: &str) -> PyResult<PyObject> {
-    let value = config::parse_toml(content)
-        .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &value).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let value = config::parse_toml(content).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &value)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 fn load_toml(py: Python, path: &str) -> PyResult<PyObject> {
-    let value = config::load_toml(Path::new(path))
-        .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &value).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let value = config::load_toml(Path::new(path)).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &value)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 fn deep_merge(py: Python, base: PyObject, overrides: PyObject) -> PyResult<PyObject> {
-    let mut base_value: serde_json::Value = pythonize::depythonize(base.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let mut base_value: serde_json::Value =
+        pythonize::depythonize(base.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let overrides_value: serde_json::Value = pythonize::depythonize(overrides.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     config::deep_merge(&mut base_value, &overrides_value);
-    pythonize::pythonize(py, &base_value).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    pythonize::pythonize(py, &base_value)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -2451,18 +2703,17 @@ fn resolve_config_value(
 
 #[pyfunction]
 fn validate_overrides(py: Python, base: PyObject, overrides: PyObject) -> PyResult<()> {
-    let base_value: serde_json::Value = pythonize::depythonize(base.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let base_value: serde_json::Value =
+        pythonize::depythonize(base.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let overrides_value: serde_json::Value = pythonize::depythonize(overrides.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    config::validate_overrides(&base_value, &overrides_value, "")
-        .map_err(|e| map_core_err(py, e))
+    config::validate_overrides(&base_value, &overrides_value, "").map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 fn resolve_seeds(py: Python, seeds: PyObject) -> PyResult<Vec<String>> {
-    let seeds_value: serde_json::Value = pythonize::depythonize(seeds.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let seeds_value: serde_json::Value =
+        pythonize::depythonize(seeds.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     config::resolve_seeds(&seeds_value).map_err(|e| map_core_err(py, e))
 }
 
@@ -2473,8 +2724,8 @@ fn split_train_validation(seeds: Vec<String>, train_ratio: f64) -> (Vec<String>,
 
 #[pyfunction]
 fn resolve_seed_spec(py: Python, seeds: PyObject) -> PyResult<Vec<i64>> {
-    let seeds_value: serde_json::Value = pythonize::depythonize(seeds.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let seeds_value: serde_json::Value =
+        pythonize::depythonize(seeds.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     config::resolve_seed_spec(&seeds_value).map_err(|e| map_core_err(py, e))
 }
 
@@ -2484,15 +2735,18 @@ fn resolve_seed_spec(py: Python, seeds: PyObject) -> PyResult<Vec<i64>> {
 
 #[pyfunction]
 #[pyo3(signature = (model, allow_finetuned_prefixes=false))]
-fn normalize_model_identifier(py: Python, model: &str, allow_finetuned_prefixes: bool) -> PyResult<String> {
+fn normalize_model_identifier(
+    py: Python,
+    model: &str,
+    allow_finetuned_prefixes: bool,
+) -> PyResult<String> {
     core_models::normalize_model_identifier(model, allow_finetuned_prefixes)
         .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
 fn detect_model_provider(py: Python, model: &str) -> PyResult<String> {
-    core_models::detect_model_provider(model)
-        .map_err(|e| map_core_err(py, e))
+    core_models::detect_model_provider(model).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -2518,27 +2772,42 @@ fn expand_config(py: Python, minimal: PyObject, defaults: Option<PyObject>) -> P
     } else {
         config::OptimizationDefaults::default()
     };
-    let expanded = config::expand_config(&minimal_value, &defaults_struct)
-        .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &expanded).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let expanded =
+        config::expand_config(&minimal_value, &defaults_struct).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &expanded)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 fn expand_eval_config(py: Python, minimal: PyObject) -> PyResult<PyObject> {
     let minimal_value: serde_json::Value = pythonize::depythonize(minimal.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let expanded = config::expand_eval_config(&minimal_value)
-        .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &expanded).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let expanded = config::expand_eval_config(&minimal_value).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &expanded)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
 fn expand_gepa_config(py: Python, minimal: PyObject) -> PyResult<PyObject> {
     let minimal_value: serde_json::Value = pythonize::depythonize(minimal.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let expanded = config::expand_gepa_config(&minimal_value)
-        .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &expanded).map(|b| b.unbind()).map_err(|e| PyValueError::new_err(e.to_string()))
+    let expanded = config::expand_gepa_config(&minimal_value).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &expanded)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+fn gepa_candidate_to_initial_prompt(py: Python, seed_candidate: PyObject) -> PyResult<PyObject> {
+    let candidate_value: serde_json::Value = pythonize::depythonize(seed_candidate.bind(py))
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let prompt =
+        config::gepa_candidate_to_initial_prompt(&candidate_value).map_err(|e| map_core_err(py, e))?;
+    pythonize::pythonize(py, &prompt)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -2563,18 +2832,14 @@ fn build_prompt_learning_payload(
     let config_value: serde_json::Value = pythonize::depythonize(config.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let overrides_value: serde_json::Value = if let Some(obj) = overrides {
-        pythonize::depythonize(obj.bind(py))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?
+        pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?
     } else {
         Value::Object(serde_json::Map::new())
     };
 
-    let (payload, resolved_url) = core_build_prompt_learning_payload(
-        &config_value,
-        task_url,
-        Some(&overrides_value),
-    )
-    .map_err(|e| map_core_err(py, e))?;
+    let (payload, resolved_url) =
+        core_build_prompt_learning_payload(&config_value, task_url, Some(&overrides_value))
+            .map_err(|e| map_core_err(py, e))?;
 
     let payload_py = pythonize::pythonize(py, &payload)
         .map_err(|e| PyValueError::new_err(e.to_string()))?
@@ -2672,8 +2937,7 @@ fn validate_graphgen_taskset(py: Python, dataset: PyObject) -> PyResult<PyObject
 fn parse_graphgen_taskset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
     let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let parsed = core_parse_graphgen_taskset(&dataset_value)
-        .map_err(|e| map_core_err(py, e))?;
+    let parsed = core_parse_graphgen_taskset(&dataset_value).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &parsed)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2681,8 +2945,8 @@ fn parse_graphgen_taskset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
 
 #[pyfunction]
 fn load_graphgen_taskset(py: Python, path: &str) -> PyResult<PyObject> {
-    let parsed = core_load_graphgen_taskset(std::path::Path::new(path))
-        .map_err(|e| map_core_err(py, e))?;
+    let parsed =
+        core_load_graphgen_taskset(std::path::Path::new(path)).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &parsed)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2701,10 +2965,7 @@ fn validate_graph_job_section(
     let (result, errors) = core_validate_graph_job_section(&section_value, base_path);
 
     let mut out = serde_json::Map::new();
-    out.insert(
-        "errors".to_string(),
-        Value::Array(errors),
-    );
+    out.insert("errors".to_string(), Value::Array(errors));
     if let Some(result) = result {
         out.insert("result".to_string(), result);
     } else {
@@ -2774,8 +3035,8 @@ fn convert_openai_sft(
 fn parse_graph_evolve_dataset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
     let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let parsed = core_parse_graph_evolve_dataset(&dataset_value)
-        .map_err(|e| map_core_err(py, e))?;
+    let parsed =
+        core_parse_graph_evolve_dataset(&dataset_value).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &parsed)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2783,8 +3044,7 @@ fn parse_graph_evolve_dataset(py: Python, dataset: PyObject) -> PyResult<PyObjec
 
 #[pyfunction]
 fn load_graph_evolve_dataset(py: Python, path: &str) -> PyResult<PyObject> {
-    let parsed = core_load_graph_evolve_dataset(path)
-        .map_err(|e| map_core_err(py, e))?;
+    let parsed = core_load_graph_evolve_dataset(path).map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &parsed)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2794,8 +3054,7 @@ fn load_graph_evolve_dataset(py: Python, path: &str) -> PyResult<PyObject> {
 fn normalize_graph_evolve_policy_models(py: Python, models: PyObject) -> PyResult<Vec<String>> {
     let models_value: Vec<String> = pythonize::depythonize(models.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    core_normalize_graph_evolve_policy_models(models_value)
-        .map_err(|e| map_core_err(py, e))
+    core_normalize_graph_evolve_policy_models(models_value).map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -2946,9 +3205,9 @@ fn graph_evolve_submit_job(
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().submit_job(payload_value).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().submit_job(payload_value).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2964,9 +3223,9 @@ fn graph_evolve_get_status(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().get_status(job_id).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().get_status(job_id).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2982,9 +3241,9 @@ fn graph_evolve_start_job(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().start_job(job_id).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().start_job(job_id).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3002,9 +3261,14 @@ fn graph_evolve_get_events(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().get_events(job_id, since_seq, limit).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async {
+            client
+                .graph_evolve()
+                .get_events(job_id, since_seq, limit)
+                .await
+        })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3021,9 +3285,14 @@ fn graph_evolve_get_metrics(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().get_metrics(job_id, query_string).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async {
+            client
+                .graph_evolve()
+                .get_metrics(job_id, query_string)
+                .await
+        })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3039,9 +3308,9 @@ fn graph_evolve_download_prompt(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().download_prompt(job_id).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().download_prompt(job_id).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3057,9 +3326,9 @@ fn graph_evolve_download_graph_txt(
 ) -> PyResult<String> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    RUNTIME.block_on(async {
-        client.graph_evolve().download_graph_txt(job_id).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))
+    RUNTIME
+        .block_on(async { client.graph_evolve().download_graph_txt(job_id).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
@@ -3074,9 +3343,9 @@ fn graph_evolve_run_inference(
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().run_inference(payload_value).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().run_inference(payload_value).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3094,9 +3363,9 @@ fn graph_evolve_get_graph_record(
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().get_graph_record(payload_value).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().get_graph_record(payload_value).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3112,16 +3381,20 @@ fn graph_evolve_cancel_job(
     payload: Option<PyObject>,
 ) -> PyResult<PyObject> {
     let payload_value: serde_json::Value = if let Some(obj) = payload {
-        pythonize::depythonize(obj.bind(py))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?
+        pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?
     } else {
         Value::Object(serde_json::Map::new())
     };
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().cancel_job(job_id, payload_value).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async {
+            client
+                .graph_evolve()
+                .cancel_job(job_id, payload_value)
+                .await
+        })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3137,9 +3410,9 @@ fn graph_evolve_query_workflow_state(
 ) -> PyResult<PyObject> {
     let client = RustSynthClient::new(api_key, Some(backend_url))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME.block_on(async {
-        client.graph_evolve().query_workflow_state(job_id).await
-    }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result = RUNTIME
+        .block_on(async { client.graph_evolve().query_workflow_state(job_id).await })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3194,7 +3467,11 @@ fn build_verifier_request(
 
 #[pyfunction]
 #[pyo3(signature = (job_id=None, graph=None))]
-fn resolve_graph_job_id(py: Python, job_id: Option<String>, graph: Option<PyObject>) -> PyResult<String> {
+fn resolve_graph_job_id(
+    py: Python,
+    job_id: Option<String>,
+    graph: Option<PyObject>,
+) -> PyResult<String> {
     let graph_value: Option<Value> = graph
         .map(|g| pythonize::depythonize(g.bind(py)))
         .transpose()
@@ -3225,8 +3502,7 @@ impl TraceUploadClientPy {
     fn trace_size(py: Python, trace: PyObject) -> PyResult<usize> {
         let trace_value: Value = pythonize::depythonize(trace.bind(py))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        RustTraceUploadClient::trace_size(&trace_value)
-            .map_err(|e| map_core_err(py, e))
+        RustTraceUploadClient::trace_size(&trace_value).map_err(|e| map_core_err(py, e))
     }
 
     #[staticmethod]
@@ -3244,12 +3520,13 @@ impl TraceUploadClientPy {
         content_type: Option<&str>,
         expires_in_seconds: Option<i64>,
     ) -> PyResult<PyObject> {
-        let result: RustUploadUrlResponse = RUNTIME.block_on(async {
-            self.inner
-                .create_upload_url(content_type, expires_in_seconds)
-                .await
-        })
-        .map_err(|e| map_core_err(py, e))?;
+        let result: RustUploadUrlResponse = RUNTIME
+            .block_on(async {
+                self.inner
+                    .create_upload_url(content_type, expires_in_seconds)
+                    .await
+            })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3265,12 +3542,13 @@ impl TraceUploadClientPy {
     ) -> PyResult<String> {
         let trace_value: Value = pythonize::depythonize(trace.bind(py))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        RUNTIME.block_on(async {
-            self.inner
-                .upload_trace(&trace_value, content_type, expires_in_seconds)
-                .await
-        })
-        .map_err(|e| map_core_err(py, e))
+        RUNTIME
+            .block_on(async {
+                self.inner
+                    .upload_trace(&trace_value, content_type, expires_in_seconds)
+                    .await
+            })
+            .map_err(|e| map_core_err(py, e))
     }
 
     #[getter]
@@ -3349,8 +3627,7 @@ fn kwargs_to_value(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<V
     if let Some(dict) = kwargs {
         let mut visited = HashSet::new();
         let jsonable = to_jsonable_inner(py, dict.as_any(), &mut visited, 0)?;
-        pythonize::depythonize(jsonable.bind(py))
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::depythonize(jsonable.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))
     } else {
         Ok(Value::Object(serde_json::Map::new()))
     }
@@ -3358,19 +3635,14 @@ fn kwargs_to_value(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<V
 
 fn value_from_pyobject(py: Python, obj: PyObject) -> PyResult<Value> {
     let bound = obj.bind(py);
-    if let Ok(value) = pythonize::depythonize(&bound) {
+    if let Ok(value) = pythonize::depythonize::<Value>(&bound) {
         return Ok(value);
     }
-    for name in ["model_dump", "to_dict", "dict"] {
-        if let Ok(attr) = bound.getattr(name) {
-            if attr.is_callable() {
-                let out = attr.call0()?;
-                return pythonize::depythonize(&out)
-                    .map_err(|e| PyValueError::new_err(e.to_string()));
-            }
-        }
-    }
-    pythonize::depythonize(bound).map_err(|e| PyValueError::new_err(e.to_string()))
+    // Normalize through normalize_python_json which handles custom pyclasses
+    // (via to_dict), lists, dicts, datetimes, enums, numpy, etc.
+    let normalized = normalize_python_json(py, &bound)?;
+    pythonize::depythonize(normalized.bind(py))
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn value_to_pyobject(py: Python, value: &Value) -> PyResult<PyObject> {
@@ -3403,6 +3675,13 @@ fn to_jsonable_inner(
         return Ok(obj.to_object(py));
     }
 
+    // datetime → ISO 8601 string
+    if obj.is_instance_of::<PyDateTime>() || obj.is_instance_of::<PyDate>() {
+        if let Ok(iso) = obj.call_method0("isoformat") {
+            return Ok(iso.to_object(py));
+        }
+    }
+
     if obj.is_instance_of::<PyBytes>() || obj.is_instance_of::<PyByteArray>() {
         let len = obj.len().unwrap_or(0);
         let text = format!("<bytes len={}>", len);
@@ -3420,10 +3699,24 @@ fn to_jsonable_inner(
     if let Ok(numpy) = py.import_bound("numpy") {
         if let Ok(ndarray_type) = numpy.getattr("ndarray") {
             if obj.is_instance(&ndarray_type)? {
-                let shape = obj.getattr("shape").ok().map(|v| v.to_object(py)).unwrap_or(py.None());
-                let dtype = obj.getattr("dtype").ok().map(|v| v.to_object(py)).unwrap_or(py.None());
-                let shape_repr = shape.bind(py).repr().unwrap_or_else(|_| PyString::new_bound(py, "<shape>").into());
-                let dtype_repr = dtype.bind(py).repr().unwrap_or_else(|_| PyString::new_bound(py, "<dtype>").into());
+                let shape = obj
+                    .getattr("shape")
+                    .ok()
+                    .map(|v| v.to_object(py))
+                    .unwrap_or(py.None());
+                let dtype = obj
+                    .getattr("dtype")
+                    .ok()
+                    .map(|v| v.to_object(py))
+                    .unwrap_or(py.None());
+                let shape_repr = shape
+                    .bind(py)
+                    .repr()
+                    .unwrap_or_else(|_| PyString::new_bound(py, "<shape>").into());
+                let dtype_repr = dtype
+                    .bind(py)
+                    .repr()
+                    .unwrap_or_else(|_| PyString::new_bound(py, "<dtype>").into());
                 let text = format!(
                     "<ndarray shape={} dtype={}>",
                     shape_repr.to_string_lossy(),
@@ -3637,23 +3930,63 @@ macro_rules! define_model_pyclass {
 define_model_pyclass!(CriterionExamplePy, "CriterionExample", RustCriterionExample);
 define_model_pyclass!(CriterionPy, "Criterion", RustCriterion);
 define_model_pyclass!(RubricPy, "Rubric", RustRubric);
-define_model_pyclass!(CriterionScoreDataPy, "CriterionScoreData", RustCriterionScoreData);
+define_model_pyclass!(
+    CriterionScoreDataPy,
+    "CriterionScoreData",
+    RustCriterionScoreData
+);
 define_model_pyclass!(RubricAssignmentPy, "RubricAssignment", RustRubricAssignment);
 define_model_pyclass!(JudgementPy, "Judgement", RustJudgement);
 define_model_pyclass!(ObjectiveSpecPy, "ObjectiveSpec", RustObjectiveSpec);
-define_model_pyclass!(RewardObservationPy, "RewardObservation", RustRewardObservation);
-define_model_pyclass!(OutcomeObjectiveAssignmentPy, "OutcomeObjectiveAssignment", RustOutcomeObjectiveAssignment);
-define_model_pyclass!(EventObjectiveAssignmentPy, "EventObjectiveAssignment", RustEventObjectiveAssignment);
-define_model_pyclass!(InstanceObjectiveAssignmentPy, "InstanceObjectiveAssignment", RustInstanceObjectiveAssignment);
-define_model_pyclass!(OutcomeRewardRecordPy, "OutcomeRewardRecord", RustOutcomeRewardRecord);
-define_model_pyclass!(EventRewardRecordPy, "EventRewardRecord", RustEventRewardRecord);
+define_model_pyclass!(
+    RewardObservationPy,
+    "RewardObservation",
+    RustRewardObservation
+);
+define_model_pyclass!(
+    OutcomeObjectiveAssignmentPy,
+    "OutcomeObjectiveAssignment",
+    RustOutcomeObjectiveAssignment
+);
+define_model_pyclass!(
+    EventObjectiveAssignmentPy,
+    "EventObjectiveAssignment",
+    RustEventObjectiveAssignment
+);
+define_model_pyclass!(
+    InstanceObjectiveAssignmentPy,
+    "InstanceObjectiveAssignment",
+    RustInstanceObjectiveAssignment
+);
+define_model_pyclass!(
+    OutcomeRewardRecordPy,
+    "OutcomeRewardRecord",
+    RustOutcomeRewardRecord
+);
+define_model_pyclass!(
+    EventRewardRecordPy,
+    "EventRewardRecord",
+    RustEventRewardRecord
+);
 define_model_pyclass!(RewardAggregatesPy, "RewardAggregates", RustRewardAggregates);
-define_model_pyclass!(CalibrationExamplePy, "CalibrationExample", RustCalibrationExample);
+define_model_pyclass!(
+    CalibrationExamplePy,
+    "CalibrationExample",
+    RustCalibrationExample
+);
 define_model_pyclass!(GoldExamplePy, "GoldExample", RustGoldExample);
 define_model_pyclass!(ContextOverridePy, "ContextOverride", RustContextOverride);
-define_model_pyclass!(ContextOverrideStatusPy, "ContextOverrideStatus", RustContextOverrideStatus);
+define_model_pyclass!(
+    ContextOverrideStatusPy,
+    "ContextOverrideStatus",
+    RustContextOverrideStatus
+);
 define_model_pyclass!(TaskDatasetSpecPy, "TaskDatasetSpec", RustTaskDatasetSpec);
-define_model_pyclass!(MutationTypeStatsPy, "MutationTypeStats", RustMutationTypeStats);
+define_model_pyclass!(
+    MutationTypeStatsPy,
+    "MutationTypeStats",
+    RustMutationTypeStats
+);
 define_model_pyclass!(MutationSummaryPy, "MutationSummary", RustMutationSummary);
 define_model_pyclass!(SeedAnalysisPy, "SeedAnalysis", RustSeedAnalysis);
 define_model_pyclass!(PhaseSummaryPy, "PhaseSummary", RustPhaseSummary);
@@ -3673,22 +4006,22 @@ impl ProgramCandidatePy {
     #[pyo3(signature = (**kwargs))]
     fn new(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         let value = kwargs_to_value(py, kwargs)?;
-        let parsed: RustProgramCandidate = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustProgramCandidate =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
     #[staticmethod]
     fn from_dict(py: Python, payload: PyObject) -> PyResult<Self> {
         let value = value_from_pyobject(py, payload)?;
-        let parsed: RustProgramCandidate = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustProgramCandidate =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
     fn to_dict(&self, py: Python) -> PyResult<PyObject> {
-        let value = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let value =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         value_to_pyobject(py, &value)
     }
 
@@ -3711,8 +4044,8 @@ impl ProgramCandidatePy {
     }
 
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let value = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let value =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         if let Value::Object(map) = value {
             if let Some(val) = map.get(name) {
                 return value_to_pyobject(py, val);
@@ -3730,8 +4063,8 @@ impl ProgramCandidatePy {
 
     fn __setattr__(&mut self, py: Python, name: &str, value: PyObject) -> PyResult<()> {
         let value_json = value_from_pyobject(py, value)?;
-        let current = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let current =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let Value::Object(mut map) = current else {
             return Err(PyAttributeError::new_err(
                 "ProgramCandidate does not expose attributes",
@@ -3763,16 +4096,16 @@ impl BaseJobEventPy {
     #[pyo3(signature = (**kwargs))]
     fn new(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         let value = kwargs_to_value(py, kwargs)?;
-        let parsed: RustBaseJobEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustBaseJobEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
     #[staticmethod]
     fn from_dict(py: Python, payload: PyObject) -> PyResult<Self> {
         let value = value_from_pyobject(py, payload)?;
-        let parsed: RustBaseJobEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustBaseJobEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
@@ -3794,8 +4127,8 @@ impl BaseJobEventPy {
     }
 
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let value = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let value =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         if let Value::Object(map) = value {
             if let Some(val) = map.get(name) {
                 return value_to_pyobject(py, val);
@@ -3805,14 +4138,16 @@ impl BaseJobEventPy {
                 name
             )))
         } else {
-            Err(PyAttributeError::new_err("BaseJobEvent does not expose attributes"))
+            Err(PyAttributeError::new_err(
+                "BaseJobEvent does not expose attributes",
+            ))
         }
     }
 
     fn __setattr__(&mut self, py: Python, name: &str, value: PyObject) -> PyResult<()> {
         let value_json = value_from_pyobject(py, value)?;
-        let current = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let current =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let Value::Object(mut map) = current else {
             return Err(PyAttributeError::new_err(
                 "BaseJobEvent does not expose attributes",
@@ -3844,16 +4179,16 @@ impl JobEventPy {
     #[pyo3(signature = (**kwargs))]
     fn new(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         let value = kwargs_to_value(py, kwargs)?;
-        let parsed: RustJobEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustJobEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
     #[staticmethod]
     fn from_dict(py: Python, payload: PyObject) -> PyResult<Self> {
         let value = value_from_pyobject(py, payload)?;
-        let parsed: RustJobEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustJobEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
@@ -3875,24 +4210,31 @@ impl JobEventPy {
     }
 
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let value = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let value =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         if let Value::Object(map) = value {
             if let Some(val) = map.get(name) {
                 return value_to_pyobject(py, val);
             }
-            Err(PyAttributeError::new_err(format!("JobEvent has no attribute '{}'", name)))
+            Err(PyAttributeError::new_err(format!(
+                "JobEvent has no attribute '{}'",
+                name
+            )))
         } else {
-            Err(PyAttributeError::new_err("JobEvent does not expose attributes"))
+            Err(PyAttributeError::new_err(
+                "JobEvent does not expose attributes",
+            ))
         }
     }
 
     fn __setattr__(&mut self, py: Python, name: &str, value: PyObject) -> PyResult<()> {
         let value_json = value_from_pyobject(py, value)?;
-        let current = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let current =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let Value::Object(mut map) = current else {
-            return Err(PyAttributeError::new_err("JobEvent does not expose attributes"));
+            return Err(PyAttributeError::new_err(
+                "JobEvent does not expose attributes",
+            ));
         };
         if !map.contains_key(name) {
             return Err(PyAttributeError::new_err(format!(
@@ -3920,16 +4262,16 @@ impl CandidateEventPy {
     #[pyo3(signature = (**kwargs))]
     fn new(py: Python, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         let value = kwargs_to_value(py, kwargs)?;
-        let parsed: RustCandidateEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustCandidateEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
     #[staticmethod]
     fn from_dict(py: Python, payload: PyObject) -> PyResult<Self> {
         let value = value_from_pyobject(py, payload)?;
-        let parsed: RustCandidateEvent = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustCandidateEvent =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self { inner: parsed })
     }
 
@@ -3951,8 +4293,8 @@ impl CandidateEventPy {
     }
 
     fn __getattr__(&self, py: Python, name: &str) -> PyResult<PyObject> {
-        let value = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let value =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         if let Value::Object(map) = value {
             if let Some(val) = map.get(name) {
                 return value_to_pyobject(py, val);
@@ -3970,8 +4312,8 @@ impl CandidateEventPy {
 
     fn __setattr__(&mut self, py: Python, name: &str, value: PyObject) -> PyResult<()> {
         let value_json = value_from_pyobject(py, value)?;
-        let current = serde_json::to_value(&self.inner)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let current =
+            serde_json::to_value(&self.inner).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let Value::Object(mut map) = current else {
             return Err(PyAttributeError::new_err(
                 "CandidateEvent does not expose attributes",
@@ -3994,13 +4336,21 @@ define_model_pyclass!(ArtifactPy, "Artifact", RustArtifact);
 define_model_pyclass!(ArtifactBundlePy, "ArtifactBundle", RustArtifactBundle);
 
 define_model_pyclass!(TimeRecordPy, "TimeRecord", RustTimeRecord);
-define_model_pyclass!(MessageContentPy, "SessionMessageContent", RustMessageContent);
+define_model_pyclass!(
+    MessageContentPy,
+    "SessionMessageContent",
+    RustMessageContent
+);
 define_model_pyclass!(BaseEventFieldsPy, "BaseEventFields", RustBaseEventFields);
 define_model_pyclass!(LMCAISEventPy, "LMCAISEvent", RustLMCAISEvent);
 define_model_pyclass!(EnvironmentEventPy, "EnvironmentEvent", RustEnvironmentEvent);
 define_model_pyclass!(RuntimeEventPy, "RuntimeEvent", RustRuntimeEvent);
 define_model_pyclass!(TracingEventPy, "TracingEvent", RustTracingEvent);
-define_model_pyclass!(MarkovBlanketMessagePy, "SessionEventMarkovBlanketMessage", RustMarkovBlanketMessage);
+define_model_pyclass!(
+    MarkovBlanketMessagePy,
+    "SessionEventMarkovBlanketMessage",
+    RustMarkovBlanketMessage
+);
 define_model_pyclass!(SessionTimeStepPy, "SessionTimeStep", RustSessionTimeStep);
 define_model_pyclass!(SessionTracePy, "SessionTrace", RustSessionTrace);
 
@@ -4040,7 +4390,10 @@ fn parse_optimization_event(py: Python, payload: PyObject) -> PyResult<PyObject>
     let parsed = RustEventParser::parse(&value);
 
     let mut out = serde_json::Map::new();
-    out.insert("event_type".to_string(), Value::String(parsed.event_type.clone()));
+    out.insert(
+        "event_type".to_string(),
+        Value::String(parsed.event_type.clone()),
+    );
     out.insert(
         "category".to_string(),
         Value::String(parsed.category.as_str().to_string()),
@@ -4056,35 +4409,59 @@ fn parse_optimization_event(py: Python, payload: PyObject) -> PyResult<PyObject>
     match parsed.category {
         synth_ai_core::orchestration::events::EventCategory::Baseline => {
             let detail = RustEventParser::parse_baseline(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Candidate => {
             let detail = RustEventParser::parse_candidate(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Frontier => {
             let detail = RustEventParser::parse_frontier(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Progress => {
             let detail = RustEventParser::parse_progress(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Generation => {
             let detail = RustEventParser::parse_generation(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Complete => {
             let detail = RustEventParser::parse_complete(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Termination => {
             let detail = RustEventParser::parse_termination(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         synth_ai_core::orchestration::events::EventCategory::Usage => {
             let detail = RustEventParser::parse_usage(&parsed);
-            merge_json_map(&mut out, serde_json::to_value(detail).unwrap_or(Value::Null));
+            merge_json_map(
+                &mut out,
+                serde_json::to_value(detail).unwrap_or(Value::Null),
+            );
         }
         _ => {}
     }
@@ -4145,12 +4522,13 @@ fn orchestration_extract_stages_from_candidate(
 ) -> PyResult<PyObject> {
     let value: Value = pythonize::depythonize(candidate.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = core_extract_stages_from_candidate(&value, require_stages, candidate_id.as_deref())
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let result =
+        core_extract_stages_from_candidate(&value, require_stages, candidate_id.as_deref())
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
     match result {
         Some(stages) => {
-            let stages_value = serde_json::to_value(stages)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            let stages_value =
+                serde_json::to_value(stages).map_err(|e| PyValueError::new_err(e.to_string()))?;
             pythonize::pythonize(py, &stages_value)
                 .map(|b| b.unbind())
                 .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4160,14 +4538,20 @@ fn orchestration_extract_stages_from_candidate(
 }
 
 #[pyfunction]
-fn orchestration_extract_program_candidate_content(py: Python, candidate: PyObject) -> PyResult<String> {
+fn orchestration_extract_program_candidate_content(
+    py: Python,
+    candidate: PyObject,
+) -> PyResult<String> {
     let value: Value = pythonize::depythonize(candidate.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     Ok(core_extract_program_candidate_content(&value))
 }
 
 #[pyfunction]
-fn orchestration_normalize_transformation(py: Python, transformation: PyObject) -> PyResult<PyObject> {
+fn orchestration_normalize_transformation(
+    py: Python,
+    transformation: PyObject,
+) -> PyResult<PyObject> {
     let value: Value = pythonize::depythonize(transformation.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     match core_normalize_transformation(&value) {
@@ -4285,8 +4669,8 @@ fn orchestration_merge_event_schema(
     algorithm: &str,
     event_type: &str,
 ) -> PyResult<PyObject> {
-    let base_value: Value = pythonize::depythonize(base.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let base_value: Value =
+        pythonize::depythonize(base.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?;
     let extension_value: Value = pythonize::depythonize(extension.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let merged = core_merge_event_schema(&base_value, &extension_value, algorithm, event_type);
@@ -4374,53 +4758,49 @@ impl ProgressTrackerPy {
 // =============================================================================
 
 use synth_ai_core::api::{
-    SynthClient as RustSynthClient,
-    GepaJobRequest, MiproJobRequest, EvalJobRequest,
-    GraphCompletionRequest, VerifierOptions,
     build_verifier_request as core_build_verifier_request,
-    resolve_graph_job_id as core_resolve_graph_job_id,
-};
-use synth_ai_core::orchestration::{
-    PromptLearningJob as RustPromptLearningJob,
-    GraphEvolveJob as RustGraphEvolveJob,
-    ProgressTracker as RustProgressTracker,
-    parse_job_event as core_parse_job_event,
-    validate_base_event as core_validate_base_event,
-    build_prompt_learning_payload as core_build_prompt_learning_payload,
-    validate_prompt_learning_config as core_validate_prompt_learning_config,
-    validate_prompt_learning_config_strict as core_validate_prompt_learning_config_strict,
-    validate_graphgen_job_config as core_validate_graphgen_job_config,
-    graph_opt_supported_models as core_graph_opt_supported_models,
-    validate_graphgen_taskset as core_validate_graphgen_taskset,
-    parse_graphgen_taskset as core_parse_graphgen_taskset,
-    load_graphgen_taskset as core_load_graphgen_taskset,
-    validate_graph_job_section as core_validate_graph_job_section,
-    load_graph_job_toml as core_load_graph_job_toml,
-    validate_graph_job_payload as core_validate_graph_job_payload,
-    convert_openai_sft as core_convert_openai_sft,
-    seed_reward_entry as core_seed_reward_entry,
-    extract_stages_from_candidate as core_extract_stages_from_candidate,
-    extract_program_candidate_content as core_extract_program_candidate_content,
-    normalize_transformation as core_normalize_transformation,
-    build_program_candidate as core_build_program_candidate,
-    event_enum_values as core_event_enum_values,
-    is_valid_event_type as core_is_valid_event_type,
-    validate_event_type as core_validate_event_type,
-    base_event_schemas as core_base_event_schemas,
-    base_job_event_schema as core_base_job_event_schema,
-    get_base_schema as core_get_base_schema,
-    merge_event_schema as core_merge_event_schema,
-    parse_graph_evolve_dataset as core_parse_graph_evolve_dataset,
-    load_graph_evolve_dataset as core_load_graph_evolve_dataset,
-    normalize_graph_evolve_policy_models as core_normalize_graph_evolve_policy_models,
-    build_graph_evolve_config as core_build_graph_evolve_config,
-    build_graph_evolve_payload as core_build_graph_evolve_payload,
-    resolve_graph_evolve_snapshot_id as core_resolve_graph_evolve_snapshot_id,
-    build_graph_evolve_graph_record_payload as core_build_graph_evolve_graph_record_payload,
-    build_graph_evolve_inference_payload as core_build_graph_evolve_inference_payload,
-    build_graph_evolve_placeholder_dataset as core_build_graph_evolve_placeholder_dataset,
+    resolve_graph_job_id as core_resolve_graph_job_id, EvalJobRequest, GepaJobRequest,
+    GraphCompletionRequest, LocalApiDeployResponse, LocalApiDeploySpec, LocalApiDeployStatus,
+    LocalApiDeploymentInfo, LocalApiLimits, MiproJobRequest, SynthClient as RustSynthClient,
+    VerifierOptions,
 };
 use synth_ai_core::orchestration::events::EventParser as RustEventParser;
+use synth_ai_core::orchestration::{
+    base_event_schemas as core_base_event_schemas,
+    base_job_event_schema as core_base_job_event_schema,
+    build_graph_evolve_config as core_build_graph_evolve_config,
+    build_graph_evolve_graph_record_payload as core_build_graph_evolve_graph_record_payload,
+    build_graph_evolve_inference_payload as core_build_graph_evolve_inference_payload,
+    build_graph_evolve_payload as core_build_graph_evolve_payload,
+    build_graph_evolve_placeholder_dataset as core_build_graph_evolve_placeholder_dataset,
+    build_program_candidate as core_build_program_candidate,
+    build_prompt_learning_payload as core_build_prompt_learning_payload,
+    convert_openai_sft as core_convert_openai_sft, event_enum_values as core_event_enum_values,
+    extract_program_candidate_content as core_extract_program_candidate_content,
+    extract_stages_from_candidate as core_extract_stages_from_candidate,
+    get_base_schema as core_get_base_schema,
+    graph_opt_supported_models as core_graph_opt_supported_models,
+    is_valid_event_type as core_is_valid_event_type,
+    load_graph_evolve_dataset as core_load_graph_evolve_dataset,
+    load_graph_job_toml as core_load_graph_job_toml,
+    load_graphgen_taskset as core_load_graphgen_taskset,
+    merge_event_schema as core_merge_event_schema,
+    normalize_graph_evolve_policy_models as core_normalize_graph_evolve_policy_models,
+    normalize_transformation as core_normalize_transformation,
+    parse_graph_evolve_dataset as core_parse_graph_evolve_dataset,
+    parse_graphgen_taskset as core_parse_graphgen_taskset, parse_job_event as core_parse_job_event,
+    resolve_graph_evolve_snapshot_id as core_resolve_graph_evolve_snapshot_id,
+    seed_reward_entry as core_seed_reward_entry, validate_base_event as core_validate_base_event,
+    validate_event_type as core_validate_event_type,
+    validate_graph_job_payload as core_validate_graph_job_payload,
+    validate_graph_job_section as core_validate_graph_job_section,
+    validate_graphgen_job_config as core_validate_graphgen_job_config,
+    validate_graphgen_taskset as core_validate_graphgen_taskset,
+    validate_prompt_learning_config as core_validate_prompt_learning_config,
+    validate_prompt_learning_config_strict as core_validate_prompt_learning_config_strict,
+    GraphEvolveJob as RustGraphEvolveJob, ProgressTracker as RustProgressTracker,
+    PromptLearningJob as RustPromptLearningJob,
+};
 
 #[pyclass]
 struct SynthClient {
@@ -4430,12 +4810,12 @@ struct SynthClient {
 #[pymethods]
 impl SynthClient {
     #[new]
-    #[pyo3(signature = (api_key=None, base_url=None))]
-    fn new(api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
-        let client = if let Some(key) = api_key {
-            RustSynthClient::new(key, base_url)
-        } else {
-            RustSynthClient::from_env()
+    #[pyo3(signature = (api_key=None, base_url=None, timeout_secs=None))]
+    fn new(api_key: Option<&str>, base_url: Option<&str>, timeout_secs: Option<u64>) -> PyResult<Self> {
+        let client = match (api_key, timeout_secs) {
+            (Some(key), Some(t)) => RustSynthClient::with_timeout(key, base_url, t),
+            (Some(key), None) => RustSynthClient::new(key, base_url),
+            (None, _) => RustSynthClient::from_env(),
         };
         client
             .map(|inner| Self { inner })
@@ -4455,18 +4835,18 @@ impl SynthClient {
     fn submit_gepa(&self, py: Python, request: PyObject) -> PyResult<String> {
         let req: GepaJobRequest = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        RUNTIME.block_on(async {
-            self.inner.jobs().submit_gepa(req).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { self.inner.jobs().submit_gepa(req).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (request))]
     fn submit_mipro(&self, py: Python, request: PyObject) -> PyResult<String> {
         let req: MiproJobRequest = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        RUNTIME.block_on(async {
-            self.inner.jobs().submit_mipro(req).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { self.inner.jobs().submit_mipro(req).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (request, task_app_worker_token=None))]
@@ -4478,32 +4858,42 @@ impl SynthClient {
     ) -> PyResult<String> {
         let req: serde_json::Value = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        RUNTIME.block_on(async {
-            self.inner
-                .jobs()
-                .submit_raw_with_worker_token(
-                    req,
-                    task_app_worker_token.map(|s| s.to_string()),
-                )
-                .await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async {
+                self.inner
+                    .jobs()
+                    .submit_raw_with_worker_token(req, task_app_worker_token.map(|s| s.to_string()))
+                    .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (job_id))]
     fn get_job_status(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.jobs().get_status(job_id).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.jobs().get_status(job_id).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (job_id, timeout_secs=3600.0, interval_secs=15.0))]
-    fn poll_job(&self, py: Python, job_id: &str, timeout_secs: f64, interval_secs: f64) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.jobs().poll_until_complete(job_id, timeout_secs, interval_secs).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    fn poll_job(
+        &self,
+        py: Python,
+        job_id: &str,
+        timeout_secs: f64,
+        interval_secs: f64,
+    ) -> PyResult<PyObject> {
+        let result = RUNTIME
+            .block_on(async {
+                self.inner
+                    .jobs()
+                    .poll_until_complete(job_id, timeout_secs, interval_secs)
+                    .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4511,9 +4901,23 @@ impl SynthClient {
 
     #[pyo3(signature = (job_id, reason=None))]
     fn cancel_job(&self, job_id: &str, reason: Option<&str>) -> PyResult<()> {
-        RUNTIME.block_on(async {
-            self.inner.jobs().cancel(job_id, reason).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { self.inner.jobs().cancel(job_id, reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (job_id, reason=None))]
+    fn pause_job(&self, job_id: &str, reason: Option<&str>) -> PyResult<()> {
+        RUNTIME
+            .block_on(async { self.inner.jobs().pause(job_id, reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (job_id, reason=None))]
+    fn resume_job(&self, job_id: &str, reason: Option<&str>) -> PyResult<()> {
+        RUNTIME
+            .block_on(async { self.inner.jobs().resume(job_id, reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     // -------------------------------------------------------------------------
@@ -4524,26 +4928,37 @@ impl SynthClient {
     fn submit_eval(&self, py: Python, request: PyObject) -> PyResult<String> {
         let req: EvalJobRequest = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        RUNTIME.block_on(async {
-            self.inner.eval().submit(req).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { self.inner.eval().submit(req).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (job_id))]
     fn get_eval_status(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.eval().get_status(job_id).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.eval().get_status(job_id).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (job_id, timeout_secs=1800.0, interval_secs=10.0))]
-    fn poll_eval(&self, py: Python, job_id: &str, timeout_secs: f64, interval_secs: f64) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.eval().poll_until_complete(job_id, timeout_secs, interval_secs).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+    fn poll_eval(
+        &self,
+        py: Python,
+        job_id: &str,
+        timeout_secs: f64,
+        interval_secs: f64,
+    ) -> PyResult<PyObject> {
+        let result = RUNTIME
+            .block_on(async {
+                self.inner
+                    .eval()
+                    .poll_until_complete(job_id, timeout_secs, interval_secs)
+                    .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4552,9 +4967,9 @@ impl SynthClient {
     #[pyo3(signature = (job_id, reason=None))]
     fn cancel_eval(&self, py: Python, job_id: &str, reason: Option<&str>) -> PyResult<PyObject> {
         let reason_owned = reason.map(|s| s.to_string());
-        let result = RUNTIME.block_on(async {
-            self.inner.eval().cancel(job_id, reason_owned).await
-        }).map_err(|e| map_core_err(py, e))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.eval().cancel(job_id, reason_owned).await })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4578,9 +4993,9 @@ impl SynthClient {
 
     #[pyo3(signature = (job_id))]
     fn get_eval_results(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.eval().get_results(job_id).await
-        }).map_err(|e| map_core_err(py, e))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.eval().get_results(job_id).await })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4588,17 +5003,17 @@ impl SynthClient {
 
     #[pyo3(signature = (job_id))]
     fn download_eval_traces(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let bytes = RUNTIME.block_on(async {
-            self.inner.eval().download_traces(job_id).await
-        }).map_err(|e| map_core_err(py, e))?;
+        let bytes = RUNTIME
+            .block_on(async { self.inner.eval().download_traces(job_id).await })
+            .map_err(|e| map_core_err(py, e))?;
         Ok(PyBytes::new_bound(py, &bytes).into_py(py))
     }
 
     #[pyo3(signature = (job_id))]
     fn query_eval_workflow_state(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.eval().query_workflow_state(job_id).await
-        }).map_err(|e| map_core_err(py, e))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.eval().query_workflow_state(job_id).await })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4609,10 +5024,15 @@ impl SynthClient {
     // -------------------------------------------------------------------------
 
     #[pyo3(signature = (kind=None, limit=None))]
-    fn list_graphs(&self, py: Python, kind: Option<&str>, limit: Option<i32>) -> PyResult<PyObject> {
-        let result = RUNTIME.block_on(async {
-            self.inner.graphs().list_graphs(kind, limit).await
-        }).map_err(|e| map_core_err(py, e))?;
+    fn list_graphs(
+        &self,
+        py: Python,
+        kind: Option<&str>,
+        limit: Option<i32>,
+    ) -> PyResult<PyObject> {
+        let result = RUNTIME
+            .block_on(async { self.inner.graphs().list_graphs(kind, limit).await })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4622,16 +5042,22 @@ impl SynthClient {
     fn graph_complete(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
         let req: GraphCompletionRequest = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        let result = RUNTIME.block_on(async {
-            self.inner.graphs().complete(req).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { self.inner.graphs().complete(req).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (trace, rubric, options=None))]
-    fn verify(&self, py: Python, trace: PyObject, rubric: PyObject, options: Option<PyObject>) -> PyResult<PyObject> {
+    fn verify(
+        &self,
+        py: Python,
+        trace: PyObject,
+        rubric: PyObject,
+        options: Option<PyObject>,
+    ) -> PyResult<PyObject> {
         let trace_value: serde_json::Value = pythonize::depythonize(trace.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid trace: {}", e)))?;
         let rubric_value: serde_json::Value = pythonize::depythonize(rubric.bind(py))
@@ -4641,21 +5067,37 @@ impl SynthClient {
             .transpose()
             .map_err(|e| PyValueError::new_err(format!("invalid options: {}", e)))?;
 
-        let result = RUNTIME.block_on(async {
-            self.inner.graphs().verify(trace_value, rubric_value, opts).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async {
+                self.inner
+                    .graphs()
+                    .verify(trace_value, rubric_value, opts)
+                    .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (job_id, input, model=None))]
-    fn policy_inference(&self, py: Python, job_id: &str, input: PyObject, model: Option<&str>) -> PyResult<PyObject> {
+    fn policy_inference(
+        &self,
+        py: Python,
+        job_id: &str,
+        input: PyObject,
+        model: Option<&str>,
+    ) -> PyResult<PyObject> {
         let input_value: serde_json::Value = pythonize::depythonize(input.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid input: {}", e)))?;
-        let result = RUNTIME.block_on(async {
-            self.inner.graphs().policy_inference(job_id, input_value, model).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async {
+                self.inner
+                    .graphs()
+                    .policy_inference(job_id, input_value, model)
+                    .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4690,8 +5132,10 @@ impl PromptLearningJob {
             base_url,
             task_app_worker_token.map(|s| s.to_string()),
         )
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self { inner: std::sync::Mutex::new(job) })
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(Self {
+            inner: std::sync::Mutex::new(job),
+        })
     }
 
     #[staticmethod]
@@ -4699,7 +5143,9 @@ impl PromptLearningJob {
     fn from_job_id(job_id: &str, api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
         let job = RustPromptLearningJob::from_job_id(job_id, api_key, base_url)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self { inner: std::sync::Mutex::new(job) })
+        Ok(Self {
+            inner: std::sync::Mutex::new(job),
+        })
     }
 
     #[getter]
@@ -4709,27 +5155,32 @@ impl PromptLearningJob {
 
     fn submit(&self) -> PyResult<String> {
         let mut job = self.inner.lock().unwrap();
-        RUNTIME.block_on(async {
-            job.submit().await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { job.submit().await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn get_status(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async {
-            job.get_status().await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { job.get_status().await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[pyo3(signature = (timeout_secs=3600.0, interval_secs=15.0))]
-    fn poll_until_complete(&self, py: Python, timeout_secs: f64, interval_secs: f64) -> PyResult<PyObject> {
+    fn poll_until_complete(
+        &self,
+        py: Python,
+        timeout_secs: f64,
+        interval_secs: f64,
+    ) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async {
-            job.poll_until_complete(timeout_secs, interval_secs).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { job.poll_until_complete(timeout_secs, interval_secs).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4738,9 +5189,15 @@ impl PromptLearningJob {
     #[pyo3(signature = (timeout_secs=3600.0))]
     fn stream_until_complete(&self, py: Python, timeout_secs: f64) -> PyResult<PyObject> {
         let mut job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async {
-            job.stream_until_complete::<fn(&synth_ai_core::orchestration::ParsedEvent)>(timeout_secs, None).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async {
+                job.stream_until_complete::<fn(&synth_ai_core::orchestration::ParsedEvent)>(
+                    timeout_secs,
+                    None,
+                )
+                .await
+            })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4749,16 +5206,32 @@ impl PromptLearningJob {
     #[pyo3(signature = (reason=None))]
     fn cancel(&self, reason: Option<&str>) -> PyResult<()> {
         let job = self.inner.lock().unwrap();
-        RUNTIME.block_on(async {
-            job.cancel(reason).await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))
+        RUNTIME
+            .block_on(async { job.cancel(reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (reason=None))]
+    fn pause(&self, reason: Option<&str>) -> PyResult<()> {
+        let job = self.inner.lock().unwrap();
+        RUNTIME
+            .block_on(async { job.pause(reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (reason=None))]
+    fn resume(&self, reason: Option<&str>) -> PyResult<()> {
+        let job = self.inner.lock().unwrap();
+        RUNTIME
+            .block_on(async { job.resume(reason).await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn get_results(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async {
-            job.get_results().await
-        }).map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result = RUNTIME
+            .block_on(async { job.get_results().await })
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -4786,12 +5259,19 @@ struct GraphEvolveJob {
 impl GraphEvolveJob {
     #[staticmethod]
     #[pyo3(signature = (payload, api_key=None, base_url=None))]
-    fn from_payload(py: Python, payload: PyObject, api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
+    fn from_payload(
+        py: Python,
+        payload: PyObject,
+        api_key: Option<&str>,
+        base_url: Option<&str>,
+    ) -> PyResult<Self> {
         let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
         let job = RustGraphEvolveJob::from_payload(payload_value, api_key, base_url)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self { inner: std::sync::Mutex::new(job) })
+        Ok(Self {
+            inner: std::sync::Mutex::new(job),
+        })
     }
 
     #[staticmethod]
@@ -4799,7 +5279,9 @@ impl GraphEvolveJob {
     fn from_job_id(job_id: &str, api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
         let job = RustGraphEvolveJob::from_job_id(job_id, api_key, base_url)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self { inner: std::sync::Mutex::new(job) })
+        Ok(Self {
+            inner: std::sync::Mutex::new(job),
+        })
     }
 
     #[getter]
@@ -4809,12 +5291,17 @@ impl GraphEvolveJob {
 
     #[getter]
     fn legacy_graphgen_job_id(&self) -> Option<String> {
-        self.inner.lock().unwrap().legacy_job_id().map(|s| s.to_string())
+        self.inner
+            .lock()
+            .unwrap()
+            .legacy_job_id()
+            .map(|s| s.to_string())
     }
 
     fn submit(&self, py: Python) -> PyResult<PyObject> {
         let mut job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.submit().await })
+        let result = RUNTIME
+            .block_on(async { job.submit().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4823,7 +5310,8 @@ impl GraphEvolveJob {
 
     fn get_status(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.get_status().await })
+        let result = RUNTIME
+            .block_on(async { job.get_status().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4832,7 +5320,8 @@ impl GraphEvolveJob {
 
     fn start(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.start().await })
+        let result = RUNTIME
+            .block_on(async { job.start().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4842,7 +5331,8 @@ impl GraphEvolveJob {
     #[pyo3(signature = (since_seq=0, limit=1000))]
     fn get_events(&self, py: Python, since_seq: i64, limit: i64) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.get_events(since_seq, limit).await })
+        let result = RUNTIME
+            .block_on(async { job.get_events(since_seq, limit).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4852,7 +5342,8 @@ impl GraphEvolveJob {
     #[pyo3(signature = (query_string=""))]
     fn get_metrics(&self, py: Python, query_string: &str) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.get_metrics(query_string).await })
+        let result = RUNTIME
+            .block_on(async { job.get_metrics(query_string).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4861,7 +5352,8 @@ impl GraphEvolveJob {
 
     fn download_prompt(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.download_prompt().await })
+        let result = RUNTIME
+            .block_on(async { job.download_prompt().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4870,7 +5362,8 @@ impl GraphEvolveJob {
 
     fn download_graph_txt(&self) -> PyResult<String> {
         let job = self.inner.lock().unwrap();
-        RUNTIME.block_on(async { job.download_graph_txt().await })
+        RUNTIME
+            .block_on(async { job.download_graph_txt().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -4879,7 +5372,8 @@ impl GraphEvolveJob {
         let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.run_inference(payload_value).await })
+        let result = RUNTIME
+            .block_on(async { job.run_inference(payload_value).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4891,7 +5385,8 @@ impl GraphEvolveJob {
         let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.get_graph_record(payload_value).await })
+        let result = RUNTIME
+            .block_on(async { job.get_graph_record(payload_value).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4907,7 +5402,8 @@ impl GraphEvolveJob {
             Value::Object(serde_json::Map::new())
         };
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.cancel(payload_value).await })
+        let result = RUNTIME
+            .block_on(async { job.cancel(payload_value).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4916,7 +5412,8 @@ impl GraphEvolveJob {
 
     fn query_workflow_state(&self, py: Python) -> PyResult<PyObject> {
         let job = self.inner.lock().unwrap();
-        let result = RUNTIME.block_on(async { job.query_workflow_state().await })
+        let result = RUNTIME
+            .block_on(async { job.query_workflow_state().await })
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
@@ -4927,7 +5424,9 @@ impl GraphEvolveJob {
 #[pyfunction]
 #[pyo3(signature = (model_name=None))]
 fn tracing_detect_provider(_py: Python, model_name: Option<String>) -> PyResult<String> {
-    Ok(synth_ai_core::tracing::detect_provider(model_name.as_deref()))
+    Ok(synth_ai_core::tracing::detect_provider(
+        model_name.as_deref(),
+    ))
 }
 
 #[pyfunction]
@@ -4950,8 +5449,7 @@ fn tracing_calculate_cost(
 
 fn py_to_map(py: Python, obj: Option<PyObject>) -> PyResult<HashMap<String, Value>> {
     if let Some(val) = obj {
-        pythonize::depythonize(val.bind(py))
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+        pythonize::depythonize(val.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))
     } else {
         Ok(HashMap::new())
     }
@@ -5003,7 +5501,10 @@ fn coerce_tracing_event(value: Value) -> Result<RustTracingEvent, String> {
             return Err("unable to infer tracing event_type".to_string());
         };
         if let Some(obj) = value.as_object_mut() {
-            obj.insert("event_type".to_string(), Value::String(event_type.to_string()));
+            obj.insert(
+                "event_type".to_string(),
+                Value::String(event_type.to_string()),
+            );
         }
     }
     serde_json::from_value(value).map_err(|e| e.to_string())
@@ -5117,7 +5618,12 @@ impl SessionTracerPy {
     }
 
     #[pyo3(signature = (session_id=None, metadata=None))]
-    fn start_session(&self, py: Python, session_id: Option<&str>, metadata: Option<PyObject>) -> PyResult<String> {
+    fn start_session(
+        &self,
+        py: Python,
+        session_id: Option<&str>,
+        metadata: Option<PyObject>,
+    ) -> PyResult<String> {
         let metadata_value = py_to_map(py, metadata)?;
         RUNTIME
             .block_on(self.inner.start_session(session_id, metadata_value))
@@ -5134,7 +5640,10 @@ impl SessionTracerPy {
     ) -> PyResult<()> {
         let metadata_value = py_to_map(py, metadata)?;
         RUNTIME
-            .block_on(self.inner.start_timestep(step_id, turn_number, metadata_value))
+            .block_on(
+                self.inner
+                    .start_timestep(step_id, turn_number, metadata_value),
+            )
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -5586,9 +6095,8 @@ impl TaskAppClientPy {
     }
 
     fn rollout(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let req: synth_ai_core::localapi::RolloutRequest =
-            pythonize::depythonize(request.bind(py))
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let req: synth_ai_core::localapi::RolloutRequest = pythonize::depythonize(request.bind(py))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let result = RUNTIME
             .block_on(self.inner.rollout(&req))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -5628,7 +6136,10 @@ impl TaskAppClientPy {
 
     fn wait_for_healthy(&self, timeout_seconds: f64, poll_interval_seconds: f64) -> PyResult<()> {
         RUNTIME
-            .block_on(self.inner.wait_for_healthy(timeout_seconds, poll_interval_seconds))
+            .block_on(
+                self.inner
+                    .wait_for_healthy(timeout_seconds, poll_interval_seconds),
+            )
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
@@ -5711,10 +6222,16 @@ impl TaskDatasetRegistryPy {
     }
 
     #[pyo3(signature = (spec, loader, cache=true))]
-    fn register(&mut self, py: Python, spec: PyObject, loader: PyObject, cache: bool) -> PyResult<()> {
+    fn register(
+        &mut self,
+        py: Python,
+        spec: PyObject,
+        loader: PyObject,
+        cache: bool,
+    ) -> PyResult<()> {
         let value = value_from_pyobject(py, spec)?;
-        let parsed: RustTaskDatasetSpec = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustTaskDatasetSpec =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         parsed.validate().map_err(|e| map_core_err(py, e))?;
         let key = parsed.id.clone();
         self.entries.insert(key, (parsed, loader, cache));
@@ -5722,38 +6239,45 @@ impl TaskDatasetRegistryPy {
     }
 
     fn describe(&self, dataset_id: String) -> PyResult<TaskDatasetSpecPy> {
-        let (spec, _, _) = self
-            .entries
-            .get(&dataset_id)
-            .ok_or_else(|| PyValueError::new_err(format!("Dataset not registered: {dataset_id}")))?;
-        Ok(TaskDatasetSpecPy { inner: spec.clone() })
+        let (spec, _, _) = self.entries.get(&dataset_id).ok_or_else(|| {
+            PyValueError::new_err(format!("Dataset not registered: {dataset_id}"))
+        })?;
+        Ok(TaskDatasetSpecPy {
+            inner: spec.clone(),
+        })
     }
 
     fn list(&self) -> PyResult<Vec<TaskDatasetSpecPy>> {
         Ok(self
             .entries
             .values()
-            .map(|(spec, _, _)| TaskDatasetSpecPy { inner: spec.clone() })
+            .map(|(spec, _, _)| TaskDatasetSpecPy {
+                inner: spec.clone(),
+            })
             .collect())
     }
 
     fn get(&mut self, py: Python, spec: PyObject) -> PyResult<PyObject> {
         let bound = spec.bind(py);
-        let (effective_spec, loader, cache_enabled) = if let Ok(dataset_id) = bound.extract::<String>() {
-            let (base, loader, cache_enabled) = self
-                .entries
-                .get(&dataset_id)
-                .ok_or_else(|| PyValueError::new_err(format!("Dataset not registered: {dataset_id}")))?;
+        let (effective_spec, loader, cache_enabled) = if let Ok(dataset_id) =
+            bound.extract::<String>()
+        {
+            let (base, loader, cache_enabled) = self.entries.get(&dataset_id).ok_or_else(|| {
+                PyValueError::new_err(format!("Dataset not registered: {dataset_id}"))
+            })?;
             (base.clone(), loader.clone_ref(py), *cache_enabled)
         } else {
             let value = value_from_pyobject(py, spec)?;
-            let parsed: RustTaskDatasetSpec = serde_json::from_value(value)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
-            let (base, loader, cache_enabled) = self
-                .entries
-                .get(&parsed.id)
-                .ok_or_else(|| PyValueError::new_err(format!("Dataset not registered: {}", parsed.id)))?;
-            (base.merge_with(&parsed), loader.clone_ref(py), *cache_enabled)
+            let parsed: RustTaskDatasetSpec =
+                serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
+            let (base, loader, cache_enabled) = self.entries.get(&parsed.id).ok_or_else(|| {
+                PyValueError::new_err(format!("Dataset not registered: {}", parsed.id))
+            })?;
+            (
+                base.merge_with(&parsed),
+                loader.clone_ref(py),
+                *cache_enabled,
+            )
         };
 
         let cache_key = (
@@ -5767,7 +6291,12 @@ impl TaskDatasetRegistryPy {
             }
         }
 
-        let spec_obj = Py::new(py, TaskDatasetSpecPy { inner: effective_spec })?;
+        let spec_obj = Py::new(
+            py,
+            TaskDatasetSpecPy {
+                inner: effective_spec,
+            },
+        )?;
         let result = loader.bind(py).call1((spec_obj,))?.to_object(py);
 
         if cache_enabled {
@@ -5781,8 +6310,8 @@ impl TaskDatasetRegistryPy {
     #[pyo3(signature = (spec, split=None))]
     fn ensure_split(py: Python, spec: PyObject, split: Option<String>) -> PyResult<String> {
         let value = value_from_pyobject(py, spec)?;
-        let parsed: RustTaskDatasetSpec = serde_json::from_value(value)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let parsed: RustTaskDatasetSpec =
+            serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
         core_localapi_datasets::ensure_split(&parsed, split.as_deref())
             .map_err(|e| map_core_err(py, e))
     }
@@ -5853,9 +6382,15 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ProcessHandle>()?;
     m.add_class::<TunnelHandlePy>()?;
     m.add_function(wrap_pyfunction!(open_quick_tunnel, m)?)?;
-    m.add_function(wrap_pyfunction!(open_quick_tunnel_with_dns_verification, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        open_quick_tunnel_with_dns_verification,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(open_managed_tunnel, m)?)?;
-    m.add_function(wrap_pyfunction!(open_managed_tunnel_with_connection_wait, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        open_managed_tunnel_with_connection_wait,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(stop_tunnel, m)?)?;
     m.add_function(wrap_pyfunction!(rotate_tunnel, m)?)?;
     m.add_function(wrap_pyfunction!(create_tunnel, m)?)?;
@@ -5904,24 +6439,45 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(localapi_allowed_environment_api_keys, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_is_api_key_header_authorized, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_normalize_chat_completion_url, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_default_max_completion_tokens, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_get_default_max_completion_tokens,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_extract_trace_correlation_id, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_trace_correlation_id, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_include_trace_correlation_id_in_response, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_include_trace_correlation_id_in_response,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_build_trace_payload, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_build_trajectory_trace, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_include_event_history_in_response, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_include_event_history_in_trajectories, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_verify_trace_correlation_id_in_response, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_include_event_history_in_response,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_include_event_history_in_trajectories,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_verify_trace_correlation_id_in_response,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_artifact_size, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_artifacts_list, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_context_overrides, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_context_snapshot, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_to_jsonable, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_extract_api_key, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_parse_tool_calls_from_response, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_parse_tool_calls_from_response,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_task_app_health, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_check_url_for_direct_provider_call, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_check_url_for_direct_provider_call,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_get_shared_http_client, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_reset_shared_http_client, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_tracing_env_enabled, m)?)?;
@@ -5934,17 +6490,30 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(localapi_build_rollout_response, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_prepare_for_openai, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_prepare_for_groq, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_normalize_response_format_for_groq, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_normalize_response_format_for_groq,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_inject_system_hint, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_extract_message_text, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_parse_tool_call_from_text, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_synthesize_tool_call_if_missing, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_rollout_response_for_rl, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_synthesize_tool_call_if_missing,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        localapi_validate_rollout_response_for_rl,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(localapi_normalize_inference_url, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_validate_task_app_url, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_normalize_vendor_keys, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_get_openai_key, m)?)?;
     m.add_function(wrap_pyfunction!(localapi_get_groq_key, m)?)?;
+    m.add_function(wrap_pyfunction!(localapi_deploy_from_dir, m)?)?;
+    m.add_function(wrap_pyfunction!(localapi_get_deployment_status, m)?)?;
+    m.add_function(wrap_pyfunction!(localapi_get_deployment, m)?)?;
+    m.add_function(wrap_pyfunction!(localapi_list_deployments, m)?)?;
 
     // Polling (NEW)
     m.add_function(wrap_pyfunction!(calculate_backoff, m)?)?;
@@ -5961,6 +6530,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_eval_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_gepa_config, m)?)?;
+    m.add_function(wrap_pyfunction!(gepa_candidate_to_initial_prompt, m)?)?;
     m.add_function(wrap_pyfunction!(is_minimal_config, m)?)?;
     m.add_function(wrap_pyfunction!(build_prompt_learning_payload, m)?)?;
     m.add_function(wrap_pyfunction!(validate_prompt_learning_config, m)?)?;
@@ -5979,7 +6549,10 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(build_graph_evolve_config, m)?)?;
     m.add_function(wrap_pyfunction!(build_graph_evolve_payload, m)?)?;
     m.add_function(wrap_pyfunction!(resolve_graph_evolve_snapshot_id, m)?)?;
-    m.add_function(wrap_pyfunction!(build_graph_evolve_graph_record_payload, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        build_graph_evolve_graph_record_payload,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(build_graph_evolve_inference_payload, m)?)?;
     m.add_function(wrap_pyfunction!(build_graph_evolve_placeholder_dataset, m)?)?;
     m.add_function(wrap_pyfunction!(graph_evolve_submit_job, m)?)?;
@@ -6085,8 +6658,14 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_job_event, m)?)?;
     m.add_function(wrap_pyfunction!(validate_base_event, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_seed_reward_entry, m)?)?;
-    m.add_function(wrap_pyfunction!(orchestration_extract_stages_from_candidate, m)?)?;
-    m.add_function(wrap_pyfunction!(orchestration_extract_program_candidate_content, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        orchestration_extract_stages_from_candidate,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        orchestration_extract_program_candidate_content,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(orchestration_normalize_transformation, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_build_program_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(orchestration_max_instruction_length, m)?)?;

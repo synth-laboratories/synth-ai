@@ -1,4 +1,6 @@
-use crate::data::{ApplicationErrorType, ApplicationStatus, ContextOverride, ContextOverrideStatus};
+use crate::data::{
+    ApplicationErrorType, ApplicationStatus, ContextOverride, ContextOverrideStatus,
+};
 use crate::errors::CoreError;
 use std::collections::HashMap;
 use std::env;
@@ -56,7 +58,11 @@ fn expand_tilde(path: &str) -> Option<PathBuf> {
     Some(PathBuf::from(home).join(rest.trim_start_matches('/')))
 }
 
-fn is_path_safe(path: &str, workspace_dir: &Path, allow_global: bool) -> Result<PathBuf, (ApplicationErrorType, String)> {
+fn is_path_safe(
+    path: &str,
+    workspace_dir: &Path,
+    allow_global: bool,
+) -> Result<PathBuf, (ApplicationErrorType, String)> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
         return Err((ApplicationErrorType::Validation, "Empty path".to_string()));
@@ -143,7 +149,9 @@ fn apply_file_artifact(
     Ok(content_bytes.len())
 }
 
-fn validate_env_vars(env_vars: &HashMap<String, String>) -> (Vec<String>, Vec<(ApplicationErrorType, String)>) {
+fn validate_env_vars(
+    env_vars: &HashMap<String, String>,
+) -> (Vec<String>, Vec<(ApplicationErrorType, String)>) {
     let mut applied = Vec::new();
     let mut errors = Vec::new();
 
@@ -156,7 +164,9 @@ fn validate_env_vars(env_vars: &HashMap<String, String>) -> (Vec<String>, Vec<(A
 
     for (key, value) in env_vars {
         let first_char = key.chars().next();
-        if first_char.is_none() || !(first_char.unwrap().is_ascii_alphabetic() || first_char.unwrap() == '_') {
+        if first_char.is_none()
+            || !(first_char.unwrap().is_ascii_alphabetic() || first_char.unwrap() == '_')
+        {
             errors.push((
                 ApplicationErrorType::Validation,
                 format!("Invalid env var name (must start with letter or underscore): {key}"),
@@ -187,7 +197,12 @@ fn run_preflight_script(
     workspace_dir: &Path,
     timeout_seconds: u64,
     env_vars: &HashMap<String, String>,
-) -> (Option<bool>, Option<i64>, Option<ApplicationErrorType>, Option<String>) {
+) -> (
+    Option<bool>,
+    Option<i64>,
+    Option<ApplicationErrorType>,
+    Option<String>,
+) {
     if !script_content.trim_start().starts_with("#!") {
         return (
             Some(false),
@@ -310,8 +325,7 @@ pub fn apply_context_overrides(
         return Ok(Vec::new());
     }
 
-    fs::create_dir_all(workspace_dir)
-        .map_err(|e| CoreError::InvalidInput(e.to_string()))?;
+    fs::create_dir_all(workspace_dir).map_err(|e| CoreError::InvalidInput(e.to_string()))?;
 
     let mut results = Vec::with_capacity(overrides.len());
 
@@ -356,8 +370,12 @@ pub fn apply_context_overrides(
         }
 
         if let Some(script) = override_item.preflight_script.as_ref() {
-            let (success_opt, duration_ms, err_type, err_message) =
-                run_preflight_script(script, workspace_dir, PREFLIGHT_SCRIPT_TIMEOUT_SECONDS, &override_item.env_vars);
+            let (success_opt, duration_ms, err_type, err_message) = run_preflight_script(
+                script,
+                workspace_dir,
+                PREFLIGHT_SCRIPT_TIMEOUT_SECONDS,
+                &override_item.env_vars,
+            );
             status.preflight_succeeded = success_opt;
             if let Some(ms) = duration_ms {
                 status.duration_ms = Some(ms);

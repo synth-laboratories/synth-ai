@@ -16,8 +16,8 @@ from pydantic import BaseModel, Field
 
 try:
     from . import rust as _rust_data
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for data.coding_agent_context.") from exc
+except Exception:  # pragma: no cover
+    _rust_data = None
 
 # =============================================================================
 # Context Override Enums
@@ -289,14 +289,15 @@ class ContextOverrideStatus(BaseModel):
         return result
 
 
-try:  # Require Rust-backed classes
+try:  # Prefer Rust-backed classes when available
     import synth_ai_py as _rust_models  # type: ignore
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for data.coding_agent_context.") from exc
+except Exception:  # pragma: no cover
+    _rust_models = None
 
-with contextlib.suppress(AttributeError):
-    ContextOverride = _rust_models.ContextOverride  # noqa: F811
-    ContextOverrideStatus = _rust_models.ContextOverrideStatus  # noqa: F811
+if _rust_models is not None:
+    with contextlib.suppress(AttributeError):
+        ContextOverride = _rust_models.ContextOverride  # noqa: F811
+        ContextOverrideStatus = _rust_models.ContextOverrideStatus  # noqa: F811
 
 
 __all__ = [

@@ -15,9 +15,12 @@ def _gepa_config_dict() -> dict:
             },
             "gepa": {
                 "evaluation": {
-                    "train_seeds": [0],
-                    "val_seeds": [1],
-                }
+                    "train_seeds": list(range(70)),
+                    "val_seeds": list(range(70, 80)),
+                },
+                "archive": {
+                    "pareto_set_size": 10,
+                },
             },
         }
     }

@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-"""
-Unit tests for Turso/sqld manager conversion utilities and core functionality.
-Async version of test_duckdb_manager.py for tracing v3.
-"""
+"""Unit tests for the SQLite trace manager."""
 
 import json
 import os
-import shutil
 import tempfile
 from datetime import datetime
 
@@ -19,8 +15,6 @@ from ..abstractions import (
     RuntimeEvent,
     TimeRecord,
 )
-from ..config import CONFIG
-from ..db_config import DatabaseConfig, set_default_db_config
 from ..session_tracer import SessionTracer
 
 # Import the utilities and components we want to test
@@ -28,43 +22,12 @@ from ..turso.native_manager import NativeLibsqlTraceManager
 from ..utils import calculate_cost, detect_provider, json_dumps
 
 
-if shutil.which(CONFIG.sqld_binary) is None and shutil.which("libsql-server") is None:
-    pytest.skip(
-        "sqld binary not available; install Turso sqld or set SQLD_BINARY to skip these tests",
-        allow_module_level=True,
-    )
-
-from ..turso.daemon import SqldDaemon
-
-with tempfile.TemporaryDirectory(prefix="sqld_probing_") as _probe_dir:
-    _probe_daemon = SqldDaemon(db_path=os.path.join(_probe_dir, "probe.db"), http_port=0)
-    try:
-        _probe_daemon.start()
-    except RuntimeError as exc:  # pragma: no cover - environment dependent
-        if "Operation not permitted" in str(exc) or "Permission denied" in str(exc):
-            pytest.skip(
-                "sqld daemon cannot start in this environment (Operation not permitted)",
-                allow_module_level=True,
-            )
-        raise
-    finally:
-        try:
-            _probe_daemon.stop()
-        except Exception:
-            pass
-
-
 @pytest.fixture(autouse=True)
 def _isolate_db_config(tmp_path, monkeypatch):
-    """Ensure tests run against isolated SQLite config without sqld daemon."""
-    monkeypatch.setenv("SYNTH_AI_V3_USE_SQLD", "false")
-    monkeypatch.delenv("SQLD_HTTP_PORT", raising=False)
+    """Ensure tests run against isolated SQLite config."""
     db_path = tmp_path / "fixture.db"
-    config = DatabaseConfig(db_path=str(db_path), use_sqld=False)
-    set_default_db_config(config)
+    monkeypatch.setenv("SYNTH_TRACES_DB", f"sqlite+aiosqlite:///{db_path}")
     yield
-    config.stop_daemon()
-    set_default_db_config(DatabaseConfig(use_sqld=False))
 
 
 @pytest.mark.asyncio
@@ -132,32 +95,13 @@ class TestConversionUtilities:
 
 @pytest.mark.asyncio
 class TestNativeTraceManager:
-    """Test the native libsql trace manager functionality."""
+    """Test the SQLite trace manager functionality."""
 
     @pytest_asyncio.fixture
-    async def sqld_daemon(self):
-        """Use the centralized database configuration."""
-        from ..db_config import get_default_db_config
-
-        config = get_default_db_config()
-
-        # If sqld is already running (via serve.sh), just use the existing database
-        if not config.use_sqld:
-            yield None  # No daemon to manage
-        else:
-            # Start a new daemon for isolated testing
-            daemon, _ = config.get_daemon_and_url()
-            yield daemon
-            config.stop_daemon()
-
-    @pytest_asyncio.fixture
-    async def db_manager(self, sqld_daemon):
-        """Create a NativeLibsqlTraceManager instance using centralized config."""
-
-        from ..db_config import get_default_db_config
-
-        config = get_default_db_config()
-        db_url = config.database_url
+    async def db_manager(self, tmp_path):
+        """Create a NativeLibsqlTraceManager instance using SQLite."""
+        db_path = tmp_path / "test_manager.db"
+        db_url = str(db_path)
 
         manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()
@@ -456,29 +400,10 @@ class TestIntegrationScenarios:
     """Test integration scenarios with real data."""
 
     @pytest_asyncio.fixture
-    async def sqld_daemon(self):
-        """Use the centralized database configuration for integration tests."""
-        from ..db_config import get_default_db_config
-
-        config = get_default_db_config()
-
-        # If sqld is already running (via serve.sh), just use the existing database
-        if not config.use_sqld:
-            yield None  # No daemon to manage
-        else:
-            # Start a new daemon for isolated testing
-            daemon, _ = config.get_daemon_and_url()
-            yield daemon
-            config.stop_daemon()
-
-    @pytest_asyncio.fixture
-    async def db_manager(self, sqld_daemon):
-        """Create a NativeLibsqlTraceManager instance using centralized config."""
-
-        from ..db_config import get_default_db_config
-
-        config = get_default_db_config()
-        db_url = config.database_url
+    async def db_manager(self, tmp_path):
+        """Create a NativeLibsqlTraceManager instance using SQLite."""
+        db_path = tmp_path / "test_integration.db"
+        db_url = str(db_path)
 
         manager = NativeLibsqlTraceManager(db_url=db_url)
         await manager.initialize()

@@ -29,6 +29,13 @@ from ..lm_call_record_abstractions import (
 )
 
 
+def _attr(obj, name):
+    """Get attribute from either pyclass or dict."""
+    if isinstance(obj, dict):
+        return obj.get(name)
+    return getattr(obj, name)
+
+
 class OpenAIChoiceMessage(TypedDict):
     """Typed representation of an OpenAI chat completion message."""
 
@@ -117,7 +124,7 @@ class TestLLMCallRecord:
         assert record.api_type == "chat_completions"
         assert record.model_name == "gpt-4"
         assert record.usage is not None
-        assert record.usage.total_tokens == 15
+        assert _attr(record.usage, "total_tokens") == 15
         assert len(record.input_messages) == 1
         assert len(record.output_messages) == 1
 
@@ -161,9 +168,9 @@ class TestLLMCallRecord:
         )
 
         assert len(record.output_tool_calls) == 1
-        assert record.output_tool_calls[0].name == "get_weather"
+        assert _attr(record.output_tool_calls[0], "name") == "get_weather"
         assert len(record.tool_results) == 1
-        assert record.tool_results[0].status == "ok"
+        assert _attr(record.tool_results[0], "status") == "ok"
 
 
 class TestLMCAISEventWithCallRecords:
@@ -188,9 +195,9 @@ class TestLMCAISEventWithCallRecords:
 
         assert len(event.call_records) == 1
         event_call_record = event.call_records[0]
-        assert event_call_record.usage is not None
-        assert event_call_record.model_name == "gpt-4"
-        assert event_call_record.usage.total_tokens == 150
+        assert _attr(event_call_record, "usage") is not None
+        assert _attr(event_call_record, "model_name") == "gpt-4"
+        assert _attr(_attr(event_call_record, "usage"), "total_tokens") == 150
 
     def test_aggregate_from_call_records(self):
         """Test computing aggregates from multiple call_records."""
@@ -224,15 +231,15 @@ class TestLMCAISEventWithCallRecords:
 
         # Compute aggregates from call_records
         total_input_tokens = sum(
-            r.usage.input_tokens for r in call_records if r.usage and r.usage.input_tokens
+            _attr(r.usage, "input_tokens") for r in call_records if r.usage and _attr(r.usage, "input_tokens")
         )
         total_output_tokens = sum(
-            r.usage.output_tokens for r in call_records if r.usage and r.usage.output_tokens
+            _attr(r.usage, "output_tokens") for r in call_records if r.usage and _attr(r.usage, "output_tokens")
         )
         total_tokens = sum(
-            r.usage.total_tokens for r in call_records if r.usage and r.usage.total_tokens
+            _attr(r.usage, "total_tokens") for r in call_records if r.usage and _attr(r.usage, "total_tokens")
         )
-        total_cost = sum(r.usage.cost_usd for r in call_records if r.usage and r.usage.cost_usd)
+        total_cost = sum(_attr(r.usage, "cost_usd") for r in call_records if r.usage and _attr(r.usage, "cost_usd"))
         total_latency = sum(r.latency_ms for r in call_records if r.latency_ms)
 
         # Set aggregates on event
@@ -289,8 +296,8 @@ class TestLMCAISEventWithCallRecords:
         # Both should represent the same information
         assert legacy_event.total_tokens == new_event.total_tokens
         assert legacy_event.cost_usd == new_event.cost_usd
-        assert legacy_event.model_name == new_event.call_records[0].model_name
-        assert legacy_event.provider == new_event.call_records[0].provider
+        assert legacy_event.model_name == _attr(new_event.call_records[0], "model_name")
+        assert legacy_event.provider == _attr(new_event.call_records[0], "provider")
 
 
 class TestComplexScenarios:
@@ -337,8 +344,22 @@ class TestComplexScenarios:
             ],
         )
 
-        turn1.events.append(turn1_event)
-        session.session_time_steps.append(turn1)
+        # For Rust models, use _append_model_list pattern
+        import synth_ai_py as _m
+        if hasattr(turn1, 'to_dict'):
+            # Rust model: wrap event + append via setattr
+            d = turn1_event.to_dict()
+            d["event_type"] = "cais"
+            wrapped = _m.TracingEvent(**d)
+            evts = list(turn1.events)
+            evts.append(wrapped)
+            turn1.events = evts
+            steps = list(session.session_time_steps)
+            steps.append(turn1)
+            session.session_time_steps = steps
+        else:
+            turn1.events.append(turn1_event)
+            session.session_time_steps.append(turn1)
 
         # Turn 2: Tool result and response
         turn2 = SessionTimeStep(step_id="turn_2", step_index=1, turn_number=2)
@@ -381,26 +402,43 @@ class TestComplexScenarios:
             ],
         )
 
-        turn2.events.append(turn2_event)
-        session.session_time_steps.append(turn2)
+        if hasattr(turn2, 'to_dict'):
+            d = turn2_event.to_dict()
+            d["event_type"] = "cais"
+            wrapped = _m.TracingEvent(**d)
+            evts = list(turn2.events)
+            evts.append(wrapped)
+            turn2.events = evts
+            steps = list(session.session_time_steps)
+            steps.append(turn2)
+            session.session_time_steps = steps
+        else:
+            turn2.events.append(turn2_event)
+            session.session_time_steps.append(turn2)
 
         # Verify session structure
         assert len(session.session_time_steps) == 2
-        assert len(session.session_time_steps[0].events) == 1
-        assert len(session.session_time_steps[1].events) == 1
+        s0 = session.session_time_steps[0]
+        s1 = session.session_time_steps[1]
+        s0_events = _attr(s0, "events") if isinstance(s0, dict) else s0.events
+        s1_events = _attr(s1, "events") if isinstance(s1, dict) else s1.events
+        assert len(s0_events) == 1
+        assert len(s1_events) == 1
 
         # Verify tool call flow
-        first_event = session.session_time_steps[0].events[0]
-        second_event = session.session_time_steps[1].events[0]
-        assert isinstance(first_event, LMCAISEvent)
-        assert isinstance(second_event, LMCAISEvent)
-        turn1_call = first_event.call_records[0]
-        turn2_call = second_event.call_records[0]
+        first_event = s0_events[0]
+        second_event = s1_events[0]
+        turn1_calls = _attr(first_event, "call_records")
+        turn2_calls = _attr(second_event, "call_records")
+        turn1_call = turn1_calls[0]
+        turn2_call = turn2_calls[0]
 
-        assert len(turn1_call.output_tool_calls) == 1
-        assert turn1_call.output_tool_calls[0].name == "get_weather"
-        assert len(turn2_call.tool_results) == 1
-        assert turn2_call.tool_results[0].call_id == "weather_1"
+        otc = _attr(turn1_call, "output_tool_calls")
+        assert len(otc) == 1
+        assert _attr(otc[0], "name") == "get_weather"
+        tr = _attr(turn2_call, "tool_results")
+        assert len(tr) == 1
+        assert _attr(tr[0], "call_id") == "weather_1"
 
     def test_streaming_response(self):
         """Test LLMCallRecord with streaming chunks."""
@@ -510,7 +548,7 @@ class TestProviderMappings:
         assert record.call_id == "chatcmpl-123"
         assert record.model_name == "gpt-4"
         assert record.usage is not None
-        assert record.usage.total_tokens == 19
+        assert _attr(record.usage, "total_tokens") == 19
         assert record.finish_reason == "stop"
 
     def test_anthropic_messages_mapping(self):
@@ -556,7 +594,7 @@ class TestProviderMappings:
         assert record.call_id == "msg_123"
         assert record.model_name == "claude-3-opus-20240229"
         assert record.usage is not None
-        assert record.usage.total_tokens == 27
+        assert _attr(record.usage, "total_tokens") == 27
         assert record.finish_reason == "end_turn"
 
 
@@ -598,15 +636,20 @@ def helper_compute_aggregates_from_records(call_records: list[LLMCallRecord]) ->
     aggregates = _AggregateAccumulator()
 
     for record in call_records:
-        if record.usage:
-            if record.usage.input_tokens:
-                aggregates.input_tokens += record.usage.input_tokens
-            if record.usage.output_tokens:
-                aggregates.output_tokens += record.usage.output_tokens
-            if record.usage.total_tokens:
-                aggregates.total_tokens += record.usage.total_tokens
-            if record.usage.cost_usd:
-                aggregates.cost_usd += record.usage.cost_usd
+        usage = record.usage
+        if usage:
+            it = _attr(usage, "input_tokens")
+            ot = _attr(usage, "output_tokens")
+            tt = _attr(usage, "total_tokens")
+            cu = _attr(usage, "cost_usd")
+            if it:
+                aggregates.input_tokens += it
+            if ot:
+                aggregates.output_tokens += ot
+            if tt:
+                aggregates.total_tokens += tt
+            if cu:
+                aggregates.cost_usd += cu
 
         if record.latency_ms is not None:
             aggregates.latency_ms += record.latency_ms

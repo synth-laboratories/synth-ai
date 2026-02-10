@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 
 try:
     from . import rust as _rust_data
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for data.artifacts.") from exc
+except Exception:  # pragma: no cover
+    _rust_data = None
 
 # Re-export context override types for backward compatibility
 from synth_ai.data.coding_agent_context import (
@@ -91,13 +91,14 @@ class Artifact(BaseModel):
         return cls.model_validate(data)
 
 
-try:  # Require Rust-backed class
+try:  # Prefer Rust-backed class when available
     import synth_ai_py as _rust_models  # type: ignore
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for data.artifacts.") from exc
+except Exception:  # pragma: no cover
+    _rust_models = None
 
-with contextlib.suppress(AttributeError):
-    Artifact = _rust_models.Artifact  # noqa: F811
+if _rust_models is not None:
+    with contextlib.suppress(AttributeError):
+        Artifact = _rust_models.Artifact  # noqa: F811
 
 
 __all__ = [

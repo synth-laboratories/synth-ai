@@ -30,17 +30,11 @@ def create_storage(config: StorageConfig | None = None) -> TraceStorage:
 
     connection_string = config.get_connection_string()
 
-    # Both TURSO_NATIVE and SQLITE use NativeLibsqlTraceManager
-    # because libsql.connect() handles both remote and local file databases
-    if config.backend in (StorageBackend.TURSO_NATIVE, StorageBackend.SQLITE):
+    if config.backend == StorageBackend.SQLITE:
         # Lazy import to avoid circular dependency
-        from ..turso.native_manager import NativeLibsqlTraceManager
+        from ..turso.native_manager import SQLiteTraceManager
 
-        backend_config = config.get_backend_config()
-        return NativeLibsqlTraceManager(
-            db_url=connection_string,
-            auth_token=backend_config.get("auth_token"),
-        )
+        return SQLiteTraceManager(db_url=connection_string)
     elif config.backend == StorageBackend.POSTGRES:
         # Future: PostgreSQL implementation
         raise NotImplementedError("PostgreSQL backend not yet implemented")

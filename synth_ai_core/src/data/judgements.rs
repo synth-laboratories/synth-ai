@@ -101,7 +101,11 @@ impl RubricAssignment {
     }
 
     /// Add a criterion score.
-    pub fn with_score(mut self, criterion_id: impl Into<String>, score: CriterionScoreData) -> Self {
+    pub fn with_score(
+        mut self,
+        criterion_id: impl Into<String>,
+        score: CriterionScoreData,
+    ) -> Self {
         self.criterion_scores.insert(criterion_id.into(), score);
         self
     }
@@ -128,7 +132,11 @@ impl RubricAssignment {
     pub fn calculate_weighted_total(&mut self) {
         let total_weight: f64 = self.criterion_scores.values().map(|s| s.weight).sum();
         if total_weight > 0.0 {
-            let weighted_sum: f64 = self.criterion_scores.values().map(|s| s.weighted_score()).sum();
+            let weighted_sum: f64 = self
+                .criterion_scores
+                .values()
+                .map(|s| s.weighted_score())
+                .sum();
             self.total = weighted_sum / total_weight;
         }
     }
@@ -258,6 +266,9 @@ mod tests {
         let parsed: Judgement = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.passed, Some(true));
-        assert_eq!(parsed.annotation.get("note"), Some(&serde_json::json!("test")));
+        assert_eq!(
+            parsed.annotation.get("note"),
+            Some(&serde_json::json!("test"))
+        );
     }
 }

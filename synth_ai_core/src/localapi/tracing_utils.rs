@@ -8,7 +8,11 @@ const TRACE_DB_BASENAME: &str = "turso_task_app_traces";
 
 fn canonical_trace_db_name(timestamp: Option<DateTime<Local>>) -> String {
     match timestamp {
-        Some(ts) => format!("{}_{}.db", TRACE_DB_BASENAME, ts.format("%Y-%m-%d_%H-%M-%S")),
+        Some(ts) => format!(
+            "{}_{}.db",
+            TRACE_DB_BASENAME,
+            ts.format("%Y-%m-%d_%H-%M-%S")
+        ),
         None => format!("{}.db", TRACE_DB_BASENAME),
     }
 }
@@ -52,7 +56,8 @@ pub fn resolve_tracing_db_url() -> Option<String> {
         env::set_var("SQLD_DB_PATH", path_str);
     }
 
-    let default_url = env::var("LIBSQL_DEFAULT_URL").unwrap_or_else(|_| "http://127.0.0.1:8081".to_string());
+    let default_url =
+        env::var("LIBSQL_DEFAULT_URL").unwrap_or_else(|_| "http://127.0.0.1:8081".to_string());
     Some(default_url)
 }
 

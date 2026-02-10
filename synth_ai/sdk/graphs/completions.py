@@ -409,6 +409,7 @@ class GraphCompletionsAsyncClient:
         graph: GraphTarget | None = None,
         model: str | None = None,
         prompt_snapshot_id: str | None = None,
+        timeout_secs: int | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "job_id": self._resolve_job_id(job_id=job_id, graph=graph),
@@ -419,7 +420,10 @@ class GraphCompletionsAsyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        client = self._rust.SynthClient(self._key, self._base)
+        if timeout_secs is not None:
+            client = self._rust.SynthClient(self._key, self._base, timeout_secs=timeout_secs)
+        else:
+            client = self._rust.SynthClient(self._key, self._base)
         result = await asyncio.to_thread(client.graph_complete, payload)
         if not isinstance(result, dict):
             raise ValueError("graph_completions_invalid_response_shape")
@@ -928,8 +932,20 @@ class GraphCompletionsAsyncClient:
         result = await self.run(
             input_data=input_data,
             job_id=graph_id,
+            timeout_secs=300,
         )
-        return result
+        # Normalize output: v2 returns a list of subagent results — extract
+        # the final subagent's output dict.  v1 returns a dict directly.
+        output = result.get("output", result) if isinstance(result, dict) else result
+
+        if isinstance(output, list) and output:
+            # v2 multi-agent: take the last subagent's result
+            last = output[-1]
+            if isinstance(last, dict):
+                return last.get("output", last)
+            return last
+
+        return output if not isinstance(output, dict) else output
 
 
 class VerifierAsyncClient(GraphCompletionsAsyncClient):

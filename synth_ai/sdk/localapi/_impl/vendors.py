@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import os
 
-import synth_ai_py
+try:
+    import synth_ai_py
+except Exception:  # pragma: no cover
+    synth_ai_py = None
 
 from .errors import http_exception
 

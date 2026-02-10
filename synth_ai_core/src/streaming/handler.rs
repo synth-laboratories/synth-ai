@@ -342,11 +342,8 @@ mod tests {
         let handler = BufferedHandler::with_max_size(2);
 
         for i in 0..5 {
-            let msg = StreamMessage::new(
-                StreamType::Events,
-                "job-1",
-                serde_json::json!({"seq": i}),
-            );
+            let msg =
+                StreamMessage::new(StreamType::Events, "job-1", serde_json::json!({"seq": i}));
             handler.handle(&msg);
         }
 

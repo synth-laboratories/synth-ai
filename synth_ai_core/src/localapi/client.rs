@@ -31,8 +31,8 @@ impl TaskAppClient {
     /// Create a client with custom timeout.
     pub fn with_timeout(base_url: &str, api_key: Option<&str>, timeout_secs: u64) -> Self {
         let key = api_key.unwrap_or("no-auth");
-        let client = HttpClient::new(base_url, key, timeout_secs)
-            .expect("Failed to create HTTP client");
+        let client =
+            HttpClient::new(base_url, key, timeout_secs).expect("Failed to create HTTP client");
         Self {
             client,
             base_url: base_url.trim_end_matches('/').to_string(),
@@ -101,8 +101,9 @@ impl TaskAppClient {
 
     /// Execute a rollout.
     pub async fn rollout(&self, request: &RolloutRequest) -> Result<RolloutResponse, CoreError> {
-        let body = serde_json::to_value(request)
-            .map_err(|e| CoreError::Internal(format!("Failed to serialize rollout request: {}", e)))?;
+        let body = serde_json::to_value(request).map_err(|e| {
+            CoreError::Internal(format!("Failed to serialize rollout request: {}", e))
+        })?;
 
         let response: Value = self.client.post_json("/rollout", &body).await?;
 
@@ -112,7 +113,10 @@ impl TaskAppClient {
 
     /// Signal that the job is done.
     pub async fn done(&self) -> Result<Value, CoreError> {
-        let response: Value = self.client.post_json("/done", &serde_json::json!({})).await?;
+        let response: Value = self
+            .client
+            .post_json("/done", &serde_json::json!({}))
+            .await?;
         Ok(response)
     }
 

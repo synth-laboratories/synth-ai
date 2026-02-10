@@ -218,7 +218,11 @@ impl ContextOverrideStatus {
     }
 
     /// Create a failure status.
-    pub fn failure(override_id: Option<String>, error_type: ApplicationErrorType, message: impl Into<String>) -> Self {
+    pub fn failure(
+        override_id: Option<String>,
+        error_type: ApplicationErrorType,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             override_id,
             overall_status: ApplicationStatus::Failed,
@@ -277,24 +281,21 @@ mod tests {
 
     #[test]
     fn test_validation_path_traversal() {
-        let override_ = ContextOverride::new()
-            .with_file("../etc/passwd", "malicious");
+        let override_ = ContextOverride::new().with_file("../etc/passwd", "malicious");
 
         assert!(override_.validate().is_err());
     }
 
     #[test]
     fn test_validation_absolute_path() {
-        let override_ = ContextOverride::new()
-            .with_file("/etc/passwd", "malicious");
+        let override_ = ContextOverride::new().with_file("/etc/passwd", "malicious");
 
         assert!(override_.validate().is_err());
     }
 
     #[test]
     fn test_validation_dangerous_env() {
-        let override_ = ContextOverride::new()
-            .with_env_var("PATH", "/malicious");
+        let override_ = ContextOverride::new().with_env_var("PATH", "/malicious");
 
         assert!(override_.validate().is_err());
     }
@@ -340,6 +341,9 @@ mod tests {
         let parsed: ContextOverride = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.override_id, Some("test-id".to_string()));
-        assert_eq!(parsed.file_artifacts.get("test.txt"), Some(&"content".to_string()));
+        assert_eq!(
+            parsed.file_artifacts.get("test.txt"),
+            Some(&"content".to_string())
+        );
     }
 }

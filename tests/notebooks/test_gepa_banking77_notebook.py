@@ -17,6 +17,7 @@ NOTEBOOK_PATH = Path(__file__).parent.parent.parent / "demos" / "gepa_banking77"
 
 
 @pytest.mark.unit
+@pytest.mark.skipif(not NOTEBOOK_PATH.exists(), reason=f"Notebook not found at {NOTEBOOK_PATH}")
 class TestGepaBanking77NotebookValidation:
     """Test suite for validating the GEPA Banking77 notebook."""
 

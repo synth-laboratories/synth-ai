@@ -22,5 +22,4 @@ else
   ROOT="$(cd "$(dirname "${SCRIPT_PATH}")/.." && pwd)"
 fi
 cd "${ROOT}"
-
-uv run pytest -m "not slow and not integration and not private" -v
+uv run pytest -m "not slow and not integration and not private" --ignore=demos -v

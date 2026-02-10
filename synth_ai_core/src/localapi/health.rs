@@ -8,7 +8,11 @@ pub async fn task_app_health(task_app_url: &str) -> Result<Value, CoreError> {
         .build()
         .map_err(CoreError::Http)?;
 
-    async fn try_request(client: &reqwest::Client, url: &str, method: reqwest::Method) -> Result<Option<Value>, CoreError> {
+    async fn try_request(
+        client: &reqwest::Client,
+        url: &str,
+        method: reqwest::Method,
+    ) -> Result<Option<Value>, CoreError> {
         let resp = client.request(method, url).send().await;
         let resp = match resp {
             Ok(resp) => resp,
