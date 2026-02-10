@@ -458,13 +458,35 @@ fn map_http_error(e: HttpError) -> CoreError {
             if detail.status == 401 || detail.status == 403 {
                 CoreError::Authentication(format!("authentication failed: {}", detail))
             } else if detail.status == 429 {
+                // Try to parse the response body for actual limit details.
+                // Server returns FastAPI format: {"detail": {"error": "...", "limit": N, ...}}
+                let mut limit_type = "rate_limit".to_string();
+                let mut limit_val = 0.0;
+                let mut retry_after: Option<i64> = None;
+
+                if let Some(ref snippet) = detail.body_snippet {
+                    if let Ok(body) = serde_json::from_str::<serde_json::Value>(snippet) {
+                        // FastAPI wraps in {"detail": ...}, fall back to top-level
+                        let info = body.get("detail").unwrap_or(&body);
+                        if let Some(err) = info.get("error").and_then(|v| v.as_str()) {
+                            limit_type = err.to_string();
+                        }
+                        if let Some(l) = info.get("limit").and_then(|v| v.as_f64()) {
+                            limit_val = l;
+                        }
+                        if let Some(r) = info.get("retry_after_seconds").and_then(|v| v.as_i64()) {
+                            retry_after = Some(r);
+                        }
+                    }
+                }
+
                 CoreError::UsageLimit(crate::UsageLimitInfo {
-                    limit_type: "rate_limit".to_string(),
+                    limit_type,
                     api: "graphs".to_string(),
                     current: 0.0,
-                    limit: 0.0,
+                    limit: limit_val,
                     tier: "unknown".to_string(),
-                    retry_after_seconds: None,
+                    retry_after_seconds: retry_after,
                     upgrade_url: "https://usesynth.ai/pricing".to_string(),
                 })
             } else {
