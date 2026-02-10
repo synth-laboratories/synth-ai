@@ -30,10 +30,10 @@ Then start services on host (separate terminals):
 cd ../rust_backend && PORT=8080 cargo run --release
 
 # Python backend on port 8000 (API gateway)
-cd ../backend && source .env.dev && uvicorn app.routes.main:app --host 0.0.0.0 --port 8000
+cd ../backend && ./scripts/with_secrets.sh -- uv run uvicorn app.routes.main:app --host 0.0.0.0 --port 8000
 ```
 
-**Rust backend MUST be on port 8080** (`RUST_BACKEND_PUBLIC_URL=http://localhost:8080` in `.env.dev`).
+**Rust backend MUST be on port 8080** (local scripts assume `http://localhost:8080`).
 
 **For GEPA/eval jobs**, both backends must be healthy before running `run_gepa_*.py` or `run_eval.py` scripts.
 
