@@ -54,7 +54,22 @@ def build_rollout_response(
             pass
 
     trace_correlation_id = request.trace_correlation_id
-    reward_info = RolloutMetrics(outcome_reward=float(outcome_reward))
+
+    # Preserve optional metrics payloads even when we fall back to the pure-Python
+    # construction path (e.g. when the Rust extension is unavailable or rejects
+    # upstream payload types).
+    metrics_kwargs: dict[str, Any] = {}
+    for key in (
+        "event_rewards",
+        "outcome_objectives",
+        "event_objectives",
+        "instance_objectives",
+        "details",
+    ):
+        if key in kwargs and kwargs[key] is not None:
+            metrics_kwargs[key] = kwargs[key]
+
+    reward_info = RolloutMetrics(outcome_reward=float(outcome_reward), **metrics_kwargs)
     trace_payload = trace
     if isinstance(trace_payload, dict) and trace_correlation_id:
         trace_payload = dict(trace_payload)
