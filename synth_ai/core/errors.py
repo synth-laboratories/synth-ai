@@ -57,7 +57,10 @@ def _extract_x402_payload(detail: Any, body_snippet: str | None) -> tuple[Any | 
     if isinstance(detail, dict):
         x402_value = detail.get("x402")
         if isinstance(x402_value, dict):
-            return x402_value.get("challenge"), x402_value.get("payment_required_header")
+            payment_required = x402_value.get("payment_required")
+            if payment_required is None:
+                payment_required = x402_value.get("challenge")
+            return payment_required, x402_value.get("payment_required_header")
     if not body_snippet:
         return None, None
     try:
@@ -72,7 +75,10 @@ def _extract_x402_payload(detail: Any, body_snippet: str | None) -> tuple[Any | 
     x402_value = detail_payload.get("x402")
     if not isinstance(x402_value, dict):
         return None, None
-    return x402_value.get("challenge"), x402_value.get("payment_required_header")
+    payment_required = x402_value.get("payment_required")
+    if payment_required is None:
+        payment_required = x402_value.get("challenge")
+    return payment_required, x402_value.get("payment_required_header")
 
 
 class JobError(SynthError):
@@ -166,6 +172,8 @@ class PaymentRequiredError(HTTPError):
 
     challenge: Any | None = None
     payment_required_header: str | None = None
+    payment_signature_header: str = "PAYMENT-SIGNATURE"
+    fallback_payment_signature_header: str = "X-PAYMENT"
     payment_response_header: str = "PAYMENT-RESPONSE"
 
     @classmethod
@@ -182,7 +190,10 @@ class PaymentRequiredError(HTTPError):
         )
 
     def build_payment_response_header(self, *, payment_reference: str) -> str:
-        """Build PAYMENT-RESPONSE header value for the x402 mock implementation."""
+        """Build PAYMENT-RESPONSE header value for the legacy x402 mock implementation.
+
+        Note: Real x402 clients should send a `PAYMENT-SIGNATURE` header, not `PAYMENT-RESPONSE`.
+        """
         payload = {
             "challenge": self.challenge,
             "payment_reference": payment_reference,
