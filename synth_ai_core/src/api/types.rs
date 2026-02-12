@@ -472,7 +472,10 @@ mod prompt_learning_result_tests {
 
         let result: PromptLearningResult = serde_json::from_value(payload).unwrap();
         let lever_summary = result.mipro_lever_summary().unwrap();
-        assert_eq!(lever_summary.prompt_lever_id.as_deref(), Some("mipro.prompt.sys"));
+        assert_eq!(
+            lever_summary.prompt_lever_id.as_deref(),
+            Some("mipro.prompt.sys")
+        );
 
         let frames = result.sensor_frame_summaries();
         assert_eq!(frames.len(), 1);

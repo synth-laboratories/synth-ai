@@ -3,9 +3,11 @@
 //! This module provides methods for submitting, polling, and canceling
 //! optimization jobs (GEPA, MIPRO).
 
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use reqwest::header::{HeaderMap, HeaderValue};
+use serde::Deserialize;
 use serde_json::Value;
 
 use crate::http::HttpError;
@@ -213,7 +215,7 @@ impl<'a> JobsClient<'a> {
     pub async fn get_status(&self, job_id: &str) -> Result<PromptLearningResult, CoreError> {
         let canonical = format!("{}/{}", JOBS_ENDPOINT, job_id);
         match self.client.http.get(&canonical, None).await {
-            Ok(result) => Ok(result),
+            Ok(payload) => parse_prompt_learning_result(payload, job_id),
             Err(err) if err.status() == Some(404) => {
                 let legacy_paths = [
                     format!("{}/{}", LEGACY_POLICY_STATUS_ENDPOINT, job_id),
@@ -222,7 +224,7 @@ impl<'a> JobsClient<'a> {
                 let mut last_not_found: Option<HttpError> = Some(err);
                 for path in legacy_paths {
                     match self.client.http.get(&path, None).await {
-                        Ok(result) => return Ok(result),
+                        Ok(payload) => return parse_prompt_learning_result(payload, job_id),
                         Err(legacy_err) if legacy_err.status() == Some(404) => {
                             last_not_found = Some(legacy_err);
                         }
@@ -439,6 +441,63 @@ impl<'a> JobsClient<'a> {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct PromptLearningResultWire {
+    #[serde(default)]
+    job_id: Option<String>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    best_reward: Option<f64>,
+    #[serde(default)]
+    best_score: Option<f64>,
+    #[serde(default)]
+    best_candidate: Option<Value>,
+    #[serde(default)]
+    best_prompt: Option<Value>,
+    #[serde(default)]
+    lever_summary: Option<Value>,
+    #[serde(default)]
+    sensor_frames: Vec<Value>,
+    #[serde(default)]
+    lever_versions: HashMap<String, i64>,
+    #[serde(default)]
+    best_lever_version: Option<i64>,
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    generations_completed: Option<i32>,
+    #[serde(default)]
+    candidates_evaluated: Option<i32>,
+}
+
+fn parse_prompt_learning_result(
+    payload: Value,
+    fallback_job_id: &str,
+) -> Result<PromptLearningResult, CoreError> {
+    let wire: PromptLearningResultWire = serde_json::from_value(payload).map_err(|err| {
+        CoreError::Protocol(format!("invalid prompt learning status payload: {err}"))
+    })?;
+    let status = wire
+        .status
+        .as_deref()
+        .and_then(PolicyJobStatus::from_str)
+        .unwrap_or(PolicyJobStatus::Pending);
+    Ok(PromptLearningResult {
+        job_id: wire.job_id.unwrap_or_else(|| fallback_job_id.to_string()),
+        status,
+        best_reward: wire.best_reward.or(wire.best_score),
+        best_candidate: wire.best_candidate.or(wire.best_prompt),
+        lever_summary: wire.lever_summary,
+        sensor_frames: wire.sensor_frames,
+        lever_versions: wire.lever_versions,
+        best_lever_version: wire.best_lever_version,
+        error: wire.error,
+        generations_completed: wire.generations_completed,
+        candidates_evaluated: wire.candidates_evaluated,
+    })
+}
+
 fn infer_algorithm_endpoint(request: &Value) -> Option<&'static str> {
     let from_section = |name: &str| {
         request
@@ -520,5 +579,31 @@ mod tests {
             })),
             None
         );
+    }
+
+    #[test]
+    fn test_parse_prompt_learning_result_accepts_both_best_candidate_and_best_prompt() {
+        let payload = serde_json::json!({
+            "job_id": "pl_test",
+            "status": "running",
+            "best_score": 0.42,
+            "best_candidate": {"instruction": "new"},
+            "best_prompt": {"instruction": "legacy"},
+            "lever_versions": {"mipro.prompt.sys": 3},
+        });
+        let parsed =
+            parse_prompt_learning_result(payload, "fallback").expect("parse should succeed");
+        assert_eq!(parsed.job_id, "pl_test");
+        assert_eq!(parsed.status, PolicyJobStatus::Running);
+        assert_eq!(parsed.best_reward, Some(0.42));
+        assert_eq!(
+            parsed
+                .best_candidate
+                .as_ref()
+                .and_then(|v| v.get("instruction"))
+                .and_then(|v| v.as_str()),
+            Some("new")
+        );
+        assert_eq!(parsed.lever_versions.get("mipro.prompt.sys"), Some(&3));
     }
 }

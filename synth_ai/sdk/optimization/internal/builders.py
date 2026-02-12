@@ -287,8 +287,8 @@ def build_prompt_learning_payload(
             pl_section["task_app_url"] = final_task_url
         if config_task_app_id and not pl_section.get("task_app_id"):
             pl_section["task_app_id"] = config_task_app_id
-        if final_task_url and _task_app_api_key and not skip_task_app_key:
-            pl_section["task_app_api_key"] = _task_app_api_key
+        # Spec-compliant behavior: task app auth is server-resolved and must not
+        # be embedded in job payloads.
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
         # Backend checks for train_seeds at top level before parsing nested structure
@@ -348,7 +348,7 @@ def build_prompt_learning_payload(
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "task_app_api_key")
     }
 
     # CRITICAL: Merge overrides into config_dict BEFORE sending to backend
@@ -606,8 +606,8 @@ def build_prompt_learning_payload_from_mapping(
             pl_section["task_app_url"] = final_task_url
         if config_task_app_id and not pl_section.get("task_app_id"):
             pl_section["task_app_id"] = config_task_app_id
-        if final_task_url and _task_app_api_key and not skip_task_app_key:
-            pl_section["task_app_api_key"] = _task_app_api_key
+        # Spec-compliant behavior: task app auth is server-resolved and must not
+        # be embedded in job payloads.
 
         # GEPA: Extract train_seeds from nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
@@ -637,7 +637,7 @@ def build_prompt_learning_payload_from_mapping(
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "task_app_api_key")
     }
 
     # Merge overrides into config_dict

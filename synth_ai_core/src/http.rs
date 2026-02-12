@@ -259,7 +259,11 @@ impl HttpClient {
         Err(HttpError::from_response(
             status,
             &url,
-            if text.trim().is_empty() { None } else { Some(&text) },
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(&text)
+            },
         ))
     }
 
@@ -284,7 +288,12 @@ impl HttpClient {
         body: &Value,
     ) -> Result<T, HttpError> {
         let url = self.abs_url(path);
-        let request = self.client.post(&url).json(body).build().map_err(HttpError::Request)?;
+        let request = self
+            .client
+            .post(&url)
+            .json(body)
+            .build()
+            .map_err(HttpError::Request)?;
         let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
         self.parse_json(status, &url, &body_bytes)
     }
@@ -351,7 +360,11 @@ impl HttpClient {
     /// * `path` - API path
     pub async fn delete(&self, path: &str) -> Result<(), HttpError> {
         let url = self.abs_url(path);
-        let request = self.client.delete(&url).build().map_err(HttpError::Request)?;
+        let request = self
+            .client
+            .delete(&url)
+            .build()
+            .map_err(HttpError::Request)?;
         let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
         if (200..300).contains(&status) {
             return Ok(());
@@ -360,11 +373,20 @@ impl HttpClient {
         Err(HttpError::from_response(
             status,
             &url,
-            if text.trim().is_empty() { None } else { Some(&text) },
+            if text.trim().is_empty() {
+                None
+            } else {
+                Some(&text)
+            },
         ))
     }
 
-    fn parse_json<T: DeserializeOwned>(&self, status: u16, url: &str, body: &[u8]) -> Result<T, HttpError> {
+    fn parse_json<T: DeserializeOwned>(
+        &self,
+        status: u16,
+        url: &str,
+        body: &[u8],
+    ) -> Result<T, HttpError> {
         if !(200..300).contains(&status) {
             let text = String::from_utf8_lossy(body);
             return Err(HttpError::from_response(status, url, Some(&text)));
@@ -406,7 +428,9 @@ impl HttpClient {
             return Ok((status, headers, body));
         };
 
-        let Ok(payment_signature_header) = payer.build_payment_signature_header(&payment_required_header) else {
+        let Ok(payment_signature_header) =
+            payer.build_payment_signature_header(&payment_required_header)
+        else {
             return Ok((status, headers, body));
         };
 
@@ -416,8 +440,9 @@ impl HttpClient {
 
         retry.headers_mut().insert(
             PAYMENT_SIGNATURE_HEADER,
-            HeaderValue::from_str(&payment_signature_header)
-                .map_err(|_| HttpError::InvalidUrl("invalid x402 payment signature header".to_string()))?,
+            HeaderValue::from_str(&payment_signature_header).map_err(|_| {
+                HttpError::InvalidUrl("invalid x402 payment signature header".to_string())
+            })?,
         );
 
         let resp2 = self.client.execute(retry).await?;
@@ -451,8 +476,8 @@ fn extract_payment_required_header(headers: &HeaderMap, body: &[u8]) -> Option<S
 mod tests {
     use super::*;
     use crate::x402::{
-        decode_payment_signature_header, recover_payer_address_from_payment_payload, PaymentRequired,
-        PaymentRequirements, ResourceInfo,
+        decode_payment_signature_header, recover_payer_address_from_payment_payload,
+        PaymentRequired, PaymentRequirements, ResourceInfo,
     };
     use base64::Engine as _;
     use bytes::Bytes;
@@ -572,8 +597,10 @@ mod tests {
                             if n == 0 {
                                 let mut resp = Response::new(Full::new(Bytes::from_static(b"")));
                                 *resp.status_mut() = StatusCode::PAYMENT_REQUIRED;
-                                resp.headers_mut()
-                                    .insert(PAYMENT_REQUIRED_HEADER, HeaderValue::from_str(&required).unwrap());
+                                resp.headers_mut().insert(
+                                    PAYMENT_REQUIRED_HEADER,
+                                    HeaderValue::from_str(&required).unwrap(),
+                                );
                                 return Ok::<_, hyper::Error>(resp);
                             }
 
@@ -584,11 +611,15 @@ mod tests {
                                 .unwrap_or("");
                             assert!(!sig_header.trim().is_empty());
 
-                            let payment_payload = decode_payment_signature_header(sig_header).unwrap();
-                            let recovered = recover_payer_address_from_payment_payload(&payment_payload).unwrap();
+                            let payment_payload =
+                                decode_payment_signature_header(sig_header).unwrap();
+                            let recovered =
+                                recover_payer_address_from_payment_payload(&payment_payload)
+                                    .unwrap();
                             assert_eq!(recovered, expected);
 
-                            let body = serde_json::to_vec(&serde_json::json!({"ok": true})).unwrap();
+                            let body =
+                                serde_json::to_vec(&serde_json::json!({"ok": true})).unwrap();
                             let mut resp = Response::new(Full::new(Bytes::from(body)));
                             *resp.status_mut() = StatusCode::OK;
                             Ok::<_, hyper::Error>(resp)

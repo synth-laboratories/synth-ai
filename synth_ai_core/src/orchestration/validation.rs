@@ -2811,12 +2811,9 @@ mod tests {
 
         let result = validate_prompt_learning_config(&config, None);
         assert!(
-            !result
-                .warnings
-                .iter()
-                .any(|warning| {
-                    warning.contains("Unknown field 'ontology' in [prompt_learning.mipro]")
-                }),
+            !result.warnings.iter().any(|warning| {
+                warning.contains("Unknown field 'ontology' in [prompt_learning.mipro]")
+            }),
             "unexpected ontology unknown-field warning(s): {:?}",
             result.warnings
         );
@@ -2941,9 +2938,10 @@ mod tests {
 
         let result = validate_prompt_learning_config(&config, None);
         assert!(
-            !result.warnings.iter().any(|warning| {
-                warning.contains("prompt_learning.mipro.text_dreamer")
-            }),
+            !result
+                .warnings
+                .iter()
+                .any(|warning| { warning.contains("prompt_learning.mipro.text_dreamer") }),
             "unexpected text_dreamer warning(s): {:?}",
             result.warnings
         );
@@ -2951,15 +2949,14 @@ mod tests {
             !result
                 .warnings
                 .iter()
-                .any(|warning| warning.contains("Unknown field 'ontology' in [prompt_learning.mipro]")),
+                .any(|warning| warning
+                    .contains("Unknown field 'ontology' in [prompt_learning.mipro]")),
             "unexpected ontology unknown-field warning(s): {:?}",
             result.warnings
         );
         assert!(
-            !result
-                .warnings
-                .iter()
-                .any(|warning| warning.contains("Unknown field 'text_dreamer' in [prompt_learning.mipro]")),
+            !result.warnings.iter().any(|warning| warning
+                .contains("Unknown field 'text_dreamer' in [prompt_learning.mipro]")),
             "unexpected text_dreamer unknown-field warning(s): {:?}",
             result.warnings
         );
@@ -2985,7 +2982,9 @@ mod tests {
         let result = validate_prompt_learning_config(&config, None);
         assert!(
             result.warnings.iter().any(|warning| {
-                warning.contains("Unknown field 'mystery_setting' in [prompt_learning.mipro.text_dreamer]")
+                warning.contains(
+                    "Unknown field 'mystery_setting' in [prompt_learning.mipro.text_dreamer]",
+                )
             }),
             "missing text_dreamer unknown-key warning: {:?}",
             result.warnings
@@ -3011,12 +3010,16 @@ mod tests {
 
         let errors = super::validate_prompt_learning_config_strict(&config);
         assert!(
-            errors.iter().any(|err| err.contains("world_model_mode cannot be 'wm_only'")),
+            errors
+                .iter()
+                .any(|err| err.contains("world_model_mode cannot be 'wm_only'")),
             "missing wm_only strict error: {:?}",
             errors
         );
         assert!(
-            errors.iter().any(|err| err.contains("requires ontology connector enabled")),
+            errors
+                .iter()
+                .any(|err| err.contains("requires ontology connector enabled")),
             "missing ontology connector strict error: {:?}",
             errors
         );

@@ -10,6 +10,7 @@
 
 pub mod artifacts;
 pub mod context_override;
+pub mod contracts;
 pub mod enum_values;
 pub mod enums;
 pub mod judgements;
@@ -24,6 +25,7 @@ pub use artifacts::{Artifact, ArtifactBundle, ArtifactContent};
 pub use context_override::{
     ApplicationErrorType, ApplicationStatus, ContextOverride, ContextOverrideStatus,
 };
+pub use contracts::lever_sensor_v1_contract_schema;
 pub use enum_values::data_enum_values;
 pub use enums::{
     AdaptiveBatchLevel, AdaptiveCurriculumLevel, GraphType, InferenceMode, JobStatus, JobType,

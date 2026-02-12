@@ -135,7 +135,11 @@ impl X402Payer {
                     .ok()
                     .filter(|v| !v.trim().is_empty())
             })
-            .or_else(|| std::env::var("X402_PRIVATE_KEY").ok().filter(|v| !v.trim().is_empty()))?;
+            .or_else(|| {
+                std::env::var("X402_PRIVATE_KEY")
+                    .ok()
+                    .filter(|v| !v.trim().is_empty())
+            })?;
 
         let signing_key = parse_signing_key(&raw).ok()?;
         let address = checksum_address(address_from_signing_key(&signing_key));
@@ -261,7 +265,9 @@ pub(crate) fn recover_payer_address_from_payment_payload(
     payload: &PaymentPayload,
 ) -> Result<String, X402Error> {
     if payload.accepted.scheme != "exact" {
-        return Err(X402Error::UnsupportedScheme(payload.accepted.scheme.clone()));
+        return Err(X402Error::UnsupportedScheme(
+            payload.accepted.scheme.clone(),
+        ));
     }
 
     let chain_id = evm_chain_id_from_network(&payload.accepted.network)?;
@@ -318,8 +324,12 @@ pub(crate) fn recover_payer_address_from_payment_payload(
         .and_then(|v| v.as_str())
         .ok_or_else(|| X402Error::MalformedPayload("missing signature".to_string()))?;
 
-    let nonce_hex = nonce_str.trim().strip_prefix("0x").unwrap_or(nonce_str.trim());
-    let nonce_bytes = hex::decode(nonce_hex).map_err(|_| X402Error::InvalidU256(nonce_str.to_string()))?;
+    let nonce_hex = nonce_str
+        .trim()
+        .strip_prefix("0x")
+        .unwrap_or(nonce_str.trim());
+    let nonce_bytes =
+        hex::decode(nonce_hex).map_err(|_| X402Error::InvalidU256(nonce_str.to_string()))?;
     if nonce_bytes.len() != 32 {
         return Err(X402Error::InvalidU256(nonce_str.to_string()));
     }
@@ -359,8 +369,8 @@ pub(crate) fn recover_payer_address_from_payment_payload(
     let recid = RecoveryId::try_from(v - 27).map_err(|_| X402Error::SignFailure)?;
     let sig = Signature::from_slice(&sig_bytes[..64]).map_err(|_| X402Error::SignFailure)?;
 
-    let recovered =
-        VerifyingKey::recover_from_prehash(&digest, &sig, recid).map_err(|_| X402Error::SignFailure)?;
+    let recovered = VerifyingKey::recover_from_prehash(&digest, &sig, recid)
+        .map_err(|_| X402Error::SignFailure)?;
     Ok(checksum_address(address_from_verifying_key(&recovered)))
 }
 
@@ -551,7 +561,8 @@ fn eip712_signing_hash_transfer_with_authorization(
     token_version: &str,
     auth: &Eip3009Authorization,
 ) -> [u8; 32] {
-    let domain_sep = eip712_domain_separator(token_name, token_version, chain_id, verifying_contract);
+    let domain_sep =
+        eip712_domain_separator(token_name, token_version, chain_id, verifying_contract);
     let struct_hash = eip712_transfer_with_authorization_struct_hash(auth);
 
     let mut encoded = Vec::with_capacity(2 + 32 + 32);
@@ -607,10 +618,9 @@ mod tests {
         // - value=250000
         // - validAfter=1700000000 validBefore=1700000300
         // - nonce=0x1111... (32 bytes)
-        let signing_key = parse_signing_key(
-            "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        )
-        .unwrap();
+        let signing_key =
+            parse_signing_key("0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
         let from = address_from_signing_key(&signing_key);
         assert_eq!(
             checksum_address(from),

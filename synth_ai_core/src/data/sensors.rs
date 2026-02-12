@@ -63,4 +63,3 @@ pub struct SensorFrameSummary {
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub lever_versions: HashMap<String, i64>,
 }
-

@@ -85,6 +85,7 @@ pub use tracing::LibsqlTraceStorage;
 pub use data::{
     // Enum values mapping
     data_enum_values,
+    lever_sensor_v1_contract_schema,
     AdaptiveBatchLevel,
     AdaptiveCurriculumLevel,
     ApplicationErrorType,
@@ -96,6 +97,16 @@ pub use data::{
     // Context overrides
     ContextOverride,
     ContextOverrideStatus,
+    Criterion,
+    CriterionScoreData,
+    EventObjectiveAssignment,
+    GraphType,
+    InferenceMode,
+    JobStatus as DataJobStatus,
+    // Enums
+    JobType,
+    // Judgements
+    Judgement,
     // Levers + Sensors
     Lever,
     LeverActor,
@@ -107,22 +118,6 @@ pub use data::{
     LeverProvenance,
     LeverSnapshot,
     MiproLeverSummary,
-    ScopeKey,
-    ScopeKind,
-    Sensor,
-    SensorFrame,
-    SensorFrameSummary,
-    SensorKind,
-    Criterion,
-    CriterionScoreData,
-    EventObjectiveAssignment,
-    GraphType,
-    InferenceMode,
-    JobStatus as DataJobStatus,
-    // Enums
-    JobType,
-    // Judgements
-    Judgement,
     ObjectiveDirection,
     ObjectiveKey,
     // Objectives
@@ -138,6 +133,12 @@ pub use data::{
     // Rubrics
     Rubric,
     RubricAssignment,
+    ScopeKey,
+    ScopeKind,
+    Sensor,
+    SensorFrame,
+    SensorFrameSummary,
+    SensorKind,
     SuccessStatus,
     TrainingType,
     VerifierMode,

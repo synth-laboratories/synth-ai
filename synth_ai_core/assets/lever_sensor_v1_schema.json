@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://synth.ai/schemas/levers-sensors/v1-contract.json",
+  "title": "Synth Levers and Sensors v1 Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scope_key_order",
+    "required_lever_kinds",
+    "required_sensor_kinds",
+    "sensor_frame_minimum"
+  ],
+  "properties": {
+    "scope_key_order": {
+      "description": "Canonical scope precedence from least specific to most specific.",
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "org",
+          "project",
+          "horizon",
+          "job",
+          "stage",
+          "seed",
+          "rollout",
+          "graph_node",
+          "tool_call",
+          "user"
+        ]
+      }
+    },
+    "required_lever_kinds": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "prompt",
+          "context",
+          "code",
+          "constraint",
+          "note",
+          "spec",
+          "graph_yaml",
+          "variable",
+          "experiment"
+        ]
+      }
+    },
+    "required_sensor_kinds": {
+      "type": "array",
+      "minItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "reward",
+          "timing",
+          "rollout",
+          "resource",
+          "safety",
+          "quality",
+          "trace",
+          "context_apply",
+          "experiment"
+        ]
+      }
+    },
+    "sensor_frame_minimum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fields",
+        "required_sensor_fields",
+        "scope_non_empty",
+        "sensors_non_empty"
+      ],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "scope",
+              "sensors",
+              "lever_versions",
+              "trace_ids",
+              "created_at"
+            ]
+          }
+        },
+        "required_sensor_fields": {
+          "type": "array",
+          "minItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "sensor_id",
+              "kind",
+              "scope",
+              "value",
+              "timestamp"
+            ]
+          }
+        },
+        "scope_non_empty": {
+          "type": "boolean",
+          "const": true
+        },
+        "sensors_non_empty": {
+          "type": "boolean",
+          "const": true
+        },
+        "lever_versions_allow_empty_only_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "read_only_baseline"
+          ]
+        },
+        "trace_ids_allow_empty_only_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "synthetic_offline_reconstruction"
+          ]
+        }
+      }
+    }
+  }
+}
