@@ -420,6 +420,67 @@ pub struct PromptLearningResult {
     pub candidates_evaluated: Option<i32>,
 }
 
+impl PromptLearningResult {
+    /// Parse the MIPRO lever summary payload (if the backend provided it).
+    pub fn mipro_lever_summary(&self) -> Option<crate::data::MiproLeverSummary> {
+        let value = self.lever_summary.as_ref()?;
+        serde_json::from_value::<crate::data::MiproLeverSummary>(value.clone()).ok()
+    }
+
+    /// Parse sensor frame summaries into typed structs (best-effort).
+    pub fn sensor_frame_summaries(&self) -> Vec<crate::data::SensorFrameSummary> {
+        self.sensor_frames
+            .iter()
+            .filter_map(|value| {
+                serde_json::from_value::<crate::data::SensorFrameSummary>(value.clone()).ok()
+            })
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod prompt_learning_result_tests {
+    use super::PromptLearningResult;
+
+    #[test]
+    fn parses_mipro_lever_summary_and_sensor_frames() {
+        let payload = serde_json::json!({
+            "job_id": "pl_test",
+            "status": "succeeded",
+            "best_reward": 1.0,
+            "best_candidate": null,
+            "lever_summary": {
+                "prompt_lever_id": "mipro.prompt.sys",
+                "candidate_lever_versions": {"baseline": 1},
+                "baseline_candidate_id": "baseline",
+                "lever_count": 1,
+                "mutation_count": 0,
+                "latest_version": 1
+            },
+            "sensor_frames": [
+                {
+                    "frame_id": "frame_1",
+                    "created_at": "2026-02-11T12:00:00Z",
+                    "sensor_count": 2,
+                    "sensor_kinds": ["reward", "resource"],
+                    "trace_ids": ["trace_1"],
+                    "lever_versions": {"mipro.prompt.sys": 1}
+                }
+            ],
+            "lever_versions": {"mipro.prompt.sys": 1}
+        });
+
+        let result: PromptLearningResult = serde_json::from_value(payload).unwrap();
+        let lever_summary = result.mipro_lever_summary().unwrap();
+        assert_eq!(lever_summary.prompt_lever_id.as_deref(), Some("mipro.prompt.sys"));
+
+        let frames = result.sensor_frame_summaries();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].frame_id, "frame_1");
+        assert_eq!(frames[0].sensor_count, 2);
+    }
+}
+
 /// Result of an evaluation job.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvalResult {

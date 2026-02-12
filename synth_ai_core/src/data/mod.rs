@@ -13,9 +13,11 @@ pub mod context_override;
 pub mod enum_values;
 pub mod enums;
 pub mod judgements;
+pub mod levers;
 pub mod objectives;
 pub mod rewards;
 pub mod rubrics;
+pub mod sensors;
 
 // Re-export all public types
 pub use artifacts::{Artifact, ArtifactBundle, ArtifactContent};
@@ -29,6 +31,10 @@ pub use enums::{
     RewardSource, RewardType, SuccessStatus, SynthModelName, TrainingType, VerifierMode,
 };
 pub use judgements::{CriterionScoreData, Judgement, RubricAssignment};
+pub use levers::{
+    Lever, LeverActor, LeverConstraints, LeverFormat, LeverKind, LeverMutability, LeverMutation,
+    LeverProvenance, LeverSnapshot, MiproLeverSummary, ScopeKey, ScopeKind,
+};
 pub use objectives::{
     EventObjectiveAssignment, InstanceObjectiveAssignment, ObjectiveSpec,
     OutcomeObjectiveAssignment, RewardObservation,
@@ -37,6 +43,7 @@ pub use rewards::{
     CalibrationExample, EventRewardRecord, GoldExample, OutcomeRewardRecord, RewardAggregates,
 };
 pub use rubrics::{Criterion, CriterionExample, Rubric};
+pub use sensors::{Sensor, SensorFrame, SensorFrameSummary, SensorKind};
 
 #[cfg(test)]
 mod tests {

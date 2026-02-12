@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, Optional
 
+from synth_ai.core.levers import MiproLeverSummary
+from synth_ai.core.sensors import SensorFrameSummary
+
 
 def _first_present(data: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
     for key in keys:
@@ -282,6 +285,21 @@ class PolicyOptimizationResult:
         """Backward-compatible alias for `best_candidate`."""
         return self.best_candidate
 
+    @property
+    def lever_summary_typed(self) -> Optional[MiproLeverSummary]:
+        """Best-effort typed parsing of `lever_summary` for MIPRO runs."""
+        return MiproLeverSummary.from_dict(self.lever_summary) if self.lever_summary else None
+
+    @property
+    def sensor_frame_summaries_typed(self) -> list[SensorFrameSummary]:
+        """Best-effort typed parsing of `sensor_frames` summaries."""
+        out: list[SensorFrameSummary] = []
+        for frame in self.sensor_frames:
+            parsed = SensorFrameSummary.from_dict(frame)
+            if parsed is not None:
+                out.append(parsed)
+        return out
+
 
 @dataclass
 class PromptLearningResult:
@@ -378,6 +396,21 @@ class PromptLearningResult:
     def best_prompt(self) -> Optional[str | Dict[str, Any]]:
         """Backward-compatible alias for `best_candidate`."""
         return self.best_candidate
+
+    @property
+    def lever_summary_typed(self) -> Optional[MiproLeverSummary]:
+        """Best-effort typed parsing of `lever_summary` for MIPRO runs."""
+        return MiproLeverSummary.from_dict(self.lever_summary) if self.lever_summary else None
+
+    @property
+    def sensor_frame_summaries_typed(self) -> list[SensorFrameSummary]:
+        """Best-effort typed parsing of `sensor_frames` summaries."""
+        out: list[SensorFrameSummary] = []
+        for frame in self.sensor_frames:
+            parsed = SensorFrameSummary.from_dict(frame)
+            if parsed is not None:
+                out.append(parsed)
+        return out
 
 
 @dataclass
