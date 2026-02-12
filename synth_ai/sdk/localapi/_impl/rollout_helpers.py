@@ -23,6 +23,44 @@ def build_rollout_response(
 ) -> RolloutResponse:
     """Build a RolloutResponse from a RolloutRequest."""
 
+    def _with_optional_metrics(resp: RolloutResponse) -> RolloutResponse:
+        if not kwargs:
+            return resp
+
+        updates: dict[str, Any] = {}
+        for key in (
+            "event_rewards",
+            "outcome_objectives",
+            "event_objectives",
+            "instance_objectives",
+            "details",
+        ):
+            if key not in kwargs or kwargs[key] is None:
+                continue
+
+            current = getattr(resp.reward_info, key, None)
+            provided = kwargs[key]
+
+            if key == "details":
+                if isinstance(provided, dict):
+                    merged = dict(current or {})
+                    for detail_key, detail_value in provided.items():
+                        merged.setdefault(detail_key, detail_value)
+                    if merged != current:
+                        updates[key] = merged
+                elif not current:
+                    updates[key] = provided
+                continue
+
+            if current is None:
+                updates[key] = provided
+
+        if not updates:
+            return resp
+
+        reward_info = resp.reward_info.model_copy(update=updates)
+        return resp.model_copy(update={"reward_info": reward_info})
+
     # The Rust extension can't serialize ContextOverride model instances.
     # Strip them from the request since they aren't needed for the response.
     if request.context_overrides is not None:
@@ -46,8 +84,8 @@ def build_rollout_response(
             )
             # Ensure we return the contract type
             if isinstance(payload, RolloutResponse):
-                return payload
-            return RolloutResponse(**payload)
+                return _with_optional_metrics(payload)
+            return _with_optional_metrics(RolloutResponse(**payload))
         except Exception:
             # Fall back to pure-Python construction when Rust parsing is too strict
             # (e.g. upstream sends floats for integer fields).
@@ -89,4 +127,4 @@ def build_rollout_response(
         status_detail=status_detail,
         override_application_results=kwargs.get("override_application_results"),
     )
-    return response
+    return _with_optional_metrics(response)
