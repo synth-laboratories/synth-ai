@@ -198,6 +198,8 @@ class EventParser:
         ".progress",
         ".rollouts_limit_progress",
         ".rollouts.progress",
+        ".rollout.failures",
+        ".proposer.invoked",
         ".job.started",
         ".trial.started",
         ".trial.completed",
@@ -208,7 +210,7 @@ class EventParser:
     THROUGHPUT_PATTERNS = (".throughput", ".rollout.concurrency", ".rollout_concurrency")
     TERMINATION_PATTERNS = (".termination.triggered",)
     COMPLETE_PATTERNS = (".complete",)  # But NOT .generation.complete
-    VALIDATION_PATTERNS = (".validation.scored",)
+    VALIDATION_PATTERNS = (".validation.scored", ".validation.completed")
     USAGE_PATTERNS = (".usage.recorded", ".billing.sandboxes")
 
     @staticmethod
@@ -245,10 +247,10 @@ class EventParser:
             return EventCategory.THROUGHPUT
         if cls.is_event(normalized, *cls.TERMINATION_PATTERNS):
             return EventCategory.TERMINATION
-        if cls.is_event(normalized, *cls.COMPLETE_PATTERNS):
-            return EventCategory.COMPLETE
         if cls.is_event(normalized, *cls.VALIDATION_PATTERNS):
             return EventCategory.VALIDATION
+        if cls.is_event(normalized, *cls.COMPLETE_PATTERNS):
+            return EventCategory.COMPLETE
         if cls.is_event(normalized, *cls.USAGE_PATTERNS):
             return EventCategory.USAGE
 

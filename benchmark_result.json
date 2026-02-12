@@ -8,14 +8,14 @@
     "train_size": 20,
     "val_size": 10
   },
-  "elapsed_seconds": 18.211520195007324,
+  "elapsed_seconds": 13.220093965530396,
   "git_sha": "unknown",
-  "job_id": "pl_7496015bd5724983",
+  "job_id": "pl_8c5be502f2a543db",
   "schema_version": 1,
-  "score": null,
+  "score": 0.35,
   "status": "success",
   "tier": "quick",
-  "timestamp_utc": "2026-02-12T05:11:52Z",
+  "timestamp_utc": "2026-02-12T05:40:17Z",
   "total_proposal_calls": 5,
   "total_rollouts": 0
 }

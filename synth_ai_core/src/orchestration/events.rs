@@ -275,6 +275,8 @@ impl EventParser {
         ".progress",
         ".rollouts_limit_progress",
         ".rollouts.progress",
+        ".rollout.failures",
+        ".proposer.invoked",
         ".job.started",
         ".trial.started",
         ".trial.completed",
@@ -534,15 +536,15 @@ impl EventParser {
             }
         }
 
-        for pattern in Self::COMPLETE_PATTERNS {
-            if lower.contains(pattern) {
-                return EventCategory::Complete;
-            }
-        }
-
         for pattern in Self::VALIDATION_PATTERNS {
             if lower.contains(pattern) {
                 return EventCategory::Validation;
+            }
+        }
+
+        for pattern in Self::COMPLETE_PATTERNS {
+            if lower.contains(pattern) {
+                return EventCategory::Complete;
             }
         }
 
@@ -831,6 +833,18 @@ mod tests {
         assert_eq!(
             EventParser::get_category("learning.policy.gepa.job.started"),
             EventCategory::Progress
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.rollout.failures"),
+            EventCategory::Progress
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.proposer.invoked"),
+            EventCategory::Progress
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.gepa.validation.completed"),
+            EventCategory::Validation
         );
         assert_eq!(
             EventParser::get_category("learning.policy.gepa.generation.started"),
