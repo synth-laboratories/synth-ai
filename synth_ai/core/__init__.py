@@ -23,6 +23,8 @@ from synth_ai.core.errors import (
     TimeoutError,
     ValidationError,
 )
+from synth_ai.core.levers import Lever, LeverKind, ScopeKey, ScopeKind
+from synth_ai.core.sensors import Sensor, SensorFrame, SensorKind
 
 # Environment utilities
 from synth_ai.core.utils.env import get_api_key, mask_value
@@ -39,6 +41,14 @@ __all__ = [
     "TimeoutError",
     "StorageError",
     "ModelNotSupportedError",
+    # Lever/Sensor primitives
+    "ScopeKind",
+    "ScopeKey",
+    "LeverKind",
+    "Lever",
+    "SensorKind",
+    "Sensor",
+    "SensorFrame",
     # Environment
     "get_api_key",
     "mask_value",

@@ -515,7 +515,8 @@ class PromptLearningJob:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
 
         build = self._build_payload()
-        is_synth = is_synthtunnel_url(build.task_url)
+        task_url = (build.task_url or "").strip()
+        is_synth = is_synthtunnel_url(task_url)
         if is_synth and not (self.config.task_app_worker_token or "").strip():
             raise ValueError(
                 "task_app_worker_token is required for SynthTunnel task_app_url. "
@@ -543,15 +544,15 @@ class PromptLearningJob:
                 config_payload = build.payload
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
-        if not self._skip_health_check:
+        if not self._skip_health_check and task_url:
             if is_synth:
                 health = check_local_api_health(
-                    build.task_url,
+                    task_url,
                     "",
                     worker_token=self.config.task_app_worker_token,
                 )
             else:
-                health = check_local_api_health(build.task_url, self.config.task_app_api_key or "")
+                health = check_local_api_health(task_url, self.config.task_app_api_key or "")
             if not health.ok:
                 raise ValueError(f"Task app health check failed: {health.detail}")
 
@@ -795,8 +796,12 @@ class PromptLearningJob:
                 # Merge full results into final_status
                 final_status.update(
                     {
-                        "best_prompt": full_results.get("best_prompt"),
+                        "best_candidate": full_results.get("best_candidate"),
                         "best_score": full_results.get("best_score"),
+                        "lever_summary": full_results.get("lever_summary"),
+                        "sensor_frames": full_results.get("sensor_frames"),
+                        "lever_versions": full_results.get("lever_versions"),
+                        "best_lever_version": full_results.get("best_lever_version"),
                     }
                 )
 
@@ -841,7 +846,7 @@ class PromptLearningJob:
         result = rust_job.get_results()
         return dict(result) if isinstance(result, dict) else {}
 
-    async def get_best_prompt_text_async(self, rank: int = 1) -> Optional[str]:
+    async def get_best_candidate_text_async(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank (async)."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
@@ -858,12 +863,20 @@ class PromptLearningJob:
                     return prompt_info.get("full_text") or prompt_info.get("prompt")
         return None
 
-    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
+    def get_best_candidate_text(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank."""
         return run_sync(
-            self.get_best_prompt_text_async(rank=rank),
-            label="get_best_prompt_text() (use get_best_prompt_text_async in async contexts)",
+            self.get_best_candidate_text_async(rank=rank),
+            label="get_best_candidate_text() (use get_best_candidate_text_async in async contexts)",
         )
+
+    async def get_best_prompt_text_async(self, rank: int = 1) -> Optional[str]:
+        """Backward-compatible alias for get_best_candidate_text_async()."""
+        return await self.get_best_candidate_text_async(rank=rank)
+
+    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
+        """Backward-compatible alias for get_best_candidate_text()."""
+        return self.get_best_candidate_text(rank=rank)
 
     def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Pause a running prompt learning job.

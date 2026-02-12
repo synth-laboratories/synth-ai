@@ -656,7 +656,11 @@ class PolicyOptimizationJob:
             status=pl_result.status,
             algorithm=str(self._algorithm),
             best_reward=pl_result.best_reward,
-            best_prompt=pl_result.best_prompt,
+            best_candidate=pl_result.best_candidate,
+            lever_summary=pl_result.lever_summary,
+            sensor_frames=pl_result.sensor_frames,
+            lever_versions=pl_result.lever_versions,
+            best_lever_version=pl_result.best_lever_version,
             error=pl_result.error,
             raw=pl_result.raw,
         )
@@ -703,7 +707,11 @@ class PolicyOptimizationJob:
             status=pl_result.status,
             algorithm=str(self._algorithm),
             best_reward=pl_result.best_reward,
-            best_prompt=pl_result.best_prompt,
+            best_candidate=pl_result.best_candidate,
+            lever_summary=pl_result.lever_summary,
+            sensor_frames=pl_result.sensor_frames,
+            lever_versions=pl_result.lever_versions,
+            best_lever_version=pl_result.best_lever_version,
             error=pl_result.error,
             raw=pl_result.raw,
         )
@@ -712,7 +720,7 @@ class PolicyOptimizationJob:
         """Get job results (prompts, scores, etc.).
 
         Returns:
-            Results dictionary with best_prompt, best_score, etc.
+            Results dictionary with best_candidate, best_score, etc.
 
         Raises:
             RuntimeError: If job hasn't been submitted yet
@@ -723,7 +731,7 @@ class PolicyOptimizationJob:
         delegate = self._get_delegate()
         return delegate.get_results()
 
-    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
+    def get_best_candidate_text(self, rank: int = 1) -> Optional[str]:
         """Get the text of the best prompt by rank.
 
         Args:
@@ -736,7 +744,11 @@ class PolicyOptimizationJob:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
         delegate = self._get_delegate()
-        return delegate.get_best_prompt_text(rank=rank)
+        return delegate.get_best_candidate_text(rank=rank)
+
+    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
+        """Backward-compatible alias for get_best_candidate_text()."""
+        return self.get_best_candidate_text(rank=rank)
 
     def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Pause a running job.

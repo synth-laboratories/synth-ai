@@ -20,7 +20,7 @@
 //!         .run()
 //!         .await?;
 //!
-//!     println!("Best prompt: {:?}", result.best_prompt);
+//!     println!("Best candidate: {:?}", result.best_candidate);
 //!     Ok(())
 //! }
 //! ```
@@ -656,9 +656,9 @@ pub struct OptimizeResult {
 }
 
 impl OptimizeResult {
-    /// Get the best prompt if available.
-    pub fn best_prompt(&self) -> Option<&str> {
-        self.results.best_prompt.as_deref()
+    /// Get the best candidate if available.
+    pub fn best_candidate(&self) -> Option<&str> {
+        self.results.best_candidate.as_deref()
     }
 
     /// Get the best reward if available.

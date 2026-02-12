@@ -394,9 +394,21 @@ pub struct PromptLearningResult {
     /// Best reward achieved (if available).
     #[serde(skip_serializing_if = "Option::is_none", alias = "best_score")]
     pub best_reward: Option<f64>,
-    /// Best prompt found (if available).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub best_prompt: Option<Value>,
+    /// Best candidate found (if available).
+    #[serde(skip_serializing_if = "Option::is_none", alias = "best_prompt")]
+    pub best_candidate: Option<Value>,
+    /// Lever summary emitted by optimizer runtimes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lever_summary: Option<Value>,
+    /// Sensor frame summaries emitted by optimizer runtimes.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sensor_frames: Vec<Value>,
+    /// Lever version pins for the selected/best candidate.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub lever_versions: HashMap<String, i64>,
+    /// Highest lever version in `lever_versions`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub best_lever_version: Option<i64>,
     /// Error message (if failed).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,

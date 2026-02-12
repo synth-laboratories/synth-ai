@@ -27,6 +27,8 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
 - [GEPA Crafter VLM Verifier Optimization](https://docs.usesynth.ai/cookbooks/verifier-optimization)
 - [GraphGen Image Style Matching](https://docs.usesynth.ai/cookbooks/graphs/overview)
 
+Benchmark and demo runner source files have moved to the `Benchmarking` repo (`../Benchmarking` in a sibling checkout).
+
 ## Highlights
 
 - 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
@@ -66,7 +68,7 @@ result = gepa.optimize(
 print(result.best_candidate["system_prompt"])
 ```
 Requires `SYNTH_API_KEY` and access to the Synth backend.
-Full Banking77 runthrough: `demos/gepa_banking77_compat.py`.
+Full Banking77 runthrough: `../Benchmarking/demos/gepa_banking77_compat.py`.
 
 ### SDK (Rust - Beta)
 
@@ -198,14 +200,14 @@ Cross-repo integration tests live in the **testing** repo (`synth-laboratories/t
 1. When a PR targets `staging` in `testing`, CI checks out `synth-ai` at the matching branch (e.g. `staging`). Falls back to `main` if the branch doesn't exist.
 2. Tests that exercise synth-ai code:
    - `synth_ai_unit_tests` — `pytest tests/unit` (runs on every push)
-   - `synth_ai_all_tests` — `pytest tests/` including integration (requires API keys)
+   - `synth_ai_all_tests` — package-focused SDK tests from `synth-ai-tests/` in the `testing` repo
    - `testing_unit_tests` — `pytest synth-ai-tests/unit/`
 
 ### Standard workflow
 
 1. Work on `dev`.
 2. When ready to validate, push `dev` and open a PR in `testing`: `dev -> staging`.
-3. CI runs unit + integration tests against the matching `synth-ai` branch.
+3. CI runs unit and cross-repo integration tests against the matching `synth-ai` branch.
 4. After staging is green, merge `staging -> main` in each repo.
 
 ### Running tests locally
@@ -241,6 +243,9 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 ## Documentation
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**
+
+- GEPA proposer backend guide (spec): `../specifications/tanha/current/systems/platform/gepa_proposer_backends.md`
+- GEPA guide (Mintlify): [docs.usesynth.ai/prompt-optimization/gepa](https://docs.usesynth.ai/prompt-optimization/gepa)
 
 ## Community
 
@@ -279,6 +284,7 @@ print(f"Best score: {result.best_score}")
 ```
 
 See the [Banking77 walkthrough](https://docs.usesynth.ai/cookbooks/banking77-colab) for a complete example with local task apps.
+For proposer backend selection (`prompt`, `rlm`, `agent`), see `../specifications/tanha/current/systems/platform/gepa_proposer_backends.md`.
 
 ## Online MIPRO (SDK, Ontology Enabled)
 
@@ -288,7 +294,7 @@ Run online MIPRO so rollouts call a proxy URL and rewards stream back to the opt
 import os
 from synth_ai.sdk.optimization.policy import MiproOnlineSession
 
-# Use the demo config shape from demos/mipro_banking77
+# Use the demo config shape from Benchmarking/demos (see sibling repo)
 mipro_config = {...}
 
 session = MiproOnlineSession.create(
@@ -334,7 +340,7 @@ print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
 
 ## Zero-Shot Verifiers (SDK)
 
-Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](demos/gepa_crafter_vlm/) for verifier optimization:
+Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](https://docs.usesynth.ai/cookbooks/verifier-optimization) for verifier optimization:
 
 ```python
 import asyncio

@@ -224,15 +224,10 @@ fn map_http_error(e: HttpError) -> CoreError {
             if detail.status == 401 || detail.status == 403 {
                 CoreError::Authentication(format!("authentication failed: {}", detail))
             } else if detail.status == 429 {
-                CoreError::UsageLimit(crate::UsageLimitInfo {
-                    limit_type: "rate_limit".to_string(),
-                    api: "graph_evolve".to_string(),
-                    current: 0.0,
-                    limit: 0.0,
-                    tier: "unknown".to_string(),
-                    retry_after_seconds: None,
-                    upgrade_url: "https://usesynth.ai/pricing".to_string(),
-                })
+                CoreError::UsageLimit(crate::UsageLimitInfo::from_http_429(
+                    "graph_evolve",
+                    &detail,
+                ))
             } else {
                 CoreError::HttpResponse(crate::HttpErrorInfo {
                     status: detail.status,

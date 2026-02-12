@@ -45,6 +45,7 @@ from .graph import (
 )
 from .job import JobLifecycle, JobStatus
 from .policy import (
+    GepaOnlineSession,
     MiproOnlineSession,
     PolicyOptimizationJob,
     PolicyOptimizationJobConfig,
@@ -56,6 +57,7 @@ __all__ = [
     "PolicyOptimizationJob",
     "PolicyOptimizationJobConfig",
     "PolicyOptimizationResult",
+    "GepaOnlineSession",
     "MiproOnlineSession",
     # Graph optimization
     "GraphOptimizationJob",

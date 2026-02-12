@@ -301,8 +301,13 @@ impl EventParser {
         &[".termination.triggered", ".termination", ".job.paused"];
 
     /// Patterns for complete events
-    const COMPLETE_PATTERNS: &'static [&'static str] =
-        &[".complete", ".completed", ".job.completed", ".job.cancelled", ".job.canceled"];
+    const COMPLETE_PATTERNS: &'static [&'static str] = &[
+        ".complete",
+        ".completed",
+        ".job.completed",
+        ".job.cancelled",
+        ".job.canceled",
+    ];
 
     /// Patterns for validation events
     const VALIDATION_PATTERNS: &'static [&'static str] =

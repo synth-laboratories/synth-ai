@@ -77,7 +77,10 @@ impl MultipartFile {
 impl HttpError {
     /// Create an HTTP error from a response.
     pub fn from_response(status: u16, url: &str, body: Option<&str>) -> Self {
-        let body_snippet = body.map(|s| s.chars().take(200).collect());
+        // Keep enough body to preserve structured JSON error payloads.
+        // Display paths still truncate to 200 chars, but parsers (e.g. rate-limit
+        // detail extraction) need the full object to avoid fallback placeholders.
+        let body_snippet = body.map(|s| s.chars().take(4096).collect());
         HttpError::Response(HttpErrorDetail {
             status,
             url: url.to_string(),

@@ -899,11 +899,36 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "dspy"
-    proposer_effort: Literal["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"] = "LOW"
+    proposer_backend: Literal["prompt", "rlm", "agent"] | None = None
+    proposer: dict[str, Any] | None = None
+    context_override: dict[str, Any] | None = None
+    # Keep in sync with backend proposer_effort options.
+    proposer_effort: Literal[
+        "LOW_CONTEXT",
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "GEMINI",
+        "GEMINI_PRO",
+    ] = "LOW"
     proposer_output_tokens: Literal["RAPID", "FAST", "SLOW"] = "FAST"
     proposed_prompt_max_tokens: int = 32000
     # Custom metaprompt (optional)
     metaprompt: str | None = None
+
+    # Optional: override proposer meta-model routing (advanced).
+    # These fields are forwarded to the backend GEPA optimizer and allow selecting a
+    # different provider/model/inference_url for proposer calls than the defaults
+    # derived from proposer_effort.
+    dspy_meta_model: str | None = None
+    dspy_meta_provider: str | None = None
+    dspy_inference_url: str | None = None
+    synth_meta_model: str | None = None
+    synth_meta_provider: str | None = None
+    synth_inference_url: str | None = None
+    gepa_ai_meta_model: str | None = None
+    gepa_ai_meta_provider: str | None = None
+    gepa_ai_inference_url: str | None = None
 
     # Multi-stage pipeline support
     modules: list[GEPAModuleConfig] | None = None

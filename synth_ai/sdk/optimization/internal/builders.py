@@ -1,5 +1,6 @@
 import importlib
 import os
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,22 @@ def _normalize_mipro_section(
         if mipro_section.get(key) is None and pl_section.get(key) is not None:
             mipro_section[key] = pl_section[key]
 
+    # Backward compatibility: older benchmark configs used online_train_seeds.
+    if mipro_section.get("online_pool") is None:
+        legacy_online_pool = mipro_section.get("online_train_seeds")
+        if legacy_online_pool is None:
+            legacy_online_pool = pl_section.get("online_train_seeds")
+        if legacy_online_pool is not None:
+            mipro_section["online_pool"] = legacy_online_pool
+            warnings.warn(
+                (
+                    f"{source}: prompt_learning.mipro.online_train_seeds is deprecated; "
+                    "use prompt_learning.mipro.online_pool."
+                ),
+                UserWarning,
+                stacklevel=3,
+            )
+
     mipro_env_name = mipro_section.get("env_name")
     if mipro_env_name and not pl_section.get("env_name") and not pl_section.get("task_app_id"):
         pl_section["env_name"] = mipro_env_name
@@ -189,6 +206,7 @@ def build_prompt_learning_payload(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
@@ -200,11 +218,17 @@ def build_prompt_learning_payload(
         )
         return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
     except Exception as exc:
-        raise click.ClickException(str(exc)) from exc
+        msg = str(exc)
+        if not (
+            task_app_id_present
+            and ("task_app_url is required" in msg or "prompt_learning.task_app_url" in msg)
+        ):
+            raise click.ClickException(msg) from exc
 
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("TASK_APP_URL")
     config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    config_task_app_id = (pl_cfg.task_app_id or "").strip() or None
 
     # For prompt learning, prefer config value over env if config is explicitly set
     # This allows TOML files to specify task_app_url without env var interference
@@ -228,9 +252,12 @@ def build_prompt_learning_payload(
             cli_value=None,
             env_value=env_task_url,
             config_value=None,
-            required=True,
+            required=False,
         )
-    _require(final_task_url is not None, "task_app_url is required")
+    _require(
+        final_task_url is not None or config_task_app_id is not None,
+        "task_app_url or task_app_id is required",
+    )
 
     # Get task_app_api_key from config or environment
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
@@ -249,14 +276,18 @@ def build_prompt_learning_payload(
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=not skip_task_app_key,
+        required=(final_task_url is not None and not skip_task_app_key),
     )
 
-    # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
+    # Ensure task app routing is set. For hosted task apps, task_app_id can be used
+    # without a direct task_app_url.
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
-        pl_section["task_app_url"] = final_task_url
-        if _task_app_api_key and not skip_task_app_key:
+        if final_task_url:
+            pl_section["task_app_url"] = final_task_url
+        if config_task_app_id and not pl_section.get("task_app_id"):
+            pl_section["task_app_id"] = config_task_app_id
+        if final_task_url and _task_app_api_key and not skip_task_app_key:
             pl_section["task_app_api_key"] = _task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
@@ -301,9 +332,12 @@ def build_prompt_learning_payload(
         if pl_cfg.algorithm == "mipro":
             _normalize_mipro_section(pl_cfg, config_dict, source="pre-merge", prefer_model=True)
     else:
-        config_dict["prompt_learning"] = {
-            "task_app_url": final_task_url,
-        }
+        replacement: dict[str, Any] = {}
+        if final_task_url:
+            replacement["task_app_url"] = final_task_url
+        if config_task_app_id:
+            replacement["task_app_id"] = config_task_app_id
+        config_dict["prompt_learning"] = replacement
 
     # Build payload matching backend API format
     # Extract nested overrides if present, otherwise use flat overrides directly
@@ -496,6 +530,7 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
@@ -507,11 +542,17 @@ def build_prompt_learning_payload_from_mapping(
         )
         return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
     except Exception as exc:
-        raise click.ClickException(str(exc)) from exc
+        msg = str(exc)
+        if not (
+            task_app_id_present
+            and ("task_app_url is required" in msg or "prompt_learning.task_app_url" in msg)
+        ):
+            raise click.ClickException(msg) from exc
 
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("TASK_APP_URL")
     config_task_url = (pl_cfg.task_app_url or "").strip() or None
+    config_task_app_id = (pl_cfg.task_app_id or "").strip() or None
 
     # Resolve task_app_url with same precedence as file-based builder
     if cli_task_url:
@@ -530,9 +571,12 @@ def build_prompt_learning_payload_from_mapping(
             cli_value=None,
             env_value=env_task_url,
             config_value=None,
-            required=True,
+            required=False,
         )
-    _require(final_task_url is not None, "task_app_url is required")
+    _require(
+        final_task_url is not None or config_task_app_id is not None,
+        "task_app_url or task_app_id is required",
+    )
 
     # Get task_app_api_key from config or environment
     # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
@@ -551,14 +595,18 @@ def build_prompt_learning_payload_from_mapping(
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=not skip_task_app_key,
+        required=(final_task_url is not None and not skip_task_app_key),
     )
 
-    # Ensure task_app_url is set (task_app_api_key is resolved by backend from ENVIRONMENT_API_KEY)
+    # Ensure task app routing is set. For hosted task apps, task_app_id can be used
+    # without a direct task_app_url.
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
-        pl_section["task_app_url"] = final_task_url
-        if _task_app_api_key and not skip_task_app_key:
+        if final_task_url:
+            pl_section["task_app_url"] = final_task_url
+        if config_task_app_id and not pl_section.get("task_app_id"):
+            pl_section["task_app_id"] = config_task_app_id
+        if final_task_url and _task_app_api_key and not skip_task_app_key:
             pl_section["task_app_api_key"] = _task_app_api_key
 
         # GEPA: Extract train_seeds from nested structure
@@ -577,9 +625,12 @@ def build_prompt_learning_payload_from_mapping(
         if pl_cfg.algorithm == "mipro":
             _normalize_mipro_section(pl_cfg, config_dict, source="pre-merge", prefer_model=True)
     else:
-        config_dict["prompt_learning"] = {
-            "task_app_url": final_task_url,
-        }
+        replacement: dict[str, Any] = {}
+        if final_task_url:
+            replacement["task_app_url"] = final_task_url
+        if config_task_app_id:
+            replacement["task_app_id"] = config_task_app_id
+        config_dict["prompt_learning"] = replacement
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides

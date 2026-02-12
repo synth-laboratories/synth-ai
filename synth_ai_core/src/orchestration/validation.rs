@@ -47,6 +47,7 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "policy",
     "mipro",
     "gepa",
+    "ontology",
     "verifier",
     "proxy_models",
     "env_config",
@@ -90,9 +91,23 @@ const KNOWN_GEPA_FIELDS: &[&str] = &[
     "env_config",
     "rng_seed",
     "proposer_type",
+    "proposer_mode",
+    "proposal_pipeline",
+    "proposer_backend",
+    "proposer",
+    "context_override",
     "proposer_effort",
     "proposer_output_tokens",
     "metaprompt",
+    "dspy_meta_model",
+    "dspy_meta_provider",
+    "dspy_inference_url",
+    "synth_meta_model",
+    "synth_meta_provider",
+    "synth_inference_url",
+    "gepa_ai_meta_model",
+    "gepa_ai_meta_provider",
+    "gepa_ai_inference_url",
     "modules",
     "rollout",
     "evaluation",
@@ -181,6 +196,8 @@ const KNOWN_MIPRO_FIELDS: &[&str] = &[
     "task_app_url",
     "task_app_api_key",
     "task_app_id",
+    "mode",
+    "online",
     "num_iterations",
     "num_evaluations_per_iteration",
     "batch_size",
@@ -218,9 +235,77 @@ const KNOWN_MIPRO_FIELDS: &[&str] = &[
     "metaprompt",
     "bootstrap_train_seeds",
     "online_pool",
+    "online_rollouts_per_candidate",
+    "rollouts_per_candidate",
+    "candidate_rollouts",
+    "online_recent_event_window",
+    "online_recent_rollout_window",
+    "online_event_shard_size",
+    "online_rollout_shard_size",
+    "online_snapshot_max_events",
+    "online_snapshot_max_seconds",
+    "online_proposer_min_rewards",
+    "online_proposer_min_rollouts",
+    "online_proposer_min_seconds",
+    "online_proposer_max_candidates",
+    "online_proposer_mode",
+    "max_instruction_slots",
+    "transform_slots",
+    "ontology",
+    "text_dreamer",
     "test_pool",
     "reference_pool",
     "min_bootstrap_demos",
+];
+
+const KNOWN_MIPRO_ONTOLOGY_FIELDS: &[&str] = &[
+    "enabled",
+    "reads",
+    "read",
+    "writes",
+    "write",
+    "node_name",
+    "node",
+    "context_node",
+    "batch_proposer",
+];
+
+const KNOWN_MIPRO_ONTOLOGY_BATCH_PROPOSER_FIELDS: &[&str] = &[
+    "enabled",
+    "min_rollouts",
+    "trigger_mode",
+    "stage_rollout_intervals",
+    "staged_rollout_intervals",
+    "stage_intervals",
+    "repeat_after_last_stage_rollouts",
+    "repeat_stage_rollouts",
+    "repeat_every_rollouts",
+    "batch_size",
+    "model",
+    "provider",
+    "inference_url",
+    "temperature",
+    "max_tokens",
+    "api_key_env",
+];
+
+const KNOWN_MIPRO_TEXT_DREAMER_FIELDS: &[&str] = &[
+    "enabled",
+    "mode",
+    "world_model_mode",
+    "on_overlap",
+    "runtime_backend",
+    "max_pending_jobs_per_system",
+    "include_trace_required",
+    "max_replay_rollouts",
+    "observation_trigger_every_rollouts",
+    "observation_log_window",
+    "task_app_url",
+    "task_app_api_key",
+    "shadow_rollouts",
+    "shadow_max_turns",
+    "shadow_timeout_seconds",
+    "shadow_seed_base",
 ];
 
 const KNOWN_VERIFIER_FIELDS: &[&str] = &[
@@ -486,12 +571,41 @@ fn validate_mipro_config(
             result,
         );
     }
+    if let Some(Value::Object(ontology)) = mipro.get("ontology") {
+        validate_ontology_config(ontology, "prompt_learning.mipro.ontology", result);
+    }
+    if let Some(Value::Object(text_dreamer)) = mipro.get("text_dreamer") {
+        check_unknown_fields(
+            text_dreamer,
+            KNOWN_MIPRO_TEXT_DREAMER_FIELDS,
+            "prompt_learning.mipro.text_dreamer",
+            result,
+        );
+    }
 
     if mipro.is_empty() {
         result.add_warning(format!(
             "{}No [prompt_learning.mipro] section found for MIPRO algorithm",
             path_prefix
         ));
+    }
+}
+
+fn validate_ontology_config(
+    ontology: &Map<String, Value>,
+    path: &str,
+    result: &mut PromptLearningValidationResult,
+) {
+    check_unknown_fields(ontology, KNOWN_MIPRO_ONTOLOGY_FIELDS, path, result);
+
+    if let Some(Value::Object(batch)) = ontology.get("batch_proposer") {
+        let batch_path = format!("{path}.batch_proposer");
+        check_unknown_fields(
+            batch,
+            KNOWN_MIPRO_ONTOLOGY_BATCH_PROPOSER_FIELDS,
+            &batch_path,
+            result,
+        );
     }
 }
 
@@ -614,6 +728,10 @@ pub fn validate_prompt_learning_config(
             "prompt_learning.proxy_models",
             &mut result,
         );
+    }
+
+    if let Some(Value::Object(ontology)) = pl_map.get("ontology") {
+        validate_ontology_config(ontology, "prompt_learning.ontology", &mut result);
     }
 
     match algorithm {
@@ -745,6 +863,36 @@ fn parse_float(value: &Value) -> Option<f64> {
         Value::Number(n) => n.as_f64(),
         Value::String(s) => s.trim().parse::<f64>().ok(),
         _ => None,
+    }
+}
+
+fn ontology_connector_enabled_for_text_dreamer(
+    pl_section: &Map<String, Value>,
+    mipro_map: &Map<String, Value>,
+) -> bool {
+    let ontology_value = mipro_map
+        .get("ontology")
+        .or_else(|| pl_section.get("ontology"));
+
+    let Some(ontology_value) = ontology_value else {
+        return false;
+    };
+
+    match ontology_value {
+        Value::Bool(enabled) => *enabled,
+        Value::Object(map) => {
+            let enabled = map.get("enabled").and_then(|v| v.as_bool());
+            let reads = map
+                .get("reads")
+                .or_else(|| map.get("read"))
+                .and_then(|v| v.as_bool());
+            let writes = map
+                .get("writes")
+                .or_else(|| map.get("write"))
+                .and_then(|v| v.as_bool());
+            reads.or(writes).or(enabled).unwrap_or(false)
+        }
+        _ => false,
     }
 }
 
@@ -1128,9 +1276,10 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
     }
 
     let task_app_url = pl_section.get("task_app_url");
-    if task_app_url.is_none() {
+    let task_app_id = pl_section.get("task_app_id");
+    if task_app_url.is_none() && task_app_id.is_none() {
         errors.push(
-            "Missing required field: prompt_learning.task_app_url\n  Example:\n    task_app_url = \"http://127.0.0.1:8102\""
+            "Missing required field: prompt_learning.task_app_url or prompt_learning.task_app_id\n  Example:\n    task_app_url = \"http://127.0.0.1:8102\"\n  Or:\n    task_app_id = \"task_app_abc123\""
                 .to_string(),
         );
     } else if let Some(val) = task_app_url {
@@ -1144,6 +1293,18 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         } else {
             errors.push(format!(
                 "task_app_url must be a string, got {}",
+                value_type_name(val)
+            ));
+        }
+    }
+    if let Some(val) = task_app_id {
+        if let Some(id) = val.as_str() {
+            if id.trim().is_empty() {
+                errors.push("task_app_id cannot be empty when provided".to_string());
+            }
+        } else {
+            errors.push(format!(
+                "task_app_id must be a string, got {}",
                 value_type_name(val)
             ));
         }
@@ -1601,10 +1762,36 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                 }
             }
 
-            let proposer_type = gepa_map
-                .get("proposer_type")
+            let proposer_backend = gepa_map
+                .get("proposer_backend")
                 .and_then(|v| v.as_str())
+                .unwrap_or("prompt")
+                .trim()
+                .to_lowercase();
+            if !matches!(proposer_backend.as_str(), "prompt" | "rlm" | "agent") {
+                errors.push(format!(
+                    "Invalid proposer_backend: '{}'\n  Must be one of: 'prompt', 'rlm', 'agent'\n  Got: '{}'",
+                    proposer_backend, proposer_backend
+                ));
+            }
+            // proposer_backend='rlm' and 'agent' are supported by rust_backend gepa_adapter.
+            // Validation accepts them; execution is dispatched by the backend.
+
+            let proposer_prompt_strategy = gepa_map
+                .get("proposer")
+                .and_then(|v| v.as_object())
+                .and_then(|proposer_map| proposer_map.get("prompt"))
+                .and_then(|v| v.as_object())
+                .and_then(|prompt_map| prompt_map.get("strategy"))
+                .and_then(|v| v.as_str());
+            let proposer_type_raw = proposer_prompt_strategy
+                .or_else(|| gepa_map.get("proposer_type").and_then(|v| v.as_str()))
                 .unwrap_or("dspy");
+            let proposer_type = match proposer_type_raw {
+                "gepa_ai" => "gepa-ai",
+                "builtin" => "synth",
+                other => other,
+            };
             if !matches!(proposer_type, "dspy" | "spec" | "synth" | "gepa-ai") {
                 errors.push(format!(
                     "Invalid proposer_type: '{}'\n  Must be one of: 'dspy', 'spec', 'synth', 'gepa-ai'\n  Got: '{}'",
@@ -1617,7 +1804,14 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                 .and_then(|v| v.as_str())
                 .unwrap_or("LOW")
                 .to_uppercase();
-            let valid_effort = ["LOW_CONTEXT", "LOW", "MEDIUM", "HIGH"];
+            let valid_effort = [
+                "LOW_CONTEXT",
+                "LOW",
+                "MEDIUM",
+                "HIGH",
+                "GEMINI",
+                "GEMINI_PRO",
+            ];
             if !valid_effort.contains(&proposer_effort.as_str()) {
                 errors.push(format!(
                     "Invalid proposer_effort: '{}'\n  Must be one of: {}\n  Got: '{}'",
@@ -2408,6 +2602,161 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     ),
                 }
             }
+
+            if let Some(text_dreamer) = mipro_map.get("text_dreamer") {
+                if let Some(td_map) = text_dreamer.as_object() {
+                    let enabled = td_map
+                        .get("enabled")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+
+                    if let Some(mode) = td_map.get("mode") {
+                        if mode.as_str().is_none() {
+                            errors.push(
+                                "prompt_learning.mipro.text_dreamer.mode must be a string"
+                                    .to_string(),
+                            );
+                        }
+                    }
+
+                    if let Some(world_model_mode) =
+                        td_map.get("world_model_mode").and_then(|v| v.as_str())
+                    {
+                        let normalized = world_model_mode
+                            .trim()
+                            .to_ascii_lowercase()
+                            .replace('-', "_");
+                        if normalized == "wm_only" {
+                            errors.push(
+                                "prompt_learning.mipro.text_dreamer.world_model_mode cannot be 'wm_only'; use 'ontology_only' or 'ontology_plus_wm'"
+                                    .to_string(),
+                            );
+                        } else if !normalized.is_empty()
+                            && normalized != "ontology_only"
+                            && normalized != "ontology_plus_wm"
+                        {
+                            errors.push(
+                                "prompt_learning.mipro.text_dreamer.world_model_mode must be 'ontology_only' or 'ontology_plus_wm'"
+                                    .to_string(),
+                            );
+                        }
+                    } else if td_map.contains_key("world_model_mode") {
+                        errors.push(
+                            "prompt_learning.mipro.text_dreamer.world_model_mode must be a string"
+                                .to_string(),
+                        );
+                    }
+
+                    if let Some(on_overlap) = td_map.get("on_overlap").and_then(|v| v.as_str()) {
+                        let normalized = on_overlap.trim().to_ascii_lowercase().replace('-', "_");
+                        if !normalized.is_empty()
+                            && normalized != "queue"
+                            && normalized != "skip_latest"
+                        {
+                            errors.push(
+                                "prompt_learning.mipro.text_dreamer.on_overlap must be 'queue' or 'skip_latest'"
+                                    .to_string(),
+                            );
+                        }
+                    } else if td_map.contains_key("on_overlap") {
+                        errors.push(
+                            "prompt_learning.mipro.text_dreamer.on_overlap must be a string"
+                                .to_string(),
+                        );
+                    }
+
+                    if let Some(runtime_backend) =
+                        td_map.get("runtime_backend").and_then(|v| v.as_str())
+                    {
+                        let normalized = runtime_backend.trim().to_ascii_lowercase();
+                        if !normalized.is_empty()
+                            && !matches!(
+                                normalized.as_str(),
+                                "rhodes" | "harbor" | "openenv" | "archipelago"
+                            )
+                        {
+                            errors.push(
+                                "prompt_learning.mipro.text_dreamer.runtime_backend must be one of: rhodes, harbor, openenv, archipelago"
+                                    .to_string(),
+                            );
+                        }
+                    } else if td_map.contains_key("runtime_backend") {
+                        errors.push(
+                            "prompt_learning.mipro.text_dreamer.runtime_backend must be a string"
+                                .to_string(),
+                        );
+                    }
+
+                    for (field, min_value) in [
+                        ("max_pending_jobs_per_system", 1),
+                        ("max_replay_rollouts", 1),
+                        ("observation_trigger_every_rollouts", 1),
+                        ("observation_log_window", 1),
+                        ("shadow_max_turns", 1),
+                        ("shadow_timeout_seconds", 1),
+                    ] {
+                        if let Some(value) = td_map.get(field) {
+                            match parse_int(value) {
+                                Some(parsed) => {
+                                    if parsed < min_value {
+                                        errors.push(format!(
+                                            "prompt_learning.mipro.text_dreamer.{} must be >= {}",
+                                            field, min_value
+                                        ));
+                                    }
+                                }
+                                None => errors.push(format!(
+                                    "prompt_learning.mipro.text_dreamer.{} must be an integer",
+                                    field
+                                )),
+                            }
+                        }
+                    }
+
+                    for field in ["shadow_rollouts", "shadow_seed_base"] {
+                        if let Some(value) = td_map.get(field) {
+                            match parse_int(value) {
+                                Some(parsed) => {
+                                    if parsed < 0 {
+                                        errors.push(format!(
+                                            "prompt_learning.mipro.text_dreamer.{} must be >= 0",
+                                            field
+                                        ));
+                                    }
+                                }
+                                None => errors.push(format!(
+                                    "prompt_learning.mipro.text_dreamer.{} must be an integer",
+                                    field
+                                )),
+                            }
+                        }
+                    }
+
+                    for field in ["task_app_url", "task_app_api_key"] {
+                        if let Some(value) = td_map.get(field) {
+                            if value.as_str().is_none() {
+                                errors.push(format!(
+                                    "prompt_learning.mipro.text_dreamer.{} must be a string",
+                                    field
+                                ));
+                            }
+                        }
+                    }
+
+                    if enabled
+                        && !ontology_connector_enabled_for_text_dreamer(pl_section, mipro_map)
+                    {
+                        errors.push(
+                            "prompt_learning.mipro.text_dreamer.enabled=true requires ontology connector enabled (set prompt_learning.mipro.ontology.reads=true and/or writes=true)"
+                                .to_string(),
+                        );
+                    }
+                } else {
+                    errors.push(
+                        "prompt_learning.mipro.text_dreamer must be a table/dict".to_string(),
+                    );
+                }
+            }
         }
         _ => {}
     }
@@ -2424,4 +2773,252 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
     }
 
     errors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_prompt_learning_config;
+    use serde_json::json;
+
+    #[test]
+    fn accepts_mipro_ontology_batch_proposer_stage_fields() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3],
+                    "ontology": {
+                        "enabled": true,
+                        "reads": true,
+                        "writes": true,
+                        "batch_proposer": {
+                            "enabled": true,
+                            "trigger_mode": "stage_intervals",
+                            "stage_rollout_intervals": [10, 50, 200],
+                            "repeat_after_last_stage_rollouts": 25,
+                            "batch_size": 40,
+                            "model": "gpt-5.2",
+                            "provider": "openai",
+                            "temperature": 0.7,
+                            "max_tokens": 4096
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| {
+                    warning.contains("Unknown field 'ontology' in [prompt_learning.mipro]")
+                }),
+            "unexpected ontology unknown-field warning(s): {:?}",
+            result.warnings
+        );
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("prompt_learning.mipro.ontology")),
+            "unexpected ontology warning(s): {:?}",
+            result.warnings
+        );
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("prompt_learning.mipro.ontology.batch_proposer")),
+            "unexpected batch proposer warning(s): {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn accepts_top_level_prompt_learning_ontology_section() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "ontology": {
+                    "reads": true,
+                    "batch_proposer": {
+                        "enabled": true
+                    }
+                },
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3]
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Unknown field 'ontology' in [prompt_learning]")),
+            "top-level ontology should be accepted: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn warns_on_unknown_ontology_keys() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3],
+                    "ontology": {
+                        "enabled": true,
+                        "mystery": "value",
+                        "batch_proposer": {
+                            "enabled": true,
+                            "mystery_setting": 123
+                        }
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            result.warnings.iter().any(|warning| {
+                warning.contains("Unknown field 'mystery' in [prompt_learning.mipro.ontology]")
+            }),
+            "missing ontology unknown-key warning: {:?}",
+            result.warnings
+        );
+        assert!(
+            result.warnings.iter().any(|warning| {
+                warning.contains(
+                    "Unknown field 'mystery_setting' in [prompt_learning.mipro.ontology.batch_proposer]"
+                )
+            }),
+            "missing batch proposer unknown-key warning: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn accepts_mipro_text_dreamer_fields() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3],
+                    "ontology": {
+                        "reads": true
+                    },
+                    "text_dreamer": {
+                        "enabled": true,
+                        "mode": "observation_only",
+                        "world_model_mode": "ontology_plus_wm",
+                        "on_overlap": "queue",
+                        "runtime_backend": "rhodes",
+                        "max_pending_jobs_per_system": 2,
+                        "max_replay_rollouts": 4,
+                        "observation_trigger_every_rollouts": 1,
+                        "observation_log_window": 25,
+                        "shadow_rollouts": 2,
+                        "shadow_max_turns": 4,
+                        "shadow_timeout_seconds": 45,
+                        "shadow_seed_base": 1000
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            !result.warnings.iter().any(|warning| {
+                warning.contains("prompt_learning.mipro.text_dreamer")
+            }),
+            "unexpected text_dreamer warning(s): {:?}",
+            result.warnings
+        );
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Unknown field 'ontology' in [prompt_learning.mipro]")),
+            "unexpected ontology unknown-field warning(s): {:?}",
+            result.warnings
+        );
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Unknown field 'text_dreamer' in [prompt_learning.mipro]")),
+            "unexpected text_dreamer unknown-field warning(s): {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn warns_on_unknown_text_dreamer_keys() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3],
+                    "text_dreamer": {
+                        "enabled": true,
+                        "mystery_setting": "value"
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            result.warnings.iter().any(|warning| {
+                warning.contains("Unknown field 'mystery_setting' in [prompt_learning.mipro.text_dreamer]")
+            }),
+            "missing text_dreamer unknown-key warning: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn strict_rejects_text_dreamer_wm_only_and_missing_ontology_connector() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "mipro",
+                "task_app_url": "http://localhost:8102",
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3],
+                    "text_dreamer": {
+                        "enabled": true,
+                        "world_model_mode": "wm_only"
+                    }
+                }
+            }
+        });
+
+        let errors = super::validate_prompt_learning_config_strict(&config);
+        assert!(
+            errors.iter().any(|err| err.contains("world_model_mode cannot be 'wm_only'")),
+            "missing wm_only strict error: {:?}",
+            errors
+        );
+        assert!(
+            errors.iter().any(|err| err.contains("requires ontology connector enabled")),
+            "missing ontology connector strict error: {:?}",
+            errors
+        );
+    }
 }

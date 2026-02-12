@@ -26,8 +26,7 @@ impl EnvironmentPoolsClient {
 
     /// Create a client from environment variables.
     pub fn from_env() -> Result<Self> {
-        let api_key =
-            env::var("SYNTH_API_KEY").map_err(|_| Error::MissingApiKey)?;
+        let api_key = env::var("SYNTH_API_KEY").map_err(|_| Error::MissingApiKey)?;
         let base_url = env::var("SYNTH_BACKEND_URL").ok();
         Self::new(api_key, base_url.as_deref())
     }
@@ -63,7 +62,10 @@ impl EnvironmentPoolsClient {
     }
 
     fn legacy_path(&self, suffix: &str) -> String {
-        format!("/api/v1/environment-pools/{}", suffix.trim_start_matches('/'))
+        format!(
+            "/api/v1/environment-pools/{}",
+            suffix.trim_start_matches('/')
+        )
     }
 
     fn idempotency_headers(idempotency_key: Option<&str>) -> Option<HeaderMap> {
@@ -112,7 +114,9 @@ impl EnvironmentPoolsClient {
 
         Err(Error::Core(
             last_error
-                .unwrap_or_else(|| HttpError::InvalidUrl("no env pools endpoints available".to_string()))
+                .unwrap_or_else(|| {
+                    HttpError::InvalidUrl("no env pools endpoints available".to_string())
+                })
                 .into(),
         ))
     }
@@ -144,7 +148,9 @@ impl EnvironmentPoolsClient {
 
         Err(Error::Core(
             last_error
-                .unwrap_or_else(|| HttpError::InvalidUrl("no env pools endpoints available".to_string()))
+                .unwrap_or_else(|| {
+                    HttpError::InvalidUrl("no env pools endpoints available".to_string())
+                })
                 .into(),
         ))
     }

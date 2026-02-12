@@ -19,6 +19,13 @@ from synth_ai.data.artifacts import (
 from synth_ai.data.enums import OutputMode, SuccessStatus
 
 
+def _validate_non_empty_trace_correlation_id(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("trace_correlation_id must be a non-empty string.")
+    return normalized
+
+
 class StructuredOutputConfig(BaseModel):
     """Configuration for structured output mode (OutputMode.STRUCTURED).
 
@@ -146,6 +153,11 @@ class RolloutRequest(BaseModel):
         if v is None:
             return None
         return [ContextOverride.from_dict(item) if isinstance(item, dict) else item for item in v]
+
+    @field_validator("trace_correlation_id")
+    @classmethod
+    def _validate_trace_correlation_id(cls, value: str) -> str:
+        return _validate_non_empty_trace_correlation_id(value)
 
 
 class RolloutMetrics(BaseModel):
@@ -299,6 +311,11 @@ class RolloutResponse(BaseModel):
         description="Structured results of context override application. "
         "Reports per-target status (applied/failed/skipped) so GEPA can learn from failures.",
     )
+
+    @field_validator("trace_correlation_id")
+    @classmethod
+    def _validate_trace_correlation_id(cls, value: str) -> str:
+        return _validate_non_empty_trace_correlation_id(value)
 
     def model_dump(self, **kwargs):
         """Default to alias serialization for task app responses."""

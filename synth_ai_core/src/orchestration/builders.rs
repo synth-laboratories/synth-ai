@@ -220,24 +220,30 @@ pub fn build_prompt_learning_payload(
         .get("task_app_url")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
+    let has_task_app_id = pl_map
+        .get("task_app_id")
+        .and_then(|v| v.as_str())
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
     let env_task_url = std::env::var("TASK_APP_URL").ok();
 
     let final_task_url = if let Some(cli) = cli_task_url {
-        cli
+        Some(cli)
     } else if let Some(cfg) = config_task_url {
-        cfg
+        Some(cfg)
     } else if let Some(env) = env_task_url {
-        env
+        Some(env)
     } else {
-        return Err(CoreError::Validation(
-            "task_app_url is required".to_string(),
-        ));
+        None
     };
 
-    pl_map.insert(
-        "task_app_url".to_string(),
-        Value::String(final_task_url.clone()),
-    );
+    if let Some(url) = final_task_url.clone() {
+        pl_map.insert("task_app_url".to_string(), Value::String(url));
+    } else if !has_task_app_id {
+        return Err(CoreError::Validation(
+            "task_app_url or task_app_id is required".to_string(),
+        ));
+    }
 
     let cli_api_key = overrides_obj
         .get("task_app_api_key")
@@ -249,7 +255,7 @@ pub fn build_prompt_learning_payload(
         .map(|s| s.to_string());
     let env_api_key = std::env::var("ENVIRONMENT_API_KEY").ok();
     let api_key = cli_api_key.or(env_api_key).or(config_api_key);
-    if api_key.is_none() {
+    if final_task_url.is_some() && api_key.is_none() {
         return Err(CoreError::Validation(
             "task_app_api_key is required".to_string(),
         ));
@@ -323,5 +329,5 @@ pub fn build_prompt_learning_payload(
     payload.insert("metadata".to_string(), Value::Object(metadata));
     payload.insert("auto_start".to_string(), Value::Bool(auto_start));
 
-    Ok((Value::Object(payload), final_task_url))
+    Ok((Value::Object(payload), final_task_url.unwrap_or_default()))
 }

@@ -1,0 +1,21 @@
+{
+  "benchmark_id": "gepa_banking77_cloud_quick",
+  "config": {
+    "backend_url": "http://127.0.0.1:8000",
+    "generations": 1,
+    "model": "gpt-4o-mini",
+    "rollouts": 15,
+    "train_size": 20,
+    "val_size": 10
+  },
+  "elapsed_seconds": 18.211520195007324,
+  "git_sha": "unknown",
+  "job_id": "pl_7496015bd5724983",
+  "schema_version": 1,
+  "score": null,
+  "status": "success",
+  "tier": "quick",
+  "timestamp_utc": "2026-02-12T05:11:52Z",
+  "total_proposal_calls": 5,
+  "total_rollouts": 0
+}

@@ -148,23 +148,23 @@ def _extract_seed_system_prompt(seed_candidate: dict[str, str]) -> str:
     )
 
 
-def _extract_system_prompt_from_best_prompt(best_prompt: Any) -> str | None:
-    if isinstance(best_prompt, str) and best_prompt.strip():
-        return best_prompt.strip()
-    if not isinstance(best_prompt, dict):
+def _extract_system_prompt_from_best_candidate(best_candidate: Any) -> str | None:
+    if isinstance(best_candidate, str) and best_candidate.strip():
+        return best_candidate.strip()
+    if not isinstance(best_candidate, dict):
         return None
     for key in ("system_prompt", "instruction", "prompt"):
-        value = best_prompt.get(key)
+        value = best_candidate.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    messages = best_prompt.get("messages")
+    messages = best_candidate.get("messages")
     if isinstance(messages, list):
         for msg in messages:
             if isinstance(msg, dict) and msg.get("role") == "system":
                 content = msg.get("pattern") or msg.get("content")
                 if isinstance(content, str) and content.strip():
                     return content.strip()
-    stages = best_prompt.get("stages")
+    stages = best_candidate.get("stages")
     if isinstance(stages, dict):
         main_stage = stages.get("main")
         if isinstance(main_stage, dict):
@@ -219,6 +219,36 @@ def _infer_children_per_generation(max_metric_calls: int | None) -> int:
     return max(1, min(default_children, max_metric_calls))
 
 
+def _resolve_proposer_type() -> str:
+    """Resolve proposer type for GEPA compatibility runs."""
+    override = os.getenv("SYNTH_GEPA_PROPOSER_TYPE", "").strip().lower()
+    if override:
+        return override
+    # DSPy is the stable default in SDK configs; use it for compatibility mode.
+    return "dspy"
+
+
+def _derive_archive_overrides(
+    *,
+    train_seed_count: int,
+    max_metric_calls: int | None,
+) -> dict[str, int]:
+    """Derive archive sizing that remains feasible for small-budget runs."""
+    if train_seed_count <= 0:
+        return {}
+
+    # Backend validation requires at least 3 feedback seeds:
+    # pareto_set_size <= total_seeds - 3
+    max_from_feedback = max(3, train_seed_count - 3)
+    max_from_budget = max_metric_calls if max_metric_calls is not None else max_from_feedback
+    pareto_set_size = max(3, min(12, max_from_feedback, max_from_budget))
+    archive_size = max(pareto_set_size + 2, pareto_set_size * 2)
+    return {
+        "prompt_learning.gepa.archive.pareto_set_size": int(pareto_set_size),
+        "prompt_learning.gepa.archive.size": int(archive_size),
+    }
+
+
 def _warn_if_unsupported(name: str, value: Any, default: Any) -> None:
     if value != default:
         warnings.warn(
@@ -265,12 +295,19 @@ async def _call_llm(
 
     api_key = policy_config.get("api_key")
     if not isinstance(api_key, str) or not api_key.strip():
-        api_key = request_headers.get("x-api-key") or request_headers.get("authorization")
+        # synth_hosted rollouts must authenticate with backend API key, not task-app env keys.
+        api_key = (
+            os.environ.get("SYNTH_API_KEY")
+            or request_headers.get("authorization")
+            or request_headers.get("x-api-key")
+        )
 
     headers: dict[str, str] = {"Content-Type": "application/json"}
     lower_url = inference_url.lower()
     if api_key:
-        if "api.openai.com" in lower_url or "api.groq.com" in lower_url:
+        inference_mode = str(policy_config.get("inference_mode") or "").strip().lower()
+        is_synth_hosted = inference_mode == "synth_hosted"
+        if is_synth_hosted or "api.openai.com" in lower_url or "api.groq.com" in lower_url:
             headers["Authorization"] = (
                 api_key if api_key.lower().startswith("bearer ") else f"Bearer {api_key}"
             )
@@ -303,23 +340,17 @@ async def _call_llm(
     try:
         data = await _post(inference_url, headers)
     except httpx.HTTPStatusError as exc:
-        status = exc.response.status_code if exc.response is not None else None
-        # The Synth interceptor path can occasionally return transient 5xx errors in dev.
-        # Fall back to direct OpenAI calls when possible so local rollouts still complete.
-        if status in {500, 502, 503, 504} and "api.openai.com" not in inference_url.lower():
-            openai_key = os.environ.get("OPENAI_API_KEY", "").strip()
-            if openai_key:
-                fallback_url = "https://api.openai.com/v1/chat/completions"
-                fallback_headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {openai_key}",
-                }
-                data = await _post(fallback_url, fallback_headers)
-                inference_url = fallback_url
-            else:
-                raise
-        else:
-            raise
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        response_text = ""
+        if exc.response is not None:
+            try:
+                response_text = exc.response.text[:240]
+            except Exception:
+                response_text = ""
+        raise RuntimeError(
+            f"GEPA rollout LLM call failed via configured inference_url={inference_url!r} "
+            f"(status={status}, body={response_text!r})."
+        ) from exc
 
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
@@ -446,6 +477,7 @@ def optimize(
     proposer_effort = _infer_proposer_effort(
         reflection_lm if isinstance(reflection_lm, str) else None
     )
+    proposer_type = _resolve_proposer_type()
     proposer_output_tokens = "FAST"
     num_generations = _infer_num_generations(resolved_max_metric_calls)
     children_per_generation = _infer_children_per_generation(resolved_max_metric_calls)
@@ -643,7 +675,7 @@ def optimize(
                     "inference_mode": "synth_hosted",
                 },
                 "initial_prompt": initial_prompt,
-                "proposer_type": "gepa-ai",
+                "proposer_type": proposer_type,
                 "rng_seed": seed,
             }
             if resolved_max_metric_calls is not None:
@@ -659,6 +691,12 @@ def optimize(
                 # when users set a tiny rollout budget.
                 job_overrides.setdefault("prompt_learning.gepa.rollout.max_concurrent", 1)
                 job_overrides.setdefault("prompt_learning.gepa.rollout.minibatch_size", 1)
+            job_overrides.update(
+                _derive_archive_overrides(
+                    train_seed_count=len(dataset_bundle.train_seeds),
+                    max_metric_calls=resolved_max_metric_calls,
+                )
+            )
 
             job = PolicyOptimizationJob.from_dict(
                 config_dict=config_dict,
@@ -689,8 +727,8 @@ def optimize(
             if result.failed and raise_on_exception:
                 raise RuntimeError(result.error or "GEPA optimization failed.")
 
-            best_prompt_value = result.best_prompt
-            best_system_prompt = _extract_system_prompt_from_best_prompt(best_prompt_value)
+            best_candidate_value = result.best_candidate
+            best_system_prompt = _extract_system_prompt_from_best_candidate(best_candidate_value)
             best_candidate = (
                 {"system_prompt": best_system_prompt}
                 if best_system_prompt

@@ -18,6 +18,7 @@ Example:
 
 from __future__ import annotations
 
+from .gepa_online_session import GepaOnlineSession
 from .job import (
     PolicyOptimizationJob,
     PolicyOptimizationJobConfig,
@@ -29,5 +30,6 @@ __all__ = [
     "PolicyOptimizationJob",
     "PolicyOptimizationJobConfig",
     "PolicyOptimizationResult",
+    "GepaOnlineSession",
     "MiproOnlineSession",
 ]

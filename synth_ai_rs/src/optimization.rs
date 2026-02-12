@@ -64,13 +64,16 @@ impl PolicyOptimizationJobConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PromptLearningResults {
-    pub best_prompt: Option<Value>,
     pub best_score: Option<f64>,
     pub top_prompts: Vec<Value>,
     pub optimized_candidates: Vec<Value>,
     pub attempted_candidates: Vec<Value>,
     pub validation_results: Vec<Value>,
     pub best_candidate: Option<Value>,
+    pub lever_summary: Option<Value>,
+    pub sensor_frames: Vec<Value>,
+    pub lever_versions: HashMap<String, i64>,
+    pub best_lever_version: Option<i64>,
     pub event_counts: HashMap<String, i64>,
     pub event_history: Vec<Value>,
     pub gepa: HashMap<String, Value>,
@@ -174,8 +177,19 @@ impl PolicyOptimizationJob {
     }
 
     pub async fn results(&self) -> Result<PromptLearningResults> {
-        let events = self.events().await?;
-        Ok(PromptLearningResults::from_events(&events))
+        let status_result = self.status().await;
+        let events_result = self.events().await;
+
+        match (status_result, events_result) {
+            (Ok(status), Ok(events)) => {
+                let mut results = PromptLearningResults::from_events(&events);
+                results.apply_status_payload(&status);
+                Ok(results)
+            }
+            (Ok(status), Err(_)) => Ok(PromptLearningResults::from_status_payload(&status)),
+            (Err(_), Ok(events)) => Ok(PromptLearningResults::from_events(&events)),
+            (Err(_status_err), Err(events_err)) => Err(events_err),
+        }
     }
 
     pub async fn stream_events(&self) -> Result<SseStream> {
@@ -200,9 +214,7 @@ impl PolicyOptimizationJob {
             Err(SynthError::Api { status: 404, .. }) => {
                 match stream_sse(legacy1, headers.clone()).await {
                     Ok(stream) => Ok(stream),
-                    Err(SynthError::Api { status: 404, .. }) => {
-                        stream_sse(legacy2, headers).await
-                    }
+                    Err(SynthError::Api { status: 404, .. }) => stream_sse(legacy2, headers).await,
                     Err(err) => Err(err),
                 }
             }
@@ -212,6 +224,45 @@ impl PolicyOptimizationJob {
 }
 
 impl PromptLearningResults {
+    pub fn from_status_payload(status: &Value) -> Self {
+        let mut results = PromptLearningResults::default();
+        results.apply_status_payload(status);
+        results
+    }
+
+    pub fn apply_status_payload(&mut self, status: &Value) {
+        let fields = extract_status_fields(status);
+        if self.best_score.is_none() {
+            self.best_score = fields.best_score;
+        }
+        if self.best_candidate.is_none() {
+            self.best_candidate = fields.best_candidate;
+        }
+        if self.lever_summary.is_none() {
+            self.lever_summary = fields.lever_summary;
+        }
+        if self.sensor_frames.is_empty() && !fields.sensor_frames.is_empty() {
+            self.sensor_frames = fields.sensor_frames;
+        }
+        if self.lever_versions.is_empty() && !fields.lever_versions.is_empty() {
+            self.lever_versions = fields.lever_versions;
+        }
+        if self.best_lever_version.is_none() {
+            self.best_lever_version = fields
+                .best_lever_version
+                .or_else(|| self.lever_versions.values().copied().max());
+        }
+        if self.optimized_candidates.is_empty() && !fields.optimized_candidates.is_empty() {
+            self.optimized_candidates = fields.optimized_candidates;
+        }
+        if self.attempted_candidates.is_empty() && !fields.attempted_candidates.is_empty() {
+            self.attempted_candidates = fields.attempted_candidates;
+        }
+        if self.validation_results.is_empty() && !fields.validation_results.is_empty() {
+            self.validation_results = fields.validation_results;
+        }
+    }
+
     pub fn from_events(events: &[Value]) -> Self {
         let mut results = PromptLearningResults::default();
         let mut validation_by_rank: HashMap<i64, f64> = HashMap::new();
@@ -230,17 +281,16 @@ impl PromptLearningResults {
 
             match event_type.as_str() {
                 "learning.policy.gepa.candidate.new_best" => {
-                    results.best_prompt = data.get("best_prompt").cloned();
                     if results.best_score.is_none() {
                         results.best_score = extract_reward_value(data, &["best_score"]);
                     }
-                    if results.best_candidate.is_none() {
-                        results.best_candidate = data
-                            .get("best_candidate")
-                            .cloned()
-                            .or_else(|| data.get("candidate").cloned())
-                            .or_else(|| data.get("program_candidate").cloned());
-                    }
+                    results.best_candidate = data
+                        .get("best_candidate")
+                        .cloned()
+                        .or_else(|| data.get("best_prompt").cloned())
+                        .or_else(|| data.get("prompt").cloned())
+                        .or_else(|| data.get("candidate").cloned())
+                        .or_else(|| data.get("program_candidate").cloned());
                     append_event_bucket(&mut results.gepa, "best_candidates", &event_type, &data);
                 }
                 "learning.policy.gepa.candidate.evaluated" => {
@@ -316,7 +366,12 @@ impl PromptLearningResults {
                         }
                         results.top_prompts.push(Value::Object(prompt_entry));
                     }
-                    append_event_bucket(&mut results.gepa, "candidates", &event_type, &candidate_view);
+                    append_event_bucket(
+                        &mut results.gepa,
+                        "candidates",
+                        &event_type,
+                        &candidate_view,
+                    );
                 }
                 "learning.policy.gepa.job.completed" => {
                     if let Some(cands) = data.get("optimized_candidates").and_then(|v| v.as_array())
@@ -327,8 +382,11 @@ impl PromptLearningResults {
                     {
                         results.attempted_candidates = cands.clone();
                     }
-                    if results.best_prompt.is_none() {
-                        results.best_prompt = data.get("best_prompt").cloned();
+                    if results.best_candidate.is_none() {
+                        results.best_candidate = data
+                            .get("best_candidate")
+                            .cloned()
+                            .or_else(|| data.get("best_prompt").cloned());
                     }
                     if results.best_score.is_none() {
                         results.best_score = extract_reward_value(data, &["best_score"]);
@@ -347,7 +405,9 @@ impl PromptLearningResults {
                         }
                     }
                     if let Some(Value::Object(baseline)) = data.get("baseline") {
-                        results.gepa.insert("baseline".to_string(), Value::Object(baseline.clone()));
+                        results
+                            .gepa
+                            .insert("baseline".to_string(), Value::Object(baseline.clone()));
                     }
                     append_event_bucket(&mut results.gepa, "job_completed", &event_type, &data);
                 }
@@ -368,6 +428,12 @@ impl PromptLearningResults {
                             &["best_score", "best_full_score", "best_minibatch_score"],
                         );
                     }
+                    if results.best_candidate.is_none() {
+                        results.best_candidate = data
+                            .get("best_candidate")
+                            .cloned()
+                            .or_else(|| data.get("best_prompt").cloned());
+                    }
                     if let Some(cands) = data.get("attempted_candidates").and_then(|v| v.as_array())
                     {
                         results.attempted_candidates = cands.clone();
@@ -376,15 +442,28 @@ impl PromptLearningResults {
                     {
                         results.optimized_candidates = cands.clone();
                     }
-                    let mut entry = Map::new();
-                    entry.insert(
-                        "_event_type".to_string(),
-                        Value::String(event_type.clone()),
+                    if let Some(Value::Object(summary)) = data.get("lever_summary") {
+                        results.lever_summary = Some(Value::Object(summary.clone()));
+                    }
+                    if let Some(frames) = data.get("sensor_frames").and_then(|v| v.as_array()) {
+                        results.sensor_frames = frames.clone();
+                    }
+                    let parsed_lever_versions = parse_lever_versions(data.get("lever_versions"));
+                    if !parsed_lever_versions.is_empty() {
+                        results.lever_versions = parsed_lever_versions;
+                    }
+                    results.best_lever_version = extract_best_lever_version(
+                        data.get("best_lever_version"),
+                        &results.lever_versions,
                     );
+                    let mut entry = Map::new();
+                    entry.insert("_event_type".to_string(), Value::String(event_type.clone()));
                     for (k, v) in data.iter() {
                         entry.insert(k.clone(), v.clone());
                     }
-                    results.mipro.insert("job".to_string(), Value::Object(entry));
+                    results
+                        .mipro
+                        .insert("job".to_string(), Value::Object(entry));
                 }
                 _ if event_type.starts_with("learning.policy.gepa.") => {
                     if event_type.contains("baseline") {
@@ -394,13 +473,23 @@ impl PromptLearningResults {
                     } else if event_type.contains("frontier_updated")
                         || event_type.contains("frontier.updated")
                     {
-                        append_event_bucket(&mut results.gepa, "frontier_updates", &event_type, &data);
+                        append_event_bucket(
+                            &mut results.gepa,
+                            "frontier_updates",
+                            &event_type,
+                            &data,
+                        );
                     } else if event_type.contains("generation.complete")
                         || event_type.contains("generation.completed")
                     {
                         append_event_bucket(&mut results.gepa, "generations", &event_type, &data);
                     } else if event_type.contains("progress") {
-                        append_event_bucket(&mut results.gepa, "progress_updates", &event_type, &data);
+                        append_event_bucket(
+                            &mut results.gepa,
+                            "progress_updates",
+                            &event_type,
+                            &data,
+                        );
                     }
                 }
                 _ if event_type.starts_with("learning.policy.mipro.") => {
@@ -428,13 +517,19 @@ impl PromptLearningResults {
                             results.best_candidate = data
                                 .get("best_candidate")
                                 .cloned()
+                                .or_else(|| data.get("best_prompt").cloned())
                                 .or_else(|| data.get("candidate").cloned())
                                 .or_else(|| data.get("program_candidate").cloned());
                         }
                     } else if event_type.contains("candidate.evaluated") {
                         append_event_bucket(&mut results.mipro, "candidates", &event_type, &data);
                     } else if event_type.contains("budget") {
-                        append_event_bucket(&mut results.mipro, "budget_updates", &event_type, &data);
+                        append_event_bucket(
+                            &mut results.mipro,
+                            "budget_updates",
+                            &event_type,
+                            &data,
+                        );
                     }
                 }
                 _ => {}
@@ -531,6 +626,204 @@ fn parse_events(value: Value) -> Result<Vec<Value>> {
     ))
 }
 
+#[derive(Default)]
+struct StatusFields {
+    best_score: Option<f64>,
+    best_candidate: Option<Value>,
+    lever_summary: Option<Value>,
+    sensor_frames: Vec<Value>,
+    lever_versions: HashMap<String, i64>,
+    best_lever_version: Option<i64>,
+    optimized_candidates: Vec<Value>,
+    attempted_candidates: Vec<Value>,
+    validation_results: Vec<Value>,
+}
+
+fn merged_metadata_map(payload: &Map<String, Value>) -> Map<String, Value> {
+    let mut merged = Map::new();
+    if let Some(Value::Object(metadata)) = payload.get("metadata") {
+        for (k, v) in metadata {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    if let Some(Value::Object(job_metadata)) = payload.get("job_metadata") {
+        for (k, v) in job_metadata {
+            merged.insert(k.clone(), v.clone());
+        }
+    }
+    merged
+}
+
+fn first_present<'a>(values: &[Option<&'a Value>]) -> Option<&'a Value> {
+    values
+        .iter()
+        .copied()
+        .flatten()
+        .find(|value| !value.is_null())
+}
+
+fn first_float(values: &[Option<&Value>]) -> Option<f64> {
+    values.iter().copied().flatten().find_map(coerce_f64)
+}
+
+fn first_i64(values: &[Option<&Value>]) -> Option<i64> {
+    values.iter().copied().flatten().find_map(coerce_i64)
+}
+
+fn coerce_i64(value: &Value) -> Option<i64> {
+    match value {
+        Value::Number(num) => num.as_i64(),
+        Value::String(s) => s.parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
+fn infer_lever_versions_from_summary(summary: Option<&Value>) -> HashMap<String, i64> {
+    let mut versions: HashMap<String, i64> = HashMap::new();
+    let Some(Value::Object(summary_obj)) = summary else {
+        return versions;
+    };
+    let Some(prompt_lever_id) = summary_obj.get("prompt_lever_id").and_then(|v| v.as_str()) else {
+        return versions;
+    };
+    let Some(Value::Object(candidate_versions)) = summary_obj.get("candidate_lever_versions")
+    else {
+        return versions;
+    };
+
+    let selected_candidate_id = summary_obj
+        .get("selected_candidate_id")
+        .or_else(|| summary_obj.get("best_candidate_id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .or_else(|| {
+            if candidate_versions.len() == 1 {
+                candidate_versions.keys().next().cloned()
+            } else {
+                None
+            }
+        });
+    let Some(candidate_id) = selected_candidate_id else {
+        return versions;
+    };
+    let Some(version) = candidate_versions.get(&candidate_id).and_then(coerce_i64) else {
+        return versions;
+    };
+    versions.insert(prompt_lever_id.to_string(), version);
+    versions
+}
+
+fn extract_status_fields(status: &Value) -> StatusFields {
+    let Some(payload) = status.as_object() else {
+        return StatusFields::default();
+    };
+    let metadata = merged_metadata_map(payload);
+    let nested_result = payload.get("result").and_then(|value| value.as_object());
+
+    let best_candidate = first_present(&[
+        payload.get("best_candidate"),
+        payload.get("best_prompt"),
+        nested_result.and_then(|result| result.get("best_candidate")),
+        nested_result.and_then(|result| result.get("best_prompt")),
+        metadata.get("best_candidate"),
+        metadata.get("best_prompt"),
+    ])
+    .and_then(|value| match value {
+        Value::Object(_) | Value::Array(_) | Value::String(_) => Some(value.clone()),
+        _ => None,
+    });
+
+    let best_score = first_float(&[
+        payload.get("best_reward"),
+        payload.get("best_score"),
+        nested_result.and_then(|result| result.get("best_reward")),
+        nested_result.and_then(|result| result.get("best_score")),
+        metadata.get("best_reward"),
+        metadata.get("best_score"),
+        metadata.get("prompt_best_average_reward"),
+        metadata.get("prompt_best_reward"),
+        metadata.get("prompt_best_score"),
+    ]);
+
+    let lever_summary = first_present(&[
+        payload.get("lever_summary"),
+        nested_result.and_then(|result| result.get("lever_summary")),
+        metadata.get("lever_summary"),
+    ])
+    .and_then(|value| match value {
+        Value::Object(_) => Some(value.clone()),
+        _ => None,
+    });
+
+    let sensor_frames = first_present(&[
+        payload.get("sensor_frames"),
+        nested_result.and_then(|result| result.get("sensor_frames")),
+        metadata.get("sensor_frames"),
+    ])
+    .and_then(|value| value.as_array().cloned())
+    .map(|frames| {
+        frames
+            .into_iter()
+            .filter(|frame| frame.is_object())
+            .collect::<Vec<Value>>()
+    })
+    .unwrap_or_default();
+
+    let mut lever_versions = parse_lever_versions(first_present(&[
+        payload.get("lever_versions"),
+        nested_result.and_then(|result| result.get("lever_versions")),
+        metadata.get("lever_versions"),
+    ]));
+    if lever_versions.is_empty() {
+        lever_versions = infer_lever_versions_from_summary(lever_summary.as_ref());
+    }
+
+    let best_lever_version = first_i64(&[
+        payload.get("best_lever_version"),
+        nested_result.and_then(|result| result.get("best_lever_version")),
+        metadata.get("best_lever_version"),
+    ])
+    .or_else(|| lever_versions.values().copied().max());
+
+    let optimized_candidates = first_present(&[
+        payload.get("optimized_candidates"),
+        nested_result.and_then(|result| result.get("optimized_candidates")),
+        metadata.get("optimized_candidates"),
+    ])
+    .and_then(|value| value.as_array().cloned())
+    .unwrap_or_default();
+
+    let attempted_candidates = first_present(&[
+        payload.get("attempted_candidates"),
+        nested_result.and_then(|result| result.get("attempted_candidates")),
+        metadata.get("attempted_candidates"),
+    ])
+    .and_then(|value| value.as_array().cloned())
+    .unwrap_or_default();
+
+    let validation_results = first_present(&[
+        payload.get("validation_results"),
+        nested_result.and_then(|result| result.get("validation_results")),
+        payload.get("validation"),
+        nested_result.and_then(|result| result.get("validation")),
+        metadata.get("validation"),
+    ])
+    .and_then(|value| value.as_array().cloned())
+    .unwrap_or_default();
+
+    StatusFields {
+        best_score,
+        best_candidate,
+        lever_summary,
+        sensor_frames,
+        lever_versions,
+        best_lever_version,
+        optimized_candidates,
+        attempted_candidates,
+        validation_results,
+    }
+}
+
 fn coerce_f64(value: &Value) -> Option<f64> {
     match value {
         Value::Number(num) => num.as_f64(),
@@ -558,6 +851,28 @@ fn extract_reward_value(payload: &Map<String, Value>, fallback_keys: &[&str]) ->
         }
     }
     None
+}
+
+fn parse_lever_versions(raw: Option<&Value>) -> HashMap<String, i64> {
+    let mut versions: HashMap<String, i64> = HashMap::new();
+    let Some(Value::Object(values)) = raw else {
+        return versions;
+    };
+    for (key, value) in values {
+        let parsed = coerce_i64(value);
+        if let Some(version) = parsed {
+            versions.insert(key.clone(), version);
+        }
+    }
+    versions
+}
+
+fn extract_best_lever_version(
+    raw: Option<&Value>,
+    lever_versions: &HashMap<String, i64>,
+) -> Option<i64> {
+    let direct = raw.and_then(coerce_i64);
+    direct.or_else(|| lever_versions.values().copied().max())
 }
 
 fn extract_event_type(event: &Value) -> String {
@@ -724,5 +1039,65 @@ fn extract_full_text_from_pattern(pattern: &Value) -> Option<String> {
         None
     } else {
         Some(parts.join("\n\n"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_payload_parses_metadata_and_infers_lever_version() {
+        let status = json!({
+            "status": "succeeded",
+            "best_prompt": {"messages": [{"role": "system", "content": "fallback"}]},
+            "job_metadata": {
+                "best_score": "0.88",
+                "lever_summary": {
+                    "prompt_lever_id": "mipro.prompt.pl_123",
+                    "candidate_lever_versions": {"candidate_1": "7"},
+                    "best_candidate_id": "candidate_1"
+                },
+                "sensor_frames": [{"frame_id": "frame_1"}]
+            }
+        });
+
+        let results = PromptLearningResults::from_status_payload(&status);
+        assert_eq!(results.best_score, Some(0.88));
+        assert_eq!(
+            results.best_candidate,
+            Some(json!({"messages": [{"role": "system", "content": "fallback"}]}))
+        );
+        assert_eq!(results.lever_versions.get("mipro.prompt.pl_123"), Some(&7));
+        assert_eq!(results.best_lever_version, Some(7));
+        assert_eq!(results.sensor_frames, vec![json!({"frame_id": "frame_1"})]);
+    }
+
+    #[test]
+    fn status_payload_merge_preserves_existing_event_data() {
+        let mut results = PromptLearningResults {
+            best_score: Some(0.65),
+            best_candidate: Some(json!({"existing": true})),
+            lever_versions: HashMap::from([(String::from("mipro.prompt.existing"), 2)]),
+            ..Default::default()
+        };
+        let status = json!({
+            "best_score": 0.99,
+            "best_candidate": {"replacement": true},
+            "lever_versions": {"mipro.prompt.other": 9},
+            "sensor_frames": [{"frame_id": "frame_1"}],
+            "best_lever_version": 9
+        });
+
+        results.apply_status_payload(&status);
+
+        assert_eq!(results.best_score, Some(0.65));
+        assert_eq!(results.best_candidate, Some(json!({"existing": true})));
+        assert_eq!(
+            results.lever_versions,
+            HashMap::from([(String::from("mipro.prompt.existing"), 2)])
+        );
+        assert_eq!(results.sensor_frames, vec![json!({"frame_id": "frame_1"})]);
+        assert_eq!(results.best_lever_version, Some(9));
     }
 }

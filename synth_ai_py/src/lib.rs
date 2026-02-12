@@ -2803,8 +2803,8 @@ fn expand_gepa_config(py: Python, minimal: PyObject) -> PyResult<PyObject> {
 fn gepa_candidate_to_initial_prompt(py: Python, seed_candidate: PyObject) -> PyResult<PyObject> {
     let candidate_value: serde_json::Value = pythonize::depythonize(seed_candidate.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let prompt =
-        config::gepa_candidate_to_initial_prompt(&candidate_value).map_err(|e| map_core_err(py, e))?;
+    let prompt = config::gepa_candidate_to_initial_prompt(&candidate_value)
+        .map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &prompt)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -3641,8 +3641,7 @@ fn value_from_pyobject(py: Python, obj: PyObject) -> PyResult<Value> {
     // Normalize through normalize_python_json which handles custom pyclasses
     // (via to_dict), lists, dicts, datetimes, enums, numpy, etc.
     let normalized = normalize_python_json(py, &bound)?;
-    pythonize::depythonize(normalized.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))
+    pythonize::depythonize(normalized.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 fn value_to_pyobject(py: Python, value: &Value) -> PyResult<PyObject> {
@@ -4811,7 +4810,11 @@ struct SynthClient {
 impl SynthClient {
     #[new]
     #[pyo3(signature = (api_key=None, base_url=None, timeout_secs=None))]
-    fn new(api_key: Option<&str>, base_url: Option<&str>, timeout_secs: Option<u64>) -> PyResult<Self> {
+    fn new(
+        api_key: Option<&str>,
+        base_url: Option<&str>,
+        timeout_secs: Option<u64>,
+    ) -> PyResult<Self> {
         let client = match (api_key, timeout_secs) {
             (Some(key), Some(t)) => RustSynthClient::with_timeout(key, base_url, t),
             (Some(key), None) => RustSynthClient::new(key, base_url),

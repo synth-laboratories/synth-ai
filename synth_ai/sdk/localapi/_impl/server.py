@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, field_serializer
+from pydantic import BaseModel, ConfigDict, ValidationError, field_serializer
 from starlette.middleware import Middleware
 
 from .auth import normalize_environment_api_key, require_api_key_dependency
@@ -519,8 +519,13 @@ def create_task_app(config: TaskAppConfig) -> FastAPI:
         if isinstance(result, Mapping):
             try:
                 validated = RolloutResponse.model_validate(result)
-            except Exception:
-                return to_jsonable(result)
+            except ValidationError as exc:
+                raise http_exception(
+                    422,
+                    "invalid_rollout_response",
+                    "Rollout executor returned a payload that does not satisfy RolloutResponse.",
+                    extra={"validation_errors": exc.errors()},
+                ) from exc
             return to_jsonable(validated.model_dump())
         raise TypeError("Rollout executor must return RolloutResponse or mapping")
 

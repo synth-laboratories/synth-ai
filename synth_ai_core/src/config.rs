@@ -854,14 +854,15 @@ pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value,
 
     let mut messages: Vec<Value> = Vec::new();
     let mut order = 0_i64;
-    let mut push_message = |messages: &mut Vec<Value>, order: &mut i64, role: &str, prompt: String| {
-        let mut msg = Map::new();
-        msg.insert("role".to_string(), Value::String(role.to_string()));
-        msg.insert("pattern".to_string(), Value::String(prompt));
-        msg.insert("order".to_string(), Value::Number((*order).into()));
-        *order += 1;
-        messages.push(Value::Object(msg));
-    };
+    let mut push_message =
+        |messages: &mut Vec<Value>, order: &mut i64, role: &str, prompt: String| {
+            let mut msg = Map::new();
+            msg.insert("role".to_string(), Value::String(role.to_string()));
+            msg.insert("pattern".to_string(), Value::String(prompt));
+            msg.insert("order".to_string(), Value::Number((*order).into()));
+            *order += 1;
+            messages.push(Value::Object(msg));
+        };
 
     if let Some(system_prompt) = extract_prompt("system_prompt")
         .or_else(|| extract_prompt("instruction"))

@@ -528,8 +528,7 @@ pub async fn resolve_hostname_with_explicit_resolvers(
         .lookup_ip(hostname)
         .await
         .map_err(|e| TunnelError::dns(e.to_string()))?;
-    prefer_ipv4(lookup.iter())
-        .ok_or_else(|| TunnelError::dns("no ip resolved"))
+    prefer_ipv4(lookup.iter()).ok_or_else(|| TunnelError::dns("no ip resolved"))
 }
 
 pub async fn verify_tunnel_dns_resolution(

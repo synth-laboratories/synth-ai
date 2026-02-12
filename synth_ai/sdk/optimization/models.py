@@ -13,6 +13,30 @@ def _first_present(data: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
     return None
 
 
+def _from_data_or_metadata(data: Dict[str, Any], key: str) -> Optional[Any]:
+    value = data.get(key)
+    if value is not None:
+        return value
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        nested = metadata.get(key)
+        if nested is not None:
+            return nested
+    return None
+
+
+def _parse_lever_versions(raw: Any) -> Dict[str, int]:
+    if not isinstance(raw, dict):
+        return {}
+    versions: Dict[str, int] = {}
+    for key, value in raw.items():
+        try:
+            versions[str(key)] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return versions
+
+
 def _normalize_status(status: str) -> str:
     return status.strip().lower().replace(" ", "_")
 
@@ -41,22 +65,24 @@ def _extract_system_prompt_from_dict(prompt: Dict[str, Any]) -> Optional[str]:
 
 
 def _extract_system_prompt(
-    best_prompt: Optional[str | Dict[str, Any]],
+    best_candidate: Optional[str | Dict[str, Any]],
     raw: Dict[str, Any],
 ) -> Optional[str]:
     """Extract system prompt from result data, trying multiple sources."""
     # Direct string
-    if isinstance(best_prompt, str) and best_prompt:
-        return best_prompt
+    if isinstance(best_candidate, str) and best_candidate:
+        return best_candidate
 
     # Structured dict
-    if isinstance(best_prompt, dict):
-        result = _extract_system_prompt_from_dict(best_prompt)
+    if isinstance(best_candidate, dict):
+        result = _extract_system_prompt_from_dict(best_candidate)
         if result:
             return result
 
     # Try raw response fields
-    raw_best = raw.get("best_prompt")
+    raw_best = raw.get("best_candidate")
+    if raw_best is None:
+        raw_best = raw.get("best_prompt")
     if isinstance(raw_best, str) and raw_best:
         return raw_best
     if isinstance(raw_best, dict):
@@ -175,7 +201,11 @@ class PolicyOptimizationResult:
     status: PolicyJobStatus
     algorithm: Optional[str] = None
     best_reward: Optional[float] = None
-    best_prompt: Optional[str] = None
+    best_candidate: Optional[str | Dict[str, Any]] = None
+    lever_summary: Optional[Dict[str, Any]] = None
+    sensor_frames: list[Dict[str, Any]] = field(default_factory=list)
+    lever_versions: Dict[str, int] = field(default_factory=dict)
+    best_lever_version: Optional[int] = None
     error: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -194,12 +224,43 @@ class PolicyOptimizationResult:
                 "best_train_reward",
             ),
         )
+        if best_reward is None:
+            metadata = data.get("metadata")
+            if isinstance(metadata, dict):
+                best_reward = _first_present(
+                    metadata,
+                    (
+                        "best_score",
+                        "best_reward",
+                        "best_train_score",
+                        "best_train_reward",
+                    ),
+                )
+        lever_summary_raw = _from_data_or_metadata(data, "lever_summary")
+        lever_summary = lever_summary_raw if isinstance(lever_summary_raw, dict) else None
+        sensor_frames_raw = _from_data_or_metadata(data, "sensor_frames")
+        sensor_frames = sensor_frames_raw if isinstance(sensor_frames_raw, list) else []
+        lever_versions = _parse_lever_versions(_from_data_or_metadata(data, "lever_versions"))
+        best_lever_version_raw = _from_data_or_metadata(data, "best_lever_version")
+        best_lever_version = None
+        if best_lever_version_raw is not None:
+            try:
+                best_lever_version = int(best_lever_version_raw)
+            except (TypeError, ValueError):
+                best_lever_version = None
+        if lever_versions:
+            best_lever_version = best_lever_version or max(int(v) for v in lever_versions.values())
         return cls(
             job_id=job_id,
             status=status,
             algorithm=algorithm or data.get("algorithm"),
             best_reward=best_reward,
-            best_prompt=data.get("best_prompt"),
+            best_candidate=_from_data_or_metadata(data, "best_candidate")
+            or _from_data_or_metadata(data, "best_prompt"),
+            lever_summary=lever_summary,
+            sensor_frames=[frame for frame in sensor_frames if isinstance(frame, dict)],
+            lever_versions=lever_versions,
+            best_lever_version=best_lever_version,
             error=data.get("error"),
             raw=data,
         )
@@ -216,6 +277,11 @@ class PolicyOptimizationResult:
     def is_terminal(self) -> bool:
         return self.status.is_terminal
 
+    @property
+    def best_prompt(self) -> Optional[str | Dict[str, Any]]:
+        """Backward-compatible alias for `best_candidate`."""
+        return self.best_candidate
+
 
 @dataclass
 class PromptLearningResult:
@@ -224,7 +290,11 @@ class PromptLearningResult:
     job_id: str
     status: PolicyJobStatus
     best_reward: Optional[float] = None
-    best_prompt: Optional[str | Dict[str, Any]] = None
+    best_candidate: Optional[str | Dict[str, Any]] = None
+    lever_summary: Optional[Dict[str, Any]] = None
+    sensor_frames: list[Dict[str, Any]] = field(default_factory=list)
+    lever_versions: Dict[str, int] = field(default_factory=dict)
+    best_lever_version: Optional[int] = None
     error: Optional[str] = None
     raw: Dict[str, Any] = field(default_factory=dict)
 
@@ -241,11 +311,42 @@ class PromptLearningResult:
                 "best_train_reward",
             ),
         )
+        if best_reward is None:
+            metadata = data.get("metadata")
+            if isinstance(metadata, dict):
+                best_reward = _first_present(
+                    metadata,
+                    (
+                        "best_score",
+                        "best_reward",
+                        "best_train_score",
+                        "best_train_reward",
+                    ),
+                )
+        lever_summary_raw = _from_data_or_metadata(data, "lever_summary")
+        lever_summary = lever_summary_raw if isinstance(lever_summary_raw, dict) else None
+        sensor_frames_raw = _from_data_or_metadata(data, "sensor_frames")
+        sensor_frames = sensor_frames_raw if isinstance(sensor_frames_raw, list) else []
+        lever_versions = _parse_lever_versions(_from_data_or_metadata(data, "lever_versions"))
+        best_lever_version_raw = _from_data_or_metadata(data, "best_lever_version")
+        best_lever_version = None
+        if best_lever_version_raw is not None:
+            try:
+                best_lever_version = int(best_lever_version_raw)
+            except (TypeError, ValueError):
+                best_lever_version = None
+        if lever_versions:
+            best_lever_version = best_lever_version or max(int(v) for v in lever_versions.values())
         return cls(
             job_id=job_id,
             status=status,
             best_reward=best_reward,
-            best_prompt=data.get("best_prompt"),
+            best_candidate=_from_data_or_metadata(data, "best_candidate")
+            or _from_data_or_metadata(data, "best_prompt"),
+            lever_summary=lever_summary,
+            sensor_frames=[frame for frame in sensor_frames if isinstance(frame, dict)],
+            lever_versions=lever_versions,
+            best_lever_version=best_lever_version,
             error=data.get("error"),
             raw=data,
         )
@@ -271,7 +372,12 @@ class PromptLearningResult:
         Returns:
             System prompt text, or None if extraction fails
         """
-        return _extract_system_prompt(self.best_prompt, self.raw)
+        return _extract_system_prompt(self.best_candidate, self.raw)
+
+    @property
+    def best_prompt(self) -> Optional[str | Dict[str, Any]]:
+        """Backward-compatible alias for `best_candidate`."""
+        return self.best_candidate
 
 
 @dataclass

@@ -9,7 +9,7 @@ import signal
 import time
 from typing import Any, Literal, Protocol, runtime_checkable
 
-from gepa.core.state import GEPAState
+from synth_ai.gepa.core.state import GEPAState
 
 
 @runtime_checkable

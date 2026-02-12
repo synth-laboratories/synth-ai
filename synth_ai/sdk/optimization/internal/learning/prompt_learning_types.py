@@ -15,6 +15,15 @@ def _coerce_float(value: Any) -> Optional[float]:
         return None
 
 
+def _coerce_int(value: Any) -> Optional[int]:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _extract_outcome_reward(data: Dict[str, Any]) -> Optional[float]:
     outcome_objectives = data.get("outcome_objectives")
     if isinstance(outcome_objectives, dict):
@@ -35,6 +44,47 @@ def _normalize_objectives(data: Dict[str, Any]) -> Optional[Dict[str, float]]:
     if reward_val is None:
         return None
     return {"reward": float(reward_val)}
+
+
+def _infer_lever_versions_from_summary(lever_summary: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    if not isinstance(lever_summary, dict):
+        return {}
+    prompt_lever_id = lever_summary.get("prompt_lever_id")
+    candidate_versions = lever_summary.get("candidate_lever_versions")
+    if not isinstance(prompt_lever_id, str) or not isinstance(candidate_versions, dict):
+        return {}
+    candidate_id = (
+        lever_summary.get("selected_candidate_id")
+        or lever_summary.get("best_candidate_id")
+        or (next(iter(candidate_versions.keys())) if len(candidate_versions) == 1 else None)
+    )
+    if candidate_id is None:
+        return {}
+    version = _coerce_int(candidate_versions.get(str(candidate_id)))
+    if version is None:
+        return {}
+    return {prompt_lever_id: version}
+
+
+def _infer_best_lever_version_from_summary(
+    lever_summary: Optional[Dict[str, Any]],
+    *,
+    best_candidate_id: Optional[str] = None,
+) -> Optional[int]:
+    if not isinstance(lever_summary, dict):
+        return None
+    candidate_versions = lever_summary.get("candidate_lever_versions")
+    if not isinstance(candidate_versions, dict):
+        return None
+    candidate_id = (
+        best_candidate_id
+        or lever_summary.get("selected_candidate_id")
+        or lever_summary.get("best_candidate_id")
+        or (next(iter(candidate_versions.keys())) if len(candidate_versions) == 1 else None)
+    )
+    if candidate_id is None:
+        return None
+    return _coerce_int(candidate_versions.get(str(candidate_id)))
 
 
 @dataclass
@@ -164,7 +214,7 @@ class BestPromptEventData:
     """Data for prompt.learning.best.prompt event."""
 
     best_reward: float
-    best_prompt: Dict[str, Any]
+    best_candidate: Dict[str, Any]
     best_objectives: Optional[Dict[str, float]] = None
 
     @classmethod
@@ -175,7 +225,7 @@ class BestPromptEventData:
             best_reward=float(reward_val)
             if reward_val is not None
             else data.get("best_score", 0.0),
-            best_prompt=data.get("best_prompt", {}),
+            best_candidate=data.get("best_candidate") or data.get("best_prompt") or {},
             best_objectives=_normalize_objectives(data),
         )
 
@@ -221,7 +271,7 @@ class ValidationScoredEventData:
 class PromptResults:
     """Results from a completed prompt learning job."""
 
-    best_prompt: Optional[Dict[str, Any]] = None
+    best_candidate: Optional[Dict[str, Any] | str] = None  # Best candidate payload (when available)
     best_reward: Optional[float] = None
     version_tree: Optional[Dict[str, Any]] = None
     top_prompts: List[Dict[str, Any]] = field(default_factory=list)
@@ -230,7 +280,10 @@ class PromptResults:
     validation_results: List[Dict[str, Any]] = field(default_factory=list)
     total_rollouts: int = 0  # Total number of rollouts (metric evaluations)
     total_proposal_calls: int = 0  # Total number of proposal/mutation calls (LLM reflection calls)
-    best_candidate: Optional[Dict[str, Any]] = None  # Best candidate payload (when available)
+    lever_summary: Optional[Dict[str, Any]] = None
+    sensor_frames: List[Dict[str, Any]] = field(default_factory=list)
+    lever_versions: Dict[str, int] = field(default_factory=dict)
+    best_lever_version: Optional[int] = None
     event_counts: Dict[str, int] = field(default_factory=dict)
     event_history: List[Dict[str, Any]] = field(default_factory=list)
     gepa: Dict[str, Any] = field(default_factory=dict)
@@ -239,8 +292,42 @@ class PromptResults:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> PromptResults:
         """Create PromptResults from a dictionary."""
+        lever_summary = (
+            data.get("lever_summary") if isinstance(data.get("lever_summary"), dict) else None
+        )
+        lever_versions: Dict[str, int] = {}
+        raw_versions = data.get("lever_versions")
+        if isinstance(raw_versions, dict):
+            for key, value in raw_versions.items():
+                try:
+                    lever_versions[str(key)] = int(value)
+                except (TypeError, ValueError):
+                    continue
+        inferred_versions = _infer_lever_versions_from_summary(lever_summary)
+        summary_prompt_lever_id = (
+            lever_summary.get("prompt_lever_id") if isinstance(lever_summary, dict) else None
+        )
+        if inferred_versions and (
+            not lever_versions
+            or (
+                isinstance(summary_prompt_lever_id, str)
+                and summary_prompt_lever_id not in lever_versions
+            )
+        ):
+            lever_versions = inferred_versions
+        best_lever_version_raw = data.get("best_lever_version")
+        best_lever_version: Optional[int] = None
+        if best_lever_version_raw is not None:
+            try:
+                best_lever_version = int(best_lever_version_raw)
+            except (TypeError, ValueError):
+                best_lever_version = None
+        if best_lever_version is None:
+            best_lever_version = _infer_best_lever_version_from_summary(lever_summary)
+        if best_lever_version is None and lever_versions:
+            best_lever_version = max(lever_versions.values())
         return cls(
-            best_prompt=data.get("best_prompt"),
+            best_candidate=data.get("best_candidate") or data.get("best_prompt"),
             best_reward=data.get("best_reward") or data.get("best_score"),
             version_tree=data.get("version_tree"),
             top_prompts=data.get("top_prompts", []),
@@ -249,7 +336,14 @@ class PromptResults:
             validation_results=data.get("validation_results", []),
             total_rollouts=data.get("total_rollouts", 0),
             total_proposal_calls=data.get("total_proposal_calls", 0),
-            best_candidate=data.get("best_candidate"),
+            lever_summary=lever_summary,
+            sensor_frames=[
+                frame for frame in data.get("sensor_frames", []) if isinstance(frame, dict)
+            ]
+            if isinstance(data.get("sensor_frames"), list)
+            else [],
+            lever_versions=lever_versions,
+            best_lever_version=best_lever_version,
             event_counts=data.get("event_counts", {}),
             event_history=data.get("event_history", []),
             gepa=data.get("gepa", {}),

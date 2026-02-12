@@ -3,6 +3,7 @@
 //! This module provides the high-level `PromptLearningJob` class for
 //! submitting and tracking GEPA/MIPRO optimization jobs.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use reqwest::header::{HeaderMap, HeaderValue};
@@ -29,9 +30,21 @@ pub struct PromptLearningResult {
     /// Best reward achieved
     #[serde(default, alias = "best_score")]
     pub best_reward: Option<f64>,
-    /// Best prompt configuration
+    /// Best candidate configuration
     #[serde(default)]
-    pub best_prompt: Option<Value>,
+    pub best_candidate: Option<Value>,
+    /// Lever summary emitted by optimizer runtimes.
+    #[serde(default)]
+    pub lever_summary: Option<Value>,
+    /// Sensor frame summaries emitted by optimizer runtimes.
+    #[serde(default)]
+    pub sensor_frames: Vec<Value>,
+    /// Lever versions for the selected/best candidate.
+    #[serde(default)]
+    pub lever_versions: HashMap<String, i64>,
+    /// Highest lever version represented in `lever_versions`.
+    #[serde(default)]
+    pub best_lever_version: Option<i64>,
     /// Baseline reward
     #[serde(default, alias = "baseline_score")]
     pub baseline_reward: Option<f64>,
@@ -65,9 +78,9 @@ impl PromptLearningResult {
         self.status.is_terminal()
     }
 
-    /// Get the system prompt from best_prompt if available.
+    /// Get the system prompt from best_candidate if available.
     pub fn get_system_prompt(&self) -> Option<String> {
-        self.best_prompt.as_ref().and_then(|p| {
+        self.best_candidate.as_ref().and_then(|p| {
             // Try various paths where system prompt might be
             p.get("system_prompt")
                 .and_then(|v| v.as_str())
@@ -104,15 +117,27 @@ pub struct RankedPrompt {
 /// Extracted prompt results.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptResults {
-    /// Best prompt text
+    /// Best candidate text
     #[serde(default)]
-    pub best_prompt: Option<String>,
+    pub best_candidate: Option<String>,
     /// Best reward
     #[serde(default, alias = "best_score")]
     pub best_reward: Option<f64>,
     /// Top prompts ranked by score
     #[serde(default)]
     pub top_prompts: Vec<RankedPrompt>,
+    /// Lever summary emitted by optimizer runtimes.
+    #[serde(default)]
+    pub lever_summary: Option<Value>,
+    /// Sensor frame summaries emitted by optimizer runtimes.
+    #[serde(default)]
+    pub sensor_frames: Vec<Value>,
+    /// Lever versions for the selected/best candidate.
+    #[serde(default)]
+    pub lever_versions: HashMap<String, i64>,
+    /// Highest lever version represented in `lever_versions`.
+    #[serde(default)]
+    pub best_lever_version: Option<i64>,
 }
 
 /// High-level prompt learning job orchestration.
@@ -254,7 +279,11 @@ impl PromptLearningJob {
             job_id: result.job_id,
             status: result.status,
             best_reward: result.best_reward,
-            best_prompt: result.best_prompt,
+            best_candidate: result.best_candidate,
+            lever_summary: result.lever_summary,
+            sensor_frames: result.sensor_frames,
+            lever_versions: result.lever_versions,
+            best_lever_version: result.best_lever_version,
             baseline_reward: None,
             candidates_evaluated: result.candidates_evaluated.unwrap_or(0),
             generations_completed: result.generations_completed.unwrap_or(0),
@@ -289,7 +318,11 @@ impl PromptLearningJob {
             job_id: result.job_id,
             status: result.status,
             best_reward: result.best_reward,
-            best_prompt: result.best_prompt,
+            best_candidate: result.best_candidate,
+            lever_summary: result.lever_summary,
+            sensor_frames: result.sensor_frames,
+            lever_versions: result.lever_versions,
+            best_lever_version: result.best_lever_version,
             baseline_reward: None,
             candidates_evaluated: result.candidates_evaluated.unwrap_or(0),
             generations_completed: result.generations_completed.unwrap_or(0),
@@ -462,9 +495,23 @@ impl PromptLearningJob {
                 .as_ref()
                 .and_then(|result| result.best_reward)
                 .or(Some(self.tracker.best_reward())),
-            best_prompt: status_result
+            best_candidate: status_result
                 .as_ref()
-                .and_then(|result| result.best_prompt.clone()),
+                .and_then(|result| result.best_candidate.clone()),
+            lever_summary: status_result
+                .as_ref()
+                .and_then(|result| result.lever_summary.clone()),
+            sensor_frames: status_result
+                .as_ref()
+                .map(|result| result.sensor_frames.clone())
+                .unwrap_or_default(),
+            lever_versions: status_result
+                .as_ref()
+                .map(|result| result.lever_versions.clone())
+                .unwrap_or_default(),
+            best_lever_version: status_result
+                .as_ref()
+                .and_then(|result| result.best_lever_version),
             baseline_reward: self.tracker.baseline_reward(),
             candidates_evaluated: self.tracker.progress.candidates_evaluated,
             generations_completed: self.tracker.progress.generations_completed,
@@ -530,10 +577,10 @@ impl PromptLearningJob {
     ///
     /// This fetches events to extract the best prompts.
     pub async fn get_results(&self) -> Result<PromptResults, CoreError> {
-        // Get final status for best_prompt
+        // Get final status for best_candidate
         let status = self.get_status().await?;
 
-        let best_prompt = status.get_system_prompt();
+        let best_candidate = status.get_system_prompt();
         let best_reward = status.best_reward.or(Some(self.tracker.best_reward()));
 
         // Build ranked prompts from tracker candidates
@@ -566,9 +613,13 @@ impl PromptLearningJob {
         }
 
         Ok(PromptResults {
-            best_prompt,
+            best_candidate,
             best_reward,
             top_prompts,
+            lever_summary: status.lever_summary,
+            sensor_frames: status.sensor_frames,
+            lever_versions: status.lever_versions,
+            best_lever_version: status.best_lever_version,
         })
     }
 }
@@ -584,7 +635,11 @@ mod tests {
             job_id: "test".to_string(),
             status: PolicyJobStatus::Succeeded,
             best_reward: Some(0.85),
-            best_prompt: None,
+            best_candidate: None,
+            lever_summary: None,
+            sensor_frames: Vec::new(),
+            lever_versions: HashMap::new(),
+            best_lever_version: None,
             baseline_reward: None,
             candidates_evaluated: 10,
             generations_completed: 3,
@@ -603,9 +658,13 @@ mod tests {
             job_id: "test".to_string(),
             status: PolicyJobStatus::Succeeded,
             best_reward: Some(0.85),
-            best_prompt: Some(json!({
+            best_candidate: Some(json!({
                 "system_prompt": "You are a helpful assistant."
             })),
+            lever_summary: None,
+            sensor_frames: Vec::new(),
+            lever_versions: HashMap::new(),
+            best_lever_version: None,
             baseline_reward: None,
             candidates_evaluated: 10,
             generations_completed: 3,

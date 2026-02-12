@@ -22,6 +22,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, List, Literal, Mapping, TypedDict
 
+import httpx
+
 from synth_ai.core.errors import HTTPError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.trace_upload import (
@@ -50,6 +52,17 @@ GraphKind = Literal["zero_shot", "graphgen", "registered"]
 
 # Default evidence output directory
 DEFAULT_EVIDENCE_DIR = Path(".synth_ai_evidence")
+_GRAPHS_COMPLETIONS_ENDPOINT = "/api/graphs/completions"
+
+
+def _is_rust_parse_error(exc: Exception) -> bool:
+    """Detect rust-core JSON decode failures for graph completions.
+
+    Backend responses can occasionally evolve before rust model structs are updated.
+    In that case, we fall back to plain HTTP + JSON decoding.
+    """
+    message = str(exc).lower()
+    return "json parse error" in message and "invalid type" in message
 
 
 def save_evidence_locally(
@@ -190,6 +203,30 @@ class GraphCompletionsSyncClient:
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
         return self._rust.resolve_graph_job_id(job_id, graph)
 
+    def _graph_complete_http_fallback(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        url = f"{self._base}{_GRAPHS_COMPLETIONS_ENDPOINT}"
+        effective_timeout = float(timeout if timeout is not None else self._timeout)
+        headers = {
+            "X-API-Key": self._key,
+            "Content-Type": "application/json",
+        }
+        with httpx.Client(timeout=effective_timeout) as client:
+            response = client.post(url, headers=headers, json=dict(payload))
+        if response.status_code >= 400:
+            snippet = response.text[:1000]
+            raise ValueError(
+                f"graph_completions_http_error status={response.status_code} body={snippet}"
+            )
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("graph_completions_invalid_response_shape")
+        return result
+
     def run(
         self,
         *,
@@ -223,7 +260,17 @@ class GraphCompletionsSyncClient:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
         client = self._rust.SynthClient(self._key, self._base)
-        result = client.graph_complete(payload)
+        try:
+            result = client.graph_complete(payload)
+        except ValueError as exc:
+            if not _is_rust_parse_error(exc):
+                raise
+            warnings.warn(
+                "Rust graph_complete response parsing failed; using HTTP JSON fallback.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            result = self._graph_complete_http_fallback(payload, timeout=timeout)
         if not isinstance(result, dict):
             raise ValueError("graph_completions_invalid_response_shape")
         return GraphCompletionResponse.from_dict(result)
@@ -401,6 +448,58 @@ class GraphCompletionsAsyncClient:
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
         return self._rust.resolve_graph_job_id(job_id, graph)
 
+    async def _graph_complete_http_fallback(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        timeout_secs: int | None = None,
+    ) -> dict[str, Any]:
+        url = f"{self._base}{_GRAPHS_COMPLETIONS_ENDPOINT}"
+        effective_timeout = float(timeout_secs if timeout_secs is not None else self._timeout)
+        headers = {
+            "X-API-Key": self._key,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=effective_timeout) as client:
+            response = await client.post(url, headers=headers, json=dict(payload))
+        if response.status_code >= 400:
+            snippet = response.text[:1000]
+            raise ValueError(
+                f"graph_completions_http_error status={response.status_code} body={snippet}"
+            )
+        result = response.json()
+        if not isinstance(result, dict):
+            raise ValueError("graph_completions_invalid_response_shape")
+        return result
+
+    async def _graph_complete(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        timeout_secs: int | None = None,
+    ) -> dict[str, Any]:
+        if timeout_secs is not None:
+            client = self._rust.SynthClient(self._key, self._base, timeout_secs=timeout_secs)
+        else:
+            client = self._rust.SynthClient(self._key, self._base)
+        try:
+            result = await asyncio.to_thread(client.graph_complete, dict(payload))
+        except ValueError as exc:
+            if not _is_rust_parse_error(exc):
+                raise
+            warnings.warn(
+                "Rust graph_complete response parsing failed; using HTTP JSON fallback.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            result = await self._graph_complete_http_fallback(
+                payload,
+                timeout_secs=timeout_secs,
+            )
+        if not isinstance(result, dict):
+            raise ValueError("graph_completions_invalid_response_shape")
+        return result
+
     async def run(
         self,
         *,
@@ -420,14 +519,7 @@ class GraphCompletionsAsyncClient:
         if prompt_snapshot_id:
             payload["prompt_snapshot_id"] = prompt_snapshot_id
 
-        if timeout_secs is not None:
-            client = self._rust.SynthClient(self._key, self._base, timeout_secs=timeout_secs)
-        else:
-            client = self._rust.SynthClient(self._key, self._base)
-        result = await asyncio.to_thread(client.graph_complete, payload)
-        if not isinstance(result, dict):
-            raise ValueError("graph_completions_invalid_response_shape")
-        return result
+        return await self._graph_complete(payload, timeout_secs=timeout_secs)
 
     async def run_stream(
         self,
@@ -627,8 +719,7 @@ class GraphCompletionsAsyncClient:
             verifier_shape=verifier_shape,
             rlm_impl=rlm_impl,
         )
-        client = self._rust.SynthClient(self._key, self._base)
-        result = await asyncio.to_thread(client.graph_complete, request)
+        result = await self._graph_complete(request)
         output = result.get("output", result) if isinstance(result, dict) else result
 
         if save_evidence:

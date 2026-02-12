@@ -66,6 +66,64 @@ impl Default for UsageLimitInfo {
     }
 }
 
+impl UsageLimitInfo {
+    /// Build a usage limit payload from an HTTP 429 response detail.
+    ///
+    /// This parser supports FastAPI-style payloads where fields may be nested
+    /// under `detail`, and gracefully handles string-only `detail` values.
+    pub fn from_http_429(api: &str, detail: &crate::http::HttpErrorDetail) -> Self {
+        let mut info = Self {
+            limit_type: "rate_limit".to_string(),
+            api: api.to_string(),
+            current: 0.0,
+            limit: 0.0,
+            tier: "unavailable".to_string(),
+            retry_after_seconds: None,
+            upgrade_url: "https://usesynth.ai/pricing".to_string(),
+        };
+
+        if let Some(ref snippet) = detail.body_snippet {
+            if let Ok(body) = serde_json::from_str::<serde_json::Value>(snippet) {
+                let payload = body.get("detail").unwrap_or(&body);
+
+                if let Some(obj) = payload.as_object() {
+                    if let Some(value) = obj.get("error").and_then(|v| v.as_str()) {
+                        info.limit_type = value.to_string();
+                    } else if let Some(value) = obj.get("code").and_then(|v| v.as_str()) {
+                        info.limit_type = value.to_string();
+                    }
+
+                    if let Some(value) = obj.get("limit").and_then(|v| v.as_f64()) {
+                        info.limit = value;
+                    }
+                    if let Some(value) = obj
+                        .get("current")
+                        .and_then(|v| v.as_f64())
+                        .or_else(|| obj.get("current_active").and_then(|v| v.as_f64()))
+                    {
+                        info.current = value;
+                    }
+                    if let Some(value) = obj.get("tier").and_then(|v| v.as_str()) {
+                        info.tier = value.to_string();
+                    }
+                    if let Some(value) = obj.get("retry_after_seconds").and_then(|v| v.as_i64()) {
+                        info.retry_after_seconds = Some(value);
+                    }
+                } else if let Some(detail_msg) = payload.as_str() {
+                    // Handles {"detail": "Rate limit exceeded ..."}
+                    info.limit_type = detail_msg.to_string();
+                }
+            }
+        }
+
+        // If backend gave only cap, report "at cap" instead of misleading 0.
+        if info.current == 0.0 && info.limit > 0.0 {
+            info.current = info.limit;
+        }
+        info
+    }
+}
+
 impl std::fmt::Display for UsageLimitInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

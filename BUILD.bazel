@@ -30,35 +30,3 @@ sh_test(
     tags = ["unit", "local"],
     timeout = "long",
 )
-
-sh_test(
-    name = "pytest_integration",
-    srcs = ["bazel/pytest_integration.sh"],
-    data = PYTEST_DATA,
-    local = True,
-    env = COMMON_ENV,
-    tags = [
-        "integration",
-        "manual",
-        "requires-network",
-        "requires-api-key",
-        "local",
-    ],
-    timeout = "long",
-)
-
-sh_test(
-    name = "pytest_all",
-    srcs = ["bazel/pytest_all.sh"],
-    data = PYTEST_DATA,
-    local = True,
-    env = COMMON_ENV,
-    tags = [
-        "all",
-        "manual",
-        "requires-network",
-        "requires-api-key",
-        "local",
-    ],
-    timeout = "long",
-)

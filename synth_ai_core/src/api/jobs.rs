@@ -29,6 +29,10 @@ const MIPRO_CREATE_ENDPOINT: &str = "/api/jobs/mipro";
 
 /// Legacy API endpoint for prompt learning job submission (fallback).
 const LEGACY_SUBMIT_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
+/// Legacy policy-optimization status endpoint (fallback for old backends).
+const LEGACY_POLICY_STATUS_ENDPOINT: &str = "/api/policy-optimization/online/jobs";
+/// Legacy prompt-learning status endpoint (fallback for old backends).
+const LEGACY_PROMPT_STATUS_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
 
 /// Jobs API client.
 ///
@@ -146,7 +150,7 @@ impl<'a> JobsClient<'a> {
         request: Value,
         worker_token: Option<String>,
     ) -> Result<String, CoreError> {
-        let response: JobSubmitResponse = if let Some(token) = worker_token {
+        let mut headers_opt: Option<HeaderMap> = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
                 "X-SynthTunnel-Worker-Token",
@@ -154,6 +158,33 @@ impl<'a> JobsClient<'a> {
                     CoreError::Validation("invalid SynthTunnel worker token".to_string())
                 })?,
             );
+            Some(headers)
+        } else {
+            None
+        };
+
+        // Route raw submits to canonical algorithm endpoints when possible.
+        // This prevents MIPRO configs from being accidentally dispatched via GEPA paths.
+        if let Some(endpoint) = infer_algorithm_endpoint(&request) {
+            let canonical_result: Result<JobSubmitResponse, HttpError> =
+                if let Some(headers) = headers_opt.clone() {
+                    self.client
+                        .http
+                        .post_json_with_headers(endpoint, &request, Some(headers))
+                        .await
+                } else {
+                    self.client.http.post_json(endpoint, &request).await
+                };
+            match canonical_result {
+                Ok(response) => return Ok(response.job_id),
+                Err(HttpError::Response(detail)) if detail.status == 404 => {
+                    // Older backends may not expose canonical endpoints yet.
+                }
+                Err(err) => return Err(map_http_error(err)),
+            }
+        }
+
+        let response: JobSubmitResponse = if let Some(headers) = headers_opt.take() {
             self.client
                 .http
                 .post_json_with_headers(LEGACY_SUBMIT_ENDPOINT, &request, Some(headers))
@@ -180,13 +211,30 @@ impl<'a> JobsClient<'a> {
     ///
     /// The current job result including status, best score, etc.
     pub async fn get_status(&self, job_id: &str) -> Result<PromptLearningResult, CoreError> {
-        let path = format!("{}/{}", JOBS_ENDPOINT, job_id);
-
-        self.client
-            .http
-            .get(&path, None)
-            .await
-            .map_err(map_http_error)
+        let canonical = format!("{}/{}", JOBS_ENDPOINT, job_id);
+        match self.client.http.get(&canonical, None).await {
+            Ok(result) => Ok(result),
+            Err(err) if err.status() == Some(404) => {
+                let legacy_paths = [
+                    format!("{}/{}", LEGACY_POLICY_STATUS_ENDPOINT, job_id),
+                    format!("{}/{}", LEGACY_PROMPT_STATUS_ENDPOINT, job_id),
+                ];
+                let mut last_not_found: Option<HttpError> = Some(err);
+                for path in legacy_paths {
+                    match self.client.http.get(&path, None).await {
+                        Ok(result) => return Ok(result),
+                        Err(legacy_err) if legacy_err.status() == Some(404) => {
+                            last_not_found = Some(legacy_err);
+                        }
+                        Err(legacy_err) => return Err(map_http_error(legacy_err)),
+                    }
+                }
+                Err(map_http_error(
+                    last_not_found.expect("at least canonical 404 error must be set"),
+                ))
+            }
+            Err(err) => Err(map_http_error(err)),
+        }
     }
 
     /// Poll a job until it reaches a terminal state.
@@ -391,6 +439,25 @@ impl<'a> JobsClient<'a> {
     }
 }
 
+fn infer_algorithm_endpoint(request: &Value) -> Option<&'static str> {
+    let from_section = |name: &str| {
+        request
+            .get(name)
+            .and_then(|value| value.get("algorithm"))
+            .and_then(|value| value.as_str())
+    };
+    let algorithm = from_section("prompt_learning")
+        .or_else(|| from_section("policy_optimization"))
+        .or_else(|| request.get("algorithm").and_then(|value| value.as_str()))?
+        .trim()
+        .to_ascii_lowercase();
+    match algorithm.as_str() {
+        "gepa" => Some(GEPA_CREATE_ENDPOINT),
+        "mipro" => Some(MIPRO_CREATE_ENDPOINT),
+        _ => None,
+    }
+}
+
 /// Map HTTP errors to CoreError.
 fn map_http_error(e: HttpError) -> CoreError {
     match e {
@@ -398,15 +465,7 @@ fn map_http_error(e: HttpError) -> CoreError {
             if detail.status == 401 || detail.status == 403 {
                 CoreError::Authentication(format!("authentication failed: {}", detail))
             } else if detail.status == 429 {
-                CoreError::UsageLimit(crate::UsageLimitInfo {
-                    limit_type: "rate_limit".to_string(),
-                    api: "jobs".to_string(),
-                    current: 0.0,
-                    limit: 0.0,
-                    tier: "unknown".to_string(),
-                    retry_after_seconds: None,
-                    upgrade_url: "https://usesynth.ai/pricing".to_string(),
-                })
+                CoreError::UsageLimit(crate::UsageLimitInfo::from_http_429("jobs", &detail))
             } else {
                 CoreError::HttpResponse(crate::HttpErrorInfo {
                     status: detail.status,
@@ -431,5 +490,35 @@ mod tests {
         assert_eq!(GEPA_CREATE_ENDPOINT, "/api/jobs/gepa");
         assert_eq!(MIPRO_CREATE_ENDPOINT, "/api/jobs/mipro");
         assert_eq!(LEGACY_SUBMIT_ENDPOINT, "/api/prompt-learning/online/jobs");
+        assert_eq!(
+            LEGACY_POLICY_STATUS_ENDPOINT,
+            "/api/policy-optimization/online/jobs"
+        );
+        assert_eq!(
+            LEGACY_PROMPT_STATUS_ENDPOINT,
+            "/api/prompt-learning/online/jobs"
+        );
+    }
+
+    #[test]
+    fn test_infer_algorithm_endpoint() {
+        assert_eq!(
+            infer_algorithm_endpoint(&serde_json::json!({
+                "prompt_learning": {"algorithm": "mipro"}
+            })),
+            Some(MIPRO_CREATE_ENDPOINT)
+        );
+        assert_eq!(
+            infer_algorithm_endpoint(&serde_json::json!({
+                "policy_optimization": {"algorithm": "GEPA"}
+            })),
+            Some(GEPA_CREATE_ENDPOINT)
+        );
+        assert_eq!(
+            infer_algorithm_endpoint(&serde_json::json!({
+                "algorithm": "unknown"
+            })),
+            None
+        );
     }
 }

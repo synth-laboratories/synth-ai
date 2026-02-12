@@ -119,6 +119,7 @@ __all__ = [
     "ReviewPayload",
     "CriterionScorePayload",
     "gepa",
+    "dspy",
 ]
 
 # Lazy loading map: name -> (module, attribute)
@@ -159,6 +160,9 @@ def __getattr__(name: str) -> Any:
         # Provide Synth's GEPA-compat API as `from synth_ai import gepa`.
         # Do not import the external `gepa` package (name collision on PyPI).
         return importlib.import_module("synth_ai.gepa")
+    if name == "dspy":
+        # Provide Synth's DSPy drop-ins as `from synth_ai import dspy`.
+        return importlib.import_module("synth_ai.dspy")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
