@@ -243,6 +243,12 @@ class TunneledLocalAPI:
 
                 health_url = f"{public_url.rstrip('/')}/health"
                 headers = {"Authorization": f"Bearer {worker_token}"}
+                env_timeout_raw = os.environ.get(
+                    "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", ""
+                ).strip()
+                if env_timeout_raw:
+                    with contextlib.suppress(Exception):
+                        timeout_sec = max(1.0, float(env_timeout_raw))
                 deadline = time.time() + timeout_sec
                 last_err: Exception | None = None
 

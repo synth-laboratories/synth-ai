@@ -29,6 +29,9 @@ dependencies = [
     # Dataset loading - used by localapi dataset helpers
     "datasets>=4.0.0",
     "jsonschema>=4.23.0",
+    # Crafter task app deps (ContinualLearningBench crafter engine)
+    "Pillow>=10.0.0",
+    "imageio>=2.34.0",
 ]
 
 [project.scripts]
