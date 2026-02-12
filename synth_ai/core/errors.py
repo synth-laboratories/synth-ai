@@ -6,6 +6,8 @@ CLI-specific errors remain in cli/ modules; these are for SDK/core use.
 
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -49,6 +51,28 @@ class HTTPError(SynthError):
         if self.body_snippet:
             base += f" | body[0:200]={self.body_snippet[:200]}"
         return base
+
+
+def _extract_x402_payload(detail: Any, body_snippet: str | None) -> tuple[Any | None, str | None]:
+    if isinstance(detail, dict):
+        x402_value = detail.get("x402")
+        if isinstance(x402_value, dict):
+            return x402_value.get("challenge"), x402_value.get("payment_required_header")
+    if not body_snippet:
+        return None, None
+    try:
+        payload = json.loads(body_snippet)
+    except Exception:
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    detail_payload = payload.get("detail")
+    if not isinstance(detail_payload, dict):
+        return None, None
+    x402_value = detail_payload.get("x402")
+    if not isinstance(x402_value, dict):
+        return None, None
+    return x402_value.get("challenge"), x402_value.get("payment_required_header")
 
 
 class JobError(SynthError):
@@ -136,6 +160,37 @@ class PlanGatingError(SynthError):
         )
 
 
+@dataclass
+class PaymentRequiredError(HTTPError):
+    """Raised when an endpoint requires x402 payment before retry."""
+
+    challenge: Any | None = None
+    payment_required_header: str | None = None
+    payment_response_header: str = "PAYMENT-RESPONSE"
+
+    @classmethod
+    def from_http_error(cls, error: HTTPError) -> PaymentRequiredError:
+        challenge, header_value = _extract_x402_payload(error.detail, error.body_snippet)
+        return cls(
+            status=error.status,
+            url=error.url,
+            message=error.message,
+            body_snippet=error.body_snippet,
+            detail=error.detail,
+            challenge=challenge,
+            payment_required_header=header_value,
+        )
+
+    def build_payment_response_header(self, *, payment_reference: str) -> str:
+        """Build PAYMENT-RESPONSE header value for the x402 mock implementation."""
+        payload = {
+            "challenge": self.challenge,
+            "payment_reference": payment_reference,
+        }
+        raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
 __all__ = [
     "SynthError",
     "ConfigError",
@@ -148,4 +203,5 @@ __all__ = [
     "ModelNotSupportedError",
     "UsageLimitError",
     "PlanGatingError",
+    "PaymentRequiredError",
 ]

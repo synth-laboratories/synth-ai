@@ -405,14 +405,47 @@ fn map_core_err(py: Python, err: CoreError) -> PyErr {
                 }
             }
             CoreError::HttpResponse(info) => {
-                let detail: Option<PyObject> = None;
+                let parsed_detail: Option<Value> = info
+                    .body_snippet
+                    .as_ref()
+                    .and_then(|snippet| serde_json::from_str::<Value>(snippet).ok());
+
+                if info.status == 402 {
+                    let detail_py = parsed_detail
+                        .as_ref()
+                        .and_then(|value| pythonize::pythonize(py, value).ok())
+                        .map(|value| value.to_object(py));
+                    if let Ok(http_cls) = errors.getattr("HTTPError") {
+                        if let Ok(http_instance) = http_cls.call1((
+                            info.status,
+                            info.url.clone(),
+                            info.message.clone(),
+                            info.body_snippet.clone(),
+                            detail_py,
+                        )) {
+                            if let Ok(payment_cls) = errors.getattr("PaymentRequiredError") {
+                                if let Ok(from_http_error) = payment_cls.getattr("from_http_error")
+                                {
+                                    if let Ok(instance) = from_http_error.call1((http_instance,)) {
+                                        return PyErr::from_value_bound(instance);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if let Ok(cls) = errors.getattr("HTTPError") {
+                    let detail_py = parsed_detail
+                        .as_ref()
+                        .and_then(|value| pythonize::pythonize(py, value).ok())
+                        .map(|value| value.to_object(py));
                     if let Ok(instance) = cls.call1((
                         info.status,
                         info.url.clone(),
                         info.message.clone(),
                         info.body_snippet.clone(),
-                        detail,
+                        detail_py,
                     )) {
                         return PyErr::from_value_bound(instance);
                     }

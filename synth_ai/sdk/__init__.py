@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from synth_ai.core.auth import get_or_mint_synth_api_key
+    from synth_ai.core.errors import PaymentRequiredError
     from synth_ai.sdk.environment_pools import (
         EnvironmentPoolsClient,
         PlanGatingError,
@@ -234,6 +235,7 @@ __all__ = [
     "EnvironmentPoolsClient",
     "PoolTask",
     "PlanGatingError",
+    "PaymentRequiredError",
     # Hosted Task Apps
     "TaskAppsClient",
     "TaskAppSpec",
@@ -360,6 +362,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "PoolTask": ("synth_ai.sdk.environment_pools", "PoolTask"),
     "PoolTemplate": ("synth_ai.sdk.environment_pools", "PoolTemplate"),
     "PlanGatingError": ("synth_ai.core.errors", "PlanGatingError"),
+    "PaymentRequiredError": ("synth_ai.core.errors", "PaymentRequiredError"),
     "TaskAppsClient": ("synth_ai.sdk.task_apps", "TaskAppsClient"),
     "TaskAppSpec": ("synth_ai.sdk.task_apps", "TaskAppSpec"),
     "TaskAppModel": ("synth_ai.sdk.task_apps", "TaskApp"),

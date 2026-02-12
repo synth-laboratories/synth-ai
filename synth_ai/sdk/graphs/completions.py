@@ -24,7 +24,7 @@ from typing import Any, List, Literal, Mapping, TypedDict
 
 import httpx
 
-from synth_ai.core.errors import HTTPError
+from synth_ai.core.errors import HTTPError, PaymentRequiredError
 from synth_ai.core.tracing_v3.serialization import normalize_for_json
 from synth_ai.sdk.graphs.trace_upload import (
     AUTO_UPLOAD_THRESHOLD_BYTES,
@@ -63,6 +63,27 @@ def _is_rust_parse_error(exc: Exception) -> bool:
     """
     message = str(exc).lower()
     return "json parse error" in message and "invalid type" in message
+
+
+def _raise_graph_http_error(response: httpx.Response, *, url: str) -> None:
+    snippet = response.text[:1000]
+    detail: dict[str, Any] | None = None
+    try:
+        candidate = response.json()
+        if isinstance(candidate, dict):
+            detail = candidate
+    except Exception:
+        detail = None
+    error = HTTPError(
+        status=response.status_code,
+        url=url,
+        message="graph_completions_http_error",
+        body_snippet=snippet,
+        detail=detail,
+    )
+    if response.status_code == 402:
+        raise PaymentRequiredError.from_http_error(error)
+    raise error
 
 
 def save_evidence_locally(
@@ -218,10 +239,7 @@ class GraphCompletionsSyncClient:
         with httpx.Client(timeout=effective_timeout) as client:
             response = client.post(url, headers=headers, json=dict(payload))
         if response.status_code >= 400:
-            snippet = response.text[:1000]
-            raise ValueError(
-                f"graph_completions_http_error status={response.status_code} body={snippet}"
-            )
+            _raise_graph_http_error(response, url=url)
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError("graph_completions_invalid_response_shape")
@@ -463,10 +481,7 @@ class GraphCompletionsAsyncClient:
         async with httpx.AsyncClient(timeout=effective_timeout) as client:
             response = await client.post(url, headers=headers, json=dict(payload))
         if response.status_code >= 400:
-            snippet = response.text[:1000]
-            raise ValueError(
-                f"graph_completions_http_error status={response.status_code} body={snippet}"
-            )
+            _raise_graph_http_error(response, url=url)
         result = response.json()
         if not isinstance(result, dict):
             raise ValueError("graph_completions_invalid_response_shape")

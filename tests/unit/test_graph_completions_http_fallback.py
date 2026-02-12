@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import types
+import json
 
 import pytest
 
+from synth_ai.core.errors import PaymentRequiredError
 from synth_ai.sdk.graphs.completions import (
     GraphCompletionsAsyncClient,
     GraphCompletionsSyncClient,
@@ -21,15 +23,16 @@ class _FakeAsyncResponse:
     def __init__(self, payload: dict, status_code: int = 200) -> None:
         self._payload = payload
         self.status_code = status_code
-        self.text = str(payload)
+        self.text = json.dumps(payload)
 
     def json(self) -> dict:
         return self._payload
 
 
 class _FakeAsyncHttpClient:
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: dict, status_code: int = 200) -> None:
         self._payload = payload
+        self._status_code = status_code
 
     async def __aenter__(self) -> _FakeAsyncHttpClient:
         return self
@@ -38,22 +41,23 @@ class _FakeAsyncHttpClient:
         return None
 
     async def post(self, *_args, **_kwargs) -> _FakeAsyncResponse:
-        return _FakeAsyncResponse(self._payload)
+        return _FakeAsyncResponse(self._payload, status_code=self._status_code)
 
 
 class _FakeSyncResponse:
     def __init__(self, payload: dict, status_code: int = 200) -> None:
         self._payload = payload
         self.status_code = status_code
-        self.text = str(payload)
+        self.text = json.dumps(payload)
 
     def json(self) -> dict:
         return self._payload
 
 
 class _FakeSyncHttpClient:
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: dict, status_code: int = 200) -> None:
         self._payload = payload
+        self._status_code = status_code
 
     def __enter__(self) -> _FakeSyncHttpClient:
         return self
@@ -62,7 +66,7 @@ class _FakeSyncHttpClient:
         return None
 
     def post(self, *_args, **_kwargs) -> _FakeSyncResponse:
-        return _FakeSyncResponse(self._payload)
+        return _FakeSyncResponse(self._payload, status_code=self._status_code)
 
 
 @pytest.mark.unit
@@ -125,3 +129,62 @@ def test_sync_run_falls_back_to_http_on_rust_parse_error(
 
     result = client.run(input_data={"foo": "bar"}, job_id="graph-2")
     assert result.output.get("outcome_review", {}).get("total") == 0.25
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_async_run_raises_payment_required_for_402(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "detail": {
+            "error": "payment_required",
+            "x402": {
+                "challenge": {"claims": {"challenge_id": "abc"}},
+            },
+        }
+    }
+    client = GraphCompletionsAsyncClient("https://api.usesynth.ai", "sk-test")
+    client._rust = types.SimpleNamespace(
+        resolve_graph_job_id=lambda job_id, graph: job_id,
+        SynthClient=lambda *args, **kwargs: _FakeRustParseErrorClient(),
+    )
+    monkeypatch.setattr(
+        "synth_ai.sdk.graphs.completions.httpx.AsyncClient",
+        lambda *args, **kwargs: _FakeAsyncHttpClient(payload, status_code=402),
+    )
+
+    with pytest.raises(PaymentRequiredError) as exc_info:
+        await client.run(input_data={"foo": "bar"}, job_id="graph-3")
+
+    assert exc_info.value.status == 402
+    assert isinstance(exc_info.value.challenge, dict)
+
+
+@pytest.mark.unit
+def test_sync_run_raises_payment_required_for_402(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = {
+        "detail": {
+            "error": "payment_required",
+            "x402": {
+                "challenge": {"claims": {"challenge_id": "abc"}},
+            },
+        }
+    }
+    client = GraphCompletionsSyncClient("https://api.usesynth.ai", "sk-test")
+    client._rust = types.SimpleNamespace(
+        resolve_graph_job_id=lambda job_id, graph: job_id,
+        SynthClient=lambda *args, **kwargs: _FakeRustParseErrorClient(),
+    )
+    monkeypatch.setattr(
+        "synth_ai.sdk.graphs.completions.httpx.Client",
+        lambda *args, **kwargs: _FakeSyncHttpClient(payload, status_code=402),
+    )
+
+    with pytest.raises(PaymentRequiredError) as exc_info:
+        client.run(input_data={"foo": "bar"}, job_id="graph-4")
+
+    assert exc_info.value.status == 402
+    assert isinstance(exc_info.value.challenge, dict)
