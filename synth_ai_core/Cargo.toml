@@ -38,8 +38,11 @@ tokio-tungstenite = { version = "0.21", features = ["rustls-tls-webpki-roots"] }
 flate2 = "1.0"
 tar = "0.4"
 which = "6.0"
-hyper-util = { version = "0.1", features = ["tokio"] }
+hyper-util = { version = "0.1", features = ["tokio", "server"] }
 eventsource-stream = "0.2"
+hex = "0.4"
+k256 = { version = "0.13", features = ["ecdsa"] }
+sha3 = "0.10"
 
 tempfile = "3"
 open = "5"

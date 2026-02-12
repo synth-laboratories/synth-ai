@@ -854,7 +854,7 @@ pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value,
 
     let mut messages: Vec<Value> = Vec::new();
     let mut order = 0_i64;
-    let mut push_message =
+    let push_message =
         |messages: &mut Vec<Value>, order: &mut i64, role: &str, prompt: String| {
             let mut msg = Map::new();
             msg.insert("role".to_string(), Value::String(role.to_string()));

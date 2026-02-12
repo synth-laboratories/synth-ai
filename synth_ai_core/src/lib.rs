@@ -32,6 +32,7 @@ pub mod tracing;
 pub mod tunnels;
 pub mod urls;
 pub mod utils;
+pub mod x402;
 
 // Re-export core types at crate root for convenience
 pub use errors::{CoreError, CoreResult, HttpErrorInfo, JobErrorInfo, UsageLimitInfo};
