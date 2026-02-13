@@ -104,7 +104,9 @@ class RolloutSafetyConfig(BaseModel):
     Note: max_time_s is set but enforcement depends on the task app implementation.
     """
 
-    max_time_s: float = 3600.0
+    # NOTE: synth_ai_py.localapi_build_rollout_response currently expects this to
+    # serialize as an integer (i32). Keep it as int to avoid JSON floats like 3600.0.
+    max_time_s: int = 3600
 
 
 class RolloutRequest(BaseModel):
