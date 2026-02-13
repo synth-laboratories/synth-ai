@@ -1,6 +1,6 @@
 [package]
 name = "synth-ai-core"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Rust core for Synth AI SDKs - API client, streaming, tracing, and tunnels"
