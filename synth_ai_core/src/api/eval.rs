@@ -50,7 +50,7 @@ impl<'a> EvalClient<'a> {
     ///
     /// ```ignore
     /// let job_id = client.eval().submit(EvalJobRequest {
-    ///     task_app_url: "http://localhost:8000".into(),
+    ///     container_url: "http://localhost:8000".into(),
     ///     env_name: "default".into(),
     ///     seeds: vec![1, 2, 3, 4, 5],
     ///     policy: PolicyConfig::default(),
@@ -58,7 +58,7 @@ impl<'a> EvalClient<'a> {
     /// }).await?;
     /// ```
     pub async fn submit(&self, request: EvalJobRequest) -> Result<String, CoreError> {
-        let worker_token = request.task_app_worker_token.clone();
+        let worker_token = request.container_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
         let response: JobSubmitResponse = if let Some(token) = worker_token {

@@ -7,12 +7,12 @@ description: Use the Synth AI SDK end-to-end for policy optimization (GEPA), gra
 # Synth API (SDK v0.7.15)
 
 This skill explains how to run Synth end-to-end with:
-- a **container** (task app) exposed via **SynthTunnel** or **Cloudflare tunnel**
+- a **container** (container) exposed via **SynthTunnel** or **Cloudflare tunnel**
 - **PolicyOptimizationJob** (GEPA / MIPRO prompt optimization)
 - **GraphOptimizationJob** (verifier graph training)
 - **GEPA compat layer** (drop-in `gepa.optimize()` interface)
 - **Eval jobs** on held-out seeds
-- **InProcessTaskApp** for all-in-one local development
+- **InProcessContainer** for all-in-one local development
 
 Reference demos have moved to the sibling `Benchmarking` repo.
 
@@ -29,7 +29,7 @@ Synth uses **three** distinct keys. Do not mix them:
 |-----|---------|--------|-------------|
 | `SYNTH_API_KEY` | Authenticates SDK/CLI calls to the **Synth backend** | `Authorization: Bearer <key>` | Always |
 | `ENVIRONMENT_API_KEY` | Authenticates backend-to-**container** requests | `x-api-key: <key>` | Cloudflare tunnels |
-| SynthTunnel `worker_token` | Authenticates tunnel **relay to container** | Passed as `task_app_worker_token` in job config | SynthTunnel (default) |
+| SynthTunnel `worker_token` | Authenticates tunnel **relay to container** | Passed as `container_worker_token` in job config | SynthTunnel (default) |
 
 Common failures:
 - `Invalid API key` on `/api/jobs/*` = wrong key sent to backend.
@@ -66,7 +66,7 @@ setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=ENVIRONMENT_API_K
 
 ## Core concepts
 
-- **Container**: Your task app runs locally and exposes `/rollout` + `/task_info`.
+- **Container**: Your container runs locally and exposes `/rollout` + `/task_info`.
 - **Tunnel**: SynthTunnel (default) or Cloudflare Quick Tunnel makes the container reachable by Synth.
 - **GEPA**: Evolutionary prompt optimizer that mutates prompts to maximize reward.
 - **MIPRO**: Systematic instruction proposal optimizer.
@@ -88,13 +88,13 @@ Minimum container shape:
 - `rollout(request) -> RolloutResponse`
 
 ```python
-from synth_ai import ContainerConfig, create_task_app
+from synth_ai import ContainerConfig, create_container
 from synth_ai.sdk.container._impl.contracts import (
     RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo,
 )
 
 
-def create_banking77_task_app(system_prompt: str):
+def create_banking77_container(system_prompt: str):
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
         reward = 1.0  # Your task logic here; return reward in [0, 1]
         return RolloutResponse(
@@ -116,7 +116,7 @@ def create_banking77_task_app(system_prompt: str):
                 task_metadata={"seed": seed},
             )
 
-    return create_task_app(
+    return create_container(
         ContainerConfig(
             app_id="banking77",
             name="Banking77 Intent Classification",
@@ -138,15 +138,15 @@ Relay-based tunnel — no external binary required, supports 128 concurrent requ
 ```python
 from synth_ai.core.tunnels import TunneledContainer
 
-app = create_banking77_task_app("baseline prompt")
+app = create_banking77_container("baseline prompt")
 tunnel = await TunneledContainer.create_for_app(
     app=app,
     local_port=None,  # auto-select
     api_key=os.environ["SYNTH_API_KEY"],
 )
-TASK_APP_URL = tunnel.url            # https://st.usesynth.ai/s/rt_...
+CONTAINER_URL = tunnel.url            # https://st.usesynth.ai/s/rt_...
 WORKER_TOKEN = tunnel.worker_token   # pass to job config
-print("Task app URL:", TASK_APP_URL)
+print("Container URL:", CONTAINER_URL)
 ```
 
 ### Cloudflare Quick Tunnel (alternative)
@@ -156,16 +156,16 @@ Requires `cloudflared` installed (`brew install cloudflared`):
 ```python
 from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
-app = create_banking77_task_app("baseline prompt")
+app = create_banking77_container("baseline prompt")
 tunnel = await TunneledContainer.create_for_app(
     app=app,
     local_port=None,
     backend=TunnelBackend.CloudflareQuickTunnel,
 )
-TASK_APP_URL = tunnel.url  # https://....trycloudflare.com
+CONTAINER_URL = tunnel.url  # https://....trycloudflare.com
 ```
 
-When using Cloudflare tunnels, pass `task_app_api_key` instead of `task_app_worker_token` in job configs.
+When using Cloudflare tunnels, pass `container_api_key` instead of `container_worker_token` in job configs.
 
 ## 3) Run GEPA (policy optimization)
 
@@ -179,7 +179,7 @@ from synth_ai import PolicyOptimizationJob
 config_body = {
     "policy_optimization": {
         "algorithm": "gepa",
-        "task_app_url": TASK_APP_URL,
+        "container_url": CONTAINER_URL,
         "env_name": "banking77",
         "initial_prompt": {
             "messages": [
@@ -211,7 +211,7 @@ config_body = {
 
 job = PolicyOptimizationJob.from_dict(
     config_dict=config_body,
-    task_app_worker_token=WORKER_TOKEN,  # from SynthTunnel
+    container_worker_token=WORKER_TOKEN,  # from SynthTunnel
     skip_health_check=True,
 )
 job_id = job.submit()
@@ -226,7 +226,7 @@ from synth_ai import PolicyOptimizationJob
 
 job = PolicyOptimizationJob.from_config(
     config_path="gepa_config.toml",
-    task_app_worker_token=WORKER_TOKEN,
+    container_worker_token=WORKER_TOKEN,
 )
 job.submit()
 result = job.stream_until_complete(timeout=3600.0)
@@ -234,7 +234,7 @@ result = job.stream_until_complete(timeout=3600.0)
 
 ## 4) GEPA compat layer (drop-in)
 
-For a simpler interface that handles task app + tunnel setup automatically:
+For a simpler interface that handles container + tunnel setup automatically:
 
 ```python
 from synth_ai import gepa
@@ -258,24 +258,24 @@ Key parameters:
 - `reflection_lm`: model for GEPA proposer (controls proposer effort)
 - `max_metric_calls`: budget cap
 
-## 5) InProcessTaskApp (all-in-one)
+## 5) InProcessContainer (all-in-one)
 
 Combines container + tunnel + lifecycle in a single async context manager:
 
 ```python
-from synth_ai import InProcessTaskApp, PolicyOptimizationJob
+from synth_ai import InProcessContainer, PolicyOptimizationJob
 
-async with InProcessTaskApp(
-    app=create_banking77_task_app("baseline prompt"),
+async with InProcessContainer(
+    app=create_banking77_container("baseline prompt"),
     port=8114,
     tunnel_mode="synthtunnel",  # default; also "quick", "local", "preconfigured"
     api_key=os.environ["SYNTH_API_KEY"],
-) as task_app:
-    print(f"Running at: {task_app.url}")
+) as container:
+    print(f"Running at: {container.url}")
 
     job = PolicyOptimizationJob.from_dict(
         config_dict=config_body,
-        task_app_worker_token=task_app.worker_token,
+        container_worker_token=container.worker_token,
     )
     job.submit()
     result = job.stream_until_complete(timeout=3600.0)
@@ -308,10 +308,10 @@ import os
 from synth_ai import EvalJob, EvalJobConfig
 
 config = EvalJobConfig(
-    task_app_url=TASK_APP_URL,
+    container_url=CONTAINER_URL,
     backend_url=os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai"),
     api_key=os.environ["SYNTH_API_KEY"],
-    task_app_worker_token=WORKER_TOKEN,  # for SynthTunnel
+    container_worker_token=WORKER_TOKEN,  # for SynthTunnel
     env_name="banking77",
     seeds=list(range(100, 150)),
     policy_config={"model": "gpt-4.1-nano", "provider": "openai"},
@@ -345,7 +345,7 @@ result = await client.evaluate(
     },
     options={"event": True, "outcome": True, "model": "gpt-5-nano"},
     policy_name="my_policy",
-    task_app_id="my_task",
+    container_id="my_task",
 )
 ```
 
@@ -366,10 +366,10 @@ synth-ai skill list
 synth-ai skill install synth-api --dir ~/custom/opencode/skill
 
 # Serve a container locally
-synth-ai localapi serve my_module:app --port 8114
+synth-ai container serve my_module:app --port 8114
 
 # Deploy a container to Synth Harbor
-synth-ai localapi deploy --name my-app --app my_module:app --dockerfile ./Dockerfile --context . --wait
+synth-ai container deploy --name my-app --app my_module:app --dockerfile ./Dockerfile --context . --wait
 ```
 
 ## HTTP example (raw)
@@ -398,8 +398,8 @@ Modules follow the [API Stability Lifecycle](../../specifications/api-stability-
 | `GraphOptimizationJob` | Stable | `from synth_ai import GraphOptimizationJob` |
 | `EvalJob` | Stable | `from synth_ai import EvalJob` |
 | `ContainerConfig` | Stable | `from synth_ai import ContainerConfig` |
-| `create_task_app` | Stable | `from synth_ai import create_task_app` |
-| `InProcessTaskApp` | Stable | `from synth_ai import InProcessTaskApp` |
+| `create_container` | Stable | `from synth_ai import create_container` |
+| `InProcessContainer` | Stable | `from synth_ai import InProcessContainer` |
 | `TunneledContainer` | Stable | `from synth_ai.core.tunnels import TunneledContainer` |
 | `VerifierClient` | Beta | `from synth_ai import VerifierClient` |
 | `GraphCompletionsClient` | Beta | `from synth_ai import GraphCompletionsClient` |
@@ -409,7 +409,7 @@ Modules follow the [API Stability Lifecycle](../../specifications/api-stability-
 | `EnvironmentPoolsClient` | Alpha | `from synth_ai.sdk.environment_pools import EnvironmentPoolsClient` |
 | `ManagedPools` | Alpha | `from synth_ai.sdk.managed_pools import ...` |
 
-Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledLocalAPI`, `LocalAPIConfig`, `create_local_api`, `synth_ai.sdk.localapi.*`) still work but are deprecated.
+Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledContainer`, `ContainerConfig`, `create_container`, `synth_ai.sdk.container.*`) still work but are deprecated.
 
 ## Troubleshooting checklist
 
@@ -419,4 +419,4 @@ Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledLocalAPI`, `Loca
 - **Auth**: Confirm `SYNTH_API_KEY` is set and valid. Do not confuse it with `ENVIRONMENT_API_KEY` or `worker_token`.
 - **Container shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
 - **Streaming errors**: If `stream_until_complete()` disconnects, it auto-reconnects via SSE. Check backend logs for job status.
-- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`. If you see `synth_ai.sdk.localapi`, update to `synth_ai.sdk.container`.
+- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`. If you see `synth_ai.sdk.container`, update to `synth_ai.sdk.container`.

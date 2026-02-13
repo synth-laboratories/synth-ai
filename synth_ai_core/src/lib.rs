@@ -10,7 +10,7 @@
 //! - Tunnel management
 //! - Data types (enums, rubrics, objectives, etc.)
 //! - Streaming framework
-//! - Local API client for task apps
+//! - Local API client for containers
 
 pub mod api;
 pub mod auth;
@@ -20,7 +20,7 @@ pub mod errors;
 pub mod events;
 pub mod http;
 pub mod jobs;
-pub mod localapi;
+pub mod container;
 pub mod models;
 pub mod orchestration;
 pub mod polling;
@@ -40,9 +40,9 @@ pub use jobs::{CandidateStatus, JobEvent, JobEventType, JobLifecycle, JobStatus}
 
 // Re-export API types for convenience
 pub use api::{
-    EvalJobStatus, GraphEvolveClient, InferenceClient, LocalApiDeployClient,
-    LocalApiDeployResponse, LocalApiDeploySpec, LocalApiDeployStatus, LocalApiDeploymentInfo,
-    LocalApiLimits, PolicyJobStatus, SynthClient,
+    EvalJobStatus, GraphEvolveClient, InferenceClient, ContainerDeployClient,
+    ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo,
+    ContainerLimits, PolicyJobStatus, SynthClient,
 };
 
 // Re-export model helpers
@@ -154,9 +154,9 @@ pub use streaming::{
 pub use sse::{stream_sse, stream_sse_request, SseEvent, SseStream};
 
 // Re-export local API types
-pub use localapi::{
+pub use container::{
     allowed_environment_api_keys, apply_context_overrides, build_rollout_response,
-    build_trace_payload, build_trajectory_trace, encrypt_for_backend, ensure_localapi_auth,
+    build_trace_payload, build_trajectory_trace, encrypt_for_backend, ensure_container_auth,
     ensure_split, extract_api_key, extract_message_text, extract_trace_correlation_id,
     get_agent_skills_path, get_applied_env_vars, get_default_max_completion_tokens, get_groq_key,
     get_openai_key, include_event_history_in_response, include_event_history_in_trajectories,
@@ -166,12 +166,12 @@ pub use localapi::{
     normalize_response_format_for_groq, normalize_vendor_keys, parse_tool_call_from_text,
     parse_tool_calls_from_response, prepare_for_groq, prepare_for_openai, resolve_sft_output_dir,
     resolve_tracing_db_url, setup_environment_api_key, synthesize_tool_call_if_missing,
-    task_app_health, tracing_env_enabled, unique_sft_path, validate_artifact_size,
+    container_health, tracing_env_enabled, unique_sft_path, validate_artifact_size,
     validate_artifacts_list, validate_context_overrides, validate_context_snapshot,
-    validate_rollout_response_for_rl, validate_task_app_url, validate_trace_correlation_id,
+    validate_rollout_response_for_rl, validate_container_url, validate_trace_correlation_id,
     verify_trace_correlation_id_in_response, DatasetInfo, HealthResponse, InferenceInfo,
     InfoResponse, LimitsInfo, RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec, RolloutRequest,
-    RolloutResponse, RolloutSafetyConfig, TaskAppClient, TaskDatasetSpec, TaskDescriptor, TaskInfo,
+    RolloutResponse, RolloutSafetyConfig, ContainerClient, TaskDatasetSpec, TaskDescriptor, TaskInfo,
     DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME, ENVIRONMENT_API_KEY_NAME,
     MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
     MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES, MAX_ENVIRONMENT_API_KEY_BYTES,
@@ -188,6 +188,6 @@ pub use utils::{
     cleanup_paths, compute_import_paths, create_and_write_json, ensure_private_dir,
     find_config_path, get_bin_path, get_home_config_file_paths, is_file_type, is_hidden_path,
     load_json_to_value, repo_root, should_filter_log_line, strip_json_comments, synth_bin_dir,
-    synth_home_dir, synth_localapi_config_path, synth_user_config_path, validate_file_type,
+    synth_home_dir, synth_container_config_path, synth_user_config_path, validate_file_type,
     write_private_json, write_private_text,
 };

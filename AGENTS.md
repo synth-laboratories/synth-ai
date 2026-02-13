@@ -37,9 +37,9 @@ cd ../backend && ./scripts/with_secrets.sh -- uv run uvicorn app.routes.main:app
 
 **For GEPA/eval jobs**, both backends must be healthy before running `run_gepa_*.py` or `run_eval.py` scripts.
 
-## CRITICAL: Auth Basics (LocalAPI + SynthTunnel)
+## CRITICAL: Auth Basics (Container + SynthTunnel)
 
-When using the local stack with a tunneled task app, there are **three different keys**. Do not mix them.
+When using the local stack with a tunneled container, there are **three different keys**. Do not mix them.
 
 ### 1) Synth API key (backend auth)
 - **Use:** Authenticate calls to the Synth backend (Python + Rust).
@@ -48,24 +48,24 @@ When using the local stack with a tunneled task app, there are **three different
 - **Applies to:** `SYNTH_BACKEND_URL` (typically `http://127.0.0.1:8080` in local dev).
 - **Do NOT:** Send a tunnel worker token to the backend. It will 401.
 
-### 2) Environment API key (task app auth)
-- **Use:** Authenticate calls from the backend/tunnel into your local task app.
-- **Env:** `ENVIRONMENT_API_KEY` (minted by `ensure_localapi_auth()`).
-- **Header:** `x-api-key: <ENVIRONMENT_API_KEY>` (task app expects this).
-- **Applies to:** Your task app’s `/health`, `/info`, `/rollout`, etc.
+### 2) Environment API key (container auth)
+- **Use:** Authenticate calls from the backend/tunnel into your local container.
+- **Env:** `ENVIRONMENT_API_KEY` (minted by `ensure_container_auth()`).
+- **Header:** `x-api-key: <ENVIRONMENT_API_KEY>` (container expects this).
+- **Applies to:** Your container’s `/health`, `/info`, `/rollout`, etc.
 
 ### 3) SynthTunnel worker token (tunnel auth)
-- **Use:** Authenticate SynthTunnel relay → your local task app.
-- **Value:** `tunnel.worker_token` from `TunneledLocalAPI.create(...)`.
-- **Use in jobs:** `task_app_worker_token`.
+- **Use:** Authenticate SynthTunnel relay → your local container.
+- **Value:** `tunnel.worker_token` from `TunneledContainer.create(...)`.
+- **Use in jobs:** `container_worker_token`.
 - **Do NOT:** Use this as a backend API key. It is **only** for tunnel relay auth.
 
 ### Local stack recipe (correct auth wiring)
 1) **Backend URL**: `SYNTH_BACKEND_URL=http://127.0.0.1:8080`
 2) **Backend auth**: `SYNTH_API_KEY=sk_*` (valid key in local DB)
-3) **Task app**: run locally with `ENVIRONMENT_API_KEY` set or auto-minted
-4) **Tunnel**: create a SynthTunnel for the task app
-5) **Job config**: set `task_app_url` to the tunnel URL and `task_app_worker_token` to the worker token
+3) **Container**: run locally with `ENVIRONMENT_API_KEY` set or auto-minted
+4) **Tunnel**: create a SynthTunnel for the container
+5) **Job config**: set `container_url` to the tunnel URL and `container_worker_token` to the worker token
 
 If you see `Invalid API key` on `/api/jobs/*`, you're sending the wrong key to the backend.
 If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong token to the tunnel.

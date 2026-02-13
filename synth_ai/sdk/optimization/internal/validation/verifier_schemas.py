@@ -34,7 +34,7 @@ class RubricWeightsConfig(ExtraModel):
 
     env: float = Field(
         default=1.0,
-        description="Weight for environment rewards (task app native rewards)",
+        description="Weight for environment rewards (container native rewards)",
         ge=0.0,
     )
     event: float = Field(
@@ -153,7 +153,7 @@ class VerifierRequestPayload(ExtraModel):
     """
 
     policy_name: str = Field(..., description="Name of the policy being evaluated")
-    task_app: dict[str, Any] = Field(..., description="Task app metadata (id, base_url)")
+    container: dict[str, Any] = Field(..., description="Container metadata (id, base_url)")
     trace: dict[str, Any] = Field(
         ..., description="Tracing v3/v4 payload (event_history, metadata)"
     )

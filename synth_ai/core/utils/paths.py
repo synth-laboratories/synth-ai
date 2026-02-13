@@ -28,8 +28,8 @@ SYNTH_HOME_DIR = Path(_call_optional("synth_home_dir", default=Path.home() / ".s
 SYNTH_USER_CONFIG_PATH = Path(
     _call_optional("synth_user_config_path", default=SYNTH_HOME_DIR / "config.json")
 )
-SYNTH_LOCALAPI_CONFIG_PATH = Path(
-    _call_optional("synth_localapi_config_path", default=SYNTH_HOME_DIR / "localapi.json")
+SYNTH_CONTAINER_CONFIG_PATH = Path(
+    _call_optional("synth_container_config_path", default=SYNTH_HOME_DIR / "container.json")
 )
 SYNTH_BIN_DIR = Path(_call_optional("synth_bin_dir", default=SYNTH_HOME_DIR / "bin"))
 
@@ -112,7 +112,7 @@ def configure_import_paths(app: Path, repo_root: Path | None = REPO_ROOT) -> Non
 
 @contextlib.contextmanager
 def temporary_import_paths(app: Path, repo_root: Path | None = REPO_ROOT):
-    """Temporarily configure PYTHONPATH/sys.path for loading a task app from a file path."""
+    """Temporarily configure PYTHONPATH/sys.path for loading a container from a file path."""
     original_sys_path = sys.path.copy()
     original_pythonpath = os.environ.get("PYTHONPATH")
     configure_import_paths(app, repo_root)

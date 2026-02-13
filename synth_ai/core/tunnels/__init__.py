@@ -1,7 +1,7 @@
 """Tunnel helpers for exposing local APIs to Synth's training infrastructure.
 
 This module provides high-level and low-level tunnel management for
-exposing local task apps to the internet. Two tunnel backends are available:
+exposing local containers to the internet. Two tunnel backends are available:
 
 - **SynthTunnel** (default, recommended): Relay-based HTTPS tunnel. Traffic
   flows through Synth's relay servers via WebSocket. No ``cloudflared``
@@ -11,15 +11,15 @@ exposing local task apps to the internet. Two tunnel backends are available:
 
 - **Cloudflare**: Tunnels via Cloudflare's network. Requires the
   ``cloudflared`` binary. Available in managed (stable subdomain) and
-  quick (random subdomain, no API key) variants. Uses ``task_app_api_key``
+  quick (random subdomain, no API key) variants. Uses ``container_api_key``
   for authentication.
 
-**Recommended:** Use ``TunneledLocalAPI`` for a clean, one-liner experience:
+**Recommended:** Use ``TunneledContainer`` for a clean, one-liner experience:
 
-    from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+    from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
     # SynthTunnel (relay-based, default — recommended)
-    tunnel = await TunneledLocalAPI.create(
+    tunnel = await TunneledContainer.create(
         local_port=8001,
         api_key="sk_live_...",
     )
@@ -27,13 +27,13 @@ exposing local task apps to the internet. Two tunnel backends are available:
     print(tunnel.worker_token)  # pass to job config
 
     # Cloudflare quick tunnel (no API key, random subdomain)
-    tunnel = await TunneledLocalAPI.create(
+    tunnel = await TunneledContainer.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareQuickTunnel,
     )
 
     # Localhost passthrough (no tunnel, local dev only)
-    tunnel = await TunneledLocalAPI.create(
+    tunnel = await TunneledContainer.create(
         local_port=8001,
         backend=TunnelBackend.Localhost,
     )
@@ -47,7 +47,7 @@ exposing local task apps to the internet. Two tunnel backends are available:
 +---------------------+----------------------------+----------------------------+
 | Setup               | Zero config, no binary     | Requires ``cloudflared``   |
 | Concurrency         | 128 in-flight (dynamic)    | Cloudflare limits apply    |
-| Auth                | ``worker_token``           | ``task_app_api_key``       |
+| Auth                | ``worker_token``           | ``container_api_key``       |
 | URL stability       | Per-lease (session-lived)  | Managed = stable subdomain |
 | Best for            | SDK jobs, GEPA, MiPRO      | Long-lived production apps |
 +---------------------+----------------------------+----------------------------+
@@ -57,15 +57,15 @@ exposing local task apps to the internet. Two tunnel backends are available:
     # SynthTunnel — pass worker_token
     job = PromptLearningJob.from_dict(
         config,
-        task_app_url=tunnel.url,
-        task_app_worker_token=tunnel.worker_token,
+        container_url=tunnel.url,
+        container_worker_token=tunnel.worker_token,
     )
 
-    # Cloudflare — pass task_app_api_key instead
+    # Cloudflare — pass container_api_key instead
     job = PromptLearningJob.from_dict(
         config,
-        task_app_url=tunnel.url,
-        task_app_api_key=env_api_key,
+        container_url=tunnel.url,
+        container_api_key=env_api_key,
     )
 
 **Low-level:** For more control, use the individual functions:
@@ -119,7 +119,7 @@ from .rust import (
 )
 
 # New: high-level tunnel abstraction
-from .tunneled_api import TunnelBackend, TunneledLocalAPI
+from .tunneled_api import TunnelBackend, TunneledContainer
 from .types import (
     ConnectorState,
     Diagnostics,
@@ -140,7 +140,7 @@ async def create_tunneled_api(
     backend_url: str | None = None,
     verify_dns: bool = True,
     progress: bool = False,
-) -> TunneledLocalAPI:
+) -> TunneledContainer:
     """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
     This is a convenience function that handles the common pattern of:
@@ -159,7 +159,7 @@ async def create_tunneled_api(
         progress: If True, print status updates
 
     Returns:
-        TunneledLocalAPI instance
+        TunneledContainer instance
 
     Example:
         >>> from fastapi import FastAPI
@@ -167,7 +167,7 @@ async def create_tunneled_api(
         >>> tunnel = await create_tunneled_api(app)
         >>> print(f"App exposed at: {tunnel.url}")
     """
-    return await TunneledLocalAPI.create_for_app(
+    return await TunneledContainer.create_for_app(
         app=app,
         local_port=local_port,
         backend=backend,
@@ -180,7 +180,7 @@ async def create_tunneled_api(
 
 __all__ = [
     # High-level (RECOMMENDED)
-    "TunneledLocalAPI",
+    "TunneledContainer",
     "TunnelBackend",
     "create_tunneled_api",
     # Lease-based system types

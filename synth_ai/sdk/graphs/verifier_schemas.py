@@ -116,11 +116,11 @@ class VerifierScoreResponse(BaseModel):
 # Request schemas for completeness
 
 
-class VerifierTaskApp(BaseModel):
-    """Task application metadata."""
+class VerifierContainer(BaseModel):
+    """Containerlication metadata."""
 
-    id: str = Field(..., description="Task app identifier")
-    base_url: Optional[str] = Field(None, description="Optional base URL for task app")
+    id: str = Field(..., description="Container identifier")
+    base_url: Optional[str] = Field(None, description="Optional base URL for container")
 
 
 class VerifierOptions(BaseModel):
@@ -162,7 +162,7 @@ class VerifierScoreRequest(BaseModel):
     """Request body for POST /api/graphs/verifiers/completions."""
 
     policy_name: str = Field(..., description="Name of the policy being evaluated")
-    task_app: VerifierTaskApp = Field(..., description="Task application metadata")
+    container: VerifierContainer = Field(..., description="Containerlication metadata")
     trace: VerifierTracePayload = Field(..., description="Trajectory trace to evaluate")
     artifact: Optional[list[dict[str, Any]]] = Field(
         default=None,

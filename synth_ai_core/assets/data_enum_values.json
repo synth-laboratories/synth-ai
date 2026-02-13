@@ -68,7 +68,7 @@
   },
   "RewardSource": {
     "FUSED": "fused",
-    "TASK_APP": "task_app",
+    "CONTAINER": "container",
     "VERIFIER": "verifier"
   },
   "RewardType": {

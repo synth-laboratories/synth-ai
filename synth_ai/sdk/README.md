@@ -8,7 +8,7 @@ User-facing programmatic API for Synth AI.
 sdk/
 ├── eval/           # Evaluation jobs (EvalJob, EvalJobConfig)
 ├── optimization/   # Policy & Graph optimization (PolicyOptimizationJob, GraphOptimizationJob)
-├── localapi/       # LocalAPI for running task apps (LocalAPIClient, InProcessTaskApp)
+├── container/       # Container for running containers (ContainerClient, InProcessContainer)
 ├── artifacts/      # Artifact management (models, prompts)
 ├── graphs/         # Graph completions & verifiers (VerifierClient, GraphCompletionsClient)
 ├── inference/      # Model inference proxy (InferenceClient)
@@ -71,9 +71,9 @@ from synth_ai.sdk import (
     # Evaluation
     EvalJob,
     
-    # LocalAPI
-    LocalAPIClient,
-    InProcessTaskApp,
+    # Container
+    ContainerClient,
+    InProcessContainer,
     
     # Clients
     VerifierClient,

@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 
-def validate_task_app_url(url: str, *, name: str = "TASK_APP_BASE_URL") -> None:
-    from synth_ai.sdk.localapi._impl.validators import validate_task_app_url as _vt
+def validate_container_url(url: str, *, name: str = "CONTAINER_BASE_URL") -> None:
+    from synth_ai.sdk.container._impl.validators import validate_container_url as _vt
 
     try:
         _vt(url)

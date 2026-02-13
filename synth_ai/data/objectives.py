@@ -69,7 +69,7 @@ class RewardObservation:
     value: float
     reward_type: RewardType = RewardType.SHAPED
     scope: RewardScope = RewardScope.OUTCOME
-    source: RewardSource = RewardSource.TASK_APP
+    source: RewardSource = RewardSource.CONTAINER
     objective_key: ObjectiveKey = ObjectiveKey.REWARD
     event_id: Optional[str | int] = None
     turn_number: Optional[int] = None

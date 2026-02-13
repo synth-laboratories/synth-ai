@@ -63,7 +63,7 @@ impl<'a> JobsClient<'a> {
     ///
     /// ```ignore
     /// let job_id = client.jobs().submit_gepa(GepaJobRequest {
-    ///     task_app_url: "http://localhost:8000".into(),
+    ///     container_url: "http://localhost:8000".into(),
     ///     env_name: "default".into(),
     ///     policy: PolicyConfig::default(),
     ///     gepa: GepaConfig::default(),
@@ -71,7 +71,7 @@ impl<'a> JobsClient<'a> {
     /// }).await?;
     /// ```
     pub async fn submit_gepa(&self, request: GepaJobRequest) -> Result<String, CoreError> {
-        let worker_token = request.task_app_worker_token.clone();
+        let worker_token = request.container_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
 
@@ -141,7 +141,7 @@ impl<'a> JobsClient<'a> {
     ///
     /// The job ID on success.
     pub async fn submit_mipro(&self, request: MiproJobRequest) -> Result<String, CoreError> {
-        let worker_token = request.task_app_worker_token.clone();
+        let worker_token = request.container_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
         let response: JobSubmitResponse = if let Some(token) = worker_token {

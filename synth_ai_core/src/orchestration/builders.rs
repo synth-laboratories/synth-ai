@@ -127,7 +127,7 @@ fn normalize_mipro(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
     let fallback_online = pl_map.get("online_pool").cloned();
     let fallback_test = pl_map.get("test_pool").cloned();
     let fallback_reference = pl_map.get("reference_pool").cloned();
-    let needs_env_name = pl_map.get("env_name").is_none() && pl_map.get("task_app_id").is_none();
+    let needs_env_name = pl_map.get("env_name").is_none() && pl_map.get("container_id").is_none();
 
     let env_name = {
         let mipro = pl_map.get_mut("mipro").ok_or_else(|| {
@@ -217,15 +217,15 @@ pub fn build_prompt_learning_payload(
         .map(|s| s.to_string())
         .or(task_url);
     let config_task_url = pl_map
-        .get("task_app_url")
+        .get("container_url")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-    let has_task_app_id = pl_map
-        .get("task_app_id")
+    let has_container_id = pl_map
+        .get("container_id")
         .and_then(|v| v.as_str())
         .map(|s| !s.trim().is_empty())
         .unwrap_or(false);
-    let env_task_url = std::env::var("TASK_APP_URL").ok();
+    let env_task_url = std::env::var("CONTAINER_URL").ok();
 
     let final_task_url = if let Some(cli) = cli_task_url {
         Some(cli)
@@ -238,26 +238,26 @@ pub fn build_prompt_learning_payload(
     };
 
     if let Some(url) = final_task_url.clone() {
-        pl_map.insert("task_app_url".to_string(), Value::String(url));
-    } else if !has_task_app_id {
+        pl_map.insert("container_url".to_string(), Value::String(url));
+    } else if !has_container_id {
         return Err(CoreError::Validation(
-            "task_app_url or task_app_id is required".to_string(),
+            "container_url or container_id is required".to_string(),
         ));
     }
 
     let cli_api_key = overrides_obj
-        .get("task_app_api_key")
+        .get("container_api_key")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let config_api_key = pl_map
-        .get("task_app_api_key")
+        .get("container_api_key")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let env_api_key = std::env::var("ENVIRONMENT_API_KEY").ok();
     let api_key = cli_api_key.or(env_api_key).or(config_api_key);
     if final_task_url.is_some() && api_key.is_none() {
         return Err(CoreError::Validation(
-            "task_app_api_key is required".to_string(),
+            "container_api_key is required".to_string(),
         ));
     }
 

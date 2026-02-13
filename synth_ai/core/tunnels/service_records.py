@@ -20,7 +20,7 @@ def record_service(
     pid: int | None = None,
     hostname: str | None = None,
     local_host: str = "127.0.0.1",
-    task_app_path: str | None = None,
+    container_path: str | None = None,
     app_id: str | None = None,
     mode: str | None = None,  # For tunnels: "quick" or "managed"
 ) -> None:
@@ -33,8 +33,8 @@ def record_service(
         pid: Process ID (optional)
         hostname: Tunnel hostname (optional, for tunnels)
         local_host: Local host (default: 127.0.0.1)
-        task_app_path: Path to task app file (optional)
-        app_id: Task app ID (optional)
+        container_path: Path to container file (optional)
+        app_id: Container ID (optional)
         mode: Tunnel mode - "quick" or "managed" (optional, for tunnels)
     """
     records_path = _get_records_path()
@@ -55,8 +55,8 @@ def record_service(
         record["pid"] = pid
     if hostname is not None:
         record["hostname"] = hostname
-    if task_app_path is not None:
-        record["task_app_path"] = str(task_app_path)
+    if container_path is not None:
+        record["container_path"] = str(container_path)
     if app_id is not None:
         record["app_id"] = app_id
     if mode is not None:
@@ -181,7 +181,7 @@ def record_tunnel(
     pid: int | None = None,
     hostname: str | None = None,
     local_host: str = "127.0.0.1",
-    task_app_path: str | None = None,
+    container_path: str | None = None,
 ) -> None:
     """Record a tunnel deployment (backward compatibility)."""
     record_service(
@@ -191,7 +191,7 @@ def record_tunnel(
         pid=pid,
         hostname=hostname,
         local_host=local_host,
-        task_app_path=task_app_path,
+        container_path=container_path,
         mode=mode,
     )
 

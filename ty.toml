@@ -9,8 +9,8 @@ include = [
 ]
 exclude = [
     "synth_ai/v0",
-    "synth_ai/cli/task_apps.py",
+    "synth_ai/cli/containers.py",
     "synth_ai/demos",
     "synth_ai/environments",
-    "synth_ai/utils/task_app_discovery.py",
+    "synth_ai/utils/container_discovery.py",
 ]

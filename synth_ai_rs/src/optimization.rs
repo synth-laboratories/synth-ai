@@ -20,14 +20,14 @@ pub enum Algorithm {
 pub struct PolicyOptimizationJobConfig {
     pub config: Value,
     #[serde(skip_serializing)]
-    pub task_app_worker_token: Option<String>,
+    pub container_worker_token: Option<String>,
 }
 
 impl PolicyOptimizationJobConfig {
     pub fn from_json(config: Value) -> Self {
         Self {
             config,
-            task_app_worker_token: None,
+            container_worker_token: None,
         }
     }
 
@@ -37,7 +37,7 @@ impl PolicyOptimizationJobConfig {
         let config = serde_json::to_value(value)?;
         Ok(Self {
             config,
-            task_app_worker_token: None,
+            container_worker_token: None,
         })
     }
 
@@ -53,8 +53,8 @@ impl PolicyOptimizationJobConfig {
                 obj.insert("prompt_learning".to_string(), policy_opt);
             }
             if let Some(Value::Object(pl)) = obj.get_mut("prompt_learning") {
-                if let Some(local_url) = pl.remove("localapi_url") {
-                    pl.insert("task_app_url".to_string(), local_url);
+                if let Some(local_url) = pl.remove("container_url") {
+                    pl.insert("container_url".to_string(), local_url);
                 }
             }
         }
@@ -100,7 +100,7 @@ impl PolicyOptimizationJob {
 
     pub async fn submit(client: SynthClient, config: &PolicyOptimizationJobConfig) -> Result<Self> {
         let payload = config.to_payload();
-        let worker_token = config.task_app_worker_token.clone();
+        let worker_token = config.container_worker_token.clone();
         let algorithm = payload
             .get("prompt_learning")
             .and_then(|v| v.get("algorithm"))

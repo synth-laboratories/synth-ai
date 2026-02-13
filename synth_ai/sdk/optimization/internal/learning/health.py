@@ -10,11 +10,11 @@ async def backend_health(base_url: str, api_key: str) -> dict[str, Any]:
     return {"ok": True, "raw": js}
 
 
-async def task_app_health(task_app_url: str) -> dict[str, Any]:
+async def container_health(container_url: str) -> dict[str, Any]:
     # Delegate to central task module for consistency
-    from synth_ai.sdk.localapi._impl.health import task_app_health as _th
+    from synth_ai.sdk.container._impl.health import container_health as _th
 
-    return await _th(task_app_url)
+    return await _th(container_url)
 
 
 async def pricing_preflight(

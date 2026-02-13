@@ -416,16 +416,16 @@ async fn forward_request(
 
     // Inject local API keys — always overwrite relay-supplied auth headers
     // because the relay forwards the worker_token, not the local env key.
-    if !config.local_api_keys.is_empty() {
-        let primary = &config.local_api_keys[0];
+    if !config.container_keys.is_empty() {
+        let primary = &config.container_keys[0];
         if let Ok(v) = reqwest::header::HeaderValue::from_str(primary) {
             headers.insert("x-api-key", v);
         }
         if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {primary}")) {
             headers.insert("authorization", v);
         }
-        if config.local_api_keys.len() > 1 {
-            let joined = config.local_api_keys.join(",");
+        if config.container_keys.len() > 1 {
+            let joined = config.container_keys.join(",");
             if let Ok(v) = reqwest::header::HeaderValue::from_str(&joined) {
                 headers.insert("x-api-keys", v);
             }

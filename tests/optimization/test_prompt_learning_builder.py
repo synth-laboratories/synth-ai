@@ -7,7 +7,7 @@ def _gepa_config_dict() -> dict:
     return {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": "http://config.example.com",
+            "container_url": "http://config.example.com",
             "policy": {
                 "inference_mode": "synth_hosted",
                 "provider": "openai",
@@ -28,7 +28,7 @@ def _gepa_config_dict() -> dict:
 
 def test_build_prompt_learning_payload_overrides(monkeypatch) -> None:
     monkeypatch.setenv("ENVIRONMENT_API_KEY", "env_key")
-    monkeypatch.setenv("SYNTH_LOCALAPI_AUTH_PERSIST", "0")
+    monkeypatch.setenv("SYNTH_CONTAINER_AUTH_PERSIST", "0")
 
     overrides = {
         "task_url": "http://override.example.com",
@@ -49,8 +49,8 @@ def test_build_prompt_learning_payload_overrides(monkeypatch) -> None:
 
 def test_build_prompt_learning_payload_config_precedence(monkeypatch) -> None:
     monkeypatch.setenv("ENVIRONMENT_API_KEY", "env_key")
-    monkeypatch.setenv("SYNTH_LOCALAPI_AUTH_PERSIST", "0")
-    monkeypatch.setenv("TASK_APP_URL", "http://env.example.com")
+    monkeypatch.setenv("SYNTH_CONTAINER_AUTH_PERSIST", "0")
+    monkeypatch.setenv("CONTAINER_URL", "http://env.example.com")
 
     result = build_prompt_learning_payload_from_mapping(
         raw_config=_gepa_config_dict(),
@@ -63,7 +63,7 @@ def test_build_prompt_learning_payload_config_precedence(monkeypatch) -> None:
 
 def test_build_prompt_learning_verifier_backend_base_defaults_to_job_backend(monkeypatch) -> None:
     monkeypatch.setenv("ENVIRONMENT_API_KEY", "env_key")
-    monkeypatch.setenv("SYNTH_LOCALAPI_AUTH_PERSIST", "0")
+    monkeypatch.setenv("SYNTH_CONTAINER_AUTH_PERSIST", "0")
 
     config = _gepa_config_dict()
     config["prompt_learning"]["verifier"] = {

@@ -36,7 +36,7 @@ Benchmark and demo runner source files have moved to the `Benchmarking` repo (`.
 - 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
 - 🧰 **Environment Pools** - Managed sandboxes and browser pools for coding and computer-use agents
 - 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
-- ⚡️ **Local Development** - Run experiments locally with tunneled task apps. No cloud setup required
+- ⚡️ **Local Development** - Run experiments locally with tunneled containers. No cloud setup required
 - 🗂️ **Multi-Experiment Management** - Track and compare prompts/models across runs with built-in experiment queues
 
 ## Getting Started
@@ -98,35 +98,35 @@ uvx synth-ai skill list
 uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
 ```
 
-## LocalAPI Deploy (Cloud)
+## Container Deploy (Cloud)
 
-Deploy a LocalAPI with a Dockerfile and get a stable `task_app_url`:
+Deploy a Container with a Dockerfile and get a stable `container_url`:
 
 ```bash
 export SYNTH_API_KEY=sk_live_...
-synth localapi deploy \
-  --name my-localapi \
+synth container deploy \
+  --name my-container \
   --app my_module:app \
   --dockerfile ./Dockerfile \
   --context . \
   --wait
 ```
 
-Use the emitted `task_app_url` in training configs. Harbor auth uses `SYNTH_API_KEY`
-as the task app API key.
+Use the emitted `container_url` in training configs. Harbor auth uses `SYNTH_API_KEY`
+as the container API key.
 
 ## Tunnels
 
-Synth optimization jobs need HTTPS access to your local task app. Two tunnel backends are available:
+Synth optimization jobs need HTTPS access to your local container. Two tunnel backends are available:
 
 ### SynthTunnel (Recommended)
 
 Relay-based tunnel — no external binary required, supports 128 concurrent requests:
 
 ```python
-from synth_ai.core.tunnels import TunneledLocalAPI
+from synth_ai.core.tunnels import TunneledContainer
 
-tunnel = await TunneledLocalAPI.create(local_port=8001, api_key="sk_live_...")
+tunnel = await TunneledContainer.create(local_port=8001, api_key="sk_live_...")
 print(tunnel.url)            # https://st.usesynth.ai/s/rt_...
 print(tunnel.worker_token)   # pass to job config
 ```
@@ -136,8 +136,8 @@ Use with optimization jobs:
 ```python
 job = PromptLearningJob.from_dict(
     config,
-    task_app_url=tunnel.url,
-    task_app_worker_token=tunnel.worker_token,
+    container_url=tunnel.url,
+    container_worker_token=tunnel.worker_token,
 )
 ```
 
@@ -146,30 +146,30 @@ job = PromptLearningJob.from_dict(
 Anonymous tunnel via trycloudflare.com — no API key needed:
 
 ```python
-from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
-tunnel = await TunneledLocalAPI.create(
+tunnel = await TunneledContainer.create(
     local_port=8001,
     backend=TunnelBackend.CloudflareQuickTunnel,
 )
 ```
 
-Requires `cloudflared` installed (`brew install cloudflared`). Use `task_app_api_key` instead of `worker_token` when configuring jobs.
+Requires `cloudflared` installed (`brew install cloudflared`). Use `container_api_key` instead of `worker_token` when configuring jobs.
 
 See the [tunnels documentation](https://docs.usesynth.ai/sdk/tunnels) for the full comparison.
 
 ### Auth Basics (Don’t Mix These)
 
-There are **three different keys** in the LocalAPI + SynthTunnel flow:
+There are **three different keys** in the Container + SynthTunnel flow:
 
 - **Synth API key** (`SYNTH_API_KEY`): Auth for the **backend** (`SYNTH_BACKEND_URL`).
   - Sent as `Authorization: Bearer <SYNTH_API_KEY>`.
   - Used when submitting jobs to `http://127.0.0.1:8080` (local) or `https://api.usesynth.ai` (cloud).
-- **Environment API key** (`ENVIRONMENT_API_KEY`): Auth for your **task app**.
+- **Environment API key** (`ENVIRONMENT_API_KEY`): Auth for your **container**.
   - Sent as `x-api-key: <ENVIRONMENT_API_KEY>` to `/health`, `/info`, `/rollout`, etc.
-  - Minted/managed by `ensure_localapi_auth()`.
-- **SynthTunnel worker token** (`tunnel.worker_token`): Auth for **tunnel relay → task app**.
-  - Passed to jobs as `task_app_worker_token`.
+  - Minted/managed by `ensure_container_auth()`.
+- **SynthTunnel worker token** (`tunnel.worker_token`): Auth for **tunnel relay → container**.
+  - Passed to jobs as `container_worker_token`.
   - **Never** use this as a backend API key.
 
 Common failures:
@@ -259,9 +259,9 @@ Run GEPA prompt optimization programmatically:
 import asyncio
 import os
 from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai.sdk.container import ContainerConfig, create_container
 
-# Create a local task app: app = create_local_api(LocalAPIConfig(app_id="my_app", handler=my_handler))
+# Create a local container: app = create_container(ContainerConfig(app_id="my_app", handler=my_handler))
 
 # Create and submit a GEPA job
 pl_job = PromptLearningJob.from_dict({
@@ -275,7 +275,7 @@ pl_job = PromptLearningJob.from_dict({
             }
         }
     },
-    "task_app_id": "my_task_app",
+    "container_id": "my_container",
 })
 
 pl_job.submit()
@@ -283,7 +283,7 @@ result = pl_job.stream_until_complete(timeout=3600.0)
 print(f"Best score: {result.best_score}")
 ```
 
-See the [Banking77 walkthrough](https://docs.usesynth.ai/cookbooks/banking77-colab) for a complete example with local task apps.
+See the [Banking77 walkthrough](https://docs.usesynth.ai/cookbooks/banking77-colab) for a complete example with local containers.
 For proposer backend selection (`prompt`, `rlm`, `agent`), see `../specifications/tanha/current/systems/platform/gepa_proposer_backends.md`.
 
 ## Online MIPRO (SDK, Ontology Enabled)
@@ -361,7 +361,7 @@ async def run_verifier():
         },
         options={"event": True, "outcome": True, "model": "gpt-5-nano"},
         policy_name="my_policy",
-        task_app_id="my_task",
+        container_id="my_task",
     )
     return result
 

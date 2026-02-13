@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from synth_ai.gepa.api import _call_llm
-from synth_ai.sdk.localapi._impl.contracts import RolloutRequest, RolloutResponse
-from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
+from synth_ai.sdk.container._impl.contracts import RolloutRequest, RolloutResponse
+from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
 
 
 class _FakeResponse:
@@ -96,16 +96,16 @@ def test_rollout_endpoint_rejects_invalid_mapping_response() -> None:
     async def _rollout(_rollout_request, _request):
         return {"trace_correlation_id": "corr-1"}
 
-    app = create_task_app(
-        TaskAppConfig(
+    app = create_container(
+        ContainerConfig(
             app_id="unit-test-app",
             name="Unit Test App",
-            description="Task app for rollout strictness tests.",
+            description="Container for rollout strictness tests.",
             provide_taskset_description=lambda: {"name": "demo"},
             provide_task_instances=lambda _seeds: [],
             rollout=_rollout,
             require_api_key=False,
-            ensure_localapi_auth=False,
+            ensure_container_auth=False,
             expose_debug_env=False,
         )
     )

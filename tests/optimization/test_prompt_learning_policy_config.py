@@ -8,7 +8,7 @@ def test_policy_extras_forward_to_policy_config() -> None:
         {
             "prompt_learning": {
                 "algorithm": "gepa",
-                "task_app_url": "http://example.com",
+                "container_url": "http://example.com",
                 "policy": {
                     "provider": "openai",
                     "inference_mode": "synth_hosted",

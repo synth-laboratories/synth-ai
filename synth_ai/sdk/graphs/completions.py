@@ -1065,21 +1065,21 @@ class VerifierAsyncClient(GraphCompletionsAsyncClient):
         options: Mapping[str, Any] | None = None,
         artifact: list[dict[str, Any]] | None = None,
         policy_name: str = "policy",
-        task_app_id: str = "task",
-        task_app_base_url: str | None = None,
+        container_id: str = "task",
+        container_base_url: str | None = None,
         job_id: str | None = None,
         graph: GraphTarget | None = None,
         model: str | None = None,
         prompt_snapshot_id: str | None = None,
     ) -> dict[str, Any]:
-        task_app_payload: dict[str, Any] = {"id": task_app_id}
-        if task_app_base_url:
-            task_app_payload["base_url"] = task_app_base_url
+        container_payload: dict[str, Any] = {"id": container_id}
+        if container_base_url:
+            container_payload["base_url"] = container_base_url
 
         trace_payload = normalize_for_json(session_trace)
         input_data: dict[str, Any] = {
             "policy_name": policy_name,
-            "task_app": task_app_payload,
+            "container": container_payload,
             "trace": trace_payload,
             "options": dict(options or {}),
         }

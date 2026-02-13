@@ -20,13 +20,13 @@ def submit_prompt_learning_job(
     backend_url: str,
     api_key: str,
     payload: Dict[str, Any],
-    task_app_worker_token: str | None = None,
+    container_worker_token: str | None = None,
 ) -> Dict[str, Any]:
     create_url = f"{ensure_api_base(backend_url)}/prompt-learning/online/jobs"
 
     resp = http_post(
         create_url,
-        headers=_headers(api_key, worker_token=task_app_worker_token),
+        headers=_headers(api_key, worker_token=container_worker_token),
         json_body=payload,
     )
     if resp.status_code not in (200, 201):

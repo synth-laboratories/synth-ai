@@ -11,10 +11,10 @@ directly from this module:
         # Evaluation
         EvalJob,
 
-        # Task Apps
-        InProcessTaskApp,
-        LocalAPIClient,
-        create_task_app,
+        # Containers
+        InProcessContainer,
+        ContainerClient,
+        create_container,
 
         # Clients
         VerifierClient,
@@ -63,25 +63,24 @@ except PackageNotFoundError:  # Fallback to pyproject version for editable insta
 
 # Type hints for IDE support
 if TYPE_CHECKING:
+    from synth_ai.sdk.container import (
+        ContainerClient,
+        ContainerConfig,
+        InProcessContainer,
+        create_container,
+    )
     from synth_ai.sdk.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
     from synth_ai.sdk.graphs.verifier_schemas import (
         CriterionScorePayload,
         ReviewPayload,
+        VerifierContainer,
         VerifierOptions,
         VerifierScoreRequest,
         VerifierScoreResponse,
-        VerifierTaskApp,
         VerifierTracePayload,
     )
     from synth_ai.sdk.inference import InferenceClient
-    from synth_ai.sdk.localapi import (
-        InProcessTaskApp,
-        LocalAPIClient,
-        LocalAPIConfig,
-        TaskAppConfig,
-        create_task_app,
-    )
     from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
 
     # Legacy aliases
@@ -99,12 +98,12 @@ __all__ = [
     # Evaluation
     "EvalJob",
     "EvalJobConfig",
-    # Task Apps
-    "InProcessTaskApp",
-    "LocalAPIClient",
-    "LocalAPIConfig",
-    "TaskAppConfig",
-    "create_task_app",
+    # Containers
+    "InProcessContainer",
+    "ContainerClient",
+    "ContainerConfig",
+    "ContainerConfig",
+    "create_container",
     # Clients
     "VerifierClient",
     "GraphCompletionsClient",
@@ -114,7 +113,7 @@ __all__ = [
     "VerifierScoreRequest",
     "VerifierScoreResponse",
     "VerifierOptions",
-    "VerifierTaskApp",
+    "VerifierContainer",
     "VerifierTracePayload",
     "ReviewPayload",
     "CriterionScorePayload",
@@ -132,12 +131,11 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     # Evaluation
     "EvalJob": ("synth_ai.sdk.eval", "EvalJob"),
     "EvalJobConfig": ("synth_ai.sdk.eval", "EvalJobConfig"),
-    # Task Apps
-    "InProcessTaskApp": ("synth_ai.sdk.localapi", "InProcessTaskApp"),
-    "LocalAPIClient": ("synth_ai.sdk.localapi", "LocalAPIClient"),
-    "LocalAPIConfig": ("synth_ai.sdk.localapi", "LocalAPIConfig"),
-    "TaskAppConfig": ("synth_ai.sdk.localapi", "TaskAppConfig"),
-    "create_task_app": ("synth_ai.sdk.localapi", "create_task_app"),
+    # Containers
+    "InProcessContainer": ("synth_ai.sdk.container", "InProcessContainer"),
+    "ContainerClient": ("synth_ai.sdk.container", "ContainerClient"),
+    "ContainerConfig": ("synth_ai.sdk.container", "ContainerConfig"),
+    "create_container": ("synth_ai.sdk.container", "create_container"),
     # Clients
     "VerifierClient": ("synth_ai.sdk.graphs", "VerifierClient"),
     "GraphCompletionsClient": ("synth_ai.sdk.graphs", "GraphCompletionsClient"),
@@ -147,7 +145,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VerifierScoreRequest": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreRequest"),
     "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
     "VerifierOptions": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierOptions"),
-    "VerifierTaskApp": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTaskApp"),
+    "VerifierContainer": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierContainer"),
     "VerifierTracePayload": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTracePayload"),
     "ReviewPayload": ("synth_ai.sdk.graphs.verifier_schemas", "ReviewPayload"),
     "CriterionScorePayload": ("synth_ai.sdk.graphs.verifier_schemas", "CriterionScorePayload"),

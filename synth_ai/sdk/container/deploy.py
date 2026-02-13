@@ -1,0 +1,226 @@
+"""Container deploy helpers (managed cloud or Harbor)."""
+
+from __future__ import annotations
+
+import io
+import json
+import os
+import tarfile
+import time
+from dataclasses import dataclass
+from pathlib import Path
+
+import httpx
+
+from synth_ai.core.utils.urls import resolve_synth_backend_url
+
+try:
+    import synth_ai_py as _rust_core  # type: ignore
+except Exception:
+    _rust_core = None
+
+from synth_ai.sdk.harbor import HarborBuildSpec, HarborLimits, upload_harbor_deployment
+
+
+@dataclass(slots=True)
+class ContainerDeployResult:
+    """Result of a Container deployment."""
+
+    deployment_id: str
+    deployment_name: str | None
+    container_url: str
+    status: str
+    provider: str
+    build_id: str | None = None
+    snapshot_id: str | None = None
+
+
+def _package_context(context_dir: str) -> bytes:
+    context_path = Path(context_dir).resolve()
+    if not context_path.exists():
+        raise FileNotFoundError(f"Context dir not found: {context_dir}")
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        for path in context_path.rglob("*"):
+            if path.is_file():
+                tar.add(path, arcname=str(path.relative_to(context_path)))
+    return buffer.getvalue()
+
+
+def deploy_container(
+    *,
+    name: str,
+    dockerfile_path: str,
+    context_dir: str,
+    entrypoint: str,
+    entrypoint_mode: str = "stdio",
+    description: str | None = None,
+    env_vars: dict[str, str] | None = None,
+    limits: HarborLimits | dict[str, int] | None = None,
+    backend_url: str | None = None,
+    api_key: str | None = None,
+    wait_for_ready: bool = False,
+    build_timeout_s: float = 600.0,
+    provider: str = "harbor",
+    port: int = 8000,
+    metadata: dict[str, object] | None = None,
+) -> ContainerDeployResult:
+    """Deploy a Container via the managed backend or Harbor and return container_url.
+
+    Args:
+        name: Deployment name (org-unique).
+        dockerfile_path: Path to Dockerfile.
+        context_dir: Build context directory.
+        entrypoint: Command to start the Container server.
+        entrypoint_mode: Harbor entrypoint mode ("command" or "file").
+        description: Optional deployment description.
+        env_vars: Optional environment variables (no LLM API keys).
+        limits: HarborLimits or dict with resource limits.
+        backend_url: Synth backend URL (defaults to SYNTH_BACKEND_URL).
+        api_key: Synth API key (defaults to SYNTH_API_KEY).
+        wait_for_ready: Whether to wait for build completion.
+        build_timeout_s: Max wait time for build completion.
+        provider: "harbor" (default) or "cloud" for managed deploy.
+        port: Port your container listens on (default 8000).
+        metadata: Optional metadata dictionary stored with the deployment.
+
+    Returns:
+        ContainerDeployResult with deployment details and container_url. For managed deploys
+        ("cloud"), container_url is the Synth backend proxy URL to use for eval/optimization
+        jobs and health checks.
+    """
+    if provider == "harbor":
+        spec = HarborBuildSpec(
+            name=name,
+            dockerfile_path=dockerfile_path,
+            context_dir=context_dir,
+            entrypoint=entrypoint,
+            entrypoint_mode=entrypoint_mode,
+            description=description,
+            env_vars=env_vars or {},
+            limits=limits or HarborLimits(),
+            metadata={"container": True},
+        )
+
+        result = upload_harbor_deployment(
+            spec,
+            api_key=api_key,
+            backend_url=backend_url,
+            auto_build=True,
+            wait_for_ready=wait_for_ready,
+            build_timeout_s=build_timeout_s,
+        )
+
+        resolved_backend = backend_url or resolve_synth_backend_url()
+        deployment_key = result.deployment_name or result.deployment_id
+        container_url = f"{resolved_backend.rstrip('/')}/api/harbor/deployments/{deployment_key}"
+
+        return ContainerDeployResult(
+            deployment_id=result.deployment_id,
+            deployment_name=deployment_key,
+            container_url=container_url,
+            status=result.status,
+            provider="harbor",
+            build_id=result.build_id,
+            snapshot_id=result.snapshot_id,
+        )
+
+    if provider != "cloud":
+        raise ValueError(f"Unknown provider: {provider}")
+
+    if isinstance(limits, HarborLimits):
+        limits_dict = limits.to_dict()
+    elif limits is None:
+        limits_dict = HarborLimits().to_dict()
+    else:
+        limits_dict = limits
+
+    if _rust_core is not None and hasattr(_rust_core, "container_deploy_from_dir"):
+        payload = _rust_core.container_deploy_from_dir(
+            name=name,
+            dockerfile_path=dockerfile_path,
+            context_dir=context_dir,
+            entrypoint=entrypoint,
+            entrypoint_mode=entrypoint_mode,
+            description=description,
+            env_vars=env_vars or {},
+            limits=limits_dict,
+            backend_url=backend_url,
+            api_key=api_key,
+            wait_for_ready=wait_for_ready,
+            build_timeout_s=build_timeout_s,
+            port=port,
+            metadata=metadata or {},
+        )
+    else:
+        if not api_key:
+            api_key = os.getenv("SYNTH_API_KEY")
+        if not api_key:
+            raise ValueError("SYNTH_API_KEY is required for deploy")
+
+        resolved_backend = backend_url or resolve_synth_backend_url()
+
+        spec_body = {
+            "name": name,
+            "dockerfile_path": dockerfile_path,
+            "entrypoint": entrypoint,
+            "entrypoint_mode": entrypoint_mode,
+            "port": port,
+            "description": description,
+            "env_vars": env_vars or {},
+            "limits": limits_dict,
+            "metadata": metadata or {},
+        }
+
+        archive_bytes = _package_context(context_dir)
+        files = {
+            "spec_json": (None, json.dumps(spec_body), "application/json"),
+            "context": ("context.tar.gz", archive_bytes, "application/gzip"),
+        }
+        headers = {"Authorization": f"Bearer {api_key}"}
+
+        with httpx.Client(timeout=build_timeout_s) as client:
+            url = f"{resolved_backend.rstrip('/')}/api/container/deployments"
+            response = client.post(url, files=files, headers=headers)
+
+            if response.status_code == 400:
+                detail = ""
+                try:
+                    body = response.json()
+                    detail = str(body.get("detail", body.get("message", "")))
+                except Exception:
+                    detail = response.text or ""
+                if "ENVIRONMENT_API_KEY" in detail:
+                    from synth_ai.sdk.container.auth import ensure_container_auth
+
+                    ensure_container_auth(
+                        backend_base=resolved_backend,
+                        synth_api_key=api_key,
+                        upload=True,
+                    )
+                    response = client.post(url, files=files, headers=headers)
+
+            response.raise_for_status()
+            payload = response.json()
+
+            if wait_for_ready:
+                deployment_id = payload["deployment_id"]
+                status_url = f"{resolved_backend.rstrip('/')}/api/container/deployments/{deployment_id}/status"
+                deadline = time.time() + build_timeout_s
+                while time.time() < deadline:
+                    status_resp = client.get(status_url, headers=headers)
+                    status_resp.raise_for_status()
+                    status_body = status_resp.json()
+                    status = status_body.get("status", payload.get("status", "building"))
+                    payload["status"] = status
+                    if status in ("ready", "failed"):
+                        break
+                    time.sleep(5)
+
+    return ContainerDeployResult(
+        deployment_id=payload["deployment_id"],
+        deployment_name=None,
+        container_url=payload["container_url"],
+        status=payload.get("status", "building"),
+        provider="cloud",
+    )

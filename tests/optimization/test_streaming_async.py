@@ -35,7 +35,7 @@ def test_prompt_learning_streaming_async(monkeypatch) -> None:
         config_dict={
             "prompt_learning": {
                 "algorithm": "gepa",
-                "task_app_url": "http://example.com",
+                "container_url": "http://example.com",
                 "policy": {
                     "inference_mode": "synth_hosted",
                     "provider": "openai",
@@ -49,7 +49,7 @@ def test_prompt_learning_streaming_async(monkeypatch) -> None:
         },
         backend_url="http://example.com",
         api_key="key",
-        task_app_api_key="local",
+        container_api_key="local",
     )
     job = PromptLearningJob(config, job_id="pl_test", skip_health_check=True)
 

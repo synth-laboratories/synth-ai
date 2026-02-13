@@ -1,10 +1,10 @@
-"""Unit tests for InProcessTaskApp env override semantics."""
+"""Unit tests for InProcessContainer env override semantics."""
 
 import asyncio
 import socket
 
 import pytest
-from synth_ai.sdk.localapi._impl.in_process import InProcessTaskApp
+from synth_ai.sdk.container._impl.in_process import InProcessContainer
 
 
 def _pick_free_port() -> int:
@@ -31,30 +31,30 @@ def test_env_tunnel_mode_does_not_override_explicit_local_mode(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Explicit tunnel_mode should win over SYNTH_TUNNEL_MODE."""
-    app_path = tmp_path / "task_app.py"
+    app_path = tmp_path / "container.py"
     app_path.write_text("from fastapi import FastAPI\n\napp = FastAPI()\n")
 
     monkeypatch.setenv("SYNTH_TUNNEL_MODE", "synthtunnel")
     monkeypatch.setenv("SYNTH_BACKEND_URL", "http://localhost:8000")
 
     async def _unexpected_create(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise AssertionError("TunneledLocalAPI.create should not be called in local mode")
+        raise AssertionError("TunneledContainer.create should not be called in local mode")
 
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process.TunneledLocalAPI.create",
+        "synth_ai.sdk.container._impl.in_process.TunneledContainer.create",
         _unexpected_create,
     )
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process.uvicorn.Server",
+        "synth_ai.sdk.container._impl.in_process.uvicorn.Server",
         _FakeServer,
     )
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process._wait_for_local_health_check",
+        "synth_ai.sdk.container._impl.in_process._wait_for_local_health_check",
         _fake_health,
     )
 
-    app = InProcessTaskApp(
-        task_app_path=app_path,
+    app = InProcessContainer(
+        container_path=app_path,
         port=_pick_free_port(),
         host="127.0.0.1",
         tunnel_mode="local",
@@ -75,7 +75,7 @@ def test_env_tunnel_mode_still_overrides_default(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """SYNTH_TUNNEL_MODE should still override when using default settings."""
-    app_path = tmp_path / "task_app.py"
+    app_path = tmp_path / "container.py"
     app_path.write_text("from fastapi import FastAPI\n\napp = FastAPI()\n")
 
     monkeypatch.setenv("SYNTH_TUNNEL_MODE", "local")
@@ -83,24 +83,24 @@ def test_env_tunnel_mode_still_overrides_default(
 
     async def _unexpected_create(*args, **kwargs):  # type: ignore[no-untyped-def]
         raise AssertionError(
-            "TunneledLocalAPI.create should not be called when env forces local mode"
+            "TunneledContainer.create should not be called when env forces local mode"
         )
 
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process.TunneledLocalAPI.create",
+        "synth_ai.sdk.container._impl.in_process.TunneledContainer.create",
         _unexpected_create,
     )
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process.uvicorn.Server",
+        "synth_ai.sdk.container._impl.in_process.uvicorn.Server",
         _FakeServer,
     )
     monkeypatch.setattr(
-        "synth_ai.sdk.localapi._impl.in_process._wait_for_local_health_check",
+        "synth_ai.sdk.container._impl.in_process._wait_for_local_health_check",
         _fake_health,
     )
 
-    app = InProcessTaskApp(
-        task_app_path=app_path,
+    app = InProcessContainer(
+        container_path=app_path,
         port=_pick_free_port(),
         host="127.0.0.1",
         # default tunnel_mode="synthtunnel"

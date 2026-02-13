@@ -117,8 +117,8 @@ pub fn synth_user_config_path() -> PathBuf {
     synth_home_dir().join("user_config.json")
 }
 
-pub fn synth_localapi_config_path() -> PathBuf {
-    synth_home_dir().join("localapi_config.json")
+pub fn synth_container_config_path() -> PathBuf {
+    synth_home_dir().join("container_config.json")
 }
 
 pub fn synth_bin_dir() -> PathBuf {

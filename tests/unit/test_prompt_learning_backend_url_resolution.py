@@ -25,10 +25,10 @@ def test_from_config_uses_env_backend_url_set_after_import(
 
     monkeypatch.setenv("SYNTH_BACKEND_URL", "http://localhost:8000")
 
-    def _fake_ensure_localapi_auth(*, backend_base: str | None = None, synth_api_key: str | None = None, **kwargs):  # type: ignore[no-untyped-def]
+    def _fake_ensure_container_auth(*, backend_base: str | None = None, synth_api_key: str | None = None, **kwargs):  # type: ignore[no-untyped-def]
         return "env_test_key"
 
-    monkeypatch.setattr(pl, "ensure_localapi_auth", _fake_ensure_localapi_auth)
+    monkeypatch.setattr(pl, "ensure_container_auth", _fake_ensure_container_auth)
 
     cfg_path = tmp_path / "gepa.toml"
     cfg_path.write_text(
@@ -36,7 +36,7 @@ def test_from_config_uses_env_backend_url_set_after_import(
             [
                 "[prompt_learning]",
                 'algorithm = "gepa"',
-                'task_app_url = "http://127.0.0.1:8017"',
+                'container_url = "http://127.0.0.1:8017"',
                 'env_name = "engine_bench"',
                 "",
             ]
@@ -64,13 +64,13 @@ def test_from_dict_uses_env_backend_url_set_after_import(
 
     monkeypatch.setenv("SYNTH_BACKEND_URL", "http://localhost:8000")
 
-    def _fake_ensure_localapi_auth(*, backend_base: str | None = None, synth_api_key: str | None = None, **kwargs):  # type: ignore[no-untyped-def]
+    def _fake_ensure_container_auth(*, backend_base: str | None = None, synth_api_key: str | None = None, **kwargs):  # type: ignore[no-untyped-def]
         return "env_test_key"
 
-    monkeypatch.setattr(pl, "ensure_localapi_auth", _fake_ensure_localapi_auth)
+    monkeypatch.setattr(pl, "ensure_container_auth", _fake_ensure_container_auth)
 
     job = pl.PromptLearningJob.from_dict(
-        config_dict={"prompt_learning": {"task_app_url": "http://127.0.0.1:8017"}},
+        config_dict={"prompt_learning": {"container_url": "http://127.0.0.1:8017"}},
         api_key="sk_test",
     )
 

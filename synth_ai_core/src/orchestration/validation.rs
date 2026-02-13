@@ -40,9 +40,9 @@ const KNOWN_TOP_LEVEL_SECTIONS: &[&str] = &["prompt_learning", "display", "termi
 
 const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "algorithm",
-    "task_app_url",
-    "task_app_api_key",
-    "task_app_id",
+    "container_url",
+    "container_api_key",
+    "container_id",
     "initial_prompt",
     "policy",
     "mipro",
@@ -193,9 +193,9 @@ const KNOWN_GEPA_TOKEN_FIELDS: &[&str] = &[
 ];
 
 const KNOWN_MIPRO_FIELDS: &[&str] = &[
-    "task_app_url",
-    "task_app_api_key",
-    "task_app_id",
+    "container_url",
+    "container_api_key",
+    "container_id",
     "mode",
     "online",
     "num_iterations",
@@ -300,8 +300,8 @@ const KNOWN_MIPRO_TEXT_DREAMER_FIELDS: &[&str] = &[
     "max_replay_rollouts",
     "observation_trigger_every_rollouts",
     "observation_log_window",
-    "task_app_url",
-    "task_app_api_key",
+    "container_url",
+    "container_api_key",
     "shadow_rollouts",
     "shadow_max_turns",
     "shadow_timeout_seconds",
@@ -680,12 +680,12 @@ pub fn validate_prompt_learning_config(
     }
 
     if pl_map
-        .get("task_app_url")
+        .get("container_url")
         .and_then(|v| v.as_str())
         .is_none()
     {
         result.add_error(format!(
-            "{}Missing required 'task_app_url' in [prompt_learning]",
+            "{}Missing required 'container_url' in [prompt_learning]",
             path_prefix
         ));
     }
@@ -1238,7 +1238,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
     let config_map = match config.as_object() {
         Some(map) => map,
         None => {
-            errors.push("Missing [prompt_learning] section in config. Expected: [prompt_learning] with algorithm, task_app_url, etc.".to_string());
+            errors.push("Missing [prompt_learning] section in config. Expected: [prompt_learning] with algorithm, container_url, etc.".to_string());
             return errors;
         }
     };
@@ -1254,7 +1254,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         }
         None => {
             errors.push(
-                "Missing [prompt_learning] section in config. Expected: [prompt_learning] with algorithm, task_app_url, etc."
+                "Missing [prompt_learning] section in config. Expected: [prompt_learning] with algorithm, container_url, etc."
                     .to_string(),
             );
             return errors;
@@ -1275,36 +1275,36 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         ));
     }
 
-    let task_app_url = pl_section.get("task_app_url");
-    let task_app_id = pl_section.get("task_app_id");
-    if task_app_url.is_none() && task_app_id.is_none() {
+    let container_url = pl_section.get("container_url");
+    let container_id = pl_section.get("container_id");
+    if container_url.is_none() && container_id.is_none() {
         errors.push(
-            "Missing required field: prompt_learning.task_app_url or prompt_learning.task_app_id\n  Example:\n    task_app_url = \"http://127.0.0.1:8102\"\n  Or:\n    task_app_id = \"task_app_abc123\""
+            "Missing required field: prompt_learning.container_url or prompt_learning.container_id\n  Example:\n    container_url = \"http://127.0.0.1:8102\"\n  Or:\n    container_id = \"container_abc123\""
                 .to_string(),
         );
-    } else if let Some(val) = task_app_url {
+    } else if let Some(val) = container_url {
         if let Some(url) = val.as_str() {
             if !url.starts_with("http://") && !url.starts_with("https://") {
                 errors.push(format!(
-                    "task_app_url must start with http:// or https://, got: '{}'",
+                    "container_url must start with http:// or https://, got: '{}'",
                     url
                 ));
             }
         } else {
             errors.push(format!(
-                "task_app_url must be a string, got {}",
+                "container_url must be a string, got {}",
                 value_type_name(val)
             ));
         }
     }
-    if let Some(val) = task_app_id {
+    if let Some(val) = container_id {
         if let Some(id) = val.as_str() {
             if id.trim().is_empty() {
-                errors.push("task_app_id cannot be empty when provided".to_string());
+                errors.push("container_id cannot be empty when provided".to_string());
             }
         } else {
             errors.push(format!(
-                "task_app_id must be a string, got {}",
+                "container_id must be a string, got {}",
                 value_type_name(val)
             ));
         }
@@ -1485,14 +1485,14 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                 let reward_source = map
                     .get("reward_source")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("task_app")
+                    .unwrap_or("container")
                     .trim()
                     .to_lowercase();
                 if !reward_source.is_empty()
-                    && !matches!(reward_source.as_str(), "task_app" | "verifier" | "fused")
+                    && !matches!(reward_source.as_str(), "container" | "verifier" | "fused")
                 {
                     errors.push(
-                        "prompt_learning.verifier.reward_source must be 'task_app', 'verifier', or 'fused'"
+                        "prompt_learning.verifier.reward_source must be 'container', 'verifier', or 'fused'"
                             .to_string(),
                     );
                 }
@@ -1844,7 +1844,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     .is_empty()
                 {
                     errors.push(
-                        "Missing required field: prompt_learning.gepa.spec_path\n  Required when proposer_type='spec'\n  Example:\n    [prompt_learning.gepa]\n    proposer_type = \"spec\"\n    spec_path = \"examples/task_apps/banking77/banking77_spec.json\""
+                        "Missing required field: prompt_learning.gepa.spec_path\n  Required when proposer_type='spec'\n  Example:\n    [prompt_learning.gepa]\n    proposer_type = \"spec\"\n    spec_path = \"examples/containers/banking77/banking77_spec.json\""
                             .to_string(),
                     );
                 } else {
@@ -2732,7 +2732,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                         }
                     }
 
-                    for field in ["task_app_url", "task_app_api_key"] {
+                    for field in ["container_url", "container_api_key"] {
                         if let Some(value) = td_map.get(field) {
                             if value.as_str().is_none() {
                                 errors.push(format!(
@@ -2785,7 +2785,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3],
@@ -2840,7 +2840,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "ontology": {
                     "reads": true,
                     "batch_proposer": {
@@ -2870,7 +2870,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3],
@@ -2910,7 +2910,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3],
@@ -2967,7 +2967,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3],
@@ -2996,7 +2996,7 @@ mod tests {
         let config = json!({
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://localhost:8102",
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3],

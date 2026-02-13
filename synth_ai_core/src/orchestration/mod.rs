@@ -11,7 +11,7 @@
 //! let mut job = PromptLearningJob::from_dict(
 //!     serde_json::json!({
 //!         "algorithm": "gepa",
-//!         "task_app_url": "http://localhost:8000",
+//!         "container_url": "http://localhost:8000",
 //!         "env_name": "default",
 //!         "policy": { "model": "gpt-4o-mini", "provider": "openai" },
 //!     }),

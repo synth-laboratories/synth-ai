@@ -91,7 +91,7 @@ _PUBLIC_API_PREFIX = "/v1"
 
 
 class PoolTemplate(str, Enum):
-    """Available pool templates for hosted task apps."""
+    """Available pool templates for hosted containers."""
 
     HARBOR_CODING = "HARBOR_CODING"
     HARBOR_BROWSER = "HARBOR_BROWSER"
@@ -461,8 +461,8 @@ class RolloutRequestV1(BaseModel):
     pool_tags: list[str] | None = None
     priority: int | None = None
     dry_run: bool | None = None
-    task_app_url: str | None = None
-    task_app_id: str | None = None
+    container_url: str | None = None
+    container_id: str | None = None
     metadata: dict[str, Any] | None = None
     repro_metadata: ReproMetadata | None = None
 
@@ -470,8 +470,8 @@ class RolloutRequestV1(BaseModel):
     def _validate_required(self) -> RolloutRequestV1:
         if not (self.pool_id or self.pool_tags or self.environment):
             raise ValueError("Provide pool_id, pool_tags, or environment")
-        if self.task_app_url is None and self.task_app_id is None:
-            raise ValueError("Provide either task_app_url or task_app_id")
+        if self.container_url is None and self.container_id is None:
+            raise ValueError("Provide either container_url or container_id")
         if self.timeouts is None:
             raise ValueError("timeouts is required")
         return self
@@ -558,12 +558,12 @@ class PoolResponse(BaseModel):
     pool_type: str | None = Field(default=None, description="Pool type (sandbox, browser, etc.)")
     backend: str | None = Field(default=None, description="Backend provider")
     template: str | None = Field(
-        default=None, description="Pool template if using hosted task apps"
+        default=None, description="Pool template if using hosted containers"
     )
-    task_app_url: str | None = Field(
-        default=None, description="URL to use as task_app_url in rollouts"
+    container_url: str | None = Field(
+        default=None, description="URL to use as container_url in rollouts"
     )
-    task_app_id: str | None = Field(default=None, description="Associated task app ID")
+    container_id: str | None = Field(default=None, description="Associated container ID")
     org_id: str | None = Field(default=None, description="Organization ID")
     capacity: int | None = Field(default=None, description="Pool capacity")
     concurrency: int | None = Field(default=None, description="Concurrency limit")
@@ -580,8 +580,8 @@ class PoolResponse(BaseModel):
             pool_type=data.get("pool_type"),
             backend=data.get("backend"),
             template=data.get("template"),
-            task_app_url=data.get("task_app_url"),
-            task_app_id=data.get("task_app_id"),
+            container_url=data.get("container_url"),
+            container_id=data.get("container_id"),
             org_id=data.get("org_id"),
             capacity=data.get("capacity"),
             concurrency=data.get("concurrency"),
@@ -1857,7 +1857,7 @@ class PoolTask:
     @staticmethod
     def from_openenv(
         task_id: str,
-        task_app_url: str,
+        container_url: str,
         *,
         env: dict[str, str] | None = None,
         resources: PoolResources | dict[str, Any] | None = None,
@@ -1874,7 +1874,7 @@ class PoolTask:
             backend="openenv",
             env_vars=env,
             resources=res,  # type: ignore[arg-type]
-            openenv_deployment=openenv_deployment or {"task_app_url": task_app_url},
+            openenv_deployment=openenv_deployment or {"container_url": container_url},
             openenv_rollout=openenv_rollout,
             config=config,
         )
@@ -1882,7 +1882,7 @@ class PoolTask:
     @staticmethod
     def from_browser(
         task_id: str,
-        task_app_url: str,
+        container_url: str,
         *,
         profile: str | None = None,
         env: dict[str, str] | None = None,
@@ -1894,7 +1894,7 @@ class PoolTask:
         res = resources
         if isinstance(resources, dict):
             res = PoolResources(**resources)
-        browser_config = browser or {"task_app_url": task_app_url}
+        browser_config = browser or {"container_url": container_url}
         if profile is not None:
             browser_config.setdefault("profile", profile)
         return PoolTaskInstance(

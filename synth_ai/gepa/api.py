@@ -16,11 +16,11 @@ import httpx
 
 from synth_ai.core.config.expansion import expand_gepa_config, gepa_candidate_to_initial_prompt
 from synth_ai.core.utils.urls import resolve_synth_backend_url
-from synth_ai.sdk.localapi import InProcessTaskApp
-from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
-from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
-from synth_ai.sdk.localapi._impl.validators import normalize_inference_url
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.container import InProcessContainer
+from synth_ai.sdk.container._impl.rollout_helpers import build_rollout_response
+from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
+from synth_ai.sdk.container._impl.validators import normalize_inference_url
+from synth_ai.sdk.container.auth import ensure_container_auth
 from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
 from synth_ai.sdk.shared.models import detect_model_provider
 
@@ -296,7 +296,7 @@ async def _call_llm(
 
     api_key = policy_config.get("api_key")
     if not isinstance(api_key, str) or not api_key.strip():
-        # synth_hosted rollouts must authenticate with backend API key, not task-app env keys.
+        # synth_hosted rollouts must authenticate with backend API key, not container env keys.
         api_key = (
             os.environ.get("SYNTH_API_KEY")
             or request_headers.get("authorization")
@@ -488,10 +488,10 @@ def optimize(
     if not api_key:
         raise ValueError("SYNTH_API_KEY must be set to run Synth GEPA compatibility mode.")
 
-    environment_api_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
+    environment_api_key = ensure_container_auth(backend_base=backend_url, synth_api_key=api_key)
 
     async def _run() -> GEPAResult[Any, Any]:
-        def _build_task_app_config() -> TaskAppConfig:
+        def _build_container_config() -> ContainerConfig:
             def provide_taskset_description() -> dict[str, Any]:
                 return {
                     "splits": ["train", "val"],
@@ -625,17 +625,17 @@ def optimize(
                 payload["_hydration_skipped"] = True
                 return payload
 
-            return TaskAppConfig(
+            return ContainerConfig(
                 app_id="gepa-compat",
                 name="GEPA Compatibility",
-                description="Synth-backed GEPA compatibility task app",
+                description="Synth-backed GEPA compatibility container",
                 provide_taskset_description=provide_taskset_description,
                 provide_task_instances=provide_task_instances,
                 rollout=rollout,
                 cors_origins=["*"],
             )
 
-        app = create_task_app(_build_task_app_config())
+        app = create_container(_build_container_config())
 
         # Default tunnel selection:
         # - If the caller explicitly sets SYNTH_GEPA_TUNNEL_MODE, respect it.
@@ -655,7 +655,7 @@ def optimize(
         # When using local tunnel mode, the backend may not have the ENVIRONMENT_API_KEY
         # stored in its database for this org.  In that case the GEPA optimizer falls back
         # to the well-known internal key "synth-internal-verifier-opt-key-v1".
-        # Register it as an accepted alias so the in-process task app accepts it.
+        # Register it as an accepted alias so the in-process container accepts it.
         if tunnel_mode in ("local", "localhost"):
             internal_key = "synth-internal-verifier-opt-key-v1"
             existing_aliases = os.environ.get("ENVIRONMENT_API_KEY_ALIASES", "")
@@ -663,18 +663,18 @@ def optimize(
                 sep = "," if existing_aliases else ""
                 os.environ["ENVIRONMENT_API_KEY_ALIASES"] = f"{existing_aliases}{sep}{internal_key}"
 
-        async with InProcessTaskApp(
+        async with InProcessContainer(
             app=app, tunnel_mode=tunnel_mode, api_key=environment_api_key
-        ) as task_app:
-            task_url = task_app.url or ""
-            worker_token = task_app.task_app_worker_token
+        ) as container:
+            task_url = container.url or ""
+            worker_token = container.container_worker_token
             if not task_url:
-                raise ValueError("Failed to resolve task app URL for optimization.")
+                raise ValueError("Failed to resolve container URL for optimization.")
             if "s/rt_" in task_url and not worker_token:
-                raise ValueError("SynthTunnel worker token is required for task app URL.")
+                raise ValueError("SynthTunnel worker token is required for container URL.")
 
             minimal_config: dict[str, Any] = {
-                "task_app_url": task_url,
+                "container_url": task_url,
                 "env_name": "gepa-compat",
                 "train_seeds": dataset_bundle.train_seeds,
                 "validation_seeds": dataset_bundle.validation_seeds,
@@ -715,23 +715,23 @@ def optimize(
                 config_dict=config_dict,
                 backend_url=backend_url,
                 api_key=api_key,
-                localapi_api_key=environment_api_key,
-                task_app_worker_token=worker_token,
+                container_api_key=environment_api_key,
+                container_worker_token=worker_token,
                 algorithm="gepa",
                 overrides=job_overrides,
             )
-            # Submitting performs synchronous HTTP requests; keep the task app loop responsive.
+            # Submitting performs synchronous HTTP requests; keep the container loop responsive.
             await asyncio.to_thread(job.submit)
-            # `InProcessTaskApp` runs an async FastAPI server in this same event loop.
+            # `InProcessContainer` runs an async FastAPI server in this same event loop.
             # `poll_until_complete()` is synchronous and would block the loop, preventing
-            # the task app from serving `/rollout` requests coming from the backend worker.
+            # the container from serving `/rollout` requests coming from the backend worker.
             poll_kwargs: dict[str, Any] = {
                 "timeout": float(os.getenv("SYNTH_GEPA_TIMEOUT_SECONDS", "3600")),
                 "interval": 15.0,
                 "progress": display_progress_bar,
             }
             # Avoid the Rust "poll_until_complete" fast-path when progress is disabled:
-            # it can hold the GIL for long periods, starving the in-process task app thread.
+            # it can hold the GIL for long periods, starving the in-process container thread.
             if not display_progress_bar:
                 poll_kwargs["on_status"] = lambda _status: None
 

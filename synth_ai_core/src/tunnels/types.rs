@@ -108,6 +108,6 @@ pub struct SynthTunnelConfig {
     pub local_port: u16,
     pub public_url: String,
     pub worker_token: String,
-    pub local_api_keys: Vec<String>,
+    pub container_keys: Vec<String>,
     pub max_inflight: usize,
 }

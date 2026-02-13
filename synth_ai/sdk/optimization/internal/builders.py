@@ -42,7 +42,7 @@ except Exception as exc:  # pragma: no cover
 
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
 from synth_ai.core.utils.urls import is_synthtunnel_url  # noqa: E402
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth  # noqa: E402
+from synth_ai.sdk.container.auth import ensure_container_auth  # noqa: E402
 
 from .configs import PromptLearningConfig  # noqa: E402
 from .utils import ensure_api_base  # noqa: E402
@@ -164,7 +164,7 @@ def _normalize_mipro_section(
             )
 
     mipro_env_name = mipro_section.get("env_name")
-    if mipro_env_name and not pl_section.get("env_name") and not pl_section.get("task_app_id"):
+    if mipro_env_name and not pl_section.get("env_name") and not pl_section.get("container_id"):
         pl_section["env_name"] = mipro_env_name
 
     pl_section["mipro"] = mipro_section
@@ -230,17 +230,17 @@ def build_prompt_learning_payload(
 
     candidate_task_url = (
         (overrides.get("task_url") or task_url or "").strip()
-        or (pl_cfg.task_app_url or "").strip()
-        or (os.environ.get("TASK_APP_URL") or "").strip()
+        or (pl_cfg.container_url or "").strip()
+        or (os.environ.get("CONTAINER_URL") or "").strip()
     )
     env_api_key: str | None = None
     if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
-        env_api_key = ensure_localapi_auth()
+        env_api_key = ensure_container_auth()
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
     _default_verifier_backend_base(config_dict, overrides)
-    task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
+    container_id_present = bool((pl_cfg.container_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
@@ -254,23 +254,23 @@ def build_prompt_learning_payload(
     except Exception as exc:
         msg = str(exc)
         if not (
-            task_app_id_present
-            and ("task_app_url is required" in msg or "prompt_learning.task_app_url" in msg)
+            container_id_present
+            and ("container_url is required" in msg or "prompt_learning.container_url" in msg)
         ):
             raise click.ClickException(msg) from exc
 
     cli_task_url = overrides.get("task_url") or task_url
-    env_task_url = os.environ.get("TASK_APP_URL")
-    config_task_url = (pl_cfg.task_app_url or "").strip() or None
-    config_task_app_id = (pl_cfg.task_app_id or "").strip() or None
+    env_task_url = os.environ.get("CONTAINER_URL")
+    config_task_url = (pl_cfg.container_url or "").strip() or None
+    config_container_id = (pl_cfg.container_id or "").strip() or None
 
     # For prompt learning, prefer config value over env if config is explicitly set
-    # This allows TOML files to specify task_app_url without env var interference
+    # This allows TOML files to specify container_url without env var interference
     # But CLI override always wins
     if cli_task_url:
         # CLI override takes precedence
         final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+            "container_url",
             cli_value=cli_task_url,
             env_value=None,  # Don't check env when CLI is set
             config_value=config_task_url,
@@ -282,46 +282,46 @@ def build_prompt_learning_payload(
     else:
         # No config, fall back to env or error
         final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+            "container_url",
             cli_value=None,
             env_value=env_task_url,
             config_value=None,
             required=False,
         )
     _require(
-        final_task_url is not None or config_task_app_id is not None,
-        "task_app_url or task_app_id is required",
+        final_task_url is not None or config_container_id is not None,
+        "container_url or container_id is required",
     )
 
-    # Get task_app_api_key from config or environment
-    # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
-    config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
-    cli_api_key = overrides.get("task_app_api_key")
-    skip_task_app_key = os.environ.get(
-        "SYNTH_BACKEND_RESOLVES_TASK_APP_KEY", ""
+    # Get container_api_key from config or environment
+    # Note: container_api_key is not a field on PromptLearningConfig, use getattr
+    config_api_key = (getattr(pl_cfg, "container_api_key", None) or "").strip() or None
+    cli_api_key = overrides.get("container_api_key")
+    skip_container_key = os.environ.get(
+        "SYNTH_BACKEND_RESOLVES_CONTAINER_KEY", ""
     ).strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
-    _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
-        "task_app_api_key",
+    _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
+        "container_api_key",
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=(final_task_url is not None and not skip_task_app_key),
+        required=(final_task_url is not None and not skip_container_key),
     )
 
-    # Ensure task app routing is set. For hosted task apps, task_app_id can be used
-    # without a direct task_app_url.
+    # Ensure container routing is set. For hosted containers, container_id can be used
+    # without a direct container_url.
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         if final_task_url:
-            pl_section["task_app_url"] = final_task_url
-        if config_task_app_id and not pl_section.get("task_app_id"):
-            pl_section["task_app_id"] = config_task_app_id
-        # Spec-compliant behavior: task app auth is server-resolved and must not
+            pl_section["container_url"] = final_task_url
+        if config_container_id and not pl_section.get("container_id"):
+            pl_section["container_id"] = config_container_id
+        # Spec-compliant behavior: container auth is server-resolved and must not
         # be embedded in job payloads.
 
         # GEPA: Extract train_seeds from nested structure for backwards compatibility
@@ -368,9 +368,9 @@ def build_prompt_learning_payload(
     else:
         replacement: dict[str, Any] = {}
         if final_task_url:
-            replacement["task_app_url"] = final_task_url
-        if config_task_app_id:
-            replacement["task_app_id"] = config_task_app_id
+            replacement["container_url"] = final_task_url
+        if config_container_id:
+            replacement["container_id"] = config_container_id
         config_dict["prompt_learning"] = replacement
 
     # Build payload matching backend API format
@@ -382,7 +382,7 @@ def build_prompt_learning_payload(
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start", "task_app_api_key")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
     }
 
     # CRITICAL: Merge overrides into config_dict BEFORE sending to backend
@@ -483,7 +483,7 @@ def build_prompt_learning_payload_from_mapping(
     Args:
         raw_config: Configuration dictionary with the same structure as the TOML file.
                    Should have a 'prompt_learning' section.
-        task_url: Override for task_app_url
+        task_url: Override for container_url
         overrides: Config overrides (merged into config)
         allow_experimental: Allow experimental models
         source_label: Label for logging/error messages (default: "programmatic")
@@ -496,7 +496,7 @@ def build_prompt_learning_payload_from_mapping(
         ...     raw_config={
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "container_url": "https://tunnel.example.com",
         ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
         ...             "gepa": {...},
         ...         }
@@ -555,17 +555,17 @@ def build_prompt_learning_payload_from_mapping(
 
     candidate_task_url = (
         (overrides.get("task_url") or task_url or "").strip()
-        or (pl_cfg.task_app_url or "").strip()
-        or (os.environ.get("TASK_APP_URL") or "").strip()
+        or (pl_cfg.container_url or "").strip()
+        or (os.environ.get("CONTAINER_URL") or "").strip()
     )
     env_api_key: str | None = None
     if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
-        env_api_key = ensure_localapi_auth()
+        env_api_key = ensure_container_auth()
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
     _default_verifier_backend_base(config_dict, overrides)
-    task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
+    container_id_present = bool((pl_cfg.container_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
@@ -579,20 +579,20 @@ def build_prompt_learning_payload_from_mapping(
     except Exception as exc:
         msg = str(exc)
         if not (
-            task_app_id_present
-            and ("task_app_url is required" in msg or "prompt_learning.task_app_url" in msg)
+            container_id_present
+            and ("container_url is required" in msg or "prompt_learning.container_url" in msg)
         ):
             raise click.ClickException(msg) from exc
 
     cli_task_url = overrides.get("task_url") or task_url
-    env_task_url = os.environ.get("TASK_APP_URL")
-    config_task_url = (pl_cfg.task_app_url or "").strip() or None
-    config_task_app_id = (pl_cfg.task_app_id or "").strip() or None
+    env_task_url = os.environ.get("CONTAINER_URL")
+    config_task_url = (pl_cfg.container_url or "").strip() or None
+    config_container_id = (pl_cfg.container_id or "").strip() or None
 
-    # Resolve task_app_url with same precedence as file-based builder
+    # Resolve container_url with same precedence as file-based builder
     if cli_task_url:
         final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+            "container_url",
             cli_value=cli_task_url,
             env_value=None,
             config_value=config_task_url,
@@ -602,46 +602,46 @@ def build_prompt_learning_payload_from_mapping(
         final_task_url = config_task_url
     else:
         final_task_url = ConfigResolver.resolve(
-            "task_app_url",
+            "container_url",
             cli_value=None,
             env_value=env_task_url,
             config_value=None,
             required=False,
         )
     _require(
-        final_task_url is not None or config_task_app_id is not None,
-        "task_app_url or task_app_id is required",
+        final_task_url is not None or config_container_id is not None,
+        "container_url or container_id is required",
     )
 
-    # Get task_app_api_key from config or environment
-    # Note: task_app_api_key is not a field on PromptLearningConfig, use getattr
-    config_api_key = (getattr(pl_cfg, "task_app_api_key", None) or "").strip() or None
-    cli_api_key = overrides.get("task_app_api_key")
-    skip_task_app_key = os.environ.get(
-        "SYNTH_BACKEND_RESOLVES_TASK_APP_KEY", ""
+    # Get container_api_key from config or environment
+    # Note: container_api_key is not a field on PromptLearningConfig, use getattr
+    config_api_key = (getattr(pl_cfg, "container_api_key", None) or "").strip() or None
+    cli_api_key = overrides.get("container_api_key")
+    skip_container_key = os.environ.get(
+        "SYNTH_BACKEND_RESOLVES_CONTAINER_KEY", ""
     ).strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
-    _task_app_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
-        "task_app_api_key",
+    _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
+        "container_api_key",
         cli_value=cli_api_key,
         env_value=env_api_key,
         config_value=config_api_key,
-        required=(final_task_url is not None and not skip_task_app_key),
+        required=(final_task_url is not None and not skip_container_key),
     )
 
-    # Ensure task app routing is set. For hosted task apps, task_app_id can be used
-    # without a direct task_app_url.
+    # Ensure container routing is set. For hosted containers, container_id can be used
+    # without a direct container_url.
     pl_section = config_dict.get("prompt_learning", {})
     if isinstance(pl_section, dict):
         if final_task_url:
-            pl_section["task_app_url"] = final_task_url
-        if config_task_app_id and not pl_section.get("task_app_id"):
-            pl_section["task_app_id"] = config_task_app_id
-        # Spec-compliant behavior: task app auth is server-resolved and must not
+            pl_section["container_url"] = final_task_url
+        if config_container_id and not pl_section.get("container_id"):
+            pl_section["container_id"] = config_container_id
+        # Spec-compliant behavior: container auth is server-resolved and must not
         # be embedded in job payloads.
 
         # GEPA: Extract train_seeds from nested structure
@@ -662,9 +662,9 @@ def build_prompt_learning_payload_from_mapping(
     else:
         replacement: dict[str, Any] = {}
         if final_task_url:
-            replacement["task_app_url"] = final_task_url
-        if config_task_app_id:
-            replacement["task_app_id"] = config_task_app_id
+            replacement["container_url"] = final_task_url
+        if config_container_id:
+            replacement["container_id"] = config_container_id
         config_dict["prompt_learning"] = replacement
 
     # Build payload matching backend API format
@@ -672,7 +672,7 @@ def build_prompt_learning_payload_from_mapping(
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start", "task_app_api_key")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
     }
 
     # Merge overrides into config_dict

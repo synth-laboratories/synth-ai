@@ -2,7 +2,7 @@
 
 This module provides Pydantic models for defining GraphGen datasets and job configurations.
 GraphGen is a simplified "Workflows API" for prompt optimization that wraps GEPA with
-auto-generated task apps and built-in verifier configurations.
+auto-generated containers and built-in verifier configurations.
 
 Example:
     from synth_ai.sdk.optimization.internal.graphgen_models import (
@@ -338,7 +338,7 @@ class GraphGenTaskSet(BaseModel):
 
         Note:
             This method does NOT wrap around. For seed-based lookup that wraps
-            around, use get_task_by_seed() in GraphGenTaskAppState instead.
+            around, use get_task_by_seed() in GraphGenContainerState instead.
         """
         if 0 <= index < len(self.tasks):
             return self.tasks[index]
@@ -497,8 +497,8 @@ class EventRewardResponse(BaseModel):
             raw = v.strip().lower()
             if raw in {"verifier", "evaluator"}:
                 return RewardSource.VERIFIER
-            if raw in {"task_app", "taskapp", "environment", "runner", "human", "env"}:
-                return RewardSource.TASK_APP
+            if raw in {"container", "taskapp", "environment", "runner", "human", "env"}:
+                return RewardSource.CONTAINER
             if raw == "fused":
                 return RewardSource.FUSED
         return v
@@ -563,7 +563,7 @@ class GraphGenJobConfig(BaseModel):
     """Configuration for a GraphGen (Graph Opt) optimization job.
 
     GraphGen provides a simplified API for training optimized graphs/workflows without
-    managing task apps manually. It supports three graph types:
+    managing containers manually. It supports three graph types:
     - **policy**: Standard input-to-output graphs for classification, QA, generation
     - **verifier**: Trace-to-score graphs for verifying/evaluating agent behavior
     - **rlm**: Recursive Language Model graphs for massive contexts via tool-based search

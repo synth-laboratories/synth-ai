@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from synth_ai.sdk.localapi._impl import task_app_health, validate_task_app_url
+    from synth_ai.sdk.container._impl import container_health, validate_container_url
 
 from .client import LearningClient
 from .health import backend_health, balance_autumn_normalized, pricing_preflight
@@ -34,9 +34,9 @@ __all__ = [
     # Utilities
     "validate_training_jsonl",
     "validate_trainer_cfg_rl",
-    "validate_task_app_url",
+    "validate_container_url",
     "backend_health",
-    "task_app_health",
+    "container_health",
     "pricing_preflight",
     "balance_autumn_normalized",
     "stream_job_events",
@@ -44,7 +44,7 @@ __all__ = [
     "JobsApiResolver",
 ]
 
-_TASK_IMPORTS = {"task_app_health", "validate_task_app_url"}
+_TASK_IMPORTS = {"container_health", "validate_container_url"}
 
 
 def __getattr__(name: str):

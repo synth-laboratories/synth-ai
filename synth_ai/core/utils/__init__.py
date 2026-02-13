@@ -10,8 +10,8 @@ from synth_ai.core.utils.json import (
 from synth_ai.core.utils.paths import (
     REPO_ROOT,
     SYNTH_BIN_DIR,
+    SYNTH_CONTAINER_CONFIG_PATH,
     SYNTH_HOME_DIR,
-    SYNTH_LOCALAPI_CONFIG_PATH,
     SYNTH_USER_CONFIG_PATH,
     configure_import_paths,
     temporary_import_paths,
@@ -45,7 +45,7 @@ __all__ = [
     "REPO_ROOT",
     "SYNTH_BIN_DIR",
     "SYNTH_HOME_DIR",
-    "SYNTH_LOCALAPI_CONFIG_PATH",
+    "SYNTH_CONTAINER_CONFIG_PATH",
     "SYNTH_USER_CONFIG_PATH",
     "configure_import_paths",
     "temporary_import_paths",

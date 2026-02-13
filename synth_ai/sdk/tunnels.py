@@ -8,7 +8,7 @@ import types
 from synth_ai.core.tunnels import (  # noqa: F401
     PortConflictBehavior,
     TunnelBackend,
-    TunneledLocalAPI,
+    TunneledContainer,
     acquire_port,
     cleanup_all,
     find_available_port,
@@ -23,7 +23,7 @@ from synth_ai.core.tunnels import (  # noqa: F401
 __all__ = [
     "PortConflictBehavior",
     "TunnelBackend",
-    "TunneledLocalAPI",
+    "TunneledContainer",
     "acquire_port",
     "cleanup_all",
     "find_available_port",
@@ -39,7 +39,7 @@ __all__ = [
 _submodules: dict[str, dict[str, object]] = {
     "synth_ai.sdk.tunnels.tunneled_api": {
         "TunnelBackend": TunnelBackend,
-        "TunneledLocalAPI": TunneledLocalAPI,
+        "TunneledContainer": TunneledContainer,
     },
     "synth_ai.sdk.tunnels.ports": {
         "acquire_port": acquire_port,

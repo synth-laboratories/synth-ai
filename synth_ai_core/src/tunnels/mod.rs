@@ -16,7 +16,7 @@ pub async fn open_tunnel(
     local_port: u16,
     api_key: Option<String>,
     backend_url: Option<String>,
-    local_api_key: Option<String>,
+    container_key: Option<String>,
     verify_local: bool,
     verify_dns: bool,
     progress: bool,
@@ -45,7 +45,7 @@ pub async fn open_tunnel(
                     verify_local,
                     verify_dns,
                     progress,
-                    local_api_key,
+                    container_key,
                 )
                 .await
         }
@@ -62,7 +62,7 @@ pub async fn open_tunnel(
                     &url,
                     "tunnel",
                     60.0,
-                    local_api_key.clone(),
+                    container_key.clone(),
                 )
                 .await?;
             }
@@ -87,7 +87,7 @@ pub async fn open_tunnel(
                 local_port,
                 10.0,
                 verify_dns,
-                local_api_key.clone(),
+                container_key.clone(),
             )
             .await?;
             let process_id = cloudflared::track_process(proc);

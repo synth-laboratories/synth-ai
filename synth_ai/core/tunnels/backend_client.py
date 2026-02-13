@@ -4,7 +4,7 @@ This module provides a typed client for communicating with the backend's
 lease-based tunnel API.
 
 .. deprecated::
-    This module is deprecated. Use `TunneledLocalAPI` instead, which uses
+    This module is deprecated. Use `TunneledContainer` instead, which uses
     the Rust core internally for better performance and reliability.
     Direct lease management will be removed in a future version.
 """
@@ -58,10 +58,10 @@ class LeaseClient:
             timeout: Request timeout in seconds
 
         .. deprecated::
-            Use TunneledLocalAPI instead for tunnel management.
+            Use TunneledContainer instead for tunnel management.
         """
         warnings.warn(
-            "LeaseClient is deprecated. Use TunneledLocalAPI instead, which uses "
+            "LeaseClient is deprecated. Use TunneledContainer instead, which uses "
             "the Rust core internally for better performance and reliability.",
             DeprecationWarning,
             stacklevel=2,

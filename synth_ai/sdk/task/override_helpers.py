@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from synth_ai.sdk.localapi._impl.override_helpers import (  # noqa: F401
+from synth_ai.sdk.container._impl.override_helpers import (  # noqa: F401
     AgentType,
     apply_context_overrides,
     get_agent_skills_path,

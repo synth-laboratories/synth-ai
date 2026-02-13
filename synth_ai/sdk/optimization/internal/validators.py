@@ -68,21 +68,21 @@ def _raise_validation_errors(errors: list[str], config_path: Path) -> None:
     raise click.ClickException(f"{config_path}: {msg}")
 
 
-def _has_task_app_id(config_data: dict[str, Any]) -> bool:
+def _has_container_id(config_data: dict[str, Any]) -> bool:
     pl = config_data.get("prompt_learning")
     if not isinstance(pl, dict):
         pl = config_data
-    task_app_id = pl.get("task_app_id") if isinstance(pl, dict) else None
-    return isinstance(task_app_id, str) and bool(task_app_id.strip())
+    container_id = pl.get("container_id") if isinstance(pl, dict) else None
+    return isinstance(container_id, str) and bool(container_id.strip())
 
 
 def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> list[str]:
-    """Filter strict validation errors that conflict with task_app_id support."""
-    if not _has_task_app_id(config_data):
+    """Filter strict validation errors that conflict with container_id support."""
+    if not _has_container_id(config_data):
         return errors
     normalized: list[str] = []
     for err in errors:
-        if "Missing required field: prompt_learning.task_app_url" in err:
+        if "Missing required field: prompt_learning.container_url" in err:
             continue
         normalized.append(err)
     return normalized

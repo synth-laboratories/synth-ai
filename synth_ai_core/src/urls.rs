@@ -254,13 +254,13 @@ pub fn normalize_inference_base(url: &str) -> Result<Url, CoreError> {
 }
 
 /// Create a local API URL from host/port.
-pub fn make_local_api_url(host: &str, port: u16) -> Result<Url, CoreError> {
+pub fn make_container_url(host: &str, port: u16) -> Result<Url, CoreError> {
     let url = format!("http://{host}:{port}");
     Ok(Url::parse(&url)?)
 }
 
-/// Validate that a task app URL is well-formed http(s).
-pub fn validate_task_app_url(url: &str) -> Result<Url, CoreError> {
+/// Validate that a container URL is well-formed http(s).
+pub fn validate_container_url(url: &str) -> Result<Url, CoreError> {
     let parsed = Url::parse(url)?;
     match parsed.scheme() {
         "http" | "https" => Ok(parsed),

@@ -149,7 +149,7 @@ pub struct PromptLearningJob {
     /// Job configuration
     config: Value,
     /// Optional SynthTunnel worker token
-    task_app_worker_token: Option<String>,
+    container_worker_token: Option<String>,
     /// Progress tracker
     tracker: ProgressTracker,
 }
@@ -159,7 +159,7 @@ impl PromptLearningJob {
     ///
     /// # Arguments
     ///
-    /// * `config` - Job configuration (algorithm, task_app_url, policy, etc.)
+    /// * `config` - Job configuration (algorithm, container_url, policy, etc.)
     /// * `api_key` - Optional API key (uses env if not provided)
     /// * `base_url` - Optional base URL (uses default if not provided)
     ///
@@ -169,7 +169,7 @@ impl PromptLearningJob {
     /// let job = PromptLearningJob::from_dict(
     ///     serde_json::json!({
     ///         "algorithm": "gepa",
-    ///         "task_app_url": "http://localhost:8000",
+    ///         "container_url": "http://localhost:8000",
     ///         "env_name": "default",
     ///         "policy": { "model": "gpt-4o-mini", "provider": "openai" },
     ///         "gepa": { "rollout_budget": 100 }
@@ -183,7 +183,7 @@ impl PromptLearningJob {
         config: Value,
         api_key: Option<&str>,
         base_url: Option<&str>,
-        task_app_worker_token: Option<String>,
+        container_worker_token: Option<String>,
     ) -> Result<Self, CoreError> {
         let api_key = match api_key {
             Some(k) => k.to_string(),
@@ -197,7 +197,7 @@ impl PromptLearningJob {
             client,
             job_id: None,
             config,
-            task_app_worker_token,
+            container_worker_token,
             tracker: ProgressTracker::new(),
         })
     }
@@ -226,7 +226,7 @@ impl PromptLearningJob {
             client,
             job_id: Some(job_id.to_string()),
             config: Value::Null,
-            task_app_worker_token: None,
+            container_worker_token: None,
             tracker: ProgressTracker::new(),
         })
     }
@@ -259,7 +259,7 @@ impl PromptLearningJob {
         let job_id = self
             .client
             .jobs()
-            .submit_raw_with_worker_token(self.config.clone(), self.task_app_worker_token.clone())
+            .submit_raw_with_worker_token(self.config.clone(), self.container_worker_token.clone())
             .await?;
         self.job_id = Some(job_id.clone());
 

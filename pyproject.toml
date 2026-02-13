@@ -26,10 +26,10 @@ dependencies = [
     "aiohttp>=3.8.0", # For async HTTP requests
     "nest_asyncio>=1.6.0", # For nested event loops in sync callbacks
     "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
-    # Dataset loading - used by localapi dataset helpers
+    # Dataset loading - used by container dataset helpers
     "datasets>=4.0.0",
     "jsonschema>=4.23.0",
-    # Crafter task app deps (ContinualLearningBench crafter engine)
+    # Crafter container deps (ContinualLearningBench crafter engine)
     "Pillow>=10.0.0",
     "imageio>=2.34.0",
 ]

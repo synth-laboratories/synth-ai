@@ -40,21 +40,21 @@ use synth_ai_core::events::{poll_events as core_poll_events, EventKind};
 use synth_ai_core::http::{
     HttpClient as RustHttpClient, HttpError as RustHttpError, MultipartFile as RustMultipartFile,
 };
-use synth_ai_core::localapi::auth as core_localapi_auth;
-use synth_ai_core::localapi::datasets as core_localapi_datasets;
-use synth_ai_core::localapi::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
-use synth_ai_core::localapi::health as core_localapi_health;
-use synth_ai_core::localapi::helpers as core_localapi_helpers;
-use synth_ai_core::localapi::llm_guards as core_localapi_llm_guards;
-use synth_ai_core::localapi::override_helpers as core_localapi_override;
-use synth_ai_core::localapi::proxy as core_localapi_proxy;
-use synth_ai_core::localapi::rollout_helpers as core_localapi_rollout;
-use synth_ai_core::localapi::trace_helpers as core_localapi_trace;
-use synth_ai_core::localapi::tracing_utils as core_localapi_tracing_utils;
-use synth_ai_core::localapi::validation as core_localapi_validation;
-use synth_ai_core::localapi::validators as core_localapi_validators;
-use synth_ai_core::localapi::vendors as core_localapi_vendors;
-use synth_ai_core::localapi::{EnvClient as RustEnvClient, TaskAppClient as RustTaskAppClient};
+use synth_ai_core::container::auth as core_container_auth;
+use synth_ai_core::container::datasets as core_container_datasets;
+use synth_ai_core::container::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
+use synth_ai_core::container::health as core_container_health;
+use synth_ai_core::container::helpers as core_container_helpers;
+use synth_ai_core::container::llm_guards as core_container_llm_guards;
+use synth_ai_core::container::override_helpers as core_container_override;
+use synth_ai_core::container::proxy as core_container_proxy;
+use synth_ai_core::container::rollout_helpers as core_container_rollout;
+use synth_ai_core::container::trace_helpers as core_container_trace;
+use synth_ai_core::container::tracing_utils as core_container_tracing_utils;
+use synth_ai_core::container::validation as core_container_validation;
+use synth_ai_core::container::validators as core_container_validators;
+use synth_ai_core::container::vendors as core_container_vendors;
+use synth_ai_core::container::{EnvClient as RustEnvClient, ContainerClient as RustContainerClient};
 use synth_ai_core::models as core_models;
 use synth_ai_core::orchestration::base_events::{
     BaseJobEvent as RustBaseJobEvent, CandidateEvent as RustCandidateEvent,
@@ -109,17 +109,17 @@ use synth_ai_core::urls::{
     backend_url_synth_research_base as core_backend_url_synth_research_base,
     backend_url_synth_research_openai as core_backend_url_synth_research_openai,
     frontend_url_base as core_frontend_url_base, join_url as core_join_url,
-    local_backend_url as core_local_backend_url, make_local_api_url as core_make_local_api_url,
+    local_backend_url as core_local_backend_url, make_container_url as core_make_container_url,
     normalize_backend_base as core_normalize_backend_base,
     normalize_inference_base as core_normalize_inference_base,
-    validate_task_app_url as core_validate_task_app_url,
+    validate_container_url as core_validate_container_url,
 };
 use synth_ai_core::utils as core_utils;
 use synth_ai_core::CoreError;
 
 static RUNTIME: Lazy<tokio::runtime::Runtime> =
     Lazy::new(|| tokio::runtime::Runtime::new().expect("tokio runtime"));
-static LOCALAPI_HTTP_CLIENT: Lazy<Mutex<Option<PyObject>>> = Lazy::new(|| Mutex::new(None));
+static CONTAINER_HTTP_CLIENT: Lazy<Mutex<Option<PyObject>>> = Lazy::new(|| Mutex::new(None));
 
 static PROCESS_REGISTRY: Lazy<Mutex<HashMap<String, ManagedProcess>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -801,15 +801,15 @@ fn normalize_inference_base(py: Python, url: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
-fn make_local_api_url(py: Python, host: &str, port: u16) -> PyResult<String> {
-    core_make_local_api_url(host, port)
+fn make_container_url(py: Python, host: &str, port: u16) -> PyResult<String> {
+    core_make_container_url(host, port)
         .map(|u| u.to_string())
         .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
-fn validate_task_app_url(py: Python, url: &str) -> PyResult<String> {
-    core_validate_task_app_url(url)
+fn validate_container_url(py: Python, url: &str) -> PyResult<String> {
+    core_validate_container_url(url)
         .map(|u| u.to_string())
         .map_err(|e| map_core_err(py, e))
 }
@@ -918,8 +918,8 @@ fn synth_user_config_path() -> String {
 }
 
 #[pyfunction]
-fn synth_localapi_config_path() -> String {
-    core_utils::synth_localapi_config_path()
+fn synth_container_config_path() -> String {
+    core_utils::synth_container_config_path()
         .to_string_lossy()
         .to_string()
 }
@@ -1339,7 +1339,7 @@ impl SynthTunnelAgentPy {
 }
 
 #[pyfunction]
-#[pyo3(signature = (ws_url, agent_token, lease_id, local_host, local_port, public_url, worker_token, local_api_keys, max_inflight=16))]
+#[pyo3(signature = (ws_url, agent_token, lease_id, local_host, local_port, public_url, worker_token, container_keys, max_inflight=16))]
 fn synth_tunnel_start(
     py: Python,
     ws_url: String,
@@ -1349,7 +1349,7 @@ fn synth_tunnel_start(
     local_port: u16,
     public_url: String,
     worker_token: String,
-    local_api_keys: Vec<String>,
+    container_keys: Vec<String>,
     max_inflight: usize,
 ) -> PyResult<SynthTunnelAgentPy> {
     let config = SynthTunnelConfig {
@@ -1360,7 +1360,7 @@ fn synth_tunnel_start(
         local_port,
         public_url,
         worker_token,
-        local_api_keys,
+        container_keys,
         max_inflight,
     };
     let result = RUNTIME.block_on(rust_start_agent(config));
@@ -1661,16 +1661,16 @@ fn auth_update_user_config(py: Python, updates: PyObject) -> PyResult<PyObject> 
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
-// LocalAPI auth helpers
+// Container auth helpers
 
 #[pyfunction]
 fn mint_environment_api_key() -> String {
-    core_localapi_auth::mint_environment_api_key()
+    core_container_auth::mint_environment_api_key()
 }
 
 #[pyfunction]
 fn encrypt_for_backend(pubkey_b64: &str, secret: &str) -> PyResult<String> {
-    core_localapi_auth::encrypt_for_backend(pubkey_b64, secret.as_bytes())
+    core_container_auth::encrypt_for_backend(pubkey_b64, secret.as_bytes())
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
@@ -1684,7 +1684,7 @@ fn setup_environment_api_key(
     timeout: f64,
 ) -> PyResult<PyObject> {
     let result = RUNTIME.block_on(async move {
-        core_localapi_auth::setup_environment_api_key(
+        core_container_auth::setup_environment_api_key(
             &backend_base,
             &synth_api_key,
             token.as_deref(),
@@ -1700,7 +1700,7 @@ fn setup_environment_api_key(
 
 #[pyfunction]
 #[pyo3(signature = (backend_base=None, synth_api_key=None, upload=true, persist=None))]
-fn ensure_localapi_auth(
+fn ensure_container_auth(
     py: Python,
     backend_base: Option<String>,
     synth_api_key: Option<String>,
@@ -1708,7 +1708,7 @@ fn ensure_localapi_auth(
     persist: Option<bool>,
 ) -> PyResult<String> {
     let result = RUNTIME.block_on(async move {
-        core_localapi_auth::ensure_localapi_auth(
+        core_container_auth::ensure_container_auth(
             backend_base.as_deref(),
             synth_api_key.as_deref(),
             upload,
@@ -1720,47 +1720,47 @@ fn ensure_localapi_auth(
 }
 
 #[pyfunction]
-fn localapi_normalize_environment_api_key() -> Option<String> {
-    core_localapi_auth::normalize_environment_api_key()
+fn container_normalize_environment_api_key() -> Option<String> {
+    core_container_auth::normalize_environment_api_key()
 }
 
 #[pyfunction]
-fn localapi_allowed_environment_api_keys() -> Vec<String> {
-    core_localapi_auth::allowed_environment_api_keys()
+fn container_allowed_environment_api_keys() -> Vec<String> {
+    core_container_auth::allowed_environment_api_keys()
 }
 
 #[pyfunction]
-fn localapi_is_api_key_header_authorized(header_values: Vec<String>) -> bool {
-    core_localapi_auth::is_api_key_header_authorized(&header_values)
+fn container_is_api_key_header_authorized(header_values: Vec<String>) -> bool {
+    core_container_auth::is_api_key_header_authorized(&header_values)
 }
 
 #[pyfunction]
-fn localapi_normalize_chat_completion_url(url: String) -> String {
-    core_localapi_helpers::normalize_chat_completion_url(&url)
+fn container_normalize_chat_completion_url(url: String) -> String {
+    core_container_helpers::normalize_chat_completion_url(&url)
 }
 
 #[pyfunction]
-fn localapi_get_default_max_completion_tokens(model_name: String) -> i32 {
-    core_localapi_helpers::get_default_max_completion_tokens(&model_name)
+fn container_get_default_max_completion_tokens(model_name: String) -> i32 {
+    core_container_helpers::get_default_max_completion_tokens(&model_name)
 }
 
-// LocalAPI trace helpers
+// Container trace helpers
 
 #[pyfunction]
 #[pyo3(signature = (inference_url=None))]
-fn localapi_extract_trace_correlation_id(inference_url: Option<String>) -> Option<String> {
-    core_localapi_trace::extract_trace_correlation_id(inference_url.as_deref())
+fn container_extract_trace_correlation_id(inference_url: Option<String>) -> Option<String> {
+    core_container_trace::extract_trace_correlation_id(inference_url.as_deref())
 }
 
 #[pyfunction]
 #[pyo3(signature = (trace_correlation_id=None, inference_url=None, fatal=false))]
-fn localapi_validate_trace_correlation_id(
+fn container_validate_trace_correlation_id(
     py: Python,
     trace_correlation_id: Option<String>,
     inference_url: Option<String>,
     fatal: bool,
 ) -> PyResult<Option<String>> {
-    core_localapi_trace::validate_trace_correlation_id(
+    core_container_trace::validate_trace_correlation_id(
         trace_correlation_id.as_deref(),
         inference_url.as_deref(),
         fatal,
@@ -1770,13 +1770,13 @@ fn localapi_validate_trace_correlation_id(
 
 #[pyfunction]
 #[pyo3(signature = (response_data, trace_correlation_id=None))]
-fn localapi_include_trace_correlation_id_in_response(
+fn container_include_trace_correlation_id_in_response(
     py: Python,
     response_data: PyObject,
     trace_correlation_id: Option<String>,
 ) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, response_data)?;
-    let result = core_localapi_trace::include_trace_correlation_id_in_response(
+    let result = core_container_trace::include_trace_correlation_id_in_response(
         &value,
         trace_correlation_id.as_deref(),
     );
@@ -1785,7 +1785,7 @@ fn localapi_include_trace_correlation_id_in_response(
 
 #[pyfunction]
 #[pyo3(signature = (messages, response=None, *, correlation_id=None, session_id=None, metadata=None))]
-fn localapi_build_trace_payload(
+fn container_build_trace_payload(
     py: Python,
     messages: PyObject,
     response: Option<PyObject>,
@@ -1802,7 +1802,7 @@ fn localapi_build_trace_payload(
         Some(obj) => Some(value_from_pyobject(py, obj)?),
         None => None,
     };
-    let result = core_localapi_trace::build_trace_payload(
+    let result = core_container_trace::build_trace_payload(
         &messages_value,
         response_value.as_ref(),
         correlation_id.as_deref(),
@@ -1814,7 +1814,7 @@ fn localapi_build_trace_payload(
 
 #[pyfunction]
 #[pyo3(signature = (messages, response=None, *, correlation_id=None, session_id=None, metadata=None))]
-fn localapi_build_trajectory_trace(
+fn container_build_trajectory_trace(
     py: Python,
     messages: PyObject,
     response: Option<PyObject>,
@@ -1831,7 +1831,7 @@ fn localapi_build_trajectory_trace(
         Some(obj) => Some(value_from_pyobject(py, obj)?),
         None => None,
     };
-    let result = core_localapi_trace::build_trajectory_trace(
+    let result = core_container_trace::build_trajectory_trace(
         &messages_value,
         response_value.as_ref(),
         correlation_id.as_deref(),
@@ -1843,7 +1843,7 @@ fn localapi_build_trajectory_trace(
 
 #[pyfunction]
 #[pyo3(signature = (response_data, messages=None, response=None, *, run_id, correlation_id=None))]
-fn localapi_include_event_history_in_response(
+fn container_include_event_history_in_response(
     py: Python,
     response_data: PyObject,
     messages: Option<PyObject>,
@@ -1860,7 +1860,7 @@ fn localapi_include_event_history_in_response(
         Some(obj) => Some(value_from_pyobject(py, obj)?),
         None => None,
     };
-    let result = core_localapi_trace::include_event_history_in_response(
+    let result = core_container_trace::include_event_history_in_response(
         &response_value,
         messages_value.as_ref(),
         response_payload.as_ref(),
@@ -1872,7 +1872,7 @@ fn localapi_include_event_history_in_response(
 
 #[pyfunction]
 #[pyo3(signature = (response_data, messages_by_trajectory=None, responses_by_trajectory=None, *, run_id, correlation_id=None))]
-fn localapi_include_event_history_in_trajectories(
+fn container_include_event_history_in_trajectories(
     py: Python,
     response_data: PyObject,
     messages_by_trajectory: Option<PyObject>,
@@ -1889,7 +1889,7 @@ fn localapi_include_event_history_in_trajectories(
         Some(obj) => Some(value_from_pyobject(py, obj)?),
         None => None,
     };
-    let result = core_localapi_trace::include_event_history_in_trajectories(
+    let result = core_container_trace::include_event_history_in_trajectories(
         &response_value,
         messages_value.as_ref(),
         responses_value.as_ref(),
@@ -1901,25 +1901,25 @@ fn localapi_include_event_history_in_trajectories(
 
 #[pyfunction]
 #[pyo3(signature = (response_data, expected_correlation_id=None))]
-fn localapi_verify_trace_correlation_id_in_response(
+fn container_verify_trace_correlation_id_in_response(
     py: Python,
     response_data: PyObject,
     expected_correlation_id: Option<String>,
 ) -> PyResult<bool> {
     let value = value_from_pyobject(py, response_data)?;
     Ok(
-        core_localapi_trace::verify_trace_correlation_id_in_response(
+        core_container_trace::verify_trace_correlation_id_in_response(
             &value,
             expected_correlation_id.as_deref(),
         ),
     )
 }
 
-// LocalAPI validation helpers
+// Container validation helpers
 
 #[pyfunction]
 #[pyo3(signature = (artifact, max_bytes=None))]
-fn localapi_validate_artifact_size(
+fn container_validate_artifact_size(
     py: Python,
     artifact: PyObject,
     max_bytes: Option<usize>,
@@ -1927,41 +1927,41 @@ fn localapi_validate_artifact_size(
     let value = value_from_pyobject(py, artifact)?;
     let artifact: Artifact =
         serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let max_bytes = max_bytes.unwrap_or(core_localapi_validation::MAX_INLINE_ARTIFACT_BYTES);
-    core_localapi_validation::validate_artifact_size(&artifact, max_bytes)
+    let max_bytes = max_bytes.unwrap_or(core_container_validation::MAX_INLINE_ARTIFACT_BYTES);
+    core_container_validation::validate_artifact_size(&artifact, max_bytes)
         .map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
 #[pyfunction]
-fn localapi_validate_artifacts_list(py: Python, artifacts: PyObject) -> PyResult<()> {
+fn container_validate_artifacts_list(py: Python, artifacts: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, artifacts)?;
     let artifacts: Vec<Artifact> =
         serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    core_localapi_validation::validate_artifacts_list(&artifacts)
+    core_container_validation::validate_artifacts_list(&artifacts)
         .map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
 #[pyfunction]
-fn localapi_validate_context_overrides(py: Python, overrides: PyObject) -> PyResult<()> {
+fn container_validate_context_overrides(py: Python, overrides: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, overrides)?;
     let overrides: Vec<ContextOverride> =
         serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
-    core_localapi_validation::validate_context_overrides(&overrides)
+    core_container_validation::validate_context_overrides(&overrides)
         .map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
 #[pyfunction]
-fn localapi_validate_context_snapshot(py: Python, snapshot: PyObject) -> PyResult<()> {
+fn container_validate_context_snapshot(py: Python, snapshot: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, snapshot)?;
-    core_localapi_validation::validate_context_snapshot(&value).map_err(|e| map_core_err(py, e))?;
+    core_container_validation::validate_context_snapshot(&value).map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
 #[pyfunction]
-fn localapi_to_jsonable(py: Python, value: PyObject) -> PyResult<PyObject> {
+fn container_to_jsonable(py: Python, value: PyObject) -> PyResult<PyObject> {
     let mut visited = HashSet::new();
     let bound = value.bind(py);
     to_jsonable_inner(py, &bound, &mut visited, 0)
@@ -1969,7 +1969,7 @@ fn localapi_to_jsonable(py: Python, value: PyObject) -> PyResult<PyObject> {
 
 #[pyfunction]
 #[pyo3(signature = (headers, policy_config, default_env_keys=None))]
-fn localapi_extract_api_key(
+fn container_extract_api_key(
     py: Python,
     headers: PyObject,
     policy_config: PyObject,
@@ -1989,7 +1989,7 @@ fn localapi_extract_api_key(
         }
         None => None,
     };
-    Ok(core_localapi_helpers::extract_api_key(
+    Ok(core_container_helpers::extract_api_key(
         &headers_map,
         &policy_value,
         default_map.as_ref(),
@@ -1998,13 +1998,13 @@ fn localapi_extract_api_key(
 
 #[pyfunction]
 #[pyo3(signature = (response_json, expected_tool_name=None))]
-fn localapi_parse_tool_calls_from_response(
+fn container_parse_tool_calls_from_response(
     py: Python,
     response_json: PyObject,
     expected_tool_name: Option<String>,
 ) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, response_json)?;
-    let parsed = core_localapi_helpers::parse_tool_calls_from_response(
+    let parsed = core_container_helpers::parse_tool_calls_from_response(
         &value,
         expected_tool_name.as_deref(),
     )
@@ -2013,9 +2013,9 @@ fn localapi_parse_tool_calls_from_response(
 }
 
 #[pyfunction]
-fn localapi_task_app_health(py: Python, task_app_url: String) -> PyResult<PyObject> {
+fn container_health_check(py: Python, container_url: String) -> PyResult<PyObject> {
     let result =
-        RUNTIME.block_on(async { core_localapi_health::task_app_health(&task_app_url).await });
+        RUNTIME.block_on(async { core_container_health::container_health(&container_url).await });
     match result {
         Ok(value) => value_to_pyobject(py, &value),
         Err(err) => Err(map_core_err(py, err)),
@@ -2023,13 +2023,13 @@ fn localapi_task_app_health(py: Python, task_app_url: String) -> PyResult<PyObje
 }
 
 #[pyfunction]
-fn localapi_check_url_for_direct_provider_call(url: String) -> bool {
-    core_localapi_llm_guards::is_direct_provider_call(&url)
+fn container_check_url_for_direct_provider_call(url: String) -> bool {
+    core_container_llm_guards::is_direct_provider_call(&url)
 }
 
 #[pyfunction]
-fn localapi_get_shared_http_client(py: Python) -> PyResult<PyObject> {
-    let mut guard = LOCALAPI_HTTP_CLIENT.lock().unwrap();
+fn container_get_shared_http_client(py: Python) -> PyResult<PyObject> {
+    let mut guard = CONTAINER_HTTP_CLIENT.lock().unwrap();
     if let Some(client) = guard.as_ref() {
         return Ok(client.clone_ref(py));
     }
@@ -2062,8 +2062,8 @@ fn localapi_get_shared_http_client(py: Python) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn localapi_reset_shared_http_client(py: Python) -> PyResult<()> {
-    let mut guard = LOCALAPI_HTTP_CLIENT.lock().unwrap();
+fn container_reset_shared_http_client(py: Python) -> PyResult<()> {
+    let mut guard = CONTAINER_HTTP_CLIENT.lock().unwrap();
     if let Some(client) = guard.take() {
         if let Ok(asyncio) = py.import_bound("asyncio") {
             if let Ok(loop_obj) = asyncio.call_method0("get_running_loop") {
@@ -2080,34 +2080,34 @@ fn localapi_reset_shared_http_client(py: Python) -> PyResult<()> {
 
 #[pyfunction]
 #[pyo3(signature = (default=false))]
-fn localapi_tracing_env_enabled(default: bool) -> bool {
-    core_localapi_tracing_utils::tracing_env_enabled(default)
+fn container_tracing_env_enabled(default: bool) -> bool {
+    core_container_tracing_utils::tracing_env_enabled(default)
 }
 
 #[pyfunction]
-fn localapi_resolve_tracing_db_url() -> Option<String> {
-    core_localapi_tracing_utils::resolve_tracing_db_url()
+fn container_resolve_tracing_db_url() -> Option<String> {
+    core_container_tracing_utils::resolve_tracing_db_url()
 }
 
 #[pyfunction]
-fn localapi_resolve_sft_output_dir() -> Option<String> {
-    core_localapi_tracing_utils::resolve_sft_output_dir()
+fn container_resolve_sft_output_dir() -> Option<String> {
+    core_container_tracing_utils::resolve_sft_output_dir()
 }
 
 #[pyfunction]
-fn localapi_unique_sft_path(base_dir: String, run_id: String) -> Option<String> {
-    core_localapi_tracing_utils::unique_sft_path(&base_dir, &run_id)
+fn container_unique_sft_path(base_dir: String, run_id: String) -> Option<String> {
+    core_container_tracing_utils::unique_sft_path(&base_dir, &run_id)
 }
 
 #[pyfunction]
 #[pyo3(signature = (agent, global=false))]
-fn localapi_get_agent_skills_path(agent: String, global: bool) -> String {
-    core_localapi_override::get_agent_skills_path(&agent, global)
+fn container_get_agent_skills_path(agent: String, global: bool) -> String {
+    core_container_override::get_agent_skills_path(&agent, global)
 }
 
 #[pyfunction]
 #[pyo3(signature = (overrides, workspace_dir, allow_global=false, override_bundle_id=None))]
-fn localapi_apply_context_overrides(
+fn container_apply_context_overrides(
     py: Python,
     overrides: PyObject,
     workspace_dir: String,
@@ -2119,7 +2119,7 @@ fn localapi_apply_context_overrides(
         Value::Null => Vec::new(),
         other => serde_json::from_value(other).map_err(|e| PyValueError::new_err(e.to_string()))?,
     };
-    let statuses = core_localapi_override::apply_context_overrides(
+    let statuses = core_container_override::apply_context_overrides(
         &overrides,
         Path::new(&workspace_dir),
         allow_global,
@@ -2133,7 +2133,7 @@ fn localapi_apply_context_overrides(
 }
 
 #[pyfunction]
-fn localapi_get_applied_env_vars(
+fn container_get_applied_env_vars(
     py: Python,
     overrides: PyObject,
 ) -> PyResult<HashMap<String, String>> {
@@ -2142,12 +2142,12 @@ fn localapi_get_applied_env_vars(
         Value::Null => Vec::new(),
         other => serde_json::from_value(other).map_err(|e| PyValueError::new_err(e.to_string()))?,
     };
-    Ok(core_localapi_override::get_applied_env_vars(&overrides))
+    Ok(core_container_override::get_applied_env_vars(&overrides))
 }
 
 #[pyfunction]
 #[pyo3(signature = (request, outcome_reward, inference_url=None, trace=None, policy_config=None, artifact=None, success_status=None, status_detail=None, reward_info=None))]
-fn localapi_build_rollout_response(
+fn container_build_rollout_response(
     py: Python,
     request: PyObject,
     outcome_reward: f64,
@@ -2160,7 +2160,7 @@ fn localapi_build_rollout_response(
     reward_info: Option<PyObject>,
 ) -> PyResult<PyObject> {
     let request_value = value_from_pyobject(py, request)?;
-    let request: synth_ai_core::localapi::types::RolloutRequest =
+    let request: synth_ai_core::container::types::RolloutRequest =
         serde_json::from_value(request_value).map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     let trace_value = match trace {
@@ -2198,7 +2198,7 @@ fn localapi_build_rollout_response(
         None => None,
     };
 
-    let result = core_localapi_rollout::build_rollout_response(
+    let result = core_container_rollout::build_rollout_response(
         &request,
         outcome_reward,
         inference_url.as_deref(),
@@ -2214,35 +2214,35 @@ fn localapi_build_rollout_response(
     value_to_pyobject(py, &serde_json::to_value(result).unwrap_or(Value::Null))
 }
 
-// LocalAPI proxy helpers
+// Container proxy helpers
 
 #[pyfunction]
 #[pyo3(signature = (payload, model=None))]
-fn localapi_prepare_for_openai(
+fn container_prepare_for_openai(
     py: Python,
     payload: PyObject,
     model: Option<String>,
 ) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
-    let result = core_localapi_proxy::prepare_for_openai(model.as_deref(), &value);
+    let result = core_container_proxy::prepare_for_openai(model.as_deref(), &value);
     value_to_pyobject(py, &result)
 }
 
 #[pyfunction]
 #[pyo3(signature = (payload, model=None))]
-fn localapi_prepare_for_groq(
+fn container_prepare_for_groq(
     py: Python,
     payload: PyObject,
     model: Option<String>,
 ) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
-    let result = core_localapi_proxy::prepare_for_groq(model.as_deref(), &value);
+    let result = core_container_proxy::prepare_for_groq(model.as_deref(), &value);
     value_to_pyobject(py, &result)
 }
 
 #[pyfunction]
 #[pyo3(signature = (payload, model=None))]
-fn localapi_normalize_response_format_for_groq(
+fn container_normalize_response_format_for_groq(
     py: Python,
     payload: PyObject,
     model: Option<String>,
@@ -2252,47 +2252,47 @@ fn localapi_normalize_response_format_for_groq(
         Value::Object(map) => map,
         _ => return value_to_pyobject(py, &value),
     };
-    core_localapi_proxy::normalize_response_format_for_groq(model.as_deref(), &mut map);
+    core_container_proxy::normalize_response_format_for_groq(model.as_deref(), &mut map);
     value_to_pyobject(py, &Value::Object(map))
 }
 
 #[pyfunction]
-fn localapi_inject_system_hint(py: Python, payload: PyObject, hint: String) -> PyResult<PyObject> {
+fn container_inject_system_hint(py: Python, payload: PyObject, hint: String) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
-    let result = core_localapi_proxy::inject_system_hint(&value, &hint);
+    let result = core_container_proxy::inject_system_hint(&value, &hint);
     value_to_pyobject(py, &result)
 }
 
 #[pyfunction]
-fn localapi_extract_message_text(py: Python, message: PyObject) -> PyResult<String> {
+fn container_extract_message_text(py: Python, message: PyObject) -> PyResult<String> {
     let value = value_from_pyobject(py, message)?;
-    Ok(core_localapi_proxy::extract_message_text(&value))
+    Ok(core_container_proxy::extract_message_text(&value))
 }
 
 #[pyfunction]
-fn localapi_parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
-    core_localapi_proxy::parse_tool_call_from_text(text)
+fn container_parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
+    core_container_proxy::parse_tool_call_from_text(text)
 }
 
 #[pyfunction]
 #[pyo3(signature = (payload, fallback_tool_name=None))]
-fn localapi_synthesize_tool_call_if_missing(
+fn container_synthesize_tool_call_if_missing(
     py: Python,
     payload: PyObject,
     fallback_tool_name: Option<String>,
 ) -> PyResult<PyObject> {
     let fallback_tool_name = fallback_tool_name.unwrap_or_else(|| "interact".to_string());
     let value = value_from_pyobject(py, payload)?;
-    let result = core_localapi_proxy::synthesize_tool_call_if_missing(&value, &fallback_tool_name);
+    let result = core_container_proxy::synthesize_tool_call_if_missing(&value, &fallback_tool_name);
     value_to_pyobject(py, &result)
 }
 
-// LocalAPI validators
+// Container validators
 
 #[pyfunction]
-fn localapi_validate_rollout_response_for_rl(py: Python, payload: PyObject) -> PyResult<PyObject> {
+fn container_validate_rollout_response_for_rl(py: Python, payload: PyObject) -> PyResult<PyObject> {
     let value = value_from_pyobject(py, payload)?;
-    let issues = core_localapi_validators::validate_rollout_response_for_rl(&value);
+    let issues = core_container_validators::validate_rollout_response_for_rl(&value);
     pythonize::pythonize(py, &issues)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -2300,44 +2300,44 @@ fn localapi_validate_rollout_response_for_rl(py: Python, payload: PyObject) -> P
 
 #[pyfunction]
 #[pyo3(signature = (url=None, default=None))]
-fn localapi_normalize_inference_url(
+fn container_normalize_inference_url(
     py: Python,
     url: Option<String>,
     default: Option<String>,
 ) -> PyResult<String> {
     let default =
         default.unwrap_or_else(|| "https://api.openai.com/v1/chat/completions".to_string());
-    core_localapi_validators::normalize_inference_url(url.as_deref(), &default)
+    core_container_validators::normalize_inference_url(url.as_deref(), &default)
         .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
-fn localapi_validate_task_app_url(py: Python, url: String) -> PyResult<String> {
-    core_localapi_validators::validate_task_app_url(&url).map_err(|e| map_core_err(py, e))
+fn container_validate_url(py: Python, url: String) -> PyResult<String> {
+    core_container_validators::validate_container_url(&url).map_err(|e| map_core_err(py, e))
 }
 
-// LocalAPI vendor keys
+// Container vendor keys
 
 #[pyfunction]
-fn localapi_normalize_vendor_keys(py: Python) -> PyResult<PyObject> {
-    let result = core_localapi_vendors::normalize_vendor_keys();
+fn container_normalize_vendor_keys(py: Python) -> PyResult<PyObject> {
+    let result = core_container_vendors::normalize_vendor_keys();
     pythonize::pythonize(py, &result)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction]
-fn localapi_get_openai_key() -> Option<String> {
-    core_localapi_vendors::get_openai_key()
+fn container_get_openai_key() -> Option<String> {
+    core_container_vendors::get_openai_key()
 }
 
 #[pyfunction]
-fn localapi_get_groq_key() -> Option<String> {
-    core_localapi_vendors::get_groq_key()
+fn container_get_groq_key() -> Option<String> {
+    core_container_vendors::get_groq_key()
 }
 
 // =============================================================================
-// LocalAPI Deployments
+// Container Deployments
 // =============================================================================
 
 fn resolve_synth_client(
@@ -2373,7 +2373,7 @@ fn resolve_synth_client(
     port=8000,
     metadata=None
 ))]
-fn localapi_deploy_from_dir(
+fn container_deploy_from_dir(
     py: Python,
     name: String,
     dockerfile_path: String,
@@ -2396,10 +2396,10 @@ fn localapi_deploy_from_dir(
         None => HashMap::new(),
     };
 
-    let limits: LocalApiLimits = match limits {
+    let limits: ContainerLimits = match limits {
         Some(obj) => pythonize::depythonize(obj.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid limits: {}", e)))?,
-        None => LocalApiLimits::default(),
+        None => ContainerLimits::default(),
     };
 
     let metadata: HashMap<String, Value> = match metadata {
@@ -2410,7 +2410,7 @@ fn localapi_deploy_from_dir(
 
     let entrypoint_mode = entrypoint_mode.unwrap_or_else(|| "stdio".to_string());
 
-    let spec = LocalApiDeploySpec {
+    let spec = ContainerDeploySpec {
         name,
         dockerfile_path,
         entrypoint,
@@ -2424,10 +2424,10 @@ fn localapi_deploy_from_dir(
 
     let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
 
-    let response: LocalApiDeployResponse = RUNTIME
+    let response: ContainerDeployResponse = RUNTIME
         .block_on(async {
             client
-                .localapi()
+                .container()
                 .deploy_from_dir(
                     spec,
                     Path::new(&context_dir),
@@ -2445,15 +2445,15 @@ fn localapi_deploy_from_dir(
 
 #[pyfunction]
 #[pyo3(signature = (deployment_id, backend_url=None, api_key=None))]
-fn localapi_get_deployment_status(
+fn container_get_deployment_status(
     py: Python,
     deployment_id: String,
     backend_url: Option<String>,
     api_key: Option<String>,
 ) -> PyResult<PyObject> {
     let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
-    let response: LocalApiDeployStatus = RUNTIME
-        .block_on(async { client.localapi().status(&deployment_id).await })
+    let response: ContainerDeployStatus = RUNTIME
+        .block_on(async { client.container().status(&deployment_id).await })
         .map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &response)
         .map(|b| b.unbind())
@@ -2462,15 +2462,15 @@ fn localapi_get_deployment_status(
 
 #[pyfunction]
 #[pyo3(signature = (deployment_id, backend_url=None, api_key=None))]
-fn localapi_get_deployment(
+fn container_get_deployment(
     py: Python,
     deployment_id: String,
     backend_url: Option<String>,
     api_key: Option<String>,
 ) -> PyResult<PyObject> {
     let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
-    let response: LocalApiDeploymentInfo = RUNTIME
-        .block_on(async { client.localapi().get(&deployment_id).await })
+    let response: ContainerDeploymentInfo = RUNTIME
+        .block_on(async { client.container().get(&deployment_id).await })
         .map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &response)
         .map(|b| b.unbind())
@@ -2479,14 +2479,14 @@ fn localapi_get_deployment(
 
 #[pyfunction]
 #[pyo3(signature = (backend_url=None, api_key=None))]
-fn localapi_list_deployments(
+fn container_list_deployments(
     py: Python,
     backend_url: Option<String>,
     api_key: Option<String>,
 ) -> PyResult<PyObject> {
     let client = resolve_synth_client(api_key, backend_url).map_err(|e| map_core_err(py, e))?;
-    let response: Vec<LocalApiDeploymentInfo> = RUNTIME
-        .block_on(async { client.localapi().list().await })
+    let response: Vec<ContainerDeploymentInfo> = RUNTIME
+        .block_on(async { client.container().list().await })
         .map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &response)
         .map(|b| b.unbind())
@@ -4792,8 +4792,8 @@ impl ProgressTrackerPy {
 use synth_ai_core::api::{
     build_verifier_request as core_build_verifier_request,
     resolve_graph_job_id as core_resolve_graph_job_id, EvalJobRequest, GepaJobRequest,
-    GraphCompletionRequest, LocalApiDeployResponse, LocalApiDeploySpec, LocalApiDeployStatus,
-    LocalApiDeploymentInfo, LocalApiLimits, MiproJobRequest, SynthClient as RustSynthClient,
+    GraphCompletionRequest, ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus,
+    ContainerDeploymentInfo, ContainerLimits, MiproJobRequest, SynthClient as RustSynthClient,
     VerifierOptions,
 };
 use synth_ai_core::orchestration::events::EventParser as RustEventParser;
@@ -4885,12 +4885,12 @@ impl SynthClient {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(signature = (request, task_app_worker_token=None))]
+    #[pyo3(signature = (request, container_worker_token=None))]
     fn submit_job_raw(
         &self,
         py: Python,
         request: PyObject,
-        task_app_worker_token: Option<&str>,
+        container_worker_token: Option<&str>,
     ) -> PyResult<String> {
         let req: serde_json::Value = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
@@ -4898,7 +4898,7 @@ impl SynthClient {
             .block_on(async {
                 self.inner
                     .jobs()
-                    .submit_raw_with_worker_token(req, task_app_worker_token.map(|s| s.to_string()))
+                    .submit_raw_with_worker_token(req, container_worker_token.map(|s| s.to_string()))
                     .await
             })
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -5152,13 +5152,13 @@ struct PromptLearningJob {
 #[pymethods]
 impl PromptLearningJob {
     #[staticmethod]
-    #[pyo3(signature = (config, api_key=None, base_url=None, task_app_worker_token=None))]
+    #[pyo3(signature = (config, api_key=None, base_url=None, container_worker_token=None))]
     fn from_dict(
         py: Python,
         config: PyObject,
         api_key: Option<&str>,
         base_url: Option<&str>,
-        task_app_worker_token: Option<&str>,
+        container_worker_token: Option<&str>,
     ) -> PyResult<Self> {
         let config_value: serde_json::Value = pythonize::depythonize(config.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid config: {}", e)))?;
@@ -5166,7 +5166,7 @@ impl PromptLearningJob {
             config_value,
             api_key,
             base_url,
-            task_app_worker_token.map(|s| s.to_string()),
+            container_worker_token.map(|s| s.to_string()),
         )
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
         Ok(Self {
@@ -6059,29 +6059,29 @@ impl JobStreamerPy {
 }
 
 // =============================================================================
-// LocalAPI - TaskAppClient / EnvClient
+// Container - ContainerClient / EnvClient
 // =============================================================================
 
-#[pyclass(name = "TaskAppClient")]
+#[pyclass(name = "ContainerClient")]
 #[derive(Clone)]
-struct TaskAppClientPy {
-    inner: Arc<RustTaskAppClient>,
+struct ContainerClientPy {
+    inner: Arc<RustContainerClient>,
 }
 
 #[pyclass(name = "EnvClient")]
 #[derive(Clone)]
 struct EnvClientPy {
-    inner: Arc<RustTaskAppClient>,
+    inner: Arc<RustContainerClient>,
 }
 
 #[pymethods]
-impl TaskAppClientPy {
+impl ContainerClientPy {
     #[new]
     #[pyo3(signature = (base_url, api_key=None, timeout_secs=None))]
     fn new(base_url: &str, api_key: Option<&str>, timeout_secs: Option<u64>) -> Self {
         let client = match timeout_secs {
-            Some(timeout) => RustTaskAppClient::with_timeout(base_url, api_key, timeout),
-            None => RustTaskAppClient::new(base_url, api_key),
+            Some(timeout) => RustContainerClient::with_timeout(base_url, api_key, timeout),
+            None => RustContainerClient::new(base_url, api_key),
         };
         Self {
             inner: Arc::new(client),
@@ -6131,7 +6131,7 @@ impl TaskAppClientPy {
     }
 
     fn rollout(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let req: synth_ai_core::localapi::RolloutRequest = pythonize::depythonize(request.bind(py))
+        let req: synth_ai_core::container::RolloutRequest = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let result = RUNTIME
             .block_on(self.inner.rollout(&req))
@@ -6238,7 +6238,7 @@ impl EnvClientPy {
 }
 
 // =============================================================================
-// LocalAPI - Dataset Registry
+// Container - Dataset Registry
 // =============================================================================
 
 #[pyclass(name = "TaskDatasetRegistry")]
@@ -6348,14 +6348,14 @@ impl TaskDatasetRegistryPy {
         let value = value_from_pyobject(py, spec)?;
         let parsed: RustTaskDatasetSpec =
             serde_json::from_value(value).map_err(|e| PyValueError::new_err(e.to_string()))?;
-        core_localapi_datasets::ensure_split(&parsed, split.as_deref())
+        core_container_datasets::ensure_split(&parsed, split.as_deref())
             .map_err(|e| map_core_err(py, e))
     }
 
     #[staticmethod]
     #[pyo3(signature = (seed, cardinality=None))]
     fn normalise_seed(seed: i64, cardinality: Option<i64>) -> i64 {
-        core_localapi_datasets::normalise_seed(seed, cardinality)
+        core_container_datasets::normalise_seed(seed, cardinality)
     }
 }
 
@@ -6370,8 +6370,8 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // URLs
     m.add_function(wrap_pyfunction!(normalize_backend_base, m)?)?;
     m.add_function(wrap_pyfunction!(normalize_inference_base, m)?)?;
-    m.add_function(wrap_pyfunction!(make_local_api_url, m)?)?;
-    m.add_function(wrap_pyfunction!(validate_task_app_url, m)?)?;
+    m.add_function(wrap_pyfunction!(make_container_url, m)?)?;
+    m.add_function(wrap_pyfunction!(validate_container_url, m)?)?;
     m.add_function(wrap_pyfunction!(backend_url_base, m)?)?;
     m.add_function(wrap_pyfunction!(backend_url_api, m)?)?;
     m.add_function(wrap_pyfunction!(backend_url_synth_research_base, m)?)?;
@@ -6391,7 +6391,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(repo_root, m)?)?;
     m.add_function(wrap_pyfunction!(synth_home_dir, m)?)?;
     m.add_function(wrap_pyfunction!(synth_user_config_path, m)?)?;
-    m.add_function(wrap_pyfunction!(synth_localapi_config_path, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_container_config_path, m)?)?;
     m.add_function(wrap_pyfunction!(synth_bin_dir, m)?)?;
     m.add_function(wrap_pyfunction!(is_file_type, m)?)?;
     m.add_function(wrap_pyfunction!(validate_file_type, m)?)?;
@@ -6468,88 +6468,88 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mint_environment_api_key, m)?)?;
     m.add_function(wrap_pyfunction!(encrypt_for_backend, m)?)?;
     m.add_function(wrap_pyfunction!(setup_environment_api_key, m)?)?;
-    m.add_function(wrap_pyfunction!(ensure_localapi_auth, m)?)?;
+    m.add_function(wrap_pyfunction!(ensure_container_auth, m)?)?;
 
-    // LocalAPI (NEW)
-    m.add_function(wrap_pyfunction!(localapi_normalize_environment_api_key, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_allowed_environment_api_keys, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_is_api_key_header_authorized, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_normalize_chat_completion_url, m)?)?;
+    // Container (NEW)
+    m.add_function(wrap_pyfunction!(container_normalize_environment_api_key, m)?)?;
+    m.add_function(wrap_pyfunction!(container_allowed_environment_api_keys, m)?)?;
+    m.add_function(wrap_pyfunction!(container_is_api_key_header_authorized, m)?)?;
+    m.add_function(wrap_pyfunction!(container_normalize_chat_completion_url, m)?)?;
     m.add_function(wrap_pyfunction!(
-        localapi_get_default_max_completion_tokens,
+        container_get_default_max_completion_tokens,
         m
     )?)?;
-    m.add_function(wrap_pyfunction!(localapi_extract_trace_correlation_id, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_trace_correlation_id, m)?)?;
+    m.add_function(wrap_pyfunction!(container_extract_trace_correlation_id, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_trace_correlation_id, m)?)?;
     m.add_function(wrap_pyfunction!(
-        localapi_include_trace_correlation_id_in_response,
+        container_include_trace_correlation_id_in_response,
         m
     )?)?;
-    m.add_function(wrap_pyfunction!(localapi_build_trace_payload, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_build_trajectory_trace, m)?)?;
+    m.add_function(wrap_pyfunction!(container_build_trace_payload, m)?)?;
+    m.add_function(wrap_pyfunction!(container_build_trajectory_trace, m)?)?;
     m.add_function(wrap_pyfunction!(
-        localapi_include_event_history_in_response,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(
-        localapi_include_event_history_in_trajectories,
+        container_include_event_history_in_response,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
-        localapi_verify_trace_correlation_id_in_response,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_artifact_size, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_artifacts_list, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_context_overrides, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_context_snapshot, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_to_jsonable, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_extract_api_key, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        localapi_parse_tool_calls_from_response,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(localapi_task_app_health, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        localapi_check_url_for_direct_provider_call,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_shared_http_client, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_reset_shared_http_client, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_tracing_env_enabled, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_resolve_tracing_db_url, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_resolve_sft_output_dir, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_unique_sft_path, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_agent_skills_path, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_apply_context_overrides, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_applied_env_vars, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_build_rollout_response, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_prepare_for_openai, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_prepare_for_groq, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        localapi_normalize_response_format_for_groq,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(localapi_inject_system_hint, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_extract_message_text, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_parse_tool_call_from_text, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        localapi_synthesize_tool_call_if_missing,
+        container_include_event_history_in_trajectories,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(
-        localapi_validate_rollout_response_for_rl,
+        container_verify_trace_correlation_id_in_response,
         m
     )?)?;
-    m.add_function(wrap_pyfunction!(localapi_normalize_inference_url, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_validate_task_app_url, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_normalize_vendor_keys, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_openai_key, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_groq_key, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_deploy_from_dir, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_deployment_status, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_get_deployment, m)?)?;
-    m.add_function(wrap_pyfunction!(localapi_list_deployments, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_artifact_size, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_artifacts_list, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_context_overrides, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_context_snapshot, m)?)?;
+    m.add_function(wrap_pyfunction!(container_to_jsonable, m)?)?;
+    m.add_function(wrap_pyfunction!(container_extract_api_key, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_parse_tool_calls_from_response,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(container_health_check, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_check_url_for_direct_provider_call,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(container_get_shared_http_client, m)?)?;
+    m.add_function(wrap_pyfunction!(container_reset_shared_http_client, m)?)?;
+    m.add_function(wrap_pyfunction!(container_tracing_env_enabled, m)?)?;
+    m.add_function(wrap_pyfunction!(container_resolve_tracing_db_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_resolve_sft_output_dir, m)?)?;
+    m.add_function(wrap_pyfunction!(container_unique_sft_path, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_agent_skills_path, m)?)?;
+    m.add_function(wrap_pyfunction!(container_apply_context_overrides, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_applied_env_vars, m)?)?;
+    m.add_function(wrap_pyfunction!(container_build_rollout_response, m)?)?;
+    m.add_function(wrap_pyfunction!(container_prepare_for_openai, m)?)?;
+    m.add_function(wrap_pyfunction!(container_prepare_for_groq, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_normalize_response_format_for_groq,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(container_inject_system_hint, m)?)?;
+    m.add_function(wrap_pyfunction!(container_extract_message_text, m)?)?;
+    m.add_function(wrap_pyfunction!(container_parse_tool_call_from_text, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_synthesize_tool_call_if_missing,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(
+        container_validate_rollout_response_for_rl,
+        m
+    )?)?;
+    m.add_function(wrap_pyfunction!(container_normalize_inference_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_normalize_vendor_keys, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_openai_key, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_groq_key, m)?)?;
+    m.add_function(wrap_pyfunction!(container_deploy_from_dir, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_deployment_status, m)?)?;
+    m.add_function(wrap_pyfunction!(container_get_deployment, m)?)?;
+    m.add_function(wrap_pyfunction!(container_list_deployments, m)?)?;
 
     // Polling (NEW)
     m.add_function(wrap_pyfunction!(calculate_backoff, m)?)?;
@@ -6734,8 +6734,8 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<StreamEndpointsPy>()?;
     m.add_class::<JobStreamerPy>()?;
 
-    // LocalAPI (NEW)
-    m.add_class::<TaskAppClientPy>()?;
+    // Container (NEW)
+    m.add_class::<ContainerClientPy>()?;
     m.add_class::<EnvClientPy>()?;
     m.add_class::<TaskDatasetRegistryPy>()?;
 

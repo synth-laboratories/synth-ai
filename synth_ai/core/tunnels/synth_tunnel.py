@@ -1,6 +1,6 @@
 """SynthTunnel relay-based tunnel client and agent (SDK side).
 
-SynthTunnel exposes a local task app to Synth's training infrastructure
+SynthTunnel exposes a local container to Synth's training infrastructure
 without requiring ``cloudflared`` or any external binary. Traffic flows
 through Synth's relay servers via a WebSocket agent that runs locally.
 
@@ -9,12 +9,12 @@ Architecture::
     Synth backend ──HTTP──▶ relay (st.usesynth.ai) ──WS──▶ local agent ──HTTP──▶ localhost:PORT
 
 The agent connects outbound (no inbound ports needed), receives requests
-over the WebSocket, forwards them to the local task app, and streams
+over the WebSocket, forwards them to the local container, and streams
 responses back. Up to 128 concurrent in-flight requests are supported,
 with a dynamic memory budget that automatically reduces concurrency when
 request/response payloads are large.
 
-For most users, use ``TunneledLocalAPI.create()`` instead of this module
+For most users, use ``TunneledContainer.create()`` instead of this module
 directly. This module is the low-level implementation.
 """
 
@@ -90,7 +90,7 @@ def _strip_hop_by_hop(headers: Dict[str, str]) -> Dict[str, str]:
     return {k: v for k, v in headers.items() if k.lower() not in hop_by_hop}
 
 
-def _collect_local_api_keys(primary: Optional[str]) -> list[str]:
+def _collect_container_keys(primary: Optional[str]) -> list[str]:
     keys: list[str] = []
     if primary and primary.strip():
         keys.append(primary.strip())
@@ -201,7 +201,7 @@ class SynthTunnelAgent:
         local_host: str,
         local_port: int,
         stop_event: asyncio.Event,
-        local_api_key: Optional[str] = None,
+        container_key: Optional[str] = None,
     ) -> None:
         self.lease = lease
         self.local_host = local_host
@@ -210,19 +210,19 @@ class SynthTunnelAgent:
         self._contexts: Dict[str, RequestContext] = {}
         self._tasks: Dict[str, asyncio.Task] = {}
         self._send_lock = asyncio.Lock()
-        self._local_api_keys = _collect_local_api_keys(local_api_key)
-        if not self._local_api_keys:
+        self._container_keys = _collect_container_keys(container_key)
+        if not self._container_keys:
             logger.warning(
                 "[SynthTunnel] ENVIRONMENT_API_KEY not set; forwarding without local auth headers."
             )
 
     def _attach_local_auth(self, headers: Dict[str, str]) -> None:
-        if not self._local_api_keys:
+        if not self._container_keys:
             return
-        headers.setdefault("X-API-Key", self._local_api_keys[0])
-        if len(self._local_api_keys) > 1 and "X-API-Keys" not in headers:
-            headers["X-API-Keys"] = ",".join(self._local_api_keys)
-        headers.setdefault("Authorization", f"Bearer {self._local_api_keys[0]}")
+        headers.setdefault("X-API-Key", self._container_keys[0])
+        if len(self._container_keys) > 1 and "X-API-Keys" not in headers:
+            headers["X-API-Keys"] = ",".join(self._container_keys)
+        headers.setdefault("Authorization", f"Bearer {self._container_keys[0]}")
 
     async def _send(self, ws: aiohttp.ClientWebSocketResponse, payload: dict[str, Any]) -> None:
         async with self._send_lock:
@@ -431,7 +431,7 @@ async def open_synth_tunnel(
     local_port: int,
     api_key: str,
     backend_url: Optional[str] = None,
-    local_api_key: Optional[str] = None,
+    container_key: Optional[str] = None,
 ) -> SynthTunnelSession:
     if not api_key or not str(api_key).strip():
         raise ValueError("api_key is required to open SynthTunnel")
@@ -447,7 +447,7 @@ async def open_synth_tunnel(
         local_host=local_host,
         local_port=local_port,
         stop_event=stop_event,
-        local_api_key=local_api_key,
+        container_key=container_key,
     )
     task = asyncio.create_task(agent.run())
     return SynthTunnelSession(

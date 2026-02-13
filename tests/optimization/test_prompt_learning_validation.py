@@ -14,7 +14,7 @@ def _gepa_config_dict() -> dict:
     return {
         "prompt_learning": {
             "algorithm": "gepa",
-            "task_app_url": "http://example.com",
+            "container_url": "http://example.com",
             "policy": {
                 "inference_mode": "synth_hosted",
                 "provider": "openai",
@@ -37,7 +37,7 @@ def _mipro_config_dict() -> dict:
     return {
         "prompt_learning": {
             "algorithm": "mipro",
-            "task_app_url": "http://example.com",
+            "container_url": "http://example.com",
             "env_name": "demo",
             "bootstrap_train_seeds": [0],
             "online_pool": [1, 2],
@@ -88,7 +88,7 @@ def test_validate_prompt_learning_config_gepa_toml(tmp_path: Path) -> None:
             """
             [prompt_learning]
             algorithm = "gepa"
-            task_app_url = "http://example.com"
+            container_url = "http://example.com"
 
             [prompt_learning.policy]
             inference_mode = "synth_hosted"
@@ -117,7 +117,7 @@ def test_validate_prompt_learning_config_mipro_toml(tmp_path: Path) -> None:
             """
             [prompt_learning]
             algorithm = "mipro"
-            task_app_url = "http://example.com"
+            container_url = "http://example.com"
             env_name = "demo"
             bootstrap_train_seeds = [0]
             online_pool = [1, 2]
@@ -147,7 +147,7 @@ def test_validate_prompt_learning_config_mipro_text_dreamer_toml(tmp_path: Path)
             """
             [prompt_learning]
             algorithm = "mipro"
-            task_app_url = "http://example.com"
+            container_url = "http://example.com"
 
             [prompt_learning.policy]
             inference_mode = "synth_hosted"
@@ -155,7 +155,7 @@ def test_validate_prompt_learning_config_mipro_text_dreamer_toml(tmp_path: Path)
             model = "gpt-4o-mini"
 
             [prompt_learning.mipro]
-            env_name = "crafter_localapi"
+            env_name = "crafter_container"
             bootstrap_train_seeds = [0]
             online_pool = [1, 2]
 

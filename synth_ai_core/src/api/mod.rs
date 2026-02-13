@@ -13,7 +13,7 @@
 //!
 //!     // Submit a GEPA job
 //!     let job_id = client.jobs().submit_gepa(GepaJobRequest {
-//!         task_app_url: "http://localhost:8000".into(),
+//!         container_url: "http://localhost:8000".into(),
 //!         env_name: "default".into(),
 //!         policy: PolicyConfig::default(),
 //!         ..Default::default()
@@ -33,7 +33,7 @@ pub mod graph_evolve;
 pub mod graphs;
 pub mod inference;
 pub mod jobs;
-pub mod localapi;
+pub mod container;
 pub mod types;
 
 // Re-export main types for convenience
@@ -43,7 +43,7 @@ pub use graph_evolve::GraphEvolveClient;
 pub use graphs::{build_verifier_request, resolve_graph_job_id, GraphsClient};
 pub use inference::InferenceClient;
 pub use jobs::JobsClient;
-pub use localapi::LocalApiDeployClient;
+pub use container::ContainerDeployClient;
 pub use types::{
     EvalJobRequest,
     EvalJobStatus,
@@ -56,11 +56,11 @@ pub use types::{
     GraphCompletionResponse,
     // Response types
     JobSubmitResponse,
-    LocalApiDeployResponse,
-    LocalApiDeploySpec,
-    LocalApiDeployStatus,
-    LocalApiDeploymentInfo,
-    LocalApiLimits,
+    ContainerDeployResponse,
+    ContainerDeploySpec,
+    ContainerDeployStatus,
+    ContainerDeploymentInfo,
+    ContainerLimits,
     MiproConfig,
     MiproJobRequest,
     // Config types

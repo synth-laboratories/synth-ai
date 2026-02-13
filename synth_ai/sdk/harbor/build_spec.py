@@ -234,7 +234,7 @@ class HarborBuildSpec:
 class HarborDeploymentRef:
     """Reference to an existing Harbor deployment.
 
-    Used when configuring LocalAPIConfig to use Harbor as the execution backend.
+    Used when configuring ContainerConfig to use Harbor as the execution backend.
     The deployment must already exist and be in READY state.
 
     Attributes:
@@ -296,7 +296,7 @@ class HarborDeploymentResult:
     def to_ref(
         self, backend_url: str | None = None, api_key: str | None = None
     ) -> HarborDeploymentRef:
-        """Convert to a HarborDeploymentRef for use with LocalAPIConfig.
+        """Convert to a HarborDeploymentRef for use with ContainerConfig.
 
         Args:
             backend_url: Override backend URL (default: from environment)

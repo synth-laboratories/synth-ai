@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from synth_ai.sdk.localapi._impl.contracts import RolloutEnvSpec, RolloutPolicySpec, RolloutRequest
-from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
+from synth_ai.sdk.container._impl.contracts import RolloutEnvSpec, RolloutPolicySpec, RolloutRequest
+from synth_ai.sdk.container._impl.rollout_helpers import build_rollout_response
 
 
 def test_build_rollout_response_preserves_details() -> None:

@@ -12,7 +12,7 @@ use super::graph_evolve::GraphEvolveClient;
 use super::graphs::GraphsClient;
 use super::inference::InferenceClient;
 use super::jobs::JobsClient;
-use super::localapi::LocalApiDeployClient;
+use super::container::ContainerDeployClient;
 
 /// Default backend URL.
 pub const DEFAULT_BACKEND_URL: &str = crate::urls::DEFAULT_BACKEND_URL;
@@ -193,11 +193,11 @@ impl SynthClient {
         InferenceClient::new(&self.http)
     }
 
-    /// Get a LocalAPI Deployments client.
+    /// Get a Container Deployments client.
     ///
-    /// Use this to deploy and manage managed LocalAPI deployments.
-    pub fn localapi(&self) -> LocalApiDeployClient<'_> {
-        LocalApiDeployClient::new(self)
+    /// Use this to deploy and manage managed Container deployments.
+    pub fn container(&self) -> ContainerDeployClient<'_> {
+        ContainerDeployClient::new(self)
     }
 }
 

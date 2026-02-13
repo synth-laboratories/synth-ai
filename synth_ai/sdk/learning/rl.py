@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from synth_ai.sdk.localapi.auth import (  # noqa: F401
+from synth_ai.sdk.container.auth import (  # noqa: F401
     mint_environment_api_key,
     setup_environment_api_key,
 )

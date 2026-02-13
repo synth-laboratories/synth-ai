@@ -1,7 +1,7 @@
 """High-level tunnel management for exposing local APIs.
 
 This module provides a clean abstraction for setting up tunnels to expose
-local task apps to the internet for use with Synth optimization jobs.
+local containers to the internet for use with Synth optimization jobs.
 
 Two backends are available:
 
@@ -11,22 +11,22 @@ Two backends are available:
   for job authentication.
 
 - **Cloudflare**: Tunnel via Cloudflare's network. Requires ``cloudflared``.
-  Uses ``task_app_api_key`` for job authentication.
+  Uses ``container_api_key`` for job authentication.
 
 Example — SynthTunnel (recommended):
 
-    from synth_ai.core.tunnels import TunneledLocalAPI
+    from synth_ai.core.tunnels import TunneledContainer
 
-    tunnel = await TunneledLocalAPI.create(local_port=8001, api_key="sk_live_...")
+    tunnel = await TunneledContainer.create(local_port=8001, api_key="sk_live_...")
     print(tunnel.url)            # https://dev.st.usesynth.ai/s/rt_...
     print(tunnel.worker_token)   # pass this to your job config
     tunnel.close()
 
 Example — Cloudflare quick tunnel:
 
-    from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+    from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
-    tunnel = await TunneledLocalAPI.create(
+    tunnel = await TunneledContainer.create(
         local_port=8001,
         backend=TunnelBackend.CloudflareQuickTunnel,
     )
@@ -37,14 +37,14 @@ Using with optimization jobs::
 
     # SynthTunnel
     job = PromptLearningJob.from_dict(config,
-        task_app_url=tunnel.url,
-        task_app_worker_token=tunnel.worker_token,
+        container_url=tunnel.url,
+        container_worker_token=tunnel.worker_token,
     )
 
     # Cloudflare
     job = PromptLearningJob.from_dict(config,
-        task_app_url=tunnel.url,
-        task_app_api_key=env_api_key,
+        container_url=tunnel.url,
+        container_api_key=env_api_key,
     )
 
 See Also:
@@ -76,7 +76,7 @@ class TunnelBackend(str, Enum):
     Use **Cloudflare** when you need a stable subdomain that persists
     across sessions, or for quick anonymous testing without an API key.
     Requires the ``cloudflared`` binary and authenticates via
-    ``task_app_api_key``.
+    ``container_api_key``.
 
     Attributes:
         SynthTunnel: Relay-based HTTPS tunnel (default, recommended).
@@ -89,7 +89,7 @@ class TunnelBackend(str, Enum):
             - Stable hostnames that persist across sessions
             - Fast reconnection (~1-5s after first run)
             - Requires ``cloudflared`` and Synth API key
-            - Authenticate jobs with ``task_app_api_key``
+            - Authenticate jobs with ``container_api_key``
 
         CloudflareManagedTunnel: Legacy managed tunnel (use ManagedLease instead).
 
@@ -109,7 +109,7 @@ class TunnelBackend(str, Enum):
 
 
 @dataclass
-class TunneledLocalAPI:
+class TunneledContainer:
     """A managed tunnel exposing a local API to the internet.
 
     This class provides a clean interface for:
@@ -118,7 +118,7 @@ class TunneledLocalAPI:
     3. Verifying DNS resolution and connectivity
     4. Tracking the process for cleanup
 
-    Use `TunneledLocalAPI.create()` with a `TunnelBackend` to provision a tunnel.
+    Use `TunneledContainer.create()` with a `TunnelBackend` to provision a tunnel.
 
     Attributes:
         url: Public HTTPS URL for the tunnel (e.g., "https://st.usesynth.ai/s/rt_...")
@@ -129,8 +129,8 @@ class TunneledLocalAPI:
         worker_token: SynthTunnel worker token (if using SynthTunnel)
 
     Example:
-        >>> from synth_ai.core.tunnels import TunneledLocalAPI
-        >>> tunnel = await TunneledLocalAPI.create(
+        >>> from synth_ai.core.tunnels import TunneledContainer
+        >>> tunnel = await TunneledContainer.create(
         ...     local_port=8001,
         ...     api_key="sk_live_...",
         ... )
@@ -165,7 +165,7 @@ class TunneledLocalAPI:
         verify_dns: bool = True,
         progress: bool = False,
         reason: str | None = None,
-    ) -> TunneledLocalAPI:
+    ) -> TunneledContainer:
         """Create a tunnel to expose a local API.
 
         This is the main entry point for creating tunnels. It handles:
@@ -184,7 +184,7 @@ class TunneledLocalAPI:
                 - CloudflareQuickTunnel: Random subdomain, no api_key needed
             api_key: Synth API key for authentication (required for managed tunnels).
                 If not provided, will be read from SYNTH_API_KEY environment variable.
-            env_api_key: API key for the local task app (for health checks).
+            env_api_key: API key for the local container (for health checks).
                 Defaults to ENVIRONMENT_API_KEY env var.
             backend_url: Optional backend URL (defaults to production, managed only)
             verify_dns: Whether to verify DNS resolution after creating tunnel.
@@ -192,7 +192,7 @@ class TunneledLocalAPI:
             progress: If True, print status updates during setup
 
         Returns:
-            TunneledLocalAPI instance with .url, .hostname, .close(), etc.
+            TunneledContainer instance with .url, .hostname, .close(), etc.
 
         Raises:
             ValueError: If api_key is missing for managed tunnels
@@ -204,7 +204,7 @@ class TunneledLocalAPI:
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY")
 
-        from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+        from synth_ai.sdk.container.auth import ensure_container_auth
 
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
@@ -232,7 +232,7 @@ class TunneledLocalAPI:
                 *,
                 timeout_sec: float = 10.0,
             ) -> None:
-                """Wait until the relay can reach the local task app.
+                """Wait until the relay can reach the local container.
 
                 The Rust WS agent may take a moment to connect. If we submit jobs
                 before it is online, the backend will fail with AGENT_OFFLINE.
@@ -259,7 +259,7 @@ class TunneledLocalAPI:
                         if resp.status_code == 200:
                             return
                         # Surfacing non-200 responses is critical for debugging local
-                        # auth mismatches (e.g., task app expects ENVIRONMENT_API_KEY).
+                        # auth mismatches (e.g., container expects ENVIRONMENT_API_KEY).
                         last_err = RuntimeError(f"Health check returned HTTP {resp.status_code}")
                     except Exception as exc:
                         last_err = exc
@@ -274,7 +274,7 @@ class TunneledLocalAPI:
             # Step 1: Create lease via Python (simple HTTP POST, works fine)
             from .synth_tunnel import (
                 SynthTunnelClient,
-                _collect_local_api_keys,
+                _collect_container_keys,
                 get_client_instance_id,
                 hostname_from_url,
             )
@@ -289,7 +289,7 @@ class TunneledLocalAPI:
             # Step 2: Start Rust WS agent (runs in its own tokio runtime)
             import synth_ai_py
 
-            local_api_keys = _collect_local_api_keys(env_api_key)
+            container_keys = _collect_container_keys(env_api_key)
             max_inflight = int(lease.limits.get("max_inflight", 128))
             agent = await asyncio.to_thread(
                 synth_ai_py.synth_tunnel_start,
@@ -300,7 +300,7 @@ class TunneledLocalAPI:
                 local_port,
                 lease.public_url,
                 lease.worker_token,
-                local_api_keys,
+                container_keys,
                 max_inflight,
             )
 
@@ -329,7 +329,7 @@ class TunneledLocalAPI:
 
         # Resolve env_api_key from environment if not provided
         if env_api_key is None:
-            env_api_key = ensure_localapi_auth(
+            env_api_key = ensure_container_auth(
                 backend_base=backend_url,
                 synth_api_key=api_key,
             )
@@ -354,7 +354,7 @@ class TunneledLocalAPI:
         backend_url: Optional[str],
         verify_dns: bool,
         progress: bool,
-    ) -> TunneledLocalAPI:
+    ) -> TunneledContainer:
         """Internal: Create a tunnel using Rust core."""
         import synth_ai_py
 
@@ -450,7 +450,7 @@ class TunneledLocalAPI:
         else:
             logger.debug("[TUNNELED_API] close() - nothing to close")
 
-    def __enter__(self) -> TunneledLocalAPI:
+    def __enter__(self) -> TunneledContainer:
         """Context manager entry (for sync use after async creation)."""
         return self
 
@@ -469,7 +469,7 @@ class TunneledLocalAPI:
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
-    ) -> TunneledLocalAPI:
+    ) -> TunneledContainer:
         """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
         This is a convenience method that:
@@ -489,17 +489,17 @@ class TunneledLocalAPI:
             progress: If True, print status updates
 
         Returns:
-            TunneledLocalAPI instance with .url, .hostname, .close(), etc.
+            TunneledContainer instance with .url, .hostname, .close(), etc.
 
         Example:
             >>> from fastapi import FastAPI
             >>> app = FastAPI()
-            >>> tunnel = await TunneledLocalAPI.create_for_app(app)
+            >>> tunnel = await TunneledContainer.create_for_app(app)
             >>> print(f"App exposed at: {tunnel.url}")
         """
         import os
 
-        from synth_ai.sdk.localapi._impl.server import run_server_background
+        from synth_ai.sdk.container._impl.server import run_server_background
 
         from .rust import find_available_port, kill_port, wait_for_health_check
 
@@ -536,4 +536,4 @@ class TunneledLocalAPI:
         )
 
 
-__all__ = ["TunneledLocalAPI", "TunnelBackend"]
+__all__ = ["TunneledContainer", "TunnelBackend"]

@@ -10,7 +10,7 @@ class SSLConfig:
     @staticmethod
     def get_verify_setting() -> bool | str:
         """Return the correct verify setting for requests/httpx clients."""
-        skip_flag = os.getenv("SYNTH_SKIP_TASK_APP_HEALTH_CHECK", "").strip().lower()
+        skip_flag = os.getenv("SYNTH_SKIP_CONTAINER_HEALTH_CHECK", "").strip().lower()
         if skip_flag in {"1", "true", "yes"}:
             return False
 

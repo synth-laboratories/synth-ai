@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 from urllib.parse import urlparse, urlunparse
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, RUST_BACKEND_URL_BASE, is_synthtunnel_url
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.container.auth import ensure_container_auth
 from synth_ai.sdk.optimization.models import PolicyJobStatus, PromptLearningResult
 
 from .builders import (
@@ -22,7 +22,7 @@ from .builders import (
     build_prompt_learning_payload,
     build_prompt_learning_payload_from_mapping,
 )
-from .local_api import check_local_api_health
+from .container_api import check_container_health
 from .pollers import JobPoller, PollOutcome
 from .prompt_learning_service import (
     cancel_prompt_learning_job,
@@ -103,7 +103,7 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
     return _ensure_api_suffix(RUST_BACKEND_URL_BASE)
 
 
-def _extract_task_app_url(payload: dict[str, Any]) -> Optional[str]:
+def _extract_container_url(payload: dict[str, Any]) -> Optional[str]:
     if not isinstance(payload, dict):
         return None
     section = payload
@@ -112,25 +112,25 @@ def _extract_task_app_url(payload: dict[str, Any]) -> Optional[str]:
     elif isinstance(payload.get("policy_optimization"), dict):
         section = payload.get("policy_optimization", {})
     if isinstance(section, dict):
-        for key in ("task_app_url", "localapi_url", "localapi_url_base"):
+        for key in ("container_url", "container_url", "container_url_base"):
             value = section.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
-    for key in ("task_app_url", "localapi_url"):
+    for key in ("container_url", "container_url"):
         value = payload.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     return None
 
 
-def _infer_task_app_url(config: PromptLearningJobConfig) -> Optional[str]:
+def _infer_container_url(config: PromptLearningJobConfig) -> Optional[str]:
     overrides = config.overrides or {}
-    for key in ("task_url", "task_app_url"):
+    for key in ("task_url", "container_url"):
         value = overrides.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
     if config.config_dict:
-        url = _extract_task_app_url(config.config_dict)
+        url = _extract_container_url(config.config_dict)
         if url:
             return url
     if config.config_path:
@@ -139,10 +139,10 @@ def _infer_task_app_url(config: PromptLearningJobConfig) -> Optional[str]:
         except Exception:
             payload = None
         if isinstance(payload, dict):
-            url = _extract_task_app_url(payload)
+            url = _extract_container_url(payload)
             if url:
                 return url
-    env_url = os.environ.get("TASK_APP_URL", "").strip()
+    env_url = os.environ.get("CONTAINER_URL", "").strip()
     return env_url or None
 
 
@@ -165,8 +165,8 @@ class PromptLearningJobConfig:
             Should have the same structure as the TOML file (with 'prompt_learning' section).
         backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
         api_key: Synth API key for authentication.
-        task_app_api_key: API key for authenticating with the Local API.
-        task_app_worker_token: SynthTunnel worker token for relay auth when using st.usesynth.ai URLs.
+        container_api_key: API key for authenticating with the Local API.
+        container_worker_token: SynthTunnel worker token for relay auth when using st.usesynth.ai URLs.
         allow_experimental: If True, allows use of experimental models.
         overrides: Dictionary of config overrides.
 
@@ -182,7 +182,7 @@ class PromptLearningJobConfig:
         ...     config_dict={
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
-        ...             "task_app_url": "https://tunnel.example.com",
+        ...             "container_url": "https://tunnel.example.com",
         ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
         ...             "gepa": {...},
         ...         }
@@ -196,8 +196,8 @@ class PromptLearningJobConfig:
     api_key: str
     config_path: Optional[Path] = None
     config_dict: Optional[Dict[str, Any]] = None
-    task_app_api_key: Optional[str] = None
-    task_app_worker_token: Optional[str] = field(default=None, repr=False)
+    container_api_key: Optional[str] = None
+    container_worker_token: Optional[str] = field(default=None, repr=False)
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
 
@@ -220,27 +220,27 @@ class PromptLearningJobConfig:
         if not self.api_key:
             raise ValueError("api_key is required")
 
-        task_url = _infer_task_app_url(self)
+        task_url = _infer_container_url(self)
         if task_url and is_synthtunnel_url(task_url):
-            if not (self.task_app_worker_token or "").strip():
+            if not (self.container_worker_token or "").strip():
                 raise ValueError(
-                    "task_app_worker_token is required for SynthTunnel task_app_url. "
+                    "container_worker_token is required for SynthTunnel container_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
             # Even for SynthTunnel, we still want to ensure the backend has an
-            # env key provisioned (the backend uses it to talk to the task app).
-            ensure_localapi_auth(
+            # env key provisioned (the backend uses it to talk to the container).
+            ensure_container_auth(
                 backend_base=self.backend_url,
                 synth_api_key=self.api_key,
             )
-            # For SynthTunnel: the backend resolves task_app_api_key from
+            # For SynthTunnel: the backend resolves container_api_key from
             # customer_credentials DB, and the SynthTunnel agent injects
-            # local_api_keys on the task app side. No need for SDK to send it.
-            self.task_app_api_key = None
+            # container_keys on the container side. No need for SDK to send it.
+            self.container_api_key = None
         else:
-            # Get task_app_api_key from environment if not provided
-            if not self.task_app_api_key:
-                self.task_app_api_key = ensure_localapi_auth(
+            # Get container_api_key from environment if not provided
+            if not self.container_api_key:
+                self.container_api_key = ensure_container_auth(
                     backend_base=self.backend_url,
                     synth_api_key=self.api_key,
                 )
@@ -303,7 +303,7 @@ class PromptLearningJob:
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
-            skip_health_check: If True, skip task app health check before submission.
+            skip_health_check: If True, skip container health check before submission.
                               Useful when using tunnels where DNS may not have propagated yet.
         """
         self.config = config
@@ -333,7 +333,7 @@ class PromptLearningJob:
                 config_payload,
                 self.config.api_key,
                 rust_base,
-                self.config.task_app_worker_token,
+                self.config.container_worker_token,
             )
         return self._rust_job
 
@@ -343,8 +343,8 @@ class PromptLearningJob:
         config_path: str | Path,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
-        task_app_worker_token: Optional[str] = None,
+        container_api_key: Optional[str] = None,
+        container_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
     ) -> PromptLearningJob:
@@ -354,8 +354,8 @@ class PromptLearningJob:
             config_path: Path to TOML config file
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
-            task_app_worker_token: SynthTunnel worker token for relay auth
+            container_api_key: Container API key (defaults to ENVIRONMENT_API_KEY env var)
+            container_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
 
@@ -383,8 +383,8 @@ class PromptLearningJob:
             config_path=config_path_obj,
             backend_url=backend_url,
             api_key=api_key,
-            task_app_api_key=task_app_api_key,
-            task_app_worker_token=task_app_worker_token,
+            container_api_key=container_api_key,
+            container_worker_token=container_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
@@ -397,8 +397,8 @@ class PromptLearningJob:
         config_dict: Dict[str, Any],
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
-        task_app_worker_token: Optional[str] = None,
+        container_api_key: Optional[str] = None,
+        container_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
         skip_health_check: bool = False,
@@ -413,7 +413,7 @@ class PromptLearningJob:
         {
             "prompt_learning": {
                 "algorithm": "gepa",
-                "task_app_url": "https://...",
+                "container_url": "https://...",
                 "policy": {"model": "gpt-4o-mini", "provider": "openai"},
                 "gepa": {...},
             }
@@ -424,11 +424,11 @@ class PromptLearningJob:
             config_dict: Configuration dictionary with 'prompt_learning' section
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY env var)
-            task_app_worker_token: SynthTunnel worker token for relay auth
+            container_api_key: Container API key (defaults to ENVIRONMENT_API_KEY env var)
+            container_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
-            skip_health_check: If True, skip task app health check before submission
+            skip_health_check: If True, skip container health check before submission
 
         Returns:
             PromptLearningJob instance
@@ -441,7 +441,7 @@ class PromptLearningJob:
             ...     config_dict={
             ...         "prompt_learning": {
             ...             "algorithm": "gepa",
-            ...             "task_app_url": "https://tunnel.example.com",
+            ...             "container_url": "https://tunnel.example.com",
             ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
             ...             "gepa": {
             ...                 "rollout": {"budget": 50, "max_concurrent": 5},
@@ -469,8 +469,8 @@ class PromptLearningJob:
             config_dict=config_dict,
             backend_url=backend_url,
             api_key=api_key,
-            task_app_api_key=task_app_api_key,
-            task_app_worker_token=task_app_worker_token,
+            container_api_key=container_api_key,
+            container_worker_token=container_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
         )
@@ -478,8 +478,8 @@ class PromptLearningJob:
         # Auto-detect tunnel URLs and skip health check if not explicitly set
         if skip_health_check is False:  # Only auto-detect if not explicitly True
             task_url = config_dict.get("prompt_learning", {}).get(
-                "task_app_url"
-            ) or config_dict.get("prompt_learning", {}).get("local_api_url")
+                "container_url"
+            ) or config_dict.get("prompt_learning", {}).get("container_url")
             if task_url and (
                 ".trycloudflare.com" in task_url.lower()
                 or ".cfargotunnel.com" in task_url.lower()
@@ -577,7 +577,7 @@ class PromptLearningJob:
 
         Raises:
             RuntimeError: If job submission fails
-            ValueError: If task app health check fails
+            ValueError: If container health check fails
         """
         if self._job_id:
             raise RuntimeError(f"Job already submitted: {self._job_id}")
@@ -585,9 +585,9 @@ class PromptLearningJob:
         build = self._build_payload()
         task_url = (build.task_url or "").strip()
         is_synth = is_synthtunnel_url(task_url)
-        if is_synth and not (self.config.task_app_worker_token or "").strip():
+        if is_synth and not (self.config.container_worker_token or "").strip():
             raise ValueError(
-                "task_app_worker_token is required for SynthTunnel task_app_url. "
+                "container_worker_token is required for SynthTunnel container_url. "
                 "Pass tunnel.worker_token when submitting jobs."
             )
 
@@ -604,7 +604,7 @@ class PromptLearningJob:
                 meta = payload_dict.get("metadata")
                 if not isinstance(meta, dict):
                     meta = {}
-                meta.setdefault("worker_token", self.config.task_app_worker_token)
+                meta.setdefault("worker_token", self.config.container_worker_token)
                 payload_dict["metadata"] = meta
                 config_payload = payload_dict
             except Exception:
@@ -614,15 +614,15 @@ class PromptLearningJob:
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check and task_url:
             if is_synth:
-                health = check_local_api_health(
+                health = check_container_health(
                     task_url,
                     "",
-                    worker_token=self.config.task_app_worker_token,
+                    worker_token=self.config.container_worker_token,
                 )
             else:
-                health = check_local_api_health(task_url, self.config.task_app_api_key or "")
+                health = check_container_health(task_url, self.config.container_api_key or "")
             if not health.ok:
-                raise ValueError(f"Task app health check failed: {health.detail}")
+                raise ValueError(f"Container health check failed: {health.detail}")
 
         # Submit job
         import logging
@@ -696,7 +696,7 @@ class PromptLearningJob:
                     backend_url=self.config.backend_url,
                     api_key=self.config.api_key,
                     payload=dict(config_payload) if isinstance(config_payload, dict) else {},
-                    task_app_worker_token=self.config.task_app_worker_token,
+                    container_worker_token=self.config.container_worker_token,
                 )
                 job_id = str(resp.get("job_id") or resp.get("id") or "").strip()
             else:

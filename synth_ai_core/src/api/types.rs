@@ -247,15 +247,15 @@ pub struct GepaJobRequest {
     /// Algorithm name (always "gepa").
     #[serde(default = "default_gepa_algorithm")]
     pub algorithm: String,
-    /// Task app URL (where the task app is running).
-    pub task_app_url: String,
+    /// Container URL (where the container is running).
+    pub container_url: String,
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
-    pub task_app_worker_token: Option<String>,
-    /// Optional API key for the task app.
+    pub container_worker_token: Option<String>,
+    /// Optional API key for the container.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_app_api_key: Option<String>,
-    /// Environment name within the task app.
+    pub container_api_key: Option<String>,
+    /// Environment name within the container.
     pub env_name: String,
     /// Policy configuration.
     pub policy: PolicyConfig,
@@ -271,9 +271,9 @@ impl Default for GepaJobRequest {
     fn default() -> Self {
         Self {
             algorithm: default_gepa_algorithm(),
-            task_app_url: String::new(),
-            task_app_worker_token: None,
-            task_app_api_key: None,
+            container_url: String::new(),
+            container_worker_token: None,
+            container_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
             gepa: GepaConfig::default(),
@@ -287,14 +287,14 @@ pub struct MiproJobRequest {
     /// Algorithm name (always "mipro").
     #[serde(default = "default_mipro_algorithm")]
     pub algorithm: String,
-    /// Task app URL.
-    pub task_app_url: String,
+    /// Container URL.
+    pub container_url: String,
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
-    pub task_app_worker_token: Option<String>,
-    /// Optional API key for the task app.
+    pub container_worker_token: Option<String>,
+    /// Optional API key for the container.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_app_api_key: Option<String>,
+    pub container_api_key: Option<String>,
     /// Environment name.
     pub env_name: String,
     /// Policy configuration.
@@ -311,9 +311,9 @@ impl Default for MiproJobRequest {
     fn default() -> Self {
         Self {
             algorithm: default_mipro_algorithm(),
-            task_app_url: String::new(),
-            task_app_worker_token: None,
-            task_app_api_key: None,
+            container_url: String::new(),
+            container_worker_token: None,
+            container_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
             mipro: MiproConfig::default(),
@@ -327,14 +327,14 @@ pub struct EvalJobRequest {
     /// Optional app identifier.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
-    /// Task app URL.
-    pub task_app_url: String,
+    /// Container URL.
+    pub container_url: String,
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
-    pub task_app_worker_token: Option<String>,
-    /// Optional API key for the task app.
+    pub container_worker_token: Option<String>,
+    /// Optional API key for the container.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_app_api_key: Option<String>,
+    pub container_api_key: Option<String>,
     /// Environment name.
     pub env_name: String,
     /// Optional environment configuration payload.
@@ -359,9 +359,9 @@ impl Default for EvalJobRequest {
     fn default() -> Self {
         Self {
             app_id: None,
-            task_app_url: String::new(),
-            task_app_worker_token: None,
-            task_app_api_key: None,
+            container_url: String::new(),
+            container_worker_token: None,
+            container_api_key: None,
             env_name: "default".to_string(),
             env_config: None,
             verifier_config: None,
@@ -656,72 +656,72 @@ pub struct PauseRequest {
 }
 
 // =============================================================================
-// LocalAPI Deployments
+// Container Deployments
 // =============================================================================
 
-fn default_localapi_timeout_s() -> i32 {
+fn default_container_timeout_s() -> i32 {
     600
 }
 
-fn default_localapi_cpu_cores() -> i32 {
+fn default_container_cpu_cores() -> i32 {
     2
 }
 
-fn default_localapi_memory_mb() -> i32 {
+fn default_container_memory_mb() -> i32 {
     4096
 }
 
-fn default_localapi_dockerfile_path() -> String {
+fn default_container_dockerfile_path() -> String {
     "Dockerfile".to_string()
 }
 
-fn default_localapi_entrypoint_mode() -> String {
+fn default_container_entrypoint_mode() -> String {
     "stdio".to_string()
 }
 
-fn default_localapi_port() -> i32 {
+fn default_container_port() -> i32 {
     8000
 }
 
-/// Resource limits for managed LocalAPI deployments.
+/// Resource limits for managed Container deployments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalApiLimits {
+pub struct ContainerLimits {
     /// Timeout in seconds for a rollout request.
-    #[serde(default = "default_localapi_timeout_s")]
+    #[serde(default = "default_container_timeout_s")]
     pub timeout_s: i32,
     /// CPU cores allocated to the deployment.
-    #[serde(default = "default_localapi_cpu_cores")]
+    #[serde(default = "default_container_cpu_cores")]
     pub cpu_cores: i32,
     /// Memory allocation in MB.
-    #[serde(default = "default_localapi_memory_mb")]
+    #[serde(default = "default_container_memory_mb")]
     pub memory_mb: i32,
 }
 
-impl Default for LocalApiLimits {
+impl Default for ContainerLimits {
     fn default() -> Self {
         Self {
-            timeout_s: default_localapi_timeout_s(),
-            cpu_cores: default_localapi_cpu_cores(),
-            memory_mb: default_localapi_memory_mb(),
+            timeout_s: default_container_timeout_s(),
+            cpu_cores: default_container_cpu_cores(),
+            memory_mb: default_container_memory_mb(),
         }
     }
 }
 
-/// Deployment specification for managed LocalAPI builds.
+/// Deployment specification for managed Container builds.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalApiDeploySpec {
+pub struct ContainerDeploySpec {
     /// Deployment name (org-unique).
     pub name: String,
     /// Dockerfile path inside the build context.
-    #[serde(default = "default_localapi_dockerfile_path")]
+    #[serde(default = "default_container_dockerfile_path")]
     pub dockerfile_path: String,
-    /// Command to start the LocalAPI server.
+    /// Command to start the Container server.
     pub entrypoint: String,
     /// Entry point mode ("stdio" or "command").
-    #[serde(default = "default_localapi_entrypoint_mode")]
+    #[serde(default = "default_container_entrypoint_mode")]
     pub entrypoint_mode: String,
-    /// Port exposed by the LocalAPI server.
-    #[serde(default = "default_localapi_port")]
+    /// Port exposed by the Container server.
+    #[serde(default = "default_container_port")]
     pub port: i32,
     /// Optional deployment description.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -731,25 +731,25 @@ pub struct LocalApiDeploySpec {
     pub env_vars: HashMap<String, String>,
     /// Resource limits for the deployment.
     #[serde(default)]
-    pub limits: LocalApiLimits,
+    pub limits: ContainerLimits,
     /// Additional metadata.
     #[serde(default)]
     pub metadata: HashMap<String, Value>,
 }
 
-/// Response for a LocalAPI deployment request.
+/// Response for a Container deployment request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalApiDeployResponse {
+pub struct ContainerDeployResponse {
     pub deployment_id: String,
     pub status: String,
-    pub task_app_url: String,
+    pub container_url: String,
     #[serde(default)]
-    pub task_app_api_key_env: Option<String>,
+    pub container_api_key_env: Option<String>,
 }
 
-/// Status response for LocalAPI deployments.
+/// Status response for Container deployments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalApiDeployStatus {
+pub struct ContainerDeployStatus {
     pub deployment_id: String,
     pub status: String,
     pub provider: String,
@@ -757,14 +757,14 @@ pub struct LocalApiDeployStatus {
     pub error: Option<String>,
 }
 
-/// Deployment list entry for LocalAPI deployments.
+/// Deployment list entry for Container deployments.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocalApiDeploymentInfo {
+pub struct ContainerDeploymentInfo {
     pub deployment_id: String,
     pub name: String,
     pub status: String,
     pub provider: String,
-    pub task_app_url: String,
+    pub container_url: String,
     #[serde(default)]
     pub created_at: Option<String>,
     #[serde(default)]
@@ -813,12 +813,12 @@ mod tests {
     #[test]
     fn test_gepa_request_serialization() {
         let req = GepaJobRequest {
-            task_app_url: "http://localhost:8000".to_string(),
+            container_url: "http://localhost:8000".to_string(),
             env_name: "test".to_string(),
             ..Default::default()
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"algorithm\":\"gepa\""));
-        assert!(json.contains("\"task_app_url\":\"http://localhost:8000\""));
+        assert!(json.contains("\"container_url\":\"http://localhost:8000\""));
     }
 }

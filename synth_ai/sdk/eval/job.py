@@ -43,7 +43,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for sdk.eval.") from exc
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.container.auth import ensure_container_auth
 
 
 def _require_rust() -> Any:
@@ -180,17 +180,17 @@ class EvalJobConfig:
     an evaluation job via the backend.
 
     Attributes:
-        task_app_url: URL of the task app to evaluate (e.g., "http://localhost:8103").
-            Required for job submission. Alias: local_api_url
+        container_url: URL of the container to evaluate (e.g., "http://localhost:8103").
+            Required for job submission. Alias: container_url
         backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
             Can also be set via SYNTH_BASE_URL or BACKEND_BASE_URL environment variables.
         api_key: Synth API key for authentication with the backend.
             Can also be set via SYNTH_API_KEY environment variable.
-        task_app_api_key: API key for authenticating with the task app.
-            Defaults to ENVIRONMENT_API_KEY env var if not provided. Alias: local_api_key
-        task_app_worker_token: SynthTunnel worker token for relay auth (required for st.usesynth.ai URLs).
-        app_id: Task app identifier (optional, for logging/tracking).
-        env_name: Environment name within the task app.
+        container_api_key: API key for authenticating with the container.
+            Defaults to ENVIRONMENT_API_KEY env var if not provided. Alias: container_key
+        container_worker_token: SynthTunnel worker token for relay auth (required for st.usesynth.ai URLs).
+        app_id: Container identifier (optional, for logging/tracking).
+        env_name: Environment name within the container.
         seeds: List of seeds/indices to evaluate.
         policy_config: Model and provider configuration for the policy.
         env_config: Additional environment configuration.
@@ -199,7 +199,7 @@ class EvalJobConfig:
 
     Example:
         >>> config = EvalJobConfig(
-        ...     task_app_url="http://localhost:8103",
+        ...     container_url="http://localhost:8103",
         ...     backend_url="https://api.usesynth.ai",
         ...     api_key="sk_live_...",
         ...     env_name="banking77",
@@ -208,12 +208,12 @@ class EvalJobConfig:
         ... )
     """
 
-    task_app_url: str = field(default="")
+    container_url: str = field(default="")
     api_key: str = field(default="")
     backend_url: Optional[str] = field(default="")
-    task_app_api_key: Optional[str] = None
-    task_app_worker_token: Optional[str] = field(default=None, repr=False)
-    task_app_id: Optional[str] = None
+    container_api_key: Optional[str] = None
+    container_worker_token: Optional[str] = field(default=None, repr=False)
+    container_id: Optional[str] = None
     app_id: Optional[str] = None
     env_name: Optional[str] = None
     seeds: List[int] = field(default_factory=list)
@@ -223,33 +223,33 @@ class EvalJobConfig:
     concurrency: int = 5
     timeout: float = 600.0
     # Aliases for backwards compatibility (not stored, just used in __init__)
-    local_api_url: str = field(default="", repr=False)
-    local_api_key: Optional[str] = field(default=None, repr=False)
+    container_url: str = field(default="", repr=False)
+    container_key: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Validate configuration and handle aliases."""
         # Handle aliases for backwards compatibility
-        if self.local_api_url and not self.task_app_url:
-            self.task_app_url = self.local_api_url
-        if self.local_api_key and not self.task_app_api_key:
-            self.task_app_api_key = self.local_api_key
+        if self.container_url and not self.container_url:
+            self.container_url = self.container_url
+        if self.container_key and not self.container_api_key:
+            self.container_api_key = self.container_key
 
-        # Resolve task_app_id → task_app_url via the TaskAppsClient
-        if self.task_app_id and not self.task_app_url:
-            from synth_ai.sdk.task_apps import TaskAppsClient
+        # Resolve container_id → container_url via the ContainersClient
+        if self.container_id and not self.container_url:
+            from synth_ai.sdk.containers import ContainersClient
 
-            client = TaskAppsClient(
+            client = ContainersClient(
                 api_key=self.api_key or None,
                 backend_base=self.backend_url or None,
             )
-            resolved_app = client.get(self.task_app_id)
+            resolved_app = client.get(self.container_id)
             if resolved_app.internal_url:
-                self.task_app_url = resolved_app.internal_url
+                self.container_url = resolved_app.internal_url
             if not self.app_id:
-                self.app_id = self.task_app_id
+                self.app_id = self.container_id
 
-        if not self.task_app_url:
-            raise ValueError("task_app_url (or local_api_url or task_app_id) is required")
+        if not self.container_url:
+            raise ValueError("container_url (or container_url or container_id) is required")
         # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
         if not self.backend_url:
             self.backend_url = BACKEND_URL_BASE
@@ -260,19 +260,19 @@ class EvalJobConfig:
         if not self.env_name:
             self.env_name = "default"
 
-        if is_synthtunnel_url(self.task_app_url):
-            if not (self.task_app_worker_token or "").strip():
+        if is_synthtunnel_url(self.container_url):
+            if not (self.container_worker_token or "").strip():
                 raise ValueError(
-                    "task_app_worker_token is required for SynthTunnel task_app_url. "
+                    "container_worker_token is required for SynthTunnel container_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
-            # Only auto-mint keys for direct task app URLs; keep explicit keys for SynthTunnel.
-            if not self.task_app_api_key:
-                self.task_app_api_key = None
+            # Only auto-mint keys for direct container URLs; keep explicit keys for SynthTunnel.
+            if not self.container_api_key:
+                self.container_api_key = None
         else:
-            # Get task_app_api_key from environment if not provided
-            if not self.task_app_api_key:
-                self.task_app_api_key = ensure_localapi_auth(
+            # Get container_api_key from environment if not provided
+            if not self.container_api_key:
+                self.container_api_key = ensure_container_auth(
                     backend_base=self.backend_url,
                     synth_api_key=self.api_key,
                 )
@@ -330,7 +330,7 @@ class EvalJob:
         """Initialize an evaluation job.
 
         Args:
-            config: Job configuration with task app URL, seeds, policy, etc.
+            config: Job configuration with container URL, seeds, policy, etc.
             job_id: Existing job ID (if resuming a previous job)
         """
         self.config = config
@@ -344,10 +344,10 @@ class EvalJob:
         config_path: str | Path,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        task_app_api_key: Optional[str] = None,
-        task_app_worker_token: Optional[str] = None,
-        task_app_url: Optional[str] = None,
-        task_app_id: Optional[str] = None,
+        container_api_key: Optional[str] = None,
+        container_worker_token: Optional[str] = None,
+        container_url: Optional[str] = None,
+        container_id: Optional[str] = None,
         seeds: Optional[List[int]] = None,
     ) -> "EvalJob":
         """Create a job from a TOML config file.
@@ -359,9 +359,9 @@ class EvalJob:
             config_path: Path to TOML config file
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
-            task_app_api_key: Task app API key (defaults to ENVIRONMENT_API_KEY)
-            task_app_worker_token: SynthTunnel worker token for relay auth
-            task_app_url: Override task app URL from config
+            container_api_key: Container API key (defaults to ENVIRONMENT_API_KEY)
+            container_worker_token: SynthTunnel worker token for relay auth
+            container_url: Override container URL from config
             seeds: Override seeds list from config
 
         Returns:
@@ -398,8 +398,8 @@ class EvalJob:
             pl_config = toml_data.get("prompt_learning", {})
             if pl_config:
                 eval_config = {
-                    "app_id": pl_config.get("task_app_id"),
-                    "url": pl_config.get("task_app_url"),
+                    "app_id": pl_config.get("container_id"),
+                    "url": pl_config.get("container_url"),
                     "env_name": pl_config.get("gepa", {}).get("env_name"),
                     "seeds": pl_config.get("gepa", {}).get("evaluation", {}).get("seeds", []),
                     "policy_config": pl_config.get("gepa", {}).get("policy", {}),
@@ -417,24 +417,24 @@ class EvalJob:
                 )
 
         # Build config with overrides
-        final_task_app_id = task_app_id or eval_config.get("task_app_id")
-        final_task_app_url = (
-            task_app_url or eval_config.get("url") or eval_config.get("task_app_url") or ""
+        final_container_id = container_id or eval_config.get("container_id")
+        final_container_url = (
+            container_url or eval_config.get("url") or eval_config.get("container_url") or ""
         )
-        if not final_task_app_url and not final_task_app_id:
-            raise ValueError("task_app_url or task_app_id is required (in config or as argument)")
+        if not final_container_url and not final_container_id:
+            raise ValueError("container_url or container_id is required (in config or as argument)")
 
         final_seeds = seeds or eval_config.get("seeds", [])
         if not final_seeds:
             raise ValueError("seeds list is required (in config or as argument)")
 
         config = EvalJobConfig(
-            task_app_url=final_task_app_url,
+            container_url=final_container_url,
             backend_url=backend_url,
             api_key=api_key,
-            task_app_api_key=task_app_api_key,
-            task_app_worker_token=task_app_worker_token,
-            task_app_id=final_task_app_id,
+            container_api_key=container_api_key,
+            container_worker_token=container_worker_token,
+            container_id=final_container_id,
             app_id=eval_config.get("app_id"),
             env_name=eval_config.get("env_name"),
             seeds=list(final_seeds),
@@ -482,7 +482,7 @@ class EvalJob:
 
         # Create minimal config for resumed job
         config = EvalJobConfig(
-            task_app_url="resumed",  # Placeholder - not needed for status/results
+            container_url="resumed",  # Placeholder - not needed for status/results
             backend_url=backend_url,
             api_key=api_key,
             seeds=[0],  # Placeholder
@@ -528,10 +528,10 @@ class EvalJob:
                 policy["provider"] = inferred
 
         job_request = {
-            "task_app_url": self.config.task_app_url,
-            "task_app_api_key": self.config.task_app_api_key,
-            "task_app_worker_token": self.config.task_app_worker_token,
-            "task_app_id": self.config.task_app_id,
+            "container_url": self.config.container_url,
+            "container_api_key": self.config.container_api_key,
+            "container_worker_token": self.config.container_worker_token,
+            "container_id": self.config.container_id,
             "app_id": self.config.app_id,
             "env_name": self.config.env_name,
             "seeds": self.config.seeds,

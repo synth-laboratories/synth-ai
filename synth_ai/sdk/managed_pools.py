@@ -22,7 +22,7 @@ from synth_ai.core.utils.urls import (
     join_url,
     normalize_backend_base,
 )
-from synth_ai.sdk.localapi.auth import encrypt_for_backend
+from synth_ai.sdk.container.auth import encrypt_for_backend
 
 __all__ = [
     "create_managed_pool_upload_url",

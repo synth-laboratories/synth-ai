@@ -10,7 +10,7 @@ Only 6 fields required - everything else is auto-derived:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "https://your-tunnel.trycloudflare.com"
+    container_url = "https://your-tunnel.trycloudflare.com"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -39,7 +39,7 @@ For complete control over all parameters:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "https://your-tunnel.trycloudflare.com"
+    container_url = "https://your-tunnel.trycloudflare.com"
 
     [prompt_learning.gepa]
     env_name = "banking77"
@@ -138,7 +138,7 @@ class PromptLearningPolicyConfig(ExtraModel):
     """Policy configuration for prompt learning (provider, temperature, etc.).
 
     Note: The 'model' field has been removed. The model is detected from actual
-    LLM calls made by the task app during rollouts. This allows multi-stage task
+    LLM calls made by the container during rollouts. This allows multi-stage task
     apps to use different models per stage without config mismatches.
     """
 
@@ -150,7 +150,7 @@ class PromptLearningPolicyConfig(ExtraModel):
     temperature: float = 0.0
     max_completion_tokens: int = 512
     policy_name: str | None = None
-    # Arbitrary task-app specific policy config (agent selection, timeouts, etc.)
+    # Arbitrary container specific policy config (agent selection, timeouts, etc.)
     config: dict[str, Any] = Field(default_factory=dict)
     # Optional baseline context override (unified optimization bootstrap)
     context_override: dict[str, Any] | None = None
@@ -173,9 +173,9 @@ class PromptLearningPolicyConfig(ExtraModel):
 
     @model_validator(mode="after")
     def _merge_extra_into_config(self) -> "PromptLearningPolicyConfig":
-        """Forward unknown policy fields into policy.config for task apps.
+        """Forward unknown policy fields into policy.config for containers.
 
-        Task apps read rollout-specific settings (timeout, agent, model, etc.)
+        Containers read rollout-specific settings (timeout, agent, model, etc.)
         from policy.config. Older configs often set these at the policy root,
         so we mirror extras into config without overriding explicit config keys.
         """
@@ -217,7 +217,7 @@ class PromptLearningVerifierConfig(ExtraModel):
     Attributes:
         enabled: Whether to enable verifier-based scoring.
         reward_source: Source of the final reward for optimization.
-            - "task_app": Use only environment rewards from task app (default).
+            - "container": Use only environment rewards from container (default).
             - "verifier": Use only verifier quality scores.
             - "fused": Weighted combination of environment and verifier rewards.
         backend_base: Base URL for the verifier service (e.g. "https://api.usesynth.ai").
@@ -233,7 +233,7 @@ class PromptLearningVerifierConfig(ExtraModel):
     """
 
     enabled: bool = False
-    reward_source: RewardSource = RewardSource.TASK_APP
+    reward_source: RewardSource = RewardSource.CONTAINER
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""
@@ -967,7 +967,7 @@ class GEPAConfig(ExtraModel):
             "Unified optimization config for prompt + context engineering. "
             "Controls which override channels are enabled (AGENTS.md, skills, preflight scripts, env vars). "
             "See monorepo GEPAUnifiedOptimizationConfig for full schema. "
-            "Example: {enable_task_app_context_overrides: true, optimization_target: 'unified', "
+            "Example: {enable_container_context_overrides: true, optimization_target: 'unified', "
             "mutable_files: ['AGENTS.md', '.codex/skills.yaml'], allow_preflight_script: true}"
         ),
     )
@@ -1343,7 +1343,7 @@ class PromptLearningConfig(ExtraModel):
     This is the top-level config loaded from a TOML file. Use `PromptLearningConfig.from_path()`
     to load from a file, or `PromptLearningConfig.from_mapping()` to load from a dict.
 
-    Prompt learning optimizes prompts for a given task app and dataset using:
+    Prompt learning optimizes prompts for a given container and dataset using:
     - **GEPA**: Genetic Evolution of Prompt Architectures - evolutionary optimization
       with crossover, mutation, and selection across generations
 
@@ -1357,7 +1357,7 @@ class PromptLearningConfig(ExtraModel):
         # Or from dict
         config = PromptLearningConfig.from_mapping({
             "algorithm": "gepa",
-            "task_app_url": "https://your-tunnel.trycloudflare.com",
+            "container_url": "https://your-tunnel.trycloudflare.com",
             "gepa": {
                 "env_name": "banking77",
                 "policy": {"model": "gpt-4o-mini", "provider": "openai"},
@@ -1369,14 +1369,14 @@ class PromptLearningConfig(ExtraModel):
 
     Attributes:
         algorithm: Optimization algorithm - "gepa".
-        task_app_url: URL of your task app (typically a Cloudflare tunnel URL).
-        task_app_id: Optional identifier for the task app (for logging).
+        container_url: URL of your container (typically a Cloudflare tunnel URL).
+        container_id: Optional identifier for the container (for logging).
         initial_prompt: Initial prompt pattern to seed optimization.
         policy: Policy (LLM) configuration for rollouts.
         gepa: GEPA-specific configuration (if algorithm="gepa").
         verifier: Optional verifier configuration for LLM-based reward scoring.
         proxy_models: Proxy models configuration for cost-effective evaluation.
-        env_config: Additional environment configuration passed to task app.
+        env_config: Additional environment configuration passed to container.
         use_byok: BYOK (Bring Your Own Key) mode for rollouts. True = force BYOK (fail if no key),
             False = disable (use Synth credits), None = auto-detect based on org settings.
             When enabled, rollout costs use your own API keys (OpenAI, Anthropic, or Gemini)
@@ -1415,10 +1415,10 @@ class PromptLearningConfig(ExtraModel):
     """
 
     algorithm: str  # "gepa"
-    task_app_url: str | None = None
-    task_app_id: str | None = Field(
+    container_url: str | None = None
+    container_id: str | None = Field(
         default=None,
-        description="Hosted task app ID for resolution by the backend (alternative to task_app_url)",
+        description="Hosted container ID for resolution by the backend (alternative to container_url)",
     )
     initial_prompt: PromptPatternConfig | None = None
     auto_discover_patterns: bool = Field(
@@ -1461,7 +1461,7 @@ class PromptLearningConfig(ExtraModel):
             return data
 
         # Silently remove deprecated fields (don't raise errors)
-        deprecated_fields = {"display", "results_folder", "task_app_api_key"}
+        deprecated_fields = {"display", "results_folder", "container_api_key"}
 
         for field in deprecated_fields:
             if field in data:
@@ -1470,10 +1470,10 @@ class PromptLearningConfig(ExtraModel):
         return data
 
     @model_validator(mode="after")
-    def _require_task_app(self) -> "PromptLearningConfig":
-        """Require at least one of task_app_url or task_app_id."""
-        if not self.task_app_url and not self.task_app_id:
-            raise ValueError("Provide either task_app_url or task_app_id")
+    def _require_container(self) -> "PromptLearningConfig":
+        """Require at least one of container_url or container_id."""
+        if not self.container_url and not self.container_id:
+            raise ValueError("Provide either container_url or container_id")
         return self
 
     def to_dict(self) -> dict[str, Any]:
@@ -1490,7 +1490,7 @@ class PromptLearningConfig(ExtraModel):
         """Load prompt learning config from dict/TOML mapping."""
         # Remove deprecated fields at top level (silently for backwards compatibility)
         # The CLI validation module will warn about these
-        deprecated_top_level = {"display", "results_folder", "task_app_api_key"}
+        deprecated_top_level = {"display", "results_folder", "container_api_key"}
 
         # Convert to mutable dict (creates a copy to avoid modifying the original)
         data = dict(data)

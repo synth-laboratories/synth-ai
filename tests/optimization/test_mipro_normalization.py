@@ -7,7 +7,7 @@ def _make_mipro_config() -> PromptLearningConfig:
         {
             "prompt_learning": {
                 "algorithm": "mipro",
-                "task_app_url": "http://example.com",
+                "container_url": "http://example.com",
                 "mipro": {},
             }
         }
@@ -19,7 +19,7 @@ def test_normalize_mipro_section_promotes_top_level_fields() -> None:
     config_dict = {
         "prompt_learning": {
             "algorithm": "mipro",
-            "task_app_url": "http://example.com",
+            "container_url": "http://example.com",
             "bootstrap_train_seeds": [1, 2],
             "online_pool": [3],
             "test_pool": [4],
@@ -41,7 +41,7 @@ def test_normalize_mipro_section_sets_env_name() -> None:
     config_dict = {
         "prompt_learning": {
             "algorithm": "mipro",
-            "task_app_url": "http://example.com",
+            "container_url": "http://example.com",
             "mipro": {
                 "env_name": "banking77",
                 "bootstrap_train_seeds": [1],

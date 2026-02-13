@@ -14,10 +14,10 @@ from typing import Any, Literal
 from synth_ai.core.config.expansion import gepa_candidate_to_initial_prompt
 from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.gepa import api as _gepa_api
-from synth_ai.sdk.localapi import InProcessTaskApp
-from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
-from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
-from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+from synth_ai.sdk.container import InProcessContainer
+from synth_ai.sdk.container._impl.rollout_helpers import build_rollout_response
+from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
+from synth_ai.sdk.container.auth import ensure_container_auth
 from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
 
 from ._compat import (
@@ -133,7 +133,7 @@ def _run_synth_mipro(
     if not api_key:
         raise ValueError("SYNTH_API_KEY must be set to run Synth DSPy MIPROv2 compatibility.")
 
-    environment_api_key = ensure_localapi_auth(backend_base=backend_url, synth_api_key=api_key)
+    environment_api_key = ensure_container_auth(backend_base=backend_url, synth_api_key=api_key)
     dataset_bundle = _gepa_api._build_dataset_bundle(trainset, valset)
     base_system_prompt = _gepa_api._extract_seed_system_prompt(seed_candidate)
     initial_prompt = gepa_candidate_to_initial_prompt(seed_candidate)
@@ -141,7 +141,7 @@ def _run_synth_mipro(
     _proposer_provider, _proposer_model = _gepa_api._parse_task_model(proposer_lm)
 
     async def _run() -> Any:
-        def _build_task_app_config() -> TaskAppConfig:
+        def _build_container_config() -> ContainerConfig:
             def provide_taskset_description() -> dict[str, Any]:
                 return {
                     "splits": ["train", "val"],
@@ -260,17 +260,17 @@ def _run_synth_mipro(
                 payload["_hydration_skipped"] = True
                 return payload
 
-            return TaskAppConfig(
+            return ContainerConfig(
                 app_id="mipro-compat",
                 name="MIPRO Compatibility",
-                description="Synth-backed MIPRO compatibility task app",
+                description="Synth-backed MIPRO compatibility container",
                 provide_taskset_description=provide_taskset_description,
                 provide_task_instances=provide_task_instances,
                 rollout=rollout,
                 cors_origins=["*"],
             )
 
-        app = create_task_app(_build_task_app_config())
+        app = create_container(_build_container_config())
         tunnel_mode = (
             os.environ.get("SYNTH_MIPRO_TUNNEL_MODE", "").strip()
             or os.environ.get("SYNTH_GEPA_TUNNEL_MODE", "").strip()
@@ -283,22 +283,22 @@ def _run_synth_mipro(
                 sep = "," if existing_aliases else ""
                 os.environ["ENVIRONMENT_API_KEY_ALIASES"] = f"{existing_aliases}{sep}{internal_key}"
 
-        async with InProcessTaskApp(
+        async with InProcessContainer(
             app=app,
             tunnel_mode=tunnel_mode,
             api_key=environment_api_key,
-        ) as task_app:
-            task_url = task_app.url or ""
-            worker_token = task_app.task_app_worker_token
+        ) as container:
+            task_url = container.url or ""
+            worker_token = container.container_worker_token
             if not task_url:
-                raise ValueError("Failed to resolve task app URL for MIPRO compatibility mode.")
+                raise ValueError("Failed to resolve container URL for MIPRO compatibility mode.")
             if "s/rt_" in task_url and not worker_token:
-                raise ValueError("SynthTunnel worker token is required for task app URL.")
+                raise ValueError("SynthTunnel worker token is required for container URL.")
 
             config_dict: dict[str, Any] = {
                 "policy_optimization": {
                     "algorithm": "mipro",
-                    "task_app_url": task_url,
+                    "container_url": task_url,
                     "env_name": "mipro-compat",
                     "policy": {
                         "provider": provider,
@@ -331,8 +331,8 @@ def _run_synth_mipro(
                 config_dict=config_dict,
                 backend_url=backend_url,
                 api_key=api_key,
-                localapi_api_key=environment_api_key,
-                task_app_worker_token=worker_token,
+                container_api_key=environment_api_key,
+                container_worker_token=worker_token,
                 algorithm="mipro",
                 overrides=overrides,
                 skip_health_check=True,

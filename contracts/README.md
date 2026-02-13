@@ -8,34 +8,34 @@ choice to integrate with Synth.
 
 ## Available Contracts
 
-### Task App Contract (`task_app.yaml`)
+### Container Contract (`container.yaml`)
 
 The core contract for prompt optimization. Implements:
 - `GET /health` - Health check
 - `POST /rollout` - Evaluate a prompt (returns reward)
 - `GET /info` - Task metadata (optional)
 
-Use this to build Task Apps for MIPRO and GEPA prompt optimization in any
+Use this to build Containers for MIPRO and GEPA prompt optimization in any
 language (Python, TypeScript, Go, Rust, etc.).
 
 ## Usage
 
 ### Python
 ```python
-from synth_ai.contracts import get_task_app_contract
+from synth_ai.contracts import get_container_contract
 
 # Get the contract YAML
-yaml_content = get_task_app_contract()
+yaml_content = get_container_contract()
 
 # Or get the file path
-from synth_ai.contracts import TASK_APP_CONTRACT_PATH
-print(f"Contract at: {TASK_APP_CONTRACT_PATH}")
+from synth_ai.contracts import CONTAINER_CONTRACT_PATH
+print(f"Contract at: {CONTAINER_CONTRACT_PATH}")
 ```
 
 ### CLI
 ```bash
 # Show the contract
-synth contracts show task-app
+synth contracts show container
 ```
 
 ### Other Languages
@@ -44,13 +44,13 @@ Download the contract file and use OpenAPI codegen tools:
 ```bash
 # TypeScript (using openapi-generator)
 npx @openapitools/openapi-generator-cli generate \
-  -i https://raw.githubusercontent.com/SynthAILabs/synth-ai/main/contracts/task_app.yaml \
+  -i https://raw.githubusercontent.com/SynthAILabs/synth-ai/main/contracts/container.yaml \
   -g typescript-fetch \
   -o ./generated
 
 # Go
 openapi-generator generate \
-  -i task_app.yaml \
+  -i container.yaml \
   -g go-server \
   -o ./generated
 ```
@@ -77,14 +77,14 @@ choice to integrate with Synth.
 
 ## Available Contracts
 
-### Task App Contract (`task_app.yaml`)
+### Container Contract (`container.yaml`)
 
 The core contract for prompt optimization. Implements:
 - `GET /health` - Health check
 - `POST /rollout` - Evaluate a prompt (returns reward)
 - `GET /info` - Task metadata (optional)
 
-Use this to build Task Apps for MIPRO and GEPA prompt optimization in any
+Use this to build Containers for MIPRO and GEPA prompt optimization in any
 language (Python, TypeScript, Go, Rust, etc.).
 
 ## Usage
@@ -93,14 +93,14 @@ language (Python, TypeScript, Go, Rust, etc.).
 ```python
 from pathlib import Path
 
-yaml_content = Path("contracts/task_app.yaml").read_text()
+yaml_content = Path("contracts/container.yaml").read_text()
 print(yaml_content[:200])
 ```
 
 ### CLI
 ```bash
 # Show the contract
-synth contracts show task-app
+synth contracts show container
 ```
 
 ### Other Languages
@@ -109,13 +109,13 @@ Download the contract file and use OpenAPI codegen tools:
 ```bash
 # TypeScript (using openapi-generator)
 npx @openapitools/openapi-generator-cli generate \
-  -i https://raw.githubusercontent.com/SynthAILabs/synth-ai/main/contracts/task_app.yaml \
+  -i https://raw.githubusercontent.com/SynthAILabs/synth-ai/main/contracts/container.yaml \
   -g typescript-fetch \
   -o ./generated
 
 # Go
 openapi-generator generate \
-  -i task_app.yaml \
+  -i container.yaml \
   -g go-server \
   -o ./generated
 ```

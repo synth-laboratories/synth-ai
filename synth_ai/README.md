@@ -9,7 +9,7 @@ Root package for Synth AI SDK, CLI, and supporting infrastructure.
 from synth_ai import (
     PolicyOptimizationJob,
     EvalJob,
-    InProcessTaskApp,
+    InProcessContainer,
     VerifierClient,
 )
 
@@ -89,7 +89,7 @@ User-facing programmatic API.
 - Optimization jobs (PolicyOptimizationJob, GraphOptimizationJob)
 - Evaluation jobs (EvalJob)
 - Clients (VerifierClient, InferenceClient)
-- LocalAPI for task apps
+- Container for containers
 
 **Design principle**: Clean, stable API for external consumption.
 

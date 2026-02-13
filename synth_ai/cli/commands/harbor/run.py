@@ -89,7 +89,7 @@ def run(
                 click.echo(f"  [{i + 1}/{len(seed_list)}] Seed {s}...", nl=False)
 
             try:
-                # Build rollout request in TaskApp format
+                # Build rollout request in Container format
                 run_id = f"harbor-cli-{deployment_id[:8]}"
                 trace_id = f"{run_id}-s{s}"
                 payload = {

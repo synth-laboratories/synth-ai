@@ -4,8 +4,8 @@ import httpx
 import pytest
 import os
 
-from synth_ai.sdk.localapi._impl.in_process import InProcessTaskApp
-from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
+from synth_ai.sdk.container._impl.in_process import InProcessContainer
+from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
 
 
 def _free_port() -> int:
@@ -30,32 +30,32 @@ async def test_in_process_sets_environment_api_key_before_startup(monkeypatch: p
     async def rollout(request, fastapi_request):  # pragma: no cover - not exercised in this test
         return {"trace_correlation_id": getattr(request, "trace_correlation_id", ""), "reward_info": {}}
 
-    cfg = TaskAppConfig(
+    cfg = ContainerConfig(
         app_id="unit-env-key-sync",
         name="Unit Env Key Sync",
-        description="Unit test task app",
+        description="Unit test container",
         provide_taskset_description=lambda: {"splits": ["train"], "sizes": {"train": 1}},
         provide_task_instances=lambda seeds: [],
         rollout=rollout,
     )
-    app = create_task_app(cfg)
+    app = create_container(cfg)
 
     port = _free_port()
-    async with InProcessTaskApp(
+    async with InProcessContainer(
         app=app,
         port=port,
         host="127.0.0.1",
         api_key=expected_key,
         tunnel_mode="local",
-    ) as task_app:
-        assert task_app.url
+    ) as container:
+        assert container.url
 
         # The in-process runner should sync the key into ENVIRONMENT_API_KEY before startup.
         assert (os.environ.get("ENVIRONMENT_API_KEY") or "").strip() == expected_key
 
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
-                f"{task_app.url.rstrip('/')}/health",
+                f"{container.url.rstrip('/')}/health",
                 headers={"X-API-Key": expected_key, "Authorization": f"Bearer {expected_key}"},
             )
         assert resp.status_code == 200

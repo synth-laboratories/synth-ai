@@ -9,7 +9,7 @@ to ensure reproducibility.
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "http://localhost:8001"
+    container_url = "http://localhost:8001"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -24,7 +24,7 @@ to ensure reproducibility.
 
     ```toml
     [eval]
-    task_app_url = "http://localhost:8103"
+    container_url = "http://localhost:8103"
     seeds = [0, 1, 2, 3, 4]
     ```
 
@@ -46,7 +46,7 @@ Any field can be overridden by specifying it explicitly:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    task_app_url = "http://localhost:8001"
+    container_url = "http://localhost:8001"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -192,12 +192,12 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
     """Expand minimal eval config to full config.
 
     Required fields:
-        - task_app_url: URL of the task app
+        - container_url: URL of the container
         - seeds: List of seeds or range dict
 
     Optional fields:
         - env_name: Environment name (defaults to app_id or "default")
-        - app_id: Task app identifier
+        - app_id: Container identifier
         - defaults_version: Pin to specific defaults version
 
     Args:
@@ -211,7 +211,7 @@ def expand_eval_config(minimal: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> minimal = {
-        ...     "task_app_url": "http://localhost:8103",
+        ...     "container_url": "http://localhost:8103",
         ...     "seeds": [0, 1, 2, 3, 4],
         ... }
         >>> full = expand_eval_config(minimal)
@@ -227,7 +227,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     """Expand minimal GEPA config to full config.
 
     Required fields:
-        - task_app_url: URL of the task app
+        - container_url: URL of the container
         - proposer_effort: "LOW_CONTEXT" | "LOW" | "MEDIUM" | "HIGH"
         - proposer_output_tokens: "RAPID" | "FAST" | "SLOW"
         - num_generations: Number of evolutionary generations
@@ -255,7 +255,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
 
     Example:
         >>> minimal = {
-        ...     "task_app_url": "http://localhost:8001",
+        ...     "container_url": "http://localhost:8001",
         ...     "total_seeds": 200,
         ...     "proposer_effort": "LOW",
         ...     "proposer_output_tokens": "FAST",

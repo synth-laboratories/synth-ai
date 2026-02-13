@@ -15,7 +15,7 @@
 //!     // Submit a prompt optimization job
 //!     let result = synth
 //!         .optimize()
-//!         .task_app("https://my-task-app.com")
+//!         .container("https://my-container.com")
 //!         .model("gpt-4o")
 //!         .run()
 //!         .await?;
@@ -49,7 +49,7 @@ pub use synth_ai_core::{
         VerifierResponse,
     },
     // Local API
-    localapi::TaskAppClient,
+    container::ContainerClient,
     orchestration::{CandidateInfo, GEPAProgress, ProgressTracker},
     // Orchestration
     orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
@@ -96,11 +96,11 @@ pub use synth_ai_core::{
     LLMContentPart,
     LLMMessage,
     LLMUsage,
-    LocalApiDeployResponse,
-    LocalApiDeploySpec,
-    LocalApiDeployStatus,
-    LocalApiDeploymentInfo,
-    LocalApiLimits,
+    ContainerDeployResponse,
+    ContainerDeploySpec,
+    ContainerDeployStatus,
+    ContainerDeploymentInfo,
+    ContainerLimits,
     MarkovBlanketMessage,
     MessageContent,
     ObjectiveSpec,
@@ -443,51 +443,51 @@ impl Synth {
         self.verify(trace, rubric, None).await
     }
 
-    /// Create a LocalAPI task app client.
-    pub fn task_app_client(&self, base_url: &str, api_key: Option<&str>) -> TaskAppClient {
+    /// Create a Container container client.
+    pub fn container_client(&self, base_url: &str, api_key: Option<&str>) -> ContainerClient {
         let key = api_key.unwrap_or(self.api_key.as_str());
-        TaskAppClient::new(base_url, Some(key))
+        ContainerClient::new(base_url, Some(key))
     }
 
-    /// Deploy a managed LocalAPI from a context directory.
-    pub async fn deploy_localapi_from_dir(
+    /// Deploy a managed Container from a context directory.
+    pub async fn deploy_container_from_dir(
         &self,
-        spec: LocalApiDeploySpec,
+        spec: ContainerDeploySpec,
         context_dir: impl AsRef<Path>,
         wait_for_ready: bool,
         build_timeout_s: f64,
-    ) -> Result<LocalApiDeployResponse> {
+    ) -> Result<ContainerDeployResponse> {
         self.client
-            .localapi()
+            .container()
             .deploy_from_dir(spec, context_dir, wait_for_ready, build_timeout_s)
             .await
             .map_err(Error::Core)
     }
 
-    /// List managed LocalAPI deployments for the current org.
-    pub async fn list_localapi_deployments(&self) -> Result<Vec<LocalApiDeploymentInfo>> {
-        self.client.localapi().list().await.map_err(Error::Core)
+    /// List managed Container deployments for the current org.
+    pub async fn list_container_deployments(&self) -> Result<Vec<ContainerDeploymentInfo>> {
+        self.client.container().list().await.map_err(Error::Core)
     }
 
-    /// Fetch a managed LocalAPI deployment by ID.
-    pub async fn get_localapi_deployment(
+    /// Fetch a managed Container deployment by ID.
+    pub async fn get_container_deployment(
         &self,
         deployment_id: &str,
-    ) -> Result<LocalApiDeploymentInfo> {
+    ) -> Result<ContainerDeploymentInfo> {
         self.client
-            .localapi()
+            .container()
             .get(deployment_id)
             .await
             .map_err(Error::Core)
     }
 
-    /// Fetch managed LocalAPI deployment status by ID.
-    pub async fn get_localapi_deployment_status(
+    /// Fetch managed Container deployment status by ID.
+    pub async fn get_container_deployment_status(
         &self,
         deployment_id: &str,
-    ) -> Result<LocalApiDeployStatus> {
+    ) -> Result<ContainerDeployStatus> {
         self.client
-            .localapi()
+            .container()
             .status(deployment_id)
             .await
             .map_err(Error::Core)
@@ -563,7 +563,7 @@ impl std::fmt::Debug for Synth {
 pub struct OptimizeBuilder {
     api_key: String,
     base_url: String,
-    task_app_url: Option<String>,
+    container_url: Option<String>,
     model: Option<String>,
     num_candidates: Option<u32>,
     timeout: Duration,
@@ -575,7 +575,7 @@ impl OptimizeBuilder {
         Self {
             api_key,
             base_url,
-            task_app_url: None,
+            container_url: None,
             model: None,
             num_candidates: None,
             timeout: Duration::from_secs(3600),
@@ -583,9 +583,9 @@ impl OptimizeBuilder {
         }
     }
 
-    /// Set the task app URL.
-    pub fn task_app(mut self, url: impl Into<String>) -> Self {
-        self.task_app_url = Some(url.into());
+    /// Set the container URL.
+    pub fn container(mut self, url: impl Into<String>) -> Self {
+        self.container_url = Some(url.into());
         self
     }
 
@@ -615,13 +615,13 @@ impl OptimizeBuilder {
 
     /// Run the optimization job and wait for completion.
     pub async fn run(self) -> Result<OptimizeResult> {
-        let task_app_url = self
-            .task_app_url
-            .ok_or_else(|| Error::Config("task_app URL is required".into()))?;
+        let container_url = self
+            .container_url
+            .ok_or_else(|| Error::Config("container URL is required".into()))?;
 
         // Build config
         let mut config = serde_json::json!({
-            "task_app_url": task_app_url,
+            "container_url": container_url,
         });
 
         if let Some(model) = &self.model {
@@ -704,7 +704,7 @@ impl OptimizeResult {
 pub struct EvalBuilder {
     api_key: String,
     base_url: String,
-    task_app_url: Option<String>,
+    container_url: Option<String>,
     seeds: Vec<i64>,
     timeout: Duration,
 }
@@ -714,15 +714,15 @@ impl EvalBuilder {
         Self {
             api_key,
             base_url,
-            task_app_url: None,
+            container_url: None,
             seeds: vec![],
             timeout: Duration::from_secs(1800),
         }
     }
 
-    /// Set the task app URL.
-    pub fn task_app(mut self, url: impl Into<String>) -> Self {
-        self.task_app_url = Some(url.into());
+    /// Set the container URL.
+    pub fn container(mut self, url: impl Into<String>) -> Self {
+        self.container_url = Some(url.into());
         self
     }
 
@@ -740,18 +740,18 @@ impl EvalBuilder {
 
     /// Run the evaluation and wait for completion.
     pub async fn run(self) -> Result<synth_ai_core::api::EvalResult> {
-        let task_app_url = self
-            .task_app_url
-            .ok_or_else(|| Error::Config("task_app URL is required".into()))?;
+        let container_url = self
+            .container_url
+            .ok_or_else(|| Error::Config("container URL is required".into()))?;
 
         let client = synth_ai_core::SynthClient::new(&self.api_key, Some(&self.base_url))
             .map_err(Error::Core)?;
 
         let request = EvalJobRequest {
             app_id: None,
-            task_app_url,
-            task_app_worker_token: None,
-            task_app_api_key: None,
+            container_url,
+            container_worker_token: None,
+            container_api_key: None,
             env_name: "default".to_string(),
             env_config: None,
             verifier_config: None,
@@ -780,19 +780,19 @@ impl EvalBuilder {
 /// Create a client from environment and run a quick optimization.
 ///
 /// This is a convenience function for simple use cases.
-pub async fn optimize(task_app_url: &str) -> Result<OptimizeResult> {
+pub async fn optimize(container_url: &str) -> Result<OptimizeResult> {
     Synth::from_env()?
         .optimize()
-        .task_app(task_app_url)
+        .container(container_url)
         .run()
         .await
 }
 
 /// Create a client from environment and run a quick evaluation.
-pub async fn eval(task_app_url: &str, seeds: Vec<i64>) -> Result<synth_ai_core::api::EvalResult> {
+pub async fn eval(container_url: &str, seeds: Vec<i64>) -> Result<synth_ai_core::api::EvalResult> {
     Synth::from_env()?
         .eval()
-        .task_app(task_app_url)
+        .container(container_url)
         .seeds(seeds)
         .run()
         .await

@@ -2,14 +2,14 @@
 
 This module provides the user-facing programmatic API for:
 - Training (prompt learning, SFT, RL, graph generation)
-- Task apps (in-process, deployed, Modal)
+- Containers (in-process, deployed, Modal)
 - Graphs (verifiers, completions)
 - Inference (model inference via Synth)
 
 Usage:
     from synth_ai.sdk import (
         PromptLearningJob,
-        InProcessTaskApp,
+        InProcessContainer,
         VerifierClient,
         InferenceClient,
     )
@@ -27,6 +27,27 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from synth_ai.core.auth import get_or_mint_synth_api_key
     from synth_ai.core.errors import PaymentRequiredError
+    from synth_ai.sdk.container import (
+        ContainerClient,
+        ContainerConfig,
+        InProcessContainer,
+        create_container,
+    )
+    from synth_ai.sdk.container._impl import (
+        InProcessJobResult,
+        merge_dot_overrides,
+        resolve_backend_api_base,
+        run_in_process_job,
+        run_in_process_job_sync,
+    )
+    from synth_ai.sdk.containers import (
+        Container as ContainerModel,
+    )
+    from synth_ai.sdk.containers import (
+        ContainersClient,
+        ContainerSpec,
+        ContainerType,
+    )
     from synth_ai.sdk.environment_pools import (
         EnvironmentPoolsClient,
         PlanGatingError,
@@ -73,20 +94,6 @@ if TYPE_CHECKING:
         download_inference_artifact,
         get_inference_job,
     )
-    from synth_ai.sdk.localapi import (
-        InProcessTaskApp,
-        LocalAPIClient,
-        LocalAPIConfig,
-        TaskAppConfig,
-        create_task_app,
-    )
-    from synth_ai.sdk.localapi._impl import (
-        InProcessJobResult,
-        merge_dot_overrides,
-        resolve_backend_api_base,
-        run_in_process_job,
-        run_in_process_job_sync,
-    )
     from synth_ai.sdk.managed_pools import (
         create_managed_pool_s3_data_source,
         create_managed_pool_upload_data_source,
@@ -114,14 +121,6 @@ if TYPE_CHECKING:
     )
     from synth_ai.sdk.optimization.internal.graphgen_models import (
         GraphGenTaskSet as GraphEvolveTaskSet,
-    )
-    from synth_ai.sdk.task_apps import (
-        TaskApp as TaskAppModel,
-    )
-    from synth_ai.sdk.task_apps import (
-        TaskAppsClient,
-        TaskAppSpec,
-        TaskAppType,
     )
 
     # Legacy aliases
@@ -159,17 +158,17 @@ __all__ = [
     # Evaluation
     "EvalJob",
     "EvalJobConfig",
-    # Task Apps
-    "InProcessTaskApp",
+    # Containers
+    "InProcessContainer",
     "InProcessJobResult",
     "merge_dot_overrides",
     "resolve_backend_api_base",
     "run_in_process_job",
     "run_in_process_job_sync",
-    "LocalAPIClient",
-    "LocalAPIConfig",
-    "TaskAppConfig",
-    "create_task_app",
+    "ContainerClient",
+    "ContainerConfig",
+    "ContainerConfig",
+    "create_container",
     # Graphs / Verifier
     "VerifierClient",
     "VerifierOptions",
@@ -236,11 +235,11 @@ __all__ = [
     "PoolTask",
     "PlanGatingError",
     "PaymentRequiredError",
-    # Hosted Task Apps
-    "TaskAppsClient",
-    "TaskAppSpec",
-    "TaskAppModel",
-    "TaskAppType",
+    # Hosted Containers
+    "ContainersClient",
+    "ContainerSpec",
+    "ContainerModel",
+    "ContainerType",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
@@ -263,16 +262,15 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "VerifierClient": ("synth_ai.sdk.graphs", "VerifierClient"),
     "VerifierOptions": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierOptions"),
     "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
-    "InProcessJobResult": ("synth_ai.sdk.localapi._impl", "InProcessJobResult"),
-    "InProcessTaskApp": ("synth_ai.sdk.localapi", "InProcessTaskApp"),
-    "LocalAPIClient": ("synth_ai.sdk.localapi", "LocalAPIClient"),
-    "LocalAPIConfig": ("synth_ai.sdk.localapi", "LocalAPIConfig"),
-    "TaskAppConfig": ("synth_ai.sdk.localapi._impl.server", "TaskAppConfig"),
-    "create_task_app": ("synth_ai.sdk.localapi", "create_task_app"),
-    "merge_dot_overrides": ("synth_ai.sdk.localapi._impl", "merge_dot_overrides"),
-    "resolve_backend_api_base": ("synth_ai.sdk.localapi._impl", "resolve_backend_api_base"),
-    "run_in_process_job": ("synth_ai.sdk.localapi._impl", "run_in_process_job"),
-    "run_in_process_job_sync": ("synth_ai.sdk.localapi._impl", "run_in_process_job_sync"),
+    "InProcessJobResult": ("synth_ai.sdk.container._impl", "InProcessJobResult"),
+    "InProcessContainer": ("synth_ai.sdk.container", "InProcessContainer"),
+    "ContainerClient": ("synth_ai.sdk.container", "ContainerClient"),
+    "ContainerConfig": ("synth_ai.sdk.container", "ContainerConfig"),
+    "create_container": ("synth_ai.sdk.container", "create_container"),
+    "merge_dot_overrides": ("synth_ai.sdk.container._impl", "merge_dot_overrides"),
+    "resolve_backend_api_base": ("synth_ai.sdk.container._impl", "resolve_backend_api_base"),
+    "run_in_process_job": ("synth_ai.sdk.container._impl", "run_in_process_job"),
+    "run_in_process_job_sync": ("synth_ai.sdk.container._impl", "run_in_process_job_sync"),
     "GraphEvolveGoldOutput": (
         "synth_ai.sdk.optimization.internal.graphgen_models",
         "GraphGenGoldOutput",
@@ -363,10 +361,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "PoolTemplate": ("synth_ai.sdk.environment_pools", "PoolTemplate"),
     "PlanGatingError": ("synth_ai.core.errors", "PlanGatingError"),
     "PaymentRequiredError": ("synth_ai.core.errors", "PaymentRequiredError"),
-    "TaskAppsClient": ("synth_ai.sdk.task_apps", "TaskAppsClient"),
-    "TaskAppSpec": ("synth_ai.sdk.task_apps", "TaskAppSpec"),
-    "TaskAppModel": ("synth_ai.sdk.task_apps", "TaskApp"),
-    "TaskAppType": ("synth_ai.sdk.task_apps", "TaskAppType"),
+    "ContainersClient": ("synth_ai.sdk.containers", "ContainersClient"),
+    "ContainerSpec": ("synth_ai.sdk.containers", "ContainerSpec"),
+    "ContainerModel": ("synth_ai.sdk.containers", "Container"),
+    "ContainerType": ("synth_ai.sdk.containers", "ContainerType"),
 }
 
 _OPTIONAL_EXPORTS: set[str] = set()

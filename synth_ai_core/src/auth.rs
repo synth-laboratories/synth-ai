@@ -23,8 +23,8 @@ pub const CONFIG_DIR: &str = ".synth-ai";
 
 /// Default config file name
 pub const CONFIG_FILE: &str = "user_config.json";
-/// Default localapi config file name
-pub const LOCALAPI_CONFIG_FILE: &str = "localapi_config.json";
+/// Default container config file name
+pub const CONTAINER_CONFIG_FILE: &str = "container_config.json";
 
 /// Default environment variable for API key
 pub const ENV_API_KEY: &str = "SYNTH_API_KEY";
@@ -50,9 +50,9 @@ pub fn get_config_path() -> PathBuf {
     get_config_dir().join(CONFIG_FILE)
 }
 
-/// Get the default localapi config file path (~/.synth-ai/localapi_config.json).
-pub fn get_localapi_config_path() -> PathBuf {
-    get_config_dir().join(LOCALAPI_CONFIG_FILE)
+/// Get the default container config file path (~/.synth-ai/container_config.json).
+pub fn get_container_config_path() -> PathBuf {
+    get_config_dir().join(CONTAINER_CONFIG_FILE)
 }
 
 /// Load full user config JSON (not just string credentials).
@@ -490,7 +490,7 @@ pub fn load_user_env() -> Result<HashMap<String, String>, CoreError> {
     load_user_env_with(true)
 }
 
-/// Load credentials from config and localapi config, setting env vars.
+/// Load credentials from config and container config, setting env vars.
 pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>, CoreError> {
     let mut applied: HashMap<String, String> = HashMap::new();
 
@@ -514,24 +514,24 @@ pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>,
     let config = load_user_config()?;
     apply(&config);
 
-    // Load localapi config (task app entries)
-    let localapi_path = get_localapi_config_path();
-    if localapi_path.exists() {
-        let raw = fs::read_to_string(&localapi_path)
-            .map_err(|e| CoreError::Config(format!("failed to read localapi config: {}", e)))?;
+    // Load container config (container entries)
+    let container_path = get_container_config_path();
+    if container_path.exists() {
+        let raw = fs::read_to_string(&container_path)
+            .map_err(|e| CoreError::Config(format!("failed to read container config: {}", e)))?;
         if let Ok(Value::Object(map)) = serde_json::from_str::<Value>(&raw) {
             if let Some(Value::Object(apps)) = map.get("apps") {
-                if let Some(entry) = select_task_app_entry(apps) {
+                if let Some(entry) = select_container_entry(apps) {
                     if let Some(Value::Object(modal)) = entry.get("modal") {
                         let mut modal_map = HashMap::new();
                         if let Some(v) = modal.get("base_url") {
-                            modal_map.insert("TASK_APP_BASE_URL".to_string(), v.clone());
+                            modal_map.insert("CONTAINER_BASE_URL".to_string(), v.clone());
                         }
                         if let Some(v) = modal.get("app_name") {
-                            modal_map.insert("TASK_APP_NAME".to_string(), v.clone());
+                            modal_map.insert("CONTAINER_NAME".to_string(), v.clone());
                         }
                         if let Some(v) = modal.get("secret_name") {
-                            modal_map.insert("TASK_APP_SECRET_NAME".to_string(), v.clone());
+                            modal_map.insert("CONTAINER_SECRET_NAME".to_string(), v.clone());
                         }
                         apply(&modal_map);
                     }
@@ -551,7 +551,7 @@ pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>,
     Ok(applied)
 }
 
-fn select_task_app_entry(
+fn select_container_entry(
     apps: &serde_json::Map<String, Value>,
 ) -> Option<&serde_json::Map<String, Value>> {
     if apps.is_empty() {

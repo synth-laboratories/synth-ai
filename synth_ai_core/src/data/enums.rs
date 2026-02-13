@@ -94,7 +94,8 @@ impl Default for InferenceMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RewardSource {
-    TaskApp,
+    #[serde(alias = "task_app")]
+    Container,
     Verifier,
     Fused,
     Environment,
@@ -105,7 +106,7 @@ pub enum RewardSource {
 
 impl Default for RewardSource {
     fn default() -> Self {
-        Self::TaskApp
+        Self::Container
     }
 }
 

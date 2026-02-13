@@ -47,16 +47,16 @@ CLI commands should be thin wrappers around `sdk/` functionality:
 ```python
 # Good - CLI delegates to SDK
 @app.command()
-def run_eval(task_app_url: str):
-    job = EvalJob(task_app_url=task_app_url)
+def run_eval(container_url: str):
+    job = EvalJob(container_url=container_url)
     result = job.run()
     print_result(result)
 
 # Bad - CLI contains business logic
 @app.command()
-def run_eval(task_app_url: str):
+def run_eval(container_url: str):
     # Don't put evaluation logic here
-    response = requests.post(task_app_url + "/rollout", ...)
+    response = requests.post(container_url + "/rollout", ...)
     score = compute_score(response)
     ...
 ```

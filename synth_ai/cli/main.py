@@ -2,8 +2,8 @@
 
 import click
 
+from synth_ai.cli.commands.container import container
 from synth_ai.cli.commands.harbor import harbor
-from synth_ai.cli.commands.localapi import localapi
 from synth_ai.cli.setup import setup
 
 
@@ -27,4 +27,4 @@ def cli(ctx):
 
 cli.add_command(setup)
 cli.add_command(harbor)
-cli.add_command(localapi)
+cli.add_command(container)

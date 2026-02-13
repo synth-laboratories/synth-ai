@@ -7,11 +7,11 @@ use crate::types::{Result, SynthError};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvalJobConfig {
-    pub task_app_url: String,
+    pub container_url: String,
     #[serde(skip_serializing)]
-    pub task_app_worker_token: Option<String>,
+    pub container_worker_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_app_api_key: Option<String>,
+    pub container_api_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -31,11 +31,11 @@ pub struct EvalJobConfig {
 }
 
 impl EvalJobConfig {
-    pub fn new(task_app_url: impl Into<String>) -> Self {
+    pub fn new(container_url: impl Into<String>) -> Self {
         Self {
-            task_app_url: task_app_url.into(),
-            task_app_worker_token: None,
-            task_app_api_key: None,
+            container_url: container_url.into(),
+            container_worker_token: None,
+            container_api_key: None,
             app_id: None,
             env_name: None,
             seeds: Vec::new(),
@@ -67,7 +67,7 @@ impl EvalJob {
     }
 
     pub async fn submit(client: SynthClient, config: &EvalJobConfig) -> Result<Self> {
-        let worker_token = config.task_app_worker_token.clone();
+        let worker_token = config.container_worker_token.clone();
         let resp = if let Some(token) = worker_token {
             let mut headers = reqwest::header::HeaderMap::new();
             headers.insert(

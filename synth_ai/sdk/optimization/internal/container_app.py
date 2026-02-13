@@ -1,0 +1,735 @@
+"""Internal container helpers.
+
+Public API: Use `synth_ai.sdk.container` instead.
+"""
+
+from __future__ import annotations
+
+import logging
+import socket
+import subprocess
+import time
+from collections.abc import Iterable
+from dataclasses import dataclass
+from urllib.parse import urlparse, urlunparse
+
+import click
+import requests
+
+from .utils import CLIResult, http_get, run_cli
+
+
+@dataclass(slots=True)
+class ContainerHealth:
+    ok: bool
+    health_status: int | None
+    task_info_status: int | None
+    detail: str | None = None
+
+
+@dataclass(slots=True)
+class ContainerHealth(ContainerHealth):
+    """Alias for ContainerHealth with Container naming."""
+
+
+def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
+    """
+    Resolve hostname using explicit resolvers (1.1.1.1, 8.8.8.8) first,
+    then fall back to system resolver.
+
+    This fixes resolver path issues where system DNS is slow or blocking.
+    """
+    # Try Cloudflare / Google first via `dig`, then fall back to system resolver
+    for resolver_ip in ("1.1.1.1", "8.8.8.8"):
+        try:
+            result = subprocess.run(
+                ["dig", f"@{resolver_ip}", "+short", hostname],
+                capture_output=True,
+                text=True,
+                timeout=5.0,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                first = result.stdout.strip().splitlines()[0].strip()
+                if first:
+                    return first
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            continue
+
+    # Fallback: system resolver
+    return socket.gethostbyname(hostname)
+
+
+@dataclass(slots=True)
+class CurlResponse:
+    """Minimal response object from curl to match requests.Response interface."""
+
+    status_code: int
+    text: str
+    _json: dict | None = None
+
+    def json(self) -> dict:
+        import json
+
+        if self._json is None:
+            self._json = json.loads(self.text) if self.text else {}
+        return self._json
+
+
+def _curl_with_resolve(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: float = 10.0,
+) -> CurlResponse | None:
+    """
+    Make an HTTPS request using curl with --resolve to bypass system DNS.
+
+    This resolves the hostname using explicit DNS resolvers (1.1.1.1, 8.8.8.8)
+    and then uses curl's --resolve flag to connect directly to the resolved IP
+    while maintaining proper SNI for SSL/TLS.
+
+    Args:
+        url: The URL to fetch (must be HTTPS)
+        headers: Optional headers to include
+        timeout: Request timeout in seconds
+
+    Returns:
+        CurlResponse with status_code and text, or None if curl fails
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    if not hostname or hostname in ("localhost", "127.0.0.1"):
+        return None  # Use regular requests for localhost
+
+    # Resolve hostname using explicit resolvers
+    try:
+        resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
+    except (socket.gaierror, Exception):
+        return None  # DNS resolution failed, caller should fall back
+
+    # Build curl command with --resolve to bypass system DNS
+    scheme = parsed.scheme or "https"
+    port = parsed.port or (443 if scheme == "https" else 80)
+
+    curl_cmd = [
+        "curl",
+        "-s",
+        "-w",
+        "\n%{http_code}",  # Append status code on new line
+        "--max-time",
+        str(int(timeout)),
+        "-k",  # Allow self-signed certs (tunnel certs)
+        "--resolve",
+        f"{hostname}:{port}:{resolved_ip}",
+        url,
+    ]
+
+    # Add headers
+    if headers:
+        for key, value in headers.items():
+            curl_cmd.extend(["-H", f"{key}: {value}"])
+
+    try:
+        result = subprocess.run(
+            curl_cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout + 5,  # Allow some buffer
+        )
+
+        if result.returncode != 0:
+            return None
+
+        # Parse output: body followed by status code on last line
+        output = result.stdout
+        lines = output.rsplit("\n", 1)
+
+        if len(lines) == 2:
+            body = lines[0]
+            status_str = lines[1].strip()
+        else:
+            body = ""
+            status_str = lines[0].strip() if lines else "0"
+
+        try:
+            status_code = int(status_str)
+        except ValueError:
+            return None
+
+        return CurlResponse(status_code=status_code, text=body)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return None
+
+
+def _resolve_url_to_ip(url: str) -> tuple[str, str]:
+    """
+    Resolve URL's hostname to IP using explicit resolvers, return (ip_url, hostname).
+
+    NOTE: For HTTPS URLs, we DON'T resolve to IP because SSL/TLS requires SNI
+    (Server Name Indication) with the hostname. Connecting via IP causes handshake
+    failures since the server (e.g., Cloudflare) doesn't know which cert to present.
+
+    Returns:
+        Tuple of (url_with_ip, original_hostname)
+    """
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+
+    # Skip resolution for localhost
+    if not hostname or hostname in ("localhost", "127.0.0.1"):
+        return url, hostname or ""
+
+    # Skip resolution for HTTPS URLs - SSL/TLS requires hostname for SNI
+    # Connecting to IP directly causes "SSLV3_ALERT_HANDSHAKE_FAILURE" because
+    # the server doesn't know which certificate to present
+    if parsed.scheme == "https":
+        return url, hostname
+
+    # Only resolve HTTP URLs to IP
+    try:
+        resolved_ip = _resolve_hostname_with_explicit_resolvers(hostname)
+        # Replace hostname with IP in URL
+        new_parsed = parsed._replace(
+            netloc=f"{resolved_ip}:{parsed.port}" if parsed.port else resolved_ip
+        )
+        ip_url = urlunparse(new_parsed)
+        return ip_url, hostname
+    except Exception:
+        # If resolution fails, return original URL
+        return url, hostname or ""
+
+
+def _health_response_ok(resp: requests.Response | None) -> tuple[bool, str]:
+    if resp is None:
+        return False, ""
+    status = resp.status_code
+    if status == 200:
+        return True, ""
+    if status in {401, 403}:
+        try:
+            payload = resp.json()
+        except ValueError:
+            payload = {}
+        prefix = payload.get("expected_api_key_prefix")
+        detail = str(payload.get("detail", ""))
+        if prefix or "expected prefix" in detail.lower():
+            note = "auth-optional"
+            if prefix:
+                note += f" (expected-prefix={prefix})"
+            return True, note
+    return False, ""
+
+
+def check_container_health(
+    base_url: str,
+    api_key: str,
+    *,
+    worker_token: str | None = None,
+    timeout: float = 10.0,
+    max_retries: int = 5,
+) -> ContainerHealth:
+    # Send ALL known environment keys so the server can authorize any valid one
+    import os
+
+    base = base_url.rstrip("/")
+    parsed_base = urlparse(base)
+
+    def _is_harbor_deployment_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return "/api/harbor/deployments/" in (parsed.path or "")
+
+    def _is_container_deployment_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return "/api/container/deployments/" in (parsed.path or "")
+
+    if _is_container_deployment_url(base):
+        synth_key = os.getenv("SYNTH_API_KEY", "")
+        if synth_key:
+            api_key = synth_key
+
+    headers: dict[str, str] = {}
+    if worker_token:
+        headers["Authorization"] = f"Bearer {worker_token}"
+    else:
+        headers = {"X-API-Key": api_key}
+        aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
+        keys: list[str] = [api_key]
+        if aliases:
+            keys.extend([p.strip() for p in aliases.split(",") if p.strip()])
+        if keys:
+            headers["X-API-Keys"] = ",".join(keys)
+            headers.setdefault("Authorization", f"Bearer {api_key}")
+    detail_parts: list[str] = []
+    is_synthtunnel = "/s/" in (parsed_base.path or "")
+
+    if _is_harbor_deployment_url(base):
+        status_url = f"{base}/status"
+        keys_to_try: list[str] = []
+        if api_key:
+            keys_to_try.append(api_key)
+        synth_api_key = os.getenv("SYNTH_API_KEY")
+        if synth_api_key and synth_api_key not in keys_to_try:
+            keys_to_try.append(synth_api_key)
+
+        for key in keys_to_try or [""]:
+            try:
+                resp = http_get(
+                    status_url, headers={"X-API-Key": key} if key else {}, timeout=timeout
+                )
+            except requests.RequestException as exc:
+                return ContainerHealth(
+                    ok=False,
+                    health_status=None,
+                    task_info_status=None,
+                    detail=f"/harbor_status_error={exc}",
+                )
+
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except Exception:
+                    payload = {}
+                status = str(payload.get("status", "")).lower()
+                detail = f"/harbor_status={status or resp.status_code}"
+                return ContainerHealth(
+                    ok=status == "ready",
+                    health_status=resp.status_code,
+                    task_info_status=None,
+                    detail=detail,
+                )
+
+            if resp.status_code in (401, 403):
+                # Try next key (ENVIRONMENT_API_KEY vs SYNTH_API_KEY)
+                continue
+
+            # Unexpected response from Harbor status endpoint.
+            return ContainerHealth(
+                ok=False,
+                health_status=resp.status_code,
+                task_info_status=None,
+                detail=f"/harbor_status={resp.status_code}",
+            )
+
+    if _is_container_deployment_url(base):
+        deployment_id = base.rstrip("/").split("/")[-1]
+        list_url = f"{parsed_base.scheme}://{parsed_base.netloc}/api/container/deployments"
+        try:
+            import httpx
+
+            list_resp = httpx.get(list_url, headers=headers, timeout=timeout)
+            if list_resp.status_code == 200:
+                try:
+                    payload = list_resp.json()
+                except Exception:
+                    payload = []
+                items = payload if isinstance(payload, list) else []
+                for item in items:
+                    if not isinstance(item, dict):
+                        continue
+                    if (
+                        item.get("deployment_id") == deployment_id
+                        or item.get("name") == deployment_id
+                    ):
+                        status = str(item.get("status", "")).lower()
+                        if status == "ready":
+                            return ContainerHealth(
+                                ok=True,
+                                health_status=list_resp.status_code,
+                                task_info_status=None,
+                                detail="/status=ready",
+                            )
+                        return ContainerHealth(
+                            ok=False,
+                            health_status=list_resp.status_code,
+                            task_info_status=None,
+                            detail=f"/status={status or 'building'}",
+                        )
+                return ContainerHealth(
+                    ok=False,
+                    health_status=list_resp.status_code,
+                    task_info_status=None,
+                    detail="/status=deployment_not_found",
+                )
+        except Exception:
+            pass
+
+        status_url = f"{base}/status"
+        try:
+            resp: requests.Response | CurlResponse | None = None
+            try:
+                import httpx
+
+                httpx_resp = httpx.get(status_url, headers=headers, timeout=timeout)
+                resp = CurlResponse(status_code=httpx_resp.status_code, text=httpx_resp.text)
+                try:
+                    resp._json = httpx_resp.json()
+                except Exception:
+                    resp._json = None
+            except Exception:
+                resp = _curl_with_resolve(status_url, headers=headers, timeout=timeout)
+
+            if resp is None:
+                raise RuntimeError("status request failed")
+
+            if resp.status_code == 200:
+                try:
+                    payload = resp.json()
+                except ValueError:
+                    payload = {}
+                status = str(payload.get("status", "")).lower()
+                if status == "ready":
+                    return ContainerHealth(
+                        ok=True,
+                        health_status=resp.status_code,
+                        task_info_status=None,
+                        detail="/status=ready",
+                    )
+                if status == "failed":
+                    detail = payload.get("error") or payload.get("detail") or "/status=failed"
+                    return ContainerHealth(
+                        ok=False,
+                        health_status=resp.status_code,
+                        task_info_status=None,
+                        detail=str(detail),
+                    )
+                return ContainerHealth(
+                    ok=False,
+                    health_status=resp.status_code,
+                    task_info_status=None,
+                    detail=f"/status={status or 'building'}",
+                )
+            return ContainerHealth(
+                ok=False,
+                health_status=resp.status_code,
+                task_info_status=None,
+                detail=f"/status={resp.status_code}",
+            )
+        except Exception as exc:
+            detail = f"/status error: {type(exc).__name__}: {exc}"
+            if "timeout" in detail.lower() or "status request failed" in detail.lower():
+                return ContainerHealth(
+                    ok=True,
+                    health_status=None,
+                    task_info_status=None,
+                    detail=detail,
+                )
+            return ContainerHealth(
+                ok=False,
+                health_status=None,
+                task_info_status=None,
+                detail=detail,
+            )
+
+    def _is_dns_error(exc: requests.RequestException) -> bool:
+        """Check if exception is a DNS resolution error."""
+        exc_str = str(exc).lower()
+        return any(
+            phrase in exc_str
+            for phrase in [
+                "failed to resolve",
+                "name resolution",
+                "nodename nor servname",
+                "name or service not known",
+                "[errno 8]",
+            ]
+        )
+
+    health_resp: requests.Response | CurlResponse | None = None
+    health_ok = False
+
+    # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
+    health_url = f"{base}/health"
+    is_https = health_url.startswith("https://")
+
+    # Retry health check with exponential backoff for DNS errors
+    # Re-resolve DNS on each retry attempt to handle DNS propagation delays
+    for attempt in range(max_retries):
+        # For HTTPS URLs, try curl with --resolve first to bypass system DNS
+        # This handles cases where explicit resolvers (1.1.1.1) work but system DNS doesn't
+        if is_https:
+            curl_resp = _curl_with_resolve(health_url, headers=headers, timeout=timeout)
+            if curl_resp is not None:
+                health_resp = curl_resp
+                if is_synthtunnel and health_resp.status_code == 409 and attempt < max_retries - 1:
+                    delay = 2**attempt
+                    logging.getLogger(__name__).warning(
+                        "SynthTunnel lease pending (health=409), retrying in %ss...", delay
+                    )
+                    time.sleep(delay)
+                    continue
+                health_ok, note = _health_response_ok(health_resp)
+                suffix = f" ({note})" if note else ""
+                if not health_ok and health_resp is not None:
+                    try:
+                        hjs = health_resp.json()
+                        expected = hjs.get("expected_api_key_prefix")
+                        authorized = hjs.get("authorized")
+                        detail = hjs.get("detail")
+                        extras = []
+                        if authorized is not None:
+                            extras.append(f"authorized={authorized}")
+                        if expected:
+                            extras.append(f"expected_prefix={expected}")
+                        if detail:
+                            extras.append(f"detail={str(detail)[:80]}")
+                        if extras:
+                            suffix += " [" + ", ".join(extras) + "]"
+                    except Exception:
+                        pass
+                detail_parts.append(f"/health={health_resp.status_code}{suffix}")
+                break  # Success via curl, exit retry loop
+
+        # Fall back to requests-based approach (works for HTTP, or HTTPS if curl failed)
+        ip_health_url, original_hostname = _resolve_url_to_ip(health_url)
+        use_ip_directly = ip_health_url != health_url  # True if we resolved to IP
+
+        # Ensure Host header is set if we resolved to IP
+        if (
+            use_ip_directly
+            and original_hostname
+            and original_hostname not in ("localhost", "127.0.0.1")
+        ):
+            headers["Host"] = original_hostname
+
+        try:
+            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
+            if use_ip_directly:
+                health_resp = requests.get(
+                    ip_health_url, headers=headers, timeout=timeout, verify=False
+                )
+            else:
+                health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
+            if is_synthtunnel and health_resp.status_code == 409 and attempt < max_retries - 1:
+                delay = 2**attempt
+                logging.getLogger(__name__).warning(
+                    "SynthTunnel lease pending (health=409), retrying in %ss...", delay
+                )
+                time.sleep(delay)
+                continue
+            health_ok, note = _health_response_ok(health_resp)
+            suffix = f" ({note})" if note else ""
+            # On non-200, include brief JSON detail if present
+            if not health_ok and health_resp is not None:
+                try:
+                    hjs = health_resp.json()
+                    # pull a few helpful fields without dumping everything
+                    expected = hjs.get("expected_api_key_prefix")
+                    authorized = hjs.get("authorized")
+                    detail = hjs.get("detail")
+                    extras = []
+                    if authorized is not None:
+                        extras.append(f"authorized={authorized}")
+                    if expected:
+                        extras.append(f"expected_prefix={expected}")
+                    if detail:
+                        extras.append(f"detail={str(detail)[:80]}")
+                    if extras:
+                        suffix += " [" + ", ".join(extras) + "]"
+                except Exception:
+                    pass
+            detail_parts.append(f"/health={health_resp.status_code}{suffix}")
+            break  # Success, exit retry loop
+        except requests.RequestException as exc:
+            if _is_dns_error(exc) and attempt < max_retries - 1:
+                # DNS error, retry with exponential backoff
+                delay = 2**attempt  # 1s, 2s, 4s, 8s, 16s
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "DNS resolution failed (attempt %s/%s), retrying in %ss...",
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+            # Not a DNS error or final attempt, record and break
+            detail_parts.append(f"/health_error={exc}")
+            break
+
+    task_resp: requests.Response | CurlResponse | None = None
+    task_ok = False
+
+    # Resolve hostname to IP using explicit resolvers to avoid system DNS issues
+    task_info_url = f"{base}/task_info"
+    # Host header already set from health check above
+
+    # Retry task_info check with exponential backoff for DNS errors
+    # Re-resolve DNS on each retry attempt to handle DNS propagation delays
+    for attempt in range(max_retries):
+        # For HTTPS URLs, try curl with --resolve first to bypass system DNS
+        if is_https:
+            curl_resp = _curl_with_resolve(task_info_url, headers=headers, timeout=timeout)
+            if curl_resp is not None:
+                task_resp = curl_resp
+                if is_synthtunnel and task_resp.status_code == 409 and attempt < max_retries - 1:
+                    delay = 2**attempt
+                    logging.getLogger(__name__).warning(
+                        "SynthTunnel lease pending (task_info=409), retrying in %ss...", delay
+                    )
+                    time.sleep(delay)
+                    continue
+                task_ok = bool(task_resp.status_code == 200)
+                if not task_ok and task_resp is not None:
+                    try:
+                        tjs = task_resp.json()
+                        msg = tjs.get("detail") or tjs.get("status")
+                        detail_parts.append(f"/task_info={task_resp.status_code} ({str(msg)[:80]})")
+                    except Exception:
+                        detail_parts.append(f"/task_info={task_resp.status_code}")
+                else:
+                    detail_parts.append(f"/task_info={task_resp.status_code}")
+                break  # Success via curl, exit retry loop
+
+        # Fall back to requests-based approach
+        ip_task_info_url, task_info_hostname = _resolve_url_to_ip(task_info_url)
+        use_ip_directly_task = ip_task_info_url != task_info_url  # True if we resolved to IP
+
+        # Ensure Host header is set if we resolved to IP
+        if (
+            use_ip_directly_task
+            and task_info_hostname
+            and task_info_hostname not in ("localhost", "127.0.0.1")
+        ):
+            headers["Host"] = task_info_hostname
+
+        try:
+            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
+            if use_ip_directly_task:
+                task_resp = requests.get(
+                    ip_task_info_url, headers=headers, timeout=timeout, verify=False
+                )
+            else:
+                task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
+            if is_synthtunnel and task_resp.status_code == 409 and attempt < max_retries - 1:
+                delay = 2**attempt
+                logging.getLogger(__name__).warning(
+                    "SynthTunnel lease pending (task_info=409), retrying in %ss...", delay
+                )
+                time.sleep(delay)
+                continue
+            task_ok = bool(task_resp.status_code == 200)
+            if not task_ok and task_resp is not None:
+                try:
+                    tjs = task_resp.json()
+                    msg = tjs.get("detail") or tjs.get("status")
+                    detail_parts.append(f"/task_info={task_resp.status_code} ({str(msg)[:80]})")
+                except Exception:
+                    detail_parts.append(f"/task_info={task_resp.status_code}")
+            else:
+                detail_parts.append(f"/task_info={task_resp.status_code}")
+            break  # Success, exit retry loop
+        except requests.RequestException as exc:
+            if _is_dns_error(exc) and attempt < max_retries - 1:
+                # DNS error, retry with exponential backoff
+                # DNS will be re-resolved on next iteration
+                delay = 2**attempt  # 1s, 2s, 4s, 8s, 16s
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "DNS resolution failed (attempt %s/%s), retrying in %ss...",
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                )
+                time.sleep(delay)
+                continue
+            # Not a DNS error or final attempt, record and break
+            detail_parts.append(f"/task_info_error={exc}")
+            break
+
+    ok = bool(health_ok and task_ok)
+    detail = ", ".join(detail_parts)
+    return ContainerHealth(
+        ok=ok,
+        health_status=None if health_resp is None else health_resp.status_code,
+        task_info_status=None if task_resp is None else task_resp.status_code,
+        detail=detail,
+    )
+
+
+@dataclass(slots=True)
+class ModalSecret:
+    name: str
+    value: str
+
+
+@dataclass(slots=True)
+class ModalApp:
+    app_id: str
+    label: str
+    url: str
+
+
+def _run_modal(args: Iterable[str]) -> CLIResult:
+    return run_cli(["modal", *args], timeout=30.0)
+
+
+def list_modal_secrets(pattern: str | None = None) -> list[str]:
+    result = _run_modal(["secret", "list"])
+    if result.code != 0:
+        raise click.ClickException(f"modal secret list failed: {result.stderr or result.stdout}")
+    names: list[str] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line.startswith("NAME"):
+            continue
+        parts = line.split()
+        name = parts[0]
+        if pattern and pattern.lower() not in name.lower():
+            continue
+        names.append(name)
+    return names
+
+
+def get_modal_secret_value(name: str) -> str:
+    result = _run_modal(["secret", "get", name])
+    if result.code != 0:
+        raise click.ClickException(
+            f"modal secret get {name} failed: {result.stderr or result.stdout}"
+        )
+    value = result.stdout.strip()
+    if not value:
+        raise click.ClickException(f"Secret {name} is empty")
+    return value
+
+
+def list_modal_apps(pattern: str | None = None) -> list[ModalApp]:
+    result = _run_modal(["app", "list"])
+    if result.code != 0:
+        raise click.ClickException(f"modal app list failed: {result.stderr or result.stdout}")
+    apps: list[ModalApp] = []
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line or line.startswith("APP"):
+            continue
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        app_id, label, url = parts[0], parts[1], parts[-1]
+        if pattern and pattern.lower() not in (label.lower() + url.lower() + app_id.lower()):
+            continue
+        apps.append(ModalApp(app_id=app_id, label=label, url=url))
+    return apps
+
+
+def format_modal_apps(apps: list[ModalApp]) -> str:
+    rows = [f"{idx}) {app.label} {app.url}" for idx, app in enumerate(apps, start=1)]
+    return "\n".join(rows)
+
+
+def format_modal_secrets(names: list[str]) -> str:
+    return "\n".join(f"{idx}) {name}" for idx, name in enumerate(names, start=1))
+
+
+__all__ = [
+    "ModalApp",
+    "ModalSecret",
+    "check_container_health",
+    "check_container_health",
+    "format_modal_apps",
+    "format_modal_secrets",
+    "get_modal_secret_value",
+    "list_modal_apps",
+    "list_modal_secrets",
+    "ContainerHealth",
+]

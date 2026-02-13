@@ -537,10 +537,10 @@ pub fn expand_eval_config(minimal: &Value) -> Result<Value, CoreError> {
         .as_object()
         .ok_or_else(|| CoreError::Validation("config must be an object".to_string()))?;
 
-    let task_app_url = map
-        .get("task_app_url")
+    let container_url = map
+        .get("container_url")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| CoreError::Validation("task_app_url is required".to_string()))?;
+        .ok_or_else(|| CoreError::Validation("container_url is required".to_string()))?;
 
     let seeds_value = map
         .get("seeds")
@@ -562,8 +562,8 @@ pub fn expand_eval_config(minimal: &Value) -> Result<Value, CoreError> {
 
     let mut out = Map::new();
     out.insert(
-        "task_app_url".to_string(),
-        Value::String(task_app_url.to_string()),
+        "container_url".to_string(),
+        Value::String(container_url.to_string()),
     );
     out.insert("env_name".to_string(), Value::String(env_name.to_string()));
     if let Some(app_id) = map.get("app_id") {
@@ -632,10 +632,10 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
         .as_object()
         .ok_or_else(|| CoreError::Validation("config must be an object".to_string()))?;
 
-    let task_app_url = map
-        .get("task_app_url")
+    let container_url = map
+        .get("container_url")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| CoreError::Validation("task_app_url is required".to_string()))?;
+        .ok_or_else(|| CoreError::Validation("container_url is required".to_string()))?;
 
     for key in [
         "proposer_effort",
@@ -798,11 +798,11 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
     let mut out = Map::new();
     out.insert("algorithm".to_string(), Value::String("gepa".to_string()));
     out.insert(
-        "task_app_url".to_string(),
-        Value::String(task_app_url.to_string()),
+        "container_url".to_string(),
+        Value::String(container_url.to_string()),
     );
-    if let Some(task_app_id) = map.get("task_app_id") {
-        out.insert("task_app_id".to_string(), task_app_id.clone());
+    if let Some(container_id) = map.get("container_id") {
+        out.insert("container_id".to_string(), container_id.clone());
     }
     for key in [
         "policy",

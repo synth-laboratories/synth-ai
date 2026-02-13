@@ -390,12 +390,12 @@ class TestPoolTaskFactory:
         task = PoolTask.from_openenv("task-3", "https://app.example.com")
         assert task.task_id == "task-3"
         assert task.backend == "openenv"
-        assert task.openenv_deployment == {"task_app_url": "https://app.example.com"}
+        assert task.openenv_deployment == {"container_url": "https://app.example.com"}
 
     def test_from_openenv_with_custom_deployment(self):
         from synth_ai.sdk.environment_pools import PoolTask
 
-        custom = {"task_app_url": "https://app.example.com", "version": "v2"}
+        custom = {"container_url": "https://app.example.com", "version": "v2"}
         task = PoolTask.from_openenv("task-4", "https://app.example.com", openenv_deployment=custom)
         assert task.openenv_deployment == custom
 
@@ -405,7 +405,7 @@ class TestPoolTaskFactory:
         task = PoolTask.from_browser("task-5", "https://app.example.com")
         assert task.task_id == "task-5"
         assert task.backend == "browser"
-        assert task.browser == {"task_app_url": "https://app.example.com"}
+        assert task.browser == {"container_url": "https://app.example.com"}
 
     def test_from_browser_with_profile(self):
         from synth_ai.sdk.environment_pools import PoolTask

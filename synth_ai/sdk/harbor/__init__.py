@@ -1,7 +1,7 @@
 """Harbor SDK - Upload and manage Harbor deployments.
 
 This module provides the SDK for uploading deployments to Harbor and
-using them via the unified task app interface.
+using them via the unified container interface.
 
 ## Quick Start
 
@@ -25,15 +25,15 @@ result = upload_harbor_deployment(spec, wait_for_ready=True)
 print(f"Deployment ready: {result.deployment_id}")
 ```
 
-### Use with LocalAPIConfig
+### Use with ContainerConfig
 
 ```python
-from synth_ai.sdk.localapi import LocalAPIConfig
+from synth_ai.sdk.container import ContainerConfig
 from synth_ai.sdk.harbor import HarborDeploymentRef
 
 # Reference an existing deployment
-config = LocalAPIConfig(
-    task_app_code=my_task_app,
+config = ContainerConfig(
+    container_code=my_container,
     execution_backend="harbor",
     harbor=HarborDeploymentRef(deployment_id="abc-123"),
 )
