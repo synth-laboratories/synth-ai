@@ -59,3 +59,27 @@ def test_build_prompt_learning_payload_config_precedence(monkeypatch) -> None:
     )
 
     assert result.task_url == "http://config.example.com"
+
+
+def test_build_prompt_learning_verifier_backend_base_defaults_to_job_backend(monkeypatch) -> None:
+    monkeypatch.setenv("ENVIRONMENT_API_KEY", "env_key")
+    monkeypatch.setenv("SYNTH_LOCALAPI_AUTH_PERSIST", "0")
+
+    config = _gepa_config_dict()
+    config["prompt_learning"]["verifier"] = {
+        "enabled": True,
+        "reward_source": "fused",
+        "verifier_graph_id": "zero_shot_verifier_rubric_rlm",
+        "weight_event": 0.2,
+        "weight_outcome": 0.2,
+        # backend_base intentionally omitted (should default to overrides["backend"])
+    }
+
+    result = build_prompt_learning_payload_from_mapping(
+        raw_config=config,
+        task_url=None,
+        overrides={"backend": "http://127.0.0.1:8000"},
+    )
+
+    verifier = result.payload["config_body"]["prompt_learning"]["verifier"]
+    assert verifier["backend_base"] == "http://127.0.0.1:8000"

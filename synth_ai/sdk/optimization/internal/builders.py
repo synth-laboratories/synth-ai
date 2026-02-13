@@ -54,6 +54,39 @@ class PromptLearningBuildResult:
     task_url: str
 
 
+def _default_verifier_backend_base(config_dict: dict[str, Any], overrides: dict[str, Any]) -> None:
+    """Backfill verifier.backend_base to the job backend when omitted.
+
+    Many local configs want verifier scoring to run against the same backend the job is
+    submitted to. If backend_base is empty, Rust defaults may point at production, which
+    breaks local runs (dev keys are invalid on prod).
+    """
+    backend = overrides.get("backend")
+    if not backend:
+        return
+
+    pl = config_dict.get("prompt_learning")
+    if not isinstance(pl, dict):
+        return
+
+    verifier = pl.get("verifier")
+    if not isinstance(verifier, dict):
+        return
+
+    if not verifier.get("enabled", False):
+        return
+
+    backend_base = str(verifier.get("backend_base") or "").strip()
+    if backend_base:
+        return
+
+    # Prefer a base URL (no "/api" suffix) for verifier.backend_base.
+    base = str(backend).strip().rstrip("/")
+    if base.endswith("/api"):
+        base = base[: -len("/api")]
+    verifier["backend_base"] = base
+
+
 def _format_validation_error(path: Path, exc: ValidationError) -> str:
     lines: list[str] = []
     for error in exc.errors():
@@ -206,6 +239,7 @@ def build_prompt_learning_payload(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    _default_verifier_backend_base(config_dict, overrides)
     task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
@@ -530,6 +564,7 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    _default_verifier_backend_base(config_dict, overrides)
     task_app_id_present = bool((pl_cfg.task_app_id or "").strip())
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
