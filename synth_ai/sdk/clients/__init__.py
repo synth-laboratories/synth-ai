@@ -7,7 +7,7 @@ from .openai import AsyncOpenAI
 __all__ = ["AsyncOpenAI"]
 
 try:
-    from .anthropic import AsyncAnthropic
+    from .anthropic import AsyncAnthropic as AsyncAnthropic
 
     __all__.append("AsyncAnthropic")
 except ImportError:

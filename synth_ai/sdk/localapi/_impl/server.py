@@ -78,7 +78,7 @@ class RubricBundle(BaseModel):
         if is_dataclass(value):
             return asdict(value)
         if hasattr(value, "model_dump"):
-            return value.model_dump()
+            return value.model_dump()  # type: ignore[call-non-callable]
         return value
 
 
