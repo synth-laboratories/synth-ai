@@ -1,36 +1,46 @@
 ---
 name: synth-api
-description: Use the Synth AI API end-to-end (SDK + HTTP) for eval + GEPA
+version: "0.7.15"
+description: Use the Synth AI SDK end-to-end for policy optimization (GEPA), graph optimization, eval, and inference
 ---
 
-# Synth API (SDK + HTTP, end-to-end)
+# Synth API (SDK v0.7.15)
 
 This skill explains how to run Synth end-to-end with:
-- a **Local API task app** exposed via **Cloudflare tunnel**
-- **GEPA prompt optimization**
+- a **task app** (Local API) exposed via **SynthTunnel** or **Cloudflare tunnel**
+- **PolicyOptimizationJob** (GEPA / MIPRO prompt optimization)
+- **GraphOptimizationJob** (verifier graph training)
+- **GEPA compat layer** (drop-in `gepa.optimize()` interface)
 - **Eval jobs** on held-out seeds
+- **InProcessTaskApp** for all-in-one local development
 
-Reference demo: `demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb`
+Reference demos have moved to the sibling `Benchmarking` repo.
 
 ## Required env
 
-- `SYNTH_API_KEY`: your API key (or mint a demo key if using a demo workflow)
+- `SYNTH_API_KEY`: your API key (or mint a demo key below)
 - `SYNTH_BACKEND_URL` (optional): backend base URL, default `https://api.usesynth.ai`
 
-## Auth + API keys
+## Auth (three keys)
 
-Synth uses two keys:
+Synth uses **three** distinct keys. Do not mix them:
 
-- `SYNTH_API_KEY` authenticates your SDK/CLI calls to the Synth backend.
-- `ENVIRONMENT_API_KEY` authenticates backend-to-task-app requests (sent as `X-API-Key` or `Authorization: Bearer ...`).
+| Key | Purpose | Header | When needed |
+|-----|---------|--------|-------------|
+| `SYNTH_API_KEY` | Authenticates SDK/CLI calls to the **Synth backend** | `Authorization: Bearer <key>` | Always |
+| `ENVIRONMENT_API_KEY` | Authenticates backend-to-**task-app** requests | `x-api-key: <key>` | Cloudflare tunnels |
+| SynthTunnel `worker_token` | Authenticates tunnel **relay to task app** | Passed as `task_app_worker_token` in job config | SynthTunnel (default) |
+
+Common failures:
+- `Invalid API key` on `/api/jobs/*` = wrong key sent to backend.
+- `SYNTH_TUNNEL_ERROR: Invalid worker token` = wrong tunnel relay token.
 
 ### Mint a demo Synth API key (optional)
 
-Demo keys are short‑lived (default 4 hours) and are great for notebooks or quick starts.
+Demo keys are short-lived (default 4 hours) and are great for notebooks or quick starts.
 
 ```python
 import os
-
 from synth_ai.core.utils.env import mint_demo_api_key
 
 SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
@@ -38,14 +48,12 @@ SYNTH_API_KEY = os.environ.get("SYNTH_API_KEY") or mint_demo_api_key(SYNTH_API_B
 os.environ["SYNTH_API_KEY"] = SYNTH_API_KEY
 ```
 
-### Mint + upload an Environment API key
+### Mint + upload an Environment API key (Cloudflare tunnels only)
 
-Your task app should use the same `ENVIRONMENT_API_KEY` that the backend stores for your org.
-The helper below generates a key locally and uploads it to the backend using your `SYNTH_API_KEY`.
+Only needed when using Cloudflare tunnels. SynthTunnel handles auth automatically.
 
 ```python
 import os
-
 from synth_ai.sdk.localapi.auth import mint_environment_api_key, setup_environment_api_key
 
 SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
@@ -53,55 +61,42 @@ SYNTH_API_KEY = os.environ["SYNTH_API_KEY"]
 
 ENVIRONMENT_API_KEY = mint_environment_api_key()
 os.environ["ENVIRONMENT_API_KEY"] = ENVIRONMENT_API_KEY
-
 setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=ENVIRONMENT_API_KEY)
 ```
 
 ## Core concepts
 
-- **Local API**: Your task app runs locally and exposes `/rollout` + `/task_info`.
-- **Tunnel**: Cloudflare Quick Tunnel makes the local app reachable by Synth.
-- **GEPA**: Prompt optimizer that mutates prompts to maximize reward.
+- **Task app (Local API)**: Your app runs locally and exposes `/rollout` + `/task_info`.
+- **Tunnel**: SynthTunnel (default) or Cloudflare Quick Tunnel makes the local app reachable by Synth.
+- **GEPA**: Evolutionary prompt optimizer that mutates prompts to maximize reward.
+- **MIPRO**: Systematic instruction proposal optimizer.
+- **Graph Optimize**: Train verifier graphs (RLM-based) on your evaluation data.
 - **Eval jobs**: Formal evaluation on held-out seeds after optimization.
 
-## Quick SDK health check
+## Version check
 
 ```python
-import os
-import asyncio
-
-from synth_ai.sdk.jobs import JobsClient
-
-
-async def main() -> None:
-    async with JobsClient(
-        base_url=os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai"),
-        api_key=os.environ["SYNTH_API_KEY"],
-    ) as client:
-        files = await client.files.list(limit=5)
-        print(files)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+import synth_ai
+print(synth_ai.__version__)  # "0.7.15"
 ```
 
-## 1) Define a Local API task app
+## 1) Define a task app
 
-Minimum Local API shape:
+Minimum task app shape:
 - `provide_taskset_description()`
 - `provide_task_instances(seeds)`
 - `rollout(request) -> RolloutResponse`
 
 ```python
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
-from synth_ai.sdk.localapi._impl.contracts import RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo
+from synth_ai import LocalAPIConfig, create_task_app
+from synth_ai.sdk.localapi._impl.contracts import (
+    RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo,
+)
 
 
-def create_banking77_local_api(system_prompt: str):
+def create_banking77_task_app(system_prompt: str):
     async def run_rollout(request: RolloutRequest, fastapi_request) -> RolloutResponse:
-        # Use your own task logic here; return a reward in [0, 1].
-        reward = 1.0
+        reward = 1.0  # Your task logic here; return reward in [0, 1]
         return RolloutResponse(
             trace_correlation_id=request.trace_correlation_id,
             reward_info=RolloutMetrics(outcome_reward=reward),
@@ -121,7 +116,7 @@ def create_banking77_local_api(system_prompt: str):
                 task_metadata={"seed": seed},
             )
 
-    return create_local_api(
+    return create_task_app(
         LocalAPIConfig(
             app_id="banking77",
             name="Banking77 Intent Classification",
@@ -134,39 +129,57 @@ def create_banking77_local_api(system_prompt: str):
     )
 ```
 
-## 2) Expose the Local API with a Cloudflare tunnel
+## 2) Expose with a tunnel
 
-Use the built‑in tunnel helper to auto‑start the server and provision a URL.
-The helper spins up your local server, creates a public `trycloudflare.com` URL,
-and forwards requests from the public URL to your local port. Keep the process
-running while Synth calls your task app.
+### SynthTunnel (recommended)
+
+Relay-based tunnel — no external binary required, supports 128 concurrent requests:
 
 ```python
-from synth_ai.core.tunnels import TunnelBackend, TunneledLocalAPI
+from synth_ai.core.tunnels import TunneledLocalAPI
 
-app = create_banking77_local_api("baseline prompt")
-baseline_tunnel = await TunneledLocalAPI.create_for_app(
+app = create_banking77_task_app("baseline prompt")
+tunnel = await TunneledLocalAPI.create_for_app(
     app=app,
     local_port=None,  # auto-select
-    backend=TunnelBackend.CloudflareQuickTunnel,
-    progress=True,
+    api_key=os.environ["SYNTH_API_KEY"],
 )
-LOCAL_API_URL = baseline_tunnel.url
-print("Local API URL:", LOCAL_API_URL)
+TASK_APP_URL = tunnel.url            # https://st.usesynth.ai/s/rt_...
+WORKER_TOKEN = tunnel.worker_token   # pass to job config
+print("Task app URL:", TASK_APP_URL)
 ```
 
-## 3) Run GEPA (prompt optimization)
+### Cloudflare Quick Tunnel (alternative)
 
-GEPA mutates prompt candidates and evaluates them via rollouts. Use a GEPA config body
-or a config file. Example config body:
+Requires `cloudflared` installed (`brew install cloudflared`):
 
 ```python
-from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
+from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+
+app = create_banking77_task_app("baseline prompt")
+tunnel = await TunneledLocalAPI.create_for_app(
+    app=app,
+    local_port=None,
+    backend=TunnelBackend.CloudflareQuickTunnel,
+)
+TASK_APP_URL = tunnel.url  # https://....trycloudflare.com
+```
+
+When using Cloudflare tunnels, pass `task_app_api_key` instead of `task_app_worker_token` in job configs.
+
+## 3) Run GEPA (policy optimization)
+
+GEPA mutates prompt candidates and evaluates them via rollouts. Use a config dict
+or a TOML file.
+
+```python
+import os
+from synth_ai import PolicyOptimizationJob
 
 config_body = {
-    "prompt_learning": {
+    "policy_optimization": {
         "algorithm": "gepa",
-        "task_app_url": LOCAL_API_URL,
+        "task_app_url": TASK_APP_URL,
         "env_name": "banking77",
         "initial_prompt": {
             "messages": [
@@ -196,24 +209,109 @@ config_body = {
     },
 }
 
-job = PromptLearningJob.from_dict(config_dict=config_body, skip_health_check=True)
+job = PolicyOptimizationJob.from_dict(
+    config_dict=config_body,
+    task_app_worker_token=WORKER_TOKEN,  # from SynthTunnel
+    skip_health_check=True,
+)
 job_id = job.submit()
-result = job.poll_until_complete(timeout=3600.0, interval=3.0, progress=True)
-print(result.status.value)
+result = job.stream_until_complete(timeout=3600.0)
+print(f"Best score: {result.best_score}")
 ```
 
-## 4) Run Eval jobs (held‑out seeds)
-
-Eval jobs score a fixed set of held‑out seeds for a final report once optimization
-finishes.
+### From a TOML config file
 
 ```python
-from synth_ai.sdk.eval.job import EvalJob, EvalJobConfig
+from synth_ai import PolicyOptimizationJob
+
+job = PolicyOptimizationJob.from_config(
+    config_path="gepa_config.toml",
+    task_app_worker_token=WORKER_TOKEN,
+)
+job.submit()
+result = job.stream_until_complete(timeout=3600.0)
+```
+
+## 4) GEPA compat layer (drop-in)
+
+For a simpler interface that handles task app + tunnel setup automatically:
+
+```python
+from synth_ai import gepa
+
+trainset, valset, _ = gepa.examples.banking77.init_dataset()
+result = gepa.optimize(
+    seed_candidate={"system_prompt": "You are a helpful assistant."},
+    trainset=trainset,
+    valset=valset,
+    task_lm="openai/gpt-4.1-mini",
+    max_metric_calls=150,
+    reflection_lm="openai/gpt-5",
+)
+print(result.best_candidate["system_prompt"])
+```
+
+Key parameters:
+- `seed_candidate`: dict with a `system_prompt` (or `instruction`/`prompt`) key
+- `trainset` / `valset`: lists of dicts with `input` and `answer` keys
+- `task_lm`: `"provider/model"` string
+- `reflection_lm`: model for GEPA proposer (controls proposer effort)
+- `max_metric_calls`: budget cap
+
+## 5) InProcessTaskApp (all-in-one)
+
+Combines task app + tunnel + lifecycle in a single async context manager:
+
+```python
+from synth_ai import InProcessTaskApp, PolicyOptimizationJob
+
+async with InProcessTaskApp(
+    app=create_banking77_task_app("baseline prompt"),
+    port=8114,
+    tunnel_mode="synthtunnel",  # default; also "quick", "local", "preconfigured"
+    api_key=os.environ["SYNTH_API_KEY"],
+) as task_app:
+    print(f"Running at: {task_app.url}")
+
+    job = PolicyOptimizationJob.from_dict(
+        config_dict=config_body,
+        task_app_worker_token=task_app.worker_token,
+    )
+    job.submit()
+    result = job.stream_until_complete(timeout=3600.0)
+```
+
+## 6) Graph optimization (verifier training)
+
+Train a verifier graph with an RLM backbone:
+
+```python
+from synth_ai import GraphOptimizationJob
+
+job = GraphOptimizationJob.from_dataset(
+    dataset="verifier_dataset.json",
+    graph_type="rlm",
+    policy_models=["gpt-4.1"],
+    proposer_effort="medium",
+    rollout_budget=200,
+)
+job.submit()
+result = job.stream_until_complete(timeout=3600.0)
+```
+
+## 7) Run Eval jobs (held-out seeds)
+
+Eval jobs score a fixed set of held-out seeds for a final report.
+
+```python
+import os
+from synth_ai import EvalJob, EvalJobConfig
 
 config = EvalJobConfig(
-    local_api_url=LOCAL_API_URL,
+    task_app_url=TASK_APP_URL,
     backend_url=os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai"),
     api_key=os.environ["SYNTH_API_KEY"],
+    task_app_worker_token=WORKER_TOKEN,  # for SynthTunnel
     env_name="banking77",
     seeds=list(range(100, 150)),
     policy_config={"model": "gpt-4.1-nano", "provider": "openai"},
@@ -223,18 +321,55 @@ config = EvalJobConfig(
 job = EvalJob(config)
 job.submit()
 result = job.poll_until_complete(timeout=600.0, interval=2.0, progress=True)
-print(result.status)
+print(f"Mean reward: {result.mean_reward}")
 ```
 
-## 5) Retrieve optimized prompts
+## 8) Zero-shot verifiers
+
+Run a built-in verifier graph with rubric criteria passed at runtime:
 
 ```python
-from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
+import os
+from synth_ai import VerifierClient
 
-client = PromptLearningClient()
-prompt_results = await client.get_prompts(job_id)
-best_score = prompt_results.best_score
-print("Best score:", best_score)
+client = VerifierClient(
+    base_url=os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai"),
+    api_key=os.environ["SYNTH_API_KEY"],
+)
+result = await client.evaluate(
+    job_id="zero_shot_verifier_single",
+    trace={"session_id": "s", "session_time_steps": []},
+    rubric={
+        "event": [{"id": "accuracy", "weight": 1.0, "description": "Correctness"}],
+        "outcome": [{"id": "task_completion", "weight": 1.0, "description": "Completed task"}],
+    },
+    options={"event": True, "outcome": True, "model": "gpt-5-nano"},
+    policy_name="my_policy",
+    task_app_id="my_task",
+)
+```
+
+## CLI
+
+```bash
+# Install
+pip install synth-ai==0.7.15
+# or: uv add synth-ai
+
+# Check version
+synth-ai --version
+
+# List packaged OpenCode skills
+synth-ai skill list
+
+# Install a skill to a custom directory
+synth-ai skill install synth-api --dir ~/custom/opencode/skill
+
+# Serve a task app locally
+synth-ai localapi serve my_module:app --port 8114
+
+# Deploy a task app to Synth Harbor
+synth-ai localapi deploy --name my-app --app my_module:app --dockerfile ./Dockerfile --context . --wait
 ```
 
 ## HTTP example (raw)
@@ -253,10 +388,34 @@ resp.raise_for_status()
 print(resp.json())
 ```
 
+## API stability
+
+Modules follow the [API Stability Lifecycle](../../specifications/api-stability-lifecycle.md):
+
+| Module | Status | Import |
+|--------|--------|--------|
+| `PolicyOptimizationJob` | Stable | `from synth_ai import PolicyOptimizationJob` |
+| `GraphOptimizationJob` | Stable | `from synth_ai import GraphOptimizationJob` |
+| `EvalJob` | Stable | `from synth_ai import EvalJob` |
+| `create_task_app` | Stable | `from synth_ai import create_task_app` |
+| `InProcessTaskApp` | Stable | `from synth_ai import InProcessTaskApp` |
+| `TunneledLocalAPI` | Stable | `from synth_ai.core.tunnels import TunneledLocalAPI` |
+| `VerifierClient` | Beta | `from synth_ai import VerifierClient` |
+| `GraphCompletionsClient` | Beta | `from synth_ai import GraphCompletionsClient` |
+| `InferenceClient` | Beta | `from synth_ai import InferenceClient` |
+| `gepa.optimize` | Beta | `from synth_ai.gepa import optimize` |
+| `dspy.GEPA` | Beta | `from synth_ai.dspy import GEPA` |
+| `EnvironmentPoolsClient` | Alpha | `from synth_ai.sdk.environment_pools import EnvironmentPoolsClient` |
+| `ManagedPools` | Alpha | `from synth_ai.sdk.managed_pools import ...` |
+
+Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `create_local_api`) still work but are deprecated.
+
 ## Troubleshooting checklist
 
-- **Cloudflare tunnel**: Make sure `TunneledLocalAPI` returns a reachable URL; expect a `trycloudflare.com` URL.
-- **Inference URL**: If using hosted inference, your model requests should point to `https://api.usesynth.ai/api/inference/v1`.
-- **Auth**: Confirm `SYNTH_API_KEY` is set and valid.
+- **SynthTunnel**: Expect a `st.usesynth.ai` URL. Pass `tunnel.worker_token` to job configs.
+- **Cloudflare tunnel**: Expect a `trycloudflare.com` URL. Requires `cloudflared` binary.
+- **Inference URL**: If using hosted inference, model requests go to `https://api.usesynth.ai/api/inference/v1`.
+- **Auth**: Confirm `SYNTH_API_KEY` is set and valid. Do not confuse it with `ENVIRONMENT_API_KEY` or `worker_token`.
 - **Task app shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
-- **Polling errors**: If a poll fails, re‑query `/api/prompt-learning/online/jobs/{job_id}` to confirm job status.
+- **Streaming errors**: If `stream_until_complete()` disconnects, it auto-reconnects via SSE. Check backend logs for job status.
+- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`.
