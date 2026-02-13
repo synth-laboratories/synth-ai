@@ -10,6 +10,7 @@ use crate::tunnels::cloudflared::resolve_hostname_with_explicit_resolvers;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::gateway::get_gateway;
 use crate::tunnels::lease_client::LeaseClient;
+use crate::urls::backend_url_base;
 use crate::tunnels::types::{LeaseInfo, LeaseState, TunnelBackend, TunnelHandle};
 use crate::tunnels::{cloudflared, connector::get_connector};
 
@@ -72,7 +73,7 @@ impl TunnelManager {
             let backend = self
                 .backend_url
                 .clone()
-                .unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+                .unwrap_or_else(backend_url_base);
             self.client = Some(LeaseClient::new(key, backend, 30)?);
         }
         Ok(self.client.as_ref().unwrap())

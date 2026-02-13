@@ -35,11 +35,9 @@ from urllib.parse import urlparse
 import aiohttp
 import httpx
 
-from synth_ai.core.utils.urls import normalize_backend_base
+from synth_ai.core.utils.urls import normalize_backend_base, resolve_synth_backend_url
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_BACKEND_URL = "https://api.usesynth.ai"
 
 
 def _client_instance_id_path() -> Path:
@@ -130,9 +128,9 @@ class SynthTunnelClient:
         if not api_key or not str(api_key).strip():
             raise ValueError("api_key is required to create SynthTunnel leases")
         self.api_key = api_key
-        self.backend_url = normalize_backend_base(
-            backend_url or os.getenv("SYNTH_BACKEND_URL") or DEFAULT_BACKEND_URL
-        ).rstrip("/")
+        self.backend_url = normalize_backend_base(resolve_synth_backend_url(backend_url)).rstrip(
+            "/"
+        )
 
     async def create_lease(
         self,

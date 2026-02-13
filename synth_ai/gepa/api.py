@@ -15,6 +15,7 @@ from typing import Any, Literal, cast
 import httpx
 
 from synth_ai.core.config.expansion import expand_gepa_config, gepa_candidate_to_initial_prompt
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.sdk.localapi import InProcessTaskApp
 from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
 from synth_ai.sdk.localapi._impl.server import TaskAppConfig, create_task_app
@@ -482,7 +483,7 @@ def optimize(
     num_generations = _infer_num_generations(resolved_max_metric_calls)
     children_per_generation = _infer_children_per_generation(resolved_max_metric_calls)
 
-    backend_url = os.environ.get("SYNTH_BACKEND_URL", "").strip() or "https://api.usesynth.ai"
+    backend_url = resolve_synth_backend_url()
     api_key = os.environ.get("SYNTH_API_KEY", "").strip()
     if not api_key:
         raise ValueError("SYNTH_API_KEY must be set to run Synth GEPA compatibility mode.")

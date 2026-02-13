@@ -4,6 +4,7 @@
 
 use crate::auth;
 use crate::http::HttpClient;
+use crate::urls::backend_url_base;
 use crate::CoreError;
 
 use super::eval::EvalClient;
@@ -14,7 +15,7 @@ use super::jobs::JobsClient;
 use super::localapi::LocalApiDeployClient;
 
 /// Default backend URL.
-pub const DEFAULT_BACKEND_URL: &str = "https://api.usesynth.ai";
+pub const DEFAULT_BACKEND_URL: &str = crate::urls::DEFAULT_BACKEND_URL;
 
 /// Default request timeout in seconds.
 pub const DEFAULT_TIMEOUT_SECS: u64 = 120;
@@ -59,7 +60,9 @@ impl SynthClient {
     /// let client = SynthClient::new("sk_live_...", None)?;
     /// ```
     pub fn new(api_key: &str, base_url: Option<&str>) -> Result<Self, CoreError> {
-        let base_url = base_url.unwrap_or(DEFAULT_BACKEND_URL).to_string();
+        let base_url = base_url
+            .map(|url| url.to_string())
+            .unwrap_or_else(backend_url_base);
         let http = HttpClient::new(&base_url, api_key, DEFAULT_TIMEOUT_SECS)
             .map_err(|e| CoreError::Internal(format!("failed to create HTTP client: {}", e)))?;
 
@@ -78,7 +81,9 @@ impl SynthClient {
         base_url: Option<&str>,
         timeout_secs: u64,
     ) -> Result<Self, CoreError> {
-        let base_url = base_url.unwrap_or(DEFAULT_BACKEND_URL).to_string();
+        let base_url = base_url
+            .map(|url| url.to_string())
+            .unwrap_or_else(backend_url_base);
         let http = HttpClient::new(&base_url, api_key, timeout_secs)
             .map_err(|e| CoreError::Internal(format!("failed to create HTTP client: {}", e)))?;
 
@@ -210,6 +215,6 @@ mod tests {
 
     #[test]
     fn test_default_backend_url() {
-        assert_eq!(DEFAULT_BACKEND_URL, "https://api.usesynth.ai");
+        assert_eq!(DEFAULT_BACKEND_URL, crate::urls::DEFAULT_BACKEND_URL);
     }
 }

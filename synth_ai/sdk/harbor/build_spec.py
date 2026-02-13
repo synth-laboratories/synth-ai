@@ -27,6 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from synth_ai.core.utils.urls import resolve_synth_backend_url
+
 
 @dataclass
 class HarborLimits:
@@ -253,7 +255,7 @@ class HarborDeploymentRef:
     def __post_init__(self) -> None:
         """Resolve defaults from environment."""
         if self.backend_url is None:
-            self.backend_url = os.getenv("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+            self.backend_url = resolve_synth_backend_url()
         if self.api_key is None:
             self.api_key = os.getenv("SYNTH_API_KEY")
 

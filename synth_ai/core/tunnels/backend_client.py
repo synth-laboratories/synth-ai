@@ -18,6 +18,8 @@ import warnings
 from datetime import datetime
 from typing import Any, Optional
 
+from synth_ai.core.utils.urls import resolve_synth_backend_url
+
 from .errors import TunnelAPIError
 from .types import LeaseInfo, LeaseState
 
@@ -27,9 +29,6 @@ except Exception as exc:  # pragma: no cover - rust bindings required
     raise RuntimeError("synth_ai_py is required for tunnel leases.") from exc
 
 logger = logging.getLogger(__name__)
-
-# Default backend URL
-DEFAULT_BACKEND_URL = "https://api.usesynth.ai"
 
 
 class LeaseClient:
@@ -68,9 +67,7 @@ class LeaseClient:
             stacklevel=2,
         )
         self.api_key = api_key
-        self.backend_url = (
-            backend_url or os.getenv("SYNTH_BACKEND_URL", DEFAULT_BACKEND_URL)
-        ).rstrip("/")
+        self.backend_url = resolve_synth_backend_url(backend_url).rstrip("/")
         self.timeout = timeout
         self._rust = synth_ai_py.LeaseClient(self.api_key, self.backend_url, int(self.timeout))
 

@@ -142,7 +142,7 @@ pub use synth_ai_core::tracing::{LLMChunk, LLMRequestParams};
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Default Synth API base URL.
-pub const DEFAULT_BASE_URL: &str = "https://api.usesynth.ai";
+pub const DEFAULT_BASE_URL: &str = synth_ai_core::urls::DEFAULT_BACKEND_URL;
 
 /// Environment variable for API key.
 pub const API_KEY_ENV: &str = "SYNTH_API_KEY";
@@ -234,7 +234,10 @@ impl Synth {
     /// Create a client from the `SYNTH_API_KEY` environment variable.
     pub fn from_env() -> Result<Self> {
         let api_key = env::var(API_KEY_ENV).map_err(|_| Error::MissingApiKey)?;
-        let base_url = env::var("SYNTH_BASE_URL").ok();
+        let base_url = env::var("SYNTH_BASE_URL")
+            .ok()
+            .or_else(|| env::var("SYNTH_BACKEND_URL").ok())
+            .or_else(|| Some(DEFAULT_BASE_URL.to_string()));
         Self::new(api_key, base_url.as_deref())
     }
 

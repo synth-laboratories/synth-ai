@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::core::{AuthStyle, CoreClient};
 use crate::types::{Result, SynthError};
 
-const DEFAULT_BASE_URL: &str = "https://api.usesynth.ai";
+const DEFAULT_BASE_URL: &str = synth_ai_core::urls::DEFAULT_BACKEND_URL;
 
 #[derive(Clone)]
 pub struct SynthClient {

@@ -2,6 +2,7 @@
 
 import click
 import httpx
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 
 @click.command()
@@ -39,7 +40,7 @@ import httpx
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     help="Synth backend URL",
 )
 @click.option(

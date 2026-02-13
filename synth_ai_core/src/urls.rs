@@ -2,6 +2,14 @@ use url::Url;
 
 use crate::CoreError;
 
+/// Canonical default URLs for API and infra endpoints.
+pub const DEFAULT_BACKEND_URL: &str = "https://api.usesynth.ai";
+pub const DEFAULT_FRONTEND_URL: &str = "https://usesynth.ai";
+pub const DEFAULT_RUST_BACKEND_URL: &str = "https://infra-api.usesynth.ai";
+pub const DEFAULT_DEV_BACKEND_URL: &str = "https://api-dev.usesynth.ai";
+pub const DEFAULT_DEV_RUST_BACKEND_URL: &str = "https://infra-api-dev.usesynth.ai";
+pub const DEFAULT_LOCAL_RUST_BACKEND_URL: &str = "http://localhost:8080";
+
 fn env_or_default(key: &str, default: &str) -> String {
     std::env::var(key)
         .ok()
@@ -9,14 +17,150 @@ fn env_or_default(key: &str, default: &str) -> String {
         .unwrap_or_else(|| default.to_string())
 }
 
+fn current_environment() -> String {
+    std::env::var("ENVIRONMENT")
+        .or_else(|_| std::env::var("APP_ENVIRONMENT"))
+        .or_else(|_| std::env::var("RAILWAY_ENVIRONMENT"))
+        .or_else(|_| std::env::var("RAILWAY_ENVIRONMENT_NAME"))
+        .or_else(|_| std::env::var("ENV"))
+        .unwrap_or_else(|_| "dev".to_string())
+        .to_lowercase()
+}
+
+fn is_prod_environment(env: &str) -> bool {
+    matches!(env, "prod" | "production" | "main")
+}
+
+fn looks_like_url(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.starts_with("http://") || trimmed.starts_with("https://")
+}
+
+fn resolve_backend_url_override() -> Option<String> {
+    let raw = std::env::var("SYNTH_BACKEND_URL_OVERRIDE").ok()?;
+    let raw = raw.trim().trim_matches('"').trim_matches('\'');
+    if raw.is_empty() {
+        return None;
+    }
+    let lowered = raw.to_lowercase();
+    match lowered.as_str() {
+        "local" | "localhost" => Some(env_or_default("LOCAL_BACKEND_URL", "http://localhost:8000")),
+        "dev" | "development" | "staging" | "railway" => Some(env_or_default(
+            "DEV_SYNTH_BACKEND_URL",
+            &env_or_default("DEV_BACKEND_URL", DEFAULT_DEV_BACKEND_URL),
+        )),
+        "prod" | "production" | "main" => Some(env_or_default(
+            "PROD_SYNTH_BACKEND_URL",
+            &env_or_default("PROD_BACKEND_URL", DEFAULT_BACKEND_URL),
+        )),
+        _ => {
+            if looks_like_url(raw) {
+                Some(raw.to_string())
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn resolve_rust_backend_url_override() -> Option<String> {
+    let raw = std::env::var("SYNTH_RUST_BACKEND_URL_OVERRIDE").ok()?;
+    let raw = raw.trim().trim_matches('"').trim_matches('\'');
+    if raw.is_empty() {
+        return None;
+    }
+    let lowered = raw.to_lowercase();
+    match lowered.as_str() {
+        "local" | "localhost" => Some(env_or_default(
+            "LOCAL_RUST_BACKEND_URL",
+            &env_or_default("RUST_BACKEND_URL", DEFAULT_LOCAL_RUST_BACKEND_URL),
+        )),
+        "dev" | "development" | "staging" | "railway" => Some(env_or_default(
+            "DEV_RUST_BACKEND_URL",
+            &env_or_default("RUST_BACKEND_URL", DEFAULT_DEV_RUST_BACKEND_URL),
+        )),
+        "prod" | "production" | "main" => Some(env_or_default(
+            "PROD_RUST_BACKEND_URL",
+            &env_or_default("RUST_BACKEND_URL", DEFAULT_RUST_BACKEND_URL),
+        )),
+        _ => {
+            if looks_like_url(raw) {
+                Some(raw.to_string())
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn resolve_backend_url() -> String {
+    if let Some(override_url) = resolve_backend_url_override() {
+        return override_url;
+    }
+    let env = current_environment();
+    if is_prod_environment(&env) {
+        env_or_default(
+            "PROD_SYNTH_BACKEND_URL",
+            &env_or_default(
+                "SYNTH_BACKEND_URL",
+                &env_or_default(
+                    "SYNTH_API_URL",
+                    &env_or_default(
+                        "PROD_BACKEND_URL",
+                        &env_or_default("BACKEND_URL", DEFAULT_BACKEND_URL),
+                    ),
+                ),
+            ),
+        )
+    } else {
+        env_or_default(
+            "DEV_SYNTH_BACKEND_URL",
+            &env_or_default(
+                "SYNTH_BACKEND_URL",
+                &env_or_default(
+                    "SYNTH_API_URL",
+                    &env_or_default(
+                        "DEV_BACKEND_URL",
+                        &env_or_default("BACKEND_URL", "http://localhost:8000"),
+                    ),
+                ),
+            ),
+        )
+    }
+}
+
+fn resolve_rust_backend_url() -> String {
+    if let Some(override_url) = resolve_rust_backend_url_override() {
+        return override_url;
+    }
+    let env = current_environment();
+    if is_prod_environment(&env) {
+        env_or_default(
+            "PROD_RUST_BACKEND_URL",
+            &env_or_default(
+                "SYNTH_RUST_BACKEND_URL",
+                &env_or_default("RUST_BACKEND_URL", DEFAULT_RUST_BACKEND_URL),
+            ),
+        )
+    } else {
+        env_or_default(
+            "DEV_RUST_BACKEND_URL",
+            &env_or_default(
+                "SYNTH_RUST_BACKEND_URL",
+                &env_or_default("RUST_BACKEND_URL", "http://localhost:8080"),
+            ),
+        )
+    }
+}
+
 /// Base URL for backend.
 pub fn backend_url_base() -> String {
-    env_or_default("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+    resolve_backend_url()
 }
 
 /// Base URL for frontend.
 pub fn frontend_url_base() -> String {
-    env_or_default("SYNTH_FRONTEND_URL", "https://usesynth.ai")
+    env_or_default("SYNTH_FRONTEND_URL", DEFAULT_FRONTEND_URL)
 }
 
 /// Join base URL with a path.

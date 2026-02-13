@@ -2,6 +2,7 @@
 
 import click
 import httpx
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 
 @click.group()
@@ -41,7 +42,7 @@ def instances():
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     help="Synth backend URL",
 )
 def create_instances(
@@ -124,7 +125,7 @@ def create_instances(
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     help="Synth backend URL",
 )
 @click.option(
@@ -214,7 +215,7 @@ def list_instances(
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     help="Synth backend URL",
 )
 def build_instances(

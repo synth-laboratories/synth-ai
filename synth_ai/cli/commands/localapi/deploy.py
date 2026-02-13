@@ -6,6 +6,7 @@ import json
 from typing import Iterable
 
 import click
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 
 
 def _parse_kv_pairs(values: Iterable[str]) -> dict[str, str]:
@@ -141,7 +142,7 @@ def _build_entrypoint(
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     show_default=True,
     help="Synth backend URL.",
 )

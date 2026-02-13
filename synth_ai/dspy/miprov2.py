@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from synth_ai.core.config.expansion import gepa_candidate_to_initial_prompt
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.gepa import api as _gepa_api
 from synth_ai.sdk.localapi import InProcessTaskApp
 from synth_ai.sdk.localapi._impl.rollout_helpers import build_rollout_response
@@ -127,7 +128,7 @@ def _run_synth_mipro(
     display_progress: bool,
     timeout_seconds: float,
 ) -> Any:
-    backend_url = os.environ.get("SYNTH_BACKEND_URL", "").strip() or "https://api.usesynth.ai"
+    backend_url = resolve_synth_backend_url()
     api_key = os.environ.get("SYNTH_API_KEY", "").strip()
     if not api_key:
         raise ValueError("SYNTH_API_KEY must be set to run Synth DSPy MIPROv2 compatibility.")

@@ -74,6 +74,39 @@ impl<'a> JobsClient<'a> {
         let worker_token = request.task_app_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
+
+        // Try canonical endpoint first, fall back to legacy on 404/405/non-JSON.
+        let canonical_result: Result<JobSubmitResponse, HttpError> = if let Some(ref token) = worker_token {
+            let mut headers = HeaderMap::new();
+            headers.insert(
+                "X-SynthTunnel-Worker-Token",
+                HeaderValue::from_str(token).map_err(|_| {
+                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
+                })?,
+            );
+            self.client
+                .http
+                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
+                .await
+        } else {
+            self.client
+                .http
+                .post_json(GEPA_CREATE_ENDPOINT, &body)
+                .await
+        };
+
+        match canonical_result {
+            Ok(response) => return Ok(response.job_id),
+            Err(HttpError::Response(detail)) if detail.status == 404 || detail.status == 405 => {
+                // Fall back to legacy endpoint.
+            }
+            Err(HttpError::JsonParse(_)) => {
+                // Backend returned non-JSON response; fall back to legacy.
+            }
+            Err(err) => return Err(map_http_error(err)),
+        }
+
+        // Legacy fallback
         let response: JobSubmitResponse = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -84,13 +117,13 @@ impl<'a> JobsClient<'a> {
             );
             self.client
                 .http
-                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
+                .post_json_with_headers(LEGACY_SUBMIT_ENDPOINT, &body, Some(headers))
                 .await
                 .map_err(map_http_error)?
         } else {
             self.client
                 .http
-                .post_json(GEPA_CREATE_ENDPOINT, &body)
+                .post_json(LEGACY_SUBMIT_ENDPOINT, &body)
                 .await
                 .map_err(map_http_error)?
         };
@@ -179,8 +212,13 @@ impl<'a> JobsClient<'a> {
                 };
             match canonical_result {
                 Ok(response) => return Ok(response.job_id),
-                Err(HttpError::Response(detail)) if detail.status == 404 => {
-                    // Older backends may not expose canonical endpoints yet.
+                Err(HttpError::Response(detail)) if detail.status == 404 || detail.status == 405 => {
+                    // Older backends may not expose canonical endpoints yet,
+                    // or may return 405 Method Not Allowed.
+                }
+                Err(HttpError::JsonParse(_)) => {
+                    // Backend returned non-JSON response (e.g. plain text "ok").
+                    // Fall back to legacy endpoint.
                 }
                 Err(err) => return Err(map_http_error(err)),
             }

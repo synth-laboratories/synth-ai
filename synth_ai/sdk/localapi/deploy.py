@@ -12,6 +12,8 @@ from pathlib import Path
 
 import httpx
 
+from synth_ai.core.utils.urls import resolve_synth_backend_url
+
 try:
     import synth_ai_py as _rust_core  # type: ignore
 except Exception:
@@ -109,7 +111,7 @@ def deploy_localapi(
             build_timeout_s=build_timeout_s,
         )
 
-        resolved_backend = backend_url or os.getenv("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+        resolved_backend = backend_url or resolve_synth_backend_url()
         deployment_key = result.deployment_name or result.deployment_id
         task_app_url = f"{resolved_backend.rstrip('/')}/api/harbor/deployments/{deployment_key}"
 
@@ -156,7 +158,7 @@ def deploy_localapi(
         if not api_key:
             raise ValueError("SYNTH_API_KEY is required for deploy")
 
-        resolved_backend = backend_url or os.getenv("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+        resolved_backend = backend_url or resolve_synth_backend_url()
 
         spec_body = {
             "name": name,

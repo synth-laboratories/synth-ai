@@ -7,6 +7,7 @@
 //! - Optimization defaults
 
 use crate::errors::CoreError;
+use crate::urls::backend_url_base;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::fs;
@@ -44,7 +45,7 @@ impl Default for CoreConfig {
         let backend_base_url = std::env::var("SYNTH_BACKEND_URL")
             .ok()
             .filter(|v| !v.trim().is_empty())
-            .unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+            .unwrap_or_else(backend_url_base);
         let api_key = std::env::var("SYNTH_API_KEY").ok();
         CoreConfig {
             backend_base_url,

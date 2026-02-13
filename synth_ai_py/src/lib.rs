@@ -194,7 +194,7 @@ impl LeaseClientPy {
     fn new(api_key: String, backend_url: Option<String>, timeout_s: Option<u64>) -> PyResult<Self> {
         let backend = backend_url
             .or_else(|| std::env::var("SYNTH_BACKEND_URL").ok())
-            .unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+            .unwrap_or_else(backend_url_base);
         let timeout = timeout_s.unwrap_or(30);
         let client = RustLeaseClient::new(api_key, backend, timeout)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;

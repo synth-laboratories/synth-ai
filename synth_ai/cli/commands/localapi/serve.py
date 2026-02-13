@@ -20,6 +20,7 @@ from synth_ai.core.tunnels import (
     acquire_port,
     wait_for_health_check,
 )
+from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.sdk.localapi._impl.server import run_server_background
 from synth_ai.sdk.localapi.auth import (
     ENVIRONMENT_API_KEY_NAME,
@@ -232,7 +233,7 @@ async def _serve_async(
 @click.option(
     "--backend-url",
     envvar="SYNTH_BACKEND_URL",
-    default="https://api.usesynth.ai",
+    default=resolve_synth_backend_url(),
     show_default=True,
     help="Synth backend URL.",
 )

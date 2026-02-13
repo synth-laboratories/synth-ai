@@ -14,6 +14,7 @@ use tokio::task::JoinHandle;
 
 use crate::shared_client::DEFAULT_CONNECT_TIMEOUT_SECS;
 use crate::tunnels::errors::TunnelError;
+use crate::urls::{backend_url_api, backend_url_base, join_url};
 
 static URL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"https://[a-z0-9-]+\\.trycloudflare\\.com").unwrap());
@@ -370,9 +371,9 @@ pub async fn rotate_tunnel(
     port: u16,
     backend_url: Option<String>,
 ) -> Result<TunnelRotateResponse, TunnelError> {
-    let raw = backend_url.unwrap_or_else(|| "https://api.usesynth.ai".to_string());
+    let raw = backend_url.unwrap_or_else(backend_url_base);
     let base = normalize_backend_base(&raw);
-    let url = format!("{base}/api/v1/tunnels/rotate");
+    let url = join_url(&base, "/api/v1/tunnels/rotate");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
         .pool_max_idle_per_host(20)
@@ -415,7 +416,7 @@ pub async fn create_tunnel(
     port: u16,
     subdomain: Option<String>,
 ) -> Result<TunnelCreateResponse, TunnelError> {
-    let url = "https://api.usesynth.ai/api/v1/tunnels/";
+    let url = join_url(&backend_url_api(), "/v1/tunnels/");
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(180))
         .pool_max_idle_per_host(20)

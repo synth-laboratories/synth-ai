@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from synth_ai.core.utils.urls import resolve_synth_backend_url
+
 if TYPE_CHECKING:
     from .build_spec import HarborBuildSpec, HarborDeploymentResult
 
@@ -68,7 +70,7 @@ class HarborDeploymentUploader:
         Raises:
             ValueError: If api_key is not provided and not in environment
         """
-        self.backend_url = backend_url or os.getenv("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
+        self.backend_url = backend_url or resolve_synth_backend_url()
         self.api_key = api_key or os.getenv("SYNTH_API_KEY")
         self.timeout = timeout
 

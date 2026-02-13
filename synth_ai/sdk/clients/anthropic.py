@@ -5,11 +5,18 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from anthropic import AsyncAnthropic as _AsyncAnthropic
+try:
+    from anthropic import AsyncAnthropic as _AsyncAnthropic
+except Exception as exc:  # pragma: no cover - optional dependency
+    _AsyncAnthropic = object  # type: ignore[assignment]
+    _ANTHROPIC_IMPORT_ERROR: Exception | None = exc
+else:  # pragma: no cover
+    _ANTHROPIC_IMPORT_ERROR = None
 
+from synth_ai.core.utils.urls import resolve_synth_interceptor_base_url
 from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 
-DEFAULT_INTERCEPTOR_BASE_URL = "https://api.usesynth.ai/api/interceptor/v1"
+DEFAULT_INTERCEPTOR_BASE_URL = resolve_synth_interceptor_base_url()
 
 
 class AsyncAnthropic(_AsyncAnthropic):
@@ -25,6 +32,11 @@ class AsyncAnthropic(_AsyncAnthropic):
         synth_api_key: str | None = None,
         **kwargs: Any,
     ) -> None:
+        if _ANTHROPIC_IMPORT_ERROR is not None:
+            raise ImportError(
+                "Optional dependency 'anthropic' is required to use synth_ai.sdk.clients.anthropic."
+            ) from _ANTHROPIC_IMPORT_ERROR
+
         if correlation_id is None:
             correlation_id = f"corr_{uuid.uuid4().hex[:12]}"
 

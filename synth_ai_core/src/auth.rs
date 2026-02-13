@@ -9,6 +9,7 @@
 use crate::errors::CoreError;
 use crate::shared_client::build_pooled_client;
 use crate::utils;
+use crate::urls::backend_url_base;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -35,7 +36,7 @@ pub const ENV_ENVIRONMENT_API_KEY: &str = "ENVIRONMENT_API_KEY";
 pub const DEFAULT_FRONTEND_URL: &str = "https://usesynth.ai";
 
 /// Default backend URL for API calls
-pub const DEFAULT_BACKEND_URL: &str = "https://api.usesynth.ai";
+pub const DEFAULT_BACKEND_URL: &str = crate::urls::DEFAULT_BACKEND_URL;
 
 /// Get the default config directory path (~/.synth-ai).
 pub fn get_config_dir() -> PathBuf {
@@ -401,8 +402,10 @@ pub async fn mint_demo_key(
     ttl_hours: Option<u32>,
 ) -> Result<String, CoreError> {
     let base = backend_url
-        .unwrap_or(DEFAULT_BACKEND_URL)
-        .trim_end_matches('/');
+        .map(|url| url.to_string())
+        .unwrap_or_else(backend_url_base)
+        .trim_end_matches('/')
+        .to_string();
     let url = format!("{}/api/demo/keys", base);
     let ttl = ttl_hours.unwrap_or(4);
 

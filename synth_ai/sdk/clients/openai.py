@@ -7,9 +7,10 @@ from typing import Any
 
 from openai import AsyncOpenAI as _AsyncOpenAI
 
+from synth_ai.core.utils.urls import resolve_synth_interceptor_base_url
 from synth_ai.sdk.localapi._impl.http_pool import get_shared_http_client
 
-DEFAULT_INTERCEPTOR_BASE_URL = "https://api.usesynth.ai/api/interceptor/v1"
+DEFAULT_INTERCEPTOR_BASE_URL = resolve_synth_interceptor_base_url()
 
 
 class AsyncOpenAI(_AsyncOpenAI):

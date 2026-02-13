@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
-from contextlib import suppress
 from typing import Any
 
 try:
@@ -156,30 +155,20 @@ def require_api_key_dependency(request: Any) -> None:
         else any(h in allowed for h in header_values if isinstance(h, str))
     )
     if not authorized:
-        candidates = _extract_candidates(request)
-        with suppress(Exception):
-            print(
-                {
-                    "task_auth_failed": True,
-                    "allowed_first15": [k[:15] for k in allowed],
-                    "allowed_count": len(allowed),
-                    "got_first15": [c[:15] for c in candidates],
-                    "got_lens": [len(c) for c in candidates],
-                    "have_x_api_key": bool(_header_values(request, _API_KEY_HEADER)),
-                    "have_x_api_keys": bool(_header_values(request, _API_KEYS_HEADER)),
-                    "have_authorization": bool(_header_values(request, _AUTH_HEADER)),
-                },
-                flush=True,
-            )
+        # Never include any part of the API key(s) in logs or HTTP bodies.
+        # Missing/invalid auth is common during preflight; extra context is limited to
+        # presence/absence of headers.
+        have_x_api_key = bool(_header_values(request, _API_KEY_HEADER))
+        have_x_api_keys = bool(_header_values(request, _API_KEYS_HEADER))
+        have_authorization = bool(_header_values(request, _AUTH_HEADER))
         # Use 400 to make failures unmistakable during preflight
         raise http_exception(
             400,
             "unauthorised",
             "API key missing or invalid",
             extra={
-                "allowed_first15": [k[:15] for k in allowed],
-                "allowed_count": len(allowed),
-                "got_first15": [c[:15] for c in candidates],
-                "got_lens": [len(c) for c in candidates],
+                "have_x_api_key": have_x_api_key,
+                "have_x_api_keys": have_x_api_keys,
+                "have_authorization": have_authorization,
             },
         )
