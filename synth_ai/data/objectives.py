@@ -20,6 +20,19 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for data.objectives.") from exc
 
 
+def _default_reward_source() -> RewardSource:
+    """Pick a stable RewardSource even if enum members drift across SDK versions."""
+    for name in ("CONTAINER", "TASK_APP", "LOCALAPI", "FUSED", "VERIFIER"):
+        member = getattr(RewardSource, name, None)
+        if member is not None:
+            return member
+    # Fall back to the first enum member, if any.
+    return next(iter(RewardSource))
+
+
+_DEFAULT_REWARD_SOURCE = _default_reward_source()
+
+
 @dataclass(frozen=True)
 class ObjectiveSpec:
     """Specification for a canonical objective."""
@@ -69,7 +82,7 @@ class RewardObservation:
     value: float
     reward_type: RewardType = RewardType.SHAPED
     scope: RewardScope = RewardScope.OUTCOME
-    source: RewardSource = RewardSource.CONTAINER
+    source: RewardSource = _DEFAULT_REWARD_SOURCE
     objective_key: ObjectiveKey = ObjectiveKey.REWARD
     event_id: Optional[str | int] = None
     turn_number: Optional[int] = None

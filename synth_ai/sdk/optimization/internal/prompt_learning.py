@@ -48,11 +48,16 @@ def _require_rust() -> Any:
 _LOCAL_BACKEND_HOSTS = {"localhost", "127.0.0.1", "host.docker.internal"}
 
 
-def _ensure_api_suffix(base: str) -> str:
+def _strip_api_suffix(base: str) -> str:
+    """Normalize a backend base URL for Rust clients (no trailing /api[/v1])."""
     b = (base or "").strip().rstrip("/")
     if not b:
         return b
-    return b if b.endswith("/api") else f"{b}/api"
+    for suffix in ("/api/v1", "/api"):
+        if b.endswith(suffix):
+            b = b[: -len(suffix)]
+            break
+    return b
 
 
 def _resolve_python_backend_base_runtime() -> str:
@@ -69,7 +74,7 @@ def _resolve_python_backend_base_runtime() -> str:
 
 
 def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
-    """Resolve Rust backend API base (/api) for prompt-learning operations.
+    """Resolve Rust backend base URL for prompt-learning operations.
 
     Local dev runs split services (Python :800x, Rust :808x). Job create/poll
     must hit Rust even when SYNTH_BACKEND_URL points at the Python API.
@@ -85,7 +90,7 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
     ):
         v = (os.getenv(k) or "").strip()
         if v:
-            return _ensure_api_suffix(v)
+            return _strip_api_suffix(v)
 
     # 2) If this looks like a local python slot URL (800x), translate to the rust slot (808x).
     try:
@@ -95,12 +100,12 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
         if host in _LOCAL_BACKEND_HOSTS and isinstance(port, int) and 8000 <= port <= 8009:
             rust_port = port + 80  # 8000->8080, 8001->8081, ...
             new = parsed._replace(netloc=f"{host}:{rust_port}")
-            return _ensure_api_suffix(urlunparse(new))
+            return _strip_api_suffix(urlunparse(new))
     except Exception:
         pass
 
     # 3) Fall back to the env-aware rust base.
-    return _ensure_api_suffix(RUST_BACKEND_URL_BASE)
+    return _strip_api_suffix(RUST_BACKEND_URL_BASE)
 
 
 def _extract_container_url(payload: dict[str, Any]) -> Optional[str]:
@@ -477,9 +482,8 @@ class PromptLearningJob:
 
         # Auto-detect tunnel URLs and skip health check if not explicitly set
         if skip_health_check is False:  # Only auto-detect if not explicitly True
-            task_url = config_dict.get("prompt_learning", {}).get(
-                "container_url"
-            ) or config_dict.get("prompt_learning", {}).get("container_url")
+            pl = config_dict.get("prompt_learning", {}) if isinstance(config_dict, dict) else {}
+            task_url = pl.get("container_url")
             if task_url and (
                 ".trycloudflare.com" in task_url.lower()
                 or ".cfargotunnel.com" in task_url.lower()
@@ -638,6 +642,16 @@ class PromptLearningJob:
             # Some deployed backends do not expose Rust's `/api/jobs/{mipro,gepa}` create
             # routes publicly. Fall back to the Python endpoint (same payload schema).
             msg = str(exc)
+            low = msg.lower()
+            # Local/dev stacks can drift on wire field names ("task_app_url" vs
+            # "container_url"). If Rust create rejects the request due to this
+            # mismatch, fall back to the Python create endpoint (which accepts the
+            # full config payload).
+            is_task_app_wire_mismatch = (
+                "task_app_url" in low
+                and ("http 400" in low or "status 400" in low or "400" in low)
+                and ("missing" in low or "required" in low or "config missing" in low)
+            )
             is_rust_create_failure = "/api/jobs/" in msg and any(
                 token in msg
                 for token in (
@@ -654,7 +668,7 @@ class PromptLearningJob:
                     "ReadTimeout",
                 )
             )
-            if is_rust_create_failure:
+            if is_rust_create_failure or is_task_app_wire_mismatch:
                 fell_back = True
 
                 # Best-effort debug (no secrets): report pool sizes for MIPRO configs.
@@ -691,6 +705,43 @@ class PromptLearningJob:
                         )
                 except Exception:
                     pass
+
+                # Ensure the legacy create endpoint can find the task app URL even when
+                # configs use the newer container_* keys (or vice versa).
+                if isinstance(config_payload, dict):
+                    try:
+                        payload_dict = dict(config_payload)
+                        cb = payload_dict.get("config_body")
+                        if isinstance(cb, dict):
+                            pl = cb.get("prompt_learning")
+                            if isinstance(pl, dict):
+                                if not (pl.get("task_app_url") or "").strip():
+                                    candidate = (
+                                        pl.get("container_url") or pl.get("localapi_url") or ""
+                                    ).strip()
+                                    if candidate:
+                                        pl["task_app_url"] = candidate
+                                if not (pl.get("container_url") or "").strip():
+                                    candidate = (
+                                        pl.get("task_app_url") or pl.get("localapi_url") or ""
+                                    ).strip()
+                                    if candidate:
+                                        pl["container_url"] = candidate
+                                if (
+                                    not (pl.get("task_app_id") or "").strip()
+                                    and (pl.get("container_id") or "").strip()
+                                ):
+                                    pl["task_app_id"] = (pl.get("container_id") or "").strip()
+                                if (
+                                    not (pl.get("container_id") or "").strip()
+                                    and (pl.get("task_app_id") or "").strip()
+                                ):
+                                    pl["container_id"] = (pl.get("task_app_id") or "").strip()
+                                cb["prompt_learning"] = pl
+                                payload_dict["config_body"] = cb
+                        config_payload = payload_dict
+                    except Exception:
+                        pass
 
                 resp = submit_prompt_learning_job(
                     backend_url=self.config.backend_url,

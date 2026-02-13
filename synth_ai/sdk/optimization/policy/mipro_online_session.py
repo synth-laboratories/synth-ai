@@ -381,7 +381,9 @@ class MiproOnlineSession:
         rollout completes.
 
         Args:
-            reward_info: Reward information (must include "score" key)
+            reward_info: Reward information. Prefer including a numeric score (e.g. {"score": 0.85}).
+                If omitted, the backend may infer reward from `artifact` or `metadata` (when supported),
+                for example `metadata={"expected": "...", "predicted": "..."}` for simple classifiers.
             artifact: Optional artifact data from the rollout
             metadata: Optional metadata about the rollout
             correlation_id: Optional correlation ID (overrides session default)

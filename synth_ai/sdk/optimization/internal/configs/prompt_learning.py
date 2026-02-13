@@ -79,6 +79,15 @@ from ..utils import load_toml
 from .shared import ExtraModel
 
 
+def _default_reward_source() -> RewardSource:
+    """Pick a stable RewardSource even if enum members drift across SDK versions."""
+    for name in ("CONTAINER", "TASK_APP", "LOCALAPI", "FUSED", "VERIFIER"):
+        member = getattr(RewardSource, name, None)
+        if member is not None:
+            return member
+    return next(iter(RewardSource))
+
+
 class SeedRange(ExtraModel):
     """Compact seed range notation for TOML configs.
 
@@ -233,7 +242,7 @@ class PromptLearningVerifierConfig(ExtraModel):
     """
 
     enabled: bool = False
-    reward_source: RewardSource = RewardSource.CONTAINER
+    reward_source: RewardSource = Field(default_factory=_default_reward_source)
     backend_base: str = ""
     backend_api_key_env: str = "SYNTH_API_KEY"
     backend_provider: str = ""

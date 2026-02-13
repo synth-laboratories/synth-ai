@@ -48,11 +48,54 @@ _MIPRO_ALIAS_WARNING_PREFIXES = (
     "Unknown field 'online_proposer_max_candidates' in [prompt_learning.mipro].",
 )
 
+_PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
+    # Container/task-app naming transition: accept both spellings.
+    "Unknown field 'container_url' in [prompt_learning].",
+    "Unknown field 'container_id' in [prompt_learning].",
+    "Unknown field 'task_app_url' in [prompt_learning].",
+    "Unknown field 'task_app_id' in [prompt_learning].",
+    "Unknown field 'localapi_url' in [prompt_learning].",
+    "Unknown field 'localapi_id' in [prompt_learning].",
+)
+
+
+def _normalize_container_task_app_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
+    """Ensure both container_* and task_app_* keys are present when possible.
+
+    Different backend/rust-validator versions require different wire keys. We
+    populate both to keep strict validation and old/new backends working.
+    """
+    normalized = deepcopy(config_data)
+    pl = normalized.get("prompt_learning")
+    if not isinstance(pl, dict):
+        return normalized
+
+    def _first_str(*vals: Any) -> str | None:
+        for v in vals:
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+        return None
+
+    url = _first_str(pl.get("container_url"), pl.get("task_app_url"), pl.get("localapi_url"))
+    if url:
+        pl.setdefault("container_url", url)
+        pl.setdefault("task_app_url", url)
+
+    cid = _first_str(pl.get("container_id"), pl.get("task_app_id"), pl.get("localapi_id"))
+    if cid:
+        pl.setdefault("container_id", cid)
+        pl.setdefault("task_app_id", cid)
+
+    normalized["prompt_learning"] = pl
+    return normalized
+
 
 def _filter_known_gepa_alias_warnings(warnings_list: list[str]) -> list[str]:
     """Hide unknown-field warnings for accepted GEPA/MIPRO compatibility keys."""
     filtered: list[str] = []
     for warning in warnings_list:
+        if any(warning.startswith(prefix) for prefix in _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES):
+            continue
         if any(warning.startswith(prefix) for prefix in _GEPA_ALIAS_WARNING_PREFIXES):
             continue
         if any(warning.startswith(prefix) for prefix in _MIPRO_ALIAS_WARNING_PREFIXES):
@@ -186,8 +229,8 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
 
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """Validate prompt learning config using Rust core."""
-    normalized_for_validation = _normalize_gepa_aliases(
-        _normalize_legacy_mipro_aliases(config_data)
+    normalized_for_validation = _normalize_container_task_app_aliases(
+        _normalize_gepa_aliases(_normalize_legacy_mipro_aliases(config_data))
     )
     try:
         validation_result = _validate_unknown_fields(

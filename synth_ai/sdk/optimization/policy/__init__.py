@@ -1,7 +1,7 @@
 """Policy optimization module (GEPA, MIPRO).
 
 This module provides the canonical API for policy optimization jobs, which
-optimize prompts/instructions using a LocalAPI for evaluation.
+optimize prompts/instructions using a Container for evaluation.
 
 Algorithms:
 - GEPA (Genetic Evolutionary Prompt Algorithm): Default algorithm

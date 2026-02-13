@@ -74,13 +74,42 @@ def normalize_inference_url(
     if not parsed.scheme or not parsed.netloc:
         parsed = urlparse(f"https://{url_str}")
 
-    path = parsed.path or ""
-    if not path or path == "/":
-        path = "/v1/chat/completions"
-    elif "chat/completions" not in path and path.rstrip("/").endswith("/v1"):
-        path = f"{path.rstrip('/')}/chat/completions"
+    # Some call sites accidentally append the completions path into the query string
+    # (e.g. "...?cid=trace_run-abc/v1/chat/completions"). Repair it by stripping
+    # the leaked suffix and preserving the remaining query params verbatim.
+    query = parsed.query or ""
+    if "/v1/chat/completions" in query:
+        query = query.replace("/v1/chat/completions?", "&")
+        query = query.replace("/v1/chat/completions&", "&")
+        query = query.replace("/v1/chat/completions", "")
+        query = query.strip("&")
+        while "&&" in query:
+            query = query.replace("&&", "&")
 
-    return urlunparse(parsed._replace(path=path))
+    path = (parsed.path or "").strip()
+    path_clean = path.rstrip("/")
+
+    # If caller already provided a completions endpoint, keep it (aside from trailing slash).
+    if "chat/completions" in path_clean:
+        final_path = path_clean or "/v1/chat/completions"
+    # If they pointed at /chat, only append /completions.
+    elif path_clean.endswith("/chat"):
+        final_path = f"{path_clean}/completions"
+    # Base domain only -> full default path.
+    elif not path_clean or path_clean == "/":
+        final_path = "/v1/chat/completions"
+    # /v1 (or /openai/v1) -> append /chat/completions.
+    elif path_clean.endswith("/v1"):
+        final_path = f"{path_clean}/chat/completions"
+    # Any other custom path -> append /v1/chat/completions.
+    else:
+        final_path = f"{path_clean}/v1/chat/completions"
+
+    # Ensure leading slash.
+    if not final_path.startswith("/"):
+        final_path = f"/{final_path}"
+
+    return urlunparse(parsed._replace(path=final_path, query=query))
 
 
 def validate_container_url(url: str | None) -> str:
