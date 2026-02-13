@@ -1,7 +1,7 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/PyPI-0.7.15-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.8.0-orange)](https://pypi.org/project/synth-ai/)
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -44,7 +44,7 @@ Benchmark and demo runner source files have moved to the `Benchmarking` repo (`.
 ### SDK (Python)
 
 ```bash
-pip install synth-ai==0.7.15
+pip install synth-ai==0.8.0
 # or
 uv add synth-ai
 ```
