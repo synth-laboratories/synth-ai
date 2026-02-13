@@ -7,7 +7,7 @@ description: Use the Synth AI SDK end-to-end for policy optimization (GEPA), gra
 # Synth API (SDK v0.7.15)
 
 This skill explains how to run Synth end-to-end with:
-- a **task app** (Local API) exposed via **SynthTunnel** or **Cloudflare tunnel**
+- a **container** (task app) exposed via **SynthTunnel** or **Cloudflare tunnel**
 - **PolicyOptimizationJob** (GEPA / MIPRO prompt optimization)
 - **GraphOptimizationJob** (verifier graph training)
 - **GEPA compat layer** (drop-in `gepa.optimize()` interface)
@@ -28,8 +28,8 @@ Synth uses **three** distinct keys. Do not mix them:
 | Key | Purpose | Header | When needed |
 |-----|---------|--------|-------------|
 | `SYNTH_API_KEY` | Authenticates SDK/CLI calls to the **Synth backend** | `Authorization: Bearer <key>` | Always |
-| `ENVIRONMENT_API_KEY` | Authenticates backend-to-**task-app** requests | `x-api-key: <key>` | Cloudflare tunnels |
-| SynthTunnel `worker_token` | Authenticates tunnel **relay to task app** | Passed as `task_app_worker_token` in job config | SynthTunnel (default) |
+| `ENVIRONMENT_API_KEY` | Authenticates backend-to-**container** requests | `x-api-key: <key>` | Cloudflare tunnels |
+| SynthTunnel `worker_token` | Authenticates tunnel **relay to container** | Passed as `task_app_worker_token` in job config | SynthTunnel (default) |
 
 Common failures:
 - `Invalid API key` on `/api/jobs/*` = wrong key sent to backend.
@@ -54,7 +54,7 @@ Only needed when using Cloudflare tunnels. SynthTunnel handles auth automaticall
 
 ```python
 import os
-from synth_ai.sdk.localapi.auth import mint_environment_api_key, setup_environment_api_key
+from synth_ai.sdk.container.auth import mint_environment_api_key, setup_environment_api_key
 
 SYNTH_API_BASE = os.environ.get("SYNTH_BACKEND_URL", "https://api.usesynth.ai")
 SYNTH_API_KEY = os.environ["SYNTH_API_KEY"]
@@ -66,8 +66,8 @@ setup_environment_api_key(SYNTH_API_BASE, SYNTH_API_KEY, token=ENVIRONMENT_API_K
 
 ## Core concepts
 
-- **Task app (Local API)**: Your app runs locally and exposes `/rollout` + `/task_info`.
-- **Tunnel**: SynthTunnel (default) or Cloudflare Quick Tunnel makes the local app reachable by Synth.
+- **Container**: Your task app runs locally and exposes `/rollout` + `/task_info`.
+- **Tunnel**: SynthTunnel (default) or Cloudflare Quick Tunnel makes the container reachable by Synth.
 - **GEPA**: Evolutionary prompt optimizer that mutates prompts to maximize reward.
 - **MIPRO**: Systematic instruction proposal optimizer.
 - **Graph Optimize**: Train verifier graphs (RLM-based) on your evaluation data.
@@ -80,16 +80,16 @@ import synth_ai
 print(synth_ai.__version__)  # "0.7.15"
 ```
 
-## 1) Define a task app
+## 1) Define a container
 
-Minimum task app shape:
+Minimum container shape:
 - `provide_taskset_description()`
 - `provide_task_instances(seeds)`
 - `rollout(request) -> RolloutResponse`
 
 ```python
-from synth_ai import LocalAPIConfig, create_task_app
-from synth_ai.sdk.localapi._impl.contracts import (
+from synth_ai import ContainerConfig, create_task_app
+from synth_ai.sdk.container._impl.contracts import (
     RolloutMetrics, RolloutRequest, RolloutResponse, TaskInfo,
 )
 
@@ -117,7 +117,7 @@ def create_banking77_task_app(system_prompt: str):
             )
 
     return create_task_app(
-        LocalAPIConfig(
+        ContainerConfig(
             app_id="banking77",
             name="Banking77 Intent Classification",
             description="Classify customer queries into intents.",
@@ -136,10 +136,10 @@ def create_banking77_task_app(system_prompt: str):
 Relay-based tunnel — no external binary required, supports 128 concurrent requests:
 
 ```python
-from synth_ai.core.tunnels import TunneledLocalAPI
+from synth_ai.core.tunnels import TunneledContainer
 
 app = create_banking77_task_app("baseline prompt")
-tunnel = await TunneledLocalAPI.create_for_app(
+tunnel = await TunneledContainer.create_for_app(
     app=app,
     local_port=None,  # auto-select
     api_key=os.environ["SYNTH_API_KEY"],
@@ -154,10 +154,10 @@ print("Task app URL:", TASK_APP_URL)
 Requires `cloudflared` installed (`brew install cloudflared`):
 
 ```python
-from synth_ai.core.tunnels import TunneledLocalAPI, TunnelBackend
+from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
 app = create_banking77_task_app("baseline prompt")
-tunnel = await TunneledLocalAPI.create_for_app(
+tunnel = await TunneledContainer.create_for_app(
     app=app,
     local_port=None,
     backend=TunnelBackend.CloudflareQuickTunnel,
@@ -260,7 +260,7 @@ Key parameters:
 
 ## 5) InProcessTaskApp (all-in-one)
 
-Combines task app + tunnel + lifecycle in a single async context manager:
+Combines container + tunnel + lifecycle in a single async context manager:
 
 ```python
 from synth_ai import InProcessTaskApp, PolicyOptimizationJob
@@ -365,10 +365,10 @@ synth-ai skill list
 # Install a skill to a custom directory
 synth-ai skill install synth-api --dir ~/custom/opencode/skill
 
-# Serve a task app locally
+# Serve a container locally
 synth-ai localapi serve my_module:app --port 8114
 
-# Deploy a task app to Synth Harbor
+# Deploy a container to Synth Harbor
 synth-ai localapi deploy --name my-app --app my_module:app --dockerfile ./Dockerfile --context . --wait
 ```
 
@@ -397,9 +397,10 @@ Modules follow the [API Stability Lifecycle](../../specifications/api-stability-
 | `PolicyOptimizationJob` | Stable | `from synth_ai import PolicyOptimizationJob` |
 | `GraphOptimizationJob` | Stable | `from synth_ai import GraphOptimizationJob` |
 | `EvalJob` | Stable | `from synth_ai import EvalJob` |
+| `ContainerConfig` | Stable | `from synth_ai import ContainerConfig` |
 | `create_task_app` | Stable | `from synth_ai import create_task_app` |
 | `InProcessTaskApp` | Stable | `from synth_ai import InProcessTaskApp` |
-| `TunneledLocalAPI` | Stable | `from synth_ai.core.tunnels import TunneledLocalAPI` |
+| `TunneledContainer` | Stable | `from synth_ai.core.tunnels import TunneledContainer` |
 | `VerifierClient` | Beta | `from synth_ai import VerifierClient` |
 | `GraphCompletionsClient` | Beta | `from synth_ai import GraphCompletionsClient` |
 | `InferenceClient` | Beta | `from synth_ai import InferenceClient` |
@@ -408,7 +409,7 @@ Modules follow the [API Stability Lifecycle](../../specifications/api-stability-
 | `EnvironmentPoolsClient` | Alpha | `from synth_ai.sdk.environment_pools import EnvironmentPoolsClient` |
 | `ManagedPools` | Alpha | `from synth_ai.sdk.managed_pools import ...` |
 
-Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `create_local_api`) still work but are deprecated.
+Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledLocalAPI`, `LocalAPIConfig`, `create_local_api`, `synth_ai.sdk.localapi.*`) still work but are deprecated.
 
 ## Troubleshooting checklist
 
@@ -416,6 +417,6 @@ Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `create_local_api`) still
 - **Cloudflare tunnel**: Expect a `trycloudflare.com` URL. Requires `cloudflared` binary.
 - **Inference URL**: If using hosted inference, model requests go to `https://api.usesynth.ai/api/inference/v1`.
 - **Auth**: Confirm `SYNTH_API_KEY` is set and valid. Do not confuse it with `ENVIRONMENT_API_KEY` or `worker_token`.
-- **Task app shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
+- **Container shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
 - **Streaming errors**: If `stream_until_complete()` disconnects, it auto-reconnects via SSE. Check backend logs for job status.
-- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`.
+- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`. If you see `synth_ai.sdk.localapi`, update to `synth_ai.sdk.container`.
