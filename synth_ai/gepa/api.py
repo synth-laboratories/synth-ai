@@ -636,9 +636,21 @@ def optimize(
             )
 
         app = create_task_app(_build_task_app_config())
-        tunnel_mode = (
-            os.environ.get("SYNTH_GEPA_TUNNEL_MODE", "synthtunnel").strip() or "synthtunnel"
-        )
+
+        # Default tunnel selection:
+        # - If the caller explicitly sets SYNTH_GEPA_TUNNEL_MODE, respect it.
+        # - Otherwise, prefer direct localhost URLs when optimizing against a local backend.
+        #   This avoids unnecessary SynthTunnel leases and infra-api dependencies during local dev.
+        env_tunnel_mode = (os.environ.get("SYNTH_GEPA_TUNNEL_MODE") or "").strip()
+        if env_tunnel_mode:
+            tunnel_mode = env_tunnel_mode
+        else:
+            backend_hint = str(backend_url or "").strip().lower()
+            is_local_backend = any(
+                token in backend_hint
+                for token in ("localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal")
+            )
+            tunnel_mode = "local" if is_local_backend else "synthtunnel"
 
         # When using local tunnel mode, the backend may not have the ENVIRONMENT_API_KEY
         # stored in its database for this org.  In that case the GEPA optimizer falls back
