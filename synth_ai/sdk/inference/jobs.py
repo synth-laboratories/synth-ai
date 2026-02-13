@@ -1,3 +1,27 @@
+"""Inference Jobs — async environment-backed execution.
+
+**Status:** Beta
+
+Use this for Harbor or browser inference jobs where you upload a bundle and
+poll job status or download artifacts.
+
+Example:
+    >>> from synth_ai.sdk.inference import InferenceJobRequest, InferenceJobsClient
+    >>>
+    >>> request = InferenceJobRequest(
+    ...     environment_type="harbor",
+    ...     bundle_path="./bundle.tar.gz",
+    ...     harbor={"deployment_id": "dep_123"},
+    ... )
+    >>>
+    >>> client = InferenceJobsClient(
+    ...     base_url="https://api.usesynth.ai",
+    ...     api_key=os.environ["SYNTH_API_KEY"],
+    ... )
+    >>> job = await client.create_job_from_request(request)
+    >>> print(job["job_id"])
+"""
+
 from __future__ import annotations
 
 import base64

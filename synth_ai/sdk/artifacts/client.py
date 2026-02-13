@@ -1,4 +1,7 @@
-"""HTTP client for artifacts API endpoints."""
+"""HTTP client for artifacts API endpoints.
+
+**Status:** Beta
+"""
 
 import logging
 from typing import Any, Dict, List, Optional

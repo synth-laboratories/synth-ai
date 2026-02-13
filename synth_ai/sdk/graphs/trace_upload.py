@@ -1,5 +1,7 @@
 """Trace upload utilities for large trace files.
 
+**Status:** Beta
+
 This module provides functionality for uploading large traces directly to
 blob storage (S3/Wasabi) via presigned URLs, avoiding HTTP timeout issues
 that occur when sending large payloads through the API.

@@ -1,5 +1,7 @@
 """HarborBuildSpec - User-facing abstraction for Harbor deployment uploads.
 
+**Status:** Beta
+
 This module defines the primary user-facing abstraction for uploading deployments
 to Harbor. Users define a HarborBuildSpec with their Dockerfile, context, and
 configuration, then use the SDK to package and upload it.

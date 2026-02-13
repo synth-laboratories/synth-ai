@@ -5,11 +5,14 @@ from typing import Any, Dict, Optional
 from .utils import ensure_api_base, http_get, http_post, parse_json_response
 
 
-def _headers(api_key: str) -> Dict[str, str]:
-    return {
+def _headers(api_key: str, *, worker_token: str | None = None) -> Dict[str, str]:
+    headers: Dict[str, str] = {
         "X-API-Key": api_key,
         "Content-Type": "application/json",
     }
+    if worker_token and worker_token.strip():
+        headers["X-SynthTunnel-Worker-Token"] = worker_token.strip()
+    return headers
 
 
 def submit_prompt_learning_job(
@@ -17,10 +20,15 @@ def submit_prompt_learning_job(
     backend_url: str,
     api_key: str,
     payload: Dict[str, Any],
+    task_app_worker_token: str | None = None,
 ) -> Dict[str, Any]:
     create_url = f"{ensure_api_base(backend_url)}/prompt-learning/online/jobs"
 
-    resp = http_post(create_url, headers=_headers(api_key), json_body=payload)
+    resp = http_post(
+        create_url,
+        headers=_headers(api_key, worker_token=task_app_worker_token),
+        json_body=payload,
+    )
     if resp.status_code not in (200, 201):
         error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
         if resp.status_code == 404:

@@ -1,5 +1,7 @@
 """MIPRO online session SDK wrapper.
 
+**Status:** Beta
+
 This module provides the `MiproOnlineSession` class for managing online MIPRO
 optimization sessions. In online mode, you drive rollouts locally while the
 backend provides prompt candidates through proxy URLs.

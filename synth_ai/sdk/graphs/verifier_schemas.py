@@ -1,5 +1,6 @@
-"""
-Verifier API Contract Schemas
+"""Verifier API Contract Schemas.
+
+**Status:** Beta
 
 These schemas define the expected structure for requests and responses
 to the verifier scoring endpoint at POST /api/graphs/verifiers/completions.

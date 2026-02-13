@@ -1,6 +1,6 @@
 """Graph completions client for graph inference (policies, verifiers, RLM).
 
-**Status:** Alpha
+**Status:** Beta
 
 This module provides the client for running inference on trained graphs,
 including policy graphs, verifier graphs, and Reasoning Language Models (RLM).

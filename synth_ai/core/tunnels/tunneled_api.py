@@ -258,6 +258,9 @@ class TunneledLocalAPI:
                             resp = await http_client.get(health_url, headers=headers)
                         if resp.status_code == 200:
                             return
+                        # Surfacing non-200 responses is critical for debugging local
+                        # auth mismatches (e.g., task app expects ENVIRONMENT_API_KEY).
+                        last_err = RuntimeError(f"Health check returned HTTP {resp.status_code}")
                     except Exception as exc:
                         last_err = exc
                     await asyncio.sleep(0.5)

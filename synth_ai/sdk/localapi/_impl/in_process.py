@@ -662,6 +662,12 @@ class InProcessTaskApp:
         self.host = host
         self.tunnel_mode = tunnel_mode
         self.tunnel_backend = tunnel_backend
+        # Env overrides are convenient for CLI usage, but they should not silently
+        # override an explicit tunnel_mode passed by callers. Only allow the
+        # SYNTH_TUNNEL_MODE env var to override when using the default settings.
+        self._allow_env_tunnel_mode_override = (
+            tunnel_mode == "synthtunnel" and tunnel_backend is None
+        )
         self.preconfigured_url = preconfigured_url
         self.preconfigured_auth_header = preconfigured_auth_header
         self.preconfigured_auth_token = preconfigured_auth_token
@@ -684,12 +690,18 @@ class InProcessTaskApp:
         self._dns_verified_by_backend = False  # Track if backend verified DNS propagation
         self.task_app_worker_token: Optional[str] = None
 
+    def _effective_tunnel_mode(self) -> str:
+        env_tunnel_mode = os.getenv("SYNTH_TUNNEL_MODE", "").strip()
+        if self._allow_env_tunnel_mode_override and env_tunnel_mode:
+            return env_tunnel_mode
+        return self.tunnel_mode
+
     async def __aenter__(self) -> "InProcessTaskApp":
         """Start task app and tunnel."""
 
         # For named tunnels, pre-fetch tunnel config to get the correct port
         # (existing tunnels are configured for a specific port)
-        mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
+        mode = self._effective_tunnel_mode()
         if mode == "named":
             try:
                 from synth_ai.core.utils.env import get_api_key as get_synth_api_key
@@ -806,6 +818,16 @@ class InProcessTaskApp:
                             f"  - Be registered with register_local_api() or register_task_app()"
                         ) from None
 
+        # Resolve the task app API key before starting the server.
+        #
+        # The Task App enforces auth via `ENVIRONMENT_API_KEY`. If we allow the server
+        # to mint a key during startup, the parent process won't know it, and subsequent
+        # health checks / tunnel agents may use the wrong key (often the historical
+        # default "test"), leading to confusing timeouts.
+        task_api_key = self.api_key or self._get_api_key()
+        if task_api_key:
+            os.environ["ENVIRONMENT_API_KEY"] = task_api_key
+
         # 2. Start uvicorn in background thread
         # Use daemon=True for local testing to allow quick exit
         # The thread will be killed when the process exits
@@ -840,18 +862,17 @@ class InProcessTaskApp:
         self._server_thread.start()
 
         # 3. Wait for health check
-        api_key = self.api_key or self._get_api_key()
         logger.debug(f"Waiting for health check on {self.host}:{self.port}")
         await _wait_for_local_health_check(
             self.host,
             self.port,
-            api_key,
+            task_api_key,
             timeout=self.health_check_timeout,
         )
         logger.debug(f"Health check passed for {self.host}:{self.port}")
 
         # 4. Determine tunnel mode (env var can override)
-        mode = os.getenv("SYNTH_TUNNEL_MODE", self.tunnel_mode)
+        mode = self._effective_tunnel_mode()
 
         # Check for preconfigured URL via env var
         env_preconfigured_url = os.getenv("SYNTH_TASK_APP_URL")
@@ -893,8 +914,6 @@ class InProcessTaskApp:
 
             # Optionally verify the preconfigured URL is accessible
             if not self.skip_tunnel_verification:
-                api_key = self.api_key or self._get_api_key()
-
                 # Build headers including any custom auth for the tunnel
                 extra_headers: dict[str, str] = {}
                 if self.preconfigured_auth_header and self.preconfigured_auth_token:
@@ -902,7 +921,7 @@ class InProcessTaskApp:
 
                 ready = await _verify_preconfigured_url_ready(
                     self.url,
-                    api_key,
+                    task_api_key,
                     extra_headers=extra_headers,
                     max_retries=10,  # Fewer retries - external URL should work quickly
                     retry_delay=1.0,
@@ -919,14 +938,13 @@ class InProcessTaskApp:
             from synth_ai.core.utils.env import get_api_key as get_synth_api_key
 
             synth_api_key = get_synth_api_key()
-            api_key = self.api_key or self._get_api_key()
             backend_url = os.getenv("SYNTH_BACKEND_URL")
 
             self._tunnel_handle = await TunneledLocalAPI.create(
                 local_port=self.port,
                 backend=backend,
                 api_key=synth_api_key,
-                env_api_key=api_key,
+                env_api_key=task_api_key,
                 backend_url=backend_url,
                 verify_dns=not self.skip_tunnel_verification,
                 progress=True,
@@ -956,7 +974,7 @@ class InProcessTaskApp:
                 raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
 
             # For task app auth, use the environment API key
-            api_key = self.api_key or self._get_api_key()
+            task_api_key = task_api_key or self._get_api_key()
 
             # Use pre-fetched config (port was already adjusted before server started)
             tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
@@ -1046,7 +1064,7 @@ class InProcessTaskApp:
             # First, check if cloudflared is already running (tunnel might be accessible)
             ready = await _verify_tunnel_ready(
                 self.url,
-                api_key,
+                task_api_key,
                 max_retries=1,  # Single quick check
                 retry_delay=0.5,
                 verify_tls=_should_verify_tls(),
@@ -1080,7 +1098,7 @@ class InProcessTaskApp:
                 print("[CLOUDFLARE] Waiting for tunnel to become accessible...")
                 ready = await _verify_tunnel_ready(
                     self.url,
-                    api_key,
+                    task_api_key,
                     max_retries=15,  # Up to ~30 seconds for tunnel to connect
                     retry_delay=2.0,
                     verify_tls=_should_verify_tls(),
@@ -1119,7 +1137,7 @@ class InProcessTaskApp:
                         # Verify the new tunnel
                         ready = await _verify_tunnel_ready(
                             self.url,
-                            api_key,
+                            task_api_key,
                             max_retries=15,
                             retry_delay=2.0,
                             verify_tls=_should_verify_tls(),
@@ -1280,7 +1298,19 @@ class InProcessTaskApp:
         except Exception:
             pass
 
-        return os.getenv("ENVIRONMENT_API_KEY", "test")
+        existing = (os.getenv("ENVIRONMENT_API_KEY") or "").strip()
+        if existing:
+            return existing
+
+        # Ensure a stable key exists for both:
+        # - Local health checks (which include X-API-Key)
+        # - Tunnel agents that must authenticate to the local task app
+        try:
+            from synth_ai.sdk.localapi.auth import ensure_localapi_auth
+
+            return ensure_localapi_auth(upload=False)
+        except Exception:
+            return "test"
 
     async def _fetch_tunnel_config(self, api_key: str) -> dict:
         """Fetch the customer's tunnel configuration from the backend.

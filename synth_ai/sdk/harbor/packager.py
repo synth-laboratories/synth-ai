@@ -1,5 +1,7 @@
 """HarborPackager - Package build context for Harbor deployments.
 
+**Status:** Beta
+
 This module handles packaging a directory into a tar.gz archive suitable
 for uploading to Harbor. It respects include/exclude globs and handles
 file filtering.

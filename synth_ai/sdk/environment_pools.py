@@ -1,4 +1,10 @@
-"""Environment pools SDK — rollouts, pools, queue status."""
+"""Environment Pools — run coding agents in managed sandboxes.
+
+**Status:** Alpha
+
+This module provides the ``EnvironmentPoolsClient`` for creating pools,
+launching rollouts, streaming SSE events, and capturing artifacts and usage.
+"""
 
 from __future__ import annotations
 

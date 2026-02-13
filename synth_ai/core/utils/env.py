@@ -211,9 +211,63 @@ def mint_demo_api_key(
     return str(key)
 
 
+# Local dev default (non-secret): backend/local_dev.sh seeds this key for local runs.
+LOCAL_DEV_SYNTH_API_KEY = "sk_dev_00000000000000000000000000000001"
+
+
+def _is_local_backend_url(url: str | None) -> bool:
+    if not url:
+        return False
+    lowered = str(url).strip().lower()
+    return any(
+        token in lowered
+        for token in (
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "host.docker.internal",
+        )
+    )
+
+
+def ensure_synth_api_key(
+    *,
+    backend_url: str | None = None,
+    mint_demo_if_missing: bool = True,
+) -> str:
+    """Ensure SYNTH_API_KEY is set and return it.
+
+    Dev ergonomics:
+    - For local backends (localhost/127.0.0.1/host.docker.internal), default to the
+      seeded dev key if none is present in the environment.
+    - For non-local backends, optionally mint a demo key.
+    """
+    existing = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if existing:
+        return existing
+
+    resolved_backend = (
+        (backend_url or "").strip()
+        or (os.environ.get("SYNTH_BACKEND_URL") or "").strip()
+        or BACKEND_URL_BASE
+    )
+    if _is_local_backend_url(resolved_backend):
+        os.environ["SYNTH_API_KEY"] = LOCAL_DEV_SYNTH_API_KEY
+        return LOCAL_DEV_SYNTH_API_KEY
+
+    if not mint_demo_if_missing:
+        raise AuthenticationError("Missing required API key: SYNTH_API_KEY")
+
+    minted = mint_demo_api_key(backend_url=resolved_backend)
+    os.environ["SYNTH_API_KEY"] = minted
+    return minted
+
+
 __all__ = [
     "get_api_key",
     "get_synth_and_env_keys",
+    "ensure_synth_api_key",
+    "LOCAL_DEV_SYNTH_API_KEY",
     "mint_demo_api_key",
     "mask_value",
     "mask_str",

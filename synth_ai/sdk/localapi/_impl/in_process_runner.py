@@ -26,6 +26,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
+from urllib.parse import urlparse
 
 from synth_ai.core.tunnels import TunnelBackend
 from synth_ai.core.utils.dict import deep_update as _deep_update
@@ -92,6 +93,14 @@ def resolve_backend_api_base(override: str | None = None) -> str:
 
     normalized = _normalize_base_url(candidate)
     return ensure_api_base(normalized)
+
+
+def _is_local_backend_api_base(url: str) -> bool:
+    try:
+        host = (urlparse(url).hostname or "").strip().lower()
+    except Exception:
+        return False
+    return host in {"localhost", "127.0.0.1", "host.docker.internal"}
 
 
 def _require_env(key: str, *, friendly_name: str | None = None) -> str:
@@ -183,6 +192,18 @@ async def run_in_process_job(
 
     # Set SYNTH_BACKEND_URL so that tunnel operations (like rotate_tunnel) use the correct backend
     os.environ["SYNTH_BACKEND_URL"] = backend_api_base
+
+    # Local prompt-learning runs don't need a tunnel. Default to direct localhost unless:
+    # - the caller explicitly chose a tunnel mode, or
+    # - an explicit tunnel backend is set, or
+    # - SYNTH_TUNNEL_MODE is set (CLI override).
+    if (
+        tunnel_backend is None
+        and tunnel_mode == "synthtunnel"
+        and not (os.environ.get("SYNTH_TUNNEL_MODE") or "").strip()
+        and _is_local_backend_api_base(backend_api_base)
+    ):
+        tunnel_mode = "local"
 
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
     resolved_task_app_key = task_app_api_key or _require_env(

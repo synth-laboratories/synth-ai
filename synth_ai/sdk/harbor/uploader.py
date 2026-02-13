@@ -1,5 +1,7 @@
 """HarborDeploymentUploader - Upload deployments to Harbor API.
 
+**Status:** Beta
+
 This module handles the API interactions for creating and managing
 Harbor deployments. It provides both sync and async interfaces.
 

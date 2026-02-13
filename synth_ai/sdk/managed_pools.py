@@ -1,4 +1,11 @@
-"""Managed environment pools helpers."""
+"""Managed Pools — presigned uploads and data source registration.
+
+**Status:** Alpha
+
+Helpers for uploading pool data (tasks, bundles) via presigned URLs and
+registering S3 or upload-based data sources.  Plan-gated: raises
+``PlanGatingError`` when the account is not eligible.
+"""
 
 from __future__ import annotations
 

@@ -1,5 +1,7 @@
 """Graph optimization job implementation.
 
+**Status:** Beta
+
 This module provides the canonical `GraphOptimizationJob` class for running
 graph/workflow optimization jobs.
 

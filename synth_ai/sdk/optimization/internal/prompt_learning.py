@@ -11,8 +11,9 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
+from urllib.parse import urlparse, urlunparse
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, RUST_BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.localapi.auth import ensure_localapi_auth
 from synth_ai.sdk.optimization.models import PolicyJobStatus, PromptLearningResult
 
@@ -28,6 +29,7 @@ from .prompt_learning_service import (
     pause_prompt_learning_job,
     query_prompt_learning_workflow_state,
     resume_prompt_learning_job,
+    submit_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
 
@@ -41,6 +43,64 @@ def _require_rust() -> Any:
     if synth_ai_py is None or not hasattr(synth_ai_py, "PromptLearningJob"):
         raise RuntimeError("Rust core PromptLearningJob required; synth_ai_py is unavailable.")
     return synth_ai_py
+
+
+_LOCAL_BACKEND_HOSTS = {"localhost", "127.0.0.1", "host.docker.internal"}
+
+
+def _ensure_api_suffix(base: str) -> str:
+    b = (base or "").strip().rstrip("/")
+    if not b:
+        return b
+    return b if b.endswith("/api") else f"{b}/api"
+
+
+def _resolve_python_backend_base_runtime() -> str:
+    """Resolve backend base URL at call-time (not import-time).
+
+    This avoids stale BACKEND_URL_BASE surprises when users `import synth_ai` and
+    only later export `SYNTH_BACKEND_URL` (common .env workflow).
+    """
+    for k in ("SYNTH_BACKEND_URL", "SYNTH_API_URL", "BACKEND_URL"):
+        v = (os.getenv(k) or "").strip()
+        if v:
+            return v.rstrip("/")
+    return (BACKEND_URL_BASE or "").rstrip("/")
+
+
+def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
+    """Resolve Rust backend API base (/api) for prompt-learning operations.
+
+    Local dev runs split services (Python :800x, Rust :808x). Job create/poll
+    must hit Rust even when SYNTH_BACKEND_URL points at the Python API.
+    """
+    # 1) Explicit env override wins.
+    for k in (
+        "SYNTH_RUST_BACKEND_URL_OVERRIDE",
+        "SYNTH_RUST_BACKEND_URL",
+        "LOCAL_RUST_BACKEND_URL",
+        "DEV_RUST_BACKEND_URL",
+        "PROD_RUST_BACKEND_URL",
+        "RUST_BACKEND_URL",
+    ):
+        v = (os.getenv(k) or "").strip()
+        if v:
+            return _ensure_api_suffix(v)
+
+    # 2) If this looks like a local python slot URL (800x), translate to the rust slot (808x).
+    try:
+        parsed = urlparse((python_backend_api_base or "").strip())
+        host = (parsed.hostname or "").strip().lower()
+        port = parsed.port
+        if host in _LOCAL_BACKEND_HOSTS and isinstance(port, int) and 8000 <= port <= 8009:
+            rust_port = port + 80  # 8000->8080, 8001->8081, ...
+            new = parsed._replace(netloc=f"{host}:{rust_port}")
+            return _ensure_api_suffix(urlunparse(new))
+    except Exception:
+        pass
+
+    # 3) Fall back to the env-aware rust base.
+    return _ensure_api_suffix(RUST_BACKEND_URL_BASE)
 
 
 def _extract_task_app_url(payload: dict[str, Any]) -> Optional[str]:
@@ -167,6 +227,12 @@ class PromptLearningJobConfig:
                     "task_app_worker_token is required for SynthTunnel task_app_url. "
                     "Pass tunnel.worker_token when submitting jobs."
                 )
+            # Even for SynthTunnel, we still want to ensure the backend has an
+            # env key provisioned (the backend uses it to talk to the task app).
+            ensure_localapi_auth(
+                backend_base=self.backend_url,
+                synth_api_key=self.api_key,
+            )
             # For SynthTunnel: the backend resolves task_app_api_key from
             # customer_credentials DB, and the SynthTunnel agent injects
             # local_api_keys on the task app side. No need for SDK to send it.
@@ -248,23 +314,25 @@ class PromptLearningJob:
 
         rust = _require_rust()
         if job_id:
+            rust_base = _resolve_rust_backend_api_base(self.config.backend_url)
             self._rust_job = rust.PromptLearningJob.from_job_id(
-                job_id, self.config.api_key, self.config.backend_url
+                job_id, self.config.api_key, rust_base
             )
 
     def _ensure_rust_job(self, config_payload: Optional[Dict[str, Any]] = None) -> Any | None:
         rust = _require_rust()
         if self._rust_job is not None:
             return self._rust_job
+        rust_base = _resolve_rust_backend_api_base(self.config.backend_url)
         if self._job_id:
             self._rust_job = rust.PromptLearningJob.from_job_id(
-                self._job_id, self.config.api_key, self.config.backend_url
+                self._job_id, self.config.api_key, rust_base
             )
         elif config_payload is not None:
             self._rust_job = rust.PromptLearningJob.from_dict(
                 config_payload,
                 self.config.api_key,
-                self.config.backend_url,
+                rust_base,
                 self.config.task_app_worker_token,
             )
         return self._rust_job
@@ -302,7 +370,7 @@ class PromptLearningJob:
         config_path_obj = Path(config_path)
 
         if not backend_url:
-            backend_url = BACKEND_URL_BASE
+            backend_url = _resolve_python_backend_base_runtime()
 
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -388,7 +456,7 @@ class PromptLearningJob:
         """
 
         if not backend_url:
-            backend_url = BACKEND_URL_BASE
+            backend_url = _resolve_python_backend_base_runtime()
 
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -440,7 +508,7 @@ class PromptLearningJob:
         """
 
         if not backend_url:
-            backend_url = BACKEND_URL_BASE
+            backend_url = _resolve_python_backend_base_runtime()
 
         if not api_key:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -563,10 +631,88 @@ class PromptLearningJob:
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
         rust_job = self._ensure_rust_job(config_payload=config_payload)
-        job_id = rust_job.submit()
+        fell_back = False
+        try:
+            job_id = rust_job.submit()
+        except Exception as exc:
+            # Some deployed backends do not expose Rust's `/api/jobs/{mipro,gepa}` create
+            # routes publicly. Fall back to the Python endpoint (same payload schema).
+            msg = str(exc)
+            is_rust_create_failure = "/api/jobs/" in msg and any(
+                token in msg
+                for token in (
+                    "HTTP 404",
+                    "HTTP 405",
+                    "HTTP 502",
+                    "HTTP 503",
+                    "HTTP 504",
+                    "error sending request",
+                    "Connection refused",
+                    "connect error",
+                    "Application failed to respond",
+                    "timed out",
+                    "ReadTimeout",
+                )
+            )
+            if is_rust_create_failure:
+                fell_back = True
+
+                # Best-effort debug (no secrets): report pool sizes for MIPRO configs.
+                try:
+                    import logging as _logging
+
+                    _log = _logging.getLogger(__name__)
+                    if isinstance(config_payload, dict):
+                        cb = (
+                            config_payload.get("config_body")
+                            if isinstance(config_payload.get("config_body"), dict)
+                            else {}
+                        )
+                        pl = (
+                            cb.get("prompt_learning")
+                            if isinstance(cb.get("prompt_learning"), dict)
+                            else {}
+                        )
+                        m = pl.get("mipro") if isinstance(pl.get("mipro"), dict) else {}
+                        boot = list(
+                            m.get("bootstrap_train_seeds") or pl.get("bootstrap_train_seeds") or []
+                        )
+                        online = list(m.get("online_pool") or pl.get("online_pool") or [])
+                        test = list(m.get("test_pool") or pl.get("test_pool") or [])
+                        ref = list(m.get("reference_pool") or pl.get("reference_pool") or [])
+                        overlap = len(set(ref) & (set(boot) | set(online) | set(test)))
+                        _log.info(
+                            "PromptLearningJob fallback submit: boot=%d online=%d test=%d ref=%d overlap=%d",
+                            len(boot),
+                            len(online),
+                            len(test),
+                            len(ref),
+                            overlap,
+                        )
+                except Exception:
+                    pass
+
+                resp = submit_prompt_learning_job(
+                    backend_url=self.config.backend_url,
+                    api_key=self.config.api_key,
+                    payload=dict(config_payload) if isinstance(config_payload, dict) else {},
+                    task_app_worker_token=self.config.task_app_worker_token,
+                )
+                job_id = str(resp.get("job_id") or resp.get("id") or "").strip()
+            else:
+                raise
         if not job_id:
             raise RuntimeError("Response missing job ID")
         self._job_id = job_id
+        if fell_back:
+            # Rust client is still in "not submitted" state; rebind to server-side job id.
+            try:
+                rust = _require_rust()
+                self._rust_job = rust.PromptLearningJob.from_job_id(
+                    job_id, self.config.api_key, self.config.backend_url
+                )
+            except Exception:
+                pass
         return job_id
 
     @property

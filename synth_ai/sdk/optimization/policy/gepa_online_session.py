@@ -1,5 +1,7 @@
 """GEPA online session SDK wrapper.
 
+**Status:** Beta
+
 This module provides the `GepaOnlineSession` class for managing online GEPA
 optimization sessions. In online mode, you drive rollouts locally while the
 backend provides prompt candidates through proxy URLs.

@@ -1,4 +1,7 @@
-"""Configuration utilities for artifacts CLI."""
+"""Configuration utilities for artifacts CLI.
+
+**Status:** Beta
+"""
 
 import os
 from dataclasses import dataclass

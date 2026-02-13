@@ -1,5 +1,7 @@
 """Artifact ID parsing and resolution utilities.
 
+**Status:** Beta
+
 This module provides centralized logic for parsing and validating artifact identifiers,
 including model IDs (peft:, ft:, rl:) and prompt job IDs (pl_, job_pl_).
 """
