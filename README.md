@@ -1,7 +1,7 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/PyPI-0.7.5-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.7.16-orange)](https://pypi.org/project/synth-ai/)
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -41,7 +41,7 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
 ### SDK (Python)
 
 ```bash
-pip install synth-ai==0.7.5
+pip install synth-ai==0.7.16
 # or
 uv add synth-ai
 ```
