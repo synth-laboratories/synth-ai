@@ -18,12 +18,14 @@ pub mod config;
 pub mod data;
 pub mod errors;
 pub mod events;
+pub mod environment_pools;
 pub mod http;
 pub mod jobs;
 pub mod container;
 pub mod models;
 pub mod orchestration;
 pub mod polling;
+pub mod plan_gating;
 pub mod shared_client;
 pub mod sse;
 pub mod streaming;
@@ -35,7 +37,10 @@ pub mod utils;
 pub mod x402;
 
 // Re-export core types at crate root for convenience
-pub use errors::{CoreError, CoreResult, HttpErrorInfo, JobErrorInfo, UsageLimitInfo};
+pub use errors::{
+    CoreError, CoreResult, HttpErrorInfo, JobErrorInfo, PlanGatingInfo, UsageLimitInfo,
+};
+pub use environment_pools::EnvironmentPoolsClient;
 pub use jobs::{CandidateStatus, JobEvent, JobEventType, JobLifecycle, JobStatus};
 
 // Re-export API types for convenience

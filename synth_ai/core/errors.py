@@ -54,26 +54,35 @@ class HTTPError(SynthError):
 
 
 def _extract_x402_payload(detail: Any, body_snippet: str | None) -> tuple[Any | None, str | None]:
-    if isinstance(detail, dict):
-        x402_value = detail.get("x402")
+    def _get_x402_value(maybe_dict: Any) -> dict[str, Any] | None:
+        if not isinstance(maybe_dict, dict):
+            return None
+        x402_value = maybe_dict.get("x402")
         if isinstance(x402_value, dict):
-            payment_required = x402_value.get("payment_required")
-            if payment_required is None:
-                payment_required = x402_value.get("challenge")
-            return payment_required, x402_value.get("payment_required_header")
+            return x402_value
+        # Common server shape: {"detail": {"x402": {...}}}
+        inner = maybe_dict.get("detail")
+        if isinstance(inner, dict):
+            x402_value = inner.get("x402")
+            if isinstance(x402_value, dict):
+                return x402_value
+        return None
+
+    x402_value = _get_x402_value(detail)
+    if x402_value is not None:
+        payment_required = x402_value.get("payment_required")
+        if payment_required is None:
+            payment_required = x402_value.get("challenge")
+        return payment_required, x402_value.get("payment_required_header")
     if not body_snippet:
         return None, None
     try:
         payload = json.loads(body_snippet)
     except Exception:
         return None, None
-    if not isinstance(payload, dict):
-        return None, None
-    detail_payload = payload.get("detail")
-    if not isinstance(detail_payload, dict):
-        return None, None
-    x402_value = detail_payload.get("x402")
-    if not isinstance(x402_value, dict):
+
+    x402_value = _get_x402_value(payload)
+    if x402_value is None:
         return None, None
     payment_required = x402_value.get("payment_required")
     if payment_required is None:
@@ -175,6 +184,16 @@ class PaymentRequiredError(HTTPError):
     payment_signature_header: str = "PAYMENT-SIGNATURE"
     fallback_payment_signature_header: str = "X-PAYMENT"
     payment_response_header: str = "PAYMENT-RESPONSE"
+
+    def __post_init__(self) -> None:
+        # When constructed directly (not via from_http_error), populate challenge/header
+        # from `detail`/`body_snippet` so callers get a usable exception object.
+        if self.challenge is None or self.payment_required_header is None:
+            challenge, header_value = _extract_x402_payload(self.detail, self.body_snippet)
+            if self.challenge is None:
+                self.challenge = challenge
+            if self.payment_required_header is None:
+                self.payment_required_header = header_value
 
     @classmethod
     def from_http_error(cls, error: HTTPError) -> PaymentRequiredError:

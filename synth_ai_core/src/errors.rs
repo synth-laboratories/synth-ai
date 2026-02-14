@@ -52,6 +52,39 @@ pub struct UsageLimitInfo {
     pub upgrade_url: String,
 }
 
+/// Plan gating error details.
+///
+/// Raised when a feature requires a higher subscription plan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanGatingInfo {
+    pub feature: String,
+    pub current_plan: String,
+    pub required_plans: Vec<String>,
+    pub upgrade_url: String,
+}
+
+impl Default for PlanGatingInfo {
+    fn default() -> Self {
+        Self {
+            feature: "environment_pools".to_string(),
+            current_plan: "free".to_string(),
+            required_plans: vec!["pro".to_string(), "team".to_string()],
+            upgrade_url: "https://usesynth.ai/pricing".to_string(),
+        }
+    }
+}
+
+impl std::fmt::Display for PlanGatingInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let plans = self.required_plans.join(", ");
+        write!(
+            f,
+            "{} requires a {} plan (current: {}). Upgrade at {}",
+            self.feature, plans, self.current_plan, self.upgrade_url
+        )
+    }
+}
+
 impl Default for UsageLimitInfo {
     fn default() -> Self {
         Self {
@@ -188,6 +221,10 @@ pub enum CoreError {
     /// Usage/rate limit exceeded
     #[error("{0}")]
     UsageLimit(UsageLimitInfo),
+
+    /// Feature requires a higher subscription plan.
+    #[error("{0}")]
+    PlanGating(PlanGatingInfo),
 
     /// Job operation failed
     #[error("{0}")]

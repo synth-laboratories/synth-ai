@@ -142,43 +142,51 @@ class SynthTunnelClient:
         metadata: Optional[Dict[str, Any]] = None,
         capabilities: Optional[Dict[str, Any]] = None,
     ) -> SynthTunnelLease:
-        url = f"{self.backend_url}/api/v1/synthtunnel/leases"
-        payload = {
-            "client_instance_id": client_instance_id,
-            "local_target": {"host": local_host, "port": local_port},
-            "requested_ttl_seconds": requested_ttl_seconds,
-            "metadata": metadata or {},
-            "capabilities": capabilities or {},
-        }
-        headers = {"Authorization": f"Bearer {self.api_key}"}
         timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
-        async with httpx.AsyncClient(timeout=timeout_sec) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
-        agent_connect = data.get("agent_connect", {}) or {}
-        if not agent_connect.get("url") or not agent_connect.get("agent_token"):
+
+        # Preferred path: Rust core owns lease HTTP semantics; this is a thin async wrapper.
+        import synth_ai_py
+
+        data = await asyncio.to_thread(
+            synth_ai_py.synth_tunnel_create_lease,
+            self.api_key,
+            self.backend_url,
+            client_instance_id,
+            int(local_port),
+            local_host,
+            int(requested_ttl_seconds),
+            metadata,
+            capabilities,
+            int(timeout_sec),
+        )
+        if not isinstance(data, dict):
+            raise RuntimeError("SynthTunnel lease response is not a dict")
+        if not data.get("agent_url") or not data.get("agent_token"):
             raise RuntimeError("SynthTunnel lease response missing agent connection details")
         return SynthTunnelLease(
             lease_id=str(data.get("lease_id")),
-            route_token=str(data.get("route_token")),
-            public_base_url=str(data.get("public_base_url")),
-            public_url=str(data.get("public_url")),
-            agent_url=str(agent_connect.get("url")),
-            agent_token=str(agent_connect.get("agent_token")),
-            worker_token=str(data.get("worker_token")),
-            expires_at=_parse_datetime(str(data.get("expires_at"))),
+            route_token=str(data.get("route_token") or ""),
+            public_base_url=str(data.get("public_base_url") or ""),
+            public_url=str(data.get("public_url") or ""),
+            agent_url=str(data.get("agent_url") or ""),
+            agent_token=str(data.get("agent_token") or ""),
+            worker_token=str(data.get("worker_token") or ""),
+            expires_at=_parse_datetime(str(data.get("expires_at") or "")),
             limits=data.get("limits", {}) or {},
             heartbeat=data.get("heartbeat", {}) or {},
         )
 
     async def close_lease(self, lease_id: str) -> None:
-        url = f"{self.backend_url}/api/v1/synthtunnel/leases/{lease_id}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
         timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
-        async with httpx.AsyncClient(timeout=timeout_sec) as client:
-            resp = await client.delete(url, headers=headers)
-            resp.raise_for_status()
+        import synth_ai_py
+
+        await asyncio.to_thread(
+            synth_ai_py.synth_tunnel_close_lease,
+            self.api_key,
+            self.backend_url,
+            lease_id,
+            int(timeout_sec),
+        )
 
 
 @dataclass

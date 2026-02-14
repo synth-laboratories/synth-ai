@@ -315,6 +315,57 @@ impl HttpClient {
         self.parse_json(status, &url, &body_bytes)
     }
 
+    /// Make a PUT request with JSON body.
+    pub async fn put_json<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &Value,
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let request = self
+            .client
+            .put(&url)
+            .json(body)
+            .build()
+            .map_err(HttpError::Request)?;
+        let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
+        self.parse_json(status, &url, &body_bytes)
+    }
+
+    /// Make a PUT request with JSON body and query params.
+    pub async fn put_json_with_params<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &Value,
+        params: Option<&[(&str, &str)]>,
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let mut req = self.client.put(&url).json(body);
+        if let Some(p) = params {
+            req = req.query(p);
+        }
+        let request = req.build().map_err(HttpError::Request)?;
+        let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
+        self.parse_json(status, &url, &body_bytes)
+    }
+
+    /// Make a PUT request with JSON body and extra headers.
+    pub async fn put_json_with_headers<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &Value,
+        extra_headers: Option<HeaderMap>,
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let mut request = self.client.put(&url).json(body);
+        if let Some(headers) = extra_headers {
+            request = request.headers(headers);
+        }
+        let request = request.build().map_err(HttpError::Request)?;
+        let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
+        self.parse_json(status, &url, &body_bytes)
+    }
+
     /// Make a POST request with multipart form data.
     ///
     /// # Arguments

@@ -6,6 +6,7 @@ pub mod lease_client;
 pub mod manager;
 pub mod ports;
 pub mod synth_tunnel;
+pub mod synthtunnel_client;
 pub mod types;
 
 use crate::tunnels::errors::TunnelError;

@@ -271,24 +271,52 @@ class TunneledContainer:
                     )
                 raise RuntimeError(f"SynthTunnel agent did not come online for {health_url}")
 
-            # Step 1: Create lease via Python (simple HTTP POST, works fine)
+            # Step 1: Create lease via Rust core (HTTP SSOT)
+            from synth_ai.core.utils.urls import normalize_backend_base, resolve_synth_backend_url
+
             from .synth_tunnel import (
-                SynthTunnelClient,
+                SynthTunnelLease,
                 _collect_container_keys,
+                _parse_datetime,
                 get_client_instance_id,
                 hostname_from_url,
             )
 
-            client = SynthTunnelClient(api_key, backend_url=backend_url)
-            lease = await client.create_lease(
-                client_instance_id=get_client_instance_id(),
-                local_host="127.0.0.1",
-                local_port=local_port,
+            backend_base = normalize_backend_base(resolve_synth_backend_url(backend_url)).rstrip(
+                "/"
+            )
+
+            import synth_ai_py
+
+            lease_payload = await asyncio.to_thread(
+                synth_ai_py.synth_tunnel_create_lease,
+                api_key,
+                backend_base,
+                get_client_instance_id(),
+                local_port,
+                "127.0.0.1",
+                3600,
+                None,
+                None,
+                30,
+            )
+            if not isinstance(lease_payload, dict):
+                raise RuntimeError("SynthTunnel lease response is not a dict")
+            # Convert into the existing python dataclass shape for compatibility.
+            lease = SynthTunnelLease(
+                lease_id=str(lease_payload.get("lease_id") or ""),
+                route_token=str(lease_payload.get("route_token") or ""),
+                public_base_url=str(lease_payload.get("public_base_url") or ""),
+                public_url=str(lease_payload.get("public_url") or ""),
+                agent_url=str(lease_payload.get("agent_url") or ""),
+                agent_token=str(lease_payload.get("agent_token") or ""),
+                worker_token=str(lease_payload.get("worker_token") or ""),
+                expires_at=_parse_datetime(str(lease_payload.get("expires_at") or "")),
+                limits=lease_payload.get("limits", {}) or {},
+                heartbeat=lease_payload.get("heartbeat", {}) or {},
             )
 
             # Step 2: Start Rust WS agent (runs in its own tokio runtime)
-            import synth_ai_py
-
             container_keys = _collect_container_keys(env_api_key)
             max_inflight = int(lease.limits.get("max_inflight", 128))
             agent = await asyncio.to_thread(
@@ -324,7 +352,12 @@ class TunneledContainer:
                 _lease_id=lease.lease_id,
                 _manager=None,
                 _handle=None,
-                _synth_session={"agent": agent, "client": client, "lease": lease},
+                _synth_session={
+                    "agent": agent,
+                    "lease_id": lease.lease_id,
+                    "backend_base": backend_base,
+                    "api_key": api_key,
+                },
             )
 
         # Resolve env_api_key from environment if not provided
@@ -410,19 +443,37 @@ class TunneledContainer:
                     agent = session.get("agent")
                     if agent is not None:
                         agent.stop()
-                    # Close lease via Python client
-                    client = session.get("client")
-                    lease = session.get("lease")
-                    if client is not None and lease is not None:
+                    lease_id = session.get("lease_id")
+                    backend_base = session.get("backend_base")
+                    api_key = session.get("api_key")
+                    if lease_id and backend_base and api_key:
+                        import synth_ai_py
+
                         try:
                             import asyncio
 
                             loop = asyncio.get_running_loop()
-                            loop.create_task(client.close_lease(lease.lease_id))
+                            loop.create_task(
+                                asyncio.to_thread(
+                                    synth_ai_py.synth_tunnel_close_lease,
+                                    api_key,
+                                    backend_base,
+                                    lease_id,
+                                    30,
+                                )
+                            )
                         except RuntimeError:
                             import asyncio
 
-                            asyncio.run(client.close_lease(lease.lease_id))
+                            asyncio.run(
+                                asyncio.to_thread(
+                                    synth_ai_py.synth_tunnel_close_lease,
+                                    api_key,
+                                    backend_base,
+                                    lease_id,
+                                    30,
+                                )
+                            )
                 else:
                     # Legacy SynthTunnelSession fallback
                     session.close()

@@ -218,6 +218,117 @@ class TestRolloutHandle:
         assert result["status"] == "succeeded"
 
 
+@pytest.mark.unit
+class TestRustTransport:
+    def test_list_pools_uses_rust_core_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from synth_ai.sdk import environment_pools as ep
+
+        calls: dict[str, object] = {}
+
+        class FakeEnvPoolsClient:
+            def __init__(self, api_key, backend_url, api_version, timeout_s):  # type: ignore[no-untyped-def]
+                calls["init"] = (api_key, backend_url, api_version, timeout_s)
+
+            def get_json(self, suffix, params=None):  # type: ignore[no-untyped-def]
+                calls["get_json"] = (suffix, params)
+                return [{"pool_id": "pool-1"}]
+
+        monkeypatch.setattr(ep.synth_ai_py, "EnvironmentPoolsClient", FakeEnvPoolsClient)
+
+        pools = ep.list_pools(
+            backend_base="https://api.example.com",
+            api_key="sk_test",
+            pool_type="sandbox",
+            tag="alpha",
+            api_version="v1",
+        )
+        assert pools == [{"pool_id": "pool-1"}]
+        assert calls["get_json"] == ("pools", [("type", "sandbox"), ("tag", "alpha")])
+
+    def test_rotate_credential_uses_rust_http_client_put(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from synth_ai.sdk import environment_pools as ep
+
+        calls: dict[str, object] = {}
+
+        class FakeHttpClient:
+            def __init__(self, base_url, api_key, timeout_secs=30):  # type: ignore[no-untyped-def]
+                calls["init"] = (base_url, api_key, timeout_secs)
+
+            def put_json(self, path, body):  # type: ignore[no-untyped-def]
+                calls["put_json"] = (path, body)
+                return {"ok": True}
+
+        monkeypatch.setattr(ep.synth_ai_py, "HttpClient", FakeHttpClient)
+
+        resp = ep.rotate_credential(
+            "cred_1",
+            new_value="new_value",
+            backend_base="https://api.example.com",
+            api_key="sk_test",
+        )
+        assert resp == {"ok": True}
+        assert calls["put_json"] == ("/api/v1/credentials/cred_1", {"credential_value": "new_value"})
+
+    def test_stream_rollout_events_uses_rust_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from synth_ai.sdk import environment_pools as ep
+
+        class FakeEnvPoolsClient:
+            def __init__(self, api_key, backend_url, api_version, timeout_s):  # type: ignore[no-untyped-def]
+                pass
+
+            def stream_rollout_events(  # type: ignore[no-untyped-def]
+                self, rollout_id, since=None, cursor=None, limit=None, timeout=None
+            ):
+                assert rollout_id == "rollout-1"
+                assert since == "2026-02-14T00:00:00Z"
+                assert cursor is None
+                assert limit == 2
+                assert timeout is None
+                return iter(
+                    [
+                        {"id": "1", "event": "msg", "data": {"ok": True}},
+                        {"id": "2", "event": "msg", "data": {"ok": True}},
+                    ]
+                )
+
+        # Ensure we don't accidentally fall back to httpx-based streaming.
+        import httpx
+
+        def _nope(*args, **kwargs):  # type: ignore[no-untyped-def]
+            raise AssertionError("httpx.stream should not be called")
+
+        monkeypatch.setattr(httpx, "stream", _nope)
+        monkeypatch.setattr(ep.synth_ai_py, "EnvironmentPoolsClient", FakeEnvPoolsClient)
+
+        events = list(
+            ep.stream_rollout_events(
+                "rollout-1",
+                backend_base="https://api.example.com",
+                api_key="sk_test",
+                since="2026-02-14T00:00:00Z",
+                limit=2,
+                timeout=None,
+                api_version="v1",
+            )
+        )
+        assert [e.get("id") for e in events] == ["1", "2"]
+
+    def test_plan_check_delegates_to_rust_gating(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from synth_ai.sdk import environment_pools as ep
+
+        calls: dict[str, object] = {}
+
+        def fake_check(api_key, backend_base, feature, timeout_s, allow_demo):  # type: ignore[no-untyped-def]
+            calls["args"] = (api_key, backend_base, feature, timeout_s, allow_demo)
+            return {"plan": "pro"}
+
+        monkeypatch.setattr(ep.synth_ai_py, "env_pools_check_plan_access", fake_check)
+
+        data = ep._check_plan_access(api_key="sk_test", backend_base="https://api.example.com")
+        assert data.get("plan") == "pro"
+        assert calls["args"][0] == "sk_test"
+
+
 class TestPayloadConversion:
     """Test payload conversion from request objects."""
 
@@ -512,12 +623,10 @@ class TestPlanGating:
     def test_check_plan_access_pro_allowed(self):
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"plan": "pro", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.return_value = {"plan": "pro", "org_id": "org-1"}
             result = _check_plan_access(
                 api_key="sk_test", backend_base="https://api.example.com"
             )
@@ -526,12 +635,10 @@ class TestPlanGating:
     def test_check_plan_access_team_allowed(self):
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"plan": "team", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.return_value = {"plan": "team", "org_id": "org-1"}
             result = _check_plan_access(
                 api_key="sk_test", backend_base="https://api.example.com"
             )
@@ -541,12 +648,12 @@ class TestPlanGating:
         from synth_ai.core.errors import PlanGatingError
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"plan": "free", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.side_effect = PlanGatingError(
+                feature="environment_pools", current_plan="free"
+            )
             with pytest.raises(PlanGatingError) as exc_info:
                 _check_plan_access(
                     api_key="sk_test", backend_base="https://api.example.com"
@@ -557,12 +664,12 @@ class TestPlanGating:
         from synth_ai.core.errors import PlanGatingError
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"plan": "trial", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.side_effect = PlanGatingError(
+                feature="environment_pools", current_plan="trial"
+            )
             with pytest.raises(PlanGatingError):
                 _check_plan_access(
                     api_key="sk_test", backend_base="https://api.example.com"
@@ -571,12 +678,10 @@ class TestPlanGating:
     def test_check_plan_access_demo_allowed(self):
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"plan": "demo", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.return_value = {"plan": "demo", "org_id": "org-1"}
             result = _check_plan_access(
                 api_key="sk_test", backend_base="https://api.example.com"
             )
@@ -585,28 +690,15 @@ class TestPlanGating:
     def test_check_plan_access_me_endpoint_unreachable_falls_through(self):
         from synth_ai.sdk.environment_pools import _check_plan_access
 
-        with patch("httpx.get", side_effect=Exception("connection refused")):
+        with patch(
+            "synth_ai.sdk.environment_pools.synth_ai_py.env_pools_check_plan_access"
+        ) as mock_check:
+            mock_check.side_effect = Exception("connection refused")
             # Should not raise — falls through gracefully
             result = _check_plan_access(
                 api_key="sk_test", backend_base="https://api.example.com"
             )
             assert result == {}
-
-    def test_check_plan_access_uses_tier_field(self):
-        from synth_ai.core.errors import PlanGatingError
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"tier": "free", "org_id": "org-1"}
-
-        with patch("httpx.get", return_value=mock_resp):
-            with pytest.raises(PlanGatingError) as exc_info:
-                _check_plan_access(
-                    api_key="sk_test", backend_base="https://api.example.com"
-                )
-            assert exc_info.value.current_plan == "free"
 
     @patch("synth_ai.sdk.environment_pools._check_plan_access")
     def test_client_checks_plan_on_init(self, mock_check):
@@ -679,145 +771,3 @@ class TestPlanGating:
         mock_resp.raise_for_status = MagicMock()
         # Should not raise
         _raise_for_status_with_plan_check(mock_resp)
-
-    # --- Feature flag override tests ---
-
-    def test_free_plan_with_feature_flag_dict_bool_allowed(self):
-        """Free-tier org with feature_flags: {environment_pools: true} should be allowed."""
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": {"environment_pools": True},
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            result = _check_plan_access(
-                api_key="sk_test", backend_base="https://api.example.com"
-            )
-            assert result["plan"] == "free"
-
-    def test_free_plan_with_feature_flag_dict_object_allowed(self):
-        """Free-tier org with feature_flags: {environment_pools: {enabled: true}} should be allowed."""
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": {
-                "environment_pools": {"enabled": True, "reason": "beta tester"}
-            },
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            result = _check_plan_access(
-                api_key="sk_test", backend_base="https://api.example.com"
-            )
-            assert result["plan"] == "free"
-
-    def test_free_plan_with_feature_flag_list_dict_allowed(self):
-        """Free-tier org with feature_flags as list of dicts should be allowed."""
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": [
-                {"feature": "environment_pools", "enabled": True},
-            ],
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            result = _check_plan_access(
-                api_key="sk_test", backend_base="https://api.example.com"
-            )
-            assert result["plan"] == "free"
-
-    def test_free_plan_with_feature_flag_list_string_allowed(self):
-        """Free-tier org with feature_flags as list of strings should be allowed."""
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": ["environment_pools", "other_feature"],
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            result = _check_plan_access(
-                api_key="sk_test", backend_base="https://api.example.com"
-            )
-            assert result["plan"] == "free"
-
-    def test_free_plan_with_feature_flag_disabled_rejected(self):
-        """Free-tier org with environment_pools flag set to false should be rejected."""
-        from synth_ai.core.errors import PlanGatingError
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": {"environment_pools": False},
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            with pytest.raises(PlanGatingError):
-                _check_plan_access(
-                    api_key="sk_test", backend_base="https://api.example.com"
-                )
-
-    def test_free_plan_with_wrong_feature_flag_rejected(self):
-        """Free-tier org flagged for a different feature should still be rejected."""
-        from synth_ai.core.errors import PlanGatingError
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": {"other_feature": True},
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            with pytest.raises(PlanGatingError):
-                _check_plan_access(
-                    api_key="sk_test", backend_base="https://api.example.com"
-                )
-
-    def test_free_plan_no_feature_flags_rejected(self):
-        """Free-tier org with empty feature_flags should be rejected."""
-        from synth_ai.core.errors import PlanGatingError
-        from synth_ai.sdk.environment_pools import _check_plan_access
-
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {
-            "plan": "free",
-            "org_id": "org-1",
-            "feature_flags": {},
-        }
-
-        with patch("httpx.get", return_value=mock_resp):
-            with pytest.raises(PlanGatingError):
-                _check_plan_access(
-                    api_key="sk_test", backend_base="https://api.example.com"
-                )

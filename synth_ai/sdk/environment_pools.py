@@ -14,11 +14,12 @@ import warnings
 from enum import Enum
 from typing import Any, Iterator
 
-from synth_ai.core.errors import PlanGatingError
+import synth_ai_py
+
+from synth_ai.core.errors import HTTPError, PlanGatingError
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import (
     BACKEND_URL_BASE,
-    backend_me_url,
     join_url,
     normalize_backend_base,
 )
@@ -143,6 +144,214 @@ def _request_headers(api_key: str, idempotency_key: str | None = None) -> dict[s
     return headers
 
 
+def _rust_env_pools_client(
+    *,
+    backend_base: str,
+    api_key: str,
+    api_version: str | None,
+    timeout: float,
+) -> Any:
+    # Use Rust core for all request semantics + HTTP transport.
+    return synth_ai_py.EnvironmentPoolsClient(
+        api_key,
+        backend_base,
+        api_version,
+        int(max(1.0, float(timeout))),
+    )
+
+
+def _rust_params(params: dict[str, str] | None) -> list[tuple[str, str]] | None:
+    if not params:
+        return None
+    return [(str(k), str(v)) for k, v in params.items() if v is not None]
+
+
+def _rust_get_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    suffix: str,
+    params: dict[str, str] | None,
+    timeout: float,
+    api_version: str | None,
+) -> Any:
+    client = _rust_env_pools_client(
+        backend_base=backend_base,
+        api_key=api_key,
+        api_version=api_version,
+        timeout=timeout,
+    )
+    try:
+        return client.get_json(suffix, _rust_params(params))
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_post_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    suffix: str,
+    payload: dict[str, Any],
+    idempotency_key: str | None,
+    timeout: float,
+    api_version: str | None,
+) -> Any:
+    client = _rust_env_pools_client(
+        backend_base=backend_base,
+        api_key=api_key,
+        api_version=api_version,
+        timeout=timeout,
+    )
+    try:
+        return client.post_json(suffix, payload, idempotency_key)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_put_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    suffix: str,
+    payload: dict[str, Any],
+    timeout: float,
+    api_version: str | None,
+) -> Any:
+    client = _rust_env_pools_client(
+        backend_base=backend_base,
+        api_key=api_key,
+        api_version=api_version,
+        timeout=timeout,
+    )
+    try:
+        return client.put_json(suffix, payload, None)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_delete(
+    *,
+    backend_base: str,
+    api_key: str,
+    suffix: str,
+    timeout: float,
+    api_version: str | None,
+) -> None:
+    client = _rust_env_pools_client(
+        backend_base=backend_base,
+        api_key=api_key,
+        api_version=api_version,
+        timeout=timeout,
+    )
+    try:
+        client.delete(suffix)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_get_bytes(
+    *,
+    backend_base: str,
+    api_key: str,
+    suffix: str,
+    params: dict[str, str] | None,
+    timeout: float,
+    api_version: str | None,
+) -> bytes:
+    client = _rust_env_pools_client(
+        backend_base=backend_base,
+        api_key=api_key,
+        api_version=api_version,
+        timeout=timeout,
+    )
+    try:
+        data = client.get_bytes(suffix, _rust_params(params))
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+    if isinstance(data, (bytes, bytearray)):
+        return bytes(data)
+    # PyO3 returns PyBytes; coerce defensively.
+    return bytes(data)
+
+
+def _rust_http_client(*, backend_base: str, api_key: str, timeout: float) -> Any:
+    # Generic Rust HTTP client for non-env-pools endpoints (e.g. /api/v1/credentials).
+    return synth_ai_py.HttpClient(
+        backend_base,
+        api_key,
+        int(max(1.0, float(timeout))),
+    )
+
+
+def _rust_http_get_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    path: str,
+    params: dict[str, str] | None,
+    timeout: float,
+) -> Any:
+    client = _rust_http_client(backend_base=backend_base, api_key=api_key, timeout=timeout)
+    try:
+        return client.get_json(path, params)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_http_post_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    path: str,
+    payload: dict[str, Any],
+    timeout: float,
+) -> Any:
+    client = _rust_http_client(backend_base=backend_base, api_key=api_key, timeout=timeout)
+    try:
+        return client.post_json(path, payload)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_http_put_json(
+    *,
+    backend_base: str,
+    api_key: str,
+    path: str,
+    payload: dict[str, Any],
+    timeout: float,
+) -> Any:
+    client = _rust_http_client(backend_base=backend_base, api_key=api_key, timeout=timeout)
+    try:
+        return client.put_json(path, payload)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
+def _rust_http_delete(
+    *,
+    backend_base: str,
+    api_key: str,
+    path: str,
+    timeout: float,
+) -> None:
+    client = _rust_http_client(backend_base=backend_base, api_key=api_key, timeout=timeout)
+    try:
+        client.delete(path)
+    except Exception as exc:
+        _maybe_raise_plan_gating_error(exc)
+        raise
+
+
 def _resolve_api_version(api_version: str | None, base_url: str) -> str:
     if api_version:
         return api_version
@@ -186,13 +395,16 @@ def _check_plan_access(
     :class:`PlanGatingError` for Free/Trial plans and returns the
     account info dict on success.
     """
-    import httpx
-
-    url = backend_me_url(backend_base)
     try:
-        resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-        resp.raise_for_status()
-        data: dict[str, Any] = resp.json()
+        data = synth_ai_py.env_pools_check_plan_access(
+            api_key,
+            backend_base,
+            feature,
+            int(max(1.0, float(timeout))),
+            _PLAN_GATED_ALLOW_DEMO,
+        )
+    except PlanGatingError:
+        raise
     except Exception:
         # If the /me endpoint is unreachable we fall through and let the
         # actual API call handle auth.  This keeps the SDK functional when
@@ -256,6 +468,30 @@ def _raise_for_status_with_plan_check(response: Any) -> None:
                 upgrade_url=error.get("upgrade_url", _UPGRADE_URL),
             )
     _raise_for_status(response)
+
+
+def _maybe_raise_plan_gating_error(exc: Exception) -> None:
+    """Convert core HTTP 403 errors into PlanGatingError when they are plan/feature gating."""
+    if isinstance(exc, HTTPError) and getattr(exc, "status", None) == 403:
+        data = exc.detail if isinstance(exc.detail, dict) else {}
+        error = data.get("error", data) if isinstance(data, dict) else {}
+        code = error.get("code", "") if isinstance(error, dict) else ""
+        message = str(error.get("message", "")) if isinstance(error, dict) else ""
+        if code in ("plan_required", "feature_not_available", "upgrade_required") or (
+            "plan" in message.lower() or "upgrade" in message.lower()
+        ):
+            plan = "free"
+            upgrade_url = _UPGRADE_URL
+            if isinstance(error, dict):
+                plan = str(error.get("current_plan", error.get("tier", plan)))
+                upgrade_url = str(error.get("upgrade_url", upgrade_url))
+            raise PlanGatingError(
+                feature="environment_pools",
+                current_plan=plan,
+                required_plans=("pro", "team"),
+                upgrade_url=upgrade_url,
+            )
+    raise exc
 
 
 def _capture_sdk_error(exc: Exception, *, response: Any | None = None) -> None:
@@ -690,22 +926,20 @@ def create_rollout(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "rollouts", api_version=api_version)
     payload = _payload_from_request(request)
     if dry_run is not None:
         payload["dry_run"] = dry_run
-    resp = httpx.post(
-        url,
-        headers=_request_headers(api_key, idempotency_key),
-        json=payload,
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="rollouts",
+        payload=payload,
+        idempotency_key=idempotency_key,
         timeout=timeout,
+        api_version=api_version,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
     return data if isinstance(data, dict) else {}
 
 
@@ -718,15 +952,18 @@ def validate_rollout(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Validate a rollout request without executing it."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "rollouts:validate", api_version=api_version)
     payload = _payload_from_request(request)
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="rollouts:validate",
+        payload=payload,
+        idempotency_key=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -746,11 +983,8 @@ def list_rollouts(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """List rollouts with optional filters."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "rollouts", api_version=api_version)
     params: dict[str, str] = {}
     if cursor is not None:
         params["cursor"] = cursor
@@ -768,9 +1002,14 @@ def list_rollouts(
         params["created_after"] = created_after
     if created_before is not None:
         params["created_before"] = created_before
-    resp = httpx.get(url, headers=_auth_headers(api_key), params=params, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="rollouts",
+        params=params,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -791,24 +1030,22 @@ def create_rollouts_batch(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "rollouts/batch", api_version=api_version)
     payload = {
         "requests": [_payload_from_request(req) for req in requests],
     }
     if metadata is not None:
         payload["metadata"] = metadata
-    resp = httpx.post(
-        url,
-        headers=_request_headers(api_key, idempotency_key),
-        json=payload,
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="rollouts/batch",
+        payload=payload,
+        idempotency_key=idempotency_key,
         timeout=timeout,
+        api_version=api_version,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
     return data if isinstance(data, dict) else {}
 
 
@@ -821,14 +1058,16 @@ def get_rollout(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get rollout status."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -841,14 +1080,16 @@ def get_rollout_summary(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get a rollout summary (latest status + last event)."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/summary", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/summary",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -861,14 +1102,16 @@ def get_rollout_usage(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get usage/cost snapshot for a rollout."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/usage", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/usage",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -883,19 +1126,21 @@ def download_artifacts_zip(
     api_version: str | None = None,
 ) -> bytes:
     """Download a zip archive of rollout artifacts."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/artifacts.zip", api_version=api_version)
     params: dict[str, str] = {}
     if prefix is not None:
         params["prefix"] = prefix
     if limit is not None:
         params["limit"] = str(limit)
-    resp = httpx.get(url, headers=_auth_headers(api_key), params=params, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    return resp.content
+    return _rust_get_bytes(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/artifacts.zip",
+        params=params,
+        timeout=timeout,
+        api_version=api_version,
+    )
 
 
 def get_rollout_support_bundle(
@@ -907,14 +1152,16 @@ def get_rollout_support_bundle(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Fetch support bundle (config + routing + events + artifacts) for a rollout."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/support_bundle", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/support_bundle",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -935,19 +1182,22 @@ def replay_rollout(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/replay", api_version=api_version)
     payload: dict[str, Any] = {}
     if overrides is not None:
         payload["overrides"] = overrides
     if metadata is not None:
         payload["metadata"] = metadata
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/replay",
+        payload=payload,
+        idempotency_key=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -987,72 +1237,55 @@ def stream_rollout_events(
     """
     import time
 
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/events", api_version=api_version)
-
+    # Delegate SSE transport + parsing to Rust core (SSOT).
+    # We keep the reconnection loop in Python for now.
     last_event_id = cursor
     retries = 0
 
     while True:
-        params: dict[str, str] = {}
-        if since is not None:
-            params["since"] = since
-        if last_event_id is not None:
-            params["cursor"] = last_event_id
-        if limit is not None:
-            params["limit"] = str(limit)
-
-        headers = _auth_headers(api_key)
-        headers["Accept"] = "text/event-stream"
-        headers["Cache-Control"] = "no-cache"
-        if last_event_id:
-            headers["Last-Event-ID"] = last_event_id
-
         try:
-            with httpx.stream(
-                "GET",
-                url,
-                headers=headers,
-                params=params,
-                timeout=httpx.Timeout(30.0, read=timeout),
-            ) as response:
-                _raise_for_status_with_plan_check(response)
-                retries = 0  # Reset on successful connection
-                event_data = ""
-                event_id = ""
-                event_type = ""
-                for line in response.iter_lines():
-                    if line.startswith("id:"):
-                        event_id = line[3:].strip()
-                    elif line.startswith("event:"):
-                        event_type = line[6:].strip()
-                    elif line.startswith("data:"):
-                        event_data = line[5:].strip()
-                    elif line == "":
-                        if event_data:
-                            try:
-                                parsed = json.loads(event_data)
-                            except json.JSONDecodeError:
-                                parsed = event_data
-                            evt: dict[str, Any] = {"data": parsed}
-                            if event_id:
-                                evt["id"] = event_id
-                                last_event_id = event_id  # Track for reconnect
-                            if event_type:
-                                evt["event"] = event_type
-                            yield evt
-                        event_data = ""
-                        event_id = ""
-                        event_type = ""
-                # Stream ended normally
-                return
-        except (httpx.ReadTimeout, httpx.RemoteProtocolError, httpx.ConnectError) as e:
+            client = _rust_env_pools_client(
+                backend_base=base,
+                api_key=api_key,
+                api_version=api_version,
+                timeout=30.0,
+            )
+            iterator = client.stream_rollout_events(
+                rollout_id,
+                since,
+                last_event_id,
+                limit,
+                timeout,
+            )
+            retries = 0
+            while True:
+                evt = next(iterator)
+                if isinstance(evt, dict):
+                    event_id = evt.get("id")
+                    if isinstance(event_id, str) and event_id:
+                        last_event_id = event_id
+                yield evt
+        except StopIteration:
+            return
+        except Exception as e:
             _capture_sdk_error(e)
             if not auto_reconnect or retries >= max_retries:
                 raise
+            # Only auto-reconnect on transient errors.
+            from synth_ai.core.errors import HTTPError as _HTTPError
+            from synth_ai.core.errors import TimeoutError as _TimeoutError
+
+            if isinstance(e, _TimeoutError):
+                pass
+            elif isinstance(e, _HTTPError):
+                status = int(getattr(e, "status", 0) or 0)
+                if status not in (0, 502, 503, 504):
+                    raise
+            else:
+                raise
+
             retries += 1
             delay = min(backoff_base * (2 ** (retries - 1)), backoff_max)
             time.sleep(delay)
@@ -1104,11 +1337,8 @@ def list_rollout_artifacts(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """List artifacts for a rollout."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/artifacts", api_version=api_version)
     params: dict[str, str] = {}
     if prefix is not None:
         params["prefix"] = prefix
@@ -1116,9 +1346,14 @@ def list_rollout_artifacts(
         params["cursor"] = cursor
     if limit is not None:
         params["limit"] = str(limit)
-    resp = httpx.get(url, headers=_auth_headers(api_key), params=params, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/artifacts",
+        params=params,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1132,14 +1367,16 @@ def fetch_artifact(
     api_version: str | None = None,
 ) -> bytes:
     """Fetch a specific artifact by path."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/artifacts/{path.lstrip('/')}", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    return resp.content
+    return _rust_get_bytes(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/artifacts/{path.lstrip('/')}",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
 
 
 def cancel_rollout(
@@ -1157,14 +1394,17 @@ def cancel_rollout(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"rollouts/{rollout_id}/cancel", api_version=api_version)
-    resp = httpx.post(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"rollouts/{rollout_id}/cancel",
+        payload={},
+        idempotency_key=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1345,19 +1585,21 @@ def list_pools(
     api_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """List all pools."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "pools", api_version=api_version)
     params: dict[str, str] = {}
     if pool_type is not None:
         params["type"] = pool_type
     if tag is not None:
         params["tag"] = tag
-    resp = httpx.get(url, headers=_auth_headers(api_key), params=params, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="pools",
+        params=params,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, list) else []
 
 
@@ -1370,14 +1612,16 @@ def get_pool(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get pool details."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1427,11 +1671,8 @@ def create_pool(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "pools", api_version=api_version)
 
     template_value: str | None = None
     if template is not None:
@@ -1463,9 +1704,15 @@ def create_pool(
                 payload["backend"] = _TEMPLATE_BACKENDS[template_value]
             if "tasks" in payload and isinstance(payload["tasks"], list):
                 payload["tasks"] = _normalize_tasks_for_template(payload["tasks"], template_value)
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="pools",
+        payload=payload,
+        idempotency_key=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1489,15 +1736,17 @@ def update_pool(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}", api_version=api_version)
     payload = _payload_from_request(request)
-    resp = httpx.put(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_put_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}",
+        payload=payload,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1516,13 +1765,15 @@ def delete_pool(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}", api_version=api_version)
-    resp = httpx.delete(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
+    _rust_delete(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}",
+        timeout=timeout,
+        api_version=api_version,
+    )
 
 
 def get_pool_metrics(
@@ -1534,14 +1785,16 @@ def get_pool_metrics(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get pool metrics including queue depth and running count."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}/metrics", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}/metrics",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1554,14 +1807,16 @@ def list_pool_tasks(
     api_version: str | None = None,
 ) -> list[dict[str, Any]]:
     """List task definitions for a pool."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}/tasks", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}/tasks",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, list) else []
 
 
@@ -1581,15 +1836,18 @@ def create_pool_task(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}/tasks", api_version=api_version)
     payload = _payload_from_request(request)
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_post_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}/tasks",
+        payload=payload,
+        idempotency_key=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1610,15 +1868,17 @@ def update_pool_task(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}/tasks/{task_id}", api_version=api_version)
     payload = _payload_from_request(request)
-    resp = httpx.put(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_put_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}/tasks/{task_id}",
+        payload=payload,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1638,13 +1898,15 @@ def delete_pool_task(
         RuntimeWarning,
         stacklevel=2,
     )
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, f"pools/{pool_id}/tasks/{task_id}", api_version=api_version)
-    resp = httpx.delete(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
+    _rust_delete(
+        backend_base=base,
+        api_key=api_key,
+        suffix=f"pools/{pool_id}/tasks/{task_id}",
+        timeout=timeout,
+        api_version=api_version,
+    )
 
 
 # --- Queue ---
@@ -1658,14 +1920,16 @@ def get_queue_status(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Get queue status."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "queue/status", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="queue/status",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1677,14 +1941,16 @@ def get_capabilities(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Discover supported pool types, agents, models, and features."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "capabilities", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="capabilities",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1696,14 +1962,16 @@ def get_openapi_schema(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Fetch the OpenAPI schema published by the backend."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "openapi.json", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="openapi.json",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1715,14 +1983,16 @@ def get_schema_json(
     api_version: str | None = None,
 ) -> dict[str, Any]:
     """Fetch the JSON schema published by the backend."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _url(base, "schema.json", api_version=api_version)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_get_json(
+        backend_base=base,
+        api_key=api_key,
+        suffix="schema.json",
+        params=None,
+        timeout=timeout,
+        api_version=api_version,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1745,11 +2015,8 @@ def store_credential(
     with ``username`` and ``token`` keys. It will be JSON-serialized
     automatically.
     """
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _cred_url(base)
     value = json.dumps(credential_value) if isinstance(credential_value, dict) else credential_value
     payload: dict[str, Any] = {
         "credential_name": credential_name,
@@ -1758,9 +2025,13 @@ def store_credential(
     }
     if metadata is not None:
         payload["metadata"] = metadata
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_http_post_json(
+        backend_base=base,
+        api_key=api_key,
+        path=_CREDENTIALS_PREFIX,
+        payload=payload,
+        timeout=timeout,
+    )
     return data if isinstance(data, dict) else {}
 
 
@@ -1771,14 +2042,15 @@ def list_credentials(
     timeout: float = 30.0,
 ) -> list[dict[str, Any]]:
     """List credentials for the authenticated org (values are redacted)."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _cred_url(base)
-    resp = httpx.get(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    data = _rust_http_get_json(
+        backend_base=base,
+        api_key=api_key,
+        path=_CREDENTIALS_PREFIX,
+        params=None,
+        timeout=timeout,
+    )
     return data if isinstance(data, list) else []
 
 
@@ -1790,13 +2062,14 @@ def delete_credential(
     timeout: float = 30.0,
 ) -> None:
     """Delete (deactivate) a credential."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _cred_url(base, credential_id)
-    resp = httpx.delete(url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(resp)
+    _rust_http_delete(
+        backend_base=base,
+        api_key=api_key,
+        path=f"{_CREDENTIALS_PREFIX}/{credential_id}",
+        timeout=timeout,
+    )
 
 
 def rotate_credential(
@@ -1808,17 +2081,16 @@ def rotate_credential(
     timeout: float = 30.0,
 ) -> dict[str, Any]:
     """Rotate (update) a credential's value."""
-    import httpx
-
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = _cred_url(base, credential_id)
     value = json.dumps(new_value) if isinstance(new_value, dict) else new_value
-    resp = httpx.put(
-        url, headers=_auth_headers(api_key), json={"credential_value": value}, timeout=timeout
+    data = _rust_http_put_json(
+        backend_base=base,
+        api_key=api_key,
+        path=f"{_CREDENTIALS_PREFIX}/{credential_id}",
+        payload={"credential_value": value},
+        timeout=timeout,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
     return data if isinstance(data, dict) else {}
 
 

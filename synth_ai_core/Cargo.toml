@@ -56,3 +56,6 @@ synth_ai_core_types = { path = "../synth_ai_core_types", version = "0.2.0" }
 [features]
 default = ["libsql"]
 libsql = ["dep:libsql"]
+
+[dev-dependencies]
+httpmock = "0.7"

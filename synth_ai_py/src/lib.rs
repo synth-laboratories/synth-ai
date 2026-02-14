@@ -69,6 +69,7 @@ use synth_ai_core::orchestration::schemas::{
     MAX_SEED_INFO_COUNT as RUST_MAX_SEED_INFO_COUNT,
 };
 use synth_ai_core::sse::stream_sse_request as core_stream_sse_request;
+use synth_ai_core::sse::SseEvent as CoreSseEvent;
 use synth_ai_core::sse::SseStream as CoreSseStream;
 use synth_ai_core::streaming::{
     JobStreamer as RustJobStreamer, StreamConfig as RustStreamConfig,
@@ -95,12 +96,17 @@ use synth_ai_core::tunnels;
 use synth_ai_core::tunnels::cloudflared::ManagedProcess;
 use synth_ai_core::tunnels::errors::TunnelError;
 use synth_ai_core::tunnels::lease_client::LeaseClient as RustLeaseClient;
+use synth_ai_core::tunnels::synthtunnel_client::{
+    SynthTunnelLease as RustSynthTunnelLease, SynthTunnelLeaseClient as RustSynthTunnelLeaseClient,
+};
 use synth_ai_core::tunnels::types::TunnelBackend;
 use synth_ai_core::tunnels::types::{
     ConnectorStatus as RustConnectorStatus, Diagnostics as RustDiagnostics,
     GatewayStatus as RustGatewayStatus, LeaseInfo as RustLeaseInfo,
     TunnelHandle as RustTunnelHandle,
 };
+use synth_ai_core::EnvironmentPoolsClient as RustEnvironmentPoolsClient;
+use synth_ai_core::plan_gating as core_plan_gating;
 use synth_ai_core::urls::{
     backend_demo_keys_url as core_backend_demo_keys_url,
     backend_health_url as core_backend_health_url, backend_me_url as core_backend_me_url,
@@ -390,6 +396,22 @@ fn map_core_err(py: Python, err: CoreError) -> PyErr {
                         info.limit,
                         info.tier.clone(),
                         info.retry_after_seconds,
+                        info.upgrade_url.clone(),
+                    )) {
+                        return PyErr::from_value_bound(instance);
+                    }
+                }
+            }
+            CoreError::PlanGating(info) => {
+                if let Ok(cls) = errors.getattr("PlanGatingError") {
+                    let required = PyTuple::new_bound(
+                        py,
+                        info.required_plans.iter().map(|s| s.to_object(py)),
+                    );
+                    if let Ok(instance) = cls.call1((
+                        info.feature.clone(),
+                        info.current_plan.clone(),
+                        required,
                         info.upgrade_url.clone(),
                     )) {
                         return PyErr::from_value_bound(instance);
@@ -1370,6 +1392,74 @@ fn synth_tunnel_start(
         }),
         Err(e) => Err(map_tunnel_err(py, e)),
     }
+}
+
+// =============================================================================
+// SynthTunnel — Lease management (Rust-core SSOT)
+// =============================================================================
+
+#[pyfunction]
+#[pyo3(signature = (api_key, backend_url, client_instance_id, local_port, local_host="127.0.0.1", requested_ttl_seconds=3600, metadata=None, capabilities=None, timeout_s=None))]
+fn synth_tunnel_create_lease(
+    py: Python,
+    api_key: String,
+    backend_url: String,
+    client_instance_id: String,
+    local_port: u16,
+    local_host: &str,
+    requested_ttl_seconds: i64,
+    metadata: Option<PyObject>,
+    capabilities: Option<PyObject>,
+    timeout_s: Option<u64>,
+) -> PyResult<PyObject> {
+    let timeout = timeout_s.unwrap_or(30);
+    let meta_value: Option<Value> = metadata
+        .map(|obj| pythonize::depythonize(obj.bind(py)))
+        .transpose()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let caps_value: Option<Value> = capabilities
+        .map(|obj| pythonize::depythonize(obj.bind(py)))
+        .transpose()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    let client = RustSynthTunnelLeaseClient::new(&api_key, &backend_url, timeout)
+        .map_err(|e| map_core_err(py, e))?;
+
+    let lease: RustSynthTunnelLease = RUNTIME
+        .block_on(async move {
+            client
+                .create_lease(
+                    client_instance_id.as_str(),
+                    local_host,
+                    local_port,
+                    requested_ttl_seconds,
+                    meta_value,
+                    caps_value,
+                )
+                .await
+        })
+        .map_err(|e| map_core_err(py, e))?;
+
+    pythonize::pythonize(py, &lease)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (api_key, backend_url, lease_id, timeout_s=None))]
+fn synth_tunnel_close_lease(
+    py: Python,
+    api_key: String,
+    backend_url: String,
+    lease_id: String,
+    timeout_s: Option<u64>,
+) -> PyResult<()> {
+    let timeout = timeout_s.unwrap_or(30);
+    let client = RustSynthTunnelLeaseClient::new(&api_key, &backend_url, timeout)
+        .map_err(|e| map_core_err(py, e))?;
+    RUNTIME
+        .block_on(async move { client.close_lease(&lease_id).await })
+        .map_err(|e| map_core_err(py, e))
 }
 
 // =============================================================================
@@ -2556,6 +2646,18 @@ impl HttpClientPy {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
+    #[pyo3(signature = (path, body))]
+    fn put_json(&self, py: Python, path: &str, body: PyObject) -> PyResult<PyObject> {
+        let body_value: Value = pythonize::depythonize(body.bind(py))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result: Value = RUNTIME
+            .block_on(async { self.inner.put_json(path, &body_value).await })
+            .map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))?;
+        pythonize::pythonize(py, &result)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
     #[pyo3(signature = (path, data=None, files=None))]
     fn post_multipart(
         &self,
@@ -2583,6 +2685,181 @@ impl HttpClientPy {
         RUNTIME
             .block_on(async { self.inner.delete(path).await })
             .map_err(|e: RustHttpError| map_core_err(py, CoreError::from(e)))
+    }
+}
+
+// =============================================================================
+// Environment Pools (core client)
+// =============================================================================
+
+#[pyfunction]
+#[pyo3(signature = (api_key, backend_url, feature=None, timeout_s=None, allow_demo=None))]
+fn env_pools_check_plan_access(
+    py: Python,
+    api_key: String,
+    backend_url: String,
+    feature: Option<String>,
+    timeout_s: Option<u64>,
+    allow_demo: Option<bool>,
+) -> PyResult<PyObject> {
+    let timeout = timeout_s.unwrap_or(10);
+    let allow_demo = allow_demo.unwrap_or(true);
+    let backend_base = core_normalize_backend_base(&backend_url)
+        .map_err(|e| map_core_err(py, e))?
+        .to_string();
+    let feature_opt = feature.as_deref();
+
+    let value: Value = RUNTIME
+        .block_on(async {
+            core_plan_gating::check_feature_access(
+                &api_key,
+                &backend_base,
+                timeout,
+                feature_opt,
+                allow_demo,
+            )
+            .await
+        })
+        .map_err(|e| map_core_err(py, e))?;
+
+    pythonize::pythonize(py, &value)
+        .map(|b| b.unbind())
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pyclass(name = "EnvironmentPoolsClient")]
+struct EnvironmentPoolsClientPy {
+    inner: RustEnvironmentPoolsClient,
+}
+
+#[pymethods]
+impl EnvironmentPoolsClientPy {
+    #[new]
+    #[pyo3(signature = (api_key, backend_url=None, api_version=None, timeout_s=None))]
+    fn new(
+        py: Python,
+        api_key: String,
+        backend_url: Option<String>,
+        api_version: Option<String>,
+        timeout_s: Option<u64>,
+    ) -> PyResult<Self> {
+        let timeout = timeout_s.unwrap_or(30);
+        let mut client =
+            RustEnvironmentPoolsClient::with_timeout(api_key, backend_url.as_deref(), timeout)
+                .map_err(|e| map_core_err(py, e))?;
+        if let Some(version) = api_version {
+            client = client.with_api_version(version);
+        }
+        Ok(Self { inner: client })
+    }
+
+    #[pyo3(signature = (suffix, params=None))]
+    fn get_json(
+        &self,
+        py: Python,
+        suffix: &str,
+        params: Option<Vec<(String, String)>>,
+    ) -> PyResult<PyObject> {
+        let suffix = suffix.to_string();
+        let result: Value = RUNTIME
+            .block_on(async { self.inner.get_json(&suffix, params).await })
+            .map_err(|e| map_core_err(py, e))?;
+        pythonize::pythonize(py, &result)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (suffix, body, idempotency_key=None))]
+    fn post_json(
+        &self,
+        py: Python,
+        suffix: &str,
+        body: PyObject,
+        idempotency_key: Option<&str>,
+    ) -> PyResult<PyObject> {
+        let suffix = suffix.to_string();
+        let body_value: Value = pythonize::depythonize(body.bind(py))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result: Value = RUNTIME
+            .block_on(async { self.inner.post_json(&suffix, &body_value, idempotency_key).await })
+            .map_err(|e| map_core_err(py, e))?;
+        pythonize::pythonize(py, &result)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (suffix, body, params=None))]
+    fn put_json(
+        &self,
+        py: Python,
+        suffix: &str,
+        body: PyObject,
+        params: Option<Vec<(String, String)>>,
+    ) -> PyResult<PyObject> {
+        let suffix = suffix.to_string();
+        let body_value: Value = pythonize::depythonize(body.bind(py))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let result: Value = RUNTIME
+            .block_on(async { self.inner.put_json(&suffix, &body_value, params).await })
+            .map_err(|e| map_core_err(py, e))?;
+        pythonize::pythonize(py, &result)
+            .map(|b| b.unbind())
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    fn delete(&self, py: Python, suffix: &str) -> PyResult<()> {
+        let suffix = suffix.to_string();
+        RUNTIME
+            .block_on(async { self.inner.delete(&suffix).await })
+            .map_err(|e| map_core_err(py, e))
+    }
+
+    #[pyo3(signature = (suffix, params=None))]
+    fn get_bytes(
+        &self,
+        py: Python,
+        suffix: &str,
+        params: Option<Vec<(String, String)>>,
+    ) -> PyResult<PyObject> {
+        let suffix = suffix.to_string();
+        let bytes = RUNTIME
+            .block_on(async { self.inner.get_bytes(&suffix, params).await })
+            .map_err(|e| map_core_err(py, e))?;
+        Ok(PyBytes::new_bound(py, &bytes).unbind().into())
+    }
+
+    #[pyo3(signature = (rollout_id, since=None, cursor=None, limit=None, timeout=None))]
+    fn stream_rollout_events(
+        &self,
+        py: Python,
+        rollout_id: &str,
+        since: Option<&str>,
+        cursor: Option<&str>,
+        limit: Option<u32>,
+        timeout: Option<f64>,
+    ) -> PyResult<SseEnvelopeIterator> {
+        let rollout_id = rollout_id.to_string();
+        let since = since.map(|s| s.to_string());
+        let cursor = cursor.map(|s| s.to_string());
+        let timeout = timeout.map(Duration::from_secs_f64);
+
+        let stream = RUNTIME
+            .block_on(async {
+                self.inner
+                    .stream_rollout_events(
+                        &rollout_id,
+                        since.as_deref(),
+                        cursor.as_deref(),
+                        limit,
+                        timeout,
+                    )
+                    .await
+            })
+            .map_err(|e| map_core_err(py, e))?;
+
+        Ok(SseEnvelopeIterator {
+            inner: Arc::new(Mutex::new(Some(stream))),
+        })
     }
 }
 
@@ -2638,6 +2915,61 @@ impl SseEventIterator {
                     *guard = None;
                     return Ok(None);
                 }
+            }
+        }
+    }
+}
+
+#[pyclass(name = "SseEnvelopeIterator")]
+struct SseEnvelopeIterator {
+    inner: Arc<Mutex<Option<CoreSseStream>>>,
+}
+
+#[pymethods]
+impl SseEnvelopeIterator {
+    fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
+        slf
+    }
+
+    fn __next__(&self, py: Python) -> PyResult<Option<PyObject>> {
+        let mut guard = self
+            .inner
+            .lock()
+            .map_err(|_| PyValueError::new_err("sse stream lock poisoned"))?;
+        let stream = match guard.as_mut() {
+            Some(stream) => stream,
+            None => return Ok(None),
+        };
+
+        let next = py.allow_threads(|| RUNTIME.block_on(async { stream.as_mut().next().await }));
+        match next {
+            Some(Ok(CoreSseEvent { event, data, id, .. })) => {
+                if data.trim() == "[DONE]" {
+                    *guard = None;
+                    return Ok(None);
+                }
+
+                let parsed: PyObject = match serde_json::from_str::<Value>(&data) {
+                    Ok(value) => pythonize::pythonize(py, &value)
+                        .map(|b| b.unbind())
+                        .map_err(|e| PyValueError::new_err(e.to_string()))?,
+                    Err(_) => data.to_object(py),
+                };
+
+                let out = PyDict::new_bound(py);
+                out.set_item("data", parsed)?;
+                if !id.trim().is_empty() {
+                    out.set_item("id", id)?;
+                }
+                if !event.trim().is_empty() {
+                    out.set_item("event", event)?;
+                }
+                Ok(Some(out.to_object(py)))
+            }
+            Some(Err(err)) => Err(map_core_err(py, err)),
+            None => {
+                *guard = None;
+                Ok(None)
             }
         }
     }
@@ -5076,11 +5408,13 @@ impl SynthClient {
 
     #[pyo3(signature = (request))]
     fn graph_complete(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let req: GraphCompletionRequest = pythonize::depythonize(request.bind(py))
+        let req: serde_json::Value = pythonize::depythonize(request.bind(py))
             .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
+        // Use the raw JSON completion endpoint so minor backend response shape
+        // changes don't break the SDK (Python wrappers should not need httpx fallbacks).
         let result = RUNTIME
-            .block_on(async { self.inner.graphs().complete(req).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            .block_on(async { self.inner.graphs().complete_raw(req).await })
+            .map_err(|e| map_core_err(py, e))?;
         pythonize::pythonize(py, &result)
             .map(|b| b.unbind())
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -6411,8 +6745,11 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // HTTP
     m.add_class::<HttpClientPy>()?;
+    m.add_class::<EnvironmentPoolsClientPy>()?;
     m.add_class::<SseEventIterator>()?;
+    m.add_class::<SseEnvelopeIterator>()?;
     m.add_function(wrap_pyfunction!(stream_sse_events, m)?)?;
+    m.add_function(wrap_pyfunction!(env_pools_check_plan_access, m)?)?;
 
     // Tunnels
     m.add_class::<ProcessHandle>()?;
@@ -6435,6 +6772,8 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(tunnel_open, m)?)?;
     m.add_class::<SynthTunnelAgentPy>()?;
     m.add_function(wrap_pyfunction!(synth_tunnel_start, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_tunnel_create_lease, m)?)?;
+    m.add_function(wrap_pyfunction!(synth_tunnel_close_lease, m)?)?;
     m.add_function(wrap_pyfunction!(get_cloudflared_path, m)?)?;
     m.add_function(wrap_pyfunction!(ensure_cloudflared_installed, m)?)?;
     m.add_function(wrap_pyfunction!(require_cloudflared, m)?)?;
