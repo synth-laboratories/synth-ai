@@ -1,0 +1,11 @@
+{
+  "name": "synth-ai dev sandbox",
+  "description": "Represents the synth-ai repository running inside the synth-bazel dev-sandbox base image.",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  "build": {
+    "dockerfile": "../synth-bazel/dev-sandbox/Dockerfile",
+    "context": "../synth-bazel/dev-sandbox"
+  },
+  "postCreateCommand": "./.sandbox/setup.sh"
+}
