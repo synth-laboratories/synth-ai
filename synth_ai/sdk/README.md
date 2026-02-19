@@ -12,6 +12,7 @@ sdk/
 ├── artifacts/      # Artifact management (models, prompts)
 ├── graphs/         # Graph completions & verifiers (VerifierClient, GraphCompletionsClient)
 ├── inference/      # Model inference proxy (InferenceClient)
+├── managed_research.py  # Managed Research project/run control (SmrControlClient)
 ├── shared/         # Internal utilities (NOT public API)
 │   ├── auth.py     # API key helpers
 │   ├── streaming/  # SSE job streaming
@@ -79,5 +80,6 @@ from synth_ai.sdk import (
     VerifierClient,
     GraphCompletionsClient,
     InferenceClient,
+    SmrControlClient,
 )
 ```

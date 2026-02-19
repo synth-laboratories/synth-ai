@@ -668,7 +668,18 @@ class PromptLearningJob:
                     "ReadTimeout",
                 )
             )
-            if is_rust_create_failure or is_task_app_wire_mismatch:
+            # Some local/dev stacks still require container_api_key in the Rust create
+            # route, while the Python fallback endpoint resolves it from backend
+            # credentials (ENVIRONMENT_API_KEY). Treat this as a compatibility failure
+            # and fall back.
+            is_container_key_missing = (
+                "/api/jobs/" in msg
+                and ("http 400" in low or "status 400" in low or "400" in low)
+                and "container_api_key" in low
+                and ("missing" in low or "required" in low)
+            )
+
+            if is_rust_create_failure or is_task_app_wire_mismatch or is_container_key_missing:
                 fell_back = True
 
                 # Best-effort debug (no secrets): report pool sizes for MIPRO configs.

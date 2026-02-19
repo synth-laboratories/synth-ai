@@ -1,0 +1,4 @@
+interface:
+  display_name: "SMR Control"
+  short_description: "Control managed research projects via Synth APIs"
+  default_prompt: "Control the target managed research project through synth_ai.sdk.managed_research, and use route fallbacks when project-scoped run routes are unavailable."

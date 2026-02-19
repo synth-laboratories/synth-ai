@@ -101,6 +101,12 @@ if TYPE_CHECKING:
         upload_managed_pool_bytes,
         upload_managed_pool_file,
     )
+    from synth_ai.sdk.managed_research import (
+        ManagedResearchClient,
+        SmrApiError,
+        SmrControlClient,
+        first_id,
+    )
     from synth_ai.sdk.optimization import (
         GraphOptimizationJob,
         PolicyOptimizationJob,
@@ -202,6 +208,11 @@ __all__ = [
     "upload_managed_pool_file",
     "create_managed_pool_upload_data_source",
     "create_managed_pool_s3_data_source",
+    # Managed Research
+    "ManagedResearchClient",
+    "SmrApiError",
+    "SmrControlClient",
+    "first_id",
     # Environment Pools
     "create_rollout",
     "validate_rollout",
@@ -324,6 +335,13 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.sdk.managed_pools",
         "create_managed_pool_s3_data_source",
     ),
+    "ManagedResearchClient": (
+        "synth_ai.sdk.managed_research",
+        "ManagedResearchClient",
+    ),
+    "SmrApiError": ("synth_ai.sdk.managed_research", "SmrApiError"),
+    "SmrControlClient": ("synth_ai.sdk.managed_research", "SmrControlClient"),
+    "first_id": ("synth_ai.sdk.managed_research", "first_id"),
     "create_rollout": ("synth_ai.sdk.environment_pools", "create_rollout"),
     "validate_rollout": ("synth_ai.sdk.environment_pools", "validate_rollout"),
     "list_rollouts": ("synth_ai.sdk.environment_pools", "list_rollouts"),

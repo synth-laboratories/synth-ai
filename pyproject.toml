@@ -36,6 +36,7 @@ dependencies = [
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
+synth-ai-mcp-managed-research = "synth_ai.mcp.managed_research_server:main"
 
 [project.optional-dependencies]
 schemas = []

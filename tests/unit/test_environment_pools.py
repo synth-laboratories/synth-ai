@@ -309,6 +309,12 @@ class TestAgentSpecPresets:
         spec = AgentSpec.preset("codex", model_id="gpt-5.1-codex-mini")
         assert spec.model_id == "gpt-5.1-codex-mini"
 
+    def test_preset_codex_explicit_spark_model(self):
+        from synth_ai.sdk.environment_pools import AgentSpec
+
+        spec = AgentSpec.preset("codex", model_id="gpt-5.3-codex-spark")
+        assert spec.model_id == "gpt-5.3-codex-spark"
+
     def test_preset_invalid_model_raises(self):
         from synth_ai.sdk.environment_pools import AgentSpec
 

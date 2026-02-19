@@ -318,7 +318,7 @@ class TaskRef(BaseModel):
 _AGENT_MODEL_ALLOWLIST: dict[str, set[str]] = {
     "claude-code": {"claude-sonnet-4.5"},
     "opencode": {"claude-sonnet-4.5"},
-    "codex": {"gpt-5.2-codex", "gpt-5.1-codex-mini"},
+    "codex": {"gpt-5.2-codex", "gpt-5.1-codex-mini", "gpt-5.3-codex-spark"},
 }
 
 _AGENT_DEFAULT_MODELS: dict[str, str] = {
