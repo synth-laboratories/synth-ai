@@ -240,6 +240,26 @@ bun test
 
 Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
 
+## Dev container & dev-sandbox
+
+`synth-ai` exposes a declarative dev-sandbox under `.devcontainer/devcontainer.json`. The spec reuses the `synth-bazel/dev-sandbox` Dockerfile, mounts this repo at `/workspace/synth-ai`, and runs `./.sandbox/setup.sh` so the same toolchain (uv, maturin, Bazel) is available in Colima and Daytona sandboxes. The setup script now honors `WORKSPACE_DIR`, so devcontainer lifecycle hooks and any Colima bootstrapper both execute against the repo root.
+
+### Bootstrapping locally (Colima)
+
+1. Install the [Dev Containers CLI](https://containers.dev/cli/).
+2. From the repo root, run `devcontainer up --workspace-folder .`.
+3. Inspect the `postCreateCommand` logs for `uv sync` and `maturin develop --release --uv` output to confirm the sandbox matches the legacy `dev-sandbox.sh`.
+
+### Daytona or other remote runtimes
+
+Daytona natively consumes `devcontainer.json`, so snapshots reuse the same Dockerfile + features without a custom shell script. When a sandbox starts, `postCreateCommand` reruns `./.sandbox/setup.sh`, which in turn calls `uv sync` and `maturin` to ensure Rust extensions are rebuilt for the remote architecture.
+
+### Adding another repo to the dev-sandbox
+
+1. Copy `.devcontainer/devcontainer.json` (and optionally the `.sandbox/` folder) into the new repo so it inherits the same runtime features and VS Code defaults.
+2. Implement `.sandbox/setup.sh` with the repo-specific dependency installs, using `WORKSPACE_DIR` (default `/workspace/<repo>`) when changing directories and when marking the repo as a safe git directory.
+3. Point dev-sandbox bootstrap scripts (Colima, Daytona, etc.) at the new `devcontainer.json` rather than duplicating install logic inside ad-hoc shell scripts.
+
 ## Documentation
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**

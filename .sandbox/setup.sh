@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /workspace
+WORKSPACE_DIR=${WORKSPACE_DIR:-/workspace/synth-ai}
 
-git config --global --add safe.directory /workspace >/dev/null 2>&1 || true
+cd "$WORKSPACE_DIR"
+
+git config --global --add safe.directory "$WORKSPACE_DIR" >/dev/null 2>&1 || true
 
 if command -v uv >/dev/null 2>&1; then
   uv sync --frozen
