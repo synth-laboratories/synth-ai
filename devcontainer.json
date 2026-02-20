@@ -6,7 +6,7 @@
   "remoteUser": "root",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": "../../synth-bazel/dev-sandbox"
+    "context": "../synth-bazel/dev-sandbox"
   },
   "containerEnv": {
     "WORKSPACE_DIR": "/workspace/synth-ai"
