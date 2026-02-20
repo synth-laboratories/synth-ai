@@ -1,17 +1,4 @@
 {
   "name": "synth-ai dev sandbox",
-  "description": "Represents the synth-ai repository running inside the synth-bazel dev-sandbox base image.",
-  "workspaceFolder": "/workspace/synth-ai",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/synth-ai,type=bind",
-  "remoteUser": "root",
-  "build": {
-    "dockerfile": "Dockerfile",
-    "context": "../synth-bazel/dev-sandbox"
-  },
-  "containerEnv": {
-    "WORKSPACE_DIR": "/workspace/synth-ai"
-  },
-  "postCreateCommand": "./.sandbox/setup.sh",
-  "postStartCommand": "./.sandbox/setup.sh",
-  "postAttachCommand": "./.sandbox/setup.sh"
+  "extends": ".devcontainer/devcontainer.json"
 }

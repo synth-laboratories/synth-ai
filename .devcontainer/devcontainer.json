@@ -1,12 +1,26 @@
 {
   "name": "synth-ai dev sandbox",
-  "description": "Represents the synth-ai repository running inside the synth-bazel dev-sandbox base image.",
+  "description": "Dev Container definition for synth-ai that reuses the shared synth-bazel dev-sandbox image.",
   "workspaceFolder": "/workspace/synth-ai",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/synth-ai,type=bind",
   "remoteUser": "root",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "../../synth-bazel/dev-sandbox"
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "1.93"
+    },
+    "ghcr.io/devcontainers/features/bun:1": {
+      "version": "latest"
+    }
   },
   "containerEnv": {
     "WORKSPACE_DIR": "/workspace/synth-ai"
