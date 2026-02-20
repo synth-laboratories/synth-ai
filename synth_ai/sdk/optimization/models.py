@@ -4,8 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, Optional
 
-from synth_ai.core.levers import MiproLeverSummary
-from synth_ai.core.sensors import SensorFrameSummary
+from synth_ai.core.levers import LeverKind, ScopeKey, MiproLeverSummary
+from synth_ai.core.sensors import Sensor as CoreSensor, SensorFrameSummary
 
 
 def _first_present(data: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
@@ -106,7 +106,123 @@ def _extract_system_prompt(
                     if result:
                         return result
 
-    return None
+@dataclass(slots=True)
+class LeverHandle:
+    """SDK representation of a lever handle resolved by optimizer APIs.
+
+    See: specifications/tanha/future/sensors_and_levers.txt
+    """
+
+    lever_id: str
+    kind: LeverKind
+    version: int
+    scope: list[ScopeKey] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, Any]) -> "LeverHandle":
+        if not isinstance(raw, dict):
+            raise ValueError("LeverHandle data must be an object")
+        lever_id = raw.get("lever_id") or raw.get("id") or ""
+        kind_raw = raw.get("kind")
+        try:
+            kind = LeverKind(str(kind_raw)) if kind_raw is not None else LeverKind.CUSTOM
+        except ValueError:
+            kind = LeverKind.CUSTOM
+        version_raw = raw.get("version") or raw.get("lever_version")
+        version = 0
+        if version_raw is not None:
+            try:
+                version = int(version_raw)
+            except (TypeError, ValueError):
+                version = 0
+        scope_raw = raw.get("scope") or []
+        scope: list[ScopeKey] = []
+        if isinstance(scope_raw, list):
+            for item in scope_raw:
+                if isinstance(item, dict):
+                    scope.append(ScopeKey.from_dict(item))
+        metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+        return cls(
+            lever_id=str(lever_id),
+            kind=kind,
+            version=version,
+            scope=scope,
+            metadata=metadata,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "lever_id": self.lever_id,
+            "kind": self.kind.value,
+            "version": self.version,
+            "scope": [item.to_dict() for item in self.scope],
+        }
+        if self.metadata:
+            payload["metadata"] = self.metadata
+        return payload
+
+
+@dataclass(slots=True)
+class SensorFrame:
+    """SDK representation of a sensor frame emitted by optimizer endpoints.
+
+    See: specifications/tanha/future/sensors_and_levers.txt
+    """
+
+    scope: list[ScopeKey] = field(default_factory=list)
+    sensors: list[CoreSensor] = field(default_factory=list)
+    lever_versions: Dict[str, int] = field(default_factory=dict)
+    trace_ids: list[str] = field(default_factory=list)
+    frame_id: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, Any]) -> "SensorFrame":
+        if not isinstance(raw, dict):
+            raise ValueError("SensorFrame data must be an object")
+        scope_raw = raw.get("scope") or []
+        scope: list[ScopeKey] = []
+        if isinstance(scope_raw, list):
+            for item in scope_raw:
+                if isinstance(item, dict):
+                    scope.append(ScopeKey.from_dict(item))
+        sensors_raw = raw.get("sensors") or []
+        sensors: list[CoreSensor] = []
+        if isinstance(sensors_raw, list):
+            for item in sensors_raw:
+                if isinstance(item, dict):
+                    sensors.append(CoreSensor.from_dict(item))
+        lever_versions = _parse_lever_versions(raw.get("lever_versions"))
+        trace_ids_raw = raw.get("trace_ids") or []
+        trace_ids = [str(x) for x in trace_ids_raw if isinstance(x, (str, int))] if isinstance(trace_ids_raw, list) else []
+        frame_id = raw.get("frame_id") if isinstance(raw.get("frame_id"), str) else None
+        metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+        created_at = raw.get("created_at") if isinstance(raw.get("created_at"), str) else None
+        return cls(
+            scope=scope,
+            sensors=sensors,
+            lever_versions=lever_versions,
+            trace_ids=trace_ids,
+            frame_id=frame_id,
+            metadata=metadata,
+            created_at=created_at,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "scope": [item.to_dict() for item in self.scope],
+            "sensors": [sensor.to_dict() for sensor in self.sensors],
+            "lever_versions": self.lever_versions,
+            "trace_ids": self.trace_ids,
+            "metadata": self.metadata,
+        }
+        if self.frame_id is not None:
+            payload["frame_id"] = self.frame_id
+        if self.created_at is not None:
+            payload["created_at"] = self.created_at
+        return payload
 
 
 class PolicyJobStatus(str, Enum):
