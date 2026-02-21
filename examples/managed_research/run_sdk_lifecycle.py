@@ -17,7 +17,29 @@ import os
 import time
 from typing import Any
 
+import requests
+
 from synth_ai.sdk.managed_research import ACTIVE_RUN_STATES, SmrControlClient, first_id
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,6 +93,42 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Emit compact JSON instead of pretty JSON.",
     )
+    parser.add_argument(
+        "--check-eval-health",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Verify eval server reachability before triggering. "
+            "Prevents long backend-side health-check failures when container_url points to a local app."
+        ),
+    )
+    parser.add_argument(
+        "--eval-health-url",
+        default=os.environ.get("SMR_EVAL_HEALTH_URL"),
+        help=(
+            "Explicit eval health URL to probe before trigger (for example "
+            "http://127.0.0.1:8102/health). If omitted, the script tries project config, "
+            "then SMR_SYNTH_AI_CONTAINER_URL/SMR_EVAL_URL."
+        ),
+    )
+    parser.add_argument(
+        "--eval-health-timeout-seconds",
+        type=float,
+        default=_env_float("SMR_EVAL_HEALTH_TIMEOUT_SECONDS", 2.5),
+        help="Per-attempt timeout for eval health probing.",
+    )
+    parser.add_argument(
+        "--eval-health-retries",
+        type=int,
+        default=_env_int("SMR_EVAL_HEALTH_RETRIES", 3),
+        help="Number of eval health probe attempts before failing.",
+    )
+    parser.add_argument(
+        "--eval-health-retry-sleep-seconds",
+        type=float,
+        default=_env_float("SMR_EVAL_HEALTH_RETRY_SLEEP_SECONDS", 1.0),
+        help="Sleep duration between eval health probe attempts.",
+    )
     return parser.parse_args()
 
 
@@ -91,6 +149,121 @@ def find_run_by_id(runs: list[dict[str, Any]], run_id: str | None) -> dict[str, 
     return None
 
 
+def _normalize_health_url(raw: str | None) -> str | None:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    value = value.rstrip("/")
+    if value.endswith("/health"):
+        return value
+    return f"{value}/health"
+
+
+def _extract_container_url_from_project(project: dict[str, Any]) -> str | None:
+    if not isinstance(project, dict):
+        return None
+
+    scopes: list[dict[str, Any]] = [project]
+    for key in ("config_snapshot", "config"):
+        nested = project.get(key)
+        if isinstance(nested, dict):
+            scopes.append(nested)
+
+    for scope in scopes:
+        synth_ai = scope.get("synth_ai")
+        if isinstance(synth_ai, dict):
+            for section in ("policy_optimization", "prompt_learning"):
+                cfg = synth_ai.get(section)
+                if isinstance(cfg, dict):
+                    candidate = str(cfg.get("container_url") or "").strip()
+                    if candidate:
+                        return candidate
+        prompt_learning = scope.get("prompt_learning")
+        if isinstance(prompt_learning, dict):
+            candidate = str(prompt_learning.get("container_url") or "").strip()
+            if candidate:
+                return candidate
+    return None
+
+
+def _resolve_eval_health_url(args: argparse.Namespace, project: dict[str, Any]) -> str | None:
+    explicit = _normalize_health_url(getattr(args, "eval_health_url", None))
+    if explicit:
+        return explicit
+
+    project_container_url = _extract_container_url_from_project(project)
+    if project_container_url:
+        return _normalize_health_url(project_container_url)
+
+    env_candidate = (
+        (os.environ.get("SMR_SYNTH_AI_CONTAINER_URL") or "").strip()
+        or (os.environ.get("SMR_EVAL_URL") or "").strip()
+    )
+    if env_candidate:
+        return _normalize_health_url(env_candidate)
+    return None
+
+
+def _probe_eval_health(
+    url: str,
+    *,
+    timeout_seconds: float,
+    retries: int,
+    retry_sleep_seconds: float,
+) -> dict[str, Any]:
+    attempt_count = max(1, int(retries))
+    timeout = max(0.1, float(timeout_seconds))
+    retry_sleep = max(0.0, float(retry_sleep_seconds))
+    last_error: str | None = None
+    last_status_code: int | None = None
+
+    for attempt in range(1, attempt_count + 1):
+        try:
+            resp = requests.get(url, timeout=timeout)
+            last_status_code = int(resp.status_code)
+            if 200 <= resp.status_code < 300:
+                return {
+                    "ok": True,
+                    "attempts": attempt,
+                    "status_code": int(resp.status_code),
+                    "url": url,
+                }
+            body_preview = (resp.text or "").strip().replace("\n", " ")
+            if len(body_preview) > 240:
+                body_preview = body_preview[:240] + "..."
+            last_error = (
+                f"HTTP {resp.status_code}"
+                + (f" body={body_preview!r}" if body_preview else "")
+            )
+        except Exception as exc:
+            last_error = str(exc)
+
+        if attempt < attempt_count and retry_sleep > 0:
+            time.sleep(retry_sleep)
+
+    return {
+        "ok": False,
+        "attempts": attempt_count,
+        "status_code": last_status_code,
+        "last_error": last_error or "<unknown>",
+        "url": url,
+    }
+
+
+def _format_eval_health_preflight_failure(result: dict[str, Any]) -> str:
+    url = str(result.get("url") or "<unknown>")
+    attempts = int(result.get("attempts") or 0)
+    detail = str(result.get("last_error") or f"HTTP {result.get('status_code')}")
+    return (
+        "Eval server preflight failed before triggering run: "
+        f"{url} was unreachable after {attempts} attempt(s) ({detail}). "
+        "Start the eval server first (for example the banking77 task app on :8102), "
+        "or pass --no-check-eval-health to bypass. "
+        "Note: skip_health_check=True only skips SDK-side preflight checks; backend workers "
+        "still run container_url health checks."
+    )
+
+
 def main() -> None:
     args = parse_args()
 
@@ -109,6 +282,8 @@ def main() -> None:
             raise SystemExit("No projects available for this account/backend.")
 
         summary["project_id"] = selected_project_id
+        project = client.get_project(selected_project_id)
+        summary["project_name"] = project.get("name")
         status = client.get_project_status(selected_project_id)
         summary["project_status"] = status.get("state") or status.get("status")
 
@@ -116,6 +291,29 @@ def main() -> None:
         summary["runs_before"] = len(runs_before)
 
         if args.trigger:
+            if args.check_eval_health:
+                eval_health_url = _resolve_eval_health_url(args, project)
+                summary["eval_health_url"] = eval_health_url
+                if eval_health_url:
+                    preflight = _probe_eval_health(
+                        eval_health_url,
+                        timeout_seconds=args.eval_health_timeout_seconds,
+                        retries=args.eval_health_retries,
+                        retry_sleep_seconds=args.eval_health_retry_sleep_seconds,
+                    )
+                    summary["eval_health_preflight"] = preflight
+                    if not preflight.get("ok"):
+                        raise SystemExit(_format_eval_health_preflight_failure(preflight))
+                else:
+                    summary["eval_health_preflight"] = {
+                        "ok": None,
+                        "status": "skipped_no_url",
+                        "reason": (
+                            "No eval health URL resolved from --eval-health-url, project config, "
+                            "SMR_SYNTH_AI_CONTAINER_URL, or SMR_EVAL_URL."
+                        ),
+                    }
+
             trigger_result = client.trigger_run(selected_project_id, timebox_seconds=args.timebox_seconds)
             run_id = trigger_result.get("run_id") or trigger_result.get("id")
             summary["trigger_run_id"] = run_id

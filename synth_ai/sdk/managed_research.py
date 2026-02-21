@@ -176,6 +176,12 @@ class SmrControlClient:
         status: str,
         detail: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Mark an onboarding step complete or skipped.
+
+        Step keys used by the wizard: ``connect_github``, ``starting_data_spec``,
+        ``keys_budgets``. Backend also supports ``artifact_storage``,
+        ``approvals_egress``, ``connect_linear``, ``notifications``.
+        """
         payload: dict[str, Any] = {"step": step, "status": status}
         if detail is not None:
             payload["detail"] = detail
@@ -391,11 +397,70 @@ class SmrControlClient:
 
     # Runs --------------------------------------------------------------
 
-    def trigger_run(self, project_id: str, *, timebox_seconds: int | None = None) -> dict[str, Any]:
+    def trigger_run(
+        self,
+        project_id: str,
+        *,
+        timebox_seconds: int | None = None,
+        agent_model: str | None = None,
+        agent_kind: str | None = None,
+    ) -> dict[str, Any]:
+        """Trigger a run, optionally overriding agent model and kind for this run only.
+
+        Args:
+            project_id: Project to trigger.
+            timebox_seconds: Optional run time limit in seconds (minimum 60).
+            agent_model: Override model for this run, e.g. ``"claude-opus-4-5"`` or
+                ``"gpt-4o"``.  Persisted in ``status_detail.agent_model_override`` and
+                applied by the orchestrator at claim time.
+            agent_kind: Override agent runtime for this run: ``"codex"``, ``"claude"``,
+                or ``"opencode"``.  Persisted in ``status_detail.agent_kind_override``.
+        """
         payload: dict[str, Any] = {}
         if timebox_seconds is not None:
             payload["timebox_seconds"] = int(timebox_seconds)
+        if agent_model and agent_model.strip():
+            payload["agent_model"] = agent_model.strip()
+        if agent_kind and agent_kind.strip():
+            payload["agent_kind"] = agent_kind.strip().lower()
         return self._request_json("POST", f"/smr/projects/{project_id}/trigger", json_body=payload)
+
+    def set_agent_config(
+        self,
+        project_id: str,
+        *,
+        model: str | None = None,
+        agent_kind: str | None = None,
+    ) -> dict[str, Any]:
+        """Set the default agent model and/or kind for all future runs of a project.
+
+        Writes into ``project.execution.agent_model`` and/or
+        ``project.execution.agent_kind``.  Existing keys in ``execution`` are preserved
+        (uses a read-patch-write to avoid clobbering other execution config).
+
+        Args:
+            project_id: Project to configure.
+            model: Model string, e.g. ``"claude-opus-4-5"``, ``"gpt-4o"``,
+                ``"claude-haiku-4-5-20251001"``.
+            agent_kind: Agent runtime: ``"codex"`` (default), ``"claude"``, or
+                ``"opencode"``.
+        """
+        if model is None and agent_kind is None:
+            raise ValueError("at least one of model or agent_kind is required")
+        project = self.get_project(project_id)
+        execution: dict[str, Any] = dict(project.get("execution") or {})
+        if model is not None:
+            execution["agent_model"] = model.strip()
+        if agent_kind is not None:
+            ak = agent_kind.strip().lower()
+            if ak not in {"codex", "claude", "opencode"}:
+                raise ValueError("agent_kind must be 'codex', 'claude', or 'opencode'")
+            execution["agent_kind"] = ak
+        return self._request_json(
+            "PATCH",
+            f"/smr/projects/{project_id}",
+            json_body={"execution": execution},
+        )
 
     def list_runs(self, project_id: str) -> list[dict[str, Any]]:
         scoped = self._request_json(

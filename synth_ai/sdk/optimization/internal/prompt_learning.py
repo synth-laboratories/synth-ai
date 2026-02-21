@@ -151,6 +151,60 @@ def _infer_container_url(config: PromptLearningJobConfig) -> Optional[str]:
     return env_url or None
 
 
+_ROLLOUT_HEALTH_CHECK_MODE_ALIASES: Dict[str, str] = {
+    "required": "strict",
+    "on": "strict",
+    "enabled": "strict",
+    "true": "strict",
+    "best_effort": "warn",
+    "continue_on_failure": "warn",
+    "relaxed": "warn",
+    "skip": "off",
+    "disabled": "off",
+    "false": "off",
+}
+_ROLLOUT_HEALTH_CHECK_MODE_VALUES = {"strict", "warn", "off"}
+
+
+def _normalize_rollout_health_check_mode_for_sdk(value: str) -> str:
+    normalized = _ROLLOUT_HEALTH_CHECK_MODE_ALIASES.get(value.strip().lower(), value.strip().lower())
+    if normalized not in _ROLLOUT_HEALTH_CHECK_MODE_VALUES:
+        valid = ", ".join(sorted(_ROLLOUT_HEALTH_CHECK_MODE_VALUES))
+        raise ValueError(
+            "Invalid rollout_health_check_mode. "
+            f"Expected one of: {valid}. Got {value!r}."
+        )
+    return normalized
+
+
+def _extract_rollout_health_check_mode(payload: dict[str, Any]) -> Optional[str]:
+    if not isinstance(payload, dict):
+        return None
+    section = payload
+    if isinstance(payload.get("prompt_learning"), dict):
+        section = payload["prompt_learning"]
+    elif isinstance(payload.get("policy_optimization"), dict):
+        section = payload["policy_optimization"]
+    if not isinstance(section, dict):
+        return None
+
+    for key in ("rollout_health_check_mode", "backend_rollout_health_check_mode"):
+        value = section.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    for nested_key in ("gepa", "mipro"):
+        nested = section.get(nested_key)
+        if not isinstance(nested, dict):
+            continue
+        for key in ("rollout_health_check_mode", "backend_rollout_health_check_mode"):
+            value = nested.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return None
+
+
 @dataclass
 class PromptLearningJobConfig:
     """Configuration for a prompt learning job.
@@ -221,16 +275,18 @@ class PromptLearningJobConfig:
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
         if not self.backend_url:
-            raise ValueError("backend_url is required")
+            raise ValueError(
+                "backend_url is required (pass backend_url or set SYNTH_BACKEND_URL)."
+            )
         if not self.api_key:
-            raise ValueError("api_key is required")
+            raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
 
         task_url = _infer_container_url(self)
         if task_url and is_synthtunnel_url(task_url):
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
-                    "Pass tunnel.worker_token when submitting jobs."
+                    "Pass tunnel.worker_token or set container_worker_token."
                 )
             # Even for SynthTunnel, we still want to ensure the backend has an
             # env key provisioned (the backend uses it to talk to the container).
@@ -310,6 +366,9 @@ class PromptLearningJob:
             job_id: Existing job ID (if resuming a previous job)
             skip_health_check: If True, skip container health check before submission.
                               Useful when using tunnels where DNS may not have propagated yet.
+                              When enabled and no explicit rollout_health_check_mode is set
+                              in config/overrides, backend rollout preflight defaults to
+                              prompt_learning.rollout_health_check_mode='warn'.
         """
         self.config = config
         self._job_id = job_id
@@ -433,7 +492,9 @@ class PromptLearningJob:
             container_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
-            skip_health_check: If True, skip container health check before submission
+            skip_health_check: If True, skip SDK pre-submit container health check.
+                Also defaults backend rollout preflight mode to 'warn' unless
+                rollout_health_check_mode is explicitly set in config/overrides.
 
         Returns:
             PromptLearningJob instance
@@ -538,8 +599,49 @@ class PromptLearningJob:
         Both modes route through the same PromptLearningConfig Pydantic validation.
         """
         if self._build_result is None:
-            overrides = self.config.overrides or {}
+            overrides = dict(self.config.overrides or {})
             overrides["backend"] = self.config.backend_url
+            override_mode_value = next(
+                (
+                    value
+                    for key, value in overrides.items()
+                    if key
+                    in (
+                        "prompt_learning.rollout_health_check_mode",
+                        "prompt_learning.backend_rollout_health_check_mode",
+                        "prompt_learning.gepa.rollout_health_check_mode",
+                        "prompt_learning.gepa.backend_rollout_health_check_mode",
+                        "prompt_learning.mipro.rollout_health_check_mode",
+                        "prompt_learning.mipro.backend_rollout_health_check_mode",
+                    )
+                    and isinstance(value, str)
+                    and value.strip()
+                ),
+                None,
+            )
+
+            declared_mode_value: Optional[str] = None
+            if self.config.config_dict is not None:
+                declared_mode_value = _extract_rollout_health_check_mode(self.config.config_dict)
+            elif self.config.config_path is not None:
+                try:
+                    payload = synth_ai_py.load_toml(str(self.config.config_path))
+                except Exception:
+                    payload = None
+                if isinstance(payload, dict):
+                    declared_mode_value = _extract_rollout_health_check_mode(payload)
+
+            if isinstance(declared_mode_value, str) and declared_mode_value.strip():
+                _normalize_rollout_health_check_mode_for_sdk(declared_mode_value)
+            if isinstance(override_mode_value, str) and override_mode_value.strip():
+                overrides["prompt_learning.rollout_health_check_mode"] = (
+                    _normalize_rollout_health_check_mode_for_sdk(override_mode_value)
+                )
+            elif self._skip_health_check and not declared_mode_value:
+                # Keep default strict behavior unless caller explicitly asked to skip SDK preflight.
+                # In that case, relax backend preflight to warn so backend rollout workers do not
+                # hard-fail before the run starts.
+                overrides["prompt_learning.rollout_health_check_mode"] = "warn"
 
             # Route to appropriate builder based on config mode
             if self.config.config_dict is not None:
@@ -592,7 +694,7 @@ class PromptLearningJob:
         if is_synth and not (self.config.container_worker_token or "").strip():
             raise ValueError(
                 "container_worker_token is required for SynthTunnel container_url. "
-                "Pass tunnel.worker_token when submitting jobs."
+                "Pass tunnel.worker_token or set container_worker_token."
             )
 
         # Ensure Temporal workers can authenticate to SynthTunnel relay traffic.
@@ -626,7 +728,10 @@ class PromptLearningJob:
             else:
                 health = check_container_health(task_url, self.config.container_api_key or "")
             if not health.ok:
-                raise ValueError(f"Container health check failed: {health.detail}")
+                raise ValueError(
+                    f"Container health check failed for container_url={task_url!r}: {health.detail}. "
+                    "If this URL is a fresh tunnel, retry after DNS propagation or use skip_health_check=True."
+                )
 
         # Submit job
         import logging
@@ -904,7 +1009,8 @@ class PromptLearningJob:
                 if result.is_terminal:
                     if result.failed:
                         error_msg = (
-                            last_data.get("error")
+                            result.error
+                            or last_data.get("error")
                             or last_data.get("error_message")
                             or last_data.get("failure_reason")
                             or last_data.get("message")

@@ -102,6 +102,9 @@ Artifacts + observability:
 - `get_artifact(artifact_id)`
 - `get_artifact_content_response(artifact_id, disposition="inline", follow_redirects=False)`
 - `get_usage(project_id)`
+- `get_run_spend_entries(run_id)` (admin spend-ledger rows)
+- `get_run_economics(run_id)` (admin run economics summary)
+- `get_run_usage_by_actor(run_id, project_id=None, include_done_tasks=True)`
 - `get_ops_status(project_id, include_done_tasks=None)`
 - `search_victoria_logs(project_id, ...)`
 
@@ -186,6 +189,8 @@ Artifact/ops tools:
 - `smr.artifact.get`
 - `smr.artifact.content_link`
 - `smr.usage.get`
+- `smr.run.spend_entries.get` (admin scope)
+- `smr.run.usage_by_actor.get`
 - `smr.ops_status.get`
 - `smr.logs.search`
 
@@ -244,6 +249,42 @@ Suggested command:
 - MCP tools cover all core operator actions and return consistent typed JSON.
 - SDK behavior is stable despite backend route transition (project-scoped + canonical).
 - Key upload path is explicit and secure, with deterministic fallback behavior.
+
+## Addendum (2026-02-20): Granular usage + dollar-cost semantics
+
+`get_run_usage_by_actor(...)` now defines two explicit output modes:
+
+- `usage_mode="spend_entries"`: exact cost path sourced from `/smr/admin/runs/{run_id}/spend`.
+- `usage_mode="logs_thread_totals"`: fallback path sourced from run logs token snapshots.
+
+In exact-cost mode, `summary` and each orchestrator/worker/model/session row includes:
+
+- `total_cost_cents`, `total_cost_usd`
+- `meter_quantities` (input, cached input, output, reasoning, and non-token meters when present)
+- `meter_cost_cents`, `meter_cost_usd`
+- `token_usage` split (`input_tokens`, `cached_input_tokens`, `output_tokens`, `reasoning_output_tokens`, `total_tokens`)
+- `token_cost_cents`, `token_cost_usd` split by:
+  - input
+  - cached input
+  - output
+  - reasoning output
+- `cost_data_available=true`
+
+In fallback mode (admin spend unavailable), output includes model attribution + split token quantities but marks:
+
+- `cost_data_available=false`
+- `total_cost_cents=None` / `total_cost_usd=None`
+
+Fallback attempts run-level estimated dollars from project usage rollups:
+
+- `summary.estimated_total_cost_cents` / `summary.estimated_total_cost_usd`
+- `summary.estimated_orchestrator_total_cost_cents` / `summary.estimated_worker_total_cost_cents`
+- per actor/model/session:
+  - `estimated_total_cost_cents`
+  - `estimated_total_cost_usd`
+- `summary.estimated_cost_source="project_usage_per_run_token_share"`
+
+Allocation rule for estimates: divide run-level project usage cost across actors/models/sessions by `token_usage.total_tokens` share.
 
 ## Primary external references
 

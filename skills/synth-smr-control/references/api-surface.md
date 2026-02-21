@@ -86,7 +86,21 @@ Project-scoped run aliases (enforce `project_id` + `org_id` scoping):
 
 - `GET /smr/projects/{project_id}/workspace/git` — read-only git status: `configured`, `commit_sha`, `last_pushed_at`, `default_branch`, `vcs_provider`, `remote_repo`. Storage internals (bucket, archive key) are intentionally omitted.
 
-## MCP tools (29 total)
+## Agent model and kind selection
+
+Three levels of override, in priority order (highest first):
+
+| Level | How to set | Scope |
+|---|---|---|
+| Per-run override | `trigger_run(agent_model=..., agent_kind=...)` or `POST /trigger` body | Single run only |
+| Per-project default | `set_agent_config(project_id, model=..., agent_kind=...)` → writes `execution.agent_model` / `execution.agent_kind` | All future runs |
+| Server default | `SMR_AGENT_KIND` + `SMR_AGENT_MODEL` env vars on orchestrator host | Process-wide |
+
+Valid `agent_kind` values: `codex` (default, uses OpenAI), `claude` (Claude Code), `opencode`.
+
+When `agent_kind` changes, the orchestrator rebuilds its runtime for that run (MCP server is reused). The same model and kind is forwarded to all dispatched workers.
+
+## MCP tools (31 total)
 
 | Tool | Description |
 |---|---|
@@ -100,7 +114,8 @@ Project-scoped run aliases (enforce `project_id` + `org_id` scoping):
 | `smr_unarchive_project` | Unarchive a project |
 | `smr_get_starting_data_upload_urls` | Get presigned upload URLs for starting data |
 | `smr_upload_starting_data` | Upload starting data files (text) |
-| `smr_trigger_run` | Trigger a new run |
+| `smr_trigger_run` | Trigger a new run (supports `agent_model` + `agent_kind` per-run override) |
+| `smr_set_agent_config` | Set default agent model / kind for all future runs of a project |
 | `smr_list_runs` | List runs (all or active-only) |
 | `smr_get_run` | Fetch a run by id |
 | `smr_pause_run` | Pause a run |

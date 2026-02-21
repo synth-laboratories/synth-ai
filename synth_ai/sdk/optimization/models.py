@@ -109,6 +109,31 @@ def _extract_system_prompt(
     return None
 
 
+def _normalize_error_message(error_text: Any) -> Optional[str]:
+    text = str(error_text or "").strip()
+    if not text:
+        return None
+    lower = text.lower()
+    is_container_health_failure = (
+        (
+            "container health check failed for" in lower
+            or "container health check failed:" in lower
+            or "health check failed for" in lower
+        )
+        and "/health" in lower
+    )
+    if not is_container_health_failure:
+        return text
+    if "skip_health_check=true only skips sdk pre-submit checks" in lower:
+        return text
+    return (
+        f"{text} "
+        "Hint: This health check runs in backend workers. "
+        "skip_health_check=True only skips SDK pre-submit checks. "
+        "Ensure container_url is reachable from backend workers and that the eval server is running."
+    )
+
+
 class PolicyJobStatus(str, Enum):
     """Status of a policy optimization job."""
 
@@ -264,7 +289,9 @@ class PolicyOptimizationResult:
             sensor_frames=[frame for frame in sensor_frames if isinstance(frame, dict)],
             lever_versions=lever_versions,
             best_lever_version=best_lever_version,
-            error=data.get("error"),
+            error=_normalize_error_message(
+                _first_present(data, ("error", "error_message", "failure_reason", "message"))
+            ),
             raw=data,
         )
 
@@ -365,7 +392,9 @@ class PromptLearningResult:
             sensor_frames=[frame for frame in sensor_frames if isinstance(frame, dict)],
             lever_versions=lever_versions,
             best_lever_version=best_lever_version,
-            error=data.get("error"),
+            error=_normalize_error_message(
+                _first_present(data, ("error", "error_message", "failure_reason", "message"))
+            ),
             raw=data,
         )
 

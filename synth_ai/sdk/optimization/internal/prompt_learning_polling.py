@@ -64,9 +64,11 @@ def poll_prompt_learning_until_complete(
                 on_status(last_data)
 
             if status.is_terminal:
+                result = PromptLearningResult.from_response(job_id, last_data)
                 if status == JobStatus.FAILED:
                     error_msg = (
-                        last_data.get("error")
+                        result.error
+                        or last_data.get("error")
                         or last_data.get("error_message")
                         or last_data.get("failure_reason")
                         or last_data.get("message")
@@ -82,7 +84,7 @@ def poll_prompt_learning_until_complete(
                     logger.warning("Job %s was cancelled", job_id)
                 else:
                     logger.info("Job %s completed with status: %s", job_id, status.value)
-                return PromptLearningResult.from_response(job_id, last_data)
+                return result
 
             if status == JobStatus.PAUSED:
                 logger.warning("Job %s is paused", job_id)

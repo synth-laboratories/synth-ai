@@ -26,6 +26,8 @@ def test_tools_list_contains_expected_tool() -> None:
     assert "smr_trigger_run" in names
     assert "smr_get_starting_data_upload_urls" in names
     assert "smr_upload_starting_data" in names
+    assert "smr_get_run_spend_entries" in names
+    assert "smr_get_run_usage_by_actor" in names
 
 
 def test_tools_call_unknown_tool_returns_tool_error() -> None:
@@ -123,3 +125,49 @@ def test_upload_starting_data_tool_uses_sdk_client(monkeypatch) -> None:
     assert payload["project_id"] == "project-123"
     assert payload["dataset_ref"] == "starting-data/banking77"
     assert payload["file_count"] == 1
+
+
+def test_run_usage_by_actor_tool_uses_sdk_client(monkeypatch) -> None:
+    import synth_ai.mcp.managed_research_server as mcp_module
+
+    class DummyClient:
+        def __init__(self, api_key=None, backend_base=None):
+            self.api_key = api_key
+            self.backend_base = backend_base
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            del exc_type, exc, tb
+
+        def get_run_usage_by_actor(self, run_id: str, *, project_id=None, include_done_tasks=True):
+            return {
+                "run_id": run_id,
+                "project_id": project_id,
+                "include_done_tasks": include_done_tasks,
+                "workers": [{"actor_id": "worker-a", "models": [{"provider": "openai", "model": "gpt-5.2"}]}],
+                "orchestrators": [{"actor_id": "orch-1"}],
+            }
+
+    monkeypatch.setattr(mcp_module, "SmrControlClient", DummyClient)
+
+    server = mcp_module.ManagedResearchMcpServer()
+    result = server.dispatch(
+        "tools/call",
+        {
+            "name": "smr_get_run_usage_by_actor",
+            "arguments": {
+                "run_id": "run-123",
+                "project_id": "project-123",
+                "include_done_tasks": False,
+            },
+        },
+    )
+
+    assert "isError" not in result
+    payload = json.loads(result["content"][0]["text"])
+    assert payload["run_id"] == "run-123"
+    assert payload["project_id"] == "project-123"
+    assert payload["include_done_tasks"] is False
+    assert payload["workers"][0]["actor_id"] == "worker-a"

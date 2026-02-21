@@ -70,3 +70,30 @@ def test_policy_result_best_prompt_alias() -> None:
     result = PolicyOptimizationResult.from_response("job_legacy", payload)
     assert result.best_candidate == "legacy"
     assert result.best_prompt == "legacy"
+
+
+def test_prompt_learning_result_augments_backend_health_check_error() -> None:
+    payload = {
+        "status": "failed",
+        "error": (
+            "Container health check failed for http://127.0.0.1:8102/health "
+            "after 6 attempts over 30.0s (all retries exhausted)"
+        ),
+    }
+    result = PromptLearningResult.from_response("pl_health", payload)
+    assert result.error is not None
+    assert "backend workers" in result.error
+    assert "skip_health_check=True only skips SDK pre-submit checks" in result.error
+
+
+def test_prompt_learning_result_does_not_duplicate_health_check_hint() -> None:
+    payload = {
+        "status": "failed",
+        "error": (
+            "Container health check failed for http://127.0.0.1:8102/health. "
+            "skip_health_check=True only skips SDK pre-submit checks."
+        ),
+    }
+    result = PromptLearningResult.from_response("pl_health_hint", payload)
+    assert result.error is not None
+    assert result.error.count("skip_health_check=True only skips SDK pre-submit checks") == 1

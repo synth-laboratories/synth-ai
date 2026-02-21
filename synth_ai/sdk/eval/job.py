@@ -249,12 +249,14 @@ class EvalJobConfig:
                 self.app_id = self.container_id
 
         if not self.container_url:
-            raise ValueError("container_url (or container_url or container_id) is required")
+            raise ValueError(
+                "container_url is required (or provide container_id so it can be resolved)."
+            )
         # Use backend_url from config if provided, otherwise fall back to BACKEND_URL_BASE
         if not self.backend_url:
             self.backend_url = BACKEND_URL_BASE
         if not self.api_key:
-            raise ValueError("api_key is required")
+            raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
         if not self.seeds:
             raise ValueError("seeds list is required and cannot be empty")
         if not self.env_name:
@@ -264,7 +266,7 @@ class EvalJobConfig:
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
-                    "Pass tunnel.worker_token when submitting jobs."
+                    "Pass tunnel.worker_token or set container_worker_token."
                 )
             # Only auto-mint keys for direct container URLs; keep explicit keys for SynthTunnel.
             if not self.container_api_key:
@@ -422,7 +424,10 @@ class EvalJob:
             container_url or eval_config.get("url") or eval_config.get("container_url") or ""
         )
         if not final_container_url and not final_container_id:
-            raise ValueError("container_url or container_id is required (in config or as argument)")
+            raise ValueError(
+                "container_url or container_id is required "
+                "(set synth_ai.eval.container_url/container_id in config or pass as an argument)."
+            )
 
         final_seeds = seeds or eval_config.get("seeds", [])
         if not final_seeds:

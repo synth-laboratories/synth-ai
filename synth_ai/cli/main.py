@@ -4,7 +4,7 @@ import click
 
 from synth_ai.cli.commands.container import container
 from synth_ai.cli.commands.harbor import harbor
-from synth_ai.cli.commands.managed_research import managed_research
+from synth_ai.cli.commands.managed_research import managed_research, github_group
 from synth_ai.cli.setup import setup
 
 
@@ -30,3 +30,4 @@ cli.add_command(setup)
 cli.add_command(harbor)
 cli.add_command(container)
 cli.add_command(managed_research)
+cli.add_command(github_group, name="gh")

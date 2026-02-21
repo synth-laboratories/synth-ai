@@ -205,16 +205,18 @@ class PolicyOptimizationJobConfig:
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
         if not self.backend_url:
-            raise ValueError("backend_url is required")
+            raise ValueError(
+                "backend_url is required (pass backend_url or set SYNTH_BACKEND_URL)."
+            )
         if not self.api_key:
-            raise ValueError("api_key is required")
+            raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
 
         task_url = _infer_container_url(self)
         if task_url and is_synthtunnel_url(task_url):
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
-                    "Pass tunnel.worker_token when submitting jobs."
+                    "Pass tunnel.worker_token or set container_worker_token."
                 )
             self.container_api_key = None
         else:
@@ -315,7 +317,9 @@ class PolicyOptimizationJob:
         Args:
             config: Job configuration
             job_id: Existing job ID (if resuming a previous job)
-            skip_health_check: If True, skip Container health check before submission.
+            skip_health_check: If True, skip SDK pre-submit container health check.
+                Also defaults backend rollout preflight mode to 'warn' unless
+                rollout_health_check_mode is explicitly set in config/overrides.
         """
         self.config = config
         self._job_id = job_id
@@ -412,7 +416,9 @@ class PolicyOptimizationJob:
             algorithm: Optimization algorithm (gepa or mipro)
             allow_experimental: Allow experimental models
             overrides: Config overrides
-            skip_health_check: If True, skip Container health check
+            skip_health_check: If True, skip SDK pre-submit container health check.
+                Also defaults backend rollout preflight mode to 'warn' unless
+                rollout_health_check_mode is explicitly set in config/overrides.
 
         Returns:
             PolicyOptimizationJob instance

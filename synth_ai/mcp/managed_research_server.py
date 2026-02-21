@@ -233,10 +233,56 @@ class ManagedResearchMcpServer:
                             "type": "integer",
                             "description": "Optional run timebox in seconds.",
                         },
+                        "agent_model": {
+                            "type": "string",
+                            "description": (
+                                "Override agent model for this run only, "
+                                "e.g. 'claude-opus-4-5' or 'gpt-4o'. "
+                                "Does not affect the project's default model."
+                            ),
+                        },
+                        "agent_kind": {
+                            "type": "string",
+                            "enum": ["codex", "claude", "opencode"],
+                            "description": (
+                                "Override agent runtime for this run only: "
+                                "'codex' (default), 'claude' (Claude Code), or 'opencode'."
+                            ),
+                        },
                     },
                     required=["project_id"],
                 ),
                 handler=self._tool_trigger_run,
+            ),
+            ToolDefinition(
+                name="smr_set_agent_config",
+                description=(
+                    "Set the default agent model and/or kind for all future runs of a project. "
+                    "Writes into project.execution.agent_model / agent_kind. "
+                    "Use smr_trigger_run agent_model/agent_kind params for one-off overrides."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "model": {
+                            "type": "string",
+                            "description": (
+                                "Model string, e.g. 'claude-opus-4-5', 'gpt-4o', "
+                                "'claude-haiku-4-5-20251001'."
+                            ),
+                        },
+                        "agent_kind": {
+                            "type": "string",
+                            "enum": ["codex", "claude", "opencode"],
+                            "description": "Agent runtime: 'codex' (default), 'claude', or 'opencode'.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_set_agent_config,
             ),
             ToolDefinition(
                 name="smr_list_runs",
@@ -735,8 +781,24 @@ class ManagedResearchMcpServer:
     def _tool_trigger_run(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
         timebox_seconds = _optional_int(args, "timebox_seconds")
+        agent_model = _optional_string(args, "agent_model")
+        agent_kind = _optional_string(args, "agent_kind")
         with self._client_from_args(args) as client:
-            return client.trigger_run(project_id, timebox_seconds=timebox_seconds)
+            return client.trigger_run(
+                project_id,
+                timebox_seconds=timebox_seconds,
+                agent_model=agent_model,
+                agent_kind=agent_kind,
+            )
+
+    def _tool_set_agent_config(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        model = _optional_string(args, "model")
+        agent_kind = _optional_string(args, "agent_kind")
+        if model is None and agent_kind is None:
+            raise ValueError("at least one of 'model' or 'agent_kind' is required")
+        with self._client_from_args(args) as client:
+            return client.set_agent_config(project_id, model=model, agent_kind=agent_kind)
 
     def _tool_list_runs(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
