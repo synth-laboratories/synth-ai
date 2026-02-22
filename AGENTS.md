@@ -69,3 +69,10 @@ When using the local stack with a tunneled container, there are **three differen
 
 If you see `Invalid API key` on `/api/jobs/*`, you're sending the wrong key to the backend.
 If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong token to the tunnel.
+
+## Incident Log Requirement
+
+When you hit a Synth code bug or local dev setup issue, append a timestamped entry to `/Users/joshpurtell/Documents/Github/specifications/issues_log/YYYY-MM-DD.md` before finishing.
+
+Use this one-line format:
+`- [YYYY-MM-DD HH:MM:SS TZ] <repo/path> — <issue> — <impact> — <action/status>`

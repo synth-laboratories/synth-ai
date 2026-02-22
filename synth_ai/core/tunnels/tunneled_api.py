@@ -291,21 +291,30 @@ class TunneledContainer:
 
             container_keys = _collect_container_keys(env_api_key)
             max_inflight = int(lease.limits.get("max_inflight", 128))
-            agent = await asyncio.to_thread(
-                synth_ai_py.synth_tunnel_start,
-                lease.agent_url,
-                lease.agent_token,
-                lease.lease_id,
-                "127.0.0.1",
-                local_port,
-                lease.public_url,
-                lease.worker_token,
-                container_keys,
-                max_inflight,
-            )
+            agent = None
+            try:
+                agent = await asyncio.to_thread(
+                    synth_ai_py.synth_tunnel_start,
+                    lease.agent_url,
+                    lease.agent_token,
+                    lease.lease_id,
+                    "127.0.0.1",
+                    local_port,
+                    lease.public_url,
+                    lease.worker_token,
+                    container_keys,
+                    max_inflight,
+                )
 
-            # Ensure the agent is actually online before returning.
-            await _wait_for_agent_online(lease.public_url, lease.worker_token)
+                # Ensure the agent is actually online before returning.
+                await _wait_for_agent_online(lease.public_url, lease.worker_token)
+            except Exception:
+                if agent is not None:
+                    with contextlib.suppress(Exception):
+                        agent.stop()
+                with contextlib.suppress(Exception):
+                    await client.close_lease(lease.lease_id)
+                raise
 
             url = lease.public_url
             return cls(
@@ -395,13 +404,9 @@ class TunneledContainer:
             _handle=handle,
         )
 
-    def close(self) -> None:
-        """Close the tunnel and terminate the cloudflared process.
-
-        This is called automatically when the process exits (via atexit),
-        but you can call it explicitly for earlier cleanup.
-        """
-        logger.info("[TUNNELED_API] close() called")
+    async def close_async(self) -> None:
+        """Close the tunnel and await all async cleanup work."""
+        logger.info("[TUNNELED_API] close_async() called")
         if self.backend == TunnelBackend.SynthTunnel and self._synth_session:
             session = self._synth_session
             try:
@@ -410,35 +415,34 @@ class TunneledContainer:
                     agent = session.get("agent")
                     if agent is not None:
                         agent.stop()
-                    # Close lease via Python client
                     client = session.get("client")
                     lease = session.get("lease")
                     if client is not None and lease is not None:
-                        try:
-                            import asyncio
-
-                            loop = asyncio.get_running_loop()
-                            loop.create_task(client.close_lease(lease.lease_id))
-                        except RuntimeError:
-                            import asyncio
-
-                            asyncio.run(client.close_lease(lease.lease_id))
+                        await client.close_lease(lease.lease_id)
                 else:
                     # Legacy SynthTunnelSession fallback
-                    session.close()
+                    close_async = getattr(session, "close_async", None)
+                    if callable(close_async):
+                        await close_async()
+                    else:
+                        session.close()
             except Exception as e:
                 logger.warning("[TUNNELED_API] SynthTunnel close failed: %s", e)
             self._synth_session = None
             self._lease_id = None
             self.worker_token = None
-        elif self._handle:
+            return
+
+        if self._handle:
             try:
                 self._handle.close()
             except Exception as e:
                 logger.warning("[TUNNELED_API] Close failed: %s", e)
             self._handle = None
             self._lease_id = None
-        elif self.process:
+            return
+
+        if self.process:
             try:
                 import synth_ai_py
 
@@ -447,8 +451,22 @@ class TunneledContainer:
                 with contextlib.suppress(Exception):
                     self.process.terminate()
             self.process = None
-        else:
-            logger.debug("[TUNNELED_API] close() - nothing to close")
+            return
+
+        logger.debug("[TUNNELED_API] close_async() - nothing to close")
+
+    def close(self) -> None:
+        """Close the tunnel and terminate the cloudflared process.
+
+        This is called automatically when the process exits (via atexit),
+        but you can call it explicitly for earlier cleanup.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(self.close_async())
+            return
+        raise RuntimeError("close() cannot be called from an async context; await close_async().")
 
     def __enter__(self) -> TunneledContainer:
         """Context manager entry (for sync use after async creation)."""

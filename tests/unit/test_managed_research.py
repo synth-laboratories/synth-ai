@@ -63,32 +63,31 @@ def test_list_runs_falls_back_to_canonical_route() -> None:
     ]
 
 
-def test_set_provider_key_retries_with_plaintext_on_422() -> None:
+def test_set_provider_key_does_not_retry_plaintext_on_422() -> None:
     from synth_ai.sdk.managed_research import SmrControlClient
+    from synth_ai.sdk.managed_research import SmrApiError
 
     payloads: list[dict] = []
 
     def fake_post(path: str, *, json: dict | None = None) -> httpx.Response:
         payloads.append(dict(json or {}))
         request = httpx.Request("POST", f"https://api.example.com{path}")
-        if len(payloads) == 1:
-            return httpx.Response(422, request=request, json={"detail": "schema mismatch"})
-        return httpx.Response(200, request=request, json={"ok": True})
+        return httpx.Response(422, request=request, json={"detail": "schema mismatch"})
 
     with SmrControlClient(api_key="sk_test", backend_base="https://api.example.com") as client:
         client._client.post = fake_post  # type: ignore[assignment]
-        out = client.set_provider_key(
-            "project-1",
-            provider="openai",
-            funding_source="customer",
-            api_key="plain-key",
-            encrypted_key_b64="encrypted-key",
-        )
+        with pytest.raises(SmrApiError):
+            client.set_provider_key(
+                "project-1",
+                provider="openai",
+                funding_source="customer",
+                api_key="plain-key",
+                encrypted_key_b64="encrypted-key",
+            )
 
-    assert out == {"ok": True}
     assert payloads[0]["funding_source"] == "synth"
     assert payloads[0]["encrypted_key_b64"] == "encrypted-key"
-    assert payloads[1]["api_key"] == "plain-key"
+    assert len(payloads) == 1
 
 
 def test_set_provider_key_rejects_unknown_funding_source() -> None:
@@ -317,6 +316,57 @@ def test_upload_starting_data_files_rejects_duplicate_paths() -> None:
     mock_get_urls.assert_not_called()
 
 
+def test_upload_starting_data_files_supports_content_path(tmp_path) -> None:
+    from synth_ai.sdk.managed_research import SmrControlClient
+
+    payload_file = tmp_path / "input_spec.json"
+    payload_file.write_text('{"kind":"eval_job"}', encoding="utf-8")
+    upload_client = MagicMock()
+    upload_client.__enter__.return_value = upload_client
+    upload_client.__exit__.return_value = None
+    upload_client.put.return_value = httpx.Response(
+        200,
+        request=httpx.Request("PUT", "https://upload.example/input-spec"),
+    )
+
+    with (
+        SmrControlClient(api_key="sk_test", backend_base="https://api.example.com") as client,
+        patch.object(
+            client,
+            "get_starting_data_upload_urls",
+            return_value={
+                "dataset_ref": "starting-data/banking77",
+                "uploads": [
+                    {
+                        "path": "banking77/input_spec.json",
+                        "upload_url": "https://upload.example/input-spec",
+                    }
+                ],
+            },
+        ) as mock_get_urls,
+        patch("synth_ai.sdk.managed_research.httpx.Client", return_value=upload_client),
+    ):
+        response = client.upload_starting_data_files(
+            "project-1",
+            dataset_ref="starting-data/banking77",
+            files=[
+                {
+                    "path": "banking77/input_spec.json",
+                    "content_path": payload_file,
+                    "content_type": "application/json",
+                }
+            ],
+        )
+
+    assert response["dataset_ref"] == "starting-data/banking77"
+    mock_get_urls.assert_called_once()
+    upload_client.put.assert_called_once()
+    call = upload_client.put.call_args
+    assert call.args[0] == "https://upload.example/input-spec"
+    assert call.kwargs["content"] == b'{"kind":"eval_job"}'
+    assert call.kwargs["headers"] == {"Content-Type": "application/json"}
+
+
 def test_upload_starting_data_directory_collects_local_files(tmp_path) -> None:
     from synth_ai.sdk.managed_research import SmrControlClient
 
@@ -339,8 +389,11 @@ def test_upload_starting_data_directory_collects_local_files(tmp_path) -> None:
     assert out == {"ok": True}
     call = mock_upload.call_args
     assert call.kwargs["dataset_ref"] == "starting-data/banking77"
-    uploaded_paths = [item["path"] for item in call.kwargs["files"]]
+    uploaded_files = call.kwargs["files"]
+    uploaded_paths = [item["path"] for item in uploaded_files]
     assert uploaded_paths == ["banking77/README.md", "banking77/input_spec.json"]
+    assert all("content_path" in item for item in uploaded_files)
+    assert all("content" not in item for item in uploaded_files)
 
 
 @pytest.mark.skip(reason="get_run_spend_entries not yet implemented")

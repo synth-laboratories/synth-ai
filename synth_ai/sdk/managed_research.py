@@ -241,16 +241,6 @@ class SmrControlClient:
             payload["api_key"] = provider_api_key
 
         response = self._client.post(f"/smr/projects/{project_id}/provider_keys", json=payload)
-        if response.status_code == 422 and "encrypted_key_b64" in payload and provider_api_key:
-            fallback_payload = {
-                "provider": provider,
-                "funding_source": funding_source_norm,
-                "api_key": provider_api_key,
-            }
-            response = self._client.post(
-                f"/smr/projects/{project_id}/provider_keys",
-                json=fallback_payload,
-            )
 
         if response.status_code >= 400:
             snippet = response.text[:500] if response.text else ""
@@ -319,7 +309,7 @@ class SmrControlClient:
             raise ValueError("files must contain at least one entry")
 
         request_files: list[dict[str, str]] = []
-        file_payloads: dict[str, tuple[bytes, str | None]] = {}
+        file_payloads: dict[str, tuple[bytes | Path, str | None]] = {}
         seen_paths: set[str] = set()
         for file in files:
             if not isinstance(file, dict):
@@ -332,12 +322,25 @@ class SmrControlClient:
             seen_paths.add(path)
 
             content = file.get("content")
-            if isinstance(content, str):
-                content_bytes = content.encode("utf-8")
+            content_path = file.get("content_path")
+            if content is not None and content_path is not None:
+                raise ValueError(f"file '{path}' cannot set both 'content' and 'content_path'")
+            payload_source: bytes | Path
+            if content_path is not None:
+                if not isinstance(content_path, (str, os.PathLike)):
+                    raise ValueError(f"file '{path}' requires 'content_path' as str|Path")
+                payload_path = Path(content_path).expanduser()
+                if not payload_path.exists():
+                    raise ValueError(f"file '{path}' content_path does not exist: {payload_path}")
+                if not payload_path.is_file():
+                    raise ValueError(f"file '{path}' content_path is not a file: {payload_path}")
+                payload_source = payload_path
+            elif isinstance(content, str):
+                payload_source = content.encode("utf-8")
             elif isinstance(content, (bytes, bytearray)):
-                content_bytes = bytes(content)
+                payload_source = bytes(content)
             else:
-                raise ValueError(f"file '{path}' requires 'content' as str|bytes")
+                raise ValueError(f"file '{path}' requires 'content' as str|bytes or 'content_path'")
 
             entry: dict[str, str] = {"path": path}
             content_type = file.get("content_type")
@@ -347,7 +350,7 @@ class SmrControlClient:
                 entry["content_type"] = resolved_content_type
 
             request_files.append(entry)
-            file_payloads[path] = (content_bytes, resolved_content_type)
+            file_payloads[path] = (payload_source, resolved_content_type)
 
         upload_response = self.get_starting_data_upload_urls(
             project_id,
@@ -370,7 +373,8 @@ class SmrControlClient:
                 payload = file_payloads.get(path)
                 if payload is None:
                     raise SmrApiError(f"starting-data upload response returned unknown path '{path}'")
-                content_bytes, content_type = payload
+                payload_source, content_type = payload
+                content_bytes = payload_source.read_bytes() if isinstance(payload_source, Path) else payload_source
                 headers: dict[str, str] = {}
                 if content_type:
                     headers["Content-Type"] = content_type
@@ -404,7 +408,7 @@ class SmrControlClient:
             files_to_upload.append(
                 {
                     "path": rel_path,
-                    "content": file_path.read_bytes(),
+                    "content_path": file_path,
                     "content_type": content_type or "application/octet-stream",
                 }
             )
@@ -659,7 +663,7 @@ class SmrControlClient:
         artifact_id: str,
         *,
         disposition: str = "inline",
-        follow_redirects: bool = False,
+        follow_redirects: bool = True,
     ) -> httpx.Response:
         response = self._client.get(
             f"/smr/artifacts/{artifact_id}/content",
@@ -679,7 +683,7 @@ class SmrControlClient:
         artifact_id: str,
         *,
         disposition: str = "inline",
-        follow_redirects: bool = False,
+        follow_redirects: bool = True,
     ) -> bytes:
         response = self.get_artifact_content_response(
             artifact_id,

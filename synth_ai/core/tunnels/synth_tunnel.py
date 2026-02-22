@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
 import json
 import logging
 import os
@@ -76,8 +77,28 @@ def _decode_bytes(data: str | None) -> bytes:
     return base64.b64decode(data.encode("ascii"))
 
 
-def _strip_hop_by_hop(headers: Dict[str, str]) -> Dict[str, str]:
-    hop_by_hop = {
+def _normalize_header_pairs(raw_headers: Any) -> list[tuple[str, str]]:
+    normalized: list[tuple[str, str]] = []
+    if isinstance(raw_headers, dict):
+        source = raw_headers.items()
+    else:
+        source = raw_headers or []
+    for item in source:
+        if isinstance(item, tuple) and len(item) == 2:
+            key, value = item
+        elif isinstance(item, list) and len(item) == 2:
+            key, value = item
+        else:
+            continue
+        if key is None or value is None:
+            continue
+        normalized.append((str(key), str(value)))
+    return normalized
+
+
+def _strip_hop_by_hop(headers: Any) -> list[tuple[str, str]]:
+    normalized = _normalize_header_pairs(headers)
+    blocked = {
         "connection",
         "keep-alive",
         "proxy-authenticate",
@@ -86,8 +107,79 @@ def _strip_hop_by_hop(headers: Dict[str, str]) -> Dict[str, str]:
         "trailers",
         "transfer-encoding",
         "upgrade",
+        "authorization",
+        "host",
+        "x-synthtunnel-worker-token",
+        "x-forwarded-host",
+        "x-forwarded-proto",
+        "x-forwarded-port",
+        "x-forwarded-for",
+        "forwarded",
+        "content-length",
     }
-    return {k: v for k, v in headers.items() if k.lower() not in hop_by_hop}
+    return [(k, v) for k, v in normalized if k.lower() not in blocked]
+
+
+def _has_header(headers: list[tuple[str, str]], name: str) -> bool:
+    lowered = name.lower()
+    return any(key.lower() == lowered for key, _ in headers)
+
+
+def _encode_response_headers(headers: httpx.Headers) -> list[list[str]]:
+    return [[str(k), str(v)] for k, v in headers.multi_items()]
+
+
+def _request_timeout_from_deadline_ms(deadline_ms: int) -> httpx.Timeout:
+    # Respect relay-provided request deadline while keeping connect/write bounded.
+    total_seconds = max(float(deadline_ms) / 1000.0, 0.05)
+    connect_seconds = min(10.0, total_seconds)
+    write_seconds = min(10.0, total_seconds)
+    return httpx.Timeout(total_seconds, connect=connect_seconds, read=total_seconds, write=write_seconds)
+
+
+def _required_response_str(payload: Dict[str, Any], field: str) -> str:
+    raw = payload.get(field)
+    if raw is None:
+        raise RuntimeError(f"SynthTunnel lease response missing required field: {field}")
+    value = str(raw).strip()
+    if not value:
+        raise RuntimeError(f"SynthTunnel lease response has empty required field: {field}")
+    return value
+
+
+def _parse_lease_response(data: Dict[str, Any]) -> "SynthTunnelLease":
+    if not isinstance(data, dict):
+        raise RuntimeError("SynthTunnel lease response must be a JSON object")
+
+    agent_connect = data.get("agent_connect")
+    if not isinstance(agent_connect, dict):
+        raise RuntimeError("SynthTunnel lease response missing agent connection details")
+
+    expires_raw = _required_response_str(data, "expires_at")
+    try:
+        expires_at = _parse_datetime(expires_raw)
+    except Exception as exc:
+        raise RuntimeError(f"SynthTunnel lease response has invalid expires_at: {expires_raw}") from exc
+
+    limits = data.get("limits", {}) or {}
+    heartbeat = data.get("heartbeat", {}) or {}
+    if not isinstance(limits, dict):
+        limits = {}
+    if not isinstance(heartbeat, dict):
+        heartbeat = {}
+
+    return SynthTunnelLease(
+        lease_id=_required_response_str(data, "lease_id"),
+        route_token=_required_response_str(data, "route_token"),
+        public_base_url=_required_response_str(data, "public_base_url"),
+        public_url=_required_response_str(data, "public_url"),
+        agent_url=_required_response_str(agent_connect, "url"),
+        agent_token=_required_response_str(agent_connect, "agent_token"),
+        worker_token=_required_response_str(data, "worker_token"),
+        expires_at=expires_at,
+        limits=limits,
+        heartbeat=heartbeat,
+    )
 
 
 def _collect_container_keys(primary: Optional[str]) -> list[str]:
@@ -156,21 +248,7 @@ class SynthTunnelClient:
             resp = await client.post(url, json=payload, headers=headers)
             resp.raise_for_status()
             data = resp.json()
-        agent_connect = data.get("agent_connect", {}) or {}
-        if not agent_connect.get("url") or not agent_connect.get("agent_token"):
-            raise RuntimeError("SynthTunnel lease response missing agent connection details")
-        return SynthTunnelLease(
-            lease_id=str(data.get("lease_id")),
-            route_token=str(data.get("route_token")),
-            public_base_url=str(data.get("public_base_url")),
-            public_url=str(data.get("public_url")),
-            agent_url=str(agent_connect.get("url")),
-            agent_token=str(agent_connect.get("agent_token")),
-            worker_token=str(data.get("worker_token")),
-            expires_at=_parse_datetime(str(data.get("expires_at"))),
-            limits=data.get("limits", {}) or {},
-            heartbeat=data.get("heartbeat", {}) or {},
-        )
+        return _parse_lease_response(data)
 
     async def close_lease(self, lease_id: str) -> None:
         url = f"{self.backend_url}/api/v1/synthtunnel/leases/{lease_id}"
@@ -188,7 +266,7 @@ class RequestContext:
     method: str
     path: str
     query: str
-    headers: Dict[str, str]
+    headers: list[tuple[str, str]]
     deadline_ms: int
     body: bytearray = field(default_factory=bytearray)
 
@@ -216,17 +294,66 @@ class SynthTunnelAgent:
                 "[SynthTunnel] ENVIRONMENT_API_KEY not set; forwarding without local auth headers."
             )
 
-    def _attach_local_auth(self, headers: Dict[str, str]) -> None:
+    def _attach_local_auth(self, headers: list[tuple[str, str]]) -> None:
         if not self._container_keys:
             return
-        headers.setdefault("X-API-Key", self._container_keys[0])
-        if len(self._container_keys) > 1 and "X-API-Keys" not in headers:
-            headers["X-API-Keys"] = ",".join(self._container_keys)
-        headers.setdefault("Authorization", f"Bearer {self._container_keys[0]}")
+        if not _has_header(headers, "x-api-key"):
+            headers.append(("X-API-Key", self._container_keys[0]))
+        if len(self._container_keys) > 1 and not _has_header(headers, "x-api-keys"):
+            headers.append(("X-API-Keys", ",".join(self._container_keys)))
+        if not _has_header(headers, "authorization"):
+            headers.append(("Authorization", f"Bearer {self._container_keys[0]}"))
 
     async def _send(self, ws: aiohttp.ClientWebSocketResponse, payload: dict[str, Any]) -> None:
         async with self._send_lock:
             await ws.send_str(json.dumps(payload))
+
+    @staticmethod
+    def _try_parse_ws_payload(raw_text: str) -> dict[str, Any] | None:
+        try:
+            payload = json.loads(raw_text)
+        except json.JSONDecodeError:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    async def _handle_req_body_frame(
+        self, ws: aiohttp.ClientWebSocketResponse, payload: dict[str, Any]
+    ) -> None:
+        rid = str(payload.get("rid"))
+        ctx = self._contexts.get(rid)
+        if not ctx:
+            return
+        try:
+            chunk = _decode_bytes(payload.get("chunk_b64"))
+        except (binascii.Error, ValueError):
+            logger.warning(
+                "[SynthTunnel] Ignoring malformed REQ_BODY chunk rid=%s",
+                rid,
+            )
+            self._contexts.pop(rid, None)
+            await self._send(
+                ws,
+                {
+                    "type": "RESP_ERROR",
+                    "lease_id": ctx.lease_id,
+                    "rid": rid,
+                    "code": "BAD_REQUEST_FRAME",
+                    "message": "Malformed REQ_BODY chunk",
+                },
+            )
+            return
+        ctx.body.extend(chunk)
+
+    async def _drain_reconnect_state(self) -> None:
+        if self._contexts:
+            self._contexts.clear()
+        if not self._tasks:
+            return
+        tasks = list(self._tasks.values())
+        self._tasks.clear()
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _handle_request(
         self, ws: aiohttp.ClientWebSocketResponse, ctx: RequestContext
@@ -238,11 +365,14 @@ class SynthTunnelAgent:
 
         headers = _strip_hop_by_hop(ctx.headers)
         self._attach_local_auth(headers)
-        headers.setdefault("x-synthtunnel-lease-id", ctx.lease_id)
-        headers.setdefault("x-synthtunnel-request-id", ctx.rid)
-        headers.setdefault("x-forwarded-proto", "https")
+        if not _has_header(headers, "x-synthtunnel-lease-id"):
+            headers.append(("x-synthtunnel-lease-id", ctx.lease_id))
+        if not _has_header(headers, "x-synthtunnel-request-id"):
+            headers.append(("x-synthtunnel-request-id", ctx.rid))
+        if not _has_header(headers, "x-forwarded-proto"):
+            headers.append(("x-forwarded-proto", "https"))
 
-        timeout = httpx.Timeout(60.0, connect=10.0, read=60.0, write=10.0)
+        timeout = _request_timeout_from_deadline_ms(ctx.deadline_ms)
         max_response_bytes = int(self.lease.limits.get("max_response_bytes", 200_000_000))
         sent_bytes = 0
 
@@ -271,7 +401,7 @@ class SynthTunnelAgent:
                         "lease_id": ctx.lease_id,
                         "rid": ctx.rid,
                         "status": resp.status_code,
-                        "headers": [[k, v] for k, v in resp.headers.items()],
+                        "headers": _encode_response_headers(resp.headers),
                     },
                 )
                 async for chunk in resp.aiter_bytes():
@@ -350,7 +480,13 @@ class SynthTunnelAgent:
                             if self.stop_event.is_set():
                                 break
                             if msg.type == aiohttp.WSMsgType.TEXT:
-                                payload = json.loads(msg.data)
+                                payload = self._try_parse_ws_payload(msg.data)
+                                if payload is None:
+                                    logger.warning(
+                                        "[SynthTunnel] Ignoring malformed WS text frame (invalid JSON object), len=%d",
+                                        len(msg.data) if isinstance(msg.data, str) else 0,
+                                    )
+                                    continue
                                 msg_type = payload.get("type")
                                 rid_log = payload.get("rid", "?")
                                 print(
@@ -364,19 +500,12 @@ class SynthTunnelAgent:
                                         method=str(payload.get("method", "GET")),
                                         path=str(payload.get("path", "/")),
                                         query=str(payload.get("query", "")),
-                                        headers={
-                                            str(k): str(v)
-                                            for k, v in (payload.get("headers") or [])
-                                            if k
-                                        },
+                                        headers=_normalize_header_pairs(payload.get("headers") or []),
                                         deadline_ms=int(payload.get("deadline_ms") or 600000),
                                     )
                                     self._contexts[ctx.rid] = ctx
                                 elif msg_type == "REQ_BODY":
-                                    rid = str(payload.get("rid"))
-                                    ctx = self._contexts.get(rid)
-                                    if ctx:
-                                        ctx.body.extend(_decode_bytes(payload.get("chunk_b64")))
+                                    await self._handle_req_body_frame(ws, payload)
                                 elif msg_type == "REQ_END":
                                     rid = str(payload.get("rid"))
                                     ctx = self._contexts.pop(rid, None)
@@ -396,7 +525,10 @@ class SynthTunnelAgent:
                             break
                 except Exception as exc:
                     logger.warning("[SynthTunnel] Agent reconnecting after error: %s", exc)
+                    await self._drain_reconnect_state()
                     await asyncio.sleep(1.0)
+                    continue
+                await self._drain_reconnect_state()
 
 
 @dataclass
@@ -418,11 +550,11 @@ class SynthTunnelSession:
 
     def close(self) -> None:
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             asyncio.run(self.close_async())
             return
-        loop.create_task(self.close_async())
+        raise RuntimeError("close() cannot be called from an async context; await close_async().")
 
 
 async def open_synth_tunnel(

@@ -307,8 +307,6 @@ def is_synthtunnel_url(url: str) -> bool:
         hostname = parsed.hostname or ""
     except Exception:
         return False
-    if "/s/rt_" in (parsed.path or ""):
-        return True
     if hostname == "st.usesynth.ai":
         return True
     return hostname.endswith(".st.usesynth.ai")

@@ -25,6 +25,82 @@ def _from_data_or_metadata(data: Dict[str, Any], key: str) -> Optional[Any]:
         nested = metadata.get(key)
         if nested is not None:
             return nested
+    job_metadata = data.get("job_metadata")
+    if isinstance(job_metadata, dict):
+        nested = job_metadata.get(key)
+        if nested is not None:
+            return nested
+    return None
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_candidate_reward(candidate: Dict[str, Any]) -> Optional[float]:
+    for key in ("mean_reward", "reward", "avg_reward", "train_reward", "validation_reward"):
+        parsed = _coerce_float(candidate.get(key))
+        if parsed is not None:
+            return parsed
+    objectives = candidate.get("instance_objectives")
+    if isinstance(objectives, list):
+        values = [
+            parsed
+            for parsed in (
+                _coerce_float(obj.get("reward")) for obj in objectives if isinstance(obj, dict)
+            )
+            if parsed is not None
+        ]
+        if values:
+            return sum(values) / len(values)
+    for value in candidate.values():
+        if not isinstance(value, dict):
+            continue
+        parsed = _coerce_float(value.get("reward"))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _extract_best_reward_value(data: Dict[str, Any], include_train: bool = True) -> Optional[float]:
+    reward_keys = ("best_reward", "best_train_reward") if include_train else ("best_reward",)
+    parsed = _coerce_float(_first_present(data, reward_keys))
+    if parsed is not None:
+        return parsed
+
+    for key in ("metadata", "job_metadata"):
+        metadata = data.get(key)
+        if not isinstance(metadata, dict):
+            continue
+        parsed = _coerce_float(_first_present(metadata, reward_keys))
+        if parsed is not None:
+            return parsed
+
+    candidate_collections: list[Any] = [data.get("candidates"), data.get("frontier"), data.get("archive")]
+    metadata = data.get("metadata")
+    if isinstance(metadata, dict):
+        candidate_collections.append(metadata.get("candidates"))
+    job_metadata = data.get("job_metadata")
+    if isinstance(job_metadata, dict):
+        candidate_collections.append(job_metadata.get("candidates"))
+
+    reward_values: list[float] = []
+    for collection in candidate_collections:
+        if not isinstance(collection, list):
+            continue
+        for candidate in collection:
+            if not isinstance(candidate, dict):
+                continue
+            candidate_reward = _extract_candidate_reward(candidate)
+            if candidate_reward is not None:
+                reward_values.append(candidate_reward)
+    if reward_values:
+        return max(reward_values)
     return None
 
 
@@ -243,27 +319,7 @@ class PolicyOptimizationResult:
     ) -> PolicyOptimizationResult:
         status_str = data.get("status", "pending")
         status = PolicyJobStatus.from_string(status_str)
-        best_reward = _first_present(
-            data,
-            (
-                "best_score",
-                "best_reward",
-                "best_train_score",
-                "best_train_reward",
-            ),
-        )
-        if best_reward is None:
-            metadata = data.get("metadata")
-            if isinstance(metadata, dict):
-                best_reward = _first_present(
-                    metadata,
-                    (
-                        "best_score",
-                        "best_reward",
-                        "best_train_score",
-                        "best_train_reward",
-                    ),
-                )
+        best_reward = _extract_best_reward_value(data, include_train=True)
         lever_summary_raw = _from_data_or_metadata(data, "lever_summary")
         lever_summary = lever_summary_raw if isinstance(lever_summary_raw, dict) else None
         sensor_frames_raw = _from_data_or_metadata(data, "sensor_frames")
@@ -347,27 +403,7 @@ class PromptLearningResult:
     def from_response(cls, job_id: str, data: Dict[str, Any]) -> PromptLearningResult:
         status_str = data.get("status", "pending")
         status = PolicyJobStatus.from_string(status_str)
-        best_reward = _first_present(
-            data,
-            (
-                "best_score",
-                "best_reward",
-                "best_train_score",
-                "best_train_reward",
-            ),
-        )
-        if best_reward is None:
-            metadata = data.get("metadata")
-            if isinstance(metadata, dict):
-                best_reward = _first_present(
-                    metadata,
-                    (
-                        "best_score",
-                        "best_reward",
-                        "best_train_score",
-                        "best_train_reward",
-                    ),
-                )
+        best_reward = _extract_best_reward_value(data, include_train=True)
         lever_summary_raw = _from_data_or_metadata(data, "lever_summary")
         lever_summary = lever_summary_raw if isinstance(lever_summary_raw, dict) else None
         sensor_frames_raw = _from_data_or_metadata(data, "sensor_frames")
@@ -464,7 +500,7 @@ class GraphOptimizationResult:
     ) -> GraphOptimizationResult:
         status_str = data.get("status", "pending")
         status = GraphJobStatus.from_string(status_str)
-        best_reward = _first_present(data, ("best_score", "best_reward"))
+        best_reward = _extract_best_reward_value(data, include_train=False)
         return cls(
             job_id=job_id,
             status=status,

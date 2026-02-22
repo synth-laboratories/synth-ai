@@ -318,7 +318,7 @@ class MiproOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(f"/prompt-learning/online/mipro/sessions/{self.session_id}")
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="MIPRO status endpoint")
 
     def status(self) -> Dict[str, Any]:
         """Get current session status (synchronous wrapper).
@@ -429,7 +429,7 @@ class MiproOnlineSession:
                 f"/prompt-learning/online/mipro/sessions/{self.session_id}/reward",
                 json=payload,
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="MIPRO reward endpoint")
 
     def update_reward(
         self,
@@ -497,7 +497,7 @@ class MiproOnlineSession:
                 f"/prompt-learning/online/mipro/sessions/{self.session_id}/prompt",
                 params=params or None,
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="MIPRO prompt endpoint")
 
     def get_prompt_urls(self, *, correlation_id: Optional[str] = None) -> Dict[str, Any]:
         """Get proxy URLs for prompt selection (synchronous wrapper).
@@ -520,7 +520,7 @@ class MiproOnlineSession:
                 f"/prompt-learning/online/mipro/sessions/{self.session_id}/{action}",
                 json={},
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context=f"MIPRO {action} endpoint")
 
     def _post_action(self, action: str) -> Dict[str, Any]:
         return _run_async(self._post_action_async(action))
@@ -553,6 +553,21 @@ def _build_session_payload(
 ) -> Dict[str, Any]:
     if config is not None and any([config_name, config_path, config_body]):
         raise ValueError("Provide config or config_name/config_path/config_body, not both")
+    if config is None:
+        explicit_sources = [
+            config_name is not None,
+            config_path is not None,
+            config_body is not None,
+        ]
+        explicit_count = sum(1 for present in explicit_sources if present)
+        if explicit_count == 0:
+            raise ValueError(
+                "Provide exactly one config source: config, config_name, config_path, or config_body"
+            )
+        if explicit_count > 1:
+            raise ValueError(
+                "Provide exactly one explicit config source: config_name, config_path, or config_body"
+            )
 
     body: Dict[str, Any] = {
         "overrides": overrides or {},
@@ -580,7 +595,10 @@ def _build_session_payload(
     if config_name is not None:
         body["config_name"] = config_name
     if config_path is not None:
-        body["config_path"] = str(config_path)
+        path = Path(config_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+        body["config_path"] = str(path)
 
     return body
 
@@ -589,6 +607,12 @@ def _coerce_str(value: Any) -> Optional[str]:
     if value is None:
         return None
     return str(value)
+
+
+def _expect_dict_response(response: Any, *, context: str) -> Dict[str, Any]:
+    if isinstance(response, dict):
+        return dict(response)
+    raise ValueError(f"Invalid response from {context}: expected JSON object")
 
 
 def _run_async(coro: Any) -> Any:

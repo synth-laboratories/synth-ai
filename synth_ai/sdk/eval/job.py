@@ -223,14 +223,11 @@ class EvalJobConfig:
     concurrency: int = 5
     timeout: float = 600.0
     # Aliases for backwards compatibility (not stored, just used in __init__)
-    container_url: str = field(default="", repr=False)
     container_key: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Validate configuration and handle aliases."""
         # Handle aliases for backwards compatibility
-        if self.container_url and not self.container_url:
-            self.container_url = self.container_url
         if self.container_key and not self.container_api_key:
             self.container_api_key = self.container_key
 

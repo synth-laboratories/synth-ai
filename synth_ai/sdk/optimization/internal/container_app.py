@@ -16,6 +16,8 @@ from urllib.parse import urlparse, urlunparse
 import click
 import requests
 
+from synth_ai.core.utils.urls import is_synthtunnel_url
+
 from .utils import CLIResult, http_get, run_cli
 
 
@@ -243,11 +245,6 @@ def check_container_health(
         parsed = urlparse(url)
         return "/api/container/deployments/" in (parsed.path or "")
 
-    if _is_container_deployment_url(base):
-        synth_key = os.getenv("SYNTH_API_KEY", "")
-        if synth_key:
-            api_key = synth_key
-
     headers: dict[str, str] = {}
     if worker_token:
         headers["Authorization"] = f"Bearer {worker_token}"
@@ -261,16 +258,13 @@ def check_container_health(
             headers["X-API-Keys"] = ",".join(keys)
             headers.setdefault("Authorization", f"Bearer {api_key}")
     detail_parts: list[str] = []
-    is_synthtunnel = "/s/" in (parsed_base.path or "")
+    is_synthtunnel = is_synthtunnel_url(base)
 
     if _is_harbor_deployment_url(base):
         status_url = f"{base}/status"
         keys_to_try: list[str] = []
         if api_key:
             keys_to_try.append(api_key)
-        synth_api_key = os.getenv("SYNTH_API_KEY")
-        if synth_api_key and synth_api_key not in keys_to_try:
-            keys_to_try.append(synth_api_key)
 
         for key in keys_to_try or [""]:
             try:
@@ -493,13 +487,7 @@ def check_container_health(
             headers["Host"] = original_hostname
 
         try:
-            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
-            if use_ip_directly:
-                health_resp = requests.get(
-                    ip_health_url, headers=headers, timeout=timeout, verify=False
-                )
-            else:
-                health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
+            health_resp = http_get(ip_health_url, headers=headers, timeout=timeout)
             if is_synthtunnel and health_resp.status_code == 409 and attempt < max_retries - 1:
                 delay = 2**attempt
                 logging.getLogger(__name__).warning(
@@ -594,13 +582,7 @@ def check_container_health(
             headers["Host"] = task_info_hostname
 
         try:
-            # If using IP directly, disable SSL verification (cert is for hostname, not IP)
-            if use_ip_directly_task:
-                task_resp = requests.get(
-                    ip_task_info_url, headers=headers, timeout=timeout, verify=False
-                )
-            else:
-                task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
+            task_resp = http_get(ip_task_info_url, headers=headers, timeout=timeout)
             if is_synthtunnel and task_resp.status_code == 409 and attempt < max_retries - 1:
                 delay = 2**attempt
                 logging.getLogger(__name__).warning(

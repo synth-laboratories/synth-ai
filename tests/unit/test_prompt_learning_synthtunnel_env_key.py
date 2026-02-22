@@ -19,7 +19,7 @@ def test_synthtunnel_job_config_provisions_backend_env_key(monkeypatch: pytest.M
     )
 
     cfg = PromptLearningJobConfig(
-        config_dict={"prompt_learning": {"container_url": "http://localhost:8000/s/rt_test"}},
+        config_dict={"prompt_learning": {"container_url": "https://st.usesynth.ai/s/rt_test"}},
         backend_url="http://localhost:8000",
         api_key="sk_test",
         container_worker_token="worker_token_test",

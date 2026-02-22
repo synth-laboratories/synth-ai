@@ -571,7 +571,7 @@ class PromptLearningJob:
             if task_url and (
                 ".trycloudflare.com" in task_url.lower()
                 or ".cfargotunnel.com" in task_url.lower()
-                or "/s/rt_" in task_url
+                or is_synthtunnel_url(task_url)
             ):
                 skip_health_check = True
 

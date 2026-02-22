@@ -21,6 +21,7 @@ Algorithms:
 
 from __future__ import annotations
 
+import copy
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -73,11 +74,11 @@ def _extract_container_url(payload: Dict[str, Any]) -> Optional[str]:
     elif isinstance(payload.get("policy_optimization"), dict):
         section = payload.get("policy_optimization", {})
     if isinstance(section, dict):
-        for key in ("container_url", "container_url", "container_url_base"):
+        for key in ("container_url", "container_url_base", "task_url"):
             value = section.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
-    for key in ("container_url", "container_url"):
+    for key in ("container_url", "container_url_base", "task_url"):
         value = payload.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -100,7 +101,17 @@ def _load_toml_payload(path: Path) -> Dict[str, Any]:
 
 def _infer_container_url(config: PolicyOptimizationJobConfig) -> Optional[str]:
     overrides = config.overrides or {}
-    for key in ("task_url", "container_url"):
+    for key in (
+        "task_url",
+        "container_url",
+        "container_url_base",
+        "prompt_learning.task_url",
+        "prompt_learning.container_url",
+        "prompt_learning.container_url_base",
+        "policy_optimization.task_url",
+        "policy_optimization.container_url",
+        "policy_optimization.container_url_base",
+    ):
         value = overrides.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -234,17 +245,11 @@ class PolicyOptimizationJobConfig:
         converts our config to that format until the backend is updated.
         """
         if self.config_dict:
+            config = copy.deepcopy(self.config_dict)
             # Check for policy_optimization section and convert to prompt_learning
-            if "policy_optimization" in self.config_dict:
-                config = dict(self.config_dict)
+            if "policy_optimization" in config:
                 config["prompt_learning"] = config.pop("policy_optimization")
-                # Also convert container_url to container_url for backend compat
-                if "container_url" in config["prompt_learning"]:
-                    config["prompt_learning"]["container_url"] = config["prompt_learning"].pop(
-                        "container_url"
-                    )
-                return config
-            return self.config_dict
+            return config
         return {}
 
 
@@ -480,14 +485,7 @@ class PolicyOptimizationJob:
 
         # Auto-detect tunnel URLs and skip health check
         if skip_health_check is False:
-            section = config_dict.get("policy_optimization") or config_dict.get(
-                "prompt_learning", {}
-            )
-            container_url = (
-                section.get("container_url")
-                or section.get("container_url")
-                or section.get("container_url")
-            )
+            container_url = _extract_container_url(config_dict)
             if container_url and (
                 ".trycloudflare.com" in container_url.lower()
                 or ".cfargotunnel.com" in container_url.lower()

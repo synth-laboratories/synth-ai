@@ -5,7 +5,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from synth_ai.core.config.user import CONFIG_DIR
+try:
+    # Legacy path used by older SDK config module variants.
+    from synth_ai.core.config.user import CONFIG_DIR  # type: ignore[attr-defined]
+except Exception:  # pragma: no cover - runtime compatibility fallback
+    from synth_ai.core.utils.paths import SYNTH_HOME_DIR
+    CONFIG_DIR = SYNTH_HOME_DIR
 
 
 def _get_records_path() -> Path:
@@ -149,18 +154,19 @@ def cleanup_stale_records() -> None:
                 updated = True
                 continue
 
-        # Method 2: Check if port is still in use (for records without PID or as fallback)
-        if port is not None:
+        # Method 2: Check if port is still in use for records without PID.
+        # If no PID is available and the port is closed, the record is stale.
+        if port is not None and pid is None:
             try:
                 import socket
 
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(0.1)
-                sock.connect_ex(("127.0.0.1", port))
+                result = sock.connect_ex(("127.0.0.1", int(port)))
                 sock.close()
-                # If connection succeeds, port is in use (service might be running)
-                # If connection fails, port might be free (but could also be a different service)
-                # We'll be conservative and only remove if we're sure the process is dead
+                if result != 0:
+                    del records[port_str]
+                    updated = True
             except Exception:
                 pass
 

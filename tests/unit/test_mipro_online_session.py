@@ -90,6 +90,36 @@ def test_build_session_payload_includes_metadata_and_overrides() -> None:
     assert payload["agent_id"] == "aid"
 
 
+def test_build_session_payload_requires_one_config_source() -> None:
+    with pytest.raises(ValueError, match="config source"):
+        module._build_session_payload(
+            config=None,
+            config_name=None,
+            config_path=None,
+            config_body=None,
+            overrides={"tuning": "fast"},
+            metadata={"note": "test"},
+            session_id=None,
+            correlation_id=None,
+            agent_id=None,
+        )
+
+
+def test_build_session_payload_rejects_multiple_explicit_sources() -> None:
+    with pytest.raises(ValueError, match="exactly one"):
+        module._build_session_payload(
+            config=None,
+            config_name="named-config",
+            config_path=None,
+            config_body={"steps": []},
+            overrides=None,
+            metadata=None,
+            session_id=None,
+            correlation_id=None,
+            agent_id=None,
+        )
+
+
 def test_build_session_payload_resolves_config_path(tmp_path: Path) -> None:
     config_path = tmp_path / "session.toml"
     config_path.write_text("key = 1")
@@ -105,6 +135,22 @@ def test_build_session_payload_resolves_config_path(tmp_path: Path) -> None:
         agent_id=None,
     )
     assert payload["config_path"] == str(config_path)
+
+
+def test_build_session_payload_config_path_missing_raises(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.toml"
+    with pytest.raises(FileNotFoundError):
+        module._build_session_payload(
+            config=None,
+            config_name=None,
+            config_path=missing_path,
+            config_body=None,
+            overrides=None,
+            metadata=None,
+            session_id=None,
+            correlation_id=None,
+            agent_id=None,
+        )
 
 
 def test_coerce_str_handles_none_and_values() -> None:
@@ -189,3 +235,33 @@ async def test_post_action_async_uses_action_path(monkeypatch: pytest.MonkeyPatc
     last_client = clients[-1]
     assert last_client.requests[-1][0] == "post_json"
     assert last_client.requests[-1][1].endswith("/pause")
+
+
+@pytest.mark.asyncio
+async def test_status_async_raises_on_non_object_response(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyRustClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+
+        async def __aenter__(self) -> "DummyRustClient":
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            del args
+            return None
+
+        async def get(self, path: str, params: Any = None) -> List[str]:
+            del path, params
+            return ["bad-shape"]
+
+    monkeypatch.setattr(module, "RustCoreHttpClient", DummyRustClient)
+    session = MiproOnlineSession(
+        session_id="session-bad-status",
+        backend_url="https://backend.test",
+        api_key="api-key",
+        timeout=0.1,
+    )
+    with pytest.raises(ValueError, match="MIPRO status endpoint"):
+        await session.status_async()

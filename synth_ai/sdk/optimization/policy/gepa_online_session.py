@@ -34,6 +34,12 @@ def _run_async(coro: Any) -> Any:
     return run_sync(coro, label="GepaOnlineSession (use async methods in async contexts)")
 
 
+def _expect_dict_response(response: Any, *, context: str) -> Dict[str, Any]:
+    if isinstance(response, dict):
+        return dict(response)
+    raise ValueError(f"Invalid response from {context}: expected JSON object")
+
+
 @dataclass
 class GepaOnlineSession:
     """Client wrapper for online GEPA optimization sessions."""
@@ -185,7 +191,7 @@ class GepaOnlineSession:
                 f"/prompt-learning/online/gepa/sessions/{self.session_id}/reward",
                 json=payload,
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="GEPA reward endpoint")
 
     def update_reward(
         self,
@@ -228,7 +234,7 @@ class GepaOnlineSession:
                 f"/prompt-learning/online/gepa/sessions/{self.session_id}/prompt",
                 params=params or None,
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="GEPA prompt endpoint")
 
     def get_prompt_urls(self, *, correlation_id: Optional[str] = None) -> Dict[str, Any]:
         return _run_async(self.get_prompt_urls_async(correlation_id=correlation_id))
@@ -246,7 +252,7 @@ class GepaOnlineSession:
                 f"/prompt-learning/online/gepa/sessions/{self.session_id}/{action}",
                 json={},
             )
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context=f"GEPA {action} endpoint")
 
     def _get(self) -> Dict[str, Any]:
         return _run_async(self._get_async())
@@ -258,7 +264,7 @@ class GepaOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(f"/prompt-learning/online/gepa/sessions/{self.session_id}")
-        return dict(result) if isinstance(result, dict) else {}
+        return _expect_dict_response(result, context="GEPA status endpoint")
 
 
 __all__ = ["GepaOnlineSession"]

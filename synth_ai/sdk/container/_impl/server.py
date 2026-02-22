@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import os
 from collections.abc import Awaitable, Callable, Iterable, Mapping, MutableMapping, Sequence
 from contextlib import asynccontextmanager
@@ -43,10 +44,14 @@ from .rubrics import Rubric
 from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendor_keys
 
 
-# TODO: log_info function needs to be implemented or imported
+_LOGGER = logging.getLogger(__name__)
+
+
 def log_info(msg: str, ctx: dict[str, Any] | None = None) -> None:
-    """Temporary placeholder for log_info."""
-    pass
+    if ctx:
+        _LOGGER.info("%s ctx=%s", msg, ctx)
+        return
+    _LOGGER.info("%s", msg)
 
 
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
@@ -389,10 +394,12 @@ def create_container(config: ContainerConfig) -> FastAPI:
         setattr(app.state, key, value)
 
     if cfg.cors_origins is not None:
+        allow_origins = list(cfg.cors_origins) or ["*"]
+        allow_credentials = allow_origins != ["*"]
         app.add_middleware(
             CORSMiddleware,  # type: ignore[arg-type]
-            allow_origins=list(cfg.cors_origins) or ["*"],
-            allow_credentials=True,
+            allow_origins=allow_origins,
+            allow_credentials=allow_credentials,
             allow_methods=["*"],
             allow_headers=["*"],
         )
