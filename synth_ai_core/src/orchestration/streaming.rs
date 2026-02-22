@@ -323,8 +323,8 @@ impl EventStream {
 
                         on_event(event);
 
-                        // Check for terminal events
-                        if event.category.is_terminal() {
+                        // Check for explicit terminal job events only.
+                        if EventParser::is_terminal_event_type(&event.event_type) {
                             eprintln!(
                                 "[STREAM] Terminal event received: {} (elapsed={})",
                                 event.event_type,

@@ -402,8 +402,11 @@ impl PromptLearningJob {
                 // Update tracker
                 tracker.update(&parsed);
 
+                let is_terminal_event =
+                    super::events::EventParser::is_terminal_event_type(&parsed.event_type);
+
                 // Log progress periodically
-                if count % 5 == 0 || parsed.category.is_terminal() {
+                if count % 5 == 0 || is_terminal_event {
                     eprintln!(
                         "[PL] Event #{}: type={} category={:?} | tracker: best={:.3} baseline={:?} candidates={} gens={}",
                         count,
@@ -422,7 +425,7 @@ impl PromptLearningJob {
                 }
 
                 // Check for terminal
-                if parsed.category.is_terminal() {
+                if is_terminal_event {
                     eprintln!(
                         "[PL] Terminal event received: {} (category={:?})",
                         parsed.event_type, parsed.category

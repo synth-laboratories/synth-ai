@@ -20,6 +20,8 @@ from synth_ai.sdk.container.auth import encrypt_for_backend
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
 DEFAULT_TIMEOUT_SECONDS = 30.0
+_FUNDING_SOURCE_ALIASES = {"byok": "synth", "customer": "synth"}
+_VALID_FUNDING_SOURCES = {"synth"}
 
 __all__ = [
     "ACTIVE_RUN_STATES",
@@ -56,6 +58,14 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 def _auth_headers(api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+
+def _normalize_provider_funding_source(funding_source: str) -> str:
+    normalized = (funding_source or "").strip().lower()
+    normalized = _FUNDING_SOURCE_ALIASES.get(normalized, normalized)
+    if normalized not in _VALID_FUNDING_SOURCES:
+        raise ValueError(f"funding_source must be one of {sorted(_VALID_FUNDING_SOURCES)}")
+    return normalized
 
 
 def _coerce_list(data: Any, *, label: str) -> list[dict[str, Any]]:
@@ -212,10 +222,11 @@ class SmrControlClient:
         provider_api_key = api_key
         if not provider_api_key and not encrypted_key_b64:
             raise ValueError("api_key or encrypted_key_b64 is required")
+        funding_source_norm = _normalize_provider_funding_source(funding_source)
 
         payload: dict[str, Any] = {
             "provider": provider,
-            "funding_source": funding_source,
+            "funding_source": funding_source_norm,
         }
 
         if encrypted_key_b64:
@@ -233,7 +244,7 @@ class SmrControlClient:
         if response.status_code == 422 and "encrypted_key_b64" in payload and provider_api_key:
             fallback_payload = {
                 "provider": provider,
-                "funding_source": funding_source,
+                "funding_source": funding_source_norm,
                 "api_key": provider_api_key,
             }
             response = self._client.post(
@@ -250,9 +261,10 @@ class SmrControlClient:
         return response.json() if response.content else {}
 
     def provider_key_status(self, project_id: str, provider: str, funding_source: str) -> dict[str, Any]:
+        funding_source_norm = _normalize_provider_funding_source(funding_source)
         return self._request_json(
             "GET",
-            f"/smr/projects/{project_id}/provider_keys/{provider}/{funding_source}/status",
+            f"/smr/projects/{project_id}/provider_keys/{provider}/{funding_source_norm}/status",
         )
 
     # Starting data ----------------------------------------------------
@@ -280,9 +292,15 @@ class SmrControlClient:
                 entry["content_type"] = content_type.strip()
             payload_files.append(entry)
 
-        payload: dict[str, Any] = {"files": payload_files}
-        if isinstance(dataset_ref, str) and dataset_ref.strip():
-            payload["dataset_ref"] = dataset_ref.strip()
+        resolved_dataset_ref = (
+            dataset_ref.strip()
+            if isinstance(dataset_ref, str) and dataset_ref.strip()
+            else "starting-data"
+        )
+        payload: dict[str, Any] = {
+            "dataset_ref": resolved_dataset_ref,
+            "files": payload_files,
+        }
 
         return self._request_json(
             "POST",
@@ -302,12 +320,16 @@ class SmrControlClient:
 
         request_files: list[dict[str, str]] = []
         file_payloads: dict[str, tuple[bytes, str | None]] = {}
+        seen_paths: set[str] = set()
         for file in files:
             if not isinstance(file, dict):
                 raise ValueError("each file entry must be a JSON object")
             path = str(file.get("path") or "").strip()
             if not path:
                 raise ValueError("each file entry requires non-empty 'path'")
+            if path in seen_paths:
+                raise ValueError(f"duplicate file path in upload payload: '{path}'")
+            seen_paths.add(path)
 
             content = file.get("content")
             if isinstance(content, str):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import secrets
+from datetime import datetime
 from typing import Any
 
 try:
@@ -50,6 +51,21 @@ def _backend_headers(api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}"}
 
 
+def _created_at_sort_value(value: Any) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return float("-inf")
+    raw = value.strip()
+    if not raw:
+        return float("-inf")
+    normalized = f"{raw[:-1]}+00:00" if raw.endswith("Z") else raw
+    try:
+        return datetime.fromisoformat(normalized).timestamp()
+    except ValueError:
+        return float("-inf")
+
+
 def _fetch_backend_env_key(
     backend_base: str,
     synth_api_key: str,
@@ -70,12 +86,25 @@ def _fetch_backend_env_key(
     credentials = payload.get("credentials") if isinstance(payload, dict) else None
     if not credentials:
         return None
-    record = credentials[0]
-    if isinstance(record, dict):
+    selected_plaintext: str | None = None
+    selected_created_at = float("-inf")
+    for record in credentials:
+        if not isinstance(record, dict):
+            continue
+        name = record.get("name")
+        if isinstance(name, str) and name and name != ENVIRONMENT_API_KEY_NAME:
+            continue
         plaintext = record.get("plaintext")
-        if isinstance(plaintext, str) and plaintext.strip():
-            return plaintext.strip()
-    return None
+        if not isinstance(plaintext, str):
+            continue
+        cleaned_plaintext = plaintext.strip()
+        if not cleaned_plaintext:
+            continue
+        created_at_rank = _created_at_sort_value(record.get("created_at"))
+        if selected_plaintext is None or created_at_rank > selected_created_at:
+            selected_plaintext = cleaned_plaintext
+            selected_created_at = created_at_rank
+    return selected_plaintext
 
 
 def _backend_env_key_exists(

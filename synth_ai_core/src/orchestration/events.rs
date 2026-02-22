@@ -278,6 +278,9 @@ impl EventParser {
         ".rollout.failures",
         ".proposer.invoked",
         ".job.started",
+        ".bootstrap.started",
+        ".bootstrap.complete",
+        ".bootstrap.completed",
         ".trial.started",
         ".trial.completed",
         ".iteration.started",
@@ -299,17 +302,17 @@ impl EventParser {
     ];
 
     /// Patterns for termination events
-    const TERMINATION_PATTERNS: &'static [&'static str] =
-        &[".termination.triggered", ".termination", ".job.paused"];
-
-    /// Patterns for complete events
-    const COMPLETE_PATTERNS: &'static [&'static str] = &[
-        ".complete",
-        ".completed",
-        ".job.completed",
+    const TERMINATION_PATTERNS: &'static [&'static str] = &[
+        ".termination.triggered",
+        ".termination",
+        ".job.failed",
         ".job.cancelled",
         ".job.canceled",
+        ".job.paused",
     ];
+
+    /// Patterns for complete events
+    const COMPLETE_PATTERNS: &'static [&'static str] = &[".job.completed"];
 
     /// Patterns for validation events
     const VALIDATION_PATTERNS: &'static [&'static str] =
@@ -347,19 +350,39 @@ impl EventParser {
     /// Map a terminal event type to a terminal status.
     pub fn terminal_status(event_type: &str) -> Option<TerminalStatus> {
         let normalized = Self::normalize_type(event_type).to_lowercase();
-        if normalized.contains("cancel") {
+
+        if normalized == "job.cancelled"
+            || normalized == "job.canceled"
+            || normalized.ends_with(".job.cancelled")
+            || normalized.ends_with(".job.canceled")
+            || normalized == "job_cancelled"
+        {
             return Some(TerminalStatus::Cancelled);
         }
-        if normalized.contains("pause") {
+
+        if normalized == "job.paused" || normalized.ends_with(".job.paused") {
             return Some(TerminalStatus::Paused);
         }
-        if normalized.contains("fail") || normalized.contains("error") {
+
+        if normalized == "job.failed"
+            || normalized.ends_with(".job.failed")
+            || normalized == "job_failed"
+        {
             return Some(TerminalStatus::Failed);
         }
-        if normalized.contains("complete") || normalized.contains("succeed") {
+
+        if normalized == "job.completed"
+            || normalized.ends_with(".job.completed")
+            || normalized == "job_completed"
+        {
             return Some(TerminalStatus::Succeeded);
         }
         None
+    }
+
+    /// True only for explicit terminal job events.
+    pub fn is_terminal_event_type(event_type: &str) -> bool {
+        Self::terminal_status(event_type).is_some()
     }
 
     fn coerce_f64(value: Option<&Value>) -> Option<f64> {
@@ -849,6 +872,34 @@ mod tests {
         assert_eq!(
             EventParser::get_category("learning.policy.gepa.generation.started"),
             EventCategory::Generation
+        );
+        assert_eq!(
+            EventParser::get_category("learning.policy.mipro.bootstrap.complete"),
+            EventCategory::Progress
+        );
+    }
+
+    #[test]
+    fn test_terminal_status_is_explicit() {
+        assert_eq!(
+            EventParser::terminal_status("learning.policy.gepa.job.completed"),
+            Some(TerminalStatus::Succeeded)
+        );
+        assert_eq!(
+            EventParser::terminal_status("learning.policy.gepa.job.failed"),
+            Some(TerminalStatus::Failed)
+        );
+        assert_eq!(
+            EventParser::terminal_status("learning.policy.mipro.job.cancelled"),
+            Some(TerminalStatus::Cancelled)
+        );
+        assert_eq!(
+            EventParser::terminal_status("learning.policy.mipro.job.paused"),
+            Some(TerminalStatus::Paused)
+        );
+        assert_eq!(
+            EventParser::terminal_status("learning.policy.mipro.bootstrap.complete"),
+            None
         );
     }
 

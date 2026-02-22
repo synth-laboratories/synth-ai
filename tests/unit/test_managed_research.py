@@ -86,8 +86,23 @@ def test_set_provider_key_retries_with_plaintext_on_422() -> None:
         )
 
     assert out == {"ok": True}
+    assert payloads[0]["funding_source"] == "synth"
     assert payloads[0]["encrypted_key_b64"] == "encrypted-key"
     assert payloads[1]["api_key"] == "plain-key"
+
+
+def test_set_provider_key_rejects_unknown_funding_source() -> None:
+    from synth_ai.sdk.managed_research import SmrControlClient
+
+    with SmrControlClient(api_key="sk_test", backend_base="https://api.example.com") as client:
+        with pytest.raises(ValueError) as exc:
+            client.set_provider_key(
+                "project-1",
+                provider="openai",
+                funding_source="unknown",
+                api_key="plain-key",
+            )
+    assert "funding_source must be one of" in str(exc.value)
 
 
 def test_list_runs_returns_empty_when_both_routes_404() -> None:
@@ -184,6 +199,49 @@ def test_get_starting_data_upload_urls_posts_expected_payload() -> None:
     ]
 
 
+def test_get_starting_data_upload_urls_defaults_dataset_ref() -> None:
+    from synth_ai.sdk.managed_research import SmrControlClient
+
+    calls: list[tuple[str, str, dict | None]] = []
+
+    def fake_request(
+        method: str,
+        path: str,
+        *,
+        params: dict | None = None,
+        json: dict | None = None,
+    ) -> httpx.Response:
+        del params
+        calls.append((method, path, json))
+        request = httpx.Request(method, f"https://api.example.com{path}")
+        return httpx.Response(
+            200,
+            request=request,
+            json={"dataset_ref": "starting-data", "uploads": []},
+        )
+
+    with SmrControlClient(api_key="sk_test", backend_base="https://api.example.com") as client:
+        client._client.request = fake_request  # type: ignore[assignment]
+        response = client.get_starting_data_upload_urls(
+            "project-1",
+            files=[{"path": "banking77/input_spec.json", "content_type": "application/json"}],
+        )
+
+    assert response["dataset_ref"] == "starting-data"
+    assert calls == [
+        (
+            "POST",
+            "/smr/projects/project-1/starting-data/upload-urls",
+            {
+                "dataset_ref": "starting-data",
+                "files": [
+                    {"path": "banking77/input_spec.json", "content_type": "application/json"},
+                ],
+            },
+        )
+    ]
+
+
 def test_upload_starting_data_files_uploads_presigned_urls() -> None:
     from synth_ai.sdk.managed_research import SmrControlClient
 
@@ -239,6 +297,24 @@ def test_upload_starting_data_files_uploads_presigned_urls() -> None:
     first_call = upload_client.put.call_args_list[0]
     assert first_call.args[0] == "https://upload.example/input-spec"
     assert first_call.kwargs["headers"] == {"Content-Type": "application/json"}
+
+
+def test_upload_starting_data_files_rejects_duplicate_paths() -> None:
+    from synth_ai.sdk.managed_research import SmrControlClient
+
+    with SmrControlClient(api_key="sk_test", backend_base="https://api.example.com") as client:
+        with patch.object(client, "get_starting_data_upload_urls") as mock_get_urls:
+            with pytest.raises(ValueError) as exc:
+                client.upload_starting_data_files(
+                    "project-1",
+                    files=[
+                        {"path": "dup.txt", "content": "a"},
+                        {"path": "dup.txt", "content": "b"},
+                    ],
+                )
+
+    assert "duplicate file path" in str(exc.value)
+    mock_get_urls.assert_not_called()
 
 
 def test_upload_starting_data_directory_collects_local_files(tmp_path) -> None:

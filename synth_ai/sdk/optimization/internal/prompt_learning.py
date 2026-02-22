@@ -79,9 +79,32 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
     Local dev runs split services (Python :800x, Rust :808x). Job create/poll
     must hit Rust even when SYNTH_BACKEND_URL points at the Python API.
     """
-    # 1) Explicit env override wins.
+    # 1) Explicit override wins (user intentionally points at a specific Rust backend).
+    override = (os.getenv("SYNTH_RUST_BACKEND_URL_OVERRIDE") or "").strip()
+    if override:
+        return _strip_api_suffix(override)
+
+    # 2) When Python backend is a known remote Synth URL, derive Rust backend from it.
+    # This avoids RUST_BACKEND_URL (often localhost from local dev) overriding when
+    # SYNTH_BACKEND_URL points at Railway dev/prod.
+    try:
+        parsed = urlparse((python_backend_api_base or "").strip())
+        host = (parsed.hostname or "").strip().lower()
+        scheme = parsed.scheme or "https"
+        rust_host = None
+        if host == "api-dev.usesynth.ai":
+            rust_host = "infra-api-dev.usesynth.ai"
+        elif host == "api.usesynth.ai":
+            rust_host = "infra-api.usesynth.ai"
+        if rust_host is not None:
+            netloc = f"{rust_host}:{parsed.port}" if parsed.port else rust_host
+            new = parsed._replace(scheme=scheme, netloc=netloc)
+            return _strip_api_suffix(urlunparse(new))
+    except Exception:
+        pass
+
+    # 3) Other env vars (RUST_BACKEND_URL, DEV_RUST_BACKEND_URL, etc.).
     for k in (
-        "SYNTH_RUST_BACKEND_URL_OVERRIDE",
         "SYNTH_RUST_BACKEND_URL",
         "LOCAL_RUST_BACKEND_URL",
         "DEV_RUST_BACKEND_URL",
@@ -92,7 +115,7 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
         if v:
             return _strip_api_suffix(v)
 
-    # 2) If this looks like a local python slot URL (800x), translate to the rust slot (808x).
+    # 4) If this looks like a local python slot URL (800x), translate to the rust slot (808x).
     try:
         parsed = urlparse((python_backend_api_base or "").strip())
         host = (parsed.hostname or "").strip().lower()
@@ -104,7 +127,7 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
     except Exception:
         pass
 
-    # 3) Fall back to the env-aware rust base.
+    # 5) Fall back to the env-aware rust base.
     return _strip_api_suffix(RUST_BACKEND_URL_BASE)
 
 
