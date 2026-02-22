@@ -1,12 +1,35 @@
+import json
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Optional, TypedDict
 
 from synth_ai.core.errors import HTTPError
+from synth_ai.core.levers import ScopeKey
 from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
+from synth_ai.sdk.optimization.models import LeverHandle, SensorFrame
 from synth_ai.sdk.shared.models import UnsupportedModelError, normalize_model_identifier
+
+
+def _normalize_scope_payload(scope: list[Any] | None) -> Optional[list[dict[str, Any]]]:
+    if not scope:
+        return None
+    normalized: list[dict[str, Any]] = []
+    for item in scope:
+        if isinstance(item, ScopeKey):
+            normalized.append(item.to_dict())
+        elif isinstance(item, dict):
+            normalized.append(item)
+    return normalized or None
+
+
+def _payload_to_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return dict(value)
+    if hasattr(value, "to_dict"):
+        return value.to_dict()  # type: ignore[attr-defined]
+    raise ValueError("Payload must be a dict or provide to_dict()")
 
 
 class LearningClient:
@@ -153,6 +176,118 @@ class LearningClient:
             elapsed += interval_seconds
             if max_seconds is not None and elapsed >= max_seconds:
                 raise TimeoutError(f"Polling timed out after {elapsed} seconds for job {job_id}")
+
+    async def create_or_update_lever(
+        self,
+        optimizer_id: str,
+        lever: dict[str, Any] | LeverHandle,
+    ) -> LeverHandle:
+        """Create or update a lever handle for an optimizer.
+
+        See: specifications/tanha/future/sensors_and_levers.txt
+        """
+        payload = _payload_to_dict(lever)
+        url = f"/api/v1/optimizers/{optimizer_id}/levers"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.post_json(url, json=payload)
+        if not isinstance(js, dict):
+            raise HTTPError(
+                status=500,
+                url=url,
+                message="invalid_lever_response",
+                body_snippet=str(js)[:200],
+            )
+        return LeverHandle.from_dict(js)
+
+    async def resolve_lever(
+        self,
+        optimizer_id: str,
+        lever_id: str,
+        *,
+        scope: list[Any] | None = None,
+        snapshot: bool = True,
+    ) -> LeverHandle | None:
+        """Resolve a lever snapshot for the optimizer's scope.
+
+        See: specifications/tanha/future/sensors_and_levers.txt
+        """
+        params: dict[str, str] = {"lever_id": lever_id}
+        if snapshot:
+            params["snapshot"] = "true"
+        scope_payload = _normalize_scope_payload(scope)
+        if scope_payload:
+            params["scope"] = json.dumps(scope_payload)
+        url = f"/api/v1/optimizers/{optimizer_id}/levers"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.get(url, params=params if params else None)
+        if isinstance(js, dict):
+            return LeverHandle.from_dict(js)
+        return None
+
+    async def emit_sensor_frame(
+        self,
+        optimizer_id: str,
+        frame: dict[str, Any] | SensorFrame,
+    ) -> SensorFrame:
+        """Emit a sensor frame payload for the optimizer.
+
+        See: specifications/tanha/future/sensors_and_levers.txt
+        """
+        payload = _payload_to_dict(frame)
+        url = f"/api/v1/optimizers/{optimizer_id}/sensors"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.post_json(url, json=payload)
+        if not isinstance(js, dict):
+            raise HTTPError(
+                status=500,
+                url=url,
+                message="invalid_sensor_frame_response",
+                body_snippet=str(js)[:200],
+            )
+        return SensorFrame.from_dict(js)
+
+    async def list_sensor_frames(
+        self,
+        optimizer_id: str,
+        *,
+        scope: list[Any] | None = None,
+        limit: int | None = None,
+    ) -> list[SensorFrame]:
+        """List sensor frames emitted for the optimizer scope.
+
+        See: specifications/tanha/future/sensors_and_levers.txt
+        """
+        params: dict[str, str] = {}
+        scope_payload = _normalize_scope_payload(scope)
+        if scope_payload:
+            params["scope"] = json.dumps(scope_payload)
+        if limit is not None:
+            params["limit"] = str(limit)
+        url = f"/api/v1/optimizers/{optimizer_id}/sensors"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            js = await http.get(url, params=params if params else None)
+        payloads: list[Any] = []
+        if isinstance(js, list):
+            payloads = js
+        elif isinstance(js, dict):
+            candidates = (
+                js.get("items")
+                or js.get("sensor_frames")
+                or js.get("frames")
+                or js.get("data")
+                or []
+            )
+            if isinstance(candidates, list):
+                payloads = candidates
+        frames: list[SensorFrame] = []
+        for entry in payloads:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                frames.append(SensorFrame.from_dict(entry))
+            except ValueError:
+                continue
+        return frames
 
     # --- Optional diagnostics ---
     async def pricing_preflight(
