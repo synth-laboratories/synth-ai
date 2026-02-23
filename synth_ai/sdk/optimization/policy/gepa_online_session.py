@@ -16,6 +16,7 @@ Online GEPA workflow:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -25,6 +26,9 @@ from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import P
 from synth_ai.sdk.optimization.policy.mipro_online_session import (
     _build_session_payload,
     _coerce_str,
+    _get_with_canonical,
+    _patch_state_with_action_canonical,
+    _post_json_with_canonical,
     _resolve_api_key,
     _resolve_backend_url,
 )
@@ -71,6 +75,12 @@ class GepaOnlineSession:
         agent_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> GepaOnlineSession:
+        warnings.warn(
+            'GepaOnlineSession is deprecated and will be removed on 2026-10-01. '
+            'Use PolicyOptimizationOnlineSession.create(algorithm="gepa", ...).',
+            DeprecationWarning,
+            stacklevel=2,
+        )
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
 
@@ -85,15 +95,21 @@ class GepaOnlineSession:
             correlation_id=correlation_id,
             agent_id=agent_id,
         )
+        canonical_body = dict(body)
+        canonical_body["algorithm"] = "gepa"
+        canonical_body.setdefault("technique", "discrete_optimization")
+        canonical_body.setdefault(
+            "system",
+            {"name": session_id or "gepa-online-session"},
+        )
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json(
-                "/prompt-learning/online/gepa/sessions",
-                json=body,
+            response = await _post_json_with_canonical(
+                http,
+                canonical_path="/v1/policy-optimization/online-sessions",
+                payload=canonical_body,
             )
 
-        if not isinstance(response, dict):
-            raise ValueError("Invalid response from GEPA session create")
         sid = str(response.get("session_id") or "")
         if not sid:
             raise ValueError("Missing session_id in response")
@@ -188,11 +204,12 @@ class GepaOnlineSession:
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            result = await http.post_json(
-                f"/prompt-learning/online/gepa/sessions/{self.session_id}/reward",
-                json=payload,
+            result = await _post_json_with_canonical(
+                http,
+                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}/reward",
+                payload=payload,
             )
-        return _expect_dict_response(result, context="GEPA reward endpoint")
+        return result
 
     def update_reward(
         self,
@@ -232,7 +249,7 @@ class GepaOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(
-                f"/prompt-learning/online/gepa/sessions/{self.session_id}/prompt",
+                f"/v1/policy-optimization/online-sessions/{self.session_id}/prompt",
                 params=params or None,
             )
         return _expect_dict_response(result, context="GEPA prompt endpoint")
@@ -446,16 +463,21 @@ class GepaOnlineSession:
         return _run_async(self._post_action_async(action))
 
     async def _post_action_async(self, action: str) -> Dict[str, Any]:
-        async with RustCoreHttpClient(
-            ensure_api_base(self.backend_url),
-            self.api_key,
+        state = {
+            "pause": "paused",
+            "resume": "running",
+            "cancel": "cancelled",
+        }.get(action)
+        if state is None:
+            raise ValueError("action must be one of pause, resume, cancel")
+        return await _patch_state_with_action_canonical(
+            backend_url=self.backend_url,
+            api_key=self.api_key,
             timeout=self.timeout,
-        ) as http:
-            result = await http.post_json(
-                f"/prompt-learning/online/gepa/sessions/{self.session_id}/{action}",
-                json={},
-            )
-        return _expect_dict_response(result, context=f"GEPA {action} endpoint")
+            session_id=self.session_id,
+            state=state,
+            action=action,
+        )
 
     def _get(self) -> Dict[str, Any]:
         return _run_async(self._get_async())
@@ -466,8 +488,11 @@ class GepaOnlineSession:
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            result = await http.get(f"/prompt-learning/online/gepa/sessions/{self.session_id}")
-        return _expect_dict_response(result, context="GEPA status endpoint")
+            return await _get_with_canonical(
+                http,
+                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}",
+                params={"algorithm": "gepa"},
+            )
 
 
 __all__ = ["GepaOnlineSession"]

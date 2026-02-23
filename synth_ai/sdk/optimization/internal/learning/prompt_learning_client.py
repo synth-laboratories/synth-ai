@@ -729,7 +729,7 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        state_path = f"/api/prompt-learning/online/mipro/systems/{system_id}/state"
+        state_path = f"/api/v1/policy-optimization/online-sessions/{system_id}"
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
                 payload = await http.get(state_path)
@@ -743,7 +743,7 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        events_path = f"/api/prompt-learning/online/mipro/systems/{system_id}/events"
+        events_path = f"/api/v1/policy-optimization/online-sessions/{system_id}/events"
         params = {"since_seq": since_seq, "limit": limit}
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:

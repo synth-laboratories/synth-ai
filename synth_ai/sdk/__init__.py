@@ -81,6 +81,7 @@ if TYPE_CHECKING:
         update_pool_task,
         validate_rollout,
     )
+    from synth_ai.sdk.container_pools import ContainerPoolsClient
     from synth_ai.sdk.eval import EvalJob, EvalJobConfig
     from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
     from synth_ai.sdk.graphs.verifier_schemas import VerifierOptions, VerifierScoreResponse
@@ -150,6 +151,9 @@ if TYPE_CHECKING:
 __all__ = [
     # Optimization (new canonical)
     "PolicyOptimizationJob",
+    "PolicyOptimizationOfflineJob",
+    "PolicyOptimizationOnlineSession",
+    "PolicyOptimizationSystem",
     "GraphOptimizationJob",
     # Legacy aliases (for backward compat)
     "PromptLearningJob",  # -> PolicyOptimizationJob
@@ -243,6 +247,7 @@ __all__ = [
     "get_openapi_schema",
     "get_schema_json",
     "EnvironmentPoolsClient",
+    "ContainerPoolsClient",
     "PoolTask",
     "PlanGatingError",
     "PaymentRequiredError",
@@ -300,6 +305,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "GraphOptimizationJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
     "PolicyOptimizationJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
+    "PolicyOptimizationOfflineJob": (
+        "synth_ai.sdk.optimization",
+        "PolicyOptimizationOfflineJob",
+    ),
+    "PolicyOptimizationOnlineSession": (
+        "synth_ai.sdk.optimization",
+        "PolicyOptimizationOnlineSession",
+    ),
+    "PolicyOptimizationSystem": (
+        "synth_ai.sdk.optimization",
+        "PolicyOptimizationSystem",
+    ),
     "PromptLearningJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
     "load_graphgen_taskset": (
         "synth_ai.sdk.optimization.internal.graphgen_models",
@@ -374,6 +391,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "get_openapi_schema": ("synth_ai.sdk.environment_pools", "get_openapi_schema"),
     "get_schema_json": ("synth_ai.sdk.environment_pools", "get_schema_json"),
     "EnvironmentPoolsClient": ("synth_ai.sdk.environment_pools", "EnvironmentPoolsClient"),
+    "ContainerPoolsClient": ("synth_ai.sdk.container_pools", "ContainerPoolsClient"),
     "PoolResponse": ("synth_ai.sdk.environment_pools", "PoolResponse"),
     "PoolTask": ("synth_ai.sdk.environment_pools", "PoolTask"),
     "PoolTemplate": ("synth_ai.sdk.environment_pools", "PoolTemplate"),

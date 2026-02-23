@@ -25,11 +25,19 @@ from .job import (
     PolicyOptimizationResult,
 )
 from .mipro_online_session import MiproOnlineSession
+from .v1 import (
+    PolicyOptimizationOfflineJob,
+    PolicyOptimizationOnlineSession,
+    PolicyOptimizationSystem,
+)
 
 __all__ = [
     "PolicyOptimizationJob",
     "PolicyOptimizationJobConfig",
     "PolicyOptimizationResult",
+    "PolicyOptimizationOfflineJob",
+    "PolicyOptimizationOnlineSession",
+    "PolicyOptimizationSystem",
     "GepaOnlineSession",
     "MiproOnlineSession",
 ]

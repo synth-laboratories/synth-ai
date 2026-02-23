@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import copy
 import os
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -367,6 +368,12 @@ class PolicyOptimizationJob:
             ValueError: If required config is missing
             FileNotFoundError: If config file doesn't exist
         """
+        warnings.warn(
+            "PolicyOptimizationJob is deprecated and will be removed on 2026-10-01. "
+            "Use PolicyOptimizationOfflineJob.create(...).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         config_path_obj = Path(config_path)
 
         if not backend_url:
@@ -460,6 +467,12 @@ class PolicyOptimizationJob:
             ...     api_key="sk_live_...",
             ... )
         """
+        warnings.warn(
+            "PolicyOptimizationJob is deprecated and will be removed on 2026-10-01. "
+            "Use PolicyOptimizationOfflineJob.create(...).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not backend_url:
             backend_url = BACKEND_URL_BASE
 

@@ -36,14 +36,64 @@ Example:
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+import httpx
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
+
+
+async def _post_json_with_canonical(
+    http: RustCoreHttpClient,
+    *,
+    canonical_path: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    response = await http.post_json(canonical_path, json=payload)
+    return _expect_dict_response(response, context=canonical_path)
+
+
+async def _get_with_canonical(
+    http: RustCoreHttpClient,
+    *,
+    canonical_path: str,
+    params: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    response = await http.get(canonical_path, params=params)
+    return _expect_dict_response(response, context=canonical_path)
+
+
+def _auth_headers(api_key: str) -> Dict[str, str]:
+    return {"Authorization": f"Bearer {api_key}", "x-api-key": api_key}
+
+
+async def _patch_state_with_action_canonical(
+    *,
+    backend_url: str,
+    api_key: str,
+    timeout: float,
+    session_id: str,
+    state: str,
+    action: str,
+) -> Dict[str, Any]:
+    base = ensure_api_base(backend_url).rstrip("/")
+    canonical_url = f"{base}/v1/policy-optimization/online-sessions/{session_id}"
+    headers = _auth_headers(api_key)
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.patch(
+            canonical_url,
+            json={"state": state},
+            headers=headers,
+        )
+        response.raise_for_status()
+        return _expect_dict_response(response.json(), context=f"online_session.{action}")
 
 
 @dataclass
@@ -149,6 +199,12 @@ class MiproOnlineSession:
         Note:
             Provide exactly one of: config, config_body, config_name, or config_path
         """
+        warnings.warn(
+            'MiproOnlineSession is deprecated and will be removed on 2026-10-01. '
+            'Use PolicyOptimizationOnlineSession.create(algorithm="mipro", ...).',
+            DeprecationWarning,
+            stacklevel=2,
+        )
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
 
@@ -163,15 +219,21 @@ class MiproOnlineSession:
             correlation_id=correlation_id,
             agent_id=agent_id,
         )
+        canonical_body = dict(body)
+        canonical_body["algorithm"] = "mipro"
+        canonical_body.setdefault("technique", "discrete_optimization")
+        canonical_body.setdefault(
+            "system",
+            {"name": session_id or "mipro-online-session"},
+        )
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json(
-                "/prompt-learning/online/mipro/sessions",
-                json=body,
+            response = await _post_json_with_canonical(
+                http,
+                canonical_path="/v1/policy-optimization/online-sessions",
+                payload=canonical_body,
             )
 
-        if not isinstance(response, dict):
-            raise ValueError("Invalid response from MIPRO session create")
         session_id = str(response.get("session_id") or "")
         if not session_id:
             raise ValueError("Missing session_id in response")
@@ -264,14 +326,22 @@ class MiproOnlineSession:
             params["correlation_id"] = correlation_id
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get(
-                f"/prompt-learning/online/mipro/sessions/{session_id}/prompt",
-                params=params or None,
+            status_response = await _get_with_canonical(
+                http,
+                canonical_path=f"/v1/policy-optimization/online-sessions/{session_id}",
+                params={"algorithm": "mipro"},
             )
-
-        if not isinstance(response, dict):
-            raise ValueError("Invalid response from MIPRO prompt endpoint")
-        online_url = response.get("online_url")
+            online_url = status_response.get("online_url")
+            if not online_url:
+                response = await http.get(
+                    f"/v1/policy-optimization/online-sessions/{session_id}/prompt",
+                    params=params or None,
+                )
+                status_response = _expect_dict_response(
+                    response,
+                    context="MIPRO prompt endpoint",
+                )
+                online_url = status_response.get("online_url")
         if not online_url:
             raise ValueError("Missing online_url in response")
         return str(online_url)
@@ -318,8 +388,11 @@ class MiproOnlineSession:
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            result = await http.get(f"/prompt-learning/online/mipro/sessions/{self.session_id}")
-        return _expect_dict_response(result, context="MIPRO status endpoint")
+            return await _get_with_canonical(
+                http,
+                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}",
+                params={"algorithm": "mipro"},
+            )
 
     def status(self) -> Dict[str, Any]:
         """Get current session status (synchronous wrapper).
@@ -426,11 +499,12 @@ class MiproOnlineSession:
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            result = await http.post_json(
-                f"/prompt-learning/online/mipro/sessions/{self.session_id}/reward",
-                json=payload,
+            result = await _post_json_with_canonical(
+                http,
+                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}/reward",
+                payload=payload,
             )
-        return _expect_dict_response(result, context="MIPRO reward endpoint")
+        return result
 
     def update_reward(
         self,
@@ -495,7 +569,7 @@ class MiproOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(
-                f"/prompt-learning/online/mipro/sessions/{self.session_id}/prompt",
+                f"/v1/policy-optimization/online-sessions/{self.session_id}/prompt",
                 params=params or None,
             )
         return _expect_dict_response(result, context="MIPRO prompt endpoint")
@@ -682,16 +756,21 @@ class MiproOnlineSession:
         )
 
     async def _post_action_async(self, action: str) -> Dict[str, Any]:
-        async with RustCoreHttpClient(
-            ensure_api_base(self.backend_url),
-            self.api_key,
+        state = {
+            "pause": "paused",
+            "resume": "running",
+            "cancel": "cancelled",
+        }.get(action)
+        if state is None:
+            raise ValueError("action must be one of pause, resume, cancel")
+        return await _patch_state_with_action_canonical(
+            backend_url=self.backend_url,
+            api_key=self.api_key,
             timeout=self.timeout,
-        ) as http:
-            result = await http.post_json(
-                f"/prompt-learning/online/mipro/sessions/{self.session_id}/{action}",
-                json={},
-            )
-        return _expect_dict_response(result, context=f"MIPRO {action} endpoint")
+            session_id=self.session_id,
+            state=state,
+            action=action,
+        )
 
     def _post_action(self, action: str) -> Dict[str, Any]:
         return _run_async(self._post_action_async(action))

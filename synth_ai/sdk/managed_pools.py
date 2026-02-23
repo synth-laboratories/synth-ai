@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import os
+import warnings
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -18,7 +19,6 @@ from synth_ai.core.errors import PlanGatingError
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import (
     BACKEND_URL_BASE,
-    RUST_BACKEND_URL_BASE,
     join_url,
     normalize_backend_base,
 )
@@ -63,6 +63,15 @@ _PLAN_GATED_TIERS: set[str] = {"pro", "team", "enterprise"}
 _UPGRADE_URL = "https://usesynth.ai/pricing"
 
 
+def _warn_managed_pools_deprecated() -> None:
+    warnings.warn(
+        "managed_pools helper functions are deprecated and will be removed on 2026-10-01. "
+        "Use ContainerPoolsClient upload/data_source methods.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+
 def _raise_for_status_with_plan_check(response: Any) -> None:
     """Convert HTTP 403 plan-gating responses into :class:`PlanGatingError`."""
     status_code = getattr(response, "status_code", None)
@@ -87,6 +96,34 @@ def _raise_for_status_with_plan_check(response: Any) -> None:
     response.raise_for_status()
 
 
+def _post_with_legacy_fallback(
+    *,
+    base: str,
+    api_key: str,
+    canonical_path: str,
+    legacy_path: str,
+    payload: dict[str, Any],
+    timeout: float,
+) -> Any:
+    import httpx
+
+    headers = _auth_headers(api_key)
+    response = httpx.post(
+        join_url(base, canonical_path),
+        headers=headers,
+        json=payload,
+        timeout=timeout,
+    )
+    if response.status_code in (404, 405):
+        response = httpx.post(
+            join_url(base, legacy_path),
+            headers=headers,
+            json=payload,
+            timeout=timeout,
+        )
+    return response
+
+
 def create_managed_pool_upload_url(
     *,
     backend_base: str | None = None,
@@ -105,11 +142,11 @@ def create_managed_pool_upload_url(
     Raises:
         PlanGatingError: If the account is not eligible for managed pools.
     """
+    _warn_managed_pools_deprecated()
     import httpx
 
-    base = _resolve_base_url(backend_base, default=RUST_BACKEND_URL_BASE)
+    base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = join_url(base, "/v1/managed-pools/uploads")
     payload: dict[str, Any] = {}
     if filename:
         payload["filename"] = filename
@@ -118,7 +155,14 @@ def create_managed_pool_upload_url(
     if expires_in_seconds is not None:
         payload["expires_in_seconds"] = expires_in_seconds
 
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
+    resp = _post_with_legacy_fallback(
+        base=base,
+        api_key=api_key,
+        canonical_path="/v1/pools/uploads",
+        legacy_path="/v1/managed-pools/uploads",
+        payload=payload,
+        timeout=timeout,
+    )
     _raise_for_status_with_plan_check(resp)
     data = resp.json()
     return data if isinstance(data, dict) else {}
@@ -136,6 +180,7 @@ def upload_managed_pool_bytes(
     This is a direct PUT to the presigned URL returned by
     ``create_managed_pool_upload_url``.
     """
+    _warn_managed_pools_deprecated()
     import httpx
 
     headers = {}
@@ -157,6 +202,7 @@ def upload_managed_pool_file(
     Convenience wrapper around ``upload_managed_pool_bytes`` that reads the file
     from disk before uploading.
     """
+    _warn_managed_pools_deprecated()
     path = Path(file_path)
     data = path.read_bytes()
     upload_managed_pool_bytes(upload_url, data, content_type=content_type, timeout=timeout)
@@ -177,17 +223,24 @@ def create_managed_pool_upload_data_source(
     Raises:
         PlanGatingError: If the account is not eligible for managed pools.
     """
+    _warn_managed_pools_deprecated()
     import httpx
 
-    base = _resolve_base_url(backend_base, default=RUST_BACKEND_URL_BASE)
+    base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
-    url = join_url(base, "/v1/managed-pools/data-sources")
     payload = {
         "type": "upload",
         "upload_id": upload_id,
         "upload_key": upload_key,
     }
-    resp = httpx.post(url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
+    resp = _post_with_legacy_fallback(
+        base=base,
+        api_key=api_key,
+        canonical_path="/v1/pools/data-sources",
+        legacy_path="/v1/managed-pools/data-sources",
+        payload=payload,
+        timeout=timeout,
+    )
     _raise_for_status_with_plan_check(resp)
     data = resp.json()
     return data if isinstance(data, dict) else {}
@@ -211,9 +264,10 @@ def create_managed_pool_s3_data_source(
     Raises:
         PlanGatingError: If the account is not eligible for managed pools.
     """
+    _warn_managed_pools_deprecated()
     import httpx
 
-    backend_base = _resolve_base_url(backend_base, default=RUST_BACKEND_URL_BASE)
+    backend_base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
     crypto_base = _resolve_base_url(crypto_base, default=BACKEND_URL_BASE)
     api_key = _resolve_api_key(api_key)
 
@@ -234,7 +288,6 @@ def create_managed_pool_s3_data_source(
     }
     ciphertext_b64 = encrypt_for_backend(public_key, json.dumps(credentials_payload))
 
-    data_url = join_url(backend_base, "/v1/managed-pools/data-sources")
     payload = {
         "type": "s3",
         "bucket": bucket,
@@ -244,7 +297,14 @@ def create_managed_pool_s3_data_source(
             "alg": pub_payload.get("alg"),
         },
     }
-    resp = httpx.post(data_url, headers=_auth_headers(api_key), json=payload, timeout=timeout)
+    resp = _post_with_legacy_fallback(
+        base=backend_base,
+        api_key=api_key,
+        canonical_path="/v1/pools/data-sources",
+        legacy_path="/v1/managed-pools/data-sources",
+        payload=payload,
+        timeout=timeout,
+    )
     _raise_for_status_with_plan_check(resp)
     data = resp.json()
     return data if isinstance(data, dict) else {}

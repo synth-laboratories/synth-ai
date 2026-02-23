@@ -15,34 +15,6 @@ def _headers(api_key: str, *, worker_token: str | None = None) -> Dict[str, str]
     return headers
 
 
-def submit_prompt_learning_job(
-    *,
-    backend_url: str,
-    api_key: str,
-    payload: Dict[str, Any],
-    container_worker_token: str | None = None,
-) -> Dict[str, Any]:
-    create_url = f"{ensure_api_base(backend_url)}/jobs"
-
-    resp = http_post(
-        create_url,
-        headers=_headers(api_key, worker_token=container_worker_token),
-        json_body=payload,
-    )
-    if resp.status_code not in (200, 201):
-        error_msg = f"Job submission failed with status {resp.status_code}: {resp.text[:500]}"
-        if resp.status_code == 404:
-            error_msg += (
-                f"\n\nPossible causes:"
-                f"\n1. Backend route /api/jobs not registered"
-                f"\n2. Backend server needs restart (lazy import may have failed)"
-                f"\n3. Check backend logs for route registration errors"
-                f"\n4. Verify backend is running at: {backend_url}"
-            )
-        raise RuntimeError(error_msg)
-    return parse_json_response(resp, context="Prompt learning submission")
-
-
 def cancel_prompt_learning_job(
     *,
     backend_url: str,

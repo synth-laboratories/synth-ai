@@ -34,7 +34,6 @@ from .prompt_learning_service import (
     pause_prompt_learning_job,
     query_prompt_learning_workflow_state,
     resume_prompt_learning_job,
-    submit_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
 
@@ -768,146 +767,10 @@ class PromptLearningJob:
         logger.debug("Submitting job to: %s", self.config.backend_url)
 
         rust_job = self._ensure_rust_job(config_payload=config_payload)
-        fell_back = False
-        try:
-            job_id = rust_job.submit()
-        except Exception as exc:
-            # Some deployed backends do not expose Rust's `/api/jobs/{mipro,gepa}` create
-            # routes publicly. Fall back to the Python endpoint (same payload schema).
-            msg = str(exc)
-            low = msg.lower()
-            # Local/dev stacks can drift on wire field names ("task_app_url" vs
-            # "container_url"). If Rust create rejects the request due to this
-            # mismatch, fall back to the Python create endpoint (which accepts the
-            # full config payload).
-            is_task_app_wire_mismatch = (
-                "task_app_url" in low
-                and ("http 400" in low or "status 400" in low or "400" in low)
-                and ("missing" in low or "required" in low or "config missing" in low)
-            )
-            is_rust_create_failure = "/api/jobs/" in msg and any(
-                token in msg
-                for token in (
-                    "HTTP 404",
-                    "HTTP 405",
-                    "HTTP 502",
-                    "HTTP 503",
-                    "HTTP 504",
-                    "error sending request",
-                    "Connection refused",
-                    "connect error",
-                    "Application failed to respond",
-                    "timed out",
-                    "ReadTimeout",
-                )
-            )
-            # Some local/dev stacks still require container_api_key in the Rust create
-            # route, while the Python fallback endpoint resolves it from backend
-            # credentials (ENVIRONMENT_API_KEY). Treat this as a compatibility failure
-            # and fall back.
-            is_container_key_missing = (
-                "/api/jobs/" in msg
-                and ("http 400" in low or "status 400" in low or "400" in low)
-                and "container_api_key" in low
-                and ("missing" in low or "required" in low)
-            )
-
-            if is_rust_create_failure or is_task_app_wire_mismatch or is_container_key_missing:
-                fell_back = True
-
-                # Best-effort debug (no secrets): report pool sizes for MIPRO configs.
-                try:
-                    import logging as _logging
-
-                    _log = _logging.getLogger(__name__)
-                    if isinstance(config_payload, dict):
-                        cb = (
-                            config_payload.get("config_body")
-                            if isinstance(config_payload.get("config_body"), dict)
-                            else {}
-                        )
-                        pl = (
-                            cb.get("prompt_learning")
-                            if isinstance(cb.get("prompt_learning"), dict)
-                            else {}
-                        )
-                        m = pl.get("mipro") if isinstance(pl.get("mipro"), dict) else {}
-                        boot = list(
-                            m.get("bootstrap_train_seeds") or pl.get("bootstrap_train_seeds") or []
-                        )
-                        online = list(m.get("online_pool") or pl.get("online_pool") or [])
-                        test = list(m.get("test_pool") or pl.get("test_pool") or [])
-                        ref = list(m.get("reference_pool") or pl.get("reference_pool") or [])
-                        overlap = len(set(ref) & (set(boot) | set(online) | set(test)))
-                        _log.info(
-                            "PromptLearningJob fallback submit: boot=%d online=%d test=%d ref=%d overlap=%d",
-                            len(boot),
-                            len(online),
-                            len(test),
-                            len(ref),
-                            overlap,
-                        )
-                except Exception:
-                    pass
-
-                # Ensure the legacy create endpoint can find the task app URL even when
-                # configs use the newer container_* keys (or vice versa).
-                if isinstance(config_payload, dict):
-                    try:
-                        payload_dict = dict(config_payload)
-                        cb = payload_dict.get("config_body")
-                        if isinstance(cb, dict):
-                            pl = cb.get("prompt_learning")
-                            if isinstance(pl, dict):
-                                if not (pl.get("task_app_url") or "").strip():
-                                    candidate = (
-                                        pl.get("container_url") or pl.get("localapi_url") or ""
-                                    ).strip()
-                                    if candidate:
-                                        pl["task_app_url"] = candidate
-                                if not (pl.get("container_url") or "").strip():
-                                    candidate = (
-                                        pl.get("task_app_url") or pl.get("localapi_url") or ""
-                                    ).strip()
-                                    if candidate:
-                                        pl["container_url"] = candidate
-                                if (
-                                    not (pl.get("task_app_id") or "").strip()
-                                    and (pl.get("container_id") or "").strip()
-                                ):
-                                    pl["task_app_id"] = (pl.get("container_id") or "").strip()
-                                if (
-                                    not (pl.get("container_id") or "").strip()
-                                    and (pl.get("task_app_id") or "").strip()
-                                ):
-                                    pl["container_id"] = (pl.get("task_app_id") or "").strip()
-                                cb["prompt_learning"] = pl
-                                payload_dict["config_body"] = cb
-                        config_payload = payload_dict
-                    except Exception:
-                        pass
-
-                resp = submit_prompt_learning_job(
-                    backend_url=self.config.backend_url,
-                    api_key=self.config.api_key,
-                    payload=dict(config_payload) if isinstance(config_payload, dict) else {},
-                    container_worker_token=self.config.container_worker_token,
-                )
-                job_id = str(resp.get("job_id") or resp.get("id") or "").strip()
-            else:
-                raise
+        job_id = rust_job.submit()
         if not job_id:
             raise RuntimeError("Response missing job ID")
         self._job_id = job_id
-        if fell_back:
-            # Rust client is still in "not submitted" state; rebind to server-side job id.
-            try:
-                rust = _require_rust()
-                self._rust_job = rust.PromptLearningJob.from_job_id(
-                    job_id, self.config.api_key, self.config.backend_url
-                )
-            except Exception:
-                pass
         return job_id
 
     @property

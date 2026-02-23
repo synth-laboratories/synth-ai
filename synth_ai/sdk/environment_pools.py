@@ -2385,6 +2385,12 @@ class EnvironmentPoolsClient:
         api_version: str | None = None,
         skip_plan_check: bool = False,
     ) -> None:
+        warnings.warn(
+            "EnvironmentPoolsClient is deprecated and will be removed on 2026-10-01. "
+            "Use ContainerPoolsClient from synth_ai.sdk.container_pools.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self._api_key = api_key
         self._backend_base = backend_base
         self._api_version = api_version
