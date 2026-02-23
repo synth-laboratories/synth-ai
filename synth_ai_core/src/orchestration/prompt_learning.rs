@@ -96,24 +96,6 @@ impl PromptLearningResult {
     }
 }
 
-/// Ranked prompt from results.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RankedPrompt {
-    /// Rank (1 = best)
-    pub rank: i32,
-    /// Candidate ID
-    pub candidate_id: String,
-    /// Training accuracy
-    #[serde(default)]
-    pub train_accuracy: Option<f64>,
-    /// Validation accuracy
-    #[serde(default)]
-    pub val_accuracy: Option<f64>,
-    /// Prompt text or configuration
-    #[serde(default)]
-    pub prompt: Option<Value>,
-}
-
 /// Extracted prompt results.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PromptResults {
@@ -123,9 +105,6 @@ pub struct PromptResults {
     /// Best reward
     #[serde(default, alias = "best_score")]
     pub best_reward: Option<f64>,
-    /// Top prompts ranked by score
-    #[serde(default)]
-    pub top_prompts: Vec<RankedPrompt>,
     /// Lever summary emitted by optimizer runtimes.
     #[serde(default)]
     pub lever_summary: Option<Value>,
@@ -359,10 +338,7 @@ impl PromptLearningJob {
 
         let timeout = Duration::from_secs_f64(timeout_secs);
         let base_url = self.client.base_url().trim_end_matches('/').to_string();
-        let events_url = format!(
-            "{}/api/prompt-learning/online/jobs/{}/events/stream",
-            base_url, job_id
-        );
+        let events_url = format!("{}/api/jobs/{}/events/stream", base_url, job_id);
         let api_key = self.client.http().api_key().to_string();
         let mut headers = HeaderMap::new();
         headers.insert("Accept", HeaderValue::from_static("text/event-stream"));
@@ -578,7 +554,7 @@ impl PromptLearningJob {
 
     /// Get detailed results including prompt extraction.
     ///
-    /// This fetches events to extract the best prompts.
+    /// This fetches final status metadata for canonical best-candidate fields.
     pub async fn get_results(&self) -> Result<PromptResults, CoreError> {
         // Get final status for best_candidate
         let status = self.get_status().await?;
@@ -586,39 +562,9 @@ impl PromptLearningJob {
         let best_candidate = status.get_system_prompt();
         let best_reward = status.best_reward.or(Some(self.tracker.best_reward()));
 
-        // Build ranked prompts from tracker candidates
-        let mut top_prompts: Vec<RankedPrompt> = self
-            .tracker
-            .candidates
-            .iter()
-            .filter(|c| c.accepted || c.is_pareto)
-            .map(|c| RankedPrompt {
-                rank: 0,
-                candidate_id: c.candidate_id.clone(),
-                train_accuracy: c.reward,
-                val_accuracy: c.val_reward,
-                prompt: None,
-            })
-            .collect();
-
-        // Sort by accuracy descending
-        top_prompts.sort_by(|a, b| {
-            let a_score = a.val_accuracy.or(a.train_accuracy).unwrap_or(0.0);
-            let b_score = b.val_accuracy.or(b.train_accuracy).unwrap_or(0.0);
-            b_score
-                .partial_cmp(&a_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        // Assign ranks
-        for (i, prompt) in top_prompts.iter_mut().enumerate() {
-            prompt.rank = (i + 1) as i32;
-        }
-
         Ok(PromptResults {
             best_candidate,
             best_reward,
-            top_prompts,
             lever_summary: status.lever_summary,
             sensor_frames: status.sensor_frames,
             lever_versions: status.lever_versions,
@@ -679,45 +625,5 @@ mod tests {
             result.get_system_prompt(),
             Some("You are a helpful assistant.".to_string())
         );
-    }
-
-    #[test]
-    fn test_ranked_prompt_sorting() {
-        let mut prompts = vec![
-            RankedPrompt {
-                rank: 0,
-                candidate_id: "a".to_string(),
-                train_accuracy: Some(0.7),
-                val_accuracy: None,
-                prompt: None,
-            },
-            RankedPrompt {
-                rank: 0,
-                candidate_id: "b".to_string(),
-                train_accuracy: Some(0.9),
-                val_accuracy: None,
-                prompt: None,
-            },
-            RankedPrompt {
-                rank: 0,
-                candidate_id: "c".to_string(),
-                train_accuracy: Some(0.8),
-                val_accuracy: Some(0.85),
-                prompt: None,
-            },
-        ];
-
-        // Sort by accuracy descending (val_accuracy takes precedence)
-        prompts.sort_by(|a, b| {
-            let a_score = a.val_accuracy.or(a.train_accuracy).unwrap_or(0.0);
-            let b_score = b.val_accuracy.or(b.train_accuracy).unwrap_or(0.0);
-            b_score
-                .partial_cmp(&a_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        assert_eq!(prompts[0].candidate_id, "b"); // 0.9
-        assert_eq!(prompts[1].candidate_id, "c"); // 0.85 (val)
-        assert_eq!(prompts[2].candidate_id, "a"); // 0.7
     }
 }

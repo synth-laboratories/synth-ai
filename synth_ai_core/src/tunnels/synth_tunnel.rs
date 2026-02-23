@@ -191,6 +191,20 @@ fn rand_u64() -> u64 {
 // ---------------------------------------------------------------------------
 
 pub async fn start_agent(config: SynthTunnelConfig) -> Result<SynthTunnelAgentHandle, TunnelError> {
+    let (ws_tx, ws_rx) = connect_and_attach(&config).await?;
+
+    // Spawn background supervisor loop with reconnect handling.
+    let cancel = CancellationToken::new();
+    let cancel_clone = cancel.clone();
+    let join = tokio::spawn(agent_supervisor_loop(config, ws_tx, ws_rx, cancel_clone));
+
+    Ok(SynthTunnelAgentHandle {
+        cancel,
+        join: Mutex::new(Some(join)),
+    })
+}
+
+async fn connect_and_attach(config: &SynthTunnelConfig) -> Result<(WsTx, WsRx), TunnelError> {
     // Build WS request with Bearer auth
     let mut request = config
         .ws_url
@@ -255,15 +269,7 @@ pub async fn start_agent(config: SynthTunnelConfig) -> Result<SynthTunnelAgentHa
         }
     }
 
-    // Spawn background loop
-    let cancel = CancellationToken::new();
-    let cancel_clone = cancel.clone();
-    let join = tokio::spawn(agent_loop(config, ws_tx, ws_rx, cancel_clone));
-
-    Ok(SynthTunnelAgentHandle {
-        cancel,
-        join: Mutex::new(Some(join)),
-    })
+    Ok((ws_tx, ws_rx))
 }
 
 // ---------------------------------------------------------------------------
@@ -274,7 +280,61 @@ type WsRx = futures_util::stream::SplitStream<
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
 >;
 
-async fn agent_loop(
+async fn wait_or_cancel(cancel: &CancellationToken, delay: Duration) -> bool {
+    tokio::select! {
+        _ = cancel.cancelled() => true,
+        _ = tokio::time::sleep(delay) => false,
+    }
+}
+
+async fn agent_supervisor_loop(
+    config: SynthTunnelConfig,
+    initial_ws_tx: WsTx,
+    initial_ws_rx: WsRx,
+    cancel: CancellationToken,
+) {
+    let mut reconnect_delay = Duration::from_millis(250);
+    let mut first_ws_tx = Some(initial_ws_tx);
+    let mut first_ws_rx = Some(initial_ws_rx);
+
+    loop {
+        if cancel.is_cancelled() {
+            break;
+        }
+
+        let (ws_tx, ws_rx) =
+            if let (Some(ws_tx), Some(ws_rx)) = (first_ws_tx.take(), first_ws_rx.take()) {
+                (ws_tx, ws_rx)
+            } else {
+                match connect_and_attach(&config).await {
+                    Ok((ws_tx, ws_rx)) => (ws_tx, ws_rx),
+                    Err(e) => {
+                        eprintln!("[SynthTunnel] ws reconnect failed: {e}");
+                        if wait_or_cancel(&cancel, reconnect_delay).await {
+                            break;
+                        }
+                        reconnect_delay = reconnect_delay
+                            .saturating_mul(2)
+                            .min(Duration::from_secs(5));
+                        continue;
+                    }
+                }
+            };
+
+        reconnect_delay = Duration::from_millis(250);
+        agent_loop_connection(config.clone(), ws_tx, ws_rx, cancel.clone()).await;
+        if cancel.is_cancelled() {
+            break;
+        }
+
+        eprintln!("[SynthTunnel] ws disconnected; reconnecting");
+        if wait_or_cancel(&cancel, reconnect_delay).await {
+            break;
+        }
+    }
+}
+
+async fn agent_loop_connection(
     config: SynthTunnelConfig,
     ws_tx: WsTx,
     mut ws_rx: WsRx,
@@ -546,4 +606,368 @@ async fn send_msg(ws_tx: &WsTx, msg: &AgentOutbound) -> Result<(), TunnelError> 
         .await
         .map_err(|e| TunnelError::websocket(format!("ws send error: {e}")))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+
+    use super::*;
+    use futures_util::{SinkExt, StreamExt};
+    use tokio::net::TcpListener;
+    use tokio::time::{timeout, Duration, Instant};
+    use tokio_tungstenite::tungstenite::Message;
+
+    type TestWs = tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>;
+
+    fn start_local_http_server(expected_requests: usize) -> (u16, thread::JoinHandle<()>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind local http");
+        let port = listener.local_addr().expect("local http addr").port();
+        let handle = thread::spawn(move || {
+            for _ in 0..expected_requests {
+                let (mut stream, _) = listener.accept().expect("accept local http");
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+                    .expect("set read timeout");
+                let mut buf = [0_u8; 4096];
+                let read_len = stream.read(&mut buf).unwrap_or(0);
+                let request_text = String::from_utf8_lossy(&buf[..read_len]);
+                let request_line = request_text.lines().next().unwrap_or("GET / HTTP/1.1");
+                let request_path = request_line.split_whitespace().nth(1).unwrap_or("/");
+                let body = format!(r#"{{"ok":true,"path":"{request_path}"}}"#);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                stream
+                    .write_all(response.as_bytes())
+                    .expect("write local http response");
+                stream.flush().expect("flush local http response");
+            }
+        });
+        (port, handle)
+    }
+
+    async fn recv_text_json(ws: &mut TestWs) -> serde_json::Value {
+        loop {
+            let frame = timeout(Duration::from_secs(5), ws.next())
+                .await
+                .expect("ws frame timeout")
+                .expect("ws stream ended")
+                .expect("ws recv error");
+            if let Message::Text(txt) = frame {
+                return serde_json::from_str(&txt).expect("parse ws json");
+            }
+        }
+    }
+
+    async fn send_request(ws: &mut TestWs, rid: &str, path: &str, query: &str) {
+        ws.send(Message::Text(
+            serde_json::json!({
+                "type": "REQ_HEADERS",
+                "lease_id": "lease-1",
+                "rid": rid,
+                "method": "GET",
+                "path": path,
+                "query": query,
+                "headers": [["accept", "application/json"]],
+                "deadline_ms": 10_000
+            })
+            .to_string(),
+        ))
+        .await
+        .expect("send REQ_HEADERS");
+        ws.send(Message::Text(
+            serde_json::json!({
+                "type": "REQ_END",
+                "rid": rid
+            })
+            .to_string(),
+        ))
+        .await
+        .expect("send REQ_END");
+    }
+
+    async fn collect_response(ws: &mut TestWs, rid: &str) -> (u16, String) {
+        let mut status = 0_u16;
+        let mut body = Vec::<u8>::new();
+        loop {
+            let msg = recv_text_json(ws).await;
+            if msg.get("rid").and_then(|v| v.as_str()) != Some(rid) {
+                continue;
+            }
+            match msg.get("type").and_then(|v| v.as_str()) {
+                Some("RESP_HEADERS") => {
+                    status = msg
+                        .get("status")
+                        .and_then(|v| v.as_u64())
+                        .and_then(|v| u16::try_from(v).ok())
+                        .unwrap_or(0);
+                }
+                Some("RESP_BODY") => {
+                    let chunk_b64 = msg.get("chunk_b64").and_then(|v| v.as_str()).unwrap_or("");
+                    if !chunk_b64.is_empty() {
+                        let chunk = B64.decode(chunk_b64).expect("decode chunk");
+                        body.extend_from_slice(&chunk);
+                    }
+                }
+                Some("RESP_ERROR") => {
+                    panic!("relay received RESP_ERROR: {msg}");
+                }
+                Some("RESP_END") => {
+                    break;
+                }
+                _ => {}
+            }
+        }
+        (status, String::from_utf8(body).expect("utf8 response body"))
+    }
+
+    async fn collect_error_code(ws: &mut TestWs, rid: &str) -> String {
+        loop {
+            let msg = recv_text_json(ws).await;
+            if msg.get("rid").and_then(|v| v.as_str()) != Some(rid) {
+                continue;
+            }
+            if msg.get("type").and_then(|v| v.as_str()) == Some("RESP_ERROR") {
+                return msg
+                    .get("code")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn forwards_request_response_over_ws_relay() {
+        let (local_port, local_http_thread) = start_local_http_server(1);
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind ws listener");
+        let addr = listener.local_addr().expect("ws listener addr");
+
+        let relay = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept relay ws");
+            let mut ws = tokio_tungstenite::accept_async(stream)
+                .await
+                .expect("accept relay websocket");
+            let attach = recv_text_json(&mut ws).await;
+            assert_eq!(attach.get("type").and_then(|v| v.as_str()), Some("ATTACH"));
+            ws.send(Message::Text(
+                serde_json::json!({"type":"ATTACH_ACK"}).to_string(),
+            ))
+            .await
+            .expect("send ATTACH_ACK");
+
+            send_request(&mut ws, "rid-forward", "/probe", "seed=1").await;
+            collect_response(&mut ws, "rid-forward").await
+        });
+
+        let config = SynthTunnelConfig {
+            ws_url: format!("ws://{}/agent", addr),
+            agent_token: "agent-token".to_string(),
+            lease_id: "lease-1".to_string(),
+            local_host: "127.0.0.1".to_string(),
+            local_port,
+            public_url: "https://st.usesynth.ai/s/rt_test".to_string(),
+            worker_token: "worker-token".to_string(),
+            container_keys: vec!["env-key".to_string()],
+            max_inflight: 16,
+        };
+
+        let handle = start_agent(config).await.expect("start agent");
+        let (status, body) = timeout(Duration::from_secs(10), relay)
+            .await
+            .expect("relay timeout")
+            .expect("relay join");
+        handle.shutdown().await;
+        local_http_thread.join().expect("join local http");
+
+        assert_eq!(status, 200);
+        assert!(
+            body.contains("/probe?seed=1"),
+            "expected forwarded query path in body, got: {body}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reconnects_after_ungraceful_ws_disconnect() {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind test ws listener");
+        let addr = listener.local_addr().expect("listener local addr");
+        let connections = Arc::new(AtomicUsize::new(0));
+        let connections_for_server = Arc::clone(&connections);
+
+        let server = tokio::spawn(async move {
+            while connections_for_server.load(Ordering::SeqCst) < 2 {
+                let (stream, _) = listener.accept().await.expect("accept");
+                let idx = connections_for_server.fetch_add(1, Ordering::SeqCst) + 1;
+                tokio::spawn(async move {
+                    let mut ws = tokio_tungstenite::accept_async(stream)
+                        .await
+                        .expect("ws accept");
+                    let _ = ws.next().await;
+                    let _ = ws
+                        .send(Message::Text(
+                            serde_json::json!({"type":"ATTACH_ACK"}).to_string(),
+                        ))
+                        .await;
+                    if idx == 1 {
+                        // Drop the socket without sending CLOSE to simulate abrupt resets.
+                        drop(ws);
+                        return;
+                    }
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                    let _ = ws.close(None).await;
+                });
+            }
+        });
+
+        let config = SynthTunnelConfig {
+            ws_url: format!("ws://{}/agent", addr),
+            agent_token: "agent-token".to_string(),
+            lease_id: "lease-1".to_string(),
+            local_host: "127.0.0.1".to_string(),
+            local_port: 9876,
+            public_url: "https://st.usesynth.ai/s/rt_test".to_string(),
+            worker_token: "worker-token".to_string(),
+            container_keys: vec!["env-key".to_string()],
+            max_inflight: 16,
+        };
+
+        let handle = start_agent(config).await.expect("start agent");
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if connections.load(Ordering::SeqCst) >= 2 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+
+        handle.shutdown().await;
+        let _ = server.await;
+        assert!(
+            connections.load(Ordering::SeqCst) >= 2,
+            "expected reconnect after abrupt disconnect"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn emits_local_connect_failed_when_upstream_unreachable() {
+        let dead_local_port = 65_431;
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind relay ws listener");
+        let addr = listener.local_addr().expect("relay addr");
+
+        let relay = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept relay ws");
+            let mut ws = tokio_tungstenite::accept_async(stream)
+                .await
+                .expect("accept relay websocket");
+            let attach = recv_text_json(&mut ws).await;
+            assert_eq!(attach.get("type").and_then(|v| v.as_str()), Some("ATTACH"));
+            ws.send(Message::Text(
+                serde_json::json!({"type":"ATTACH_ACK"}).to_string(),
+            ))
+            .await
+            .expect("send ATTACH_ACK");
+
+            send_request(&mut ws, "rid-connect-fail", "/payload", "").await;
+            collect_error_code(&mut ws, "rid-connect-fail").await
+        });
+
+        let config = SynthTunnelConfig {
+            ws_url: format!("ws://{}/agent", addr),
+            agent_token: "agent-token".to_string(),
+            lease_id: "lease-1".to_string(),
+            local_host: "127.0.0.1".to_string(),
+            local_port: dead_local_port,
+            public_url: "https://st.usesynth.ai/s/rt_test".to_string(),
+            worker_token: "worker-token".to_string(),
+            container_keys: vec!["env-key".to_string()],
+            max_inflight: 16,
+        };
+
+        let handle = start_agent(config).await.expect("start agent");
+        let error_code = timeout(Duration::from_secs(10), relay)
+            .await
+            .expect("relay timeout")
+            .expect("relay join");
+        handle.shutdown().await;
+
+        assert_eq!(error_code, "LOCAL_CONNECT_FAILED");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn reconnects_and_forwards_request_after_reset() {
+        let (local_port, local_http_thread) = start_local_http_server(1);
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind relay ws listener");
+        let addr = listener.local_addr().expect("relay addr");
+
+        let relay = tokio::spawn(async move {
+            let (stream1, _) = listener.accept().await.expect("accept relay ws #1");
+            let mut ws1 = tokio_tungstenite::accept_async(stream1)
+                .await
+                .expect("accept relay websocket #1");
+            let attach1 = recv_text_json(&mut ws1).await;
+            assert_eq!(attach1.get("type").and_then(|v| v.as_str()), Some("ATTACH"));
+            ws1.send(Message::Text(
+                serde_json::json!({"type":"ATTACH_ACK"}).to_string(),
+            ))
+            .await
+            .expect("send ATTACH_ACK #1");
+            drop(ws1);
+
+            let (stream2, _) = listener.accept().await.expect("accept relay ws #2");
+            let mut ws2 = tokio_tungstenite::accept_async(stream2)
+                .await
+                .expect("accept relay websocket #2");
+            let attach2 = recv_text_json(&mut ws2).await;
+            assert_eq!(attach2.get("type").and_then(|v| v.as_str()), Some("ATTACH"));
+            ws2.send(Message::Text(
+                serde_json::json!({"type":"ATTACH_ACK"}).to_string(),
+            ))
+            .await
+            .expect("send ATTACH_ACK #2");
+
+            send_request(&mut ws2, "rid-reconnect", "/probe", "seed=2").await;
+            collect_response(&mut ws2, "rid-reconnect").await
+        });
+
+        let config = SynthTunnelConfig {
+            ws_url: format!("ws://{}/agent", addr),
+            agent_token: "agent-token".to_string(),
+            lease_id: "lease-1".to_string(),
+            local_host: "127.0.0.1".to_string(),
+            local_port,
+            public_url: "https://st.usesynth.ai/s/rt_test".to_string(),
+            worker_token: "worker-token".to_string(),
+            container_keys: vec!["env-key".to_string()],
+            max_inflight: 16,
+        };
+
+        let handle = start_agent(config).await.expect("start agent");
+        let (status, body) = timeout(Duration::from_secs(10), relay)
+            .await
+            .expect("relay timeout")
+            .expect("relay join");
+        handle.shutdown().await;
+        local_http_thread.join().expect("join local http");
+
+        assert_eq!(status, 200);
+        assert!(
+            body.contains("/probe?seed=2"),
+            "expected forwarded query path in body after reconnect, got: {body}"
+        );
+    }
 }

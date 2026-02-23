@@ -185,6 +185,8 @@ def test_validate_prompt_learning_config_mipro_text_dreamer_toml(tmp_path: Path)
 
 def test_filter_known_alias_warnings_includes_mipro_compatibility_keys() -> None:
     warnings = [
+        "Unknown field 'optimization_mode' in [prompt_learning]. This field will be ignored.",
+        "Unknown field 'artifact' in [prompt_learning]. This field will be ignored.",
         "Unknown field 'proposer' in [prompt_learning.mipro]. This field will be ignored.",
         "Unknown field 'val_seeds' in [prompt_learning.mipro]. This field will be ignored.",
         "Unknown field 'mode' in [prompt_learning.mipro]. This field will be ignored.",

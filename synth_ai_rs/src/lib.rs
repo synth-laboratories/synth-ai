@@ -52,7 +52,7 @@ pub use synth_ai_core::{
     container::ContainerClient,
     orchestration::{CandidateInfo, GEPAProgress, ProgressTracker},
     // Orchestration
-    orchestration::{PromptLearningJob, PromptResults, RankedPrompt},
+    orchestration::{PromptLearningJob, PromptResults},
     tunnels::errors::TunnelError,
     tunnels::open_tunnel,
     // Tunnels
@@ -62,24 +62,13 @@ pub use synth_ai_core::{
     Artifact,
     BufferedHandler,
     CallbackHandler,
+    ContainerDeployResponse,
+    ContainerDeploySpec,
+    ContainerDeployStatus,
+    ContainerDeploymentInfo,
+    ContainerLimits,
     ContextOverride,
     ContextOverrideStatus,
-    Lever,
-    LeverActor,
-    LeverConstraints,
-    LeverFormat,
-    LeverKind,
-    LeverMutability,
-    LeverMutation,
-    LeverProvenance,
-    LeverSnapshot,
-    MiproLeverSummary,
-    ScopeKey,
-    ScopeKind,
-    Sensor,
-    SensorFrame,
-    SensorFrameSummary,
-    SensorKind,
     // Errors
     CoreError,
     Criterion,
@@ -96,18 +85,29 @@ pub use synth_ai_core::{
     LLMContentPart,
     LLMMessage,
     LLMUsage,
-    ContainerDeployResponse,
-    ContainerDeploySpec,
-    ContainerDeployStatus,
-    ContainerDeploymentInfo,
-    ContainerLimits,
+    Lever,
+    LeverActor,
+    LeverConstraints,
+    LeverFormat,
+    LeverKind,
+    LeverMutability,
+    LeverMutation,
+    LeverProvenance,
+    LeverSnapshot,
     MarkovBlanketMessage,
     MessageContent,
+    MiproLeverSummary,
     ObjectiveSpec,
     OutcomeObjectiveAssignment,
     RewardObservation,
     Rubric,
     RubricAssignment,
+    ScopeKey,
+    ScopeKind,
+    Sensor,
+    SensorFrame,
+    SensorFrameSummary,
+    SensorKind,
     SessionTimeStep,
     SessionTrace,
     // Tracing
@@ -683,11 +683,6 @@ impl OptimizeResult {
     /// Get the best reward if available.
     pub fn best_reward(&self) -> Option<f64> {
         self.results.best_reward
-    }
-
-    /// Get all top prompts.
-    pub fn top_prompts(&self) -> &[RankedPrompt] {
-        &self.results.top_prompts
     }
 
     /// Check if the job succeeded.

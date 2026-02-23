@@ -382,6 +382,45 @@ def extract_prompt_text(candidate: Dict[str, Any]) -> Optional[str]:
     return extracted.text if extracted else None
 
 
+def extract_candidate_content(candidate: Dict[str, Any]) -> Optional[str]:
+    """Extract generic candidate content for prompt and non-prompt artifacts."""
+    prompt_text = extract_prompt_text(candidate)
+    if prompt_text:
+        return prompt_text
+
+    for key in (
+        "candidate_content",
+        "candidate_code",
+        "solver_code",
+        "program_text",
+        "code",
+        "instruction_text",
+        "instruction",
+        "prompt_text",
+        "text",
+        "system_prompt",
+    ):
+        value = candidate.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    program_candidate = candidate.get("program_candidate")
+    if isinstance(program_candidate, dict):
+        nested = extract_candidate_content(program_candidate)
+        if nested:
+            return nested
+
+    stage_payloads = candidate.get("stage_payloads")
+    if isinstance(stage_payloads, dict):
+        for payload in stage_payloads.values():
+            if not isinstance(payload, dict):
+                continue
+            nested = extract_candidate_content(payload)
+            if nested:
+                return nested
+    return None
+
+
 def extract_prompt_formatted(candidate: Dict[str, Any]) -> Optional[str]:
     """Convenience function to extract formatted prompt from a candidate.
 

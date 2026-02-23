@@ -63,6 +63,9 @@ async def test_create_synth_tunnel_cleans_up_lease_when_agent_start_fails(
         return func(*args, **kwargs)
 
     monkeypatch.setattr("synth_ai.core.tunnels.tunneled_api.asyncio.to_thread", _inline_to_thread)
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_INITIAL_BACKOFF_SEC", "0")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_MAX_BACKOFF_SEC", "0")
     monkeypatch.setitem(
         sys.modules,
         "synth_ai_py",
@@ -91,6 +94,9 @@ async def test_create_synth_tunnel_stops_agent_and_cleans_up_lease_when_online_c
         return func(*args, **kwargs)
 
     monkeypatch.setattr("synth_ai.core.tunnels.tunneled_api.asyncio.to_thread", _inline_to_thread)
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_INITIAL_BACKOFF_SEC", "0")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_MAX_BACKOFF_SEC", "0")
     monkeypatch.setitem(
         sys.modules,
         "synth_ai_py",
@@ -126,3 +132,52 @@ async def test_create_synth_tunnel_stops_agent_and_cleans_up_lease_when_online_c
     assert len(_FakeClient.instances) == 1
     assert _FakeClient.instances[0].closed_lease_ids == ["lease-1"]
 
+
+@pytest.mark.asyncio
+async def test_create_synth_tunnel_reports_http_status_when_health_check_non_200(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_synth_tunnel_helpers(monkeypatch)
+    fake_agent = _FakeAgent()
+
+    async def _inline_to_thread(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr("synth_ai.core.tunnels.tunneled_api.asyncio.to_thread", _inline_to_thread)
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", "1")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_INITIAL_BACKOFF_SEC", "0")
+    monkeypatch.setenv("SYNTH_TUNNEL_CREATE_RETRY_MAX_BACKOFF_SEC", "0")
+    monkeypatch.setenv("SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", "1")
+    monkeypatch.setitem(
+        sys.modules,
+        "synth_ai_py",
+        types.SimpleNamespace(synth_tunnel_start=lambda *_a, **_k: fake_agent),
+    )
+
+    import httpx
+
+    class _FailingStatusClient:
+        def __init__(self, *args, **kwargs) -> None:
+            return None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        async def get(self, *args, **kwargs):
+            return types.SimpleNamespace(status_code=502)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _FailingStatusClient)
+
+    with pytest.raises(RuntimeError, match="Health check returned HTTP 502"):
+        await TunneledContainer.create(
+            local_port=8001,
+            backend=TunnelBackend.SynthTunnel,
+            api_key="sk_test",
+        )
+
+    assert fake_agent.stopped is True
+    assert len(_FakeClient.instances) == 1
+    assert _FakeClient.instances[0].closed_lease_ids == ["lease-1"]

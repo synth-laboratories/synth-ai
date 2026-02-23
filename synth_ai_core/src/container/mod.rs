@@ -28,7 +28,7 @@ pub use auth::{
     setup_environment_api_key, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME,
     ENVIRONMENT_API_KEY_NAME, MAX_ENVIRONMENT_API_KEY_BYTES, SEALED_BOX_ALGORITHM,
 };
-pub use client::{EnvClient, ContainerClient};
+pub use client::{ContainerClient, EnvClient};
 pub use datasets::{ensure_split, normalise_seed, TaskDatasetSpec};
 pub use health::container_health;
 pub use helpers::{
@@ -68,7 +68,7 @@ pub use validation::{
     MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
 };
 pub use validators::{
-    normalize_inference_url, validate_rollout_response_for_rl, validate_container_url,
+    normalize_inference_url, validate_container_url, validate_rollout_response_for_rl,
 };
 pub use vendors::{get_groq_key, get_openai_key, normalize_single, normalize_vendor_keys};
 

@@ -22,19 +22,14 @@ use super::types::{
 
 /// Canonical API endpoint root for job status/events.
 const JOBS_ENDPOINT: &str = "/api/jobs";
+/// Canonical generic create endpoint.
+const JOBS_CREATE_ENDPOINT: &str = "/api/jobs";
 
 /// Canonical create endpoint for GEPA jobs.
 const GEPA_CREATE_ENDPOINT: &str = "/api/jobs/gepa";
 
 /// Canonical create endpoint for MIPRO jobs.
 const MIPRO_CREATE_ENDPOINT: &str = "/api/jobs/mipro";
-
-/// Legacy API endpoint for prompt learning job submission (fallback).
-const LEGACY_SUBMIT_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
-/// Legacy policy-optimization status endpoint (fallback for old backends).
-const LEGACY_POLICY_STATUS_ENDPOINT: &str = "/api/policy-optimization/online/jobs";
-/// Legacy prompt-learning status endpoint (fallback for old backends).
-const LEGACY_PROMPT_STATUS_ENDPOINT: &str = "/api/prompt-learning/online/jobs";
 
 /// Jobs API client.
 ///
@@ -74,39 +69,6 @@ impl<'a> JobsClient<'a> {
         let worker_token = request.container_worker_token.clone();
         let body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
-
-        // Try canonical endpoint first, fall back to legacy on 404/405/non-JSON.
-        let canonical_result: Result<JobSubmitResponse, HttpError> = if let Some(ref token) = worker_token {
-            let mut headers = HeaderMap::new();
-            headers.insert(
-                "X-SynthTunnel-Worker-Token",
-                HeaderValue::from_str(token).map_err(|_| {
-                    CoreError::Validation("invalid SynthTunnel worker token".to_string())
-                })?,
-            );
-            self.client
-                .http
-                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
-                .await
-        } else {
-            self.client
-                .http
-                .post_json(GEPA_CREATE_ENDPOINT, &body)
-                .await
-        };
-
-        match canonical_result {
-            Ok(response) => return Ok(response.job_id),
-            Err(HttpError::Response(detail)) if detail.status == 404 || detail.status == 405 => {
-                // Fall back to legacy endpoint.
-            }
-            Err(HttpError::JsonParse(_)) => {
-                // Backend returned non-JSON response; fall back to legacy.
-            }
-            Err(err) => return Err(map_http_error(err)),
-        }
-
-        // Legacy fallback
         let response: JobSubmitResponse = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -117,13 +79,13 @@ impl<'a> JobsClient<'a> {
             );
             self.client
                 .http
-                .post_json_with_headers(LEGACY_SUBMIT_ENDPOINT, &body, Some(headers))
+                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
                 .await
                 .map_err(map_http_error)?
         } else {
             self.client
                 .http
-                .post_json(LEGACY_SUBMIT_ENDPOINT, &body)
+                .post_json(GEPA_CREATE_ENDPOINT, &body)
                 .await
                 .map_err(map_http_error)?
         };
@@ -174,7 +136,6 @@ impl<'a> JobsClient<'a> {
     /// Submit a generic optimization job from a JSON value.
     ///
     /// Use this when you have a pre-built job configuration.
-    /// Falls back to the legacy endpoint since the job type is unknown.
     pub async fn submit_raw(&self, request: Value) -> Result<String, CoreError> {
         self.submit_raw_with_worker_token(request, None).await
     }
@@ -185,7 +146,7 @@ impl<'a> JobsClient<'a> {
         request: Value,
         worker_token: Option<String>,
     ) -> Result<String, CoreError> {
-        let mut headers_opt: Option<HeaderMap> = if let Some(token) = worker_token {
+        let headers_opt: Option<HeaderMap> = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
                 "X-SynthTunnel-Worker-Token",
@@ -212,33 +173,52 @@ impl<'a> JobsClient<'a> {
                 };
             match canonical_result {
                 Ok(response) => return Ok(response.job_id),
-                Err(HttpError::Response(detail)) if detail.status == 404 || detail.status == 405 => {
+                Err(HttpError::Response(detail))
+                    if detail.status == 404 || detail.status == 405 =>
+                {
                     // Older backends may not expose canonical endpoints yet,
                     // or may return 405 Method Not Allowed.
                 }
                 Err(HttpError::JsonParse(_)) => {
                     // Backend returned non-JSON response (e.g. plain text "ok").
-                    // Fall back to legacy endpoint.
+                    // Fall back to canonical generic create endpoint.
                 }
                 Err(err) => return Err(map_http_error(err)),
             }
         }
 
-        let response: JobSubmitResponse = if let Some(headers) = headers_opt.take() {
-            self.client
-                .http
-                .post_json_with_headers(LEGACY_SUBMIT_ENDPOINT, &request, Some(headers))
-                .await
-                .map_err(map_http_error)?
-        } else {
-            self.client
-                .http
-                .post_json(LEGACY_SUBMIT_ENDPOINT, &request)
-                .await
-                .map_err(map_http_error)?
-        };
-
-        Ok(response.job_id)
+        // If algorithm could not be inferred (or algorithm-specific route is unavailable),
+        // fall back to canonical generic create endpoint.
+        let generic_result: Result<JobSubmitResponse, HttpError> =
+            if let Some(headers) = headers_opt.clone() {
+                self.client
+                    .http
+                    .post_json_with_headers(JOBS_CREATE_ENDPOINT, &request, Some(headers))
+                    .await
+            } else {
+                self.client
+                    .http
+                    .post_json(JOBS_CREATE_ENDPOINT, &request)
+                    .await
+            };
+        match generic_result {
+            Ok(response) => return Ok(response.job_id),
+            Err(HttpError::Response(detail)) if detail.status == 404 || detail.status == 405 => {
+                return Err(CoreError::HttpResponse(crate::HttpErrorInfo {
+                    status: detail.status,
+                    url: detail.url,
+                    message: detail.message,
+                    body_snippet: detail.body_snippet,
+                }));
+            }
+            Err(HttpError::JsonParse(err)) => {
+                return Err(CoreError::Internal(format!(
+                    "invalid JSON response: {}",
+                    err
+                )));
+            }
+            Err(err) => return Err(map_http_error(err)),
+        }
     }
 
     /// Get the current status of a job.
@@ -252,29 +232,13 @@ impl<'a> JobsClient<'a> {
     /// The current job result including status, best score, etc.
     pub async fn get_status(&self, job_id: &str) -> Result<PromptLearningResult, CoreError> {
         let canonical = format!("{}/{}", JOBS_ENDPOINT, job_id);
-        match self.client.http.get(&canonical, None).await {
-            Ok(payload) => parse_prompt_learning_result(payload, job_id),
-            Err(err) if err.status() == Some(404) => {
-                let legacy_paths = [
-                    format!("{}/{}", LEGACY_POLICY_STATUS_ENDPOINT, job_id),
-                    format!("{}/{}", LEGACY_PROMPT_STATUS_ENDPOINT, job_id),
-                ];
-                let mut last_not_found: Option<HttpError> = Some(err);
-                for path in legacy_paths {
-                    match self.client.http.get(&path, None).await {
-                        Ok(payload) => return parse_prompt_learning_result(payload, job_id),
-                        Err(legacy_err) if legacy_err.status() == Some(404) => {
-                            last_not_found = Some(legacy_err);
-                        }
-                        Err(legacy_err) => return Err(map_http_error(legacy_err)),
-                    }
-                }
-                Err(map_http_error(
-                    last_not_found.expect("at least canonical 404 error must be set"),
-                ))
-            }
-            Err(err) => Err(map_http_error(err)),
-        }
+        let payload = self
+            .client
+            .http
+            .get(&canonical, None)
+            .await
+            .map_err(map_http_error)?;
+        parse_prompt_learning_result(payload, job_id)
     }
 
     /// Poll a job until it reaches a terminal state.
@@ -584,17 +548,9 @@ mod tests {
     #[test]
     fn test_jobs_endpoint() {
         assert_eq!(JOBS_ENDPOINT, "/api/jobs");
+        assert_eq!(JOBS_CREATE_ENDPOINT, "/api/jobs");
         assert_eq!(GEPA_CREATE_ENDPOINT, "/api/jobs/gepa");
         assert_eq!(MIPRO_CREATE_ENDPOINT, "/api/jobs/mipro");
-        assert_eq!(LEGACY_SUBMIT_ENDPOINT, "/api/prompt-learning/online/jobs");
-        assert_eq!(
-            LEGACY_POLICY_STATUS_ENDPOINT,
-            "/api/policy-optimization/online/jobs"
-        );
-        assert_eq!(
-            LEGACY_PROMPT_STATUS_ENDPOINT,
-            "/api/prompt-learning/online/jobs"
-        );
     }
 
     #[test]

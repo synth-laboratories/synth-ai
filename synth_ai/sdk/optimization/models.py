@@ -67,8 +67,20 @@ def _extract_candidate_reward(candidate: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+def _extract_candidate_objective(candidate: Dict[str, Any]) -> Optional[float]:
+    objective = candidate.get("objective")
+    if isinstance(objective, dict):
+        reward = _coerce_float(objective.get("reward"))
+        if reward is not None:
+            return reward
+    return _coerce_float(candidate.get("objective"))
+
+
 def _extract_best_reward_value(data: Dict[str, Any], include_train: bool = True) -> Optional[float]:
-    reward_keys = ("best_reward", "best_train_reward") if include_train else ("best_reward",)
+    if include_train:
+        reward_keys = ("best_reward", "best_score", "best_train_reward", "best_train_score")
+    else:
+        reward_keys = ("best_reward", "best_score")
     parsed = _coerce_float(_first_present(data, reward_keys))
     if parsed is not None:
         return parsed
@@ -143,6 +155,94 @@ def _extract_system_prompt_from_dict(prompt: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+def _extract_candidate_content_from_dict(candidate: Dict[str, Any]) -> Optional[str]:
+    """Extract generic candidate artifact text from structured candidate payloads."""
+    for key in (
+        "candidate_content",
+        "candidate_code",
+        "solver_code",
+        "program_text",
+        "code",
+        "instruction_text",
+        "instruction",
+        "prompt_text",
+        "text",
+        "system_prompt",
+    ):
+        value = candidate.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    program_candidate = candidate.get("program_candidate")
+    if isinstance(program_candidate, dict):
+        nested = _extract_candidate_content_from_dict(program_candidate)
+        if nested:
+            return nested
+
+    stage_payloads = candidate.get("stage_payloads")
+    if isinstance(stage_payloads, dict):
+        for payload in stage_payloads.values():
+            if not isinstance(payload, dict):
+                continue
+            nested = _extract_candidate_content_from_dict(payload)
+            if nested:
+                return nested
+
+    messages = candidate.get("messages")
+    if isinstance(messages, list):
+        parts: list[str] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            content = message.get("content") or message.get("pattern") or message.get("text")
+            if isinstance(content, str) and content.strip():
+                parts.append(content.strip())
+        if parts:
+            return "\n\n".join(parts)
+
+    nested_candidate = candidate.get("candidate")
+    if isinstance(nested_candidate, dict):
+        nested = _extract_candidate_content_from_dict(nested_candidate)
+        if nested:
+            return nested
+
+    return None
+
+
+def _extract_candidate_content(
+    best_candidate: Optional[str | Dict[str, Any]],
+    raw: Dict[str, Any],
+) -> Optional[str]:
+    """Extract generic best-candidate content for prompt and non-prompt artifacts."""
+    if isinstance(best_candidate, str) and best_candidate.strip():
+        return best_candidate.strip()
+    if isinstance(best_candidate, dict):
+        result = _extract_candidate_content_from_dict(best_candidate)
+        if result:
+            return result
+
+    for key in ("best_candidate", "best_prompt"):
+        raw_best = raw.get(key)
+        if isinstance(raw_best, str) and raw_best.strip():
+            return raw_best.strip()
+        if isinstance(raw_best, dict):
+            result = _extract_candidate_content_from_dict(raw_best)
+            if result:
+                return result
+
+    for key in ("optimized_candidates", "frontier", "candidates", "archive"):
+        candidates = raw.get(key)
+        if not isinstance(candidates, list):
+            continue
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            result = _extract_candidate_content_from_dict(candidate)
+            if result:
+                return result
+    return None
+
+
 def _extract_system_prompt(
     best_candidate: Optional[str | Dict[str, Any]],
     raw: Dict[str, Any],
@@ -182,7 +282,8 @@ def _extract_system_prompt(
                     if result:
                         return result
 
-    return None
+    # Fallback for non-prompt artifacts that still expose candidate text.
+    return _extract_candidate_content(best_candidate, raw)
 
 
 def _normalize_error_message(error_text: Any) -> Optional[str]:
@@ -298,6 +399,116 @@ class GraphJobStatus(str, Enum):
 
 
 @dataclass
+class PolicyCandidate:
+    """Canonical typed candidate artifact model."""
+
+    candidate_id: str
+    candidate_type: Optional[str] = None
+    artifact_kind: str = "unknown"
+    artifact_payload: Optional[Any] = None
+    artifact_preview: Optional[str] = None
+    candidate_content: Optional[str] = None
+    status: Optional[str] = None
+    optimization_mode: Optional[str] = None
+    score: Optional[float] = None
+    reward: Optional[float] = None
+    objective: Optional[float] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "PolicyCandidate":
+        candidate_id = str(data.get("candidate_id") or "").strip()
+        artifact_kind = str(data.get("artifact_kind") or "").strip() or "unknown"
+        artifact_payload = data.get("artifact_payload")
+        if artifact_payload is None:
+            artifact_payload = data.get("candidate_artifact")
+        artifact_preview = data.get("artifact_preview")
+        if isinstance(artifact_preview, str):
+            artifact_preview = artifact_preview.strip() or None
+        else:
+            artifact_preview = None
+
+        candidate_content = data.get("candidate_content")
+        if not isinstance(candidate_content, str) or not candidate_content.strip():
+            candidate_content = None
+            for key in ("candidate_code", "prompt_text", "instruction", "text"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip():
+                    candidate_content = value.strip()
+                    break
+        if candidate_content is None and isinstance(artifact_payload, dict):
+            for key in ("candidate_code", "candidate_content", "prompt_text", "instruction", "text"):
+                value = artifact_payload.get(key)
+                if isinstance(value, str) and value.strip():
+                    candidate_content = value.strip()
+                    break
+
+        objective = _extract_candidate_objective(data)
+        reward = _extract_candidate_reward(data)
+        score = _coerce_float(data.get("score")) or objective or reward
+        return cls(
+            candidate_id=candidate_id,
+            candidate_type=(
+                str(data.get("candidate_type")).strip() if data.get("candidate_type") is not None else None
+            ),
+            artifact_kind=artifact_kind,
+            artifact_payload=artifact_payload,
+            artifact_preview=artifact_preview,
+            candidate_content=candidate_content,
+            status=str(data.get("status")).strip() if data.get("status") is not None else None,
+            optimization_mode=(
+                str(data.get("optimization_mode")).strip()
+                if data.get("optimization_mode") is not None
+                else (
+                    str(data.get("mode")).strip()
+                    if data.get("mode") is not None
+                    else None
+                )
+            ),
+            score=score,
+            reward=reward,
+            objective=objective,
+            raw=dict(data),
+        )
+
+
+@dataclass
+class PolicyCandidatePage:
+    """Typed page of canonical candidates."""
+
+    items: list[PolicyCandidate] = field(default_factory=list)
+    next_cursor: Optional[str] = None
+    job_id: Optional[str] = None
+    system_id: Optional[str] = None
+    algorithm: Optional[str] = None
+    mode: Optional[str] = None
+    sort: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "PolicyCandidatePage":
+        raw_items = payload.get("items")
+        items = []
+        if isinstance(raw_items, list):
+            items = [
+                PolicyCandidate.from_dict(item)
+                for item in raw_items
+                if isinstance(item, dict)
+            ]
+        next_cursor = payload.get("next_cursor")
+        return cls(
+            items=items,
+            next_cursor=next_cursor if isinstance(next_cursor, str) and next_cursor.strip() else None,
+            job_id=payload.get("job_id") if isinstance(payload.get("job_id"), str) else None,
+            system_id=payload.get("system_id") if isinstance(payload.get("system_id"), str) else None,
+            algorithm=payload.get("algorithm") if isinstance(payload.get("algorithm"), str) else None,
+            mode=payload.get("mode") if isinstance(payload.get("mode"), str) else None,
+            sort=payload.get("sort") if isinstance(payload.get("sort"), str) else None,
+            raw=dict(payload),
+        )
+
+
+@dataclass
 class PolicyOptimizationResult:
     """Typed result from a policy optimization job."""
 
@@ -367,6 +578,11 @@ class PolicyOptimizationResult:
     def best_prompt(self) -> Optional[str | Dict[str, Any]]:
         """Backward-compatible alias for `best_candidate`."""
         return self.best_candidate
+
+    @property
+    def best_candidate_content(self) -> Optional[str]:
+        """Generic best-candidate content (prompt text or non-prompt artifact text)."""
+        return _extract_candidate_content(self.best_candidate, self.raw)
 
     @property
     def lever_summary_typed(self) -> Optional[MiproLeverSummary]:
@@ -463,6 +679,11 @@ class PromptLearningResult:
         return self.best_candidate
 
     @property
+    def best_candidate_content(self) -> Optional[str]:
+        """Generic best-candidate content (prompt text or non-prompt artifact text)."""
+        return _extract_candidate_content(self.best_candidate, self.raw)
+
+    @property
     def lever_summary_typed(self) -> Optional[MiproLeverSummary]:
         """Best-effort typed parsing of `lever_summary` for MIPRO runs."""
         return MiproLeverSummary.from_dict(self.lever_summary) if self.lever_summary else None
@@ -531,6 +752,8 @@ class GraphOptimizationResult:
 __all__ = [
     "PolicyJobStatus",
     "GraphJobStatus",
+    "PolicyCandidate",
+    "PolicyCandidatePage",
     "PolicyOptimizationResult",
     "PromptLearningResult",
     "GraphOptimizationResult",

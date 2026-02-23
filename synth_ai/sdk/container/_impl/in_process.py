@@ -1261,7 +1261,12 @@ class InProcessContainer:
         if self._tunnel_handle:
             logger.debug("Closing tunnel handle...")
             try:
-                self._tunnel_handle.close()
+                close_async = getattr(self._tunnel_handle, "close_async", None)
+                close_sync = getattr(self._tunnel_handle, "close", None)
+                if callable(close_async):
+                    await close_async()
+                elif callable(close_sync):
+                    close_sync()
             except Exception as e:
                 logger.warning(f"Failed to close tunnel handle: {e}")
             self._tunnel_handle = None

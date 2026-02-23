@@ -10,9 +10,9 @@ use crate::tunnels::cloudflared::resolve_hostname_with_explicit_resolvers;
 use crate::tunnels::errors::TunnelError;
 use crate::tunnels::gateway::get_gateway;
 use crate::tunnels::lease_client::LeaseClient;
-use crate::urls::backend_url_base;
 use crate::tunnels::types::{LeaseInfo, LeaseState, TunnelBackend, TunnelHandle};
 use crate::tunnels::{cloudflared, connector::get_connector};
+use crate::urls::backend_url_base;
 
 const DEFAULT_LOCAL_READY_TIMEOUT: f64 = 30.0;
 const DEFAULT_PUBLIC_READY_TIMEOUT: f64 = 60.0;
@@ -70,10 +70,7 @@ impl TunnelManager {
                 .clone()
                 .or_else(|| std::env::var("SYNTH_API_KEY").ok())
                 .ok_or_else(|| TunnelError::config("SYNTH_API_KEY missing"))?;
-            let backend = self
-                .backend_url
-                .clone()
-                .unwrap_or_else(backend_url_base);
+            let backend = self.backend_url.clone().unwrap_or_else(backend_url_base);
             self.client = Some(LeaseClient::new(key, backend, 30)?);
         }
         Ok(self.client.as_ref().unwrap())

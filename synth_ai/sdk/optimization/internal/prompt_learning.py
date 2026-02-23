@@ -15,7 +15,12 @@ from urllib.parse import urlparse, urlunparse
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, RUST_BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.container.auth import ensure_container_auth
-from synth_ai.sdk.optimization.models import PolicyJobStatus, PromptLearningResult
+from synth_ai.sdk.optimization.models import (
+    PolicyCandidate,
+    PolicyCandidatePage,
+    PolicyJobStatus,
+    PromptLearningResult,
+)
 
 from .builders import (
     PromptLearningBuildResult,
@@ -1183,37 +1188,215 @@ class PromptLearningJob:
         result = rust_job.get_results()
         return dict(result) if isinstance(result, dict) else {}
 
-    async def get_best_candidate_text_async(self, rank: int = 1) -> Optional[str]:
-        """Get the text of the best prompt by rank (async)."""
+    async def list_candidates_async(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical candidates for this job (async)."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
-        if rank < 1:
-            raise ValueError(f"Rank must be >= 1, got: {rank}")
+        from .learning.prompt_learning_client import PromptLearningClient
 
-        results = await self.get_results_async()
-        top_prompts = results.get("top_prompts") or []
-        if isinstance(top_prompts, list):
-            for prompt_info in top_prompts:
-                if not isinstance(prompt_info, dict):
-                    continue
-                if prompt_info.get("rank") == rank:
-                    return prompt_info.get("full_text") or prompt_info.get("prompt")
-        return None
-
-    def get_best_candidate_text(self, rank: int = 1) -> Optional[str]:
-        """Get the text of the best prompt by rank."""
-        return run_sync(
-            self.get_best_candidate_text_async(rank=rank),
-            label="get_best_candidate_text() (use get_best_candidate_text_async in async contexts)",
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+        )
+        return await client.list_candidates(
+            self._job_id,
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
         )
 
-    async def get_best_prompt_text_async(self, rank: int = 1) -> Optional[str]:
-        """Backward-compatible alias for get_best_candidate_text_async()."""
-        return await self.get_best_candidate_text_async(rank=rank)
+    async def list_candidates_typed_async(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> PolicyCandidatePage:
+        """List canonical candidates for this job as typed artifacts (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
 
-    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
-        """Backward-compatible alias for get_best_candidate_text()."""
-        return self.get_best_candidate_text(rank=rank)
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+        )
+        return await client.list_candidates_typed(
+            self._job_id,
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+
+    def list_candidates(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical candidates for this job."""
+        return run_sync(
+            self.list_candidates_async(
+                algorithm=algorithm,
+                mode=mode,
+                status=status,
+                limit=limit,
+                cursor=cursor,
+                sort=sort,
+                include=include,
+            ),
+            label="list_candidates() (use list_candidates_async in async contexts)",
+        )
+
+    def list_candidates_typed(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> PolicyCandidatePage:
+        """List canonical candidates for this job as typed artifacts."""
+        return run_sync(
+            self.list_candidates_typed_async(
+                algorithm=algorithm,
+                mode=mode,
+                status=status,
+                limit=limit,
+                cursor=cursor,
+                sort=sort,
+                include=include,
+            ),
+            label="list_candidates_typed() (use list_candidates_typed_async in async contexts)",
+        )
+
+    async def get_candidate_async(self, candidate_id: str) -> Dict[str, Any]:
+        """Get a canonical candidate by id for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+        )
+        return await client.get_candidate(self._job_id, candidate_id)
+
+    async def get_candidate_typed_async(self, candidate_id: str) -> PolicyCandidate:
+        """Get a canonical candidate as typed artifact for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+        )
+        return await client.get_candidate_typed(self._job_id, candidate_id)
+
+    def get_candidate(self, candidate_id: str) -> Dict[str, Any]:
+        """Get a canonical candidate by id for this job."""
+        return run_sync(
+            self.get_candidate_async(candidate_id),
+            label="get_candidate() (use get_candidate_async in async contexts)",
+        )
+
+    def get_candidate_typed(self, candidate_id: str) -> PolicyCandidate:
+        """Get a canonical candidate as typed artifact for this job."""
+        return run_sync(
+            self.get_candidate_typed_async(candidate_id),
+            label="get_candidate_typed() (use get_candidate_typed_async in async contexts)",
+        )
+
+    async def list_seed_evals_async(
+        self,
+        *,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        candidate_id: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical seed evaluations for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+        )
+        return await client.list_seed_evals(
+            self._job_id,
+            split=split,
+            seed=seed,
+            success=success,
+            candidate_id=candidate_id,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+
+    def list_seed_evals(
+        self,
+        *,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        candidate_id: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical seed evaluations for this job."""
+        return run_sync(
+            self.list_seed_evals_async(
+                split=split,
+                seed=seed,
+                success=success,
+                candidate_id=candidate_id,
+                limit=limit,
+                cursor=cursor,
+                sort=sort,
+                include=include,
+            ),
+            label="list_seed_evals() (use list_seed_evals_async in async contexts)",
+        )
 
     def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Pause a running prompt learning job.

@@ -13,7 +13,6 @@ from .pattern_discovery import (
 )
 from .prompt_learning_client import (
     PromptLearningClient,
-    get_prompt_text,
     get_prompts,
     get_scoring_summary,
 )
@@ -26,7 +25,6 @@ __all__ = [
     # Prompt Learning
     "PromptLearningClient",
     "get_prompts",
-    "get_prompt_text",
     "get_scoring_summary",
     "PatternDiscoveryClient",
     "PatternDiscoveryRequest",

@@ -65,7 +65,6 @@ impl PolicyOptimizationJobConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PromptLearningResults {
     pub best_score: Option<f64>,
-    pub top_prompts: Vec<Value>,
     pub optimized_candidates: Vec<Value>,
     pub attempted_candidates: Vec<Value>,
     pub validation_results: Vec<Value>,
@@ -106,6 +105,11 @@ impl PolicyOptimizationJob {
             .and_then(|v| v.get("algorithm"))
             .and_then(|v| v.as_str())
             .unwrap_or("gepa");
+        let create_path = if algorithm.eq_ignore_ascii_case("mipro") {
+            "/jobs/mipro"
+        } else {
+            "/jobs/gepa"
+        };
         let submit_body = json!({
             "algorithm": algorithm,
             "config_body": payload,
@@ -119,28 +123,11 @@ impl PolicyOptimizationJob {
                 })?,
             );
             client
-                .post_json_fallback_with_headers(
-                    &[
-                        "/jobs/gepa",
-                        "/policy-optimization/online/jobs",
-                        "/prompt-learning/online/jobs",
-                    ],
-                    &submit_body,
-                    AuthStyle::Both,
-                    Some(headers),
-                )
+                .post_json_with_headers(create_path, &submit_body, AuthStyle::Both, Some(headers))
                 .await?
         } else {
             client
-                .post_json_fallback(
-                    &[
-                        "/jobs/gepa",
-                        "/policy-optimization/online/jobs",
-                        "/prompt-learning/online/jobs",
-                    ],
-                    &submit_body,
-                    AuthStyle::Both,
-                )
+                .post_json(create_path, &submit_body, AuthStyle::Both)
                 .await?
         };
         let job_id = resp
@@ -152,26 +139,16 @@ impl PolicyOptimizationJob {
 
     pub async fn status(&self) -> Result<Value> {
         let canonical = format!("/jobs/{}", self.job_id);
-        let legacy1 = format!("/policy-optimization/online/jobs/{}", self.job_id);
-        let legacy2 = format!("/prompt-learning/online/jobs/{}", self.job_id);
         self.client
-            .get_json_fallback(
-                &[canonical.as_str(), legacy1.as_str(), legacy2.as_str()],
-                AuthStyle::Both,
-            )
+            .get_json(canonical.as_str(), AuthStyle::Both)
             .await
     }
 
     pub async fn events(&self) -> Result<Vec<Value>> {
         let canonical = format!("/jobs/{}/events", self.job_id);
-        let legacy1 = format!("/policy-optimization/online/jobs/{}/events", self.job_id);
-        let legacy2 = format!("/prompt-learning/online/jobs/{}/events", self.job_id);
         let value = self
             .client
-            .get_json_fallback(
-                &[canonical.as_str(), legacy1.as_str(), legacy2.as_str()],
-                AuthStyle::Both,
-            )
+            .get_json(canonical.as_str(), AuthStyle::Both)
             .await?;
         parse_events(value)
     }
@@ -198,28 +175,8 @@ impl PolicyOptimizationJob {
             self.client.api_base(),
             self.job_id
         );
-        let legacy1 = format!(
-            "{}/policy-optimization/online/jobs/{}/events/stream",
-            self.client.api_base(),
-            self.job_id
-        );
-        let legacy2 = format!(
-            "{}/prompt-learning/online/jobs/{}/events/stream",
-            self.client.api_base(),
-            self.job_id
-        );
         let headers = self.client.auth_headers(AuthStyle::Both);
-        match stream_sse(canonical, headers.clone()).await {
-            Ok(stream) => Ok(stream),
-            Err(SynthError::Api { status: 404, .. }) => {
-                match stream_sse(legacy1, headers.clone()).await {
-                    Ok(stream) => Ok(stream),
-                    Err(SynthError::Api { status: 404, .. }) => stream_sse(legacy2, headers).await,
-                    Err(err) => Err(err),
-                }
-            }
-            Err(err) => Err(err),
-        }
+        stream_sse(canonical, headers).await
     }
 }
 
@@ -265,7 +222,6 @@ impl PromptLearningResults {
 
     pub fn from_events(events: &[Value]) -> Self {
         let mut results = PromptLearningResults::default();
-        let mut validation_by_rank: HashMap<i64, f64> = HashMap::new();
 
         for event in events {
             let event_type = extract_event_type(event);
@@ -295,77 +251,6 @@ impl PromptLearningResults {
                 }
                 "learning.policy.gepa.candidate.evaluated" => {
                     let candidate_view = merge_candidate_payload(data);
-                    if let Some(rank) = data.get("rank").and_then(|v| v.as_i64()) {
-                        let mut prompt_entry = Map::new();
-                        prompt_entry.insert("rank".to_string(), json!(rank));
-                        if let Some(val) = candidate_view.get("train_accuracy") {
-                            prompt_entry.insert("train_accuracy".to_string(), val.clone());
-                        }
-                        if let Some(val) = candidate_view.get("val_accuracy") {
-                            prompt_entry.insert("val_accuracy".to_string(), val.clone());
-                        }
-                        if let Some(candidate_id) = candidate_view
-                            .get("candidate_id")
-                            .or_else(|| candidate_view.get("version_id"))
-                        {
-                            prompt_entry.insert("candidate_id".to_string(), candidate_id.clone());
-                        }
-                        for key in [
-                            "parent_id",
-                            "generation",
-                            "accepted",
-                            "is_pareto",
-                            "mutation_type",
-                            "mutation_params",
-                            "prompt_summary",
-                            "prompt_text",
-                            "objectives",
-                            "instance_scores",
-                            "instance_objectives",
-                            "seed_scores",
-                            "seed_info",
-                            "rollout_sample",
-                            "token_usage",
-                            "cost_usd",
-                            "evaluation_duration_ms",
-                            "skip_reason",
-                            "stages",
-                            "seeds_evaluated",
-                            "full_score",
-                        ] {
-                            if let Some(val) = candidate_view.get(key) {
-                                prompt_entry.insert(key.to_string(), val.clone());
-                            }
-                        }
-                        if let Some(mutation_type) = candidate_view
-                            .get("mutation_type")
-                            .or_else(|| candidate_view.get("operator"))
-                        {
-                            prompt_entry.insert("mutation_type".to_string(), mutation_type.clone());
-                        }
-                        if let Some(scores) = candidate_view.get("minibatch_scores") {
-                            prompt_entry.insert("minibatch_scores".to_string(), scores.clone());
-                        } else if let Some(score) = candidate_view.get("minibatch_score") {
-                            prompt_entry.insert(
-                                "minibatch_scores".to_string(),
-                                Value::Array(vec![score.clone()]),
-                            );
-                        }
-                        if let Some(pattern) = data.get("pattern") {
-                            prompt_entry.insert("pattern".to_string(), pattern.clone());
-                            if let Some(text) = extract_full_text_from_pattern(pattern) {
-                                prompt_entry.insert("full_text".to_string(), json!(text));
-                            }
-                        } else if let Some(template) = data.get("template") {
-                            if let Some(pattern) = convert_template_to_pattern(template) {
-                                prompt_entry.insert("pattern".to_string(), pattern.clone());
-                                if let Some(text) = extract_full_text_from_pattern(&pattern) {
-                                    prompt_entry.insert("full_text".to_string(), json!(text));
-                                }
-                            }
-                        }
-                        results.top_prompts.push(Value::Object(prompt_entry));
-                    }
                     append_event_bucket(
                         &mut results.gepa,
                         "candidates",
@@ -393,16 +278,9 @@ impl PromptLearningResults {
                     }
 
                     if let Some(validation) = data.get("validation").and_then(|v| v.as_array()) {
-                        for val in validation {
-                            if let Some(val_obj) = val.as_object() {
-                                if let (Some(rank), Some(score)) = (
-                                    val_obj.get("rank").and_then(|v| v.as_i64()),
-                                    extract_reward_value(val_obj, &[]),
-                                ) {
-                                    validation_by_rank.insert(rank, score);
-                                }
-                            }
-                        }
+                        results
+                            .validation_results
+                            .extend(validation.iter().cloned());
                     }
                     if let Some(Value::Object(baseline)) = data.get("baseline") {
                         results
@@ -413,12 +291,6 @@ impl PromptLearningResults {
                 }
                 "learning.policy.gepa.validation.completed" => {
                     results.validation_results.push(Value::Object(data.clone()));
-                    if let (Some(rank), Some(score)) = (
-                        data.get("rank").and_then(|v| v.as_i64()),
-                        extract_reward_value(data, &[]),
-                    ) {
-                        validation_by_rank.insert(rank, score);
-                    }
                     append_event_bucket(&mut results.gepa, "validation", &event_type, &data);
                 }
                 "learning.policy.mipro.job.completed" => {
@@ -533,78 +405,6 @@ impl PromptLearningResults {
                     }
                 }
                 _ => {}
-            }
-        }
-
-        if results.top_prompts.is_empty() && !results.optimized_candidates.is_empty() {
-            for (idx, cand) in results.optimized_candidates.iter().enumerate() {
-                let cand_obj = match cand.as_object() {
-                    Some(obj) => obj,
-                    None => continue,
-                };
-                let rank = cand_obj
-                    .get("rank")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or((idx + 1) as i64);
-                let mut prompt_entry = Map::new();
-                prompt_entry.insert("rank".to_string(), json!(rank));
-
-                let train_accuracy = cand_obj
-                    .get("score")
-                    .and_then(|v| v.as_object())
-                    .and_then(|v| extract_reward_value(v, &[]))
-                    .or_else(|| extract_reward_value(cand_obj, &[]));
-                if let Some(score) = train_accuracy {
-                    prompt_entry.insert("train_accuracy".to_string(), json!(score));
-                }
-                if let Some(val) = validation_by_rank.get(&rank) {
-                    prompt_entry.insert("val_accuracy".to_string(), json!(*val));
-                }
-                for key in [
-                    "candidate_id",
-                    "version_id",
-                    "parent_id",
-                    "generation",
-                    "accepted",
-                    "is_pareto",
-                    "mutation_type",
-                    "mutation_params",
-                    "prompt_summary",
-                    "prompt_text",
-                    "objectives",
-                    "instance_scores",
-                    "instance_objectives",
-                    "seed_scores",
-                    "seed_info",
-                    "rollout_sample",
-                    "token_usage",
-                    "cost_usd",
-                    "evaluation_duration_ms",
-                    "skip_reason",
-                    "stages",
-                    "seeds_evaluated",
-                    "full_score",
-                ] {
-                    if let Some(val) = cand_obj.get(key) {
-                        prompt_entry.insert(key.to_string(), val.clone());
-                    }
-                }
-
-                if let Some(pattern) = cand_obj.get("pattern") {
-                    prompt_entry.insert("pattern".to_string(), pattern.clone());
-                    if let Some(text) = extract_full_text_from_pattern(pattern) {
-                        prompt_entry.insert("full_text".to_string(), json!(text));
-                    }
-                } else if let Some(template) = cand_obj.get("template") {
-                    if let Some(pattern) = convert_template_to_pattern(template) {
-                        if let Some(text) = extract_full_text_from_pattern(&pattern) {
-                            prompt_entry.insert("full_text".to_string(), json!(text));
-                        }
-                        prompt_entry.insert("pattern".to_string(), pattern);
-                    }
-                }
-
-                results.top_prompts.push(Value::Object(prompt_entry));
             }
         }
 
@@ -988,58 +788,6 @@ fn merge_candidate_payload(data: &Map<String, Value>) -> Map<String, Value> {
         }
     }
     merged
-}
-
-fn convert_template_to_pattern(template: &Value) -> Option<Value> {
-    let sections = template
-        .get("sections")
-        .and_then(|v| v.as_array())
-        .filter(|v| !v.is_empty())
-        .or_else(|| template.get("prompt_sections").and_then(|v| v.as_array()))?;
-    let mut messages = Vec::new();
-    for sec in sections {
-        let sec_obj = sec.as_object()?;
-        let content = sec_obj.get("content")?;
-        if content.is_null() {
-            continue;
-        }
-        let role = sec_obj
-            .get("role")
-            .and_then(|v| v.as_str())
-            .or_else(|| sec_obj.get("name").and_then(|v| v.as_str()))
-            .unwrap_or("system");
-        let name = sec_obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        messages.push(json!({
-            "role": role,
-            "name": name,
-            "pattern": content,
-        }));
-    }
-    if messages.is_empty() {
-        return None;
-    }
-    Some(json!({ "messages": messages }))
-}
-
-fn extract_full_text_from_pattern(pattern: &Value) -> Option<String> {
-    let messages = pattern.get("messages")?.as_array()?;
-    let mut parts = Vec::new();
-    for msg in messages {
-        let msg_obj = msg.as_object()?;
-        let role = msg_obj.get("role").and_then(|v| v.as_str()).unwrap_or("");
-        let name = msg_obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
-        let content = msg_obj
-            .get("pattern")
-            .or_else(|| msg_obj.get("content"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        parts.push(format!("[{role} | {name}]\n{content}"));
-    }
-    if parts.is_empty() {
-        None
-    } else {
-        Some(parts.join("\n\n"))
-    }
 }
 
 #[cfg(test)]

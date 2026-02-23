@@ -38,9 +38,6 @@ def poll_prompt_learning_until_complete(
         try:
             url = f"{base_url}/jobs/{job_id}"
             resp = http_get(url, headers=headers, timeout=request_timeout)
-            if resp.status_code == 404:
-                legacy_url = f"{base_url}/prompt-learning/online/jobs/{job_id}"
-                resp = http_get(legacy_url, headers=headers, timeout=request_timeout)
             last_data = parse_json_response(resp, context="Prompt learning status")
             error_count = 0
 

@@ -9,10 +9,6 @@
 //! # Endpoint Families
 //!
 //! Canonical: `/api/jobs/*`
-//! Legacy aliases (kept during migration):
-//! - `/api/prompt-learning/online/jobs/*`
-//! - `/api/policy-optimization/online/jobs/*`
-//! - `/api/eval/jobs/*`
 
 // ---------------------------------------------------------------------------
 // Canonical job endpoint family
@@ -51,55 +47,6 @@ pub fn jobs_cancel(job_id: &str) -> String {
 
 pub fn jobs_metrics(job_id: &str) -> String {
     format!("{}/{}/metrics", JOBS_ROOT, job_id)
-}
-
-// ---------------------------------------------------------------------------
-// Legacy alias endpoints (kept during migration)
-// ---------------------------------------------------------------------------
-
-/// Legacy prompt-learning endpoint root.
-pub const LEGACY_PROMPT_LEARNING_ROOT: &str = "/api/prompt-learning/online/jobs";
-
-/// Legacy policy-optimization endpoint root.
-pub const LEGACY_POLICY_OPTIMIZATION_ROOT: &str = "/api/policy-optimization/online/jobs";
-
-/// Legacy eval endpoint root.
-pub const LEGACY_EVAL_ROOT: &str = "/api/eval/jobs";
-
-/// Legacy learning endpoint root (used by some older SDKs).
-pub const LEGACY_LEARNING_ROOT: &str = "/api/learning/jobs";
-
-/// Legacy orchestration endpoint root.
-pub const LEGACY_ORCHESTRATION_ROOT: &str = "/api/orchestration/jobs";
-
-/// Format helpers for legacy prompt-learning endpoints.
-pub fn legacy_prompt_learning_status(job_id: &str) -> String {
-    format!("{}/{}", LEGACY_PROMPT_LEARNING_ROOT, job_id)
-}
-
-pub fn legacy_prompt_learning_events(job_id: &str) -> String {
-    format!("{}/{}/events", LEGACY_PROMPT_LEARNING_ROOT, job_id)
-}
-
-pub fn legacy_prompt_learning_events_stream(job_id: &str) -> String {
-    format!("{}/{}/events/stream", LEGACY_PROMPT_LEARNING_ROOT, job_id)
-}
-
-pub fn legacy_prompt_learning_metrics(job_id: &str) -> String {
-    format!("{}/{}/metrics", LEGACY_PROMPT_LEARNING_ROOT, job_id)
-}
-
-/// Format helpers for legacy eval endpoints.
-pub fn legacy_eval_status(job_id: &str) -> String {
-    format!("{}/{}", LEGACY_EVAL_ROOT, job_id)
-}
-
-pub fn legacy_eval_events(job_id: &str) -> String {
-    format!("{}/{}/events", LEGACY_EVAL_ROOT, job_id)
-}
-
-pub fn legacy_eval_events_stream(job_id: &str) -> String {
-    format!("{}/{}/events/stream", LEGACY_EVAL_ROOT, job_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -181,18 +128,6 @@ mod tests {
         assert_eq!(jobs_events_stream("abc"), "/api/jobs/abc/events/stream");
         assert_eq!(jobs_artifacts("abc"), "/api/jobs/abc/artifacts");
         assert_eq!(jobs_cancel("abc"), "/api/jobs/abc/cancel");
-    }
-
-    #[test]
-    fn test_legacy_endpoints() {
-        assert_eq!(
-            legacy_prompt_learning_status("abc"),
-            "/api/prompt-learning/online/jobs/abc"
-        );
-        assert_eq!(
-            legacy_eval_status("abc"),
-            "/api/eval/jobs/abc"
-        );
     }
 
     #[test]

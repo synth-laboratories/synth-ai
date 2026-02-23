@@ -272,9 +272,9 @@ class PromptResults:
     """Results from a completed prompt learning job."""
 
     best_candidate: Optional[Dict[str, Any] | str] = None  # Best candidate payload (when available)
+    best_candidate_content: Optional[str] = None
     best_reward: Optional[float] = None
     version_tree: Optional[Dict[str, Any]] = None
-    top_prompts: List[Dict[str, Any]] = field(default_factory=list)
     optimized_candidates: List[Dict[str, Any]] = field(default_factory=list)
     attempted_candidates: List[Dict[str, Any]] = field(default_factory=list)
     validation_results: List[Dict[str, Any]] = field(default_factory=list)
@@ -328,9 +328,9 @@ class PromptResults:
             best_lever_version = max(lever_versions.values())
         return cls(
             best_candidate=data.get("best_candidate") or data.get("best_prompt"),
+            best_candidate_content=data.get("best_candidate_content"),
             best_reward=data.get("best_reward") or data.get("best_score"),
             version_tree=data.get("version_tree"),
-            top_prompts=data.get("top_prompts", []),
             optimized_candidates=data.get("optimized_candidates", []),
             attempted_candidates=data.get("attempted_candidates", []),
             validation_results=data.get("validation_results", []),

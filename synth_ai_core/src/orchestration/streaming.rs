@@ -156,10 +156,7 @@ impl EventStream {
     ///
     /// Returns events since the last sequence number.
     pub async fn poll_events(&mut self) -> Result<Vec<ParsedEvent>, CoreError> {
-        let url = format!(
-            "{}/api/prompt-learning/online/jobs/{}/events",
-            self.base_url, self.job_id
-        );
+        let url = format!("{}/api/jobs/{}/events", self.base_url, self.job_id);
 
         let params = [
             ("since_seq", self.last_seq.to_string()),

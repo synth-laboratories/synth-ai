@@ -65,6 +65,7 @@ class ContainerEndpoints:
     info: str = "/info"
     task_info: str = "/task_info"
     rollout: str = "/rollout"
+    validate_candidate: str = "/validate-candidate"
 
 
 @dataclass(frozen=True)
@@ -323,6 +324,40 @@ class RolloutResponse(BaseModel):
         """Default to alias serialization for container responses."""
         kwargs.setdefault("by_alias", True)
         return super().model_dump(**kwargs)
+
+
+class CandidateValidationIssue(BaseModel):
+    """Structured validation issue returned by `/validate-candidate`."""
+
+    code: str
+    message: str | None = None
+    path: str | None = None
+    constraint: str | None = None
+
+
+class ValidateCandidateRequest(BaseModel):
+    """Request payload for optional `/validate-candidate` endpoint."""
+
+    job_id: str | None = None
+    candidate_id: str
+    optimization_mode: str = "optimize_anything"
+    artifact_kind: str
+    artifact_payload: dict[str, Any] | list[Any] | str | int | float | bool | None
+    artifact_schema: dict[str, Any] | str | None = None
+    artifact_bounds: dict[str, Any] | None = None
+    trace_context: dict[str, Any] | None = None
+
+
+class ValidateCandidateResponse(BaseModel):
+    """Response payload for optional `/validate-candidate` endpoint."""
+
+    status: str
+    errors: list[CandidateValidationIssue] = Field(default_factory=list)
+    warnings: list[CandidateValidationIssue] = Field(default_factory=list)
+    suggested_fixes: list[dict[str, Any]] | None = None
+    normalized_preview: str | None = None
+    validation_digest: str | None = None
+    validator_version: str | None = None
 
 
 class _ExtraAllowModel(BaseModel):

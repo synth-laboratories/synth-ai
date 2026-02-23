@@ -265,3 +265,136 @@ async def test_status_async_raises_on_non_object_response(
     )
     with pytest.raises(ValueError, match="MIPRO status endpoint"):
         await session.status_async()
+
+
+@pytest.mark.asyncio
+async def test_list_candidates_async_uses_system_candidates_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: Dict[str, Any] = {}
+
+    class DummyPromptLearningClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            captured["init"] = {"args": args, "kwargs": kwargs}
+
+        async def list_system_candidates(self, system_id: str, **kwargs: Any) -> Dict[str, Any]:
+            captured["list"] = {"system_id": system_id, "kwargs": kwargs}
+            return {"items": [{"candidate_id": "cand_1"}], "system_id": system_id}
+
+    monkeypatch.setattr(module, "PromptLearningClient", DummyPromptLearningClient)
+    session = MiproOnlineSession(
+        session_id="session-list",
+        backend_url="https://backend.test",
+        api_key="api-key",
+        timeout=0.1,
+    )
+    result = await session.list_candidates_async(
+        status="evaluated",
+        limit=5,
+        sort="objective:desc,created_at:desc",
+        include="prompt_text",
+    )
+
+    assert result["items"][0]["candidate_id"] == "cand_1"
+    assert captured["list"]["system_id"] == "session-list"
+    assert captured["list"]["kwargs"]["status"] == "evaluated"
+    assert captured["list"]["kwargs"]["limit"] == 5
+
+
+@pytest.mark.asyncio
+async def test_get_candidate_async_rejects_candidate_from_other_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class DummyPromptLearningClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+
+        async def get_global_candidate(self, candidate_id: str) -> Dict[str, Any]:
+            return {"candidate_id": candidate_id, "system_id": "other-session"}
+
+        async def list_system_candidates(self, system_id: str, **kwargs: Any) -> Dict[str, Any]:
+            del system_id, kwargs
+            return {"items": []}
+
+    monkeypatch.setattr(module, "PromptLearningClient", DummyPromptLearningClient)
+    session = MiproOnlineSession(
+        session_id="session-own",
+        backend_url="https://backend.test",
+        api_key="api-key",
+        timeout=0.1,
+    )
+
+    with pytest.raises(ValueError, match="does not belong to MIPRO session"):
+        await session.get_candidate_async("cand_2")
+
+
+@pytest.mark.asyncio
+async def test_list_seed_evals_async_uses_system_seed_eval_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: Dict[str, Any] = {}
+
+    class DummyPromptLearningClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            captured["init"] = {"args": args, "kwargs": kwargs}
+
+        async def list_system_seed_evals(self, system_id: str, **kwargs: Any) -> Dict[str, Any]:
+            captured["list_seed_evals"] = {"system_id": system_id, "kwargs": kwargs}
+            return {"items": [{"candidate_id": "cand_1", "seed": 3}], "system_id": system_id}
+
+    monkeypatch.setattr(module, "PromptLearningClient", DummyPromptLearningClient)
+    session = MiproOnlineSession(
+        session_id="session-seeds",
+        backend_url="https://backend.test",
+        api_key="api-key",
+        timeout=0.1,
+    )
+    payload = await session.list_seed_evals_async(split="held_out", limit=8, success=True)
+    assert payload["system_id"] == "session-seeds"
+    assert captured["list_seed_evals"]["system_id"] == "session-seeds"
+    assert captured["list_seed_evals"]["kwargs"]["split"] == "held_out"
+    assert captured["list_seed_evals"]["kwargs"]["limit"] == 8
+    assert captured["list_seed_evals"]["kwargs"]["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_candidate_async_paginates_system_candidates_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: List[Dict[str, Any]] = []
+
+    class DummyPromptLearningClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            del args, kwargs
+
+        async def get_global_candidate(self, candidate_id: str) -> Dict[str, Any]:
+            return {"candidate_id": candidate_id, "system_id": None}
+
+        async def list_system_candidates(self, system_id: str, **kwargs: Any) -> Dict[str, Any]:
+            calls.append({"system_id": system_id, "kwargs": kwargs})
+            cursor = kwargs.get("cursor")
+            if cursor is None:
+                return {
+                    "items": [{"candidate_id": "cand_1"}],
+                    "next_cursor": "cursor-2",
+                    "system_id": system_id,
+                }
+            return {
+                "items": [{"candidate_id": "cand_target"}],
+                "next_cursor": None,
+                "system_id": system_id,
+            }
+
+    monkeypatch.setattr(module, "PromptLearningClient", DummyPromptLearningClient)
+    session = MiproOnlineSession(
+        session_id="session-pagination",
+        backend_url="https://backend.test",
+        api_key="api-key",
+        timeout=0.1,
+    )
+
+    candidate = await session.get_candidate_async("cand_target")
+    assert candidate["candidate_id"] == "cand_target"
+    assert len(calls) == 2
+    assert calls[0]["kwargs"]["cursor"] is None
+    assert calls[1]["kwargs"]["cursor"] == "cursor-2"

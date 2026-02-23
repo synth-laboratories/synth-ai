@@ -8,8 +8,8 @@
 
 use crate::errors::CoreError;
 use crate::shared_client::build_pooled_client;
-use crate::utils;
 use crate::urls::backend_url_base;
+use crate::utils;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;

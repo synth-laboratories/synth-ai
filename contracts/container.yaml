@@ -34,6 +34,7 @@ info:
     ## Optional Endpoints
 
     - `GET /info` - Task metadata (authenticated)
+    - `POST /validate-candidate` - Optional candidate artifact validation (authenticated)
 
     ## Quick Start
 
@@ -59,7 +60,7 @@ info:
 
     **Option B - Via API (no Python needed):**
     ```bash
-    curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
+    curl -X POST https://api.usesynth.ai/api/jobs \
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -178,6 +179,96 @@ components:
                 - role: "user"
                   pattern: "Customer query: {query}\n\nClassify into one of: {intents}"
                   order: 1
+
+    ValidateCandidateRequest:
+      type: object
+      required:
+        - candidate_id
+        - artifact_kind
+      properties:
+        job_id:
+          type: string
+          nullable: true
+        candidate_id:
+          type: string
+        optimization_mode:
+          type: string
+          default: optimize_anything
+        artifact_kind:
+          type: string
+        artifact_payload:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items: {}
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
+        artifact_schema:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: string
+        artifact_bounds:
+          type: object
+          nullable: true
+          additionalProperties: true
+        trace_context:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    CandidateValidationIssue:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        constraint:
+          type: string
+          nullable: true
+
+    ValidateCandidateResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateValidationIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateValidationIssue'
+        suggested_fixes:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        normalized_preview:
+          type: string
+          nullable: true
+        validation_digest:
+          type: string
+          nullable: true
+        validator_version:
+          type: string
+          nullable: true
 
     RolloutEnvSpec:
       type: object
@@ -1234,6 +1325,46 @@ paths:
               example:
                 detail: "LLM returned error: rate limit exceeded"
 
+  # ===========================================================================
+  # CANDIDATE VALIDATION ENDPOINT (optional, authenticated)
+  # ===========================================================================
+  /validate-candidate:
+    post:
+      summary: Validate candidate artifact (optional)
+      operationId: validateCandidate
+      description: |
+        Optional endpoint that lets containers validate proposed candidate artifacts
+        before rollout execution. Return `status=valid`, `invalid`, or `infra_failed`.
+      tags:
+        - Validation
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateCandidateRequest'
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateCandidateResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 tags:
   - name: Health
     description: Health check endpoint
@@ -1241,6 +1372,8 @@ tags:
     description: Task metadata endpoint (optional)
   - name: Rollout
     description: Core prompt evaluation endpoint
+  - name: Validation
+    description: Optional candidate validation endpoint
 openapi: 3.1.0
 info:
   title: Synth Container Contract
@@ -1277,6 +1410,7 @@ info:
     ## Optional Endpoints
 
     - `GET /info` - Task metadata (authenticated)
+    - `POST /validate-candidate` - Optional candidate artifact validation (authenticated)
 
     ## Quick Start
 
@@ -1302,7 +1436,7 @@ info:
 
     **Option B - Via API (no Python needed):**
     ```bash
-    curl -X POST https://api.usesynth.ai/api/prompt-learning/online/jobs \
+    curl -X POST https://api.usesynth.ai/api/jobs \
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -1421,6 +1555,96 @@ components:
                 - role: "user"
                   pattern: "Customer query: {query}\n\nClassify into one of: {intents}"
                   order: 1
+
+    ValidateCandidateRequest:
+      type: object
+      required:
+        - candidate_id
+        - artifact_kind
+      properties:
+        job_id:
+          type: string
+          nullable: true
+        candidate_id:
+          type: string
+        optimization_mode:
+          type: string
+          default: optimize_anything
+        artifact_kind:
+          type: string
+        artifact_payload:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: array
+              items: {}
+            - type: string
+            - type: number
+            - type: integer
+            - type: boolean
+        artifact_schema:
+          nullable: true
+          oneOf:
+            - type: object
+              additionalProperties: true
+            - type: string
+        artifact_bounds:
+          type: object
+          nullable: true
+          additionalProperties: true
+        trace_context:
+          type: object
+          nullable: true
+          additionalProperties: true
+
+    CandidateValidationIssue:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        constraint:
+          type: string
+          nullable: true
+
+    ValidateCandidateResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateValidationIssue'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/CandidateValidationIssue'
+        suggested_fixes:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+        normalized_preview:
+          type: string
+          nullable: true
+        validation_digest:
+          type: string
+          nullable: true
+        validator_version:
+          type: string
+          nullable: true
 
     RolloutEnvSpec:
       type: object
@@ -2477,6 +2701,46 @@ paths:
               example:
                 detail: "LLM returned error: rate limit exceeded"
 
+  # ===========================================================================
+  # CANDIDATE VALIDATION ENDPOINT (optional, authenticated)
+  # ===========================================================================
+  /validate-candidate:
+    post:
+      summary: Validate candidate artifact (optional)
+      operationId: validateCandidate
+      description: |
+        Optional endpoint that lets containers validate proposed candidate artifacts
+        before rollout execution. Return `status=valid`, `invalid`, or `infra_failed`.
+      tags:
+        - Validation
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateCandidateRequest'
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateCandidateResponse'
+        '400':
+          description: Invalid request payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized (missing or invalid API key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 tags:
   - name: Health
     description: Health check endpoint
@@ -2484,3 +2748,5 @@ tags:
     description: Task metadata endpoint (optional)
   - name: Rollout
     description: Core prompt evaluation endpoint
+  - name: Validation
+    description: Optional candidate validation endpoint

@@ -13,11 +13,14 @@ from .auth import ensure_container_auth
 
 if TYPE_CHECKING:
     from synth_ai.sdk.container._impl import (
+        CandidateValidationIssue,
         ContainerClient,
         ContainerConfig,
         ContainerEndpoints,
         InProcessContainer,
         TaskInfo,
+        ValidateCandidateRequest,
+        ValidateCandidateResponse,
         create_container,
         run_container,
     )
@@ -48,6 +51,9 @@ _IMPL_IMPORTS = {
     "ContainerClient",
     "ContainerConfig",
     "ContainerEndpoints",
+    "CandidateValidationIssue",
+    "ValidateCandidateRequest",
+    "ValidateCandidateResponse",
     "RubricBundle",
     "TaskInfo",
     "create_container",
@@ -128,6 +134,9 @@ __all__ = [
     "ContainerClient",
     "ContainerConfig",
     "ContainerEndpoints",
+    "CandidateValidationIssue",
+    "ValidateCandidateRequest",
+    "ValidateCandidateResponse",
     "ContainerHealth",
     "check_container_health",
     "InProcessContainer",

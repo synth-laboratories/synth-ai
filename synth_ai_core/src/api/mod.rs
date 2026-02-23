@@ -28,23 +28,28 @@
 //! ```
 
 pub mod client;
+pub mod container;
 pub mod eval;
 pub mod graph_evolve;
 pub mod graphs;
 pub mod inference;
 pub mod jobs;
-pub mod container;
 pub mod types;
 
 // Re-export main types for convenience
 pub use client::SynthClient;
+pub use container::ContainerDeployClient;
 pub use eval::EvalClient;
 pub use graph_evolve::GraphEvolveClient;
 pub use graphs::{build_verifier_request, resolve_graph_job_id, GraphsClient};
 pub use inference::InferenceClient;
 pub use jobs::JobsClient;
-pub use container::ContainerDeployClient;
 pub use types::{
+    ContainerDeployResponse,
+    ContainerDeploySpec,
+    ContainerDeployStatus,
+    ContainerDeploymentInfo,
+    ContainerLimits,
     EvalJobRequest,
     EvalJobStatus,
     EvalResult,
@@ -56,11 +61,6 @@ pub use types::{
     GraphCompletionResponse,
     // Response types
     JobSubmitResponse,
-    ContainerDeployResponse,
-    ContainerDeploySpec,
-    ContainerDeployStatus,
-    ContainerDeploymentInfo,
-    ContainerLimits,
     MiproConfig,
     MiproJobRequest,
     // Config types

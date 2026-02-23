@@ -40,6 +40,12 @@ const KNOWN_TOP_LEVEL_SECTIONS: &[&str] = &["prompt_learning", "display", "termi
 
 const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "algorithm",
+    "optimization_mode",
+    "artifact",
+    "artifact_kind",
+    "default_artifact_kind",
+    "artifact_schema",
+    "artifact_bounds",
     "container_url",
     "container_api_key",
     "container_id",
@@ -60,6 +66,16 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "reference_pool",
     "auto_discover_patterns",
     "use_byok",
+];
+
+const KNOWN_ARTIFACT_FIELDS: &[&str] = &[
+    "kind",
+    "adapter",
+    "schema",
+    "baseline",
+    "bounds",
+    "validation_mode",
+    "preview_rules",
 ];
 
 const KNOWN_POLICY_FIELDS: &[&str] = &[
@@ -732,6 +748,14 @@ pub fn validate_prompt_learning_config(
 
     if let Some(Value::Object(ontology)) = pl_map.get("ontology") {
         validate_ontology_config(ontology, "prompt_learning.ontology", &mut result);
+    }
+    if let Some(Value::Object(artifact)) = pl_map.get("artifact") {
+        check_unknown_fields(
+            artifact,
+            KNOWN_ARTIFACT_FIELDS,
+            "prompt_learning.artifact",
+            &mut result,
+        );
     }
 
     match algorithm {
@@ -2987,6 +3011,54 @@ mod tests {
                 )
             }),
             "missing text_dreamer unknown-key warning: {:?}",
+            result.warnings
+        );
+    }
+
+    #[test]
+    fn accepts_optimize_anything_top_level_fields_without_unknown_warnings() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "optimization_mode": "optimize_anything",
+                "artifact": {
+                    "kind": "dsl_config",
+                    "adapter": "optimize_anything",
+                    "schema": {"type": "object"},
+                    "baseline": {"alpha": 1.0},
+                    "bounds": {"mutable_keys": ["alpha"]},
+                    "validation_mode": "strict",
+                    "preview_rules": {"max_chars": 400}
+                },
+                "container_url": "http://localhost:8102",
+                "policy": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "inference_mode": "synth_hosted"
+                },
+                "gepa": {
+                    "evaluation": {
+                        "train_seeds": [0, 1],
+                        "val_seeds": [2, 3]
+                    },
+                    "archive": {"pareto_set_size": 4}
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            !result.warnings.iter().any(|warning| warning
+                .contains("Unknown field 'optimization_mode' in [prompt_learning]")),
+            "unexpected optimization_mode warning(s): {:?}",
+            result.warnings
+        );
+        assert!(
+            !result
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("Unknown field 'artifact' in [prompt_learning]")),
+            "unexpected artifact warning(s): {:?}",
             result.warnings
         );
     }

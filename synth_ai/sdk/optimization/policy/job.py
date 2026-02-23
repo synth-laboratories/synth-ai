@@ -4,7 +4,7 @@ This module provides the canonical `PolicyOptimizationJob` class for running
 policy optimization (prompt/instruction optimization) jobs.
 
 Replaces: `PromptLearningJob` (deprecated)
-Backend endpoint: `/api/jobs/{gepa|mipro}` (canonical), `/api/policy-optimization/online/jobs` (legacy)
+Backend endpoint: `/api/jobs/{gepa|mipro}` (canonical)
 
 Algorithms:
 - gepa: Genetic Evolutionary Prompt Algorithm (default)
@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
 
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
 from synth_ai.sdk.container.auth import ensure_container_auth
+from synth_ai.sdk.optimization.models import PolicyCandidate, PolicyCandidatePage
 from synth_ai.sdk.optimization.models import PolicyJobStatus as JobStatus
 from synth_ai.sdk.optimization.models import PolicyOptimizationResult
 
@@ -735,24 +736,106 @@ class PolicyOptimizationJob:
         delegate = self._get_delegate()
         return delegate.get_results()
 
-    def get_best_candidate_text(self, rank: int = 1) -> Optional[str]:
-        """Get the text of the best prompt by rank.
-
-        Args:
-            rank: Prompt rank (1 = best, 2 = second best, etc.)
-
-        Returns:
-            Prompt text or None if not found
-        """
+    def list_candidates(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical candidates for this job."""
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
-
         delegate = self._get_delegate()
-        return delegate.get_best_candidate_text(rank=rank)
+        if not hasattr(delegate, "list_candidates"):
+            raise RuntimeError("list_candidates is not supported for this job type.")
+        return delegate.list_candidates(
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
 
-    def get_best_prompt_text(self, rank: int = 1) -> Optional[str]:
-        """Backward-compatible alias for get_best_candidate_text()."""
-        return self.get_best_candidate_text(rank=rank)
+    def list_candidates_typed(
+        self,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> PolicyCandidatePage:
+        """List canonical candidates for this job as typed artifacts."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "list_candidates_typed"):
+            raise RuntimeError("list_candidates_typed is not supported for this job type.")
+        return delegate.list_candidates_typed(
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+
+    def get_candidate(self, candidate_id: str) -> Dict[str, Any]:
+        """Get a canonical candidate by id for this job."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "get_candidate"):
+            raise RuntimeError("get_candidate is not supported for this job type.")
+        return delegate.get_candidate(candidate_id)
+
+    def get_candidate_typed(self, candidate_id: str) -> PolicyCandidate:
+        """Get a canonical candidate by id as typed artifact for this job."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "get_candidate_typed"):
+            raise RuntimeError("get_candidate_typed is not supported for this job type.")
+        return delegate.get_candidate_typed(candidate_id)
+
+    def list_seed_evals(
+        self,
+        *,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        candidate_id: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical seed evaluations for this job."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        delegate = self._get_delegate()
+        if not hasattr(delegate, "list_seed_evals"):
+            raise RuntimeError("list_seed_evals is not supported for this job type.")
+        return delegate.list_seed_evals(
+            split=split,
+            seed=seed,
+            success=success,
+            candidate_id=candidate_id,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
 
     def pause(self, *, reason: Optional[str] = None) -> Dict[str, Any]:
         """Pause a running job.

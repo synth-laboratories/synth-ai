@@ -25,9 +25,7 @@ impl EventKind {
 
     fn path(&self, job_id: &str) -> String {
         match self {
-            EventKind::PromptLearning => {
-                format!("/api/prompt-learning/online/jobs/{job_id}/events")
-            }
+            EventKind::PromptLearning => format!("/api/jobs/{job_id}/events"),
             EventKind::Eval => format!("/api/eval/jobs/{job_id}/events"),
         }
     }

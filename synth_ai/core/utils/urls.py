@@ -302,11 +302,42 @@ def backend_demo_keys_url(base_url: str) -> str:
 
 def is_synthtunnel_url(url: str) -> bool:
     """Return True if the URL targets the SynthTunnel gateway."""
+    import os
+
     try:
         parsed = urlparse(url)
-        hostname = parsed.hostname or ""
+        hostname = (parsed.hostname or "").lower()
+        path = parsed.path or ""
     except Exception:
         return False
-    if hostname == "st.usesynth.ai":
-        return True
-    return hostname.endswith(".st.usesynth.ai")
+    if not path.startswith("/s/rt_"):
+        return False
+
+    def _host_matches_pattern(host: str, pattern: str) -> bool:
+        if not pattern:
+            return False
+        if pattern.startswith("*."):
+            suffix = pattern[1:]
+            return host.endswith(suffix) and len(host) > len(suffix)
+        if pattern.startswith("."):
+            return host.endswith(pattern)
+        return host == pattern
+
+    patterns = [
+        "st.usesynth.ai",
+        "*.st.usesynth.ai",
+        "infra-api-dev.usesynth.ai",
+        "infra-api.usesynth.ai",
+        "api-dev.usesynth.ai",
+        "api.usesynth.ai",
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    ]
+    extra_patterns = (os.environ.get("SYNTH_TUNNEL_TRUSTED_HOSTS") or "").strip()
+    if extra_patterns:
+        for raw in extra_patterns.split(","):
+            value = raw.strip().lower()
+            if value and value not in patterns:
+                patterns.append(value)
+    return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)

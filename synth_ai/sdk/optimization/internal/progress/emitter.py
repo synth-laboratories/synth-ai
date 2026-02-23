@@ -191,6 +191,9 @@ class GEPAProgressEmitter:
             prompt = (
                 event.data.get("prompt")
                 or event.data.get("prompt_text")
+                or event.data.get("candidate_content")
+                or event.data.get("candidate_code")
+                or event.data.get("instruction_text")
                 or event.data.get("transformation")
             )
 

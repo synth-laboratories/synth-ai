@@ -35,6 +35,7 @@ def test_extract_prompt_learning_fields_from_job_payload_prefers_job_metadata() 
 
     assert fields["best_candidate"] == payload["best_prompt"]
     assert fields["best_reward"] == 0.91
+    assert fields["best_candidate_content"] == "fallback"
     assert fields["sensor_frames"] == [{"frame_id": "frame_job"}]
     assert fields["lever_versions"] == {"mipro.prompt.pl_123": 7}
     assert fields["best_lever_version"] == 7
@@ -92,12 +93,43 @@ def test_get_prompts_falls_back_to_job_payload_when_events_unavailable(monkeypat
 
     assert result.best_candidate == {"messages": [{"role": "system", "content": "from status"}]}
     assert result.best_reward == 0.77
+    assert result.best_candidate_content == "from status"
     assert result.lever_versions == {"mipro.prompt.pl_abc": 4}
     assert result.best_lever_version == 4
     assert result.sensor_frames == [{"frame_id": "frame_1"}]
 
 
-def test_get_job_merges_canonical_and_legacy_payloads(monkeypatch) -> None:
+def test_get_prompts_populates_non_prompt_best_candidate_content(monkeypatch) -> None:
+    async def _raise_events(self, job_id: str, *, since_seq: int = 0, limit: int = 5000):
+        _ = (self, job_id, since_seq, limit)
+        raise RuntimeError("404 Not Found")
+
+    async def _job_payload(self, job_id: str):
+        _ = (self, job_id)
+        return {
+            "status": "succeeded",
+            "best_candidate": {
+                "candidate_id": "cand_solver",
+                "candidate_code": "def solve(x):\n    return x + 1",
+            },
+            "best_score": 0.88,
+        }
+
+    monkeypatch.setattr(PromptLearningClient, "get_events", _raise_events)
+    monkeypatch.setattr(PromptLearningClient, "get_job", _job_payload)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    result = asyncio.run(client.get_prompts("pl_non_prompt"))
+
+    assert result.best_reward == 0.88
+    assert result.best_candidate == {
+        "candidate_id": "cand_solver",
+        "candidate_code": "def solve(x):\n    return x + 1",
+    }
+    assert result.best_candidate_content == "def solve(x):\n    return x + 1"
+
+
+def test_get_job_uses_canonical_payload(monkeypatch) -> None:
     class _FakeHttpClient:
         def __init__(self, *_args: Any, **_kwargs: Any) -> None:
             return
@@ -111,13 +143,14 @@ def test_get_job_merges_canonical_and_legacy_payloads(monkeypatch) -> None:
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
             if path.startswith("/api/jobs/") and "/events" not in path:
-                return {"job_id": "pl_merge", "status": "succeeded", "job_metadata": {"x": 1}}
-            if path.startswith("/api/policy-optimization/online/jobs/"):
                 return {
                     "job_id": "pl_merge",
                     "status": "succeeded",
                     "best_reward": 0.73,
-                    "metadata": {"best_prompt": {"messages": [{"role": "system", "content": "ok"}]}},
+                    "metadata": {
+                        "best_prompt": {"messages": [{"role": "system", "content": "ok"}]},
+                        "x": 1,
+                    },
                 }
             raise RuntimeError("404 Not Found")
 
@@ -147,17 +180,13 @@ def test_get_events_prefers_richest_endpoint(monkeypatch) -> None:
             _ = params
             if path.startswith("/api/jobs/") and path.endswith("/events"):
                 return {"events": [{"type": "one"}]}
-            if path.startswith("/api/policy-optimization/online/jobs/") and path.endswith("/events"):
-                return {"events": [{"type": "one"}, {"type": "two"}]}
-            if path.startswith("/api/prompt-learning/online/jobs/") and path.endswith("/events"):
-                return {"events": []}
             raise RuntimeError("404 Not Found")
 
     monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
 
     client = PromptLearningClient(base_url="http://example.com", api_key="key")
     events = asyncio.run(client.get_events("pl_events", limit=100))
-    assert [event.get("type") for event in events] == ["one", "two"]
+    assert [event.get("type") for event in events] == ["one"]
 
 
 def test_get_job_mipro_falls_back_to_system_state(monkeypatch) -> None:
@@ -202,6 +231,7 @@ def test_get_job_mipro_falls_back_to_system_state(monkeypatch) -> None:
     assert payload["best_reward"] == 0.81
     assert payload["best_score"] == 0.81
     assert payload["best_candidate"] == {"candidate_id": "cand_a", "avg_reward": 0.81}
+    assert payload.get("best_candidate_content") is None
     assert payload["attempted_candidates"] == [{"candidate_id": "cand_a", "score": 0.81}]
     assert payload["optimized_candidates"] == [{"candidate_id": "cand_a", "score": 0.81}]
 
@@ -268,6 +298,29 @@ def test_extract_mipro_state_fields_normalizes_candidate_versions_to_prompt_leve
     assert fields["best_lever_version"] == 11
 
 
+def test_extract_mipro_state_fields_extracts_non_prompt_candidate_content() -> None:
+    fields = _extract_mipro_state_fields(
+        {
+            "best_candidate_id": "cand_solver",
+            "best_score": 0.91,
+            "candidates": {
+                "cand_solver": {
+                    "candidate_id": "cand_solver",
+                    "avg_reward": 0.91,
+                    "candidate_code": "def solve(inp):\n    return inp[::-1]",
+                }
+            },
+        }
+    )
+
+    assert fields["best_candidate"] == {
+        "candidate_id": "cand_solver",
+        "avg_reward": 0.91,
+        "candidate_code": "def solve(inp):\n    return inp[::-1]",
+    }
+    assert fields["best_candidate_content"] == "def solve(inp):\n    return inp[::-1]"
+
+
 def test_extract_prompt_learning_fields_corrects_candidate_mapped_lever_versions() -> None:
     fields = _extract_prompt_learning_fields_from_job_payload(
         {
@@ -326,10 +379,6 @@ def test_get_events_falls_back_to_mipro_system_events(monkeypatch) -> None:
                         },
                     ]
                 }
-            if path.startswith("/api/policy-optimization/online/jobs/") and path.endswith("/events"):
-                return {"events": []}
-            if path.startswith("/api/prompt-learning/online/jobs/") and path.endswith("/events"):
-                return {"events": []}
             raise RuntimeError("404 Not Found")
 
     monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
@@ -376,10 +425,6 @@ def test_get_prompts_falls_back_to_mipro_system_state(monkeypatch) -> None:
                     "attempted_candidates": [{"candidate_id": "cand_best", "score": 0.66}],
                     "optimized_candidates": [{"candidate_id": "cand_best", "score": 0.66}],
                 }
-            if path.startswith("/api/policy-optimization/online/jobs/") and path.endswith("/events"):
-                return {"events": []}
-            if path.startswith("/api/prompt-learning/online/jobs/") and path.endswith("/events"):
-                return {"events": []}
             raise RuntimeError("404 Not Found")
 
     monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
@@ -391,3 +436,160 @@ def test_get_prompts_falls_back_to_mipro_system_state(monkeypatch) -> None:
     assert result.best_candidate == {"candidate_id": "cand_best", "avg_reward": 0.66}
     assert result.attempted_candidates == [{"candidate_id": "cand_best", "score": 0.66}]
     assert result.optimized_candidates == [{"candidate_id": "cand_best", "score": 0.66}]
+
+
+def test_list_system_candidates_hits_system_endpoint(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeHttpClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            return
+
+        async def __aenter__(self) -> "_FakeHttpClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            _ = (exc_type, exc, tb)
+
+        async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+            captured["path"] = path
+            captured["params"] = params
+            return {"items": [{"candidate_id": "cand_1"}], "system_id": "sys_123"}
+
+    monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    payload = asyncio.run(
+        client.list_system_candidates(
+            "sys_123",
+            status="evaluated",
+            limit=7,
+            sort="objective:desc,created_at:desc",
+        )
+    )
+    assert payload["system_id"] == "sys_123"
+    assert captured["path"] == "/api/systems/sys_123/candidates"
+    assert captured["params"]["status"] == "evaluated"
+    assert captured["params"]["limit"] == 7
+
+
+def test_get_global_candidate_hits_global_candidate_endpoint(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeHttpClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            return
+
+        async def __aenter__(self) -> "_FakeHttpClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            _ = (exc_type, exc, tb)
+
+        async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+            captured["path"] = path
+            captured["params"] = params
+            return {"candidate_id": "cand_global", "system_id": "sys_123"}
+
+    monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    payload = asyncio.run(client.get_global_candidate("cand_global"))
+    assert payload["candidate_id"] == "cand_global"
+    assert captured["path"] == "/api/candidates/cand_global"
+    assert captured["params"] is None
+
+
+def test_list_seed_evals_hits_job_seed_eval_endpoint(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeHttpClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            return
+
+        async def __aenter__(self) -> "_FakeHttpClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            _ = (exc_type, exc, tb)
+
+        async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+            captured["path"] = path
+            captured["params"] = params
+            return {"items": [{"candidate_id": "cand_1", "seed": 5}], "job_id": "pl_seed"}
+
+    monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    payload = asyncio.run(
+        client.list_seed_evals(
+            "pl_seed",
+            split="held_out",
+            seed=5,
+            success=True,
+            candidate_id="cand_1",
+            limit=10,
+            include="artifact_refs,side_info",
+        )
+    )
+    assert payload["job_id"] == "pl_seed"
+    assert captured["path"] == "/api/jobs/pl_seed/seed-evals"
+    assert captured["params"]["split"] == "held_out"
+    assert captured["params"]["seed"] == 5
+    assert captured["params"]["success"] is True
+    assert captured["params"]["candidate_id"] == "cand_1"
+
+
+def test_list_system_seed_evals_hits_system_seed_eval_endpoint(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeHttpClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            return
+
+        async def __aenter__(self) -> "_FakeHttpClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            _ = (exc_type, exc, tb)
+
+        async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+            captured["path"] = path
+            captured["params"] = params
+            return {"items": [{"candidate_id": "cand_2", "seed": 7}], "system_id": "sys_1"}
+
+    monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    payload = asyncio.run(client.list_system_seed_evals("sys_1", job_id="pl_1", limit=4))
+    assert payload["system_id"] == "sys_1"
+    assert captured["path"] == "/api/systems/sys_1/seed-evals"
+    assert captured["params"]["job_id"] == "pl_1"
+    assert captured["params"]["limit"] == 4
+
+
+def test_list_candidate_seed_evals_hits_candidate_seed_eval_endpoint(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    class _FakeHttpClient:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            return
+
+        async def __aenter__(self) -> "_FakeHttpClient":
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            _ = (exc_type, exc, tb)
+
+        async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+            captured["path"] = path
+            captured["params"] = params
+            return {"items": [{"candidate_id": "cand_3", "seed": 11}], "candidate_id": "cand_3"}
+
+    monkeypatch.setattr(plc, "RustCoreHttpClient", _FakeHttpClient)
+
+    client = PromptLearningClient(base_url="http://example.com", api_key="key")
+    payload = asyncio.run(client.list_candidate_seed_evals("cand_3", success=False))
+    assert payload["candidate_id"] == "cand_3"
+    assert captured["path"] == "/api/candidates/cand_3/seed-evals"
+    assert captured["params"]["success"] is False

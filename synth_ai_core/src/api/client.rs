@@ -7,12 +7,12 @@ use crate::http::HttpClient;
 use crate::urls::backend_url_base;
 use crate::CoreError;
 
+use super::container::ContainerDeployClient;
 use super::eval::EvalClient;
 use super::graph_evolve::GraphEvolveClient;
 use super::graphs::GraphsClient;
 use super::inference::InferenceClient;
 use super::jobs::JobsClient;
-use super::container::ContainerDeployClient;
 
 /// Default backend URL.
 pub const DEFAULT_BACKEND_URL: &str = crate::urls::DEFAULT_BACKEND_URL;

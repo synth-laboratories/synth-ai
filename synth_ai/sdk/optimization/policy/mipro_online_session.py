@@ -42,6 +42,7 @@ from typing import Any, Dict, Optional
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
 
 
@@ -509,6 +510,176 @@ class MiproOnlineSession:
             Dictionary with proxy URLs
         """
         return _run_async(self.get_prompt_urls_async(correlation_id=correlation_id))
+
+    async def list_candidates_async(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical candidates for this online MIPRO session."""
+        client = PromptLearningClient(
+            base_url=self.backend_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        return await client.list_system_candidates(
+            self.session_id,
+            job_id=job_id,
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+
+    def list_candidates(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical candidates for this online MIPRO session."""
+        return _run_async(
+            self.list_candidates_async(
+                job_id=job_id,
+                algorithm=algorithm,
+                mode=mode,
+                status=status,
+                limit=limit,
+                cursor=cursor,
+                sort=sort,
+                include=include,
+            )
+        )
+
+    async def get_candidate_async(
+        self,
+        candidate_id: str,
+        *,
+        job_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get a canonical candidate for this online MIPRO session."""
+        client = PromptLearningClient(
+            base_url=self.backend_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        if job_id:
+            return await client.get_candidate(job_id, candidate_id)
+
+        candidate = await client.get_global_candidate(candidate_id)
+        candidate_system_id = str(candidate.get("system_id") or "").strip()
+        if candidate_system_id and candidate_system_id != self.session_id:
+            raise ValueError(
+                f"Candidate {candidate_id!r} does not belong to MIPRO session {self.session_id!r}"
+            )
+        if candidate_system_id == self.session_id:
+            return candidate
+
+        cursor: Optional[str] = None
+        for _ in range(100):
+            page = await client.list_system_candidates(
+                self.session_id,
+                limit=200,
+                cursor=cursor,
+            )
+            items = page.get("items")
+            if not isinstance(items, list) or not items:
+                break
+            for item in items:
+                if isinstance(item, dict) and str(item.get("candidate_id")) == str(candidate_id):
+                    return item
+            next_cursor = page.get("next_cursor")
+            cursor = next_cursor if isinstance(next_cursor, str) and next_cursor else None
+            if cursor is None:
+                break
+        raise ValueError(
+            f"Candidate {candidate_id!r} was not found in MIPRO session {self.session_id!r}"
+        )
+
+    def get_candidate(
+        self,
+        candidate_id: str,
+        *,
+        job_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Get a canonical candidate for this online MIPRO session."""
+        return _run_async(self.get_candidate_async(candidate_id, job_id=job_id))
+
+    async def list_seed_evals_async(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical seed evaluations for this online MIPRO session."""
+        client = PromptLearningClient(
+            base_url=self.backend_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        return await client.list_system_seed_evals(
+            self.session_id,
+            job_id=job_id,
+            candidate_id=candidate_id,
+            split=split,
+            seed=seed,
+            success=success,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+
+    def list_seed_evals(
+        self,
+        *,
+        job_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List canonical seed evaluations for this online MIPRO session."""
+        return _run_async(
+            self.list_seed_evals_async(
+                job_id=job_id,
+                candidate_id=candidate_id,
+                split=split,
+                seed=seed,
+                success=success,
+                limit=limit,
+                cursor=cursor,
+                sort=sort,
+                include=include,
+            )
+        )
 
     async def _post_action_async(self, action: str) -> Dict[str, Any]:
         async with RustCoreHttpClient(

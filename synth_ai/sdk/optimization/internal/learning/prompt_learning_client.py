@@ -3,8 +3,10 @@
 from typing import Any, Dict, Iterable, List, Optional
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.sdk.optimization.models import PolicyCandidate, PolicyCandidatePage
 from synth_ai.sdk.optimization.internal.utils import run_sync
 
+from .prompt_extraction import extract_candidate_content
 from .prompt_learning_types import PromptResults
 
 
@@ -66,6 +68,81 @@ def _merge_metadata_from_payloads(payloads: List[Dict[str, Any]]) -> Dict[str, A
     return merged
 
 
+def _extract_candidate_content_text(candidate: Any) -> Optional[str]:
+    if isinstance(candidate, str):
+        candidate = candidate.strip()
+        return candidate or None
+    if not isinstance(candidate, dict):
+        return None
+    extracted = extract_candidate_content(candidate)
+    if isinstance(extracted, str):
+        extracted = extracted.strip()
+        if extracted:
+            return extracted
+
+    messages = candidate.get("messages")
+    if isinstance(messages, list):
+        parts: List[str] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            text = message.get("content") or message.get("pattern") or message.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+        if parts:
+            return "\n\n".join(parts)
+
+    sections = candidate.get("sections")
+    if isinstance(sections, list):
+        parts = []
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            text = section.get("content") or section.get("pattern")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+        if parts:
+            return "\n\n".join(parts)
+
+    replacements = candidate.get("text_replacements")
+    if isinstance(replacements, list):
+        for replacement in replacements:
+            if not isinstance(replacement, dict):
+                continue
+            text = replacement.get("new_text")
+            if isinstance(text, str) and text.strip():
+                return text.strip()
+    return None
+
+
+def _extract_best_candidate_content_from_sources(
+    best_candidate: Optional[Dict[str, Any] | str],
+    *sources: Dict[str, Any],
+) -> Optional[str]:
+    direct = _extract_candidate_content_text(best_candidate)
+    if direct:
+        return direct
+
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        for key in (
+            "best_candidate_content",
+            "candidate_content",
+            "best_candidate_text",
+            "candidate_code",
+            "best_candidate_code",
+        ):
+            value = source.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        for key in ("best_candidate", "best_prompt", "candidate", "program_candidate"):
+            extracted = _extract_candidate_content_text(source.get(key))
+            if extracted:
+                return extracted
+    return None
+
+
 def _infer_lever_versions_from_summary(lever_summary: Optional[Dict[str, Any]]) -> Dict[str, int]:
     if not isinstance(lever_summary, dict):
         return {}
@@ -123,6 +200,12 @@ def _extract_prompt_learning_fields_from_job_payload(payload: Dict[str, Any]) ->
     )
     if not isinstance(best_candidate, (dict, str)):
         best_candidate = None
+    best_candidate_content = _extract_best_candidate_content_from_sources(
+        best_candidate,
+        payload,
+        nested_result,
+        metadata,
+    )
 
     best_reward = _first_present(
         [
@@ -220,6 +303,7 @@ def _extract_prompt_learning_fields_from_job_payload(payload: Dict[str, Any]) ->
 
     return {
         "best_candidate": best_candidate,
+        "best_candidate_content": best_candidate_content,
         "best_reward": best_reward,
         "lever_summary": lever_summary,
         "sensor_frames": sensor_frames,
@@ -239,6 +323,8 @@ def _merge_prompt_results_from_job_payload(result: PromptResults, payload: Dict[
     fields = _extract_prompt_learning_fields_from_job_payload(payload)
     if result.best_candidate is None and fields["best_candidate"] is not None:
         result.best_candidate = fields["best_candidate"]
+    if result.best_candidate_content is None and fields["best_candidate_content"] is not None:
+        result.best_candidate_content = fields["best_candidate_content"]
     if result.best_reward is None and fields["best_reward"] is not None:
         result.best_reward = fields["best_reward"]
     if result.lever_summary is None and fields["lever_summary"] is not None:
@@ -286,6 +372,7 @@ def _merge_job_payloads(payloads: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     best_fields: Dict[str, Any] = {
         "best_candidate": None,
+        "best_candidate_content": None,
         "best_reward": None,
         "lever_summary": None,
         "sensor_frames": [],
@@ -299,6 +386,11 @@ def _merge_job_payloads(payloads: List[Dict[str, Any]]) -> Dict[str, Any]:
         fields = _extract_prompt_learning_fields_from_job_payload(payload)
         if best_fields["best_candidate"] is None and fields["best_candidate"] is not None:
             best_fields["best_candidate"] = fields["best_candidate"]
+        if (
+            best_fields["best_candidate_content"] is None
+            and fields["best_candidate_content"] is not None
+        ):
+            best_fields["best_candidate_content"] = fields["best_candidate_content"]
         if best_fields["best_reward"] is None and fields["best_reward"] is not None:
             best_fields["best_reward"] = fields["best_reward"]
         if best_fields["lever_summary"] is None and fields["lever_summary"] is not None:
@@ -322,6 +414,8 @@ def _merge_job_payloads(payloads: List[Dict[str, Any]]) -> Dict[str, Any]:
     if best_fields["best_candidate"] is not None:
         merged["best_candidate"] = best_fields["best_candidate"]
         merged["best_prompt"] = best_fields["best_candidate"]
+    if best_fields["best_candidate_content"] is not None:
+        merged["best_candidate_content"] = best_fields["best_candidate_content"]
     merged["lever_summary"] = best_fields["lever_summary"]
     merged["sensor_frames"] = best_fields["sensor_frames"]
     merged["lever_versions"] = best_fields["lever_versions"]
@@ -458,6 +552,10 @@ def _extract_mipro_state_fields(state_payload: Dict[str, Any]) -> Dict[str, Any]
 
     return {
         "best_candidate": best_candidate,
+        "best_candidate_content": _extract_best_candidate_content_from_sources(
+            best_candidate,
+            state_payload,
+        ),
         "best_reward": best_reward,
         "attempted_candidates": attempted_candidates,
         "optimized_candidates": optimized_candidates,
@@ -521,6 +619,12 @@ def _validate_job_id(job_id: str) -> None:
         )
 
 
+def _validate_system_id(system_id: str) -> None:
+    system_id = str(system_id).strip()
+    if not system_id:
+        raise ValueError("system_id is required")
+
+
 def _extract_reward_value(
     payload: Any, fallback_keys: Optional[List[str]] = None
 ) -> Optional[float]:
@@ -539,31 +643,6 @@ def _extract_reward_value(
             except (TypeError, ValueError):
                 continue
     return None
-
-
-def _convert_template_to_pattern(template: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    sections = template.get("sections", [])
-    if not sections:
-        sections = template.get("prompt_sections", [])
-    if not isinstance(sections, list) or not sections:
-        return None
-    messages: List[Dict[str, Any]] = []
-    for sec in sections:
-        if not isinstance(sec, dict):
-            continue
-        content = sec.get("content")
-        if not content:
-            continue
-        messages.append(
-            {
-                "role": sec.get("role", sec.get("name", "system")),
-                "name": sec.get("name"),
-                "content": content,
-            }
-        )
-    if not messages:
-        return None
-    return {"messages": messages}
 
 
 def _extract_event_type(event: Dict[str, Any]) -> str:
@@ -686,11 +765,7 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        job_paths = [
-            f"/api/jobs/{job_id}",
-            f"/api/policy-optimization/online/jobs/{job_id}",
-            f"/api/prompt-learning/online/jobs/{job_id}",
-        ]
+        job_paths = [f"/api/jobs/{job_id}"]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -740,6 +815,13 @@ class PromptLearningClient:
                                 merged["best_candidate"] = state_fields["best_candidate"]
                                 merged["best_prompt"] = state_fields["best_candidate"]
                             if (
+                                merged.get("best_candidate_content") is None
+                                and state_fields["best_candidate_content"] is not None
+                            ):
+                                merged["best_candidate_content"] = state_fields[
+                                    "best_candidate_content"
+                                ]
+                            if (
                                 not merged.get("attempted_candidates")
                                 and state_fields["attempted_candidates"]
                             ):
@@ -787,6 +869,292 @@ class PromptLearningClient:
             if first_error is not None:
                 raise first_error
             raise RuntimeError(f"Unable to load job payload for {job_id}")
+
+    async def list_candidates(
+        self,
+        job_id: str,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List candidates for a job from canonical candidate CRUD endpoints."""
+        _validate_job_id(job_id)
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 1000))}
+        if algorithm:
+            params["algorithm"] = algorithm
+        if mode:
+            params["mode"] = mode
+        if status:
+            params["status"] = status
+        if cursor:
+            params["cursor"] = cursor
+        if sort:
+            params["sort"] = sort
+        if include:
+            params["include"] = include
+        path = f"/api/jobs/{job_id}/candidates"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path, params=params)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from candidates endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def list_candidates_typed(
+        self,
+        job_id: str,
+        *,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> PolicyCandidatePage:
+        payload = await self.list_candidates(
+            job_id,
+            algorithm=algorithm,
+            mode=mode,
+            status=status,
+            limit=limit,
+            cursor=cursor,
+            sort=sort,
+            include=include,
+        )
+        return PolicyCandidatePage.from_dict(payload)
+
+    async def get_candidate(self, job_id: str, candidate_id: str) -> Dict[str, Any]:
+        """Get a single candidate from canonical candidate CRUD endpoints."""
+        _validate_job_id(job_id)
+        candidate_id = str(candidate_id).strip()
+        if not candidate_id:
+            raise ValueError("candidate_id is required")
+        paths = [
+            f"/api/jobs/{job_id}/candidates/{candidate_id}",
+            f"/api/candidates/{candidate_id}",
+        ]
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            last_not_found: Optional[Exception] = None
+            first_error: Optional[Exception] = None
+            for path in paths:
+                try:
+                    payload = await http.get(path)
+                    if isinstance(payload, dict):
+                        return payload
+                    if first_error is None:
+                        first_error = ValueError(
+                            f"Unexpected response structure from candidate endpoint {path}: "
+                            f"{type(payload).__name__}"
+                        )
+                except Exception as exc:
+                    if _is_not_found_error(exc):
+                        last_not_found = exc
+                        continue
+                    if first_error is None:
+                        first_error = exc
+            if last_not_found is not None:
+                raise last_not_found
+            if first_error is not None:
+                raise first_error
+        raise RuntimeError(f"Unable to load candidate {candidate_id} for job {job_id}")
+
+    async def get_candidate_typed(self, job_id: str, candidate_id: str) -> PolicyCandidate:
+        payload = await self.get_candidate(job_id, candidate_id)
+        return PolicyCandidate.from_dict(payload)
+
+    async def list_system_candidates(
+        self,
+        system_id: str,
+        *,
+        job_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        mode: Optional[str] = None,
+        status: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List candidates for a system from canonical candidate CRUD endpoints."""
+        _validate_system_id(system_id)
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 1000))}
+        if job_id:
+            normalized_job_id = str(job_id).strip()
+            if normalized_job_id:
+                params["job_id"] = normalized_job_id
+        if algorithm:
+            params["algorithm"] = algorithm
+        if mode:
+            params["mode"] = mode
+        if status:
+            params["status"] = status
+        if cursor:
+            params["cursor"] = cursor
+        if sort:
+            params["sort"] = sort
+        if include:
+            params["include"] = include
+        path = f"/api/systems/{system_id}/candidates"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path, params=params)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from system candidates endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def get_global_candidate(self, candidate_id: str) -> Dict[str, Any]:
+        """Get a single candidate by global candidate id."""
+        candidate_id = str(candidate_id).strip()
+        if not candidate_id:
+            raise ValueError("candidate_id is required")
+        path = f"/api/candidates/{candidate_id}"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from candidate endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def list_seed_evals(
+        self,
+        job_id: str,
+        *,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        candidate_id: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List seed evaluations for a job from canonical seed-eval endpoints."""
+        _validate_job_id(job_id)
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 1000))}
+        if split:
+            params["split"] = split
+        if seed is not None:
+            params["seed"] = int(seed)
+        if success is not None:
+            params["success"] = bool(success)
+        if candidate_id:
+            params["candidate_id"] = str(candidate_id).strip()
+        if cursor:
+            params["cursor"] = cursor
+        if sort:
+            params["sort"] = sort
+        if include:
+            params["include"] = include
+        path = f"/api/jobs/{job_id}/seed-evals"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path, params=params)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from seed-evals endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def list_system_seed_evals(
+        self,
+        system_id: str,
+        *,
+        job_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List seed evaluations for a system from canonical seed-eval endpoints."""
+        _validate_system_id(system_id)
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 1000))}
+        if job_id:
+            normalized_job_id = str(job_id).strip()
+            if normalized_job_id:
+                params["job_id"] = normalized_job_id
+        if candidate_id:
+            params["candidate_id"] = str(candidate_id).strip()
+        if split:
+            params["split"] = split
+        if seed is not None:
+            params["seed"] = int(seed)
+        if success is not None:
+            params["success"] = bool(success)
+        if cursor:
+            params["cursor"] = cursor
+        if sort:
+            params["sort"] = sort
+        if include:
+            params["include"] = include
+        path = f"/api/systems/{system_id}/seed-evals"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path, params=params)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from system seed-evals endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def list_candidate_seed_evals(
+        self,
+        candidate_id: str,
+        *,
+        job_id: Optional[str] = None,
+        split: Optional[str] = None,
+        seed: Optional[int] = None,
+        success: Optional[bool] = None,
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        sort: Optional[str] = None,
+        include: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """List seed evaluations for a candidate from canonical seed-eval endpoints."""
+        candidate_id = str(candidate_id).strip()
+        if not candidate_id:
+            raise ValueError("candidate_id is required")
+        params: Dict[str, Any] = {"limit": max(1, min(int(limit), 1000))}
+        if job_id:
+            normalized_job_id = str(job_id).strip()
+            if normalized_job_id:
+                params["job_id"] = normalized_job_id
+        if split:
+            params["split"] = split
+        if seed is not None:
+            params["seed"] = int(seed)
+        if success is not None:
+            params["success"] = bool(success)
+        if cursor:
+            params["cursor"] = cursor
+        if sort:
+            params["sort"] = sort
+        if include:
+            params["include"] = include
+        path = f"/api/candidates/{candidate_id}/seed-evals"
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path, params=params)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from candidate seed-evals endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
 
     async def get_events(
         self, job_id: str, *, since_seq: int = 0, limit: int = 5000
@@ -841,11 +1209,7 @@ class PromptLearningClient:
                 pass
 
         params = {"since_seq": since_seq, "limit": limit}
-        event_paths = [
-            f"/api/jobs/{job_id}/events",
-            f"/api/policy-optimization/online/jobs/{job_id}/events",
-            f"/api/prompt-learning/online/jobs/{job_id}/events",
-        ]
+        event_paths = [f"/api/jobs/{job_id}/events"]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -900,87 +1264,6 @@ class PromptLearningClient:
                 raise first_error
             raise RuntimeError(f"Unable to load events for {job_id}")
 
-    def _extract_full_text_from_template(self, template: Dict[str, Any]) -> str:
-        """Extract full text from a serialized template dict (legacy)."""
-        sections = template.get("sections", [])
-        if not sections:
-            sections = template.get("prompt_sections", [])
-        full_text_parts = []
-        for sec in sections:
-            if not isinstance(sec, dict):
-                continue
-            sec_name = sec.get("name", "")
-            sec_role = sec.get("role", "")
-            sec_content = str(sec.get("content", ""))
-            full_text_parts.append(f"[{sec_role} | {sec_name}]\n{sec_content}")
-        return "\n\n".join(full_text_parts)
-
-    def _extract_full_text_from_pattern(self, pattern: Dict[str, Any]) -> str:
-        """Extract full text from a serialized pattern dict."""
-        messages = pattern.get("messages", [])
-        full_text_parts = []
-        for msg in messages:
-            if not isinstance(msg, dict):
-                continue
-            msg_name = msg.get("name", "")
-            msg_role = msg.get("role", "")
-            msg_content = str(msg.get("pattern") or msg.get("content") or "")
-            full_text_parts.append(f"[{msg_role} | {msg_name}]\n{msg_content}")
-        return "\n\n".join(full_text_parts)
-
-    def _extract_full_text_from_object(self, obj: Dict[str, Any]) -> Optional[str]:
-        """Extract full text from a candidate's object field.
-
-        Args:
-            obj: Candidate object dict (may have 'data' with 'sections' or 'text_replacements')
-
-        Returns:
-            Formatted full text string or None if extraction fails
-        """
-        # Try to get messages from object.data.messages (pattern format)
-        data = obj.get("data", {})
-        if isinstance(data, dict):
-            messages = data.get("messages", [])
-            if messages:
-                return self._extract_full_text_from_pattern({"messages": messages})
-            sections = data.get("sections", [])
-            if sections:
-                full_text_parts = []
-                for sec in sections:
-                    if not isinstance(sec, dict):
-                        continue
-                    sec_name = sec.get("name", "")
-                    sec_role = sec.get("role", "")
-                    sec_content = str(sec.get("content", ""))
-                    full_text_parts.append(f"[{sec_role} | {sec_name}]\n{sec_content}")
-                return "\n\n".join(full_text_parts)
-
-            # Try text_replacements format (transformation format)
-            text_replacements = data.get("text_replacements", [])
-            if text_replacements and isinstance(text_replacements, list):
-                full_text_parts = []
-                for replacement in text_replacements:
-                    if not isinstance(replacement, dict):
-                        continue
-                    new_text = replacement.get("new_text", "")
-                    role = replacement.get("apply_to_role", "system")
-                    if new_text:
-                        full_text_parts.append(f"[{role}]\n{new_text}")
-                if full_text_parts:
-                    return "\n\n".join(full_text_parts)
-
-        # Try direct messages on object
-        messages = obj.get("messages", [])
-        if messages:
-            return self._extract_full_text_from_pattern({"messages": messages})
-
-        # Try direct sections on object
-        sections = obj.get("sections", [])
-        if sections:
-            return self._extract_full_text_from_template({"sections": sections})
-
-        return None
-
     async def get_prompts(self, job_id: str) -> PromptResults:
         """Get the best prompts and scoring metadata from a completed job.
 
@@ -991,7 +1274,6 @@ class PromptLearningClient:
             PromptResults dataclass containing:
                 - best_candidate: The top-performing prompt with sections and metadata
                 - best_score: The best accuracy score achieved
-                - top_prompts: List of top-K prompts with train/val scores
                 - optimized_candidates: All frontier/Pareto-optimal candidates
                 - attempted_candidates: All candidates tried during optimization
 
@@ -1007,9 +1289,6 @@ class PromptLearningClient:
             events_error = exc
 
         result = PromptResults()
-
-        # Build validation score map by rank for later use
-        validation_by_rank: Dict[int, float] = {}
 
         # Extract results from events
         for event in events:
@@ -1047,66 +1326,16 @@ class PromptLearningClient:
                 )
                 if isinstance(best_candidate, dict):
                     result.best_candidate = best_candidate
+                if result.best_candidate_content is None:
+                    result.best_candidate_content = _extract_best_candidate_content_from_sources(
+                        best_candidate,
+                        event_data,
+                    )
                 _append_event_bucket(result.gepa, "best_candidates", event_type, event_data)
 
-            # Candidate evaluated events may contain top-K prompt content
+            # Candidate evaluated events
             elif event_type == "learning.policy.gepa.candidate.evaluated":
                 candidate_view = _merge_candidate_payload(event_data)
-                # Check if this is a top prompt content event (has rank)
-                if event_data.get("rank") is not None:
-                    pattern_payload = event_data.get("pattern")
-                    if not pattern_payload:
-                        template_payload = event_data.get("template")
-                        if isinstance(template_payload, dict):
-                            pattern_payload = _convert_template_to_pattern(template_payload)
-                    prompt_entry: Dict[str, Any] = {
-                        "rank": event_data.get("rank"),
-                        "train_accuracy": candidate_view.get("train_accuracy"),
-                        "val_accuracy": candidate_view.get("val_accuracy"),
-                        "pattern": pattern_payload,
-                        "full_text": event_data.get("full_text"),
-                    }
-                    candidate_id = candidate_view.get("candidate_id") or candidate_view.get(
-                        "version_id"
-                    )
-                    if candidate_id is not None:
-                        prompt_entry["candidate_id"] = candidate_id
-                    for key in (
-                        "parent_id",
-                        "generation",
-                        "accepted",
-                        "is_pareto",
-                        "mutation_type",
-                        "mutation_params",
-                        "prompt_summary",
-                        "prompt_text",
-                        "objectives",
-                        "instance_scores",
-                        "instance_objectives",
-                        "seed_scores",
-                        "seed_info",
-                        "rollout_sample",
-                        "token_usage",
-                        "cost_usd",
-                        "evaluation_duration_ms",
-                        "skip_reason",
-                        "stages",
-                        "seeds_evaluated",
-                        "full_score",
-                    ):
-                        value = candidate_view.get(key)
-                        if value is not None:
-                            prompt_entry[key] = value
-                    mutation_type = candidate_view.get("mutation_type") or candidate_view.get(
-                        "operator"
-                    )
-                    if mutation_type is not None:
-                        prompt_entry["mutation_type"] = mutation_type
-                    if candidate_view.get("minibatch_scores") is not None:
-                        prompt_entry["minibatch_scores"] = candidate_view.get("minibatch_scores")
-                    elif candidate_view.get("minibatch_score") is not None:
-                        prompt_entry["minibatch_scores"] = [candidate_view.get("minibatch_score")]
-                    result.top_prompts.append(prompt_entry)
                 _append_event_bucket(result.gepa, "candidates", event_type, candidate_view)
 
             # Job completed event (contains all candidates) - canonical
@@ -1118,6 +1347,11 @@ class PromptLearningClient:
                 if result.best_candidate is None:
                     result.best_candidate = event_data.get("best_candidate") or event_data.get(
                         "best_prompt"
+                    )
+                if result.best_candidate_content is None:
+                    result.best_candidate_content = _extract_best_candidate_content_from_sources(
+                        result.best_candidate,
+                        event_data,
                     )
                 if result.best_reward is None:
                     best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
@@ -1142,24 +1376,16 @@ class PromptLearningClient:
                 # Extract validation results from validation field if present
                 validation_data = event_data.get("validation")
                 if isinstance(validation_data, list):
-                    for val_item in validation_data:
-                        if isinstance(val_item, dict):
-                            rank = val_item.get("rank")
-                            accuracy = _extract_reward_value(val_item)
-                            if rank is not None and accuracy is not None:
-                                validation_by_rank[rank] = accuracy
+                    result.validation_results.extend(
+                        val_item for val_item in validation_data if isinstance(val_item, dict)
+                    )
                 if isinstance(event_data.get("baseline"), dict):
                     result.gepa["baseline"] = event_data.get("baseline")
                 _append_event_bucket(result.gepa, "job_completed", event_type, event_data)
 
-            # Validation results - build map by rank (canonical)
+            # Validation results
             elif event_type == "learning.policy.gepa.validation.completed":
                 result.validation_results.append(event_data)
-                # Try to extract rank and accuracy for mapping
-                rank = event_data.get("rank")
-                accuracy = _extract_reward_value(event_data)
-                if rank is not None and accuracy is not None:
-                    validation_by_rank[rank] = accuracy
                 _append_event_bucket(result.gepa, "validation", event_type, event_data)
 
             elif event_type.startswith("learning.policy.gepa."):
@@ -1184,6 +1410,11 @@ class PromptLearningClient:
                     candidate = event_data.get("best_candidate") or event_data.get("best_prompt")
                     if isinstance(candidate, (dict, str)):
                         result.best_candidate = candidate
+                if result.best_candidate_content is None:
+                    result.best_candidate_content = _extract_best_candidate_content_from_sources(
+                        result.best_candidate,
+                        event_data,
+                    )
                 if event_data.get("attempted_candidates") is not None:
                     result.attempted_candidates = event_data.get("attempted_candidates", [])
                 if event_data.get("optimized_candidates") is not None:
@@ -1229,116 +1460,15 @@ class PromptLearningClient:
                     )
                     if isinstance(best_candidate, dict):
                         result.best_candidate = best_candidate
+                    if result.best_candidate_content is None:
+                        result.best_candidate_content = _extract_best_candidate_content_from_sources(
+                            best_candidate,
+                            event_data,
+                        )
                 elif "candidate.evaluated" in event_type:
                     _append_event_bucket(result.mipro, "candidates", event_type, event_data)
                 elif "budget" in event_type:
                     _append_event_bucket(result.mipro, "budget_updates", event_type, event_data)
-
-        # If top_prompts is empty but we have optimized_candidates, extract from them
-        if not result.top_prompts and result.optimized_candidates:
-            for idx, cand in enumerate(result.optimized_candidates):
-                if not isinstance(cand, dict):
-                    continue
-
-                # Extract rank (use index+1 if rank not present)
-                rank = cand.get("rank")
-                if rank is None:
-                    rank = idx + 1
-
-                # Extract train accuracy from score
-                score = cand.get("score", {})
-                if not isinstance(score, dict):
-                    score = {}
-                train_accuracy = _extract_reward_value(score)
-                if train_accuracy is None:
-                    train_accuracy = _extract_reward_value(cand)
-
-                # Extract val accuracy from validation map
-                val_accuracy = validation_by_rank.get(rank)
-
-                # Try to extract pattern/template and full_text
-                pattern = None
-                full_text = None
-
-                # First try: pattern field (preferred)
-                cand_pattern = cand.get("pattern")
-                if cand_pattern and isinstance(cand_pattern, dict):
-                    pattern = cand_pattern
-                    full_text = self._extract_full_text_from_pattern(cand_pattern)
-
-                # Second try: template field (legacy)
-                cand_template = cand.get("template")
-                if cand_template and isinstance(cand_template, dict):
-                    pattern = _convert_template_to_pattern(cand_template)
-                    full_text = self._extract_full_text_from_template(cand_template)
-                # If it's not a dict, skip (might be a backend object that wasn't serialized)
-
-                # Third try: object field
-                if not full_text:
-                    obj = cand.get("object", {})
-                    if isinstance(obj, dict):
-                        full_text = self._extract_full_text_from_object(obj)
-                        # If we got full_text but no pattern/template, try to build structure
-                        if full_text and not pattern:
-                            # Try to extract pattern from object.data
-                            obj_data = obj.get("data", {})
-                            if isinstance(obj_data, dict):
-                                if obj_data.get("messages"):
-                                    pattern = {"messages": obj_data["messages"]}
-                                elif obj_data.get("sections"):
-                                    pattern = _convert_template_to_pattern(
-                                        {"sections": obj_data["sections"]}
-                                    )
-
-                # Build prompt entry
-                prompt_entry: Dict[str, Any] = {
-                    "rank": rank,
-                    "train_accuracy": train_accuracy,
-                    "val_accuracy": val_accuracy,
-                }
-                for key in (
-                    "candidate_id",
-                    "version_id",
-                    "parent_id",
-                    "generation",
-                    "accepted",
-                    "is_pareto",
-                    "mutation_type",
-                    "mutation_params",
-                    "prompt_summary",
-                    "prompt_text",
-                    "objectives",
-                    "instance_scores",
-                    "instance_objectives",
-                    "seed_scores",
-                    "seed_info",
-                    "rollout_sample",
-                    "token_usage",
-                    "cost_usd",
-                    "evaluation_duration_ms",
-                    "skip_reason",
-                    "stages",
-                    "seeds_evaluated",
-                    "full_score",
-                ):
-                    value = cand.get(key)
-                    if value is not None:
-                        prompt_entry[key] = value
-                if pattern:
-                    prompt_entry["pattern"] = pattern
-                if full_text:
-                    prompt_entry["full_text"] = full_text
-
-                result.top_prompts.append(prompt_entry)
-
-            # Sort by rank to ensure correct order
-            result.top_prompts.sort(key=lambda p: p.get("rank", 999))
-
-        # If we have validation results, prefer validation score for best_score
-        # Rank 0 is the best prompt
-        if validation_by_rank and 0 in validation_by_rank:
-            # Use validation score for best_score when available
-            result.best_reward = validation_by_rank[0]
 
         job_payload: Optional[Dict[str, Any]] = None
         job_error: Optional[Exception] = None
@@ -1365,6 +1495,7 @@ class PromptLearningClient:
                         state_fields = _extract_mipro_state_fields(state_payload)
                         state_job_payload: Dict[str, Any] = {
                             "best_candidate": state_fields["best_candidate"],
+                            "best_candidate_content": state_fields["best_candidate_content"],
                             "best_reward": state_fields["best_reward"],
                             "best_score": state_fields["best_reward"],
                             "attempted_candidates": state_fields["attempted_candidates"],
@@ -1378,6 +1509,11 @@ class PromptLearningClient:
 
         if result.best_lever_version is None and result.lever_versions:
             result.best_lever_version = max(result.lever_versions.values())
+        if result.best_candidate_content is None:
+            result.best_candidate_content = _extract_best_candidate_content_from_sources(
+                result.best_candidate,
+                job_payload if isinstance(job_payload, dict) else {},
+            )
 
         if events_error is not None and not isinstance(job_payload, dict):
             if job_error is not None:
@@ -1388,31 +1524,6 @@ class PromptLearningClient:
             raise events_error
 
         return result
-
-    async def get_prompt_text(self, job_id: str, rank: int = 1) -> Optional[str]:
-        """Get the full text of a specific prompt by rank.
-
-        Args:
-            job_id: Job ID
-            rank: Prompt rank (1 = best, 2 = second best, etc.)
-
-        Returns:
-            Full prompt text or None if not found
-
-        Raises:
-            ValueError: If job_id format is invalid or rank < 1
-        """
-        _validate_job_id(job_id)
-        if rank < 1:
-            raise ValueError(f"Rank must be >= 1, got: {rank}")
-        prompts_data = await self.get_prompts(job_id)
-        top_prompts = prompts_data.top_prompts
-
-        for prompt_info in top_prompts:
-            if prompt_info.get("rank") == rank:
-                return prompt_info.get("full_text")
-
-        return None
 
     async def get_scoring_summary(self, job_id: str) -> Dict[str, Any]:
         """Get a summary of scoring metrics for all candidates.
@@ -1497,25 +1608,6 @@ def get_prompts(job_id: str, base_url: str, api_key: str) -> PromptResults:
     return run_sync(
         client.get_prompts(job_id),
         label="get_prompts()",
-    )
-
-
-def get_prompt_text(job_id: str, base_url: str, api_key: str, rank: int = 1) -> Optional[str]:
-    """Synchronous wrapper to get prompt text by rank.
-
-    Args:
-        job_id: Job ID
-        base_url: Backend API base URL
-        api_key: API key for authentication
-        rank: Prompt rank (1 = best, 2 = second best, etc.)
-
-    Returns:
-        Full prompt text or None if not found
-    """
-    client = PromptLearningClient(base_url, api_key)
-    return run_sync(
-        client.get_prompt_text(job_id, rank),
-        label="get_prompt_text()",
     )
 
 

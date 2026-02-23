@@ -56,6 +56,13 @@ _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
     "Unknown field 'task_app_id' in [prompt_learning].",
     "Unknown field 'localapi_url' in [prompt_learning].",
     "Unknown field 'localapi_id' in [prompt_learning].",
+    # Optimize-anything compatibility keys on mixed SDK/core versions.
+    "Unknown field 'optimization_mode' in [prompt_learning].",
+    "Unknown field 'artifact' in [prompt_learning].",
+    "Unknown field 'artifact_kind' in [prompt_learning].",
+    "Unknown field 'default_artifact_kind' in [prompt_learning].",
+    "Unknown field 'artifact_schema' in [prompt_learning].",
+    "Unknown field 'artifact_bounds' in [prompt_learning].",
 )
 
 

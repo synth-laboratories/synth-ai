@@ -114,7 +114,7 @@ class StreamEndpoints:
     @classmethod
     def prompt_learning(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for prompt learning jobs (GEPA)."""
-        base = f"/policy-optimization/online/jobs/{job_id}"
+        base = f"/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",

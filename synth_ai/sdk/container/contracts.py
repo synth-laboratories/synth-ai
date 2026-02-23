@@ -6,6 +6,7 @@ Prefer this module over synth_ai.sdk.container._impl.contracts.* moving forward.
 from __future__ import annotations
 
 from synth_ai.sdk.container._impl.contracts import (  # noqa: F401
+    CandidateValidationIssue,
     ContainerEndpoints,
     DatasetInfo,
     InferenceInfo,
@@ -19,6 +20,8 @@ from synth_ai.sdk.container._impl.contracts import (  # noqa: F401
     StructuredOutputConfig,
     TaskDescriptor,
     TaskInfo,
+    ValidateCandidateRequest,
+    ValidateCandidateResponse,
 )
 
 __all__ = [
@@ -36,4 +39,7 @@ __all__ = [
     "InferenceInfo",
     "LimitsInfo",
     "TaskInfo",
+    "CandidateValidationIssue",
+    "ValidateCandidateRequest",
+    "ValidateCandidateResponse",
 ]

@@ -30,6 +30,8 @@ from .contracts import (
     RolloutResponse,
     TaskDescriptor,
     TaskInfo,
+    ValidateCandidateRequest,
+    ValidateCandidateResponse,
 )
 from .datasets import TaskDatasetRegistry
 from .errors import http_exception
@@ -57,6 +59,7 @@ def log_info(msg: str, ctx: dict[str, Any] | None = None) -> None:
 TasksetDescriptor = Callable[[], Mapping[str, Any] | Awaitable[Mapping[str, Any]]]
 InstanceProvider = Callable[[Sequence[int]], Iterable[TaskInfo] | Awaitable[Iterable[TaskInfo]]]
 RolloutExecutor = Callable[[RolloutRequest, Request], Any | Awaitable[Any]]
+ValidateCandidateExecutor = Callable[[ValidateCandidateRequest, Request], Any | Awaitable[Any]]
 
 
 def _default_app_state() -> dict[str, Any]:
@@ -129,6 +132,7 @@ class ContainerConfig:
     - Task set description (provide_taskset_description)
     - Task instance provider (provide_task_instances)
     - Rollout executor (rollout)
+    - Optional candidate validation executor (validate_candidate)
     - Optional rubrics, datasets, proxy config, etc.
 
     This config is used by `create_container()` to build a FastAPI application
@@ -159,6 +163,7 @@ class ContainerConfig:
         provide_taskset_description: Function that returns taskset metadata
         provide_task_instances: Function that yields TaskInfo instances for given seeds
         rollout: Function that executes a rollout request and returns response
+        validate_candidate: Optional function that validates candidate artifacts
         dataset_registry: Optional registry for task datasets
         rubrics: Optional rubrics for evaluation
         proxy: Optional proxy config for vendor endpoints
@@ -179,6 +184,7 @@ class ContainerConfig:
     provide_taskset_description: TasksetDescriptor
     provide_task_instances: InstanceProvider
     rollout: RolloutExecutor
+    validate_candidate: ValidateCandidateExecutor | None = None
     base_task_info: TaskInfo | None = None  # Auto-derived from app_id/name if not provided
     dataset_registry: TaskDatasetRegistry | None = None
     rubrics: RubricBundle | None = field(default_factory=RubricBundle)
@@ -203,6 +209,7 @@ class ContainerConfig:
             provide_taskset_description=self.provide_taskset_description,
             provide_task_instances=self.provide_task_instances,
             rollout=self.rollout,
+            validate_candidate=self.validate_candidate,
             base_task_info=self.base_task_info,  # May be None - auto-derived in create_container
             dataset_registry=self.dataset_registry,
             rubrics=self.rubrics or RubricBundle(),
@@ -344,6 +351,7 @@ def create_container(config: ContainerConfig) -> FastAPI:
     - Health check endpoints (/health, /)
     - Task info endpoint (/task_info)
     - Rollout endpoint (/rollout)
+    - Optional candidate validation endpoint (/validate-candidate)
     - Optional proxy endpoints for OpenAI/Groq
     - Optional dataset registry endpoints
     - CORS middleware (if configured)
@@ -535,6 +543,30 @@ def create_container(config: ContainerConfig) -> FastAPI:
                 ) from exc
             return to_jsonable(validated.model_dump())
         raise TypeError("Rollout executor must return RolloutResponse or mapping")
+
+    if cfg.validate_candidate is not None:
+
+        @app.post("/validate-candidate", dependencies=[Depends(auth_dependency)])
+        async def validate_candidate_endpoint(
+            validation_request: ValidateCandidateRequest, request: Request
+        ) -> Any:
+            result = await _maybe_await(cfg.validate_candidate(validation_request, request))
+            if isinstance(result, ValidateCandidateResponse):
+                return to_jsonable(result.model_dump())
+            if isinstance(result, Mapping):
+                try:
+                    validated = ValidateCandidateResponse.model_validate(result)
+                except ValidationError as exc:
+                    raise http_exception(
+                        422,
+                        "invalid_validate_candidate_response",
+                        "Candidate validator returned a payload that does not satisfy ValidateCandidateResponse.",
+                        extra={"validation_errors": exc.errors()},
+                    ) from exc
+                return to_jsonable(validated.model_dump())
+            raise TypeError(
+                "Candidate validator must return ValidateCandidateResponse or mapping"
+            )
 
     if cfg.expose_debug_env:
 

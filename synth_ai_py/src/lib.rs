@@ -20,6 +20,23 @@ use std::time::Duration;
 use base64::{engine::general_purpose, Engine as _};
 
 use synth_ai_core::config::CoreConfig;
+use synth_ai_core::container::auth as core_container_auth;
+use synth_ai_core::container::datasets as core_container_datasets;
+use synth_ai_core::container::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
+use synth_ai_core::container::health as core_container_health;
+use synth_ai_core::container::helpers as core_container_helpers;
+use synth_ai_core::container::llm_guards as core_container_llm_guards;
+use synth_ai_core::container::override_helpers as core_container_override;
+use synth_ai_core::container::proxy as core_container_proxy;
+use synth_ai_core::container::rollout_helpers as core_container_rollout;
+use synth_ai_core::container::trace_helpers as core_container_trace;
+use synth_ai_core::container::tracing_utils as core_container_tracing_utils;
+use synth_ai_core::container::validation as core_container_validation;
+use synth_ai_core::container::validators as core_container_validators;
+use synth_ai_core::container::vendors as core_container_vendors;
+use synth_ai_core::container::{
+    ContainerClient as RustContainerClient, EnvClient as RustEnvClient,
+};
 use synth_ai_core::data::{
     data_enum_values as core_data_enum_values, Artifact as RustArtifact,
     ArtifactBundle as RustArtifactBundle, CalibrationExample as RustCalibrationExample,
@@ -40,21 +57,6 @@ use synth_ai_core::events::{poll_events as core_poll_events, EventKind};
 use synth_ai_core::http::{
     HttpClient as RustHttpClient, HttpError as RustHttpError, MultipartFile as RustMultipartFile,
 };
-use synth_ai_core::container::auth as core_container_auth;
-use synth_ai_core::container::datasets as core_container_datasets;
-use synth_ai_core::container::datasets::TaskDatasetSpec as RustTaskDatasetSpec;
-use synth_ai_core::container::health as core_container_health;
-use synth_ai_core::container::helpers as core_container_helpers;
-use synth_ai_core::container::llm_guards as core_container_llm_guards;
-use synth_ai_core::container::override_helpers as core_container_override;
-use synth_ai_core::container::proxy as core_container_proxy;
-use synth_ai_core::container::rollout_helpers as core_container_rollout;
-use synth_ai_core::container::trace_helpers as core_container_trace;
-use synth_ai_core::container::tracing_utils as core_container_tracing_utils;
-use synth_ai_core::container::validation as core_container_validation;
-use synth_ai_core::container::validators as core_container_validators;
-use synth_ai_core::container::vendors as core_container_vendors;
-use synth_ai_core::container::{EnvClient as RustEnvClient, ContainerClient as RustContainerClient};
 use synth_ai_core::models as core_models;
 use synth_ai_core::orchestration::base_events::{
     BaseJobEvent as RustBaseJobEvent, CandidateEvent as RustCandidateEvent,
@@ -1336,6 +1338,14 @@ impl SynthTunnelAgentPy {
     fn stop(&self) {
         self.handle.stop();
     }
+
+    /// Blocking close: signal cancel and wait for the agent task to exit.
+    fn close(&self) {
+        let handle = self.handle.clone();
+        RUNTIME.block_on(async move {
+            handle.shutdown().await;
+        });
+    }
 }
 
 #[pyfunction]
@@ -1956,7 +1966,8 @@ fn container_validate_context_overrides(py: Python, overrides: PyObject) -> PyRe
 #[pyfunction]
 fn container_validate_context_snapshot(py: Python, snapshot: PyObject) -> PyResult<()> {
     let value = value_from_pyobject(py, snapshot)?;
-    core_container_validation::validate_context_snapshot(&value).map_err(|e| map_core_err(py, e))?;
+    core_container_validation::validate_context_snapshot(&value)
+        .map_err(|e| map_core_err(py, e))?;
     Ok(())
 }
 
@@ -4791,10 +4802,10 @@ impl ProgressTrackerPy {
 
 use synth_ai_core::api::{
     build_verifier_request as core_build_verifier_request,
-    resolve_graph_job_id as core_resolve_graph_job_id, EvalJobRequest, GepaJobRequest,
-    GraphCompletionRequest, ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus,
-    ContainerDeploymentInfo, ContainerLimits, MiproJobRequest, SynthClient as RustSynthClient,
-    VerifierOptions,
+    resolve_graph_job_id as core_resolve_graph_job_id, ContainerDeployResponse,
+    ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo, ContainerLimits,
+    EvalJobRequest, GepaJobRequest, GraphCompletionRequest, MiproJobRequest,
+    SynthClient as RustSynthClient, VerifierOptions,
 };
 use synth_ai_core::orchestration::events::EventParser as RustEventParser;
 use synth_ai_core::orchestration::{
@@ -4898,7 +4909,10 @@ impl SynthClient {
             .block_on(async {
                 self.inner
                     .jobs()
-                    .submit_raw_with_worker_token(req, container_worker_token.map(|s| s.to_string()))
+                    .submit_raw_with_worker_token(
+                        req,
+                        container_worker_token.map(|s| s.to_string()),
+                    )
                     .await
             })
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -6131,8 +6145,9 @@ impl ContainerClientPy {
     }
 
     fn rollout(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let req: synth_ai_core::container::RolloutRequest = pythonize::depythonize(request.bind(py))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let req: synth_ai_core::container::RolloutRequest =
+            pythonize::depythonize(request.bind(py))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let result = RUNTIME
             .block_on(self.inner.rollout(&req))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -6471,16 +6486,25 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ensure_container_auth, m)?)?;
 
     // Container (NEW)
-    m.add_function(wrap_pyfunction!(container_normalize_environment_api_key, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_normalize_environment_api_key,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(container_allowed_environment_api_keys, m)?)?;
     m.add_function(wrap_pyfunction!(container_is_api_key_header_authorized, m)?)?;
-    m.add_function(wrap_pyfunction!(container_normalize_chat_completion_url, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_normalize_chat_completion_url,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(
         container_get_default_max_completion_tokens,
         m
     )?)?;
     m.add_function(wrap_pyfunction!(container_extract_trace_correlation_id, m)?)?;
-    m.add_function(wrap_pyfunction!(container_validate_trace_correlation_id, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        container_validate_trace_correlation_id,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(
         container_include_trace_correlation_id_in_response,
         m

@@ -15,12 +15,12 @@
 pub mod api;
 pub mod auth;
 pub mod config;
+pub mod container;
 pub mod data;
 pub mod errors;
 pub mod events;
 pub mod http;
 pub mod jobs;
-pub mod container;
 pub mod models;
 pub mod orchestration;
 pub mod polling;
@@ -40,9 +40,9 @@ pub use jobs::{CandidateStatus, JobEvent, JobEventType, JobLifecycle, JobStatus}
 
 // Re-export API types for convenience
 pub use api::{
-    EvalJobStatus, GraphEvolveClient, InferenceClient, ContainerDeployClient,
-    ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo,
-    ContainerLimits, PolicyJobStatus, SynthClient,
+    ContainerDeployClient, ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus,
+    ContainerDeploymentInfo, ContainerLimits, EvalJobStatus, GraphEvolveClient, InferenceClient,
+    PolicyJobStatus, SynthClient,
 };
 
 // Re-export model helpers
@@ -64,9 +64,8 @@ pub use orchestration::{
     validate_prompt_learning_config_strict, CandidateInfo, EventCategory, EventParser, EventStream,
     GEPAProgress, GraphEvolveJob, GraphGenValidationResult, MutationSummary, MutationTypeStats,
     ParsedEvent, PhaseSummary, ProgramCandidate, ProgressTracker, PromptLearningJob,
-    PromptLearningResult, PromptLearningValidationResult, PromptResults, RankedPrompt,
-    SeedAnalysis, SeedInfo, StageInfo, TokenUsage, MAX_INSTRUCTION_LENGTH, MAX_ROLLOUT_SAMPLES,
-    MAX_SEED_INFO_COUNT,
+    PromptLearningResult, PromptLearningValidationResult, PromptResults, SeedAnalysis, SeedInfo,
+    StageInfo, TokenUsage, MAX_INSTRUCTION_LENGTH, MAX_ROLLOUT_SAMPLES, MAX_SEED_INFO_COUNT,
 };
 
 // Re-export tracing types
@@ -156,28 +155,29 @@ pub use sse::{stream_sse, stream_sse_request, SseEvent, SseStream};
 // Re-export local API types
 pub use container::{
     allowed_environment_api_keys, apply_context_overrides, build_rollout_response,
-    build_trace_payload, build_trajectory_trace, encrypt_for_backend, ensure_container_auth,
-    ensure_split, extract_api_key, extract_message_text, extract_trace_correlation_id,
-    get_agent_skills_path, get_applied_env_vars, get_default_max_completion_tokens, get_groq_key,
-    get_openai_key, include_event_history_in_response, include_event_history_in_trajectories,
+    build_trace_payload, build_trajectory_trace, container_health, encrypt_for_backend,
+    ensure_container_auth, ensure_split, extract_api_key, extract_message_text,
+    extract_trace_correlation_id, get_agent_skills_path, get_applied_env_vars,
+    get_default_max_completion_tokens, get_groq_key, get_openai_key,
+    include_event_history_in_response, include_event_history_in_trajectories,
     include_trace_correlation_id_in_response, inject_system_hint, is_api_key_header_authorized,
     is_direct_provider_call, mint_environment_api_key, normalise_seed,
     normalize_chat_completion_url, normalize_environment_api_key, normalize_inference_url,
     normalize_response_format_for_groq, normalize_vendor_keys, parse_tool_call_from_text,
     parse_tool_calls_from_response, prepare_for_groq, prepare_for_openai, resolve_sft_output_dir,
     resolve_tracing_db_url, setup_environment_api_key, synthesize_tool_call_if_missing,
-    container_health, tracing_env_enabled, unique_sft_path, validate_artifact_size,
-    validate_artifacts_list, validate_context_overrides, validate_context_snapshot,
-    validate_rollout_response_for_rl, validate_container_url, validate_trace_correlation_id,
-    verify_trace_correlation_id_in_response, DatasetInfo, HealthResponse, InferenceInfo,
-    InfoResponse, LimitsInfo, RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec, RolloutRequest,
-    RolloutResponse, RolloutSafetyConfig, ContainerClient, TaskDatasetSpec, TaskDescriptor, TaskInfo,
-    DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME, ENVIRONMENT_API_KEY_NAME,
-    MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
-    MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES, MAX_ENVIRONMENT_API_KEY_BYTES,
-    MAX_ENV_VARS, MAX_ENV_VAR_VALUE_LENGTH, MAX_FILES_PER_OVERRIDE, MAX_FILE_SIZE_BYTES,
-    MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES, MAX_TOTAL_SIZE_BYTES,
-    PREFLIGHT_SCRIPT_TIMEOUT_SECONDS, SEALED_BOX_ALGORITHM,
+    tracing_env_enabled, unique_sft_path, validate_artifact_size, validate_artifacts_list,
+    validate_container_url, validate_context_overrides, validate_context_snapshot,
+    validate_rollout_response_for_rl, validate_trace_correlation_id,
+    verify_trace_correlation_id_in_response, ContainerClient, DatasetInfo, HealthResponse,
+    InferenceInfo, InfoResponse, LimitsInfo, RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec,
+    RolloutRequest, RolloutResponse, RolloutSafetyConfig, TaskDatasetSpec, TaskDescriptor,
+    TaskInfo, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME,
+    ENVIRONMENT_API_KEY_NAME, MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH,
+    MAX_ARTIFACT_METADATA_BYTES, MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES,
+    MAX_ENVIRONMENT_API_KEY_BYTES, MAX_ENV_VARS, MAX_ENV_VAR_VALUE_LENGTH, MAX_FILES_PER_OVERRIDE,
+    MAX_FILE_SIZE_BYTES, MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
+    MAX_TOTAL_SIZE_BYTES, PREFLIGHT_SCRIPT_TIMEOUT_SECONDS, SEALED_BOX_ALGORITHM,
 };
 
 // Re-export trace upload types
@@ -188,6 +188,6 @@ pub use utils::{
     cleanup_paths, compute_import_paths, create_and_write_json, ensure_private_dir,
     find_config_path, get_bin_path, get_home_config_file_paths, is_file_type, is_hidden_path,
     load_json_to_value, repo_root, should_filter_log_line, strip_json_comments, synth_bin_dir,
-    synth_home_dir, synth_container_config_path, synth_user_config_path, validate_file_type,
+    synth_container_config_path, synth_home_dir, synth_user_config_path, validate_file_type,
     write_private_json, write_private_text,
 };

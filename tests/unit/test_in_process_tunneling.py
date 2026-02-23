@@ -220,3 +220,29 @@ def test_container_path_not_python(tmp_path):
     
     with pytest.raises(ValueError, match="must be a .py file"):
         InProcessContainer(container_path=app_path)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_aexit_prefers_close_async_for_tunnel_handle():
+    """Async context teardown should await close_async when available."""
+    from fastapi import FastAPI
+
+    class _Handle:
+        def __init__(self) -> None:
+            self.closed_async = False
+            self.closed_sync = False
+
+        async def close_async(self) -> None:
+            self.closed_async = True
+
+        def close(self) -> None:
+            self.closed_sync = True
+
+    app = InProcessContainer(app=FastAPI(), tunnel_mode="local")
+    handle = _Handle()
+    app._tunnel_handle = handle
+    await app.__aexit__(None, None, None)
+
+    assert handle.closed_async is True
+    assert handle.closed_sync is False

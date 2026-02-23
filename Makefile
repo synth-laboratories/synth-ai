@@ -1,4 +1,4 @@
-.PHONY: build build-debug test test-unit test-integration test-fast test-slow categorize-tests coverage
+.PHONY: build build-debug test test-unit test-integration test-fast test-slow categorize-tests coverage guard-results-ql
 
 SITE_PKG := $(shell .venv/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 
@@ -43,6 +43,10 @@ coverage:
 
 coverage-ci:
 	@python scripts/coverage_summary.py --no-readme
+
+.PHONY: guard-results-ql
+guard-results-ql:
+	@bash scripts/check_no_results_ql_public_refs.sh
 
 .PHONY: verify-trace-fixtures
 verify-trace-fixtures:

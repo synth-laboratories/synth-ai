@@ -63,6 +63,47 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
+def _resolve_synth_tunnel_requested_ttl_seconds(
+    explicit_ttl_seconds: int | None,
+) -> int:
+    import os
+
+    min_ttl = 60
+    max_ttl = 24 * 60 * 60
+    default_ttl = 3600
+
+    value = explicit_ttl_seconds
+    if value is None:
+        raw = (os.environ.get("SYNTH_TUNNEL_REQUESTED_TTL_SECONDS") or "").strip()
+        if raw:
+            try:
+                value = int(raw)
+            except Exception:
+                logger.warning(
+                    "[TUNNELED_API] Invalid SYNTH_TUNNEL_REQUESTED_TTL_SECONDS=%r; using %ss",
+                    raw,
+                    default_ttl,
+                )
+                value = None
+
+    ttl = default_ttl if value is None else int(value)
+    if ttl < min_ttl:
+        logger.warning(
+            "[TUNNELED_API] Requested SynthTunnel TTL %ss below minimum; clamping to %ss",
+            ttl,
+            min_ttl,
+        )
+        return min_ttl
+    if ttl > max_ttl:
+        logger.warning(
+            "[TUNNELED_API] Requested SynthTunnel TTL %ss above maximum; clamping to %ss",
+            ttl,
+            max_ttl,
+        )
+        return max_ttl
+    return ttl
+
+
 class TunnelBackend(str, Enum):
     """Supported tunnel backends for exposing local APIs.
 
@@ -165,6 +206,7 @@ class TunneledContainer:
         verify_dns: bool = True,
         progress: bool = False,
         reason: str | None = None,
+        requested_ttl_seconds: int | None = None,
     ) -> TunneledContainer:
         """Create a tunnel to expose a local API.
 
@@ -190,6 +232,9 @@ class TunneledContainer:
             verify_dns: Whether to verify DNS resolution after creating tunnel.
                 Set to False if you're sure DNS will work (e.g., reusing subdomain).
             progress: If True, print status updates during setup
+            requested_ttl_seconds: Optional SynthTunnel lease TTL in seconds.
+                If not set, reads `SYNTH_TUNNEL_REQUESTED_TTL_SECONDS` env var,
+                then falls back to 3600.
 
         Returns:
             TunneledContainer instance with .url, .hostname, .close(), etc.
@@ -243,12 +288,6 @@ class TunneledContainer:
 
                 health_url = f"{public_url.rstrip('/')}/health"
                 headers = {"Authorization": f"Bearer {worker_token}"}
-                env_timeout_raw = os.environ.get(
-                    "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", ""
-                ).strip()
-                if env_timeout_raw:
-                    with contextlib.suppress(Exception):
-                        timeout_sec = max(1.0, float(env_timeout_raw))
                 deadline = time.time() + timeout_sec
                 last_err: Exception | None = None
 
@@ -267,9 +306,39 @@ class TunneledContainer:
 
                 if last_err:
                     raise RuntimeError(
-                        f"SynthTunnel agent did not come online for {health_url}: {last_err}"
+                        f"SynthTunnel agent did not come online for {health_url}: {last_err!r}"
                     )
                 raise RuntimeError(f"SynthTunnel agent did not come online for {health_url}")
+
+            def _read_env_int(name: str, default: int, minimum: int = 1) -> int:
+                raw = (os.environ.get(name) or "").strip()
+                if not raw:
+                    return default
+                try:
+                    return max(minimum, int(raw))
+                except Exception:
+                    logger.warning(
+                        "[SynthTunnel] Invalid %s=%r; using default %s",
+                        name,
+                        raw,
+                        default,
+                    )
+                    return default
+
+            def _read_env_float(name: str, default: float, minimum: float = 0.0) -> float:
+                raw = (os.environ.get(name) or "").strip()
+                if not raw:
+                    return default
+                try:
+                    return max(minimum, float(raw))
+                except Exception:
+                    logger.warning(
+                        "[SynthTunnel] Invalid %s=%r; using default %s",
+                        name,
+                        raw,
+                        default,
+                    )
+                    return default
 
             # Step 1: Create lease via Python (simple HTTP POST, works fine)
             from .synth_tunnel import (
@@ -280,61 +349,114 @@ class TunneledContainer:
             )
 
             client = SynthTunnelClient(api_key, backend_url=backend_url)
-            lease = await client.create_lease(
-                client_instance_id=get_client_instance_id(),
-                local_host="127.0.0.1",
-                local_port=local_port,
+            lease_ttl_seconds = _resolve_synth_tunnel_requested_ttl_seconds(
+                requested_ttl_seconds
+            )
+            max_attempts = _read_env_int("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", default=3)
+            base_online_timeout_sec = _read_env_float(
+                "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", default=10.0, minimum=1.0
+            )
+            online_timeout_backoff_multiplier = _read_env_float(
+                "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_BACKOFF_MULTIPLIER",
+                default=2.0,
+                minimum=1.0,
+            )
+            max_online_timeout_sec = _read_env_float(
+                "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_MAX_SEC", default=120.0, minimum=1.0
+            )
+            retry_backoff_initial_sec = _read_env_float(
+                "SYNTH_TUNNEL_CREATE_RETRY_INITIAL_BACKOFF_SEC", default=1.0, minimum=0.0
+            )
+            retry_backoff_max_sec = _read_env_float(
+                "SYNTH_TUNNEL_CREATE_RETRY_MAX_BACKOFF_SEC", default=8.0, minimum=0.0
             )
 
             # Step 2: Start Rust WS agent (runs in its own tokio runtime)
             import synth_ai_py
 
             container_keys = _collect_container_keys(env_api_key)
-            max_inflight = int(lease.limits.get("max_inflight", 128))
-            agent = None
-            try:
-                agent = await asyncio.to_thread(
-                    synth_ai_py.synth_tunnel_start,
-                    lease.agent_url,
-                    lease.agent_token,
-                    lease.lease_id,
-                    "127.0.0.1",
-                    local_port,
-                    lease.public_url,
-                    lease.worker_token,
-                    container_keys,
-                    max_inflight,
+            for attempt in range(1, max_attempts + 1):
+                lease = None
+                agent = None
+                timeout_for_attempt = min(
+                    max_online_timeout_sec,
+                    base_online_timeout_sec
+                    * (online_timeout_backoff_multiplier ** (attempt - 1)),
                 )
+                try:
+                    lease = await client.create_lease(
+                        client_instance_id=get_client_instance_id(),
+                        local_host="127.0.0.1",
+                        local_port=local_port,
+                        requested_ttl_seconds=lease_ttl_seconds,
+                    )
+                    max_inflight = int(lease.limits.get("max_inflight", 128))
+                    agent = await asyncio.to_thread(
+                        synth_ai_py.synth_tunnel_start,
+                        lease.agent_url,
+                        lease.agent_token,
+                        lease.lease_id,
+                        "127.0.0.1",
+                        local_port,
+                        lease.public_url,
+                        lease.worker_token,
+                        container_keys,
+                        max_inflight,
+                    )
 
-                # Ensure the agent is actually online before returning.
-                await _wait_for_agent_online(lease.public_url, lease.worker_token)
-            except Exception:
-                if agent is not None:
-                    with contextlib.suppress(Exception):
-                        agent.stop()
-                with contextlib.suppress(Exception):
-                    await client.close_lease(lease.lease_id)
-                raise
+                    # Ensure the agent is actually online before returning.
+                    await _wait_for_agent_online(
+                        lease.public_url,
+                        lease.worker_token,
+                        timeout_sec=timeout_for_attempt,
+                    )
 
-            url = lease.public_url
-            return cls(
-                url=url,
-                hostname=hostname_from_url(url),
-                local_port=local_port,
-                backend=backend,
-                process=None,
-                tunnel_token=None,
-                worker_token=lease.worker_token,
-                _raw={
-                    "lease_id": lease.lease_id,
-                    "route_token": lease.route_token,
-                    "agent_url": lease.agent_url,
-                },
-                _lease_id=lease.lease_id,
-                _manager=None,
-                _handle=None,
-                _synth_session={"agent": agent, "client": client, "lease": lease},
-            )
+                    url = lease.public_url
+                    return cls(
+                        url=url,
+                        hostname=hostname_from_url(url),
+                        local_port=local_port,
+                        backend=backend,
+                        process=None,
+                        tunnel_token=None,
+                        worker_token=lease.worker_token,
+                        _raw={
+                            "lease_id": lease.lease_id,
+                            "route_token": lease.route_token,
+                            "agent_url": lease.agent_url,
+                        },
+                        _lease_id=lease.lease_id,
+                        _manager=None,
+                        _handle=None,
+                        _synth_session={"agent": agent, "client": client, "lease": lease},
+                    )
+                except Exception as exc:
+                    if agent is not None:
+                        with contextlib.suppress(Exception):
+                            agent.stop()
+                    if lease is not None:
+                        with contextlib.suppress(Exception):
+                            await client.close_lease(lease.lease_id)
+                    if attempt >= max_attempts:
+                        raise RuntimeError(
+                            "SynthTunnel create failed after "
+                            f"{max_attempts} attempts: {exc!r}"
+                        ) from exc
+
+                    retry_sleep = min(
+                        retry_backoff_max_sec,
+                        retry_backoff_initial_sec * (2 ** (attempt - 1)),
+                    )
+                    logger.warning(
+                        "[SynthTunnel] Bring-up attempt %s/%s failed (timeout=%.1fs): %r. Retrying in %.1fs",
+                        attempt,
+                        max_attempts,
+                        timeout_for_attempt,
+                        exc,
+                        retry_sleep,
+                    )
+                    if retry_sleep > 0:
+                        await asyncio.sleep(retry_sleep)
 
         # Resolve env_api_key from environment if not provided
         if env_api_key is None:
@@ -410,22 +532,18 @@ class TunneledContainer:
         if self.backend == TunnelBackend.SynthTunnel and self._synth_session:
             session = self._synth_session
             try:
-                # Stop Rust WS agent
-                if isinstance(session, dict):
-                    agent = session.get("agent")
-                    if agent is not None:
-                        agent.stop()
-                    client = session.get("client")
-                    lease = session.get("lease")
-                    if client is not None and lease is not None:
-                        await client.close_lease(lease.lease_id)
-                else:
-                    # Legacy SynthTunnelSession fallback
-                    close_async = getattr(session, "close_async", None)
-                    if callable(close_async):
-                        await close_async()
-                    else:
-                        session.close()
+                # Rust-only tunnel runtime: dict session payload is required.
+                if not isinstance(session, dict):
+                    raise RuntimeError(
+                        "Invalid SynthTunnel session type; expected Rust session dict."
+                    )
+                agent = session.get("agent")
+                if agent is not None:
+                    agent.stop()
+                client = session.get("client")
+                lease = session.get("lease")
+                if client is not None and lease is not None:
+                    await client.close_lease(lease.lease_id)
             except Exception as e:
                 logger.warning("[TUNNELED_API] SynthTunnel close failed: %s", e)
             self._synth_session = None
@@ -487,6 +605,7 @@ class TunneledContainer:
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
         progress: bool = False,
+        requested_ttl_seconds: int | None = None,
     ) -> TunneledContainer:
         """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
@@ -505,6 +624,7 @@ class TunneledContainer:
             backend_url: Backend URL (defaults to production)
             verify_dns: Whether to verify DNS resolution
             progress: If True, print status updates
+            requested_ttl_seconds: Optional SynthTunnel lease TTL in seconds.
 
         Returns:
             TunneledContainer instance with .url, .hostname, .close(), etc.
@@ -551,6 +671,7 @@ class TunneledContainer:
             backend_url=backend_url,
             verify_dns=verify_dns,
             progress=progress,
+            requested_ttl_seconds=requested_ttl_seconds,
         )
 
 

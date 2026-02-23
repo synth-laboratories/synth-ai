@@ -12,6 +12,7 @@ from .auth import (
 from .client import ContainerClient
 from .config import EvalConfig, FilterConfig
 from .contracts import (
+    CandidateValidationIssue,
     ContainerEndpoints,
     DatasetInfo,
     InferenceInfo,
@@ -24,6 +25,8 @@ from .contracts import (
     RolloutSafetyConfig,
     TaskDescriptor,
     TaskInfo,
+    ValidateCandidateRequest,
+    ValidateCandidateResponse,
 )
 from .datasets import TaskDatasetRegistry, TaskDatasetSpec
 from .errors import error_payload, http_exception, json_error_response
@@ -136,6 +139,9 @@ __all__ = [
     "InferenceInfo",
     "LimitsInfo",
     "TaskInfo",
+    "CandidateValidationIssue",
+    "ValidateCandidateRequest",
+    "ValidateCandidateResponse",
     "to_jsonable",
     "normalize_environment_api_key",
     "is_api_key_header_authorized",

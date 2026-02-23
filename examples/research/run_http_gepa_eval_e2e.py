@@ -335,36 +335,50 @@ def _extract_best_system_prompt(
     prompts_payload: Any,
     fallback: str,
 ) -> str:
-    candidate = gepa_result.get_system_prompt() if hasattr(gepa_result, "get_system_prompt") else None
-    if isinstance(candidate, str) and candidate.strip():
-        return candidate.strip()
-
-    top_prompts = getattr(prompts_payload, "top_prompts", []) if prompts_payload is not None else []
-    for prompt in top_prompts:
-        if not isinstance(prompt, dict):
-            continue
-        full_text = prompt.get("full_text")
-        if isinstance(full_text, str) and full_text.strip():
-            return full_text.strip()
-        pattern = prompt.get("pattern")
-        if isinstance(pattern, dict):
-            for message in pattern.get("messages", []):
+    def _extract_from_candidate(candidate_payload: Any) -> str | None:
+        if not isinstance(candidate_payload, dict):
+            return None
+        messages = candidate_payload.get("messages")
+        if isinstance(messages, list):
+            for message in messages:
                 if not isinstance(message, dict):
                     continue
                 if message.get("role") == "system":
                     content = message.get("content") or message.get("pattern")
                     if isinstance(content, str) and content.strip():
                         return content.strip()
+        prompt = candidate_payload.get("prompt")
+        if isinstance(prompt, dict):
+            prompt_text = prompt.get("prompt_text")
+            if isinstance(prompt_text, str) and prompt_text.strip():
+                return prompt_text.strip()
+        prompt_text = candidate_payload.get("prompt_text")
+        if isinstance(prompt_text, str) and prompt_text.strip():
+            return prompt_text.strip()
+        content = candidate_payload.get("content")
+        if isinstance(content, dict):
+            content_text = content.get("prompt_text")
+            if isinstance(content_text, str) and content_text.strip():
+                return content_text.strip()
+        return None
+
+    candidate = gepa_result.get_system_prompt() if hasattr(gepa_result, "get_system_prompt") else None
+    if isinstance(candidate, str) and candidate.strip():
+        return candidate.strip()
 
     best_candidate = getattr(prompts_payload, "best_candidate", None)
-    if isinstance(best_candidate, dict):
-        for message in best_candidate.get("messages", []):
-            if not isinstance(message, dict):
-                continue
-            if message.get("role") == "system":
-                content = message.get("content") or message.get("pattern")
-                if isinstance(content, str) and content.strip():
-                    return content.strip()
+    extracted_best = _extract_from_candidate(best_candidate)
+    if extracted_best:
+        return extracted_best
+
+    optimized_candidates = (
+        getattr(prompts_payload, "optimized_candidates", []) if prompts_payload is not None else []
+    )
+    if isinstance(optimized_candidates, list):
+        for candidate_payload in optimized_candidates:
+            extracted_candidate = _extract_from_candidate(candidate_payload)
+            if extracted_candidate:
+                return extracted_candidate
 
     return fallback
 
@@ -633,7 +647,6 @@ async def run() -> None:
             "optimized_system_prompt": optimized_system_prompt,
             "baseline_prompt_file": str(baseline_prompt_path),
             "optimized_prompt_file": str(optimized_prompt_path),
-            "top_prompts_count": len(getattr(prompts_payload, "top_prompts", []) or []),
             "optimized_candidates_count": len(
                 getattr(prompts_payload, "optimized_candidates", []) or []
             ),
