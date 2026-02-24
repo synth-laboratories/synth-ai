@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from synth_ai.core.tunnels import TunnelBackend, TunneledContainer
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 from synth_ai.sdk.container import ContainerClient, InProcessContainer, create_container
 from synth_ai.sdk.container_pools import ContainerPoolsClient
 from synth_ai.sdk.containers import (
@@ -583,6 +583,81 @@ class _PoolRolloutsSyncClient:
         return self._raw.stream_rollout_events(pool_id, rollout_id, cursor=cursor)
 
 
+class _PoolTasksSyncClient:
+    def __init__(self, raw: ContainerPoolsClient) -> None:
+        self._raw = raw
+
+    def list(self, pool_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/pools/{pool_id}/tasks")
+
+    def create(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        return self._raw._request("POST", f"/v1/pools/{pool_id}/tasks", json_body=request)
+
+    def update(self, pool_id: str, task_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        return self._raw._request("PUT", f"/v1/pools/{pool_id}/tasks/{task_id}", json_body=request)
+
+    def delete(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        return self._raw._request("DELETE", f"/v1/pools/{pool_id}/tasks/{task_id}")
+
+
+class _PoolMetricsSyncClient:
+    def __init__(self, raw: ContainerPoolsClient) -> None:
+        self._raw = raw
+
+    def get(self, pool_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/pools/{pool_id}/metrics")
+
+
+class _AgentRolloutsSyncClient:
+    """Global sandbox-agent rollouts (`/v1/rollouts/*`)."""
+
+    def __init__(self, raw: ContainerPoolsClient) -> None:
+        self._raw = raw
+        self._backend_base = str(getattr(raw, "_backend_base", "")).rstrip("/")
+        self._timeout = float(getattr(raw, "_timeout", 30.0))
+        self._api_key = str(getattr(raw, "_api_key", ""))
+
+    def _headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self._api_key}"}
+
+    def _url(self, path: str) -> str:
+        return join_url(self._backend_base, path)
+
+    def create(self, request: dict[str, Any]) -> dict[str, Any]:
+        return self._raw._request("POST", "/v1/rollouts", json_body=request)
+
+    def get(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}")
+
+    def artifacts(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}/artifacts")
+
+    def support_bundle(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}/support_bundle")
+
+    def fetch_artifact(self, rollout_id: str, path: str, *, timeout: float | None = None) -> bytes:
+        import httpx
+
+        resp = httpx.get(
+            self._url(f"/v1/rollouts/{rollout_id}/artifacts/{path}"),
+            headers=self._headers(),
+            timeout=timeout or self._timeout,
+        )
+        resp.raise_for_status()
+        return resp.content
+
+    def download_artifacts_zip(self, rollout_id: str, *, timeout: float | None = None) -> bytes:
+        import httpx
+
+        resp = httpx.get(
+            self._url(f"/v1/rollouts/{rollout_id}/artifacts.zip"),
+            headers=self._headers(),
+            timeout=timeout or self._timeout,
+        )
+        resp.raise_for_status()
+        return resp.content
+
+
 class _PoolSkillsSyncClient:
     """OpenCode skill helpers scoped under container pools."""
 
@@ -705,6 +780,10 @@ class PoolsClient:
         self.data_sources = _PoolDataSourcesSyncClient(self._raw)
         self.assemblies = _PoolAssembliesSyncClient(self._raw)
         self.rollouts = _PoolRolloutsSyncClient(self._raw)
+        self.tasks = _PoolTasksSyncClient(self._raw)
+        self.metrics = _PoolMetricsSyncClient(self._raw)
+        self.agent_rollouts = _AgentRolloutsSyncClient(self._raw)
+        self.sandbox = self.agent_rollouts
         self.skills = _PoolSkillsSyncClient()
         self.harbor = _PoolTemplateSyncClient(self, PoolTarget.HARBOR)
         self.openenv = _PoolTemplateSyncClient(self, PoolTarget.OPENENV)
@@ -717,7 +796,9 @@ class PoolsClient:
 
     # Top-level core pool lifecycle
     def create(self, request: dict[str, Any]) -> dict[str, Any]:
-        return self._raw.create_pool(request)
+        if isinstance(request.get("assembly_id"), str) and request["assembly_id"].strip():
+            return self._raw.create_pool(request)
+        return self._raw._request("POST", "/v1/pools", json_body=request)
 
     def list(
         self,
@@ -819,6 +900,50 @@ class PoolsClient:
         cursor: str | None = None,
     ) -> Iterable[dict[str, Any]]:
         return self.rollouts.events(pool_id, rollout_id, cursor=cursor)
+
+    def get_metrics(self, pool_id: str) -> dict[str, Any]:
+        return self.metrics.get(pool_id)
+
+    def list_tasks(self, pool_id: str) -> dict[str, Any]:
+        return self.tasks.list(pool_id)
+
+    def create_task(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        return self.tasks.create(pool_id, request)
+
+    def update_task(self, pool_id: str, task_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        return self.tasks.update(pool_id, task_id, request)
+
+    def delete_task(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        return self.tasks.delete(pool_id, task_id)
+
+    def create_agent_rollout(self, request: dict[str, Any]) -> dict[str, Any]:
+        return self.agent_rollouts.create(request)
+
+    def get_agent_rollout(self, rollout_id: str) -> dict[str, Any]:
+        return self.agent_rollouts.get(rollout_id)
+
+    def get_agent_rollout_artifacts(self, rollout_id: str) -> dict[str, Any]:
+        return self.agent_rollouts.artifacts(rollout_id)
+
+    def get_agent_rollout_support_bundle(self, rollout_id: str) -> dict[str, Any]:
+        return self.agent_rollouts.support_bundle(rollout_id)
+
+    def fetch_agent_rollout_artifact(
+        self,
+        rollout_id: str,
+        path: str,
+        *,
+        timeout: float | None = None,
+    ) -> bytes:
+        return self.agent_rollouts.fetch_artifact(rollout_id, path, timeout=timeout)
+
+    def download_agent_rollout_artifacts_zip(
+        self,
+        rollout_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> bytes:
+        return self.agent_rollouts.download_artifacts_zip(rollout_id, timeout=timeout)
 
 
 def _is_proxy_namespace(value: Any) -> bool:

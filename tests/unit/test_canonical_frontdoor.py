@@ -253,3 +253,80 @@ def test_synth_tunnel_symbol_uses_synth_tunnel_backend(monkeypatch: Any) -> None
 
     assert tunnel["url"].startswith("https://")
     assert seen["backend"] == canonical_client.TunnelBackend.SynthTunnel
+
+
+def test_pools_agent_rollouts_namespace_uses_global_rollout_routes(monkeypatch: Any) -> None:
+    class _StubPoolsClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._backend_base = "https://api.example.test"
+            self._timeout = 30.0
+            self._api_key = "sk_test_sync"
+            self.calls: list[dict[str, Any]] = []
+
+        def _request(
+            self,
+            method: str,
+            path: str,
+            *,
+            json_body: dict[str, Any] | None = None,
+            params: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            self.calls.append(
+                {"method": method, "path": path, "json_body": json_body, "params": params}
+            )
+            if path == "/v1/rollouts" and method == "POST":
+                return {"rollout_id": "rt_123"}
+            if path == "/v1/rollouts/rt_123" and method == "GET":
+                return {"rollout_id": "rt_123", "status": "completed"}
+            if path == "/v1/rollouts/rt_123/artifacts" and method == "GET":
+                return {"artifacts": [{"path": "generated_classifier.py"}]}
+            return {}
+
+    monkeypatch.setattr(canonical_client, "ContainerPoolsClient", _StubPoolsClient)
+    client = canonical_client.SynthClient(api_key="sk_test_sync", base_url="http://example.test")
+
+    created = client.pools.agent_rollouts.create({"task_ref": {"dataset": "x", "task_id": "y"}})
+    status = client.pools.agent_rollouts.get("rt_123")
+    artifacts = client.pools.agent_rollouts.artifacts("rt_123")
+
+    assert created["rollout_id"] == "rt_123"
+    assert status["status"] == "completed"
+    assert artifacts["artifacts"][0]["path"] == "generated_classifier.py"
+    assert client.pools.raw.calls[0]["path"] == "/v1/rollouts"
+    assert client.pools.raw.calls[1]["path"] == "/v1/rollouts/rt_123"
+    assert client.pools.raw.calls[2]["path"] == "/v1/rollouts/rt_123/artifacts"
+
+
+def test_pools_tasks_namespace_routes_to_pool_task_endpoints(monkeypatch: Any) -> None:
+    class _StubPoolsClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._backend_base = "https://api.example.test"
+            self._timeout = 30.0
+            self._api_key = "sk_test_sync"
+            self.calls: list[dict[str, Any]] = []
+
+        def _request(
+            self,
+            method: str,
+            path: str,
+            *,
+            json_body: dict[str, Any] | None = None,
+            params: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            self.calls.append(
+                {"method": method, "path": path, "json_body": json_body, "params": params}
+            )
+            if method == "GET" and path.endswith("/tasks"):
+                return {"items": [{"task_id": "task_1"}]}
+            return {"ok": True}
+
+    monkeypatch.setattr(canonical_client, "ContainerPoolsClient", _StubPoolsClient)
+    client = canonical_client.SynthClient(api_key="sk_test_sync", base_url="http://example.test")
+
+    listed = client.pools.tasks.list("pool_1")
+    updated = client.pools.tasks.update("pool_1", "task_1", {"backend": "harbor"})
+
+    assert listed["items"][0]["task_id"] == "task_1"
+    assert updated["ok"] is True
+    assert client.pools.raw.calls[0]["path"] == "/v1/pools/pool_1/tasks"
+    assert client.pools.raw.calls[1]["path"] == "/v1/pools/pool_1/tasks/task_1"
