@@ -38,17 +38,24 @@ except PackageNotFoundError:
 
 
 __all__ = [
+    "AsyncContainersClient",
+    "AsyncSynthTunnel",
     "AsyncSynthClient",
+    "AsyncTunnelsClient",
     "Client",
     "ContainerClient",
+    "ContainersClient",
     "GraphsClient",
     "InProcessContainer",
     "JobsClient",
     "OfflineJob",
+    "PoolTarget",
     "OnlineSession",
     "PoolsClient",
+    "SynthTunnel",
     "SynthClient",
     "System",
+    "TunnelsClient",
     "VerifiersClient",
     "container",
     "graphs",
@@ -56,12 +63,20 @@ __all__ = [
     "optimization",
     "pools",
     "recipes",
+    "tunnels",
     "verifiers",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
+    "ContainersClient": ("synth_ai.container", "ContainersClient"),
+    "AsyncContainersClient": ("synth_ai.container", "AsyncContainersClient"),
+    "TunnelsClient": ("synth_ai.tunnels", "TunnelsClient"),
+    "AsyncTunnelsClient": ("synth_ai.tunnels", "AsyncTunnelsClient"),
+    "SynthTunnel": ("synth_ai.tunnels", "SynthTunnel"),
+    "AsyncSynthTunnel": ("synth_ai.tunnels", "AsyncSynthTunnel"),
+    "PoolTarget": ("synth_ai.pools", "PoolTarget"),
     "System": ("synth_ai.optimization", "System"),
     "OfflineJob": ("synth_ai.optimization", "OfflineJob"),
     "OnlineSession": ("synth_ai.optimization", "OnlineSession"),
@@ -81,6 +96,7 @@ _NAMESPACE_MODULES = {
     "verifiers",
     "pools",
     "container",
+    "tunnels",
     "recipes",
 }
 
