@@ -28,12 +28,22 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence
+from urllib.parse import urlparse
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_synthtunnel_url
+from synth_ai.core.utils.urls import (
+    BACKEND_URL_BASE,
+    is_cloudflare_tunnel_url,
+    is_free_ngrok_url,
+    is_synth_managed_ngrok_url,
+    is_synthtunnel_url,
+)
 from synth_ai.sdk.container.auth import ensure_container_auth
-from synth_ai.sdk.optimization.models import PolicyCandidate, PolicyCandidatePage
+from synth_ai.sdk.optimization.models import (
+    PolicyCandidate,
+    PolicyCandidatePage,
+    PolicyOptimizationResult,
+)
 from synth_ai.sdk.optimization.models import PolicyJobStatus as JobStatus
-from synth_ai.sdk.optimization.models import PolicyOptimizationResult
 
 if TYPE_CHECKING:
     from synth_ai.core.streaming import StreamHandler
@@ -76,11 +86,11 @@ def _extract_container_url(payload: Dict[str, Any]) -> Optional[str]:
     elif isinstance(payload.get("policy_optimization"), dict):
         section = payload.get("policy_optimization", {})
     if isinstance(section, dict):
-        for key in ("container_url", "container_url_base", "task_url"):
+        for key in ("container_url",):
             value = section.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()
-    for key in ("container_url", "container_url_base", "task_url"):
+    for key in ("container_url",):
         value = payload.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
@@ -104,15 +114,9 @@ def _load_toml_payload(path: Path) -> Dict[str, Any]:
 def _infer_container_url(config: PolicyOptimizationJobConfig) -> Optional[str]:
     overrides = config.overrides or {}
     for key in (
-        "task_url",
         "container_url",
-        "container_url_base",
-        "prompt_learning.task_url",
         "prompt_learning.container_url",
-        "prompt_learning.container_url_base",
-        "policy_optimization.task_url",
         "policy_optimization.container_url",
-        "policy_optimization.container_url_base",
     ):
         value = overrides.get(key)
         if isinstance(value, str) and value.strip():
@@ -224,8 +228,20 @@ class PolicyOptimizationJobConfig:
         if not self.api_key:
             raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
 
-        task_url = _infer_container_url(self)
-        if task_url and is_synthtunnel_url(task_url):
+        container_url = _infer_container_url(self)
+        if container_url and is_cloudflare_tunnel_url(container_url):
+            raise ValueError(
+                "Cloudflare tunnel URLs are forbidden. Use SynthTunnel or a Synth-managed ngrok-compatible URL."
+            )
+        if container_url:
+            host = (urlparse(container_url).hostname or "").lower()
+            if "ngrok" in host and (
+                is_free_ngrok_url(container_url) or not is_synth_managed_ngrok_url(container_url)
+            ):
+                raise ValueError(
+                    "ngrok URL is not allowed. Use a Synth-managed ngrok-compatible URL allow-listed in SYNTH_MANAGED_TUNNEL_HOSTS."
+                )
+        if container_url and is_synthtunnel_url(container_url):
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
@@ -500,10 +516,7 @@ class PolicyOptimizationJob:
         # Auto-detect tunnel URLs and skip health check
         if skip_health_check is False:
             container_url = _extract_container_url(config_dict)
-            if container_url and (
-                ".trycloudflare.com" in container_url.lower()
-                or ".cfargotunnel.com" in container_url.lower()
-            ):
+            if container_url and is_synthtunnel_url(container_url):
                 skip_health_check = True
 
         return cls(config, skip_health_check=skip_health_check)

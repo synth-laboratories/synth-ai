@@ -164,6 +164,9 @@ def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> 
     for err in errors:
         if (has_container_id or has_container_url) and (
             "Missing required field: prompt_learning.container_url" in err
+            # Older prebuilt synth_ai_py may still emit legacy field names.
+            # Canonical configs already provide container_url/container_id.
+            or "Missing required field: prompt_learning.task_app_url" in err
         ):
             continue
         normalized.append(err)
