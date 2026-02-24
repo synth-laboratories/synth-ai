@@ -12,7 +12,7 @@ Or in `Cargo.toml`:
 
 ```toml
 [dependencies]
-synth-ai = "0.5"
+synth-ai = "0.9.1"
 ```
 
 ## Quick Start
