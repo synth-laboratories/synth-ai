@@ -1,29 +1,11 @@
-"""Policy optimization module (GEPA, MIPRO).
+"""Policy optimization module (canonical v1 + online wrappers).
 
-This module provides the canonical API for policy optimization jobs, which
-optimize prompts/instructions using a Container for evaluation.
-
-Algorithms:
-- GEPA (Genetic Evolutionary Prompt Algorithm): Default algorithm
-- MIPRO (Multi-step Instruction Optimization): Alternative algorithm
-
-Example:
-    >>> from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
-    >>>
-    >>> job = PolicyOptimizationJob.from_config("config.toml")
-    >>> job.submit()
-    >>> result = job.stream_until_complete()
-    >>> print(f"Best score: {result.best_score}")
+# See: specifications/daily/feb24_2026/tinker_synth_final.md
 """
 
 from __future__ import annotations
 
 from .gepa_online_session import GepaOnlineSession
-from .job import (
-    PolicyOptimizationJob,
-    PolicyOptimizationJobConfig,
-    PolicyOptimizationResult,
-)
 from .mipro_online_session import MiproOnlineSession
 from .v1 import (
     PolicyOptimizationOfflineJob,
@@ -32,9 +14,6 @@ from .v1 import (
 )
 
 __all__ = [
-    "PolicyOptimizationJob",
-    "PolicyOptimizationJobConfig",
-    "PolicyOptimizationResult",
     "PolicyOptimizationOfflineJob",
     "PolicyOptimizationOnlineSession",
     "PolicyOptimizationSystem",
