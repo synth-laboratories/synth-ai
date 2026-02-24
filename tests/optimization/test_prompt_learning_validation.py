@@ -93,7 +93,7 @@ def test_validate_prompt_learning_config_gepa_actionable_upfront_context() -> No
     validate_prompt_learning_config(config, Path("<memory>"))
 
 
-def test_validate_prompt_learning_config_gepa_legacy_task_context_alias() -> None:
+def test_validate_prompt_learning_config_gepa_canonical_task_context_alias() -> None:
     config = _gepa_config_dict()
     config["prompt_learning"]["gepa"]["task_context"] = {
         "source_uri": "s3://bucket/engine-bench.tar.gz",

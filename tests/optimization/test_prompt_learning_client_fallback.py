@@ -15,7 +15,7 @@ from synth_ai.sdk.optimization.internal.learning.prompt_learning_types import Pr
 
 def test_extract_prompt_learning_fields_from_job_payload_prefers_job_metadata() -> None:
     payload = {
-        "best_prompt": {"messages": [{"role": "system", "content": "fallback"}]},
+        "best_prompt": {"messages": [{"role": "system", "content": "strict"}]},
         "metadata": {
             "best_score": "0.20",
             "sensor_frames": [{"frame_id": "frame_meta"}],
@@ -35,7 +35,7 @@ def test_extract_prompt_learning_fields_from_job_payload_prefers_job_metadata() 
 
     assert fields["best_candidate"] == payload["best_prompt"]
     assert fields["best_reward"] == 0.91
-    assert fields["best_candidate_content"] == "fallback"
+    assert fields["best_candidate_content"] == "strict"
     assert fields["sensor_frames"] == [{"frame_id": "frame_job"}]
     assert fields["lever_versions"] == {"mipro.prompt.pl_123": 7}
     assert fields["best_lever_version"] == 7
@@ -89,7 +89,7 @@ def test_get_prompts_falls_back_to_job_payload_when_events_unavailable(monkeypat
     monkeypatch.setattr(PromptLearningClient, "get_job", _job_payload)
 
     client = PromptLearningClient(base_url="http://example.com", api_key="key")
-    result = asyncio.run(client.get_prompts("pl_fallback"))
+    result = asyncio.run(client.get_prompts("pl_strict"))
 
     assert result.best_candidate == {"messages": [{"role": "system", "content": "from status"}]}
     assert result.best_reward == 0.77
@@ -142,7 +142,7 @@ def test_get_job_uses_canonical_payload(monkeypatch) -> None:
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path.startswith("/api/jobs/") and "/events" not in path:
+            if path.startswith("/api/v1/offline/jobs/") and "/events" not in path:
                 return {
                     "job_id": "pl_merge",
                     "status": "succeeded",
@@ -178,7 +178,7 @@ def test_get_events_prefers_richest_endpoint(monkeypatch) -> None:
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path.startswith("/api/jobs/") and path.endswith("/events"):
+            if path.startswith("/api/v1/offline/jobs/") and path.endswith("/events"):
                 return {"events": [{"type": "one"}]}
             raise RuntimeError("404 Not Found")
 
@@ -202,7 +202,7 @@ def test_get_job_mipro_falls_back_to_system_state(monkeypatch) -> None:
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path == "/api/jobs/pl_state":
+            if path == "/api/v1/offline/jobs/pl_state":
                 return {
                     "job_id": "pl_state",
                     "status": "succeeded",
@@ -211,7 +211,7 @@ def test_get_job_mipro_falls_back_to_system_state(monkeypatch) -> None:
                         "mipro_system_id": "sys_123",
                     },
                 }
-            if path == "/api/prompt-learning/online/mipro/systems/sys_123/state":
+            if path == "/api/v1/online/sessions/sys_123":
                 return {
                     "best_candidate_id": "cand_a",
                     "best_score": 0.81,
@@ -249,7 +249,7 @@ def test_get_job_mipro_state_infers_best_candidate_without_best_fields(monkeypat
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path == "/api/jobs/pl_infer":
+            if path == "/api/v1/offline/jobs/pl_infer":
                 return {
                     "job_id": "pl_infer",
                     "status": "succeeded",
@@ -258,7 +258,7 @@ def test_get_job_mipro_state_infers_best_candidate_without_best_fields(monkeypat
                         "mipro_system_id": "sys_infer",
                     },
                 }
-            if path == "/api/prompt-learning/online/mipro/systems/sys_infer/state":
+            if path == "/api/v1/online/sessions/sys_infer":
                 return {
                     "candidates": {
                         "cand_low": {"candidate_id": "cand_low", "avg_reward": 0.11},
@@ -351,9 +351,9 @@ def test_get_events_falls_back_to_mipro_system_events(monkeypatch) -> None:
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path.startswith("/api/jobs/pl_sparse") and path.endswith("/events"):
+            if path.startswith("/api/v1/offline/jobs/pl_sparse") and path.endswith("/events"):
                 return {"events": [{"type": "prompt.learning.created"}]}
-            if path == "/api/jobs/pl_sparse":
+            if path == "/api/v1/offline/jobs/pl_sparse":
                 return {
                     "job_id": "pl_sparse",
                     "status": "succeeded",
@@ -362,7 +362,7 @@ def test_get_events_falls_back_to_mipro_system_events(monkeypatch) -> None:
                         "mipro_system_id": "sys_sparse",
                     },
                 }
-            if path == "/api/prompt-learning/online/mipro/systems/sys_sparse/events":
+            if path == "/api/v1/online/sessions/sys_sparse/events":
                 return {
                     "events": [
                         {
@@ -404,9 +404,9 @@ def test_get_prompts_falls_back_to_mipro_system_state(monkeypatch) -> None:
 
         async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
             _ = params
-            if path.startswith("/api/jobs/pl_prompt_state") and path.endswith("/events"):
+            if path.startswith("/api/v1/offline/jobs/pl_prompt_state") and path.endswith("/events"):
                 return {"events": [{"type": "prompt.learning.created"}]}
-            if path == "/api/jobs/pl_prompt_state":
+            if path == "/api/v1/offline/jobs/pl_prompt_state":
                 return {
                     "job_id": "pl_prompt_state",
                     "status": "succeeded",
@@ -415,7 +415,7 @@ def test_get_prompts_falls_back_to_mipro_system_state(monkeypatch) -> None:
                         "mipro_system_id": "sys_prompt",
                     },
                 }
-            if path == "/api/prompt-learning/online/mipro/systems/sys_prompt/state":
+            if path == "/api/v1/online/sessions/sys_prompt":
                 return {
                     "best_candidate_id": "cand_best",
                     "best_score": 0.66,
@@ -533,7 +533,7 @@ def test_list_seed_evals_hits_job_seed_eval_endpoint(monkeypatch) -> None:
         )
     )
     assert payload["job_id"] == "pl_seed"
-    assert captured["path"] == "/api/jobs/pl_seed/seed-evals"
+    assert captured["path"] == "/api/v1/offline/jobs/pl_seed/seed-evals"
     assert captured["params"]["split"] == "held_out"
     assert captured["params"]["seed"] == 5
     assert captured["params"]["success"] is True

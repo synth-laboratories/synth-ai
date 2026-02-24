@@ -9,7 +9,7 @@ Candidates are multi-stage PROGRAMS, not single prompts. Each candidate has:
 - `stages: Dict[stage_id, StageInfo]` where StageInfo contains instruction, rules, temperature
 - Optional: `seed_info`, `token_usage`, `val_accuracy`, `timing`
 
-The `prompt_summary` field is DERIVED from stages for backwards compatibility.
+The `prompt_summary` field is DERIVED from stages for compatibility removed.
 """
 
 from __future__ import annotations
@@ -219,7 +219,7 @@ class CandidateInfo:
 
     # === First-class program structure ===
     stages: dict[str, StageInfo] = field(default_factory=dict)
-    prompt_summary: str | None = None  # Derived from stages for backwards compatibility
+    prompt_summary: str | None = None  # Derived from stages for compatibility removed
 
     # === Mutation/lineage ===
     mutation_type: str | None = None
@@ -284,7 +284,7 @@ class CandidateInfo:
     ) -> CandidateInfo:
         """Create from SSE event data payload.
 
-        Supports both legacy flat format and new program_candidate block format.
+        Supports both canonical flat format and new program_candidate block format.
         """
         # Check for program_candidate block (preferred)
         program_candidate = data.get("program_candidate", {})
@@ -348,7 +348,7 @@ class CandidateInfo:
                     parts.append(f"[{stage_id.upper()}]: {instruction}")
             prompt_summary = "\n".join(parts)
 
-        # Extract minibatch_rewards array (preferred) or fallback to single minibatch_reward/score
+        # Extract minibatch_rewards array (preferred) or strict to single minibatch_reward/score
         minibatch_rewards = data.get("minibatch_rewards") or data.get("minibatch_scores", [])
         if not minibatch_rewards:
             mb_val = data.get("minibatch_reward") or data.get("minibatch_score")
@@ -360,7 +360,7 @@ class CandidateInfo:
 
         objectives = data.get("objectives")
         if not isinstance(objectives, dict):
-            # Fallback: try score.objectives (backend puts objectives inside score object)
+            # Strict: try score.objectives (backend puts objectives inside score object)
             score_val = data.get("score")
             if isinstance(score_val, dict):
                 objectives = score_val.get("objectives")

@@ -1,7 +1,7 @@
 """Shared optimization event schemas (OpenResponses-aligned).
 
 DEPRECATED: This module has moved to synth_ai.sdk.shared.orchestration.events.
-This re-export is provided for backwards compatibility.
+This re-export is provided for compatibility removed.
 
 New imports should use:
     from synth_ai.sdk.shared.orchestration.events import ...

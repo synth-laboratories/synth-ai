@@ -19,9 +19,9 @@ def test_eval_job_config_container_key_alias_sets_container_api_key() -> None:
         container_url="http://127.0.0.1:8103",
         api_key="sk_test",
         backend_url="https://api.example.com",
-        container_key="legacy_container_key",
+        container_key="canonical_container_key",
         env_name="banking77",
         seeds=[0],
         policy_config={"model": "gpt-4.1-nano", "provider": "openai"},
     )
-    assert cfg.container_api_key == "legacy_container_key"
+    assert cfg.container_api_key == "canonical_container_key"

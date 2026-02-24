@@ -16,7 +16,7 @@ def test_resolve_api_key_explicit() -> None:
     assert _resolve_api_key("sk_explicit") == "sk_explicit"
 
 
-def test_resolve_api_key_env_fallback() -> None:
+def test_resolve_api_key_env_strict() -> None:
     from synth_ai.sdk.managed_research import _resolve_api_key
 
     old_value = os.environ.get("SYNTH_API_KEY")

@@ -29,7 +29,6 @@ See Also:
     - `synth_ai.sdk.optimization`: Similar pattern for optimization jobs
 """
 
-import contextlib
 import os
 import time
 from dataclasses import dataclass, field
@@ -68,27 +67,29 @@ class EvalStatus(str, Enum):
 
     PENDING = "pending"
     RUNNING = "running"
-    COMPLETED = "completed"
+    SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
     @classmethod
     def from_string(cls, status: str) -> "EvalStatus":
-        """Convert string to EvalStatus, defaulting to PENDING for unknown values."""
+        """Convert string to EvalStatus using strict canonical values."""
+        normalized = str(status or "").strip().lower()
         try:
-            return cls(status.lower())
-        except ValueError:
-            return cls.PENDING
+            return cls(normalized)
+        except ValueError as exc:
+            allowed = ", ".join(member.value for member in cls)
+            raise ValueError(f"Unknown eval status '{status}'. Allowed values: {allowed}") from exc
 
     @property
     def is_terminal(self) -> bool:
         """Whether this status is terminal (job won't change further)."""
-        return self in (EvalStatus.COMPLETED, EvalStatus.FAILED, EvalStatus.CANCELLED)
+        return self in (EvalStatus.SUCCEEDED, EvalStatus.FAILED, EvalStatus.CANCELLED)
 
     @property
     def is_success(self) -> bool:
         """Whether this status indicates success."""
-        return self == EvalStatus.COMPLETED
+        return self == EvalStatus.SUCCEEDED
 
 
 @dataclass
@@ -128,15 +129,35 @@ class EvalResult:
         results_info = data.get("results", {})
 
         # Handle both summary dict and inline fields
-        mean_reward = summary.get("mean_reward") or data.get("mean_reward")
+        mean_reward = summary.get("mean_reward")
+        if mean_reward is None:
+            mean_reward = data.get("mean_reward")
         if mean_reward is None and isinstance(results_info, dict):
             mean_reward = results_info.get("mean_reward")
-        total_tokens = summary.get("total_tokens") or data.get("total_tokens")
-        total_cost_usd = summary.get("total_cost_usd") or data.get("total_cost_usd")
 
-        # Get completion progress
-        num_completed = results_info.get("completed", 0) if isinstance(results_info, dict) else 0
-        num_total = results_info.get("total", 0) if isinstance(results_info, dict) else 0
+        total_tokens = summary.get("total_tokens")
+        if total_tokens is None:
+            total_tokens = data.get("total_tokens")
+        if total_tokens is None and isinstance(results_info, dict):
+            total_tokens = results_info.get("total_tokens")
+
+        total_cost_usd = summary.get("total_cost_usd")
+        if total_cost_usd is None:
+            total_cost_usd = data.get("total_cost_usd")
+        if total_cost_usd is None and isinstance(results_info, dict):
+            total_cost_usd = results_info.get("total_cost_usd")
+
+        # Get completion progress. Some endpoints return counts under summary.
+        num_completed = results_info.get("completed") if isinstance(results_info, dict) else None
+        num_total = results_info.get("total") if isinstance(results_info, dict) else None
+        if num_completed is None and isinstance(summary, dict):
+            num_completed = summary.get("completed")
+        if num_total is None and isinstance(summary, dict):
+            num_total = summary.get("total")
+        if num_completed is None:
+            num_completed = data.get("completed", 0)
+        if num_total is None:
+            num_total = data.get("total", 0)
 
         # Get per-seed results (can be in "results" list or nested)
         seed_results = data.get("results", [])
@@ -149,8 +170,8 @@ class EvalResult:
             mean_reward=mean_reward,
             total_tokens=total_tokens,
             total_cost_usd=total_cost_usd,
-            num_completed=num_completed,
-            num_total=num_total,
+            num_completed=int(num_completed) if isinstance(num_completed, (int, float)) else 0,
+            num_total=int(num_total) if isinstance(num_total, (int, float)) else 0,
             seed_results=list(seed_results) if isinstance(seed_results, list) else [],
             error=data.get("error"),
             raw=data,
@@ -222,12 +243,12 @@ class EvalJobConfig:
     verifier_config: Optional[Dict[str, Any]] = None
     concurrency: int = 5
     timeout: float = 600.0
-    # Aliases for backwards compatibility (not stored, just used in __init__)
+    # Aliases for compatibility removed (not stored, just used in __init__)
     container_key: Optional[str] = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Validate configuration and handle aliases."""
-        # Handle aliases for backwards compatibility
+        # Handle aliases for compatibility removed
         if self.container_key and not self.container_api_key:
             self.container_api_key = self.container_key
 
@@ -314,7 +335,7 @@ class EvalJob:
 
     See Also:
         - `PromptLearningJob`: Similar pattern for prompt learning jobs
-        - Backend API: POST /api/eval/jobs, GET /api/eval/jobs/{job_id}
+        - Backend API: POST /api/v1/offline/jobs (with kind=eval), GET /api/v1/offline/jobs/{job_id}
     """
 
     # Default poll settings
@@ -499,6 +520,26 @@ class EvalJob:
             base = f"{base}/api"
         return base
 
+    def _collect_final_payload(self) -> Dict[str, Any]:
+        """Collect the richest available terminal payload from status/results endpoints."""
+        # Prefer /results because it carries terminal metrics and avoids strict status enum parsing
+        # mismatches in some rust-core builds.
+        try:
+            results_payload = self.get_results()
+            if isinstance(results_payload, dict) and results_payload:
+                return results_payload
+        except Exception:
+            pass
+
+        try:
+            status_payload = self.get_status()
+            if isinstance(status_payload, dict):
+                return status_payload
+        except Exception:
+            pass
+
+        return {}
+
     def submit(self) -> str:
         """Submit the job to the backend.
 
@@ -576,7 +617,6 @@ class EvalJob:
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
-
         return self._client.get_eval_status(self._job_id)
 
     def poll_until_complete(
@@ -678,13 +718,10 @@ class EvalJob:
 
                 # Check terminal state
                 if status.is_terminal:
-                    # Fetch full results if completed
-                    if status == EvalStatus.COMPLETED:
-                        try:
-                            final_results = self.get_results()
-                            return EvalResult.from_response(job_id, final_results)
-                        except Exception:
-                            pass
+                    if status == EvalStatus.SUCCEEDED:
+                        final_payload = self._collect_final_payload()
+                        if final_payload:
+                            return EvalResult.from_response(job_id, final_payload)
                     return EvalResult.from_response(job_id, last_data)
 
             except Exception as exc:
@@ -728,8 +765,6 @@ class EvalJob:
             True
         """
         import asyncio
-        import contextlib
-
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
 
@@ -784,17 +819,15 @@ class EvalJob:
 
         # Callback for custom handling
         if on_event and isinstance(final_status, dict):
-            with contextlib.suppress(Exception):
-                on_event(final_status)
+            on_event(final_status)
 
         # Fetch full results if completed
-        status_str = str(final_status.get("status", "")).lower()
-        if status_str == "completed":
-            try:
-                full_results = self.get_results()
-                return EvalResult.from_response(self._job_id, full_results)
-            except Exception:
-                pass
+        status_str = str(final_status.get("status", "")).strip().lower()
+        status = EvalStatus.from_string(status_str)
+        if status == EvalStatus.SUCCEEDED:
+            final_payload = self._collect_final_payload()
+            if final_payload:
+                return EvalResult.from_response(self._job_id, final_payload)
 
         return EvalResult.from_response(self._job_id, final_status)
 
@@ -828,6 +861,7 @@ class EvalJob:
 
         job_id = self._job_id
         base_url = self._base_url()
+        # Eval jobs stream on the eval-specific route on current backends.
         sse_url = f"{base_url}/eval/jobs/{job_id}/events/stream"
 
         headers = {
@@ -842,8 +876,7 @@ class EvalJob:
         terminal_events = {
             "eval.policy.job.completed",
             "eval.policy.job.failed",
-            "job.completed",
-            "job.failed",
+            "eval.policy.job.cancelled",
         }
 
         if progress:
@@ -863,8 +896,7 @@ class EvalJob:
 
                 # Call event handler
                 if on_event:
-                    with contextlib.suppress(Exception):
-                        on_event(event)
+                    on_event(event)
 
                 # Extract progress info
                 event_type = event.get("type", "")
@@ -875,7 +907,7 @@ class EvalJob:
                     completed = event_data.get("completed", completed)
                 if "total" in event_data:
                     total = event_data.get("total", total)
-                if event_type in ("eval.policy.seed.completed", "seed.completed"):
+                if event_type == "eval.policy.seed.completed":
                     completed += 1
 
                 # Progress output
@@ -886,20 +918,21 @@ class EvalJob:
 
                 # Check for terminal event
                 if event_type in terminal_events:
-                    last_status = "completed" if "completed" in event_type else "failed"
+                    if "completed" in event_type:
+                        last_status = "succeeded"
+                    elif "cancelled" in event_type:
+                        last_status = "cancelled"
+                    else:
+                        last_status = "failed"
                     break
 
         except Exception as exc:
-            if progress:
-                print(f"[stream] SSE error: {exc}, falling back to polling")
-            return self.poll_until_complete(timeout=timeout, progress=progress, on_event=on_event)
+            raise RuntimeError(f"SSE stream failed for eval job {job_id}: {exc}") from exc
 
-        # Fetch full results
-        try:
-            final_results = self.get_results()
-            return EvalResult.from_response(job_id, final_results)
-        except Exception:
-            return EvalResult.from_response(job_id, {"status": last_status, "job_id": job_id})
+        final_payload = self._collect_final_payload()
+        if final_payload:
+            return EvalResult.from_response(job_id, final_payload)
+        return EvalResult.from_response(job_id, {"status": last_status, "job_id": job_id})
 
     def stream_sse_until_complete(
         self,
@@ -984,7 +1017,6 @@ class EvalJob:
         """
         if not self._job_id:
             raise RuntimeError("Job not yet submitted. Call submit() first.")
-
         return self._client.get_eval_results(self._job_id)
 
     def download_traces(self, output_dir: str | Path) -> Path:

@@ -73,7 +73,7 @@ class VerifierScoreResponse(BaseModel):
     )
     outcome_objectives: Optional[Dict[str, float]] = Field(
         default=None,
-        description="Outcome objectives (preferred over legacy objectives when present).",
+        description="Outcome objectives (preferred over canonical objectives when present).",
     )
     event_objectives: Optional[List[Dict[str, float]]] = Field(
         default=None,

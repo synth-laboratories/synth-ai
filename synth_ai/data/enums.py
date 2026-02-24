@@ -16,7 +16,7 @@ except Exception:  # pragma: no cover
     synth_ai_py = None
 
 
-def _load_enum_values_fallback() -> Dict[str, Dict[str, str]]:
+def _load_enum_values_strict() -> Dict[str, Dict[str, str]]:
     asset = (
         Path(__file__).resolve().parents[2] / "synth_ai_core" / "assets" / "data_enum_values.json"
     )
@@ -26,7 +26,7 @@ def _load_enum_values_fallback() -> Dict[str, Dict[str, str]]:
 
 
 if synth_ai_py is None or not hasattr(synth_ai_py, "data_enum_values"):
-    _ENUM_VALUES = _load_enum_values_fallback()
+    _ENUM_VALUES = _load_enum_values_strict()
 else:
     _ENUM_VALUES = synth_ai_py.data_enum_values()
 

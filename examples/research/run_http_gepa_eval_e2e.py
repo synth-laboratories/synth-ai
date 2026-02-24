@@ -333,7 +333,7 @@ def _extract_best_system_prompt(
     *,
     gepa_result: Any,
     prompts_payload: Any,
-    fallback: str,
+    strict: str,
 ) -> str:
     def _extract_from_candidate(candidate_payload: Any) -> str | None:
         if not isinstance(candidate_payload, dict):
@@ -380,7 +380,7 @@ def _extract_best_system_prompt(
             if extracted_candidate:
                 return extracted_candidate
 
-    return fallback
+    return strict
 
 
 @dataclass
@@ -568,7 +568,7 @@ async def run() -> None:
         optimized_system_prompt = _extract_best_system_prompt(
             gepa_result=gepa_result,
             prompts_payload=prompts_payload,
-            fallback=BASELINE_SYSTEM_PROMPT,
+            strict=BASELINE_SYSTEM_PROMPT,
         )
 
         print("Running Eval jobs (baseline and optimized)...")

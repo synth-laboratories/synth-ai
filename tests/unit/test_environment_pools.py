@@ -40,7 +40,7 @@ class TestURLBuilding:
     def test_url_builds_api_prefixed_path_for_non_v1(self):
         from synth_ai.sdk.environment_pools import _url
 
-        result = _url("https://api.example.com", "rollouts", api_version="legacy")
+        result = _url("https://api.example.com", "rollouts", api_version="canonical")
         assert "/api/v1/rollouts" in result
 
     def test_cred_url_builds_correctly(self):
@@ -253,7 +253,7 @@ class TestRolloutIdExtraction:
         result = _rollout_id_from_payload({"rollout_id": "r-123"})
         assert result == "r-123"
 
-    def test_extracts_trial_id_fallback(self):
+    def test_extracts_trial_id_strict(self):
         from synth_ai.sdk.environment_pools import _rollout_id_from_payload
 
         result = _rollout_id_from_payload({"trial_id": "t-456"})

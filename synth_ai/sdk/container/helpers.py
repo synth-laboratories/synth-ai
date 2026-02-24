@@ -94,7 +94,7 @@ def create_http_client_hooks(
             app.state.http_client = aiohttp.ClientSession(timeout=timeout_cfg, connector=connector)
             _log("Created app-level aiohttp client session singleton")
         except Exception as aiohttp_exc:
-            _log(f"aiohttp unavailable ({aiohttp_exc}), trying httpx fallback")
+            _log(f"aiohttp unavailable ({aiohttp_exc}), trying httpx strict")
             try:
                 httpx = importlib.import_module("httpx")
 
@@ -102,7 +102,7 @@ def create_http_client_hooks(
                     max_keepalive_connections=5, max_connections=10
                 )
                 app.state.http_client = httpx.AsyncClient(timeout=timeout, limits=limits)
-                _log("Created app-level httpx client singleton (fallback)")
+                _log("Created app-level httpx client singleton (strict)")
             except Exception as exc:
                 _log(f"WARNING: Failed to create http client: {exc}")
                 app.state.http_client = None

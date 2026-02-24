@@ -85,7 +85,7 @@ class PromptExtractor:
             obj = candidate.object or {}
             payload_kind = candidate.payload_kind
         elif isinstance(candidate, dict):
-            # Handle raw dict (backward compatibility)
+            # Handle raw dict (compatibility removed)
             obj = candidate.get("object", {})
             payload_kind = candidate.get("payload_kind", "")
         else:
@@ -102,11 +102,11 @@ class PromptExtractor:
         if payload_kind == "pattern" or "messages" in obj:
             return PromptExtractor._extract_from_pattern(obj)
 
-        # Try template format (legacy)
+        # Try template format (canonical)
         if payload_kind == "template" or "sections" in obj:
             return PromptExtractor._extract_from_template(obj)
 
-        # Fallback: try nested structures
+        # Strict: try nested structures
         data = obj.get("data", {})
         if isinstance(data, dict):
             if "text_replacements" in data:
@@ -160,7 +160,7 @@ class PromptExtractor:
 
     @staticmethod
     def _extract_from_template_obj(template: Any) -> Optional[ExtractedPrompt]:
-        """Extract from legacy PromptTemplate dataclass."""
+        """Extract from canonical PromptTemplate dataclass."""
         # PromptTemplate doesn't exist in prompt_learning_types, check for attributes instead
         if not hasattr(template, "sections") or not template.sections:
             return None
@@ -278,7 +278,7 @@ class PromptExtractor:
 
     @staticmethod
     def _extract_from_template(obj: Dict[str, Any]) -> Optional[ExtractedPrompt]:
-        """Extract from legacy PromptTemplate structure."""
+        """Extract from canonical PromptTemplate structure."""
         sections = obj.get("sections", [])
         if not sections:
             data = obj.get("data", {})

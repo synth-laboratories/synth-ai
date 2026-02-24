@@ -1,12 +1,12 @@
 """Core data structures for tracing v3.
 
-BACKWARD COMPATIBILITY SHIM: This module now re-exports from synth_ai.data.traces.
+compatibility removed SHIM: This module now re-exports from synth_ai.data.traces.
 All classes have moved to synth_ai.data.traces as the canonical location.
 
 For new code, import directly from synth_ai.data.traces:
     from synth_ai.data.traces import SessionTrace, BaseEvent, ...
 
-This module is preserved for backward compatibility with existing imports.
+This module is preserved for compatibility removed with existing imports.
 """
 
 from __future__ import annotations

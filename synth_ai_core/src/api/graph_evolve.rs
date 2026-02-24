@@ -10,7 +10,7 @@ use crate::CoreError;
 use super::client::SynthClient;
 
 const GRAPH_EVOLVE_ENDPOINT: &str = "/api/graph-evolve/jobs";
-const GRAPHGEN_LEGACY_ENDPOINT: &str = "/api/graphgen/jobs";
+const GRAPHGEN_canonical_ENDPOINT: &str = "/api/graphgen/jobs";
 const GRAPHGEN_COMPLETIONS_ENDPOINT: &str = "/api/graphgen/graph/completions";
 const GRAPHGEN_RECORD_ENDPOINT: &str = "/api/graphgen/graph/record";
 
@@ -24,21 +24,21 @@ impl<'a> GraphEvolveClient<'a> {
         Self { client }
     }
 
-    async fn get_with_fallback(
+    async fn get_with_strict(
         &self,
         primary: &str,
-        legacy: Option<&str>,
+        canonical: Option<&str>,
         params: Option<&[(&str, &str)]>,
     ) -> Result<Value, CoreError> {
         match self.client.http.get_json(primary, params).await {
             Ok(value) => Ok(value),
             Err(err) => {
                 if err.status() == Some(404) {
-                    if let Some(legacy) = legacy {
+                    if let Some(canonical) = canonical {
                         return self
                             .client
                             .http
-                            .get_json(legacy, params)
+                            .get_json(canonical, params)
                             .await
                             .map_err(map_http_error);
                     }
@@ -48,21 +48,21 @@ impl<'a> GraphEvolveClient<'a> {
         }
     }
 
-    async fn post_with_fallback(
+    async fn post_with_strict(
         &self,
         primary: &str,
-        legacy: Option<&str>,
+        canonical: Option<&str>,
         payload: &Value,
     ) -> Result<Value, CoreError> {
         match self.client.http.post_json(primary, payload).await {
             Ok(value) => Ok(value),
             Err(err) => {
                 if err.status() == Some(404) {
-                    if let Some(legacy) = legacy {
+                    if let Some(canonical) = canonical {
                         return self
                             .client
                             .http
-                            .post_json(legacy, payload)
+                            .post_json(canonical, payload)
                             .await
                             .map_err(map_http_error);
                     }
@@ -72,20 +72,20 @@ impl<'a> GraphEvolveClient<'a> {
         }
     }
 
-    async fn get_bytes_with_fallback(
+    async fn get_bytes_with_strict(
         &self,
         primary: &str,
-        legacy: Option<&str>,
+        canonical: Option<&str>,
     ) -> Result<Vec<u8>, CoreError> {
         match self.client.http.get_bytes(primary, None).await {
             Ok(bytes) => Ok(bytes),
             Err(err) => {
                 if err.status() == Some(404) {
-                    if let Some(legacy) = legacy {
+                    if let Some(canonical) = canonical {
                         return self
                             .client
                             .http
-                            .get_bytes(legacy, None)
+                            .get_bytes(canonical, None)
                             .await
                             .map_err(map_http_error);
                     }
@@ -97,9 +97,9 @@ impl<'a> GraphEvolveClient<'a> {
 
     /// Submit a Graph Evolve job.
     pub async fn submit_job(&self, payload: Value) -> Result<Value, CoreError> {
-        self.post_with_fallback(
+        self.post_with_strict(
             GRAPH_EVOLVE_ENDPOINT,
-            Some(GRAPHGEN_LEGACY_ENDPOINT),
+            Some(GRAPHGEN_canonical_ENDPOINT),
             &payload,
         )
         .await
@@ -108,15 +108,15 @@ impl<'a> GraphEvolveClient<'a> {
     /// Get job status.
     pub async fn get_status(&self, job_id: &str) -> Result<Value, CoreError> {
         let primary = format!("{}/{}", GRAPH_EVOLVE_ENDPOINT, job_id);
-        let legacy = format!("{}/{}", GRAPHGEN_LEGACY_ENDPOINT, job_id);
-        self.get_with_fallback(&primary, Some(&legacy), None).await
+        let canonical = format!("{}/{}", GRAPHGEN_canonical_ENDPOINT, job_id);
+        self.get_with_strict(&primary, Some(&canonical), None).await
     }
 
     /// Start a job.
     pub async fn start_job(&self, job_id: &str) -> Result<Value, CoreError> {
         let primary = format!("{}/{}/start", GRAPH_EVOLVE_ENDPOINT, job_id);
-        let legacy = format!("{}/{}/start", GRAPHGEN_LEGACY_ENDPOINT, job_id);
-        self.post_with_fallback(&primary, Some(&legacy), &Value::Null)
+        let canonical = format!("{}/{}/start", GRAPHGEN_canonical_ENDPOINT, job_id);
+        self.post_with_strict(&primary, Some(&canonical), &Value::Null)
             .await
     }
 
@@ -128,11 +128,11 @@ impl<'a> GraphEvolveClient<'a> {
         limit: i64,
     ) -> Result<Value, CoreError> {
         let primary = format!("{}/{}/events", GRAPH_EVOLVE_ENDPOINT, job_id);
-        let legacy = format!("{}/{}/events", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        let canonical = format!("{}/{}/events", GRAPHGEN_canonical_ENDPOINT, job_id);
         let since = since_seq.to_string();
         let limit_s = limit.to_string();
         let params = [("since_seq", since.as_str()), ("limit", limit_s.as_str())];
-        self.get_with_fallback(&primary, Some(&legacy), Some(&params))
+        self.get_with_strict(&primary, Some(&canonical), Some(&params))
             .await
     }
 
@@ -144,27 +144,27 @@ impl<'a> GraphEvolveClient<'a> {
         } else {
             format!("{}/{}/metrics?{}", GRAPH_EVOLVE_ENDPOINT, job_id, query)
         };
-        let legacy = if query.is_empty() {
-            format!("{}/{}/metrics", GRAPHGEN_LEGACY_ENDPOINT, job_id)
+        let canonical = if query.is_empty() {
+            format!("{}/{}/metrics", GRAPHGEN_canonical_ENDPOINT, job_id)
         } else {
-            format!("{}/{}/metrics?{}", GRAPHGEN_LEGACY_ENDPOINT, job_id, query)
+            format!("{}/{}/metrics?{}", GRAPHGEN_canonical_ENDPOINT, job_id, query)
         };
-        self.get_with_fallback(&primary, Some(&legacy), None).await
+        self.get_with_strict(&primary, Some(&canonical), None).await
     }
 
     /// Download best prompt (JSON).
     pub async fn download_prompt(&self, job_id: &str) -> Result<Value, CoreError> {
         let primary = format!("{}/{}/download", GRAPH_EVOLVE_ENDPOINT, job_id);
-        let legacy = format!("{}/{}/download", GRAPHGEN_LEGACY_ENDPOINT, job_id);
-        self.get_with_fallback(&primary, Some(&legacy), None).await
+        let canonical = format!("{}/{}/download", GRAPHGEN_canonical_ENDPOINT, job_id);
+        self.get_with_strict(&primary, Some(&canonical), None).await
     }
 
     /// Download redacted graph export (text).
     pub async fn download_graph_txt(&self, job_id: &str) -> Result<String, CoreError> {
         let primary = format!("{}/{}/graph.txt", GRAPH_EVOLVE_ENDPOINT, job_id);
-        let legacy = format!("{}/{}/graph.txt", GRAPHGEN_LEGACY_ENDPOINT, job_id);
+        let canonical = format!("{}/{}/graph.txt", GRAPHGEN_canonical_ENDPOINT, job_id);
         let bytes = self
-            .get_bytes_with_fallback(&primary, Some(&legacy))
+            .get_bytes_with_strict(&primary, Some(&canonical))
             .await?;
         Ok(String::from_utf8_lossy(&bytes).to_string())
     }
@@ -189,17 +189,21 @@ impl<'a> GraphEvolveClient<'a> {
 
     /// Cancel a job.
     pub async fn cancel_job(&self, job_id: &str, payload: Value) -> Result<Value, CoreError> {
-        let path = format!("/api/jobs/{}/cancel", job_id);
+        let path = format!("/api/v1/offline/jobs/{}", job_id);
+        let body = json!({
+            "state": "cancelled",
+            "reason": payload.get("reason").cloned().unwrap_or(Value::Null),
+        });
         self.client
             .http
-            .post_json(&path, &payload)
+            .patch_json(&path, &body)
             .await
             .map_err(map_http_error)
     }
 
     /// Query workflow state directly.
     pub async fn query_workflow_state(&self, job_id: &str) -> Result<Value, CoreError> {
-        let path = format!("/api/jobs/{}/workflow-state", job_id);
+        let path = format!("/api/v1/offline/jobs/{}", job_id);
         match self.client.http.get_json(&path, None).await {
             Ok(value) => Ok(value),
             Err(err) => {

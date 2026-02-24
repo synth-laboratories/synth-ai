@@ -171,8 +171,8 @@ def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> 
     return normalized
 
 
-def _normalize_legacy_mipro_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize legacy MIPRO field aliases before strict validation."""
+def _normalize_canonical_mipro_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize canonical MIPRO field aliases before strict validation."""
     normalized = deepcopy(config_data)
     sections: list[dict[str, Any]] = []
     if isinstance(normalized.get("prompt_learning"), dict):
@@ -195,7 +195,7 @@ def _normalize_legacy_mipro_aliases(config_data: dict[str, Any]) -> dict[str, An
 def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
     """Normalize GEPA proposer alias fields to canonical synth proposer settings.
 
-    Legacy/new benchmark configs may send:
+    Canonical/new benchmark configs may send:
     - prompt_learning.gepa.proposer_backend = "prompt" | "rlm" | "agent"
     - prompt_learning.gepa.proposer.prompt.strategy = "synth"
     - prompt_learning.gepa.context_override = {...}
@@ -272,7 +272,7 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """Validate prompt learning config using Rust core."""
     normalized_for_validation = _normalize_container_task_app_aliases(
-        _normalize_gepa_aliases(_normalize_legacy_mipro_aliases(config_data))
+        _normalize_gepa_aliases(_normalize_canonical_mipro_aliases(config_data))
     )
     try:
         validation_result = _validate_unknown_fields(

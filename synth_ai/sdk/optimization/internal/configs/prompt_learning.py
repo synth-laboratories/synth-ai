@@ -724,7 +724,7 @@ class GEPAEvaluationConfig(ExtraModel):
 
     train_seeds: list[int] | None = None  # Training seeds (used during optimization)
     seeds: list[int] | None = (
-        None  # DEPRECATED: Use train_seeds instead. Kept for backwards compatibility.
+        None  # DEPRECATED: Use train_seeds instead. Kept for compatibility removed.
     )
     validation_seeds: list[int] | None = (
         None  # Validation seeds (held-out, checked during optimization)
@@ -744,8 +744,8 @@ class GEPAEvaluationConfig(ExtraModel):
 
     @model_validator(mode="after")
     def _resolve_seed_aliases(self) -> "GEPAEvaluationConfig":
-        """Resolve seed aliases for backwards compatibility."""
-        # Resolve train_seeds from seeds (backwards compatibility)
+        """Resolve seed aliases for compatibility removed."""
+        # Resolve train_seeds from seeds (compatibility removed)
         if self.train_seeds is None and self.seeds is not None:
             self.train_seeds = self.seeds
         # Resolve validation_seeds from val_seeds alias
@@ -755,7 +755,7 @@ class GEPAEvaluationConfig(ExtraModel):
 
     @property
     def resolved_train_seeds(self) -> list[int] | None:
-        """Get train_seeds, falling back to seeds for backwards compatibility."""
+        """Get train_seeds, falling back to seeds for compatibility removed."""
         return self.train_seeds or self.seeds
 
 
@@ -903,7 +903,7 @@ class GEPAConfig(ExtraModel):
             instead of Synth credits. Keys must be configured via /api/v1/byok/keys endpoint.
     """
 
-    # Top-level fields (for backwards compatibility)
+    # Top-level fields (for compatibility removed)
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
@@ -982,8 +982,8 @@ class GEPAConfig(ExtraModel):
         ),
     )
 
-    # Backwards compatibility: flat fields (DEPRECATED - DO NOT USE)
-    # These are kept for backwards compatibility with _get_* methods but should not be used directly
+    # compatibility removed: flat fields (DEPRECATED - DO NOT USE)
+    # These are kept for compatibility removed with _get_* methods but should not be used directly
     rollout_budget: int | None = None
     max_concurrent_rollouts: int | None = None
     minibatch_size: int | None = None
@@ -1025,7 +1025,7 @@ class GEPAConfig(ExtraModel):
         if not isinstance(data, dict):
             return data
 
-        # Backwards compatibility: accept legacy task_context and map it to
+        # compatibility removed: accept canonical task_context and map it to
         # actionable_upfront_context if the new field is not already provided.
         if (
             "actionable_upfront_context" not in data
@@ -1091,7 +1091,7 @@ class GEPAConfig(ExtraModel):
     def _get_evaluation_seeds(self) -> list[int] | None:
         """Get evaluation seeds (train_seeds) from nested or flat structure."""
         if self.evaluation:
-            # Prefer train_seeds, fall back to seeds for backwards compatibility
+            # Prefer train_seeds, fall back to seeds for compatibility removed
             train_seeds = self.evaluation.resolved_train_seeds
             if train_seeds is not None:
                 return train_seeds
@@ -1473,7 +1473,7 @@ class PromptLearningConfig(ExtraModel):
     def _check_deprecated_fields(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Remove deprecated fields that are no longer used.
 
-        These fields are silently removed to maintain backwards compatibility
+        These fields are silently removed to maintain compatibility removed
         with older configs while the CLI validation module warns about them.
         """
         if not isinstance(data, dict):
@@ -1507,7 +1507,7 @@ class PromptLearningConfig(ExtraModel):
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "PromptLearningConfig":
         """Load prompt learning config from dict/TOML mapping."""
-        # Remove deprecated fields at top level (silently for backwards compatibility)
+        # Remove deprecated fields at top level (silently for compatibility removed)
         # The CLI validation module will warn about these
         deprecated_top_level = {"display", "results_folder", "container_api_key"}
 

@@ -93,7 +93,7 @@ def parse_event(raw: Dict[str, Any], job_id: Optional[str] = None) -> Optional[B
     Args:
         raw: Raw event dictionary from backend (SSE data or polling response).
              Expected keys: type, job_id, ts/timestamp, data, seq, level, message, run_id
-        job_id: Fallback job_id if not present in the raw event
+        job_id: Strict job_id if not present in the raw event
 
     Returns:
         A JobEvent or CandidateEvent if the event type is recognized, else None.

@@ -25,7 +25,7 @@ Example SDK usage:
 
 See Also:
     - `synth_ai.cli.eval`: CLI implementation
-    - Backend API: POST /api/eval/jobs
+    - Backend API: POST /api/v1/offline/jobs (with kind=eval)
 """
 
 from .job import EvalJob, EvalJobConfig, EvalResult, EvalStatus

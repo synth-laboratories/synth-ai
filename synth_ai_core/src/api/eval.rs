@@ -12,16 +12,16 @@ use crate::polling::{calculate_backoff, BackoffConfig};
 use crate::CoreError;
 
 use super::client::SynthClient;
-use super::types::{CancelRequest, EvalJobRequest, EvalJobStatus, EvalResult, JobSubmitResponse};
+use super::types::{EvalJobRequest, EvalJobStatus, EvalResult, JobSubmitResponse};
 
 /// Canonical API endpoint root for job status/events.
-const JOBS_ROOT: &str = "/api/jobs";
+const JOBS_ROOT: &str = "/api/v1/offline/jobs";
 
 /// Canonical create endpoint for eval jobs.
-const EVAL_CREATE_ENDPOINT: &str = "/api/jobs/eval";
+const EVAL_CREATE_ENDPOINT: &str = "/api/v1/offline/jobs";
 
-/// Legacy API endpoint for eval-specific operations (status, results, traces, list).
-const EVAL_ENDPOINT: &str = "/api/eval/jobs";
+/// Canonical API endpoint for eval job listing.
+const EVAL_ENDPOINT: &str = "/api/v1/offline/jobs";
 
 /// Eval API client.
 ///
@@ -59,8 +59,14 @@ impl<'a> EvalClient<'a> {
     /// ```
     pub async fn submit(&self, request: EvalJobRequest) -> Result<String, CoreError> {
         let worker_token = request.container_worker_token.clone();
-        let body = serde_json::to_value(&request)
+        let config_body = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
+        let body = serde_json::json!({
+            "kind": "eval",
+            "technique": "discrete_optimization",
+            "config_mode": "DEFAULT",
+            "config": config_body,
+        });
         let response: JobSubmitResponse = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -87,10 +93,16 @@ impl<'a> EvalClient<'a> {
 
     /// Submit a raw evaluation job from a JSON value.
     pub async fn submit_raw(&self, request: Value) -> Result<String, CoreError> {
+        let body = serde_json::json!({
+            "kind": "eval",
+            "technique": "discrete_optimization",
+            "config_mode": "DEFAULT",
+            "config": request,
+        });
         let response: JobSubmitResponse = self
             .client
             .http
-            .post_json(EVAL_CREATE_ENDPOINT, &request)
+            .post_json(EVAL_CREATE_ENDPOINT, &body)
             .await
             .map_err(map_http_error)?;
 
@@ -107,13 +119,14 @@ impl<'a> EvalClient<'a> {
     ///
     /// The current eval result including status, mean reward, etc.
     pub async fn get_status(&self, job_id: &str) -> Result<EvalResult, CoreError> {
-        // TODO: migrate to /api/jobs/{id} once backend response shape is unified
         let path = format!("{}/{}", EVAL_ENDPOINT, job_id);
-        self.client
+        let payload: Value = self
+            .client
             .http
             .get(&path, None)
             .await
-            .map_err(map_http_error)
+            .map_err(map_http_error)?;
+        parse_eval_result(payload, job_id)
     }
 
     /// Get detailed eval results for a job.
@@ -218,20 +231,22 @@ impl<'a> EvalClient<'a> {
     /// * `job_id` - The job ID to cancel
     /// * `reason` - Optional cancellation reason
     pub async fn cancel(&self, job_id: &str, reason: Option<String>) -> Result<Value, CoreError> {
-        let path = format!("{}/{}/cancel", JOBS_ROOT, job_id);
-        let body = serde_json::to_value(&CancelRequest { reason })
-            .unwrap_or(Value::Object(serde_json::Map::new()));
+        let path = format!("{}/{}", JOBS_ROOT, job_id);
+        let body = serde_json::json!({
+            "state": "cancelled",
+            "reason": reason,
+        });
 
         self.client
             .http
-            .post_json(&path, &body)
+            .patch_json(&path, &body)
             .await
             .map_err(map_http_error)
     }
 
     /// Query workflow state for an eval job.
     pub async fn query_workflow_state(&self, job_id: &str) -> Result<Value, CoreError> {
-        let path = format!("/api/jobs/{}/workflow-state", job_id);
+        let path = format!("{}/{}", JOBS_ROOT, job_id);
         self.client
             .http
             .get_json(&path, None)
@@ -251,6 +266,7 @@ impl<'a> EvalClient<'a> {
         status: Option<EvalJobStatus>,
     ) -> Result<Vec<EvalResult>, CoreError> {
         let mut params = vec![];
+        params.push(("kind", "eval"));
 
         let limit_str;
         if let Some(l) = limit {
@@ -261,7 +277,7 @@ impl<'a> EvalClient<'a> {
         let status_str;
         if let Some(s) = status {
             status_str = s.as_str().to_string();
-            params.push(("status", status_str.as_str()));
+            params.push(("state", status_str.as_str()));
         }
 
         let params_ref: Option<&[(&str, &str)]> = if params.is_empty() {
@@ -270,11 +286,25 @@ impl<'a> EvalClient<'a> {
             Some(&params)
         };
 
-        self.client
+        let payload: Value = self
+            .client
             .http
             .get(EVAL_ENDPOINT, params_ref)
             .await
-            .map_err(map_http_error)
+            .map_err(map_http_error)?;
+
+        let rows = payload
+            .get("data")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let mut out = Vec::new();
+        for row in rows {
+            if let Ok(result) = parse_eval_result(row, "") {
+                out.push(result);
+            }
+        }
+        Ok(out)
     }
 }
 
@@ -300,14 +330,66 @@ fn map_http_error(e: HttpError) -> CoreError {
     }
 }
 
+fn parse_eval_result(payload: Value, strict_job_id: &str) -> Result<EvalResult, CoreError> {
+    let summary = payload
+        .get("summary")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let status_text = payload
+        .get("status")
+        .and_then(Value::as_str)
+        .or_else(|| payload.get("state").and_then(Value::as_str))
+        .unwrap_or("pending")
+        .to_ascii_lowercase();
+    let status = EvalJobStatus::from_str(&status_text).unwrap_or(EvalJobStatus::Pending);
+    let mean_reward = payload
+        .get("mean_reward")
+        .and_then(Value::as_f64)
+        .or_else(|| summary.get("mean_reward").and_then(Value::as_f64))
+        .or_else(|| payload.get("best_objective_value").and_then(Value::as_f64));
+    let total_tokens = payload
+        .get("total_tokens")
+        .and_then(Value::as_i64)
+        .or_else(|| summary.get("total_tokens").and_then(Value::as_i64));
+    let num_completed = payload
+        .get("num_completed")
+        .and_then(Value::as_i64)
+        .or_else(|| summary.get("completed").and_then(Value::as_i64))
+        .unwrap_or(0) as i32;
+    let num_total = payload
+        .get("num_total")
+        .and_then(Value::as_i64)
+        .or_else(|| summary.get("total").and_then(Value::as_i64))
+        .unwrap_or(0) as i32;
+    let job_id = payload
+        .get("job_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or(strict_job_id)
+        .to_string();
+    Ok(EvalResult {
+        job_id,
+        status,
+        mean_reward,
+        total_tokens,
+        num_completed,
+        num_total,
+        error: payload
+            .get("error")
+            .and_then(Value::as_str)
+            .map(ToString::to_string),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_eval_endpoint() {
-        assert_eq!(EVAL_CREATE_ENDPOINT, "/api/jobs/eval");
-        assert_eq!(EVAL_ENDPOINT, "/api/eval/jobs");
-        assert_eq!(JOBS_ROOT, "/api/jobs");
+        assert_eq!(EVAL_CREATE_ENDPOINT, "/api/v1/offline/jobs");
+        assert_eq!(EVAL_ENDPOINT, "/api/v1/offline/jobs");
+        assert_eq!(JOBS_ROOT, "/api/v1/offline/jobs");
     }
 }

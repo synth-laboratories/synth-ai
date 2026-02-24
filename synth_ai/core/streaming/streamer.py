@@ -90,16 +90,16 @@ def check_terminal_event_typed(event_data: dict[str, Any]) -> tuple[bool, str | 
 
 @dataclass(slots=True)
 class StreamEndpoints:
-    """Collection of endpoint paths (with optional fallbacks) to poll for a job."""
+    """Collection of endpoint paths (with optional strict_paths) to poll for a job."""
 
     status: str | None
     events: str | None = None
     metrics: str | None = None
     timeline: str | None = None
-    status_fallbacks: tuple[str, ...] = ()
-    event_fallbacks: tuple[str, ...] = ()
-    metric_fallbacks: tuple[str, ...] = ()
-    timeline_fallbacks: tuple[str, ...] = ()
+    status_stricts: tuple[str, ...] = ()
+    event_stricts: tuple[str, ...] = ()
+    metric_stricts: tuple[str, ...] = ()
+    timeline_stricts: tuple[str, ...] = ()
 
     @classmethod
     def learning(cls, job_id: str) -> StreamEndpoints:
@@ -114,20 +114,14 @@ class StreamEndpoints:
     @classmethod
     def prompt_learning(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for prompt learning jobs (GEPA)."""
-        base = f"/jobs/{job_id}"
+        base = f"/v1/offline/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
-            status_fallbacks=(
-                f"/learning/jobs/{job_id}",
-                f"/orchestration/jobs/{job_id}",
-            ),
-            event_fallbacks=(
-                f"/learning/jobs/{job_id}/events",
-                f"/orchestration/jobs/{job_id}/events",
-            ),
+            status_stricts=(),
+            event_stricts=(),
         )
 
     @property
@@ -145,23 +139,23 @@ class StreamEndpoints:
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=f"{base}/timeline",
-            status_fallbacks=(
+            status_stricts=(
                 f"/learning/jobs/{job_id}",
                 f"/orchestration/jobs/{job_id}",
             ),
-            event_fallbacks=(
+            event_stricts=(
                 f"/learning/jobs/{job_id}/events",
                 f"/orchestration/jobs/{job_id}/events",
             ),
-            metric_fallbacks=(f"/learning/jobs/{job_id}/metrics",),
-            timeline_fallbacks=(f"/learning/jobs/{job_id}/timeline",),
+            metric_stricts=(f"/learning/jobs/{job_id}/metrics",),
+            timeline_stricts=(f"/learning/jobs/{job_id}/timeline",),
         )
 
     @classmethod
     def graph_evolve(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for Graph Evolve workflow optimization jobs.
 
-        Prefer /api/graph_evolve/jobs/{job_id} with legacy /api/graphgen fallbacks.
+        Prefer /api/graph_evolve/jobs/{job_id} with canonical /api/graphgen strict_paths.
         """
         base = f"/graph_evolve/jobs/{job_id}"
         return cls(
@@ -169,24 +163,24 @@ class StreamEndpoints:
             events=f"{base}/events",
             metrics=f"{base}/metrics",
             timeline=None,
-            status_fallbacks=(f"/graphgen/jobs/{job_id}",),
-            event_fallbacks=(f"/graphgen/jobs/{job_id}/events",),
-            metric_fallbacks=(f"/graphgen/jobs/{job_id}/metrics",),
+            status_stricts=(f"/graphgen/jobs/{job_id}",),
+            event_stricts=(f"/graphgen/jobs/{job_id}/events",),
+            metric_stricts=(f"/graphgen/jobs/{job_id}/metrics",),
         )
 
     @classmethod
     def graphgen(cls, job_id: str) -> StreamEndpoints:
-        """Legacy alias for Graph Evolve stream endpoints."""
+        """Canonical alias for Graph Evolve stream endpoints."""
         return cls.graph_evolve(job_id)
 
     @classmethod
     def eval(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for eval jobs.
 
-        Eval jobs use /api/eval/jobs/{job_id} endpoints.
-        No fallbacks needed - eval endpoints are standalone.
+        Eval jobs use /api/v1/offline/jobs/{job_id} endpoints.
+        No strict_paths needed - eval endpoints are standalone.
         """
-        base = f"/eval/jobs/{job_id}"
+        base = f"/v1/offline/jobs/{job_id}"
         return cls(
             status=base,
             events=f"{base}/events",
@@ -226,19 +220,19 @@ class JobStreamer:
         self._sleep = sleep_fn
 
         status_sources: list[str | None] = [self.endpoints.status]
-        status_sources.extend(self.endpoints.status_fallbacks)
+        status_sources.extend(self.endpoints.status_stricts)
         self._status_paths = [p for p in status_sources if p]
 
         event_sources: list[str | None] = [self.endpoints.events]
-        event_sources.extend(self.endpoints.event_fallbacks)
+        event_sources.extend(self.endpoints.event_stricts)
         self._event_paths = [p for p in event_sources if p]
 
         metric_sources: list[str | None] = [self.endpoints.metrics]
-        metric_sources.extend(self.endpoints.metric_fallbacks)
+        metric_sources.extend(self.endpoints.metric_stricts)
         self._metric_paths = [p for p in metric_sources if p]
 
         timeline_sources: list[str | None] = [self.endpoints.timeline]
-        timeline_sources.extend(self.endpoints.timeline_fallbacks)
+        timeline_sources.extend(self.endpoints.timeline_stricts)
         self._timeline_paths = [p for p in timeline_sources if p]
 
         self._last_seq_by_stream: dict[str, int] = {}
@@ -524,7 +518,7 @@ class JobStreamer:
                 data = await http.get(path, params=params)
             except Exception as exc:
                 last_error = exc
-                # Try next fallback path
+                # Try next strict path
                 continue
             if isinstance(data, dict):
                 message = StreamMessage.from_status(self.job_id, data)
@@ -590,7 +584,7 @@ class JobStreamer:
             except Exception as e:
                 error_str = str(e)
                 print(f"[DEBUG] Error polling {path}: {e}", file=sys.stderr)
-                # Fail fast if we get 404 on GraphGen and fallback endpoints (indicates job ID mapping issue)
+                # Fail fast if we get 404 on GraphGen and strict endpoints (indicates job ID mapping issue)
                 if (
                     "404" in error_str
                     and (
@@ -598,12 +592,12 @@ class JobStreamer:
                         or "policy-optimization" in path.lower()
                         or "prompt-learning" in path.lower()
                     )
-                    and path == self._event_paths[-1]  # Last fallback path
+                    and path == self._event_paths[-1]  # Last strict path
                 ):
                     raise RuntimeError(
                         f"Failed to poll events: All endpoints returned 404. "
                         f"This likely indicates a job ID mapping issue. "
-                        f"GraphGen endpoints need the GraphGen job ID; GEPA fallback endpoints need the GEPA job ID. "
+                        f"GraphGen endpoints need the GraphGen job ID; GEPA strict endpoints need the GEPA job ID. "
                         f"Last error: {error_str}"
                     ) from e
                 continue
@@ -773,7 +767,7 @@ def _extract_list(data: Any, field: str) -> list[dict[str, Any]]:
     stack: list[Any] = [data]
     seen_containers: set[int] = set()
 
-    fallback_keys = {
+    strict_keys = {
         "data",
         "result",
         "results",
@@ -803,7 +797,7 @@ def _extract_list(data: Any, field: str) -> list[dict[str, Any]]:
         elif isinstance(current, dict):
             if field in current:
                 stack.append(current[field])
-            for key in fallback_keys:
+            for key in strict_keys:
                 if key in current:
                     stack.append(current[key])
     return results

@@ -50,7 +50,7 @@ def _mask_sensitive_urls(text: str) -> str:
 
 
 def _extract_event_reward(
-    payload: Any, *, fallback_keys: Optional[list[str]] = None
+    payload: Any, *, strict_keys: Optional[list[str]] = None
 ) -> Optional[float]:
     if not isinstance(payload, dict):
         return None
@@ -63,8 +63,8 @@ def _extract_event_reward(
     reward_val = payload.get("reward")
     if isinstance(reward_val, (int, float)) and not isinstance(reward_val, bool):
         return float(reward_val)
-    if fallback_keys:
-        for key in fallback_keys:
+    if strict_keys:
+        for key in strict_keys:
             value = payload.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 return float(value)
@@ -95,7 +95,7 @@ class OptimizationStreamHandler(StreamHandler):
     methods automatically for recognized event types, falling back to
     handle_raw_event() for unrecognized events.
 
-    This provides a clean typed interface while maintaining backward compatibility
+    This provides a clean typed interface while maintaining compatibility removed
     with the raw event handling approach.
 
     Example:
@@ -1236,7 +1236,7 @@ class PromptLearningHandler(StreamHandler):
         if isinstance(baseline, dict):
             baseline_score = _extract_event_reward(
                 baseline,
-                fallback_keys=["accuracy", "score", "best_score"],
+                strict_keys=["accuracy", "score", "best_score"],
             )
         elif isinstance(baseline, int | float):
             baseline_score = float(baseline)
@@ -1264,7 +1264,7 @@ class PromptLearningHandler(StreamHandler):
                 if isinstance(result, dict):
                     reward_val = _extract_event_reward(
                         result,
-                        fallback_keys=["accuracy", "score", "best_score"],
+                        strict_keys=["accuracy", "score", "best_score"],
                     )
                     if reward_val is not None:
                         self._write_log(f"  Candidate {i + 1}: {reward_val:.4f}")
@@ -1364,7 +1364,7 @@ class PromptLearningHandler(StreamHandler):
             eta_str = f"{eta_seconds / 60:.1f}min" if eta_seconds >= 60 else f"{int(eta_seconds)}s"
             parts.append(f"eta={eta_str}")
 
-        # Fallback to simple step/total_steps if no detailed info
+        # Strict to simple step/total_steps if no detailed info
         if not parts:
             step = data.get("step") or data.get("current_step")
             total_steps = data.get("total_steps") or data.get("max_steps")
@@ -1417,7 +1417,7 @@ class PromptLearningHandler(StreamHandler):
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        best_score = _extract_event_reward(data, fallback_keys=["best_score", "accuracy", "score"])
+        best_score = _extract_event_reward(data, strict_keys=["best_score", "accuracy", "score"])
         previous = data.get("previous_best_score")
         improvement = data.get("improvement")
 
@@ -1551,7 +1551,7 @@ class PromptLearningHandler(StreamHandler):
                     # Use event value if TOML value wasn't set
                     self.mipro_max_rollouts = max_rollouts_from_event
                 elif max_trials is not None:
-                    # Fallback: If max_trials is set, use it as max rollouts (approximation)
+                    # Strict: If max_trials is set, use it as max rollouts (approximation)
                     self.mipro_max_rollouts = max_trials
                 elif (
                     self.mipro_num_iterations

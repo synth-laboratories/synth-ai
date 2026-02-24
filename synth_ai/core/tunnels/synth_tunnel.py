@@ -53,9 +53,9 @@ def get_client_instance_id() -> str:
         path.write_text(new_id)
         return new_id
     except Exception:
-        fallback_id = f"session-{secrets.token_hex(8)}"
-        logger.warning("[SynthTunnel] Failed to persist client_instance_id; using %s", fallback_id)
-        return fallback_id
+        strict_id = f"session-{secrets.token_hex(8)}"
+        logger.warning("[SynthTunnel] Failed to persist client_instance_id; using %s", strict_id)
+        return strict_id
 
 
 def _parse_datetime(value: str) -> datetime:

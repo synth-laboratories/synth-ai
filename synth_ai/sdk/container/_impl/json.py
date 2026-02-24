@@ -21,7 +21,7 @@ def to_jsonable(
 
     if synth_ai_py is not None and hasattr(synth_ai_py, "container_to_jsonable"):
         return synth_ai_py.container_to_jsonable(value)
-    return _fallback_to_jsonable(
+    return _strict_to_jsonable(
         value,
         _visited=_visited,
         _depth=_depth,
@@ -29,7 +29,7 @@ def to_jsonable(
     )
 
 
-def _fallback_to_jsonable(
+def _strict_to_jsonable(
     value: Any,
     *,
     _visited: set[int] | None,
@@ -57,7 +57,7 @@ def _fallback_to_jsonable(
         if isinstance(value, dict):
             converted = {}
             for key, item in value.items():
-                key_json = _fallback_to_jsonable(
+                key_json = _strict_to_jsonable(
                     key,
                     _visited=_visited,
                     _depth=_depth + 1,
@@ -65,7 +65,7 @@ def _fallback_to_jsonable(
                 )
                 if not isinstance(key_json, str):
                     key_json = str(key_json)
-                converted[key_json] = _fallback_to_jsonable(
+                converted[key_json] = _strict_to_jsonable(
                     item,
                     _visited=_visited,
                     _depth=_depth + 1,
@@ -75,7 +75,7 @@ def _fallback_to_jsonable(
 
         if isinstance(value, (list, tuple, set, frozenset)):
             return [
-                _fallback_to_jsonable(
+                _strict_to_jsonable(
                     item,
                     _visited=_visited,
                     _depth=_depth + 1,
@@ -85,7 +85,7 @@ def _fallback_to_jsonable(
             ]
 
         if hasattr(value, "model_dump") and callable(value.model_dump):
-            return _fallback_to_jsonable(
+            return _strict_to_jsonable(
                 value.model_dump(),
                 _visited=_visited,
                 _depth=_depth + 1,
@@ -93,7 +93,7 @@ def _fallback_to_jsonable(
             )
 
         if hasattr(value, "dict") and callable(value.dict):
-            return _fallback_to_jsonable(
+            return _strict_to_jsonable(
                 value.dict(),
                 _visited=_visited,
                 _depth=_depth + 1,
@@ -101,7 +101,7 @@ def _fallback_to_jsonable(
             )
 
         if hasattr(value, "__dict__"):
-            return _fallback_to_jsonable(
+            return _strict_to_jsonable(
                 value.__dict__,
                 _visited=_visited,
                 _depth=_depth + 1,

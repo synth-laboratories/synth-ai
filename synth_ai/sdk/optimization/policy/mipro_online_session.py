@@ -83,7 +83,7 @@ async def _patch_state_with_action_canonical(
     action: str,
 ) -> Dict[str, Any]:
     base = ensure_api_base(backend_url).rstrip("/")
-    canonical_url = f"{base}/v1/policy-optimization/online-sessions/{session_id}"
+    canonical_url = f"{base}/v1/online/sessions/{session_id}"
     headers = _auth_headers(api_key)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -201,7 +201,7 @@ class MiproOnlineSession:
         """
         warnings.warn(
             'MiproOnlineSession is deprecated and will be removed on 2026-10-01. '
-            'Use PolicyOptimizationOnlineSession.create(algorithm="mipro", ...).',
+            'Use PolicyOptimizationOnlineSession.create(kind="mipro_online", ...).',
             DeprecationWarning,
             stacklevel=2,
         )
@@ -220,7 +220,7 @@ class MiproOnlineSession:
             agent_id=agent_id,
         )
         canonical_body = dict(body)
-        canonical_body["algorithm"] = "mipro"
+        canonical_body["kind"] = "mipro_online"
         canonical_body.setdefault("technique", "discrete_optimization")
         canonical_body.setdefault(
             "system",
@@ -230,7 +230,7 @@ class MiproOnlineSession:
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await _post_json_with_canonical(
                 http,
-                canonical_path="/v1/policy-optimization/online-sessions",
+                canonical_path="/v1/online/sessions",
                 payload=canonical_body,
             )
 
@@ -328,13 +328,12 @@ class MiproOnlineSession:
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             status_response = await _get_with_canonical(
                 http,
-                canonical_path=f"/v1/policy-optimization/online-sessions/{session_id}",
-                params={"algorithm": "mipro"},
+                canonical_path=f"/v1/online/sessions/{session_id}",
             )
             online_url = status_response.get("online_url")
             if not online_url:
                 response = await http.get(
-                    f"/v1/policy-optimization/online-sessions/{session_id}/prompt",
+                    f"/v1/online/sessions/{session_id}/prompt",
                     params=params or None,
                 )
                 status_response = _expect_dict_response(
@@ -390,8 +389,7 @@ class MiproOnlineSession:
         ) as http:
             return await _get_with_canonical(
                 http,
-                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}",
-                params={"algorithm": "mipro"},
+                canonical_path=f"/v1/online/sessions/{self.session_id}",
             )
 
     def status(self) -> Dict[str, Any]:
@@ -501,7 +499,7 @@ class MiproOnlineSession:
         ) as http:
             result = await _post_json_with_canonical(
                 http,
-                canonical_path=f"/v1/policy-optimization/online-sessions/{self.session_id}/reward",
+                canonical_path=f"/v1/online/sessions/{self.session_id}/reward",
                 payload=payload,
             )
         return result
@@ -569,7 +567,7 @@ class MiproOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(
-                f"/v1/policy-optimization/online-sessions/{self.session_id}/prompt",
+                f"/v1/online/sessions/{self.session_id}/prompt",
                 params=params or None,
             )
         return _expect_dict_response(result, context="MIPRO prompt endpoint")

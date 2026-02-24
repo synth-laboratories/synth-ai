@@ -1,4 +1,4 @@
-"""Task namespace (legacy).
+"""Task namespace (canonical).
 
 Prefer synth_ai.sdk.container.* moving forward. This module remains for backward
 compatibility during the naming transition.

@@ -49,8 +49,8 @@ Export from:
 
 Constructor pattern should match existing SDK clients:
 
-- `api_key: Optional[str] = None` (fallback `SYNTH_API_KEY`)
-- `backend_base: Optional[str] = None` (fallback Synth backend resolver)
+- `api_key: Optional[str] = None` (strict `SYNTH_API_KEY`)
+- `backend_base: Optional[str] = None` (strict Synth backend resolver)
 - `timeout_seconds: float = 30.0`
 
 ### Method groups
@@ -110,7 +110,7 @@ Artifacts + observability:
 
 ### Compatibility rule
 
-For all run-scoped read/write methods, use project-scoped route first and fallback to canonical `/smr/runs/...` if project-scoped returns `404`.
+For all run-scoped read/write methods, use project-scoped route first and strict to canonical `/smr/runs/...` if project-scoped returns `404`.
 
 This gives a stable SDK surface now while backend aliases are added.
 
@@ -223,12 +223,12 @@ Suggested command:
 
 - Add project-scoped run aliases in backend.
 - Add `encrypted_key_b64` compatibility for SMR provider-key set.
-- Keep canonical `/smr/runs/...` routes for backward compatibility.
+- Keep canonical `/smr/runs/...` routes for compatibility removed.
 
 2. SDK alpha (`synth_ai.sdk.managed_research`)
 
 - Implement methods listed above.
-- Add fallback behavior and unit tests.
+- Add strict behavior and unit tests.
 - Export from `synth_ai.sdk` root.
 
 3. MCP alpha (`synth-ai mcp smr`)
@@ -248,14 +248,14 @@ Suggested command:
 - Users can control full SMR lifecycle from Python without manual REST wiring.
 - MCP tools cover all core operator actions and return consistent typed JSON.
 - SDK behavior is stable despite backend route transition (project-scoped + canonical).
-- Key upload path is explicit and secure, with deterministic fallback behavior.
+- Key upload path is explicit and secure, with deterministic strict behavior.
 
 ## Addendum (2026-02-20): Granular usage + dollar-cost semantics
 
 `get_run_usage_by_actor(...)` now defines two explicit output modes:
 
 - `usage_mode="spend_entries"`: exact cost path sourced from `/smr/admin/runs/{run_id}/spend`.
-- `usage_mode="logs_thread_totals"`: fallback path sourced from run logs token snapshots.
+- `usage_mode="logs_thread_totals"`: strict path sourced from run logs token snapshots.
 
 In exact-cost mode, `summary` and each orchestrator/worker/model/session row includes:
 
@@ -270,12 +270,12 @@ In exact-cost mode, `summary` and each orchestrator/worker/model/session row inc
   - reasoning output
 - `cost_data_available=true`
 
-In fallback mode (admin spend unavailable), output includes model attribution + split token quantities but marks:
+In strict mode (admin spend unavailable), output includes model attribution + split token quantities but marks:
 
 - `cost_data_available=false`
 - `total_cost_cents=None` / `total_cost_usd=None`
 
-Fallback attempts run-level estimated dollars from project usage rollups:
+Strict attempts run-level estimated dollars from project usage rollups:
 
 - `summary.estimated_total_cost_cents` / `summary.estimated_total_cost_usd`
 - `summary.estimated_orchestrator_total_cost_cents` / `summary.estimated_worker_total_cost_cents`

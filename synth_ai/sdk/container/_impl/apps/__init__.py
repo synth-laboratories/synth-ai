@@ -1,7 +1,7 @@
 """Registry for Containers exposed via the shared FastAPI harness.
 
 Prefer synth_ai.sdk.container.apps moving forward. This module remains for
-backward compatibility during the naming transition.
+compatibility removed during the naming transition.
 """
 
 from __future__ import annotations

@@ -17,7 +17,7 @@ try:
 except Exception:  # pragma: no cover
     _rust_data = None
 
-# Re-export context override types for backward compatibility
+# Re-export context override types for compatibility removed
 from synth_ai.data.coding_agent_context import (
     ApplicationErrorType,
     ApplicationStatus,
@@ -103,7 +103,7 @@ if _rust_models is not None:
 
 __all__ = [
     "Artifact",
-    # Re-exports for backward compatibility
+    # Re-exports for compatibility removed
     "OverrideType",
     "OverrideOperation",
     "FolderMode",

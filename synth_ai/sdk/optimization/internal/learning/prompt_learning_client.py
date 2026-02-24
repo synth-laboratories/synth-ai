@@ -626,15 +626,15 @@ def _validate_system_id(system_id: str) -> None:
 
 
 def _extract_reward_value(
-    payload: Any, fallback_keys: Optional[List[str]] = None
+    payload: Any, strict_keys: Optional[List[str]] = None
 ) -> Optional[float]:
     if not isinstance(payload, dict):
         return None
     reward_val = _extract_outcome_reward(payload)
     if reward_val is not None:
         return float(reward_val)
-    if fallback_keys:
-        for key in fallback_keys:
+    if strict_keys:
+        for key in strict_keys:
             raw = payload.get(key)
             if raw is None:
                 continue
@@ -729,7 +729,7 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        state_path = f"/api/v1/policy-optimization/online-sessions/{system_id}"
+        state_path = f"/api/v1/online/sessions/{system_id}"
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
                 payload = await http.get(state_path)
@@ -743,7 +743,7 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        events_path = f"/api/v1/policy-optimization/online-sessions/{system_id}/events"
+        events_path = f"/api/v1/online/sessions/{system_id}/events"
         params = {"since_seq": since_seq, "limit": limit}
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
@@ -765,7 +765,7 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        job_paths = [f"/api/jobs/{job_id}"]
+        job_paths = [f"/api/v1/offline/jobs/{job_id}"]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -793,10 +793,10 @@ class PromptLearningClient:
                 algorithm = (
                     str(merged.get("algorithm") or metadata.get("algorithm") or "").strip().lower()
                 )
-                needs_state_fallback = algorithm == "mipro" and (
+                needs_state_strict = algorithm == "mipro" and (
                     merged.get("best_reward") is None or merged.get("best_candidate") is None
                 )
-                if needs_state_fallback:
+                if needs_state_strict:
                     system_id = _extract_mipro_system_id_from_payload(merged)
                     if system_id:
                         state_payload = await self._fetch_mipro_state(system_id)
@@ -897,7 +897,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/jobs/{job_id}/candidates"
+        path = f"/api/v1/offline/jobs/{job_id}/candidates"
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -938,7 +938,7 @@ class PromptLearningClient:
         if not candidate_id:
             raise ValueError("candidate_id is required")
         paths = [
-            f"/api/jobs/{job_id}/candidates/{candidate_id}",
+            f"/api/v1/offline/jobs/{job_id}/candidates/{candidate_id}",
             f"/api/candidates/{candidate_id}",
         ]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
@@ -1057,7 +1057,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/jobs/{job_id}/seed-evals"
+        path = f"/api/v1/offline/jobs/{job_id}/seed-evals"
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1209,7 +1209,7 @@ class PromptLearningClient:
                 pass
 
         params = {"since_seq": since_seq, "limit": limit}
-        event_paths = [f"/api/jobs/{job_id}/events"]
+        event_paths = [f"/api/v1/offline/jobs/{job_id}/events"]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -1233,8 +1233,8 @@ class PromptLearningClient:
                         first_error = exc
                     continue
             best_events: List[Dict[str, Any]] = max(candidates, key=len) if candidates else []
-            needs_state_fallback = not best_events or len(best_events) <= 1
-            if needs_state_fallback:
+            needs_state_strict = not best_events or len(best_events) <= 1
+            if needs_state_strict:
                 try:
                     job_payload = await self.get_job(job_id)
                 except Exception:
@@ -1315,7 +1315,7 @@ class PromptLearningClient:
                 result.best_candidate = event_data.get("best_candidate") or event_data.get(
                     "best_prompt"
                 )
-                best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
+                best_score = _extract_reward_value(event_data, strict_keys=["best_score"])
                 if best_score is not None:
                     result.best_reward = best_score
                 best_candidate = (
@@ -1354,7 +1354,7 @@ class PromptLearningClient:
                         event_data,
                     )
                 if result.best_reward is None:
-                    best_score = _extract_reward_value(event_data, fallback_keys=["best_score"])
+                    best_score = _extract_reward_value(event_data, strict_keys=["best_score"])
                     if best_score is not None:
                         result.best_reward = best_score
 
@@ -1401,10 +1401,10 @@ class PromptLearningClient:
             # MIPRO completion event - extract best_score (canonical)
             elif event_type == "learning.policy.mipro.job.completed":
                 if result.best_reward is None:
-                    # Prefer unified best_score field, fallback to best_full_score or best_minibatch_score
+                    # Prefer unified best_score field, strict to best_full_score or best_minibatch_score
                     result.best_reward = _extract_reward_value(
                         event_data,
-                        fallback_keys=["best_score", "best_full_score", "best_minibatch_score"],
+                        strict_keys=["best_score", "best_full_score", "best_minibatch_score"],
                     )
                 if result.best_candidate is None:
                     candidate = event_data.get("best_candidate") or event_data.get("best_prompt")
@@ -1446,7 +1446,7 @@ class PromptLearningClient:
                     _append_event_bucket(result.mipro, "incumbents", event_type, event_data)
                     best_score = _extract_reward_value(
                         event_data,
-                        fallback_keys=["best_score", "score", "full_score", "minibatch_score"],
+                        strict_keys=["best_score", "score", "full_score", "minibatch_score"],
                     )
                     if best_score is not None and (
                         result.best_reward is None or best_score > result.best_reward
@@ -1482,12 +1482,12 @@ class PromptLearningClient:
             algorithm = (
                 str(job_payload.get("algorithm") or metadata.get("algorithm") or "").strip().lower()
             )
-            needs_state_fallback = algorithm == "mipro" and (
+            needs_state_strict = algorithm == "mipro" and (
                 result.best_reward is None
                 or result.best_candidate is None
                 or not result.attempted_candidates
             )
-            if needs_state_fallback:
+            if needs_state_strict:
                 system_id = _extract_mipro_system_id_from_payload(job_payload)
                 if system_id:
                     state_payload = await self._fetch_mipro_state(system_id)

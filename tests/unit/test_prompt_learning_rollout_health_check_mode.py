@@ -8,7 +8,7 @@ import pytest
 # builders.py imports click for ClickException, but this unit test only exercises
 # prompt-learning payload override wiring. Provide a light stub when click is
 # unavailable in minimal test environments.
-if "click" not in sys.modules:  # pragma: no cover - environment-specific fallback
+if "click" not in sys.modules:  # pragma: no cover - environment-specific strict
     click_stub = types.ModuleType("click")
 
     class _ClickException(Exception):

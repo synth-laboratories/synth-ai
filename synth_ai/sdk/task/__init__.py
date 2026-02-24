@@ -1,6 +1,6 @@
 """Backward-compatible task SDK re-exports.
 
-This module preserves legacy imports that referenced synth_ai.sdk.task.* by
+This module preserves canonical imports that referenced synth_ai.sdk.task.* by
 re-exporting the Local API contracts and helpers.
 """
 

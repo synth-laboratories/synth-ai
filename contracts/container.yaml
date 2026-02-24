@@ -60,12 +60,13 @@ info:
 
     **Option B - Via API (no Python needed):**
     ```bash
-    curl -X POST https://api.usesynth.ai/api/jobs \
+    curl -X POST https://api.usesynth.ai/api/v1/offline/jobs \
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "algorithm": "gepa",
-        "config_body": {
+        "kind": "gepa_offline",
+        "technique": "discrete_optimization",
+        "config": {
           "prompt_learning": {
             "container_url": "https://your-tunnel.trycloudflare.com",
             "container_api_key": "your-env-key"
@@ -665,7 +666,7 @@ components:
           nullable: true
           description: Optional debug detail for success_status.
 
-        # LEGACY FIELDS (Backward Compatibility)
+        # CANONICAL FIELDS (compatibility removed)
         branches:
           type: object
           additionalProperties:
@@ -673,7 +674,7 @@ components:
             items:
               type: string
           default: {}
-          description: "[LEGACY] Branch information. Usually empty."
+          description: "[CANONICAL] Branch information. Usually empty."
 
         aborted:
           type: boolean
@@ -684,7 +685,7 @@ components:
           type: object
           additionalProperties: true
           default: {}
-          description: "[LEGACY] Pipeline metadata. Prefer top-level fields."
+          description: "[CANONICAL] Pipeline metadata. Prefer top-level fields."
       example:
         trace_correlation_id: "trace_abc123"
         metrics:
@@ -693,7 +694,7 @@ components:
             reward: 1.0
           # ALSO SUPPORTED - scalar reward
           outcome_reward: 1.0
-          # LEGACY (for backward compatibility)
+          # CANONICAL (for compatibility removed)
           episode_rewards:
             - 1.0
           reward_mean: 1.0
@@ -1436,12 +1437,13 @@ info:
 
     **Option B - Via API (no Python needed):**
     ```bash
-    curl -X POST https://api.usesynth.ai/api/jobs \
+    curl -X POST https://api.usesynth.ai/api/v1/offline/jobs \
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "algorithm": "gepa",
-        "config_body": {
+        "kind": "gepa_offline",
+        "technique": "discrete_optimization",
+        "config": {
           "prompt_learning": {
             "container_url": "https://your-tunnel.trycloudflare.com",
             "container_api_key": "your-env-key"
@@ -2041,7 +2043,7 @@ components:
           nullable: true
           description: Optional debug detail for success_status.
 
-        # LEGACY FIELDS (Backward Compatibility)
+        # CANONICAL FIELDS (compatibility removed)
         branches:
           type: object
           additionalProperties:
@@ -2049,7 +2051,7 @@ components:
             items:
               type: string
           default: {}
-          description: "[LEGACY] Branch information. Usually empty."
+          description: "[CANONICAL] Branch information. Usually empty."
 
         aborted:
           type: boolean
@@ -2060,7 +2062,7 @@ components:
           type: object
           additionalProperties: true
           default: {}
-          description: "[LEGACY] Pipeline metadata. Prefer top-level fields."
+          description: "[CANONICAL] Pipeline metadata. Prefer top-level fields."
       example:
         trace_correlation_id: "trace_abc123"
         metrics:
@@ -2069,7 +2071,7 @@ components:
             reward: 1.0
           # ALSO SUPPORTED - scalar reward
           outcome_reward: 1.0
-          # LEGACY (for backward compatibility)
+          # CANONICAL (for compatibility removed)
           episode_rewards:
             - 1.0
           reward_mean: 1.0

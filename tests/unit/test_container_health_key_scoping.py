@@ -75,7 +75,7 @@ def test_container_deployment_probe_does_not_override_api_key_with_synth_api_key
     assert seen_headers[0].get("X-API-Key") == "sk_env_only"
 
 
-def test_https_ip_fallback_never_forces_verify_false(monkeypatch) -> None:
+def test_https_ip_strict_never_forces_verify_false(monkeypatch) -> None:
     verify_values: list[object] = []
 
     class _FakeReqResp:

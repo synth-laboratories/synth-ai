@@ -104,10 +104,10 @@ def _build_rust_endpoints(endpoints: Any) -> Any:
         metrics=endpoints.metrics,
         timeline=endpoints.timeline,
     )
-    for fallback in getattr(endpoints, "status_fallbacks", ()):
-        rust.with_status_fallback(fallback)
-    for fallback in getattr(endpoints, "event_fallbacks", ()):
-        rust.with_event_fallback(fallback)
+    for strict in getattr(endpoints, "status_stricts", ()):
+        rust.with_status_strict(strict)
+    for strict in getattr(endpoints, "event_stricts", ()):
+        rust.with_event_strict(strict)
     return rust
 
 
@@ -182,7 +182,7 @@ class JobStreamer:
             metric_messages = await self.poll_metrics()
             self._dispatch([*event_messages, *metric_messages])
 
-            # Fallback: if any event indicates terminal completion
+            # Strict: if any event indicates terminal completion
             for message in event_messages:
                 event_type = str(message.data.get("type") or "").lower()
                 if event_type.endswith("job.completed") or event_type.endswith("job.failed"):

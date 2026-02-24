@@ -1,7 +1,7 @@
 """Container SDK surface.
 
 Prefer this module over synth_ai.sdk.container._impl.* moving forward. The task namespace
-remains for backward compatibility while the naming transition completes.
+remains for compatibility removed while the naming transition completes.
 """
 
 from typing import TYPE_CHECKING, Any

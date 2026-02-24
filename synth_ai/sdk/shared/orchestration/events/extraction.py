@@ -21,7 +21,7 @@ except Exception as exc:  # pragma: no cover - rust bindings required
 
 
 class StageExtractionError(Exception):
-    """Raised when stage extraction fails and no fallback is acceptable."""
+    """Raised when stage extraction fails and no strict is acceptable."""
 
     pass
 
@@ -109,7 +109,7 @@ def extract_program_candidate_content(candidate: Dict[str, Any]) -> str:
     return rust.orchestration_extract_program_candidate_content(candidate)
 
 
-# Alias for backwards compatibility
+# Alias for compatibility removed
 extract_prompt_text_from_candidate = extract_program_candidate_content
 
 

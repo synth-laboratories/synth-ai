@@ -11,14 +11,14 @@ pub struct StreamEndpoints {
     pub metrics: Option<String>,
     /// Timeline endpoint.
     pub timeline: Option<String>,
-    /// Fallback status endpoints (tried in order if primary fails).
-    pub status_fallbacks: Vec<String>,
-    /// Fallback event endpoints.
-    pub event_fallbacks: Vec<String>,
-    /// Fallback metrics endpoints.
-    pub metric_fallbacks: Vec<String>,
-    /// Fallback timeline endpoints.
-    pub timeline_fallbacks: Vec<String>,
+    /// Strict status endpoints (tried in order if primary fails).
+    pub status_stricts: Vec<String>,
+    /// Strict event endpoints.
+    pub event_stricts: Vec<String>,
+    /// Strict metrics endpoints.
+    pub metric_stricts: Vec<String>,
+    /// Strict timeline endpoints.
+    pub timeline_stricts: Vec<String>,
 }
 
 impl StreamEndpoints {
@@ -30,43 +30,40 @@ impl StreamEndpoints {
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: Some(format!("{}/timeline", base)),
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
     /// Create endpoints for a prompt learning (GEPA) job.
     pub fn prompt_learning(job_id: &str) -> Self {
-        let base = format!("/jobs/{}", job_id);
+        let base = format!("/api/v1/offline/jobs/{}", job_id);
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: None,
-            status_fallbacks: vec![
-                format!("/learning/jobs/{}", job_id),
-                format!("/orchestration/jobs/{}", job_id),
-            ],
-            event_fallbacks: vec![format!("/learning/jobs/{}/events", job_id)],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
     /// Create endpoints for an eval job.
     pub fn eval(job_id: &str) -> Self {
-        let base = format!("/eval/jobs/{}", job_id);
+        let base = format!("/api/v1/offline/jobs/{}", job_id);
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),
             metrics: None,
             timeline: None,
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
@@ -78,16 +75,16 @@ impl StreamEndpoints {
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: Some(format!("{}/timeline", base)),
-            status_fallbacks: vec![
+            status_stricts: vec![
                 format!("/learning/jobs/{}", job_id),
                 format!("/orchestration/jobs/{}", job_id),
             ],
-            event_fallbacks: vec![
+            event_stricts: vec![
                 format!("/learning/jobs/{}/events", job_id),
                 format!("/orchestration/jobs/{}/events", job_id),
             ],
-            metric_fallbacks: vec![format!("/learning/jobs/{}/metrics", job_id)],
-            timeline_fallbacks: vec![format!("/learning/jobs/{}/timeline", job_id)],
+            metric_stricts: vec![format!("/learning/jobs/{}/metrics", job_id)],
+            timeline_stricts: vec![format!("/learning/jobs/{}/timeline", job_id)],
         }
     }
 
@@ -99,10 +96,10 @@ impl StreamEndpoints {
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: None,
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
@@ -114,10 +111,10 @@ impl StreamEndpoints {
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: None,
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
@@ -129,14 +126,14 @@ impl StreamEndpoints {
             events: Some(format!("{}/events", base)),
             metrics: Some(format!("{}/metrics", base)),
             timeline: None,
-            status_fallbacks: vec![format!("/graphgen/jobs/{}", job_id)],
-            event_fallbacks: vec![format!("/graphgen/jobs/{}/events", job_id)],
-            metric_fallbacks: vec![format!("/graphgen/jobs/{}/metrics", job_id)],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![format!("/graphgen/jobs/{}", job_id)],
+            event_stricts: vec![format!("/graphgen/jobs/{}/events", job_id)],
+            metric_stricts: vec![format!("/graphgen/jobs/{}/metrics", job_id)],
+            timeline_stricts: vec![],
         }
     }
 
-    /// Legacy alias for graph evolve endpoints.
+    /// Canonical alias for graph evolve endpoints.
     pub fn graphgen(job_id: &str) -> Self {
         Self::graph_evolve(job_id)
     }
@@ -153,34 +150,34 @@ impl StreamEndpoints {
             events,
             metrics,
             timeline,
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 
-    /// Add a status fallback endpoint.
-    pub fn with_status_fallback(mut self, endpoint: impl Into<String>) -> Self {
-        self.status_fallbacks.push(endpoint.into());
+    /// Add a status strict endpoint.
+    pub fn with_status_strict(mut self, endpoint: impl Into<String>) -> Self {
+        self.status_stricts.push(endpoint.into());
         self
     }
 
-    /// Add an event fallback endpoint.
-    pub fn with_event_fallback(mut self, endpoint: impl Into<String>) -> Self {
-        self.event_fallbacks.push(endpoint.into());
+    /// Add an event strict endpoint.
+    pub fn with_event_strict(mut self, endpoint: impl Into<String>) -> Self {
+        self.event_stricts.push(endpoint.into());
         self
     }
 
-    /// Add a metrics fallback endpoint.
-    pub fn with_metric_fallback(mut self, endpoint: impl Into<String>) -> Self {
-        self.metric_fallbacks.push(endpoint.into());
+    /// Add a metrics strict endpoint.
+    pub fn with_metric_strict(mut self, endpoint: impl Into<String>) -> Self {
+        self.metric_stricts.push(endpoint.into());
         self
     }
 
-    /// Add a timeline fallback endpoint.
-    pub fn with_timeline_fallback(mut self, endpoint: impl Into<String>) -> Self {
-        self.timeline_fallbacks.push(endpoint.into());
+    /// Add a timeline strict endpoint.
+    pub fn with_timeline_strict(mut self, endpoint: impl Into<String>) -> Self {
+        self.timeline_stricts.push(endpoint.into());
         self
     }
 
@@ -189,50 +186,50 @@ impl StreamEndpoints {
         self.events.as_ref().map(|e| format!("{}/stream", e))
     }
 
-    /// Get all status endpoints to try (primary + fallbacks).
+    /// Get all status endpoints to try (primary + strict_paths).
     pub fn all_status_endpoints(&self) -> Vec<&str> {
         let mut endpoints = Vec::new();
         if let Some(ref s) = self.status {
             endpoints.push(s.as_str());
         }
-        for fallback in &self.status_fallbacks {
-            endpoints.push(fallback.as_str());
+        for strict in &self.status_stricts {
+            endpoints.push(strict.as_str());
         }
         endpoints
     }
 
-    /// Get all event endpoints to try (primary + fallbacks).
+    /// Get all event endpoints to try (primary + strict_paths).
     pub fn all_event_endpoints(&self) -> Vec<&str> {
         let mut endpoints = Vec::new();
         if let Some(ref e) = self.events {
             endpoints.push(e.as_str());
         }
-        for fallback in &self.event_fallbacks {
-            endpoints.push(fallback.as_str());
+        for strict in &self.event_stricts {
+            endpoints.push(strict.as_str());
         }
         endpoints
     }
 
-    /// Get all metrics endpoints to try (primary + fallbacks).
+    /// Get all metrics endpoints to try (primary + strict_paths).
     pub fn all_metric_endpoints(&self) -> Vec<&str> {
         let mut endpoints = Vec::new();
         if let Some(ref m) = self.metrics {
             endpoints.push(m.as_str());
         }
-        for fallback in &self.metric_fallbacks {
-            endpoints.push(fallback.as_str());
+        for strict in &self.metric_stricts {
+            endpoints.push(strict.as_str());
         }
         endpoints
     }
 
-    /// Get all timeline endpoints to try (primary + fallbacks).
+    /// Get all timeline endpoints to try (primary + strict_paths).
     pub fn all_timeline_endpoints(&self) -> Vec<&str> {
         let mut endpoints = Vec::new();
         if let Some(ref t) = self.timeline {
             endpoints.push(t.as_str());
         }
-        for fallback in &self.timeline_fallbacks {
-            endpoints.push(fallback.as_str());
+        for strict in &self.timeline_stricts {
+            endpoints.push(strict.as_str());
         }
         endpoints
     }
@@ -245,10 +242,10 @@ impl Default for StreamEndpoints {
             events: None,
             metrics: None,
             timeline: None,
-            status_fallbacks: vec![],
-            event_fallbacks: vec![],
-            metric_fallbacks: vec![],
-            timeline_fallbacks: vec![],
+            status_stricts: vec![],
+            event_stricts: vec![],
+            metric_stricts: vec![],
+            timeline_stricts: vec![],
         }
     }
 }
@@ -280,16 +277,22 @@ mod tests {
     fn test_prompt_learning_endpoints() {
         let endpoints = StreamEndpoints::prompt_learning("job-456");
 
-        assert_eq!(endpoints.status, Some("/jobs/job-456".to_string()));
+        assert_eq!(
+            endpoints.status,
+            Some("/api/v1/offline/jobs/job-456".to_string())
+        );
         assert!(endpoints.timeline.is_none());
-        assert_eq!(endpoints.status_fallbacks.len(), 2);
+        assert_eq!(endpoints.status_stricts.len(), 0);
     }
 
     #[test]
     fn test_eval_endpoints() {
         let endpoints = StreamEndpoints::eval("eval-789");
 
-        assert_eq!(endpoints.status, Some("/eval/jobs/eval-789".to_string()));
+        assert_eq!(
+            endpoints.status,
+            Some("/api/v1/offline/jobs/eval-789".to_string())
+        );
     }
 
     #[test]
@@ -307,10 +310,10 @@ mod tests {
         let endpoints = StreamEndpoints::prompt_learning("job-123");
 
         let status_endpoints = endpoints.all_status_endpoints();
-        assert_eq!(status_endpoints.len(), 3); // primary + 2 fallbacks
+        assert_eq!(status_endpoints.len(), 1);
 
         let event_endpoints = endpoints.all_event_endpoints();
-        assert_eq!(event_endpoints.len(), 2); // primary + 1 fallback
+        assert_eq!(event_endpoints.len(), 1);
     }
 
     #[test]
@@ -321,9 +324,9 @@ mod tests {
             None,
             None,
         )
-        .with_status_fallback("/fallback/status");
+        .with_status_strict("/strict/status");
 
         assert_eq!(endpoints.status, Some("/custom/status".to_string()));
-        assert_eq!(endpoints.status_fallbacks.len(), 1);
+        assert_eq!(endpoints.status_stricts.len(), 1);
     }
 }

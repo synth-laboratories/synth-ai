@@ -198,13 +198,13 @@ pub fn build_graph_evolve_payload(
         .ok_or_else(|| CoreError::Validation("config must be an object".to_string()))?;
 
     if !dataset_map.contains_key("initial_prompt") {
-        let fallback = config_map
+        let strict = config_map
             .get("problem_spec")
             .and_then(|v| v.as_str())
             .unwrap_or("Optimizing prompt graph...");
         dataset_map.insert(
             "initial_prompt".to_string(),
-            Value::String(fallback.to_string()),
+            Value::String(strict.to_string()),
         );
     }
 
@@ -374,7 +374,7 @@ use crate::api::SynthClient;
 pub struct GraphEvolveJob {
     client: SynthClient,
     job_id: Option<String>,
-    legacy_graphgen_job_id: Option<String>,
+    canonical_graphgen_job_id: Option<String>,
     payload: Option<Value>,
 }
 
@@ -396,7 +396,7 @@ impl GraphEvolveJob {
         Ok(Self {
             client,
             job_id: None,
-            legacy_graphgen_job_id: None,
+            canonical_graphgen_job_id: None,
             payload: Some(payload),
         })
     }
@@ -418,28 +418,28 @@ impl GraphEvolveJob {
         let mut job = Self {
             client,
             job_id: Some(job_id.to_string()),
-            legacy_graphgen_job_id: None,
+            canonical_graphgen_job_id: None,
             payload: None,
         };
 
         if job_id.starts_with("graphgen_") {
-            job.legacy_graphgen_job_id = Some(job_id.to_string());
+            job.canonical_graphgen_job_id = Some(job_id.to_string());
         }
 
         Ok(job)
     }
 
-    /// Get the job ID (primary or legacy).
+    /// Get the job ID (primary or canonical).
     pub fn job_id(&self) -> Option<&str> {
         if let Some(id) = self.job_id.as_deref() {
             return Some(id);
         }
-        self.legacy_graphgen_job_id.as_deref()
+        self.canonical_graphgen_job_id.as_deref()
     }
 
-    /// Get the legacy GraphGen job ID, if known.
-    pub fn legacy_job_id(&self) -> Option<&str> {
-        self.legacy_graphgen_job_id.as_deref()
+    /// Get the canonical GraphGen job ID, if known.
+    pub fn canonical_job_id(&self) -> Option<&str> {
+        self.canonical_graphgen_job_id.as_deref()
     }
 
     fn require_job_id(&self) -> Result<&str, CoreError> {
@@ -449,7 +449,7 @@ impl GraphEvolveJob {
 
     /// Submit the job and return the backend response.
     pub async fn submit(&mut self) -> Result<Value, CoreError> {
-        if self.job_id.is_some() || self.legacy_graphgen_job_id.is_some() {
+        if self.job_id.is_some() || self.canonical_graphgen_job_id.is_some() {
             return Err(CoreError::Validation("job already submitted".to_string()));
         }
         let payload = self
@@ -466,7 +466,7 @@ impl GraphEvolveJob {
             self.job_id = Some(id.to_string());
         }
         if let Some(id) = response.get("graphgen_job_id").and_then(|v| v.as_str()) {
-            self.legacy_graphgen_job_id = Some(id.to_string());
+            self.canonical_graphgen_job_id = Some(id.to_string());
             if self.job_id.is_none() {
                 self.job_id = Some(id.to_string());
             }

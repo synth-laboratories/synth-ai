@@ -58,11 +58,11 @@ class BaseLMResponse:
         self.usage = usage
 
     def __getitem__(self, key: str) -> Any:
-        """Allow dict-like access for backward compatibility."""
+        """Allow dict-like access for compatibility removed."""
         return getattr(self, key)
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Allow dict-like .get() for backward compatibility."""
+        """Allow dict-like .get() for compatibility removed."""
         return getattr(self, key, default)
 
 

@@ -82,7 +82,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/jobs/{job_id}")
+        return super().poll(f"/api/v1/offline/jobs/{job_id}")
 
 
 class EvalJobPoller(JobPoller):
@@ -103,7 +103,7 @@ class EvalJobPoller(JobPoller):
 
     See Also:
         - `synth_ai.sdk.api.eval.EvalJob`: High-level eval job API
-        - Backend API: GET /api/eval/jobs/{job_id}
+        - Backend API: GET /api/v1/offline/jobs/{job_id}
     """
 
     def poll_job(self, job_id: str) -> PollOutcome:
@@ -115,7 +115,7 @@ class EvalJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/eval/jobs/{job_id}")
+        return super().poll(f"/api/v1/offline/jobs/{job_id}")
 
 
 __all__ = [

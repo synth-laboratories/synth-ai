@@ -51,7 +51,7 @@ def test_prompt_learning_result_parses_levers_and_sensors_from_metadata() -> Non
     payload = {
         "status": "succeeded",
         "metadata": {
-            "best_prompt": {"messages": [{"role": "system", "content": "old key fallback"}]},
+            "best_prompt": {"messages": [{"role": "system", "content": "old key strict"}]},
             "lever_summary": {"prompt_lever_id": "mipro.prompt.abc"},
             "sensor_frames": [{"frame_id": "frame_1"}],
             "lever_versions": {"mipro.prompt.abc": "3"},
@@ -66,10 +66,10 @@ def test_prompt_learning_result_parses_levers_and_sensors_from_metadata() -> Non
 
 
 def test_policy_result_best_prompt_alias() -> None:
-    payload = {"status": "completed", "best_prompt": "legacy"}
-    result = PolicyOptimizationResult.from_response("job_legacy", payload)
-    assert result.best_candidate == "legacy"
-    assert result.best_prompt == "legacy"
+    payload = {"status": "completed", "best_prompt": "canonical"}
+    result = PolicyOptimizationResult.from_response("job_canonical", payload)
+    assert result.best_candidate == "canonical"
+    assert result.best_prompt == "canonical"
 
 
 def test_prompt_learning_result_augments_backend_health_check_error() -> None:

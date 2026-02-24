@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    # Legacy path used by older SDK config module variants.
+    # Canonical path used by older SDK config module variants.
     from synth_ai.core.config.user import CONFIG_DIR  # type: ignore[attr-defined]
-except Exception:  # pragma: no cover - runtime compatibility fallback
+except Exception:  # pragma: no cover - runtime compatibility strict
     from synth_ai.core.utils.paths import SYNTH_HOME_DIR
     CONFIG_DIR = SYNTH_HOME_DIR
 
@@ -179,7 +179,7 @@ def cleanup_stale_records() -> None:
             pass
 
 
-# Backward compatibility aliases
+# compatibility removed aliases
 def record_tunnel(
     url: str,
     port: int,
@@ -189,7 +189,7 @@ def record_tunnel(
     local_host: str = "127.0.0.1",
     container_path: str | None = None,
 ) -> None:
-    """Record a tunnel deployment (backward compatibility)."""
+    """Record a tunnel deployment (compatibility removed)."""
     record_service(
         url=url,
         port=port,
@@ -203,10 +203,10 @@ def record_tunnel(
 
 
 def load_tunnel_records() -> dict[str, dict[str, Any]]:
-    """Load tunnel records (backward compatibility - returns all service records)."""
+    """Load tunnel records (compatibility removed - returns all service records)."""
     return load_service_records()
 
 
 def remove_tunnel_record(port: int) -> None:
-    """Remove a tunnel record (backward compatibility)."""
+    """Remove a tunnel record (compatibility removed)."""
     remove_service_record(port)

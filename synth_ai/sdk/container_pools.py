@@ -53,42 +53,6 @@ class ContainerPoolsClient:
         data = resp.json()
         return data
 
-    def _request_with_fallback(
-        self,
-        primary_method: str,
-        fallback_method: str,
-        path: str,
-        *,
-        json_body: Optional[dict[str, Any]] = None,
-        params: Optional[dict[str, Any]] = None,
-    ) -> Any:
-        import httpx
-
-        url = join_url(self._backend_base, path)
-        headers = self._headers()
-
-        resp = httpx.request(
-            primary_method,
-            url,
-            headers=headers,
-            json=json_body,
-            params=params,
-            timeout=self._timeout,
-        )
-        if resp.status_code in (404, 405):
-            resp = httpx.request(
-                fallback_method,
-                url,
-                headers=headers,
-                json=json_body,
-                params=params,
-                timeout=self._timeout,
-            )
-        resp.raise_for_status()
-        if not resp.content:
-            return {}
-        return resp.json()
-
     # Uploads
     def create_upload(
         self,
@@ -134,12 +98,7 @@ class ContainerPoolsClient:
         return self._request("GET", f"/v1/pools/data-sources/{data_source_id}")
 
     def update_data_source(self, data_source_id: str, request: dict[str, Any]) -> dict[str, Any]:
-        return self._request_with_fallback(
-            "PATCH",
-            "PUT",
-            f"/v1/pools/data-sources/{data_source_id}",
-            json_body=request,
-        )
+        return self._request("PATCH", f"/v1/pools/data-sources/{data_source_id}", json_body=request)
 
     def refresh_data_source(self, data_source_id: str) -> dict[str, Any]:
         return self._request("POST", f"/v1/pools/data-sources/{data_source_id}/refresh", json_body={})
@@ -164,8 +123,6 @@ class ContainerPoolsClient:
             payload["agent_model"] = agent_model
         if runtime_type == "managed_template" and template_name:
             payload["template_name"] = template_name
-            # Keep alias during migration while rust/backend still accept target_hint.
-            payload["target_hint"] = template_name
         return self._request("POST", "/v1/pools/assemblies", json_body=payload)
 
     def list_assemblies(
@@ -219,12 +176,7 @@ class ContainerPoolsClient:
         return self._request("GET", f"/v1/pools/{pool_id}")
 
     def update_pool(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
-        return self._request_with_fallback(
-            "PATCH",
-            "PUT",
-            f"/v1/pools/{pool_id}",
-            json_body=request,
-        )
+        return self._request("PATCH", f"/v1/pools/{pool_id}", json_body=request)
 
     def delete_pool(self, pool_id: str) -> dict[str, Any]:
         return self._request("DELETE", f"/v1/pools/{pool_id}")
@@ -245,7 +197,6 @@ class ContainerPoolsClient:
             payload["agent_model"] = agent_model
         if runtime_type == "managed_template" and template_name:
             payload["template_name"] = template_name
-            payload["target_hint"] = template_name
         return self._request("POST", f"/v1/pools/{pool_id}/assemblies", json_body=payload)
 
     # Rollouts

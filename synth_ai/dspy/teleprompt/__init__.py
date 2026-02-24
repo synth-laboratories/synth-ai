@@ -1,4 +1,4 @@
-"""Legacy teleprompt import surface for Synth DSPy compatibility."""
+"""Canonical teleprompt import surface for Synth DSPy compatibility."""
 
 from __future__ import annotations
 

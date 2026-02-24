@@ -21,15 +21,12 @@ use super::types::{
 };
 
 /// Canonical API endpoint root for job status/events.
-const JOBS_ENDPOINT: &str = "/api/jobs";
+const JOBS_ENDPOINT: &str = "/api/v1/offline/jobs";
 /// Canonical generic create endpoint.
-const JOBS_CREATE_ENDPOINT: &str = "/api/jobs";
+const JOBS_CREATE_ENDPOINT: &str = "/api/v1/offline/jobs";
 
-/// Canonical create endpoint for GEPA jobs.
-const GEPA_CREATE_ENDPOINT: &str = "/api/jobs/gepa";
-
-/// Canonical create endpoint for MIPRO jobs.
-const MIPRO_CREATE_ENDPOINT: &str = "/api/jobs/mipro";
+const GEPA_KIND: &str = "gepa_offline";
+const MIPRO_KIND: &str = "mipro_offline";
 
 /// Jobs API client.
 ///
@@ -67,8 +64,9 @@ impl<'a> JobsClient<'a> {
     /// ```
     pub async fn submit_gepa(&self, request: GepaJobRequest) -> Result<String, CoreError> {
         let worker_token = request.container_worker_token.clone();
-        let body = serde_json::to_value(&request)
+        let raw_request = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
+        let body = canonicalize_offline_create_payload(raw_request, GEPA_KIND)?;
         let response: JobSubmitResponse = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -79,13 +77,13 @@ impl<'a> JobsClient<'a> {
             );
             self.client
                 .http
-                .post_json_with_headers(GEPA_CREATE_ENDPOINT, &body, Some(headers))
+                .post_json_with_headers(JOBS_CREATE_ENDPOINT, &body, Some(headers))
                 .await
                 .map_err(map_http_error)?
         } else {
             self.client
                 .http
-                .post_json(GEPA_CREATE_ENDPOINT, &body)
+                .post_json(JOBS_CREATE_ENDPOINT, &body)
                 .await
                 .map_err(map_http_error)?
         };
@@ -104,8 +102,9 @@ impl<'a> JobsClient<'a> {
     /// The job ID on success.
     pub async fn submit_mipro(&self, request: MiproJobRequest) -> Result<String, CoreError> {
         let worker_token = request.container_worker_token.clone();
-        let body = serde_json::to_value(&request)
+        let raw_request = serde_json::to_value(&request)
             .map_err(|e| CoreError::Validation(format!("failed to serialize request: {}", e)))?;
+        let body = canonicalize_offline_create_payload(raw_request, MIPRO_KIND)?;
         let response: JobSubmitResponse = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -116,13 +115,13 @@ impl<'a> JobsClient<'a> {
             );
             self.client
                 .http
-                .post_json_with_headers(MIPRO_CREATE_ENDPOINT, &body, Some(headers))
+                .post_json_with_headers(JOBS_CREATE_ENDPOINT, &body, Some(headers))
                 .await
                 .map_err(map_http_error)?
         } else {
             self.client
                 .http
-                .post_json(MIPRO_CREATE_ENDPOINT, &body)
+                .post_json(JOBS_CREATE_ENDPOINT, &body)
                 .await
                 .map_err(map_http_error)?
         };
@@ -146,6 +145,7 @@ impl<'a> JobsClient<'a> {
         request: Value,
         worker_token: Option<String>,
     ) -> Result<String, CoreError> {
+        let canonical_request = canonicalize_raw_offline_request(request)?;
         let headers_opt: Option<HeaderMap> = if let Some(token) = worker_token {
             let mut headers = HeaderMap::new();
             headers.insert(
@@ -159,46 +159,16 @@ impl<'a> JobsClient<'a> {
             None
         };
 
-        // Route raw submits to canonical algorithm endpoints when possible.
-        // This prevents MIPRO configs from being accidentally dispatched via GEPA paths.
-        if let Some(endpoint) = infer_algorithm_endpoint(&request) {
-            let canonical_result: Result<JobSubmitResponse, HttpError> =
-                if let Some(headers) = headers_opt.clone() {
-                    self.client
-                        .http
-                        .post_json_with_headers(endpoint, &request, Some(headers))
-                        .await
-                } else {
-                    self.client.http.post_json(endpoint, &request).await
-                };
-            match canonical_result {
-                Ok(response) => return Ok(response.job_id),
-                Err(HttpError::Response(detail))
-                    if detail.status == 404 || detail.status == 405 =>
-                {
-                    // Older backends may not expose canonical endpoints yet,
-                    // or may return 405 Method Not Allowed.
-                }
-                Err(HttpError::JsonParse(_)) => {
-                    // Backend returned non-JSON response (e.g. plain text "ok").
-                    // Fall back to canonical generic create endpoint.
-                }
-                Err(err) => return Err(map_http_error(err)),
-            }
-        }
-
-        // If algorithm could not be inferred (or algorithm-specific route is unavailable),
-        // fall back to canonical generic create endpoint.
         let generic_result: Result<JobSubmitResponse, HttpError> =
             if let Some(headers) = headers_opt.clone() {
                 self.client
                     .http
-                    .post_json_with_headers(JOBS_CREATE_ENDPOINT, &request, Some(headers))
+                    .post_json_with_headers(JOBS_CREATE_ENDPOINT, &canonical_request, Some(headers))
                     .await
             } else {
                 self.client
                     .http
-                    .post_json(JOBS_CREATE_ENDPOINT, &request)
+                    .post_json(JOBS_CREATE_ENDPOINT, &canonical_request)
                     .await
             };
         match generic_result {
@@ -342,7 +312,7 @@ impl<'a> JobsClient<'a> {
     /// * `job_id` - The job ID to cancel
     /// * `reason` - Optional cancellation reason
     pub async fn cancel(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
-        let path = format!("{}/{}/cancel", JOBS_ENDPOINT, job_id);
+        let path = format!("{}/{}", JOBS_ENDPOINT, job_id);
         let body = serde_json::to_value(&CancelRequest {
             reason: reason.map(|s| s.to_string()),
         })
@@ -351,7 +321,7 @@ impl<'a> JobsClient<'a> {
         let _: Value = self
             .client
             .http
-            .post_json(&path, &body)
+            .patch_json(&path, &serde_json::json!({"state": "cancelled", "reason": body.get("reason").cloned().unwrap_or(Value::Null)}))
             .await
             .map_err(map_http_error)?;
 
@@ -365,7 +335,7 @@ impl<'a> JobsClient<'a> {
     /// * `job_id` - The job ID to pause
     /// * `reason` - Optional pause reason
     pub async fn pause(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
-        let path = format!("{}/{}/pause", JOBS_ENDPOINT, job_id);
+        let path = format!("{}/{}", JOBS_ENDPOINT, job_id);
         let body = serde_json::to_value(&PauseRequest {
             reason: reason.map(|s| s.to_string()),
         })
@@ -374,7 +344,7 @@ impl<'a> JobsClient<'a> {
         let _: Value = self
             .client
             .http
-            .post_json(&path, &body)
+            .patch_json(&path, &serde_json::json!({"state": "paused", "reason": body.get("reason").cloned().unwrap_or(Value::Null)}))
             .await
             .map_err(map_http_error)?;
 
@@ -388,7 +358,7 @@ impl<'a> JobsClient<'a> {
     /// * `job_id` - The job ID to resume
     /// * `reason` - Optional resume reason
     pub async fn resume(&self, job_id: &str, reason: Option<&str>) -> Result<(), CoreError> {
-        let path = format!("{}/{}/resume", JOBS_ENDPOINT, job_id);
+        let path = format!("{}/{}", JOBS_ENDPOINT, job_id);
         let body = serde_json::to_value(&PauseRequest {
             reason: reason.map(|s| s.to_string()),
         })
@@ -397,7 +367,7 @@ impl<'a> JobsClient<'a> {
         let _: Value = self
             .client
             .http
-            .post_json(&path, &body)
+            .patch_json(&path, &serde_json::json!({"state": "running", "reason": body.get("reason").cloned().unwrap_or(Value::Null)}))
             .await
             .map_err(map_http_error)?;
 
@@ -426,7 +396,7 @@ impl<'a> JobsClient<'a> {
         let status_str;
         if let Some(s) = status {
             status_str = s.as_str().to_string();
-            params.push(("status", status_str.as_str()));
+            params.push(("state", status_str.as_str()));
         }
 
         let params_ref: Option<&[(&str, &str)]> = if params.is_empty() {
@@ -475,7 +445,7 @@ struct PromptLearningResultWire {
 
 fn parse_prompt_learning_result(
     payload: Value,
-    fallback_job_id: &str,
+    strict_job_id: &str,
 ) -> Result<PromptLearningResult, CoreError> {
     let wire: PromptLearningResultWire = serde_json::from_value(payload).map_err(|err| {
         CoreError::Protocol(format!("invalid prompt learning status payload: {err}"))
@@ -486,7 +456,7 @@ fn parse_prompt_learning_result(
         .and_then(PolicyJobStatus::from_str)
         .unwrap_or(PolicyJobStatus::Pending);
     Ok(PromptLearningResult {
-        job_id: wire.job_id.unwrap_or_else(|| fallback_job_id.to_string()),
+        job_id: wire.job_id.unwrap_or_else(|| strict_job_id.to_string()),
         status,
         best_reward: wire.best_reward.or(wire.best_score),
         best_candidate: wire.best_candidate.or(wire.best_prompt),
@@ -500,7 +470,7 @@ fn parse_prompt_learning_result(
     })
 }
 
-fn infer_algorithm_endpoint(request: &Value) -> Option<&'static str> {
+fn infer_offline_kind(request: &Value) -> Option<&'static str> {
     let from_section = |name: &str| {
         request
             .get(name)
@@ -513,10 +483,79 @@ fn infer_algorithm_endpoint(request: &Value) -> Option<&'static str> {
         .trim()
         .to_ascii_lowercase();
     match algorithm.as_str() {
-        "gepa" => Some(GEPA_CREATE_ENDPOINT),
-        "mipro" => Some(MIPRO_CREATE_ENDPOINT),
+        "gepa" => Some(GEPA_KIND),
+        "mipro" | "voyager" => Some(MIPRO_KIND),
         _ => None,
     }
+}
+
+fn default_system_name(kind: &str) -> &'static str {
+    match kind {
+        GEPA_KIND => "sdk-gepa-offline",
+        MIPRO_KIND => "sdk-mipro-offline",
+        _ => "sdk-offline-job",
+    }
+}
+
+fn derive_system_name(request: &Value, kind: &str) -> String {
+    request
+        .get("system")
+        .and_then(|value| value.get("name"))
+        .and_then(Value::as_str)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .or_else(|| {
+            request
+                .get("env_name")
+                .and_then(Value::as_str)
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        })
+        .unwrap_or_else(|| default_system_name(kind).to_string())
+}
+
+fn canonicalize_offline_create_payload(request: Value, kind: &str) -> Result<Value, CoreError> {
+    let mut map = request
+        .as_object()
+        .cloned()
+        .ok_or_else(|| CoreError::Validation("request payload must be a JSON object".to_string()))?;
+    map.insert("kind".to_string(), Value::String(kind.to_string()));
+    map.entry("technique".to_string())
+        .or_insert(Value::String("discrete_optimization".to_string()));
+    map.entry("config_mode".to_string())
+        .or_insert(Value::String("DEFAULT".to_string()));
+    map.entry("system".to_string()).or_insert_with(|| {
+        serde_json::json!({
+            "name": derive_system_name(&request, kind),
+            "reuse": true,
+        })
+    });
+    if !map.contains_key("config") {
+        map.insert(
+            "config".to_string(),
+            serde_json::json!({
+                "prompt_learning": request,
+            }),
+        );
+    }
+    Ok(Value::Object(map))
+}
+
+fn canonicalize_raw_offline_request(request: Value) -> Result<Value, CoreError> {
+    if request
+        .get("kind")
+        .and_then(Value::as_str)
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+    {
+        return Ok(request);
+    }
+    let kind = infer_offline_kind(&request).ok_or_else(|| {
+        CoreError::Validation(
+            "request kind is required; expected kind in {gepa_offline,mipro_offline}".to_string(),
+        )
+    })?;
+    canonicalize_offline_create_payload(request, kind)
 }
 
 /// Map HTTP errors to CoreError.
@@ -547,28 +586,28 @@ mod tests {
 
     #[test]
     fn test_jobs_endpoint() {
-        assert_eq!(JOBS_ENDPOINT, "/api/jobs");
-        assert_eq!(JOBS_CREATE_ENDPOINT, "/api/jobs");
-        assert_eq!(GEPA_CREATE_ENDPOINT, "/api/jobs/gepa");
-        assert_eq!(MIPRO_CREATE_ENDPOINT, "/api/jobs/mipro");
+        assert_eq!(JOBS_ENDPOINT, "/api/v1/offline/jobs");
+        assert_eq!(JOBS_CREATE_ENDPOINT, "/api/v1/offline/jobs");
+        assert_eq!(GEPA_KIND, "gepa_offline");
+        assert_eq!(MIPRO_KIND, "mipro_offline");
     }
 
     #[test]
-    fn test_infer_algorithm_endpoint() {
+    fn test_infer_offline_kind() {
         assert_eq!(
-            infer_algorithm_endpoint(&serde_json::json!({
+            infer_offline_kind(&serde_json::json!({
                 "prompt_learning": {"algorithm": "mipro"}
             })),
-            Some(MIPRO_CREATE_ENDPOINT)
+            Some(MIPRO_KIND)
         );
         assert_eq!(
-            infer_algorithm_endpoint(&serde_json::json!({
+            infer_offline_kind(&serde_json::json!({
                 "policy_optimization": {"algorithm": "GEPA"}
             })),
-            Some(GEPA_CREATE_ENDPOINT)
+            Some(GEPA_KIND)
         );
         assert_eq!(
-            infer_algorithm_endpoint(&serde_json::json!({
+            infer_offline_kind(&serde_json::json!({
                 "algorithm": "unknown"
             })),
             None
@@ -582,11 +621,11 @@ mod tests {
             "status": "running",
             "best_score": 0.42,
             "best_candidate": {"instruction": "new"},
-            "best_prompt": {"instruction": "legacy"},
+            "best_prompt": {"instruction": "canonical"},
             "lever_versions": {"mipro.prompt.sys": 3},
         });
         let parsed =
-            parse_prompt_learning_result(payload, "fallback").expect("parse should succeed");
+            parse_prompt_learning_result(payload, "strict").expect("parse should succeed");
         assert_eq!(parsed.job_id, "pl_test");
         assert_eq!(parsed.status, PolicyJobStatus::Running);
         assert_eq!(parsed.best_reward, Some(0.42));

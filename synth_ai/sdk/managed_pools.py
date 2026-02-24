@@ -96,32 +96,23 @@ def _raise_for_status_with_plan_check(response: Any) -> None:
     response.raise_for_status()
 
 
-def _post_with_legacy_fallback(
+def _post_canonical(
     *,
     base: str,
     api_key: str,
-    canonical_path: str,
-    legacy_path: str,
+    path: str,
     payload: dict[str, Any],
     timeout: float,
 ) -> Any:
     import httpx
 
     headers = _auth_headers(api_key)
-    response = httpx.post(
-        join_url(base, canonical_path),
+    return httpx.post(
+        join_url(base, path),
         headers=headers,
         json=payload,
         timeout=timeout,
     )
-    if response.status_code in (404, 405):
-        response = httpx.post(
-            join_url(base, legacy_path),
-            headers=headers,
-            json=payload,
-            timeout=timeout,
-        )
-    return response
 
 
 def create_managed_pool_upload_url(
@@ -155,11 +146,10 @@ def create_managed_pool_upload_url(
     if expires_in_seconds is not None:
         payload["expires_in_seconds"] = expires_in_seconds
 
-    resp = _post_with_legacy_fallback(
+    resp = _post_canonical(
         base=base,
         api_key=api_key,
-        canonical_path="/v1/pools/uploads",
-        legacy_path="/v1/managed-pools/uploads",
+        path="/v1/pools/uploads",
         payload=payload,
         timeout=timeout,
     )
@@ -233,11 +223,10 @@ def create_managed_pool_upload_data_source(
         "upload_id": upload_id,
         "upload_key": upload_key,
     }
-    resp = _post_with_legacy_fallback(
+    resp = _post_canonical(
         base=base,
         api_key=api_key,
-        canonical_path="/v1/pools/data-sources",
-        legacy_path="/v1/managed-pools/data-sources",
+        path="/v1/pools/data-sources",
         payload=payload,
         timeout=timeout,
     )
@@ -297,11 +286,10 @@ def create_managed_pool_s3_data_source(
             "alg": pub_payload.get("alg"),
         },
     }
-    resp = _post_with_legacy_fallback(
+    resp = _post_canonical(
         base=backend_base,
         api_key=api_key,
-        canonical_path="/v1/pools/data-sources",
-        legacy_path="/v1/managed-pools/data-sources",
+        path="/v1/pools/data-sources",
         payload=payload,
         timeout=timeout,
     )

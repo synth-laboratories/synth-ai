@@ -283,7 +283,7 @@ def convert_openai_sft(
         stats=cast(dict[str, Any], result.get("stats", {})),
     )
 
-    # Rust core handles conversion; no Python fallback.
+    # Rust core handles conversion; no Python strict.
 
 
 def preview_conversion(
@@ -310,7 +310,7 @@ def preview_conversion(
         "warnings": [w.get("message") for w in result.get("warnings", []) if isinstance(w, dict)],
     }
 
-    # Rust core handles conversion; no Python fallback.
+    # Rust core handles conversion; no Python strict.
 
 
 __all__ = [

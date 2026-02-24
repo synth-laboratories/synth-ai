@@ -224,7 +224,7 @@ class GraphCompletionsSyncClient:
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
         return self._rust.resolve_graph_job_id(job_id, graph)
 
-    def _graph_complete_http_fallback(
+    def _graph_complete_http_strict(
         self,
         payload: Mapping[str, Any],
         *,
@@ -284,11 +284,11 @@ class GraphCompletionsSyncClient:
             if not _is_rust_parse_error(exc):
                 raise
             warnings.warn(
-                "Rust graph_complete response parsing failed; using HTTP JSON fallback.",
+                "Rust graph_complete response parsing failed; using HTTP JSON strict.",
                 RuntimeWarning,
                 stacklevel=2,
             )
-            result = self._graph_complete_http_fallback(payload, timeout=timeout)
+            result = self._graph_complete_http_strict(payload, timeout=timeout)
         if not isinstance(result, dict):
             raise ValueError("graph_completions_invalid_response_shape")
         return GraphCompletionResponse.from_dict(result)
@@ -466,7 +466,7 @@ class GraphCompletionsAsyncClient:
     def _resolve_job_id(self, *, job_id: str | None, graph: GraphTarget | None) -> str:
         return self._rust.resolve_graph_job_id(job_id, graph)
 
-    async def _graph_complete_http_fallback(
+    async def _graph_complete_http_strict(
         self,
         payload: Mapping[str, Any],
         *,
@@ -503,11 +503,11 @@ class GraphCompletionsAsyncClient:
             if not _is_rust_parse_error(exc):
                 raise
             warnings.warn(
-                "Rust graph_complete response parsing failed; using HTTP JSON fallback.",
+                "Rust graph_complete response parsing failed; using HTTP JSON strict.",
                 RuntimeWarning,
                 stacklevel=2,
             )
-            result = await self._graph_complete_http_fallback(
+            result = await self._graph_complete_http_strict(
                 payload,
                 timeout_secs=timeout_secs,
             )

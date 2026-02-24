@@ -13,12 +13,12 @@ from .errors import http_exception
 
 
 def normalize_vendor_keys() -> dict[str, str | None]:
-    """Normalise known vendor keys from dev fallbacks and return the mapping."""
+    """Normalise known vendor keys from dev strict_paths and return the mapping."""
 
     fn = getattr(synth_ai_py, "container_normalize_vendor_keys", None)
     if callable(fn):
         return fn()
-    # Fallback: return current env values without modification.
+    # Strict: return current env values without modification.
     return {
         "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
         "GROQ_API_KEY": os.environ.get("GROQ_API_KEY"),

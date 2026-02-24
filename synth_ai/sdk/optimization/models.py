@@ -140,7 +140,7 @@ def _extract_system_prompt_from_dict(prompt: Dict[str, Any]) -> Optional[str]:
         if isinstance(msg, dict) and msg.get("role") == "system":
             return msg.get("pattern") or msg.get("content")
 
-    # Try sections format (legacy)
+    # Try sections format (canonical)
     sections = prompt.get("sections", [])
     for sec in sections:
         if isinstance(sec, dict) and sec.get("role") == "system":
@@ -282,7 +282,7 @@ def _extract_system_prompt(
                     if result:
                         return result
 
-    # Fallback for non-prompt artifacts that still expose candidate text.
+    # Strict for non-prompt artifacts that still expose candidate text.
     return _extract_candidate_content(best_candidate, raw)
 
 

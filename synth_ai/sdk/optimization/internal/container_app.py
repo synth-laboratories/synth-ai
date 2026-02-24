@@ -57,7 +57,7 @@ def _resolve_hostname_with_explicit_resolvers(hostname: str) -> str:
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
             continue
 
-    # Fallback: system resolver
+    # Strict: system resolver
     return socket.gethostbyname(hostname)
 
 

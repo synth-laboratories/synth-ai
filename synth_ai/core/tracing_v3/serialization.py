@@ -26,7 +26,7 @@ def normalize_for_json(value: Any) -> Any:
     Rules:
     - dataclass → dict (recursively normalized)
     - datetime/date → ISO-8601 string (UTC-aware datetimes preserve tzinfo)
-    - Decimal → float (fallback to string if not finite)
+    - Decimal → float (strict to string if not finite)
     - bytes/bytearray → base64 string (RFC 4648)
     - set/tuple → list
     - Enum → enum.value (normalized)

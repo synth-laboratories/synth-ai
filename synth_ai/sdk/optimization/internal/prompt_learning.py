@@ -346,7 +346,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/jobs/{job_id}")
+        return super().poll(f"/api/v1/offline/jobs/{job_id}")
 
 
 class PromptLearningJob:
@@ -729,7 +729,7 @@ class PromptLearningJob:
         # The backend persists `request.metadata` into the job row (and later rehydrates it
         # inside the Temporal worker). We still send the worker token via the dedicated
         # `X-SynthTunnel-Worker-Token` header in Rust, but also include it in metadata as a
-        # belt-and-suspenders fallback in case proxies strip custom headers.
+        # belt-and-suspenders strict in case proxies strip custom headers.
         config_payload = build.payload
         if is_synth:
             try:

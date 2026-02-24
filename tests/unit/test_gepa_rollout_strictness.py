@@ -44,7 +44,7 @@ class _FakeAsyncClient:
         if "api.openai.com" in url:
             return _FakeResponse(
                 status_code=200,
-                payload={"choices": [{"message": {"content": "fallback should not be used"}}]},
+                payload={"choices": [{"message": {"content": "strict should not be used"}}]},
             )
         return _FakeResponse(status_code=503, payload={"error": "temporary failure"})
 

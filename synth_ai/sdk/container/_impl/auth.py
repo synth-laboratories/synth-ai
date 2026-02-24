@@ -20,7 +20,7 @@ _AUTH_HEADER = "authorization"
 
 
 def normalize_environment_api_key() -> str | None:
-    """Ensure `ENVIRONMENT_API_KEY` is populated from dev fallbacks.
+    """Ensure `ENVIRONMENT_API_KEY` is populated from dev strict_paths.
 
     Returns the resolved key (if any) so callers can branch on configuration.
     """
@@ -32,7 +32,7 @@ def normalize_environment_api_key() -> str | None:
     )
     if callable(fn):
         return fn()
-    # Fallback: promote DEV_ENVIRONMENT_API_KEY to ENVIRONMENT_API_KEY if needed.
+    # Strict: promote DEV_ENVIRONMENT_API_KEY to ENVIRONMENT_API_KEY if needed.
     key = os.environ.get(_API_KEY_ENV, "").strip()
     if key:
         return key
@@ -47,7 +47,7 @@ def allowed_environment_api_keys() -> set[str]:
     """Return the set of valid environment API keys for this Container.
 
     Includes:
-    - The primary ENVIRONMENT_API_KEY (normalized from dev fallbacks if needed)
+    - The primary ENVIRONMENT_API_KEY (normalized from dev strict_paths if needed)
     - Any comma-separated aliases from ENVIRONMENT_API_KEY_ALIASES
     """
 

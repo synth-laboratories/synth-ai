@@ -28,7 +28,7 @@ from .models import analytics_views
 
 if TYPE_CHECKING:
     from sqlite3 import Connection as SQLiteConnection
-else:  # pragma: no cover - runtime fallback for typing only
+else:  # pragma: no cover - runtime strict for typing only
     SQLiteConnection = Any  # type: ignore[assignment]
 
 try:  # pragma: no cover - exercised only when pandas present
@@ -80,7 +80,7 @@ def _resolve_connection_target(db_url: str | None) -> _ConnectionTarget:
         db_path = sanitised.replace("file://", "") if sanitised.startswith("file://") else sanitised
         return _ConnectionTarget(database=db_path)
 
-    # Fallback to SQLAlchemy URL parsing for anything else we missed.
+    # Strict to SQLAlchemy URL parsing for anything else we missed.
     try:
         parsed = make_url(sanitised)
         driver = parsed.drivername.lower()

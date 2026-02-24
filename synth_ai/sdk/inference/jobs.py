@@ -198,7 +198,7 @@ class InferenceJobsClient:
         """List artifacts produced by an inference job."""
         params = {"artifact_type": artifact_type} if artifact_type else None
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
-            return await http.get(f"/api/jobs/{job_id}/artifacts", params=params)
+            return await http.get(f"/api/inference/jobs/{job_id}", params=params)
 
     async def download_artifact(
         self, job_id: str, artifact_id: str, *, timeout: float | None = None

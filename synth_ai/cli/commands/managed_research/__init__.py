@@ -121,7 +121,7 @@ def run_action(
 @click.argument("run_id")
 @click.argument("question_id")
 @click.option("--response-text", required=True, help="Response text to submit.")
-@click.option("--project-id", help="Optional project_id for project-scoped fallback route.")
+@click.option("--project-id", help="Optional project_id for project-scoped strict route.")
 @_connection_options
 def respond_question(
     run_id: str,
@@ -148,7 +148,7 @@ def respond_question(
 @click.argument("run_id")
 @click.argument("approval_id")
 @click.option("--comment", help="Optional decision comment.")
-@click.option("--project-id", help="Optional project_id for project-scoped fallback route.")
+@click.option("--project-id", help="Optional project_id for project-scoped strict route.")
 @_connection_options
 def approval(
     decision: str,

@@ -1,7 +1,7 @@
 """Unit tests for LMCAISEvent with LLMCallRecord integration.
 
 This module tests the new call_records field in LMCAISEvent and demonstrates
-proper usage patterns for migrating from legacy fields to the new structure.
+proper usage patterns for migrating from canonical fields to the new structure.
 """
 
 import time
@@ -256,9 +256,9 @@ class TestLMCAISEventWithCallRecords:
         assert event.latency_ms == 1200
 
     def test_migration_pattern(self):
-        """Test migration from legacy fields to call_records."""
-        # Legacy pattern (what we're migrating from)
-        legacy_event = LMCAISEvent(
+        """Test migration from canonical fields to call_records."""
+        # Canonical pattern (what we're migrating from)
+        canonical_event = LMCAISEvent(
             system_instance_id="llm_system",
             time_record=TimeRecord(event_time=time.time()),
             model_name="gpt-4",
@@ -294,10 +294,10 @@ class TestLMCAISEventWithCallRecords:
         )
 
         # Both should represent the same information
-        assert legacy_event.total_tokens == new_event.total_tokens
-        assert legacy_event.cost_usd == new_event.cost_usd
-        assert legacy_event.model_name == _attr(new_event.call_records[0], "model_name")
-        assert legacy_event.provider == _attr(new_event.call_records[0], "provider")
+        assert canonical_event.total_tokens == new_event.total_tokens
+        assert canonical_event.cost_usd == new_event.cost_usd
+        assert canonical_event.model_name == _attr(new_event.call_records[0], "model_name")
+        assert canonical_event.provider == _attr(new_event.call_records[0], "provider")
 
 
 class TestComplexScenarios:

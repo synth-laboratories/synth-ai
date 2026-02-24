@@ -104,7 +104,7 @@ Command-line interface. Thin wrapper around SDK.
 
 ## Top-Level Exports
 
-The package exports verifier API contracts for backward compatibility:
+The package exports verifier API contracts for compatibility removed:
 
 ```python
 from synth_ai import (

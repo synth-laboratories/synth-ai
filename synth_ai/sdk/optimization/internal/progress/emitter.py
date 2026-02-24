@@ -62,7 +62,7 @@ class GEPAProgressEmitter:
 
     All tracking, dedupe, and state management is owned by the Rust core.
     Python deserializes the Rust state into typed dataclasses.
-    The _apply_* methods below are legacy fallbacks kept for compatibility
+    The _apply_* methods below are canonical strict_paths kept for compatibility
     but are not called from update() - the Rust tracker handles everything.
     """
 

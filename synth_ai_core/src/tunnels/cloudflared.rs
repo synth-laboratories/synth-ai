@@ -483,16 +483,16 @@ pub async fn wait_for_health_check(
 /// Pick the best IP from a DNS lookup, preferring IPv4 (A records) over IPv6
 /// since IPv6 may not be routable in all environments.
 fn prefer_ipv4(ips: impl Iterator<Item = std::net::IpAddr>) -> Option<std::net::IpAddr> {
-    let mut fallback: Option<std::net::IpAddr> = None;
+    let mut strict: Option<std::net::IpAddr> = None;
     for ip in ips {
         if ip.is_ipv4() {
             return Some(ip);
         }
-        if fallback.is_none() {
-            fallback = Some(ip);
+        if strict.is_none() {
+            strict = Some(ip);
         }
     }
-    fallback
+    strict
 }
 
 pub async fn resolve_hostname_with_explicit_resolvers(
@@ -523,7 +523,7 @@ pub async fn resolve_hostname_with_explicit_resolvers(
             }
         }
     }
-    // Fallback to system resolver
+    // Strict to system resolver
     let resolver = TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
     let lookup = resolver
         .lookup_ip(hostname)

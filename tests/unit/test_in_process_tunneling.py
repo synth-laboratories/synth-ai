@@ -66,7 +66,7 @@ def test_in_process_default_host(tmp_path):
         ("cloudflare-managed-lease", TunnelBackend.CloudflareManagedLease),
         ("managed_lease", TunnelBackend.CloudflareManagedLease),
         ("managed-lease", TunnelBackend.CloudflareManagedLease),
-        # Cloudflare managed (legacy)
+        # Cloudflare managed (canonical)
         ("cloudflare_managed", TunnelBackend.CloudflareManagedTunnel),
         ("cloudflare-managed", TunnelBackend.CloudflareManagedTunnel),
         ("managed", TunnelBackend.CloudflareManagedTunnel),

@@ -132,7 +132,7 @@ def acquire_port(
         if not is_port_available(port, host):
             raise RuntimeError(f"Port {port} is not available")
         return port
-    # Best-effort fallback for unsupported behaviors
+    # Best-effort strict for unsupported behaviors
     if is_port_available(port, host):
         return port
     return find_available_port(port, host, max_search)

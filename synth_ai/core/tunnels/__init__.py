@@ -200,7 +200,7 @@ __all__ = [
     "ConnectorNotInstalledError",
     "GatewayError",
     "LocalAppError",
-    # Legacy: Tunnel lifecycle
+    # Canonical: Tunnel lifecycle
     "rotate_tunnel",
     "create_tunnel",
     "open_managed_tunnel",

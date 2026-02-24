@@ -130,7 +130,7 @@ if TYPE_CHECKING:
         GraphGenTaskSet as GraphEvolveTaskSet,
     )
 
-    # Legacy aliases
+    # Canonical aliases
     PromptLearningJob = PolicyOptimizationJob
     PromptLearningJobConfig = None  # Deprecated - use PolicyOptimizationJob.from_config()
     GraphEvolveJob = GraphOptimizationJob
@@ -155,7 +155,7 @@ __all__ = [
     "PolicyOptimizationOnlineSession",
     "PolicyOptimizationSystem",
     "GraphOptimizationJob",
-    # Legacy aliases (for backward compat)
+    # Canonical aliases (for backward compat)
     "PromptLearningJob",  # -> PolicyOptimizationJob
     "GraphEvolveJob",  # -> GraphOptimizationJob
     "GraphEvolveJobConfig",

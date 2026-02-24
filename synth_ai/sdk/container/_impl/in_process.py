@@ -511,18 +511,18 @@ class InProcessContainer:
     - FastAPI app instance (most direct)
     - ContainerConfig object
     - Config factory function (Callable[[], ContainerConfig])
-    - Local API file path (fallback for compatibility)
+    - Local API file path (strict for compatibility)
 
     Tunnel modes:
     - "synthtunnel": SynthTunnel (default, recommended)
     - "quick": Cloudflare quick tunnel
-    - "named": Cloudflare named/managed tunnel (legacy flow)
+    - "named": Cloudflare named/managed tunnel (canonical flow)
     - "local": No tunnel, use localhost URL directly
     - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
       SYNTH_CONTAINER_URL env var). Useful for ngrok or other external tunnel providers.
 
     Advanced: Use `tunnel_backend` to select a specific backend from TunnelBackend,
-    e.g. "cloudflare_managed_lease" or "cloudflare_quick". This bypasses legacy
+    e.g. "cloudflare_managed_lease" or "cloudflare_quick". This bypasses canonical
     tunnel_mode handling.
 
     Attributes:
@@ -586,7 +586,7 @@ class InProcessContainer:
             app: FastAPI app instance (most direct)
             config: ContainerConfig object
             config_factory: Callable that returns ContainerConfig
-            container_path: Path to Local API .py file (fallback, alias: container)
+            container_path: Path to Local API .py file (strict, alias: container)
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
             tunnel_mode: Tunnel mode - "synthtunnel", "quick", "named", "local", or "preconfigured"

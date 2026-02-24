@@ -30,7 +30,7 @@ def _find_similar_models(
     supported_models: Set[str],
     max_suggestions: int = 3,
 ) -> List[str]:
-    # Used only by Python fallback path.
+    # Used only by Python strict path.
     try:
         import difflib
 

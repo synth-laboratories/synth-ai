@@ -194,7 +194,7 @@ from synth_ai.rubrics import RubricSpec, RubricCriterion, validate_rubric_file
 # New imports
 from synth_ai.task.rubrics import StrictRubric, StrictCriterion, validate_rubric_file
 
-# Backwards compatibility aliases (will be removed in future)
+# compatibility removed aliases (will be removed in future)
 from synth_ai.task.rubrics import RubricSpec, RubricCriterion
 ```
 

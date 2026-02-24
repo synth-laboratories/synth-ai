@@ -23,7 +23,7 @@ def validate_rollout_response_for_rl(
 
     The backend RL trainer requires:
     1. A v3/v4 trace with event_history (preferred), OR
-    2. Top-level inference_url with ?cid= for trace hydration fallback
+    2. Top-level inference_url with ?cid= for trace hydration strict
 
     Args:
         response_data: The rollout response dict from container

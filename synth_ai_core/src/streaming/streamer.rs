@@ -92,7 +92,7 @@ impl JobStreamer {
                     return Ok(Some(status));
                 }
                 Err(e) => {
-                    // Check if it's a 404 - try next fallback
+                    // Check if it's a 404 - try next strict
                     if let Some(404) = e.status() {
                         continue;
                     }
@@ -155,11 +155,11 @@ impl JobStreamer {
                             }
                         }
                     }
-                    break; // Success, don't try fallbacks
+                    break; // Success, don't try strict_paths
                 }
                 Err(e) => {
                     if let Some(404) = e.status() {
-                        continue; // Try next fallback
+                        continue; // Try next strict
                     }
                     return Err(e.into());
                 }
@@ -206,7 +206,7 @@ impl JobStreamer {
                             }
                         }
                     }
-                    break; // Success, don't try fallbacks
+                    break; // Success, don't try strict_paths
                 }
                 Err(e) => {
                     if let Some(404) = e.status() {
@@ -261,7 +261,7 @@ impl JobStreamer {
                             all_messages.push(msg);
                         }
                     }
-                    break; // Success, don't try fallbacks
+                    break; // Success, don't try strict_paths
                 }
                 Err(e) => {
                     if let Some(404) = e.status() {

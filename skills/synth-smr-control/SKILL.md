@@ -8,15 +8,15 @@ description: Control Synth Managed Research (SMR) projects and runs through Synt
 ## Overview
 
 Use this skill to operate SMR from code with predictable, scriptable API calls.
-Prefer the SDK client in `synth_ai.sdk.managed_research` for deterministic behavior and route compatibility fallbacks.
+Prefer the SDK client in `synth_ai.sdk.managed_research` for deterministic behavior and route compatibility strict_paths.
 
 ## Workflow
 
 1. Read `references/api-surface.md` for the route contract and known compatibility drifts.
 2. Use `synth_ai.sdk.managed_research.SmrControlClient` as the default client surface instead of hand-writing ad-hoc curl commands.
 3. Start from project-level operations (`create/get/patch/pause/resume/trigger`) and then move to run-level operations.
-4. For run-scoped reads, try project-scoped routes first and fallback to canonical run routes when the backend does not expose aliases.
-5. When uploading provider keys, prefer encrypted payloads if accepted; fallback to plaintext `api_key` only when required by the backend contract.
+4. For run-scoped reads, try project-scoped routes first and strict to canonical run routes when the backend does not expose aliases.
+5. When uploading provider keys, prefer encrypted payloads if accepted; strict to plaintext `api_key` only when required by the backend contract.
 6. For data-bound runs, upload files through `starting-data/upload-urls` (via SDK `upload_starting_data_files` helpers) and set `execution.input_spec` explicitly before triggering.
 
 ## Quick Start
@@ -78,7 +78,7 @@ When using this skill, return:
 
 - the exact project/run IDs touched,
 - endpoint-level actions taken,
-- any fallback behavior used (project-scoped route -> canonical route),
+- any strict behavior used (project-scoped route -> canonical route),
 - and unresolved blockers (auth, onboarding, missing secrets, entitlement, or route mismatch).
 
 ## Safety Rules

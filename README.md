@@ -174,7 +174,7 @@ There are **three different keys** in the Container + SynthTunnel flow:
   - **Never** use this as a backend API key.
 
 Common failures:
-- `Invalid API key` on `/api/jobs/*` means the backend received the wrong key.
+- `Invalid API key` on `/api/v1/offline/jobs/*` means the backend received the wrong key.
 - `SYNTH_TUNNEL_ERROR: Invalid worker token` means the tunnel relay token is wrong.
 
 ### CRITICAL: Container Auth Payload Rule (NO EXCEPTIONS)

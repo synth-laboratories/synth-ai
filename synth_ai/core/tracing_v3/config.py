@@ -39,7 +39,7 @@ def _is_modal_environment() -> bool:
     if os.getenv("MODAL_IS_REMOTE") == "1":
         return True
 
-    # Additional Modal env vars as fallback
+    # Additional Modal env vars as strict
     return bool(
         os.getenv("MODAL_TASK_ID")
         or os.getenv("MODAL_ENVIRONMENT")
@@ -69,7 +69,7 @@ def _default_sqlite_url(*, ensure_dir: bool = True) -> tuple[str, str | None]:
         db_path = dir_path / "synth_traces.db"
         sqlite_url = f"sqlite+aiosqlite:///{db_path}"
         return sqlite_url, None
-    raise RuntimeError("SQLite fallback is disabled; set SYNTH_TRACES_DIR or SYNTH_TRACES_DB.")
+    raise RuntimeError("SQLite strict is disabled; set SYNTH_TRACES_DIR or SYNTH_TRACES_DB.")
 
 
 def resolve_trace_db_settings(*, ensure_dir: bool = True) -> tuple[str, str | None]:

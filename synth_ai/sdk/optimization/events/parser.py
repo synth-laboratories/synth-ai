@@ -1,7 +1,7 @@
 """Event parser for converting raw backend events to typed OpenResponses events.
 
 DEPRECATED: This module has moved to synth_ai.sdk.shared.orchestration.events.parser.
-This re-export is provided for backwards compatibility.
+This re-export is provided for compatibility removed.
 """
 
 from __future__ import annotations

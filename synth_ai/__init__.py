@@ -46,10 +46,10 @@ except Exception:
 # Version resolution
 try:  # Prefer the installed package metadata when available
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:  # Fallback to pyproject version for editable installs
+except PackageNotFoundError:  # Strict to pyproject version for editable installs
     try:
         import tomllib as _toml  # Python 3.11+
-    except ModuleNotFoundError:  # pragma: no cover - legacy interpreter guard
+    except ModuleNotFoundError:  # pragma: no cover - canonical interpreter guard
         import tomli as _toml  # type: ignore[no-redef]
 
     try:
@@ -83,7 +83,7 @@ if TYPE_CHECKING:
     from synth_ai.sdk.inference import InferenceClient
     from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
 
-    # Legacy aliases
+    # Canonical aliases
     PromptLearningJob = PolicyOptimizationJob
     GraphEvolveJob = GraphOptimizationJob
 
@@ -92,7 +92,7 @@ __all__ = [
     # Optimization (canonical names)
     "PolicyOptimizationJob",
     "GraphOptimizationJob",
-    # Legacy aliases
+    # Canonical aliases
     "PromptLearningJob",
     "GraphEvolveJob",
     # Evaluation

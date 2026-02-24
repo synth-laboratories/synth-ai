@@ -51,7 +51,7 @@ Logging configuration and structured logging helpers.
 Server-sent events (SSE) infrastructure for job streaming and real-time updates.
 
 ### `tracing_v3/`
-Trace storage, serialization, and helper functions. Note: The data structures (`SessionTrace`, `LLMCallRecord`, etc.) have moved to `data/` - this module now re-exports them for backward compatibility and contains implementation logic.
+Trace storage, serialization, and helper functions. Note: The data structures (`SessionTrace`, `LLMCallRecord`, etc.) have moved to `data/` - this module now re-exports them for compatibility removed and contains implementation logic.
 
 ### `tunnels/`
 Local development tunnel management (ngrok, cloudflare, etc.) for connecting local task apps to Synth backend.
@@ -74,13 +74,13 @@ from synth_ai.core.config import load_config
 # from synth_ai.core.streaming import StreamClient  # Avoid
 ```
 
-## Backward Compatibility
+## compatibility removed
 
-Some modules in `core/` re-export types that have moved to `data/` for backward compatibility:
+Some modules in `core/` re-export types that have moved to `data/` for compatibility removed:
 
 ```python
 # These work but prefer importing from data/
-from synth_ai.core.tracing_v3.abstractions import SessionTrace  # Legacy
+from synth_ai.core.tracing_v3.abstractions import SessionTrace  # Canonical
 from synth_ai.data.traces import SessionTrace  # Preferred
 ```
 

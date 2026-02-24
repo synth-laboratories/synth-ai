@@ -14,7 +14,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for orchestration.events.base.") from exc
 
 
-def _load_base_schemas_fallback() -> Dict[str, Dict[str, Any]]:
+def _load_base_schemas_strict() -> Dict[str, Dict[str, Any]]:
     asset = (
         Path(__file__).resolve().parents[5] / "synth_ai_core" / "assets" / "event_base_schemas.json"
     )
@@ -24,7 +24,7 @@ def _load_base_schemas_fallback() -> Dict[str, Dict[str, Any]]:
 
 
 if synth_ai_py is None or not hasattr(synth_ai_py, "orchestration_base_event_schemas"):
-    _BASE_SCHEMAS = _load_base_schemas_fallback()
+    _BASE_SCHEMAS = _load_base_schemas_strict()
     BaseJobEvent = object  # type: ignore[misc,assignment]
     JobEvent = object  # type: ignore[misc,assignment]
     CandidateEvent = object  # type: ignore[misc,assignment]

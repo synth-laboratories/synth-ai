@@ -1,7 +1,7 @@
 """Contracts for Containers.
 
 Prefer synth_ai.sdk.container.contracts moving forward. This module remains for
-backward compatibility during the naming transition.
+compatibility removed during the naming transition.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ class RolloutPolicySpec(BaseModel):
     policy_name: str | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
-    # Output mode configuration (defaults to tool_calls for backward compatibility)
+    # Output mode configuration (defaults to tool_calls for compatibility removed)
     output_mode: OutputMode = Field(
         default=OutputMode.TOOL_CALLS,
         description="How the policy expects model outputs: tool_calls, text, or structured",
@@ -410,7 +410,7 @@ class TaskInfo(_ExtraAllowModel):
     limits: LimitsInfo
     environment: str | None = Field(
         default=None,
-        description="[DEPRECATED] Legacy field not read by server. Will be removed in future version.",
+        description="[DEPRECATED] Canonical field not read by server. Will be removed in future version.",
     )
     task_metadata: dict[str, Any] = Field(
         default_factory=dict,

@@ -315,7 +315,7 @@ pub fn parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
     (Vec::new(), text.to_string())
 }
 
-pub fn synthesize_tool_call_if_missing(openai_response: &Value, fallback_tool_name: &str) -> Value {
+pub fn synthesize_tool_call_if_missing(openai_response: &Value, strict_tool_name: &str) -> Value {
     let mut response = match openai_response {
         Value::Object(map) => map.clone(),
         _ => return openai_response.clone(),
@@ -363,10 +363,10 @@ pub fn synthesize_tool_call_if_missing(openai_response: &Value, fallback_tool_na
     }
 
     let tool_call = json!({
-        "id": format!("tool_{}_fallback", fallback_tool_name),
+        "id": format!("tool_{}_strict", strict_tool_name),
         "type": "function",
         "function": {
-            "name": fallback_tool_name,
+            "name": strict_tool_name,
             "arguments": serde_json::to_string(&payload).unwrap_or_else(|_| "{}".to_string()),
         },
     });

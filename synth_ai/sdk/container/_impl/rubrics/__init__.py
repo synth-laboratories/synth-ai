@@ -44,4 +44,4 @@ __all__ = [
     "validate_rubric_files",
 ]
 
-# Breaking change: legacy rubric aliases removed. Use Criterion/Rubric directly.
+# Breaking change: canonical rubric aliases removed. Use Criterion/Rubric directly.

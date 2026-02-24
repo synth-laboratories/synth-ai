@@ -2286,15 +2286,15 @@ fn container_parse_tool_call_from_text(text: &str) -> (Vec<String>, String) {
 }
 
 #[pyfunction]
-#[pyo3(signature = (payload, fallback_tool_name=None))]
+#[pyo3(signature = (payload, strict_tool_name=None))]
 fn container_synthesize_tool_call_if_missing(
     py: Python,
     payload: PyObject,
-    fallback_tool_name: Option<String>,
+    strict_tool_name: Option<String>,
 ) -> PyResult<PyObject> {
-    let fallback_tool_name = fallback_tool_name.unwrap_or_else(|| "interact".to_string());
+    let strict_tool_name = strict_tool_name.unwrap_or_else(|| "interact".to_string());
     let value = value_from_pyobject(py, payload)?;
-    let result = core_container_proxy::synthesize_tool_call_if_missing(&value, &fallback_tool_name);
+    let result = core_container_proxy::synthesize_tool_call_if_missing(&value, &strict_tool_name);
     value_to_pyobject(py, &result)
 }
 
@@ -3866,7 +3866,7 @@ fn to_jsonable_inner(
         return Ok(list.unbind().into());
     }
 
-    // __dict__ fallback
+    // __dict__ strict
     if obj.hasattr("__dict__")? {
         if let Ok(dict_obj) = obj.getattr("__dict__") {
             if dict_obj.is_instance_of::<PyDict>() {
@@ -5340,11 +5340,11 @@ impl GraphEvolveJob {
     }
 
     #[getter]
-    fn legacy_graphgen_job_id(&self) -> Option<String> {
+    fn canonical_graphgen_job_id(&self) -> Option<String> {
         self.inner
             .lock()
             .unwrap()
-            .legacy_job_id()
+            .canonical_job_id()
             .map(|s| s.to_string())
     }
 
@@ -5970,12 +5970,12 @@ impl StreamEndpointsPy {
         }
     }
 
-    fn with_status_fallback(&mut self, endpoint: &str) {
-        self.inner = self.inner.clone().with_status_fallback(endpoint);
+    fn with_status_strict(&mut self, endpoint: &str) {
+        self.inner = self.inner.clone().with_status_strict(endpoint);
     }
 
-    fn with_event_fallback(&mut self, endpoint: &str) {
-        self.inner = self.inner.clone().with_event_fallback(endpoint);
+    fn with_event_strict(&mut self, endpoint: &str) {
+        self.inner = self.inner.clone().with_event_strict(endpoint);
     }
 
     fn events_stream_url(&self) -> Option<String> {

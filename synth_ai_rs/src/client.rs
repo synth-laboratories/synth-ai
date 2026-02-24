@@ -72,20 +72,20 @@ impl SynthClient {
             .await
     }
 
-    pub async fn get_json_fallback(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
-        self.core.get_json_fallback(paths, auth).await
+    pub async fn get_json_strict(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
+        self.core.get_json_strict(paths, auth).await
     }
 
-    pub async fn post_json_fallback<T: Serialize + ?Sized>(
+    pub async fn post_json_strict<T: Serialize + ?Sized>(
         &self,
         paths: &[&str],
         body: &T,
         auth: AuthStyle,
     ) -> Result<Value> {
-        self.core.post_json_fallback(paths, body, auth).await
+        self.core.post_json_strict(paths, body, auth).await
     }
 
-    pub async fn post_json_fallback_with_headers<T: Serialize + ?Sized>(
+    pub async fn post_json_strict_with_headers<T: Serialize + ?Sized>(
         &self,
         paths: &[&str],
         body: &T,
@@ -93,7 +93,7 @@ impl SynthClient {
         extra_headers: Option<HeaderMap>,
     ) -> Result<Value> {
         self.core
-            .post_json_fallback_with_headers(paths, body, auth, extra_headers)
+            .post_json_strict_with_headers(paths, body, auth, extra_headers)
             .await
     }
 }

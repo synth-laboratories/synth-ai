@@ -204,13 +204,13 @@ def _normalize_mipro_section(
         if mipro_section.get(key) is None and pl_section.get(key) is not None:
             mipro_section[key] = pl_section[key]
 
-    # Backward compatibility: older benchmark configs used online_train_seeds.
+    # compatibility removed: older benchmark configs used online_train_seeds.
     if mipro_section.get("online_pool") is None:
-        legacy_online_pool = mipro_section.get("online_train_seeds")
-        if legacy_online_pool is None:
-            legacy_online_pool = pl_section.get("online_train_seeds")
-        if legacy_online_pool is not None:
-            mipro_section["online_pool"] = legacy_online_pool
+        canonical_online_pool = mipro_section.get("online_train_seeds")
+        if canonical_online_pool is None:
+            canonical_online_pool = pl_section.get("online_train_seeds")
+        if canonical_online_pool is not None:
+            mipro_section["online_pool"] = canonical_online_pool
             warnings.warn(
                 (
                     f"{source}: prompt_learning.mipro.online_train_seeds is deprecated; "
@@ -301,7 +301,7 @@ def build_prompt_learning_payload(
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
-            "Rust core payload builder unavailable. synth_ai_py is required; no Python fallback."
+            "Rust core payload builder unavailable. synth_ai_py is required; no Python strict."
         )
     try:
         payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(
@@ -381,7 +381,7 @@ def build_prompt_learning_payload(
         # Spec-compliant behavior: container auth is server-resolved and must not
         # be embedded in job payloads.
 
-        # GEPA: Extract train_seeds from nested structure for backwards compatibility
+        # GEPA: Extract train_seeds from nested structure for compatibility removed
         # Backend checks for train_seeds at top level before parsing nested structure
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
             # Try to get train_seeds directly from the gepa config object first
@@ -414,7 +414,7 @@ def build_prompt_learning_payload(
                     # Update gepa_section back to pl_section in case we converted it
                     pl_section["gepa"] = gepa_section
 
-            # Add train_seeds to top level for backwards compatibility
+            # Add train_seeds to top level for compatibility removed
             if train_seeds and not pl_section.get("train_seeds"):
                 pl_section["train_seeds"] = train_seeds
             if train_seeds and not pl_section.get("evaluation_seeds"):
@@ -630,7 +630,7 @@ def build_prompt_learning_payload_from_mapping(
 
     if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
         raise click.ClickException(
-            "Rust core payload builder unavailable. synth_ai_py is required; no Python fallback."
+            "Rust core payload builder unavailable. synth_ai_py is required; no Python strict."
         )
     try:
         payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(

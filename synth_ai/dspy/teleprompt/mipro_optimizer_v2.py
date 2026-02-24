@@ -1,4 +1,4 @@
-"""Legacy MIPROv2 alias under synth_ai.dspy.teleprompt."""
+"""Canonical MIPROv2 alias under synth_ai.dspy.teleprompt."""
 
 from __future__ import annotations
 

@@ -57,10 +57,12 @@ class PatternDiscoveryClient:
         self._timeout = timeout
 
     async def discover(self, request: PatternDiscoveryRequest) -> dict[str, Any]:
+        payload = request.to_payload()
+        payload.pop("job_id", None)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(
-                "/api/prompt-learning/patterns/discover",
-                json=request.to_payload(),
+                f"/api/v1/offline/jobs/{request.job_id}/patterns/discover",
+                json=payload,
             )
 
 
@@ -81,7 +83,7 @@ async def get_eval_patterns(
         api_key = get_api_key("SYNTH_API_KEY", required=True)
 
     async with RustCoreHttpClient(base_url, api_key, timeout=timeout) as http:
-        data = await http.get_json(f"/api/eval/jobs/{job_id}/results")
+        data = await http.get_json(f"/api/v1/offline/jobs/{job_id}/results")
     summary = data.get("summary") if isinstance(data, dict) else None
     if isinstance(summary, dict):
         return summary.get("pattern_discovery")

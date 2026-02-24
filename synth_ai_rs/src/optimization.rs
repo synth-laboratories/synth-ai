@@ -641,11 +641,11 @@ fn extract_outcome_reward(payload: &Map<String, Value>) -> Option<f64> {
     payload.get("outcome_reward").and_then(coerce_f64)
 }
 
-fn extract_reward_value(payload: &Map<String, Value>, fallback_keys: &[&str]) -> Option<f64> {
+fn extract_reward_value(payload: &Map<String, Value>, strict_keys: &[&str]) -> Option<f64> {
     if let Some(val) = extract_outcome_reward(payload) {
         return Some(val);
     }
-    for key in fallback_keys {
+    for key in strict_keys {
         if let Some(val) = payload.get(*key).and_then(coerce_f64) {
             return Some(val);
         }
@@ -798,7 +798,7 @@ mod tests {
     fn status_payload_parses_metadata_and_infers_lever_version() {
         let status = json!({
             "status": "succeeded",
-            "best_prompt": {"messages": [{"role": "system", "content": "fallback"}]},
+            "best_prompt": {"messages": [{"role": "system", "content": "strict"}]},
             "job_metadata": {
                 "best_score": "0.88",
                 "lever_summary": {
@@ -814,7 +814,7 @@ mod tests {
         assert_eq!(results.best_score, Some(0.88));
         assert_eq!(
             results.best_candidate,
-            Some(json!({"messages": [{"role": "system", "content": "fallback"}]}))
+            Some(json!({"messages": [{"role": "system", "content": "strict"}]}))
         );
         assert_eq!(results.lever_versions.get("mipro.prompt.pl_123"), Some(&7));
         assert_eq!(results.best_lever_version, Some(7));

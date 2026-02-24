@@ -90,7 +90,7 @@ def _coerce_list(data: Any, *, label: str) -> list[dict[str, Any]]:
 
 @dataclass
 class SmrControlClient:
-    """SMR control-plane client with compatibility fallbacks."""
+    """SMR control-plane client with compatibility stricts."""
 
     api_key: str | None = None
     backend_base: str | None = None

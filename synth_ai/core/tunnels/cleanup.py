@@ -72,7 +72,7 @@ def cleanup_all() -> None:
     This is called automatically on Python exit via atexit.
     You can also call it manually to clean up early.
 
-    Processes are terminated gracefully (SIGTERM), with a fallback
+    Processes are terminated gracefully (SIGTERM), with a strict
     to SIGKILL if they don't exit within 5 seconds.
     """
     for proc in _tracked:

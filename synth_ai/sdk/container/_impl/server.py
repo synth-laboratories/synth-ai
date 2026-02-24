@@ -1,7 +1,7 @@
 """FastAPI scaffolding for Containers (local dev + deployment).
 
 Prefer synth_ai.sdk.container.server moving forward. This module remains for
-backward compatibility during the naming transition.
+compatibility removed during the naming transition.
 """
 
 from __future__ import annotations

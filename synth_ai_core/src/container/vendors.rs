@@ -27,9 +27,9 @@ pub fn normalize_single(key: &str) -> Option<String> {
             return Some(value);
         }
     }
-    let fallbacks = VENDOR_KEYS.iter().find(|(k, _)| *k == key);
-    if let Some((_key, fallbacks)) = fallbacks {
-        for env_key in fallbacks {
+    let stricts = VENDOR_KEYS.iter().find(|(k, _)| *k == key);
+    if let Some((_key, stricts)) = stricts {
+        for env_key in stricts {
             if let Ok(value) = env::var(env_key) {
                 if !value.is_empty() {
                     env::set_var(key, &value);

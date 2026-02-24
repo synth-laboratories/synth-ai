@@ -32,7 +32,7 @@ Synth uses **three** distinct keys. Do not mix them:
 | SynthTunnel `worker_token` | Authenticates tunnel **relay to container** | Passed as `container_worker_token` in job config | SynthTunnel (default) |
 
 Common failures:
-- `Invalid API key` on `/api/jobs/*` = wrong key sent to backend.
+- `Invalid API key` on `/api/v1/offline/jobs/*` = wrong key sent to backend.
 - `SYNTH_TUNNEL_ERROR: Invalid worker token` = wrong tunnel relay token.
 
 ### Mint a demo Synth API key (optional)
@@ -409,7 +409,7 @@ Modules follow the [API Stability Lifecycle](../../specifications/api-stability-
 | `EnvironmentPoolsClient` | Alpha | `from synth_ai.sdk.environment_pools import EnvironmentPoolsClient` |
 | `ManagedPools` | Alpha | `from synth_ai.sdk.managed_pools import ...` |
 
-Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledContainer`, `ContainerConfig`, `create_container`, `synth_ai.sdk.container.*`) still work but are deprecated.
+Canonical aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledContainer`, `ContainerConfig`, `create_container`, `synth_ai.sdk.container.*`) still work but are deprecated.
 
 ## Troubleshooting checklist
 
@@ -419,4 +419,4 @@ Legacy aliases (`PromptLearningJob`, `GraphEvolveJob`, `TunneledContainer`, `Con
 - **Auth**: Confirm `SYNTH_API_KEY` is set and valid. Do not confuse it with `ENVIRONMENT_API_KEY` or `worker_token`.
 - **Container shape**: Ensure `/task_info` and `/rollout` return valid `RolloutResponse`.
 - **Streaming errors**: If `stream_until_complete()` disconnects, it auto-reconnects via SSE. Check backend logs for job status.
-- **Legacy import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`. If you see `synth_ai.sdk.container`, update to `synth_ai.sdk.container`.
+- **Canonical import paths**: If you see `PromptLearningJob`, update to `PolicyOptimizationJob`. If you see `prompt_learning` config keys, update to `policy_optimization`. If you see `synth_ai.sdk.container`, update to `synth_ai.sdk.container`.

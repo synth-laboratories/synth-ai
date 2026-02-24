@@ -61,7 +61,7 @@ impl EnvironmentPoolsClient {
         format!("{base}/v1/{}", suffix.trim_start_matches('/'))
     }
 
-    fn legacy_path(&self, suffix: &str) -> String {
+    fn canonical_path(&self, suffix: &str) -> String {
         format!(
             "/api/v1/environment-pools/{}",
             suffix.trim_start_matches('/')
@@ -77,7 +77,7 @@ impl EnvironmentPoolsClient {
         Some(headers)
     }
 
-    async fn post_json_with_fallback(
+    async fn post_json_with_strict(
         &self,
         suffix: &str,
         body: &Value,
@@ -85,12 +85,12 @@ impl EnvironmentPoolsClient {
     ) -> Result<Value> {
         let version = self.resolve_api_version();
         let public_url = self.public_url(suffix);
-        let legacy_path = self.legacy_path(suffix);
+        let canonical_path = self.canonical_path(suffix);
         let headers = Self::idempotency_headers(idempotency_key);
         let attempts = if version == "v1" {
-            vec![public_url, legacy_path]
+            vec![public_url, canonical_path]
         } else {
-            vec![legacy_path, public_url]
+            vec![canonical_path, public_url]
         };
 
         let mut last_error: Option<HttpError> = None;
@@ -121,14 +121,14 @@ impl EnvironmentPoolsClient {
         ))
     }
 
-    async fn get_json_with_fallback(&self, suffix: &str) -> Result<Value> {
+    async fn get_json_with_strict(&self, suffix: &str) -> Result<Value> {
         let version = self.resolve_api_version();
         let public_url = self.public_url(suffix);
-        let legacy_path = self.legacy_path(suffix);
+        let canonical_path = self.canonical_path(suffix);
         let attempts = if version == "v1" {
-            vec![public_url, legacy_path]
+            vec![public_url, canonical_path]
         } else {
-            vec![legacy_path, public_url]
+            vec![canonical_path, public_url]
         };
 
         let mut last_error: Option<HttpError> = None;
@@ -167,7 +167,7 @@ impl EnvironmentPoolsClient {
                 map.insert("dry_run".to_string(), Value::Bool(dry_run));
             }
         }
-        self.post_json_with_fallback("rollouts", &request, idempotency_key)
+        self.post_json_with_strict("rollouts", &request, idempotency_key)
             .await
     }
 
@@ -183,13 +183,13 @@ impl EnvironmentPoolsClient {
         if let Some(metadata) = metadata {
             payload.insert("metadata".to_string(), metadata);
         }
-        self.post_json_with_fallback("rollouts/batch", &Value::Object(payload), idempotency_key)
+        self.post_json_with_strict("rollouts/batch", &Value::Object(payload), idempotency_key)
             .await
     }
 
     /// Fetch rollout status/details.
     pub async fn get_rollout(&self, rollout_id: &str) -> Result<Value> {
         let suffix = format!("rollouts/{}", rollout_id);
-        self.get_json_with_fallback(&suffix).await
+        self.get_json_with_strict(&suffix).await
     }
 }

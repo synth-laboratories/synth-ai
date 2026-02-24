@@ -310,7 +310,7 @@ class ManagedResearchMcpServer:
                         "run_id": {"type": "string", "description": "Run id."},
                         "project_id": {
                             "type": "string",
-                            "description": "Optional project id for project-scoped fallback route.",
+                            "description": "Optional project id for project-scoped strict route.",
                         },
                     },
                     required=["run_id"],
@@ -372,7 +372,7 @@ class ManagedResearchMcpServer:
                         "response_text": {"type": "string", "description": "Response text."},
                         "project_id": {
                             "type": "string",
-                            "description": "Optional project id for project-scoped fallback route.",
+                            "description": "Optional project id for project-scoped strict route.",
                         },
                     },
                     required=["run_id", "question_id", "response_text"],
@@ -415,7 +415,7 @@ class ManagedResearchMcpServer:
                         },
                         "project_id": {
                             "type": "string",
-                            "description": "Optional project id for project-scoped fallback route.",
+                            "description": "Optional project id for project-scoped strict route.",
                         },
                     },
                     required=["decision", "run_id", "approval_id"],

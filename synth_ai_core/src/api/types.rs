@@ -68,25 +68,25 @@ impl PolicyJobStatus {
 pub enum EvalJobStatus {
     Pending,
     Running,
-    Completed,
+    Succeeded,
     Failed,
     Cancelled,
 }
 
 impl EvalJobStatus {
     pub fn is_terminal(&self) -> bool {
-        matches!(self, Self::Completed | Self::Failed | Self::Cancelled)
+        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled)
     }
 
     pub fn is_success(&self) -> bool {
-        matches!(self, Self::Completed)
+        matches!(self, Self::Succeeded)
     }
 
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "pending" => Some(Self::Pending),
             "running" => Some(Self::Running),
-            "completed" => Some(Self::Completed),
+            "succeeded" | "completed" => Some(Self::Succeeded),
             "failed" => Some(Self::Failed),
             "cancelled" | "canceled" => Some(Self::Cancelled),
             _ => None,
@@ -97,7 +97,7 @@ impl EvalJobStatus {
         match self {
             Self::Pending => "pending",
             Self::Running => "running",
-            Self::Completed => "completed",
+            Self::Succeeded => "succeeded",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
         }

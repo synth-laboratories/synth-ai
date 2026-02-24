@@ -130,9 +130,9 @@ impl CoreClient {
         Self::json_or_error(resp).await
     }
 
-    /// Check if an error should trigger fallback to the next endpoint.
+    /// Check if an error should trigger strict to the next endpoint.
     /// Falls back on 404, 405, and JSON decode errors (non-JSON response bodies).
-    fn is_fallback_error(err: &SynthError) -> bool {
+    fn is_strict_error(err: &SynthError) -> bool {
         match err {
             SynthError::Api { status, .. } => *status == 404 || *status == 405,
             SynthError::Http(e) => e.is_decode(),
@@ -140,13 +140,13 @@ impl CoreClient {
         }
     }
 
-    pub async fn get_json_fallback(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
+    pub async fn get_json_strict(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
         let mut last_error = None;
         for path in paths {
             match self.get_json(path, auth).await {
                 Ok(val) => return Ok(val),
                 Err(err) => {
-                    if Self::is_fallback_error(&err) {
+                    if Self::is_strict_error(&err) {
                         last_error = Some(err);
                         continue;
                     }
@@ -155,11 +155,11 @@ impl CoreClient {
             }
         }
         Err(last_error.unwrap_or_else(|| {
-            SynthError::UnexpectedResponse("no fallback endpoints succeeded".to_string())
+            SynthError::UnexpectedResponse("no strict endpoints succeeded".to_string())
         }))
     }
 
-    pub async fn post_json_fallback<T: Serialize + ?Sized>(
+    pub async fn post_json_strict<T: Serialize + ?Sized>(
         &self,
         paths: &[&str],
         body: &T,
@@ -170,7 +170,7 @@ impl CoreClient {
             match self.post_json(path, body, auth).await {
                 Ok(val) => return Ok(val),
                 Err(err) => {
-                    if Self::is_fallback_error(&err) {
+                    if Self::is_strict_error(&err) {
                         last_error = Some(err);
                         continue;
                     }
@@ -179,11 +179,11 @@ impl CoreClient {
             }
         }
         Err(last_error.unwrap_or_else(|| {
-            SynthError::UnexpectedResponse("no fallback endpoints succeeded".to_string())
+            SynthError::UnexpectedResponse("no strict endpoints succeeded".to_string())
         }))
     }
 
-    pub async fn post_json_fallback_with_headers<T: Serialize + ?Sized>(
+    pub async fn post_json_strict_with_headers<T: Serialize + ?Sized>(
         &self,
         paths: &[&str],
         body: &T,
@@ -198,7 +198,7 @@ impl CoreClient {
             {
                 Ok(val) => return Ok(val),
                 Err(err) => {
-                    if Self::is_fallback_error(&err) {
+                    if Self::is_strict_error(&err) {
                         last_error = Some(err);
                         continue;
                     }
@@ -207,7 +207,7 @@ impl CoreClient {
             }
         }
         Err(last_error.unwrap_or_else(|| {
-            SynthError::UnexpectedResponse("no fallback endpoints succeeded".to_string())
+            SynthError::UnexpectedResponse("no strict endpoints succeeded".to_string())
         }))
     }
 

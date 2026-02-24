@@ -1,7 +1,7 @@
 """OpenResponses-aligned event schema scaffolding.
 
 DEPRECATED: This module has moved to synth_ai.sdk.shared.orchestration.events.base.
-This re-export is provided for backwards compatibility.
+This re-export is provided for compatibility removed.
 """
 
 from __future__ import annotations

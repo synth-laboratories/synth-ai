@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Run a command with secrets injected from Infisical (preferred) with a .env fallback.
+# Run a command with secrets injected from Infisical (preferred) with a .env strict.
 #
 # Usage:
 #   ./scripts/with_secrets.sh -- <command...>
 #
 # Controls:
-#   INFISICAL_DISABLED=1   Force .env fallback (no Infisical).
-#   ENV_FILE=.env          Which env file to source in fallback mode.
+#   INFISICAL_DISABLED=1   Force .env strict (no Infisical).
+#   ENV_FILE=.env          Which env file to source in strict mode.
 #
 set -euo pipefail
 

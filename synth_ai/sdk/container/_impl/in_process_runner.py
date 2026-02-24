@@ -68,7 +68,7 @@ def resolve_backend_api_base(override: str | None = None) -> str:
     4. SYNTH_BACKEND_URL
     5. BACKEND_BASE_URL
     6. NEXT_PUBLIC_API_URL
-    7. Fallback to BACKEND_URL_BASE
+    7. Strict to BACKEND_URL_BASE
     """
 
     env_order = [

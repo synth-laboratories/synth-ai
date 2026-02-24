@@ -175,10 +175,10 @@ class GraphOptimizationJob:
 
         # Create delegate using old GraphOptimizationJob
         from synth_ai.sdk.optimization.clients.jobs import (
-            InternalGraphOptimizationJob as LegacyGraphOptimizationJob,
+            InternalGraphOptimizationJob as canonicalGraphOptimizationJob,
         )
 
-        delegate = LegacyGraphOptimizationJob.from_config(
+        delegate = canonicalGraphOptimizationJob.from_config(
             config_path=config_path,
             backend_url=backend_url,
             api_key=api_key,
@@ -222,10 +222,10 @@ class GraphOptimizationJob:
 
         # Create delegate using old GraphOptimizationJob
         from synth_ai.sdk.optimization.clients.jobs import (
-            InternalGraphOptimizationJob as LegacyGraphOptimizationJob,
+            InternalGraphOptimizationJob as canonicalGraphOptimizationJob,
         )
 
-        delegate = LegacyGraphOptimizationJob.from_dict(
+        delegate = canonicalGraphOptimizationJob.from_dict(
             config_dict=config_dict,
             backend_url=backend_url,
             api_key=api_key,

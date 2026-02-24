@@ -1,4 +1,4 @@
-"""Legacy GEPA alias under synth_ai.dspy.teleprompt."""
+"""Canonical GEPA alias under synth_ai.dspy.teleprompt."""
 
 from __future__ import annotations
 

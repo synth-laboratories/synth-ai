@@ -132,7 +132,7 @@ class TunnelBackend(str, Enum):
             - Requires ``cloudflared`` and Synth API key
             - Authenticate jobs with ``container_api_key``
 
-        CloudflareManagedTunnel: Legacy managed tunnel (use ManagedLease instead).
+        CloudflareManagedTunnel: Canonical managed tunnel (use ManagedLease instead).
 
         CloudflareQuickTunnel: Anonymous Cloudflare tunnel.
             - Random subdomains via trycloudflare.com
@@ -144,7 +144,7 @@ class TunnelBackend(str, Enum):
 
     SynthTunnel = "synthtunnel"
     CloudflareManagedLease = "cloudflare_managed_lease"  # NEW - recommended
-    CloudflareManagedTunnel = "cloudflare_managed"  # Legacy
+    CloudflareManagedTunnel = "cloudflare_managed"  # Canonical
     CloudflareQuickTunnel = "cloudflare_quick"
     Localhost = "localhost"
 
@@ -221,8 +221,8 @@ class TunneledContainer:
             local_port: Local port to tunnel (e.g., 8001)
             backend: Tunnel backend to use. Defaults to SynthTunnel.
                 - SynthTunnel: Relay-based HTTPS tunnel (recommended)
-                - CloudflareManagedLease: Fast, reusable tunnels (legacy)
-                - CloudflareManagedTunnel: Legacy managed tunnel (slower)
+                - CloudflareManagedLease: Fast, reusable tunnels (canonical)
+                - CloudflareManagedTunnel: Canonical managed tunnel (slower)
                 - CloudflareQuickTunnel: Random subdomain, no api_key needed
             api_key: Synth API key for authentication (required for managed tunnels).
                 If not provided, will be read from SYNTH_API_KEY environment variable.
@@ -276,6 +276,8 @@ class TunneledContainer:
                 worker_token: str,
                 *,
                 timeout_sec: float = 10.0,
+                request_timeout_sec: float = 2.0,
+                poll_interval_sec: float = 0.25,
             ) -> None:
                 """Wait until the relay can reach the local container.
 
@@ -291,18 +293,19 @@ class TunneledContainer:
                 deadline = time.time() + timeout_sec
                 last_err: Exception | None = None
 
-                while time.time() < deadline:
-                    try:
-                        async with httpx.AsyncClient(timeout=5.0) as http_client:
+                # Reuse one client while polling to reduce startup overhead.
+                async with httpx.AsyncClient(timeout=request_timeout_sec) as http_client:
+                    while time.time() < deadline:
+                        try:
                             resp = await http_client.get(health_url, headers=headers)
-                        if resp.status_code == 200:
-                            return
-                        # Surfacing non-200 responses is critical for debugging local
-                        # auth mismatches (e.g., container expects ENVIRONMENT_API_KEY).
-                        last_err = RuntimeError(f"Health check returned HTTP {resp.status_code}")
-                    except Exception as exc:
-                        last_err = exc
-                    await asyncio.sleep(0.5)
+                            if resp.status_code == 200:
+                                return
+                            # Surfacing non-200 responses is critical for debugging local
+                            # auth mismatches (e.g., container expects ENVIRONMENT_API_KEY).
+                            last_err = RuntimeError(f"Health check returned HTTP {resp.status_code}")
+                        except Exception as exc:
+                            last_err = exc
+                        await asyncio.sleep(poll_interval_sec)
 
                 if last_err:
                     raise RuntimeError(
@@ -354,12 +357,18 @@ class TunneledContainer:
             )
             max_attempts = _read_env_int("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", default=3)
             base_online_timeout_sec = _read_env_float(
-                "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", default=10.0, minimum=1.0
+                "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", default=20.0, minimum=1.0
             )
             online_timeout_backoff_multiplier = _read_env_float(
                 "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_BACKOFF_MULTIPLIER",
                 default=2.0,
                 minimum=1.0,
+            )
+            online_request_timeout_sec = _read_env_float(
+                "SYNTH_TUNNEL_AGENT_ONLINE_REQUEST_TIMEOUT_SEC", default=2.0, minimum=0.2
+            )
+            online_poll_interval_sec = _read_env_float(
+                "SYNTH_TUNNEL_AGENT_ONLINE_POLL_INTERVAL_SEC", default=0.25, minimum=0.05
             )
             max_online_timeout_sec = _read_env_float(
                 "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_MAX_SEC", default=120.0, minimum=1.0
@@ -409,6 +418,8 @@ class TunneledContainer:
                         lease.public_url,
                         lease.worker_token,
                         timeout_sec=timeout_for_attempt,
+                        request_timeout_sec=online_request_timeout_sec,
+                        poll_interval_sec=online_poll_interval_sec,
                     )
 
                     url = lease.public_url

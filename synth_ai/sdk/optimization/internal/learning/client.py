@@ -219,7 +219,7 @@ class LearningClient(LearningClient):  # type: ignore[misc]
                 if rec.get("id"):
                     out.append(rec)
             return out
-        # Fallback: empty list on unexpected shape
+        # Strict: empty list on unexpected shape
         return []
 
 

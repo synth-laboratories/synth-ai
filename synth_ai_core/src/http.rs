@@ -84,7 +84,7 @@ impl HttpError {
     pub fn from_response(status: u16, url: &str, body: Option<&str>) -> Self {
         // Keep enough body to preserve structured JSON error payloads.
         // Display paths still truncate to 200 chars, but parsers (e.g. rate-limit
-        // detail extraction) need the full object to avoid fallback placeholders.
+        // detail extraction) need the full object to avoid strict placeholders.
         let body_snippet = body.map(|s| s.chars().take(4096).collect());
         HttpError::Response(HttpErrorDetail {
             status,
@@ -298,6 +298,28 @@ impl HttpClient {
         self.parse_json(status, &url, &body_bytes)
     }
 
+    /// Make a PATCH request with JSON body.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - API path
+    /// * `body` - JSON body to send
+    pub async fn patch_json<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &Value,
+    ) -> Result<T, HttpError> {
+        let url = self.abs_url(path);
+        let request = self
+            .client
+            .patch(&url)
+            .json(body)
+            .build()
+            .map_err(HttpError::Request)?;
+        let (status, _headers, body_bytes) = self.send_with_x402_retry(request).await?;
+        self.parse_json(status, &url, &body_bytes)
+    }
+
     /// Make a POST request with JSON body and extra headers.
     pub async fn post_json_with_headers<T: DeserializeOwned>(
         &self,
@@ -463,7 +485,7 @@ fn extract_payment_required_header(headers: &HeaderMap, body: &[u8]) -> Option<S
         return direct;
     }
 
-    // Fallback: some servers also place it in the JSON body under detail.x402.payment_required_header.
+    // Strict: some servers also place it in the JSON body under detail.x402.payment_required_header.
     let parsed = serde_json::from_slice::<serde_json::Value>(body).ok()?;
     let detail = parsed.get("detail").unwrap_or(&parsed);
     let x402 = detail.get("x402")?;

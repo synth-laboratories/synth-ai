@@ -88,7 +88,7 @@ def parse_tool_call_from_text(text: str) -> tuple[list[str], str]:
 
 
 def synthesize_tool_call_if_missing(
-    openai_response: dict[str, Any], fallback_tool_name: str = "interact"
+    openai_response: dict[str, Any], strict_tool_name: str = "interact"
 ) -> dict[str, Any]:
     """Ensure the first choice carries a tool_call derived from text if absent."""
 
@@ -96,7 +96,7 @@ def synthesize_tool_call_if_missing(
         synth_ai_py, "container_synthesize_tool_call_if_missing"
     ):
         return synth_ai_py.container_synthesize_tool_call_if_missing(
-            openai_response, fallback_tool_name
+            openai_response, strict_tool_name
         )
 
     choices = openai_response.get("choices") if isinstance(openai_response, dict) else None
@@ -111,9 +111,9 @@ def synthesize_tool_call_if_missing(
     content = message.get("content")
     message["tool_calls"] = [
         {
-            "id": "fallback",
+            "id": "strict",
             "type": "function",
-            "function": {"name": fallback_tool_name, "arguments": "{}"},
+            "function": {"name": strict_tool_name, "arguments": "{}"},
         }
     ]
     if content is not None:

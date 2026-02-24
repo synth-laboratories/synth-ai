@@ -4,7 +4,7 @@ This module provides the canonical `PolicyOptimizationJob` class for running
 policy optimization (prompt/instruction optimization) jobs.
 
 Replaces: `PromptLearningJob` (deprecated)
-Backend endpoint: `/api/jobs/{gepa|mipro}` (canonical)
+Backend endpoint: `/api/v1/offline/jobs` (canonical, `kind`-based create contract)
 
 Algorithms:
 - gepa: Genetic Evolutionary Prompt Algorithm (default)
@@ -241,7 +241,7 @@ class PolicyOptimizationJobConfig:
                 )
 
     def to_prompt_learning_config(self) -> Dict[str, Any]:
-        """Convert to prompt_learning config format for backward compatibility.
+        """Convert to prompt_learning config format for compatibility removed.
 
         The backend currently uses 'prompt_learning' section names. This method
         converts our config to that format until the backend is updated.
@@ -418,7 +418,7 @@ class PolicyOptimizationJob:
         """Create a job from a configuration dictionary.
 
         The config_dict can use either the new 'policy_optimization' section
-        or the legacy 'prompt_learning' section for backward compatibility.
+        or the canonical 'prompt_learning' section for compatibility removed.
 
         Args:
             config_dict: Configuration dictionary
@@ -547,7 +547,7 @@ class PolicyOptimizationJob:
     def _get_delegate(self) -> Any:
         """Get or create the internal PromptLearningJob delegate.
 
-        This provides backward compatibility with the current backend endpoints.
+        This provides compatibility removed with the current backend endpoints.
         Will be removed when backend supports /api/policy-optimization endpoints.
         """
         if self._delegate is None:

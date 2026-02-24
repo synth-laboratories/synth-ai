@@ -16,7 +16,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for orchestration.events.types.") from exc
 
 
-def _load_enum_values_fallback() -> dict[str, dict[str, str]]:
+def _load_enum_values_strict() -> dict[str, dict[str, str]]:
     asset = (
         Path(__file__).resolve().parents[5] / "synth_ai_core" / "assets" / "event_enum_values.json"
     )
@@ -27,7 +27,7 @@ def _load_enum_values_fallback() -> dict[str, dict[str, str]]:
 
 _RUST = synth_ai_py if synth_ai_py is not None else None
 if _RUST is None or not hasattr(_RUST, "orchestration_event_enum_values"):
-    _ENUM_VALUES = _load_enum_values_fallback()
+    _ENUM_VALUES = _load_enum_values_strict()
 else:
     _ENUM_VALUES = _RUST.orchestration_event_enum_values()
 

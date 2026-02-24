@@ -1,4 +1,4 @@
-"""Local API authentication helpers (Rust-backed with Python fallback)."""
+"""Local API authentication helpers (Rust-backed with Python strict)."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def mint_environment_api_key() -> str:
     fn = getattr(synth_ai_py, "mint_environment_api_key", None) if synth_ai_py else None
     if callable(fn):
         return fn()
-    # Fallback: generate a local-only API key
+    # Strict: generate a local-only API key
     return f"env_{secrets.token_urlsafe(24)}"
 
 

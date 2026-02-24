@@ -46,7 +46,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.graphgen_models.") from exc
 
 
-def _load_graph_opt_config_fallback() -> Dict[str, Any]:
+def _load_graph_opt_config_strict() -> Dict[str, Any]:
     asset = (
         Path(__file__).resolve().parents[4] / "synth_ai_core" / "assets" / "supported_models.json"
     )
@@ -359,7 +359,7 @@ class GraphGenTaskSet(BaseModel):
 # Supported models (single source of truth)
 _RUST = _require_rust()
 _GRAPH_OPT_CONFIG = (
-    _RUST.graph_opt_supported_models() if _RUST is not None else _load_graph_opt_config_fallback()
+    _RUST.graph_opt_supported_models() if _RUST is not None else _load_graph_opt_config_strict()
 )
 
 SUPPORTED_POLICY_MODELS = set(_GRAPH_OPT_CONFIG.get("policy_models", []))
@@ -440,7 +440,7 @@ class GraphGenGraphVerifierRequest(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _accept_legacy_trace_key(cls, data: Any) -> Any:
+    def _accept_canonical_trace_key(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
         if "session_trace" not in data and "trace" in data:
@@ -771,7 +771,7 @@ class GraphGenJobConfig(BaseModel):
         # Use first model in list for provider detection
         if self.policy_models:
             return _detect_provider(self.policy_models[0])
-        return "openai"  # Default fallback
+        return "openai"  # Default strict
 
     @property
     def policy_model(self) -> Optional[str]:

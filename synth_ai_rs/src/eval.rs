@@ -93,17 +93,17 @@ impl EvalJob {
 
     pub async fn status(&self) -> Result<Value> {
         let canonical = format!("/jobs/{}", self.job_id);
-        let legacy = format!("/eval/jobs/{}", self.job_id);
+        let canonical = format!("/eval/jobs/{}", self.job_id);
         self.client
-            .get_json_fallback(&[canonical.as_str(), legacy.as_str()], AuthStyle::Both)
+            .get_json_strict(&[canonical.as_str(), canonical.as_str()], AuthStyle::Both)
             .await
     }
 
     pub async fn results(&self) -> Result<Value> {
         let canonical = format!("/jobs/{}/artifacts", self.job_id);
-        let legacy = format!("/eval/jobs/{}/results", self.job_id);
+        let canonical = format!("/eval/jobs/{}/results", self.job_id);
         self.client
-            .get_json_fallback(&[canonical.as_str(), legacy.as_str()], AuthStyle::Both)
+            .get_json_strict(&[canonical.as_str(), canonical.as_str()], AuthStyle::Both)
             .await
     }
 
@@ -113,7 +113,7 @@ impl EvalJob {
             self.client.api_base(),
             self.job_id
         );
-        let legacy = format!(
+        let canonical = format!(
             "{}/eval/jobs/{}/events/stream",
             self.client.api_base(),
             self.job_id
@@ -122,7 +122,7 @@ impl EvalJob {
         match stream_sse(canonical, headers.clone()).await {
             Ok(stream) => Ok(stream),
             Err(SynthError::Api { status: 404, .. }) => {
-                stream_sse(legacy, headers).await
+                stream_sse(canonical, headers).await
             }
             Err(err) => Err(err),
         }

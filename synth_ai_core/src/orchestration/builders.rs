@@ -73,7 +73,7 @@ fn assert_no_forbidden_container_auth_overrides(overrides: &Value) -> Result<(),
 }
 
 fn strip_forbidden_container_auth_fields(config_dict: &mut Value) {
-    // Defense in depth: strip these fields even if they arrive from legacy
+    // Defense in depth: strip these fields even if they arrive from canonical
     // configs so outbound payloads cannot carry container auth.
     if let Some(root) = config_dict.as_object_mut() {
         root.remove("container_api_key");
@@ -212,10 +212,10 @@ fn normalize_gepa(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
 }
 
 fn normalize_mipro(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
-    let fallback_bootstrap = pl_map.get("bootstrap_train_seeds").cloned();
-    let fallback_online = pl_map.get("online_pool").cloned();
-    let fallback_test = pl_map.get("test_pool").cloned();
-    let fallback_reference = pl_map.get("reference_pool").cloned();
+    let strict_bootstrap = pl_map.get("bootstrap_train_seeds").cloned();
+    let strict_online = pl_map.get("online_pool").cloned();
+    let strict_test = pl_map.get("test_pool").cloned();
+    let strict_reference = pl_map.get("reference_pool").cloned();
     let needs_env_name = pl_map.get("env_name").is_none() && pl_map.get("container_id").is_none();
 
     let env_name = {
@@ -237,22 +237,22 @@ fn normalize_mipro(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
         set_if_missing(
             mipro_map,
             "bootstrap_train_seeds",
-            bootstrap.or_else(|| fallback_bootstrap.clone()),
+            bootstrap.or_else(|| strict_bootstrap.clone()),
         );
         set_if_missing(
             mipro_map,
             "online_pool",
-            online_pool.or_else(|| fallback_online.clone()),
+            online_pool.or_else(|| strict_online.clone()),
         );
         set_if_missing(
             mipro_map,
             "test_pool",
-            test_pool.or_else(|| fallback_test.clone()),
+            test_pool.or_else(|| strict_test.clone()),
         );
         set_if_missing(
             mipro_map,
             "reference_pool",
-            reference_pool.or_else(|| fallback_reference.clone()),
+            reference_pool.or_else(|| strict_reference.clone()),
         );
 
         if value_is_missing(mipro_map.get("bootstrap_train_seeds")) {

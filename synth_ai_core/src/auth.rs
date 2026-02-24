@@ -232,7 +232,7 @@ pub struct DeviceAuthResponse {
     /// Environment API key
     #[serde(default)]
     pub environment_api_key: Option<String>,
-    /// Legacy keys format
+    /// Canonical keys format
     #[serde(default)]
     pub keys: Option<HashMap<String, String>>,
 }
@@ -355,7 +355,7 @@ pub async fn poll_device_token(
     }
 }
 
-/// Extract credentials from device auth response, handling legacy format.
+/// Extract credentials from device auth response, handling canonical format.
 fn extract_credentials(data: DeviceAuthResponse) -> HashMap<String, String> {
     let mut result = HashMap::new();
 
@@ -743,21 +743,21 @@ mod tests {
             Some(&"env_test_456".to_string())
         );
 
-        // Legacy format
-        let mut legacy_keys = HashMap::new();
-        legacy_keys.insert("synth".to_string(), "sk_legacy".to_string());
-        legacy_keys.insert("rl_env".to_string(), "env_legacy".to_string());
+        // Canonical format
+        let mut canonical_keys = HashMap::new();
+        canonical_keys.insert("synth".to_string(), "sk_canonical".to_string());
+        canonical_keys.insert("rl_env".to_string(), "env_canonical".to_string());
 
         let data = DeviceAuthResponse {
             synth_api_key: None,
             environment_api_key: None,
-            keys: Some(legacy_keys),
+            keys: Some(canonical_keys),
         };
         let creds = extract_credentials(data);
-        assert_eq!(creds.get("SYNTH_API_KEY"), Some(&"sk_legacy".to_string()));
+        assert_eq!(creds.get("SYNTH_API_KEY"), Some(&"sk_canonical".to_string()));
         assert_eq!(
             creds.get("ENVIRONMENT_API_KEY"),
-            Some(&"env_legacy".to_string())
+            Some(&"env_canonical".to_string())
         );
     }
 }

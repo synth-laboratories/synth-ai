@@ -338,7 +338,7 @@ impl PromptLearningJob {
 
         let timeout = Duration::from_secs_f64(timeout_secs);
         let base_url = self.client.base_url().trim_end_matches('/').to_string();
-        let events_url = format!("{}/api/jobs/{}/events/stream", base_url, job_id);
+        let events_url = format!("{}/api/v1/offline/jobs/{}/events/stream", base_url, job_id);
         let api_key = self.client.http().api_key().to_string();
         let mut headers = HeaderMap::new();
         headers.insert("Accept", HeaderValue::from_static("text/event-stream"));

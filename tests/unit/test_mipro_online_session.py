@@ -358,7 +358,7 @@ async def test_list_seed_evals_async_uses_system_seed_eval_client(
 
 
 @pytest.mark.asyncio
-async def test_get_candidate_async_paginates_system_candidates_fallback(
+async def test_get_candidate_async_paginates_system_candidates_strict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: List[Dict[str, Any]] = []

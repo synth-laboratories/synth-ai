@@ -16,7 +16,7 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-def _fallback_extract_from_url(inference_url: str) -> str | None:
+def _strict_extract_from_url(inference_url: str) -> str | None:
     try:
         parsed = urlparse(inference_url)
         query = parse_qs(parsed.query)
@@ -68,7 +68,7 @@ def extract_trace_correlation_id(
     if synth_ai_py is not None and hasattr(synth_ai_py, "container_extract_trace_correlation_id"):
         correlation_id = synth_ai_py.container_extract_trace_correlation_id(inference_url)
     else:
-        correlation_id = _fallback_extract_from_url(inference_url)
+        correlation_id = _strict_extract_from_url(inference_url)
     if correlation_id:
         return correlation_id
 
@@ -109,7 +109,7 @@ def validate_trace_correlation_id(
     if trace_correlation_id:
         return trace_correlation_id
     if inference_url:
-        extracted = _fallback_extract_from_url(str(inference_url))
+        extracted = _strict_extract_from_url(str(inference_url))
         if extracted:
             return extracted
     if fatal:

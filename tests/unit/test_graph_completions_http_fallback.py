@@ -74,7 +74,7 @@ class _FakeSyncHttpClient:
 async def test_async_run_falls_back_to_http_on_rust_parse_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fallback_payload = {
+    strict_payload = {
         "output": {"outcome_review": {"total": 0.5}},
         "usage": [
             {
@@ -93,7 +93,7 @@ async def test_async_run_falls_back_to_http_on_rust_parse_error(
     )
     monkeypatch.setattr(
         "synth_ai.sdk.graphs.completions.httpx.AsyncClient",
-        lambda *args, **kwargs: _FakeAsyncHttpClient(fallback_payload),
+        lambda *args, **kwargs: _FakeAsyncHttpClient(strict_payload),
     )
 
     result = await client.run(input_data={"foo": "bar"}, job_id="graph-1")
@@ -105,7 +105,7 @@ async def test_async_run_falls_back_to_http_on_rust_parse_error(
 def test_sync_run_falls_back_to_http_on_rust_parse_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    fallback_payload = {
+    strict_payload = {
         "output": {"outcome_review": {"total": 0.25}},
         "usage": [
             {
@@ -124,7 +124,7 @@ def test_sync_run_falls_back_to_http_on_rust_parse_error(
     )
     monkeypatch.setattr(
         "synth_ai.sdk.graphs.completions.httpx.Client",
-        lambda *args, **kwargs: _FakeSyncHttpClient(fallback_payload),
+        lambda *args, **kwargs: _FakeSyncHttpClient(strict_payload),
     )
 
     result = client.run(input_data={"foo": "bar"}, job_id="graph-2")

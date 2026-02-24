@@ -280,9 +280,9 @@ pub async fn ensure_container_auth(
 
     let mut key = env::var(ENVIRONMENT_API_KEY_NAME).unwrap_or_default();
     if key.trim().is_empty() {
-        let fallback = env::var(DEV_ENVIRONMENT_API_KEY_NAME).unwrap_or_default();
-        if !fallback.trim().is_empty() {
-            key = fallback;
+        let strict = env::var(DEV_ENVIRONMENT_API_KEY_NAME).unwrap_or_default();
+        if !strict.trim().is_empty() {
+            key = strict;
             env::set_var(ENVIRONMENT_API_KEY_NAME, &key);
         }
     }

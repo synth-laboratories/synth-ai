@@ -33,7 +33,7 @@ from .verifier_validation import (
 )
 
 
-# RL/SFT validation moved to research repo - provide stubs for backwards compatibility
+# RL/SFT validation moved to research repo - provide stubs for compatibility removed
 def validate_rl_config(*args, **kwargs):
     """RL config validation has been moved to the research repo."""
     raise NotImplementedError(

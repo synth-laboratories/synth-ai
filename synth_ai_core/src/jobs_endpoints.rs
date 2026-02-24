@@ -8,21 +8,21 @@
 //!
 //! # Endpoint Families
 //!
-//! Canonical: `/api/jobs/*`
+//! Canonical: `/api/v1/offline/jobs/*`
 
 // ---------------------------------------------------------------------------
 // Canonical job endpoint family
 // ---------------------------------------------------------------------------
 
 /// Root for all canonical job endpoints.
-pub const JOBS_ROOT: &str = "/api/jobs";
+pub const JOBS_ROOT: &str = "/api/v1/offline/jobs";
 
 /// Create/submit endpoints by domain.
-pub const JOBS_CREATE_GEPA: &str = "/api/jobs/gepa";
-pub const JOBS_CREATE_MIPRO: &str = "/api/jobs/mipro";
-pub const JOBS_CREATE_EVAL: &str = "/api/jobs/eval";
-pub const JOBS_CREATE_GRAPH: &str = "/api/jobs/graph";
-pub const JOBS_CREATE_VERIFIER: &str = "/api/jobs/verifier";
+pub const JOBS_CREATE_GEPA: &str = "/api/v1/offline/jobs";
+pub const JOBS_CREATE_MIPRO: &str = "/api/v1/offline/jobs";
+pub const JOBS_CREATE_EVAL: &str = "/api/v1/offline/jobs";
+pub const JOBS_CREATE_GRAPH: &str = "/api/v1/offline/jobs";
+pub const JOBS_CREATE_VERIFIER: &str = "/api/v1/offline/jobs";
 
 /// Format helpers for per-job endpoints.
 pub fn jobs_status(job_id: &str) -> String {
@@ -42,7 +42,7 @@ pub fn jobs_artifacts(job_id: &str) -> String {
 }
 
 pub fn jobs_cancel(job_id: &str) -> String {
-    format!("{}/{}/cancel", JOBS_ROOT, job_id)
+    jobs_status(job_id)
 }
 
 pub fn jobs_metrics(job_id: &str) -> String {
@@ -123,11 +123,14 @@ mod tests {
 
     #[test]
     fn test_canonical_endpoints() {
-        assert_eq!(jobs_status("abc"), "/api/jobs/abc");
-        assert_eq!(jobs_events("abc"), "/api/jobs/abc/events");
-        assert_eq!(jobs_events_stream("abc"), "/api/jobs/abc/events/stream");
-        assert_eq!(jobs_artifacts("abc"), "/api/jobs/abc/artifacts");
-        assert_eq!(jobs_cancel("abc"), "/api/jobs/abc/cancel");
+        assert_eq!(jobs_status("abc"), "/api/v1/offline/jobs/abc");
+        assert_eq!(jobs_events("abc"), "/api/v1/offline/jobs/abc/events");
+        assert_eq!(
+            jobs_events_stream("abc"),
+            "/api/v1/offline/jobs/abc/events/stream"
+        );
+        assert_eq!(jobs_artifacts("abc"), "/api/v1/offline/jobs/abc/artifacts");
+        assert_eq!(jobs_cancel("abc"), "/api/v1/offline/jobs/abc");
     }
 
     #[test]
@@ -173,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_create_endpoints() {
-        assert_eq!(JOBS_CREATE_GEPA, "/api/jobs/gepa");
-        assert_eq!(JOBS_CREATE_EVAL, "/api/jobs/eval");
+        assert_eq!(JOBS_CREATE_GEPA, "/api/v1/offline/jobs");
+        assert_eq!(JOBS_CREATE_EVAL, "/api/v1/offline/jobs");
     }
 }

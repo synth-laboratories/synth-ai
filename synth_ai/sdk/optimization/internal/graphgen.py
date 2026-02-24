@@ -44,7 +44,7 @@ class GraphEvolveJobResult:
     error: Optional[str] = None
     dataset_name: Optional[str] = None
     task_count: Optional[int] = None
-    legacy_graphgen_job_id: Optional[str] = None
+    canonical_graphgen_job_id: Optional[str] = None
 
 
 @dataclass
@@ -58,7 +58,7 @@ class GraphEvolveSubmitResult:
     rollout_budget: int
     policy_models: List[str]
     judge_mode: str
-    legacy_graphgen_job_id: Optional[str] = None
+    canonical_graphgen_job_id: Optional[str] = None
 
 
 class GraphEvolveJob:
@@ -126,7 +126,7 @@ class GraphEvolveJob:
         self.metadata = metadata or {}
 
         self._graph_evolve_job_id: Optional[str] = None
-        self._legacy_graphgen_job_id: Optional[str] = None
+        self._canonical_graphgen_job_id: Optional[str] = None
         self._submit_result: Optional[GraphEvolveSubmitResult] = None
         self._rust_job: Any | None = None
 
@@ -239,7 +239,7 @@ class GraphEvolveJob:
         """Resume an existing GraphEvolve job by ID.
 
         Args:
-            job_id: Graph Evolve job ID ("graph_evolve_*"), legacy GraphGen job ID
+            job_id: Graph Evolve job ID ("graph_evolve_*"), canonical GraphGen job ID
                 ("graphgen_*"), or underlying GEPA job ID ("pl_*")
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
@@ -265,14 +265,14 @@ class GraphEvolveJob:
             auto_start=False,
         )
 
-        # Accept Graph Evolve, legacy GraphGen, or GEPA job IDs.
+        # Accept Graph Evolve, canonical GraphGen, or GEPA job IDs.
         valid_prefixes = ("graph_evolve_", "graphgen_", "pl_")
         if not any(job_id.startswith(p) for p in valid_prefixes):
             raise ValueError(
                 f"Unsupported job ID format: {job_id!r}. Expected one of: {valid_prefixes}"
             )
         if job_id.startswith("graphgen_"):
-            job._legacy_graphgen_job_id = job_id
+            job._canonical_graphgen_job_id = job_id
         else:
             job._graph_evolve_job_id = job_id
         job._rust_job = _require_rust().GraphEvolveJob.from_job_id(job_id, api_key, backend_url)
@@ -295,7 +295,7 @@ class GraphEvolveJob:
             return self._graph_evolve_job_id
         if self._submit_result and self._submit_result.graph_evolve_job_id:
             return self._submit_result.graph_evolve_job_id
-        return self._legacy_graphgen_job_id
+        return self._canonical_graphgen_job_id
 
     @property
     def graph_evolve_job_id(self) -> Optional[str]:
@@ -311,12 +311,12 @@ class GraphEvolveJob:
         return None
 
     @property
-    def legacy_graphgen_job_id(self) -> Optional[str]:
-        """Get the legacy GraphGen job ID if known."""
-        if self._legacy_graphgen_job_id:
-            return self._legacy_graphgen_job_id
-        if self._submit_result and self._submit_result.legacy_graphgen_job_id:
-            return self._submit_result.legacy_graphgen_job_id
+    def canonical_graphgen_job_id(self) -> Optional[str]:
+        """Get the canonical GraphGen job ID if known."""
+        if self._canonical_graphgen_job_id:
+            return self._canonical_graphgen_job_id
+        if self._submit_result and self._submit_result.canonical_graphgen_job_id:
+            return self._submit_result.canonical_graphgen_job_id
         return None
 
     def _build_payload(self) -> Dict[str, Any]:
@@ -362,7 +362,7 @@ class GraphEvolveJob:
         """
         from .graphgen_validators import validate_graphgen_job_config
 
-        if self._graph_evolve_job_id or self._legacy_graphgen_job_id:
+        if self._graph_evolve_job_id or self._canonical_graphgen_job_id:
             raise RuntimeError(f"Job already submitted: {self.job_id}")
 
         # Validate config + dataset before expensive API call.
@@ -379,22 +379,22 @@ class GraphEvolveJob:
         js = rust_job.submit()
 
         self._graph_evolve_job_id = js.get("graph_evolve_job_id")
-        self._legacy_graphgen_job_id = js.get("graphgen_job_id")
+        self._canonical_graphgen_job_id = js.get("graphgen_job_id")
 
-        if not self._graph_evolve_job_id and not self._legacy_graphgen_job_id:
+        if not self._graph_evolve_job_id and not self._canonical_graphgen_job_id:
             raise RuntimeError("Response missing graph_evolve_job_id")
 
-        # Get judge_mode from response or fallback to dataset verifier_config
+        # Get judge_mode from response or strict to dataset verifier_config
         judge_mode = js.get("judge_mode")
         if not judge_mode and self.dataset.verifier_config:
             judge_mode = self.dataset.verifier_config.mode
         if not judge_mode:
-            judge_mode = "rubric"  # Default fallback
+            judge_mode = "rubric"  # Default strict
 
         # Extract policy_models from response (backend may return policy_model for backward compat)
         policy_models_response = js.get("policy_models")
         if not policy_models_response:
-            # Backward compatibility: if backend returns policy_model, convert to list
+            # compatibility removed: if backend returns policy_model, convert to list
             policy_model_single = js.get("policy_model")
             if policy_model_single:
                 policy_models_response = [policy_model_single]
@@ -409,7 +409,7 @@ class GraphEvolveJob:
             rollout_budget=js.get("rollout_budget", self.config.rollout_budget),
             policy_models=policy_models_response,
             judge_mode=judge_mode,
-            legacy_graphgen_job_id=self._legacy_graphgen_job_id,
+            canonical_graphgen_job_id=self._canonical_graphgen_job_id,
         )
 
         return self._submit_result
@@ -544,7 +544,7 @@ class GraphEvolveJob:
         """Download the optimized prompt from a completed job.
 
         For graph-first jobs, prefer `download_graph_txt()`; this method is
-        mainly useful for legacy single-node prompt workflows.
+        mainly useful for canonical single-node prompt workflows.
 
         Returns:
             Optimized prompt text
@@ -586,10 +586,10 @@ class GraphEvolveJob:
         Args:
             input_data: Input data matching the task format
             model: Override model (default: use job's policy model)
-            prompt_snapshot_id: Legacy alias for selecting a specific snapshot.
+            prompt_snapshot_id: Canonical alias for selecting a specific snapshot.
             graph_snapshot_id: Specific GraphSnapshot to use (default: best).
                 Preferred for graph-first jobs. If provided, it is sent as
-                `prompt_snapshot_id` for backward-compatible backend routing.
+                `prompt_snapshot_id` for strict backend routing.
 
         Returns:
             Output dictionary
@@ -643,14 +643,14 @@ class GraphEvolveJob:
         public export.
 
         Args:
-            prompt_snapshot_id: Legacy alias for selecting a specific snapshot.
+            prompt_snapshot_id: Canonical alias for selecting a specific snapshot.
             graph_snapshot_id: Specific GraphSnapshot to use (default: best).
 
         Returns:
             Graph record dictionary containing:
             - job_id: The job ID
             - snapshot_id: The snapshot ID used
-            - prompt: Extracted prompt text (legacy single-node only; may be empty)
+            - prompt: Extracted prompt text (canonical single-node only; may be empty)
             - graph: Public graph record payload (e.g., export metadata)
             - model: Model used for this graph (optional)
 
@@ -743,7 +743,7 @@ class GraphEvolveJob:
         return rust_job.query_workflow_state()
 
 
-# Legacy aliases (GraphGen naming)
+# Canonical aliases (GraphGen naming)
 GraphGenJob = GraphEvolveJob
 GraphGenJobResult = GraphEvolveJobResult
 GraphGenSubmitResult = GraphEvolveSubmitResult
