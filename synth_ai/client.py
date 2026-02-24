@@ -456,21 +456,27 @@ def _require_field(payload: dict[str, Any], field: str, *, context: str) -> str:
     return value
 
 
-_LEGACY_ROLLOUT_REQUEST_KEYS = {
-    "task_app_url",
-    "localapi_url",
-    "run_id",
-    "reward_mean",
+_CANONICAL_ROLLOUT_REQUEST_KEYS = {
+    "trace_correlation_id",
+    "inference_url",
+    "policy",
+    "policy_config",
+    "env",
+    "metadata",
+    "safety",
+    "limits",
+    "params",
+    "seed",
 }
 
 
 def _validate_rollout_request(request: dict[str, Any], *, context: str) -> None:
-    legacy_keys = sorted(key for key in _LEGACY_ROLLOUT_REQUEST_KEYS if key in request)
-    if legacy_keys:
-        legacy_list = ", ".join(legacy_keys)
+    invalid_keys = sorted(key for key in request if key not in _CANONICAL_ROLLOUT_REQUEST_KEYS)
+    if invalid_keys:
+        invalid_list = ", ".join(invalid_keys)
         raise ValueError(
-            f"{context} request contains legacy keys ({legacy_list}); "
-            "use canonical fields (container_url, trace_correlation_id, reward_info.outcome_reward)."
+            f"{context} request contains unsupported keys ({invalid_list}); "
+            "use canonical rollout fields only."
         )
 
 

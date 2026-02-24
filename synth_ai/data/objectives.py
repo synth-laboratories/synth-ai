@@ -22,7 +22,7 @@ except Exception as exc:  # pragma: no cover
 
 def _default_reward_source() -> RewardSource:
     """Pick a stable RewardSource even if enum members drift across SDK versions."""
-    for name in ("CONTAINER", "TASK_APP", "LOCALAPI", "FUSED", "VERIFIER"):
+    for name in ("CONTAINER", "FUSED", "VERIFIER"):
         member = getattr(RewardSource, name, None)
         if member is not None:
             return member

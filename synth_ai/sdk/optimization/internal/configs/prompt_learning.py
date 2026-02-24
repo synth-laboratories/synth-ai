@@ -81,7 +81,7 @@ from .shared import ExtraModel
 
 def _default_reward_source() -> RewardSource:
     """Pick a stable RewardSource even if enum members drift across SDK versions."""
-    for name in ("CONTAINER", "TASK_APP", "LOCALAPI", "FUSED", "VERIFIER"):
+    for name in ("CONTAINER", "FUSED", "VERIFIER"):
         member = getattr(RewardSource, name, None)
         if member is not None:
             return member
@@ -1027,10 +1027,7 @@ class GEPAConfig(ExtraModel):
 
         # compatibility removed: accept canonical task_context and map it to
         # actionable_upfront_context if the new field is not already provided.
-        if (
-            "actionable_upfront_context" not in data
-            and isinstance(data.get("task_context"), dict)
-        ):
+        if "actionable_upfront_context" not in data and isinstance(data.get("task_context"), dict):
             data = dict(data)
             data["actionable_upfront_context"] = data["task_context"]
 
