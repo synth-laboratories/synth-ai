@@ -456,6 +456,24 @@ def _require_field(payload: dict[str, Any], field: str, *, context: str) -> str:
     return value
 
 
+_LEGACY_ROLLOUT_REQUEST_KEYS = {
+    "task_app_url",
+    "localapi_url",
+    "run_id",
+    "reward_mean",
+}
+
+
+def _validate_rollout_request(request: dict[str, Any], *, context: str) -> None:
+    legacy_keys = sorted(key for key in _LEGACY_ROLLOUT_REQUEST_KEYS if key in request)
+    if legacy_keys:
+        legacy_list = ", ".join(legacy_keys)
+        raise ValueError(
+            f"{context} request contains legacy keys ({legacy_list}); "
+            "use canonical fields (container_url, trace_correlation_id, reward_info.outcome_reward)."
+        )
+
+
 class _PoolUploadsSyncClient:
     def __init__(self, raw: ContainerPoolsClient) -> None:
         self._raw = raw
@@ -549,6 +567,7 @@ class _PoolRolloutsSyncClient:
         self._raw = raw
 
     def create(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        _validate_rollout_request(request, context="pools.rollouts.create")
         return self._raw.create_rollout(pool_id, request)
 
     def get(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
@@ -624,6 +643,7 @@ class _AgentRolloutsSyncClient:
         return join_url(self._backend_base, path)
 
     def create(self, request: dict[str, Any]) -> dict[str, Any]:
+        _validate_rollout_request(request, context="pools.agent_rollouts.create")
         return self._raw._request("POST", "/v1/rollouts", json_body=request)
 
     def get(self, rollout_id: str) -> dict[str, Any]:
@@ -783,7 +803,6 @@ class PoolsClient:
         self.tasks = _PoolTasksSyncClient(self._raw)
         self.metrics = _PoolMetricsSyncClient(self._raw)
         self.agent_rollouts = _AgentRolloutsSyncClient(self._raw)
-        self.sandbox = self.agent_rollouts
         self.skills = _PoolSkillsSyncClient()
         self.harbor = _PoolTemplateSyncClient(self, PoolTarget.HARBOR)
         self.openenv = _PoolTemplateSyncClient(self, PoolTarget.OPENENV)
@@ -835,7 +854,7 @@ class PoolsClient:
             agent_model=agent_model,
         )
 
-    # Compatibility pass-throughs for direct flat usage
+    # Convenience pass-throughs for direct flat usage
     def create_upload(self, **kwargs: Any) -> dict[str, Any]:
         return self.uploads.create(**kwargs)
 
@@ -915,35 +934,6 @@ class PoolsClient:
 
     def delete_task(self, pool_id: str, task_id: str) -> dict[str, Any]:
         return self.tasks.delete(pool_id, task_id)
-
-    def create_agent_rollout(self, request: dict[str, Any]) -> dict[str, Any]:
-        return self.agent_rollouts.create(request)
-
-    def get_agent_rollout(self, rollout_id: str) -> dict[str, Any]:
-        return self.agent_rollouts.get(rollout_id)
-
-    def get_agent_rollout_artifacts(self, rollout_id: str) -> dict[str, Any]:
-        return self.agent_rollouts.artifacts(rollout_id)
-
-    def get_agent_rollout_support_bundle(self, rollout_id: str) -> dict[str, Any]:
-        return self.agent_rollouts.support_bundle(rollout_id)
-
-    def fetch_agent_rollout_artifact(
-        self,
-        rollout_id: str,
-        path: str,
-        *,
-        timeout: float | None = None,
-    ) -> bytes:
-        return self.agent_rollouts.fetch_artifact(rollout_id, path, timeout=timeout)
-
-    def download_agent_rollout_artifacts_zip(
-        self,
-        rollout_id: str,
-        *,
-        timeout: float | None = None,
-    ) -> bytes:
-        return self.agent_rollouts.download_artifacts_zip(rollout_id, timeout=timeout)
 
 
 def _is_proxy_namespace(value: Any) -> bool:
@@ -1448,8 +1438,6 @@ class SynthClient:
             pools=self.pools,
             tunnels=self.tunnels,
         )
-        self.containers = self.container
-        self.container_pools = self.pools
 
 
 class AsyncSynthClient:
@@ -1519,8 +1507,6 @@ class AsyncSynthClient:
             pools=self.pools,
             tunnels=self.tunnels,
         )
-        self.containers = self.container
-        self.container_pools = self.pools
 
 
 __all__ = [

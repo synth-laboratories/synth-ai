@@ -85,12 +85,15 @@ def test_frontdoor_sync_client_exposes_canonical_namespaces(monkeypatch: Any) ->
     assert hasattr(client.pools, "openenv")
     assert hasattr(client.pools, "horizons")
     assert hasattr(client.pools, "arbitrary")
+    assert not hasattr(client.pools, "sandbox")
     assert hasattr(client, "container")
     assert hasattr(client.container, "hosted")
     assert hasattr(client.container, "local")
     assert hasattr(client.container, "pools")
     assert hasattr(client.container, "tunnels")
     assert hasattr(client.container, "synth_tunnel")
+    assert not hasattr(client, "containers")
+    assert not hasattr(client, "container_pools")
 
     response = client.inference.chat.completions.create(
         model="gpt-4o-mini",
@@ -159,12 +162,15 @@ async def test_frontdoor_async_client_exposes_canonical_namespaces(monkeypatch: 
     assert hasattr(client.optimization, "offline")
     assert hasattr(client.optimization, "online")
     assert hasattr(client, "pools")
+    assert not hasattr(client.pools, "sandbox")
     assert hasattr(client, "container")
     assert hasattr(client.container, "hosted")
     assert hasattr(client.container, "local")
     assert hasattr(client.container, "pools")
     assert hasattr(client.container, "tunnels")
     assert hasattr(client.container, "synth_tunnel")
+    assert not hasattr(client, "containers")
+    assert not hasattr(client, "container_pools")
 
     response = await client.inference.chat.completions.create(
         model="gpt-4o-mini",
@@ -330,3 +336,31 @@ def test_pools_tasks_namespace_routes_to_pool_task_endpoints(monkeypatch: Any) -
     assert updated["ok"] is True
     assert client.pools.raw.calls[0]["path"] == "/v1/pools/pool_1/tasks"
     assert client.pools.raw.calls[1]["path"] == "/v1/pools/pool_1/tasks/task_1"
+
+
+def test_pools_rollout_create_rejects_legacy_request_keys(monkeypatch: Any) -> None:
+    class _StubPoolsClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def create_rollout(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+            return {"pool_id": pool_id, "request": request}
+
+        def _request(
+            self,
+            method: str,
+            path: str,
+            *,
+            json_body: dict[str, Any] | None = None,
+            params: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            return {"method": method, "path": path, "json_body": json_body, "params": params}
+
+    monkeypatch.setattr(canonical_client, "ContainerPoolsClient", _StubPoolsClient)
+    client = canonical_client.SynthClient(api_key="sk_test_sync", base_url="http://example.test")
+
+    with pytest.raises(ValueError, match="legacy keys"):
+        client.pools.rollouts.create("pool_1", {"task_app_url": "https://legacy.example.test"})
+
+    with pytest.raises(ValueError, match="legacy keys"):
+        client.pools.agent_rollouts.create({"run_id": "legacy_run_id"})
