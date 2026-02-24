@@ -94,7 +94,6 @@ impl Default for InferenceMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RewardSource {
-    #[serde(alias = "task_app", alias = "localapi")]
     Container,
     Verifier,
     Fused,

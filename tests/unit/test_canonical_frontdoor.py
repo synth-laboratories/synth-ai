@@ -291,7 +291,12 @@ def test_pools_agent_rollouts_namespace_uses_global_rollout_routes(monkeypatch: 
     monkeypatch.setattr(canonical_client, "ContainerPoolsClient", _StubPoolsClient)
     client = canonical_client.SynthClient(api_key="sk_test_sync", base_url="http://example.test")
 
-    created = client.pools.agent_rollouts.create({"task_ref": {"dataset": "x", "task_id": "y"}})
+    created = client.pools.agent_rollouts.create(
+        {
+            "policy": {"instruction": "Classify banking intent"},
+            "params": {"dataset": "x", "task_id": "y"},
+        }
+    )
     status = client.pools.agent_rollouts.get("rt_123")
     artifacts = client.pools.agent_rollouts.artifacts("rt_123")
 
@@ -359,8 +364,8 @@ def test_pools_rollout_create_rejects_legacy_request_keys(monkeypatch: Any) -> N
     monkeypatch.setattr(canonical_client, "ContainerPoolsClient", _StubPoolsClient)
     client = canonical_client.SynthClient(api_key="sk_test_sync", base_url="http://example.test")
 
-    with pytest.raises(ValueError, match="legacy keys"):
+    with pytest.raises(ValueError, match="unsupported keys"):
         client.pools.rollouts.create("pool_1", {"task_app_url": "https://legacy.example.test"})
 
-    with pytest.raises(ValueError, match="legacy keys"):
-        client.pools.agent_rollouts.create({"run_id": "legacy_run_id"})
+    with pytest.raises(ValueError, match="unsupported keys"):
+        client.pools.agent_rollouts.create({"task_ref": {"dataset": "x", "task_id": "y"}})

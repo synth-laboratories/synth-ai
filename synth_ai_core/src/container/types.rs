@@ -1,6 +1,6 @@
-//! Data contracts for task app communication.
+//! Data contracts for container communication.
 //!
-//! These types match the Python SDK's task app API contract.
+//! These types match the Python SDK's container API contract.
 
 use crate::data::{Artifact, ContextOverride, ContextOverrideStatus, SuccessStatus};
 use serde::{Deserialize, Serialize};

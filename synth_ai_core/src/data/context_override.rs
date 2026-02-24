@@ -1,6 +1,6 @@
 //! Context override types for unified optimization.
 //!
-//! Context overrides allow modifying task app behavior through file artifacts,
+//! Context overrides allow modifying container behavior through file artifacts,
 //! environment variables, and preflight scripts.
 
 use serde::{Deserialize, Serialize};

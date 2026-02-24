@@ -116,7 +116,7 @@ components:
         6. POST to `policy.config.inference_url` + `/chat/completions`
         7. Parse the LLM response (tool_calls or content)
         8. Compare prediction to your ground truth
-        9. Return RolloutResponse with reward in `metrics.reward_mean`
+        9. Return RolloutResponse with reward in `metrics.outcome_reward`
       required:
         - trace_correlation_id
         - env
@@ -697,7 +697,7 @@ components:
           # CANONICAL (for compatibility removed)
           episode_rewards:
             - 1.0
-          reward_mean: 1.0
+          outcome_reward: 1.0
           num_steps: 1
         inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         aborted: false
@@ -1252,7 +1252,7 @@ paths:
         8. [ ] POST to `request.policy.config.inference_url` + `/chat/completions`
         9. [ ] Parse LLM response (tool_calls or content)
         10. [ ] Compare prediction to ground truth
-        11. [ ] Return RolloutResponse with `metrics.reward_mean` = reward
+        11. [ ] Return RolloutResponse with `metrics.outcome_reward` = reward
 
         ## Example: Classification Task
 
@@ -1275,7 +1275,7 @@ paths:
         3. POST to `inference_url/chat/completions` with messages + your tool schema
         4. LLM returns tool_call with `{"intent": "change_pin"}`
         5. Compare: "change_pin" == "change_pin" -> correct!
-        6. Return: `metrics.reward_mean = 1.0`
+        6. Return: `metrics.outcome_reward = 1.0`
       tags:
         - Rollout
       security:
@@ -1493,7 +1493,7 @@ components:
         6. POST to `policy.config.inference_url` + `/chat/completions`
         7. Parse the LLM response (tool_calls or content)
         8. Compare prediction to your ground truth
-        9. Return RolloutResponse with reward in `metrics.reward_mean`
+        9. Return RolloutResponse with reward in `metrics.outcome_reward`
       required:
         - trace_correlation_id
         - env
@@ -2074,7 +2074,7 @@ components:
           # CANONICAL (for compatibility removed)
           episode_rewards:
             - 1.0
-          reward_mean: 1.0
+          outcome_reward: 1.0
           num_steps: 1
         inference_url: "https://api.usesynth.ai/v1/trial-xyz"
         aborted: false
@@ -2629,7 +2629,7 @@ paths:
         8. [ ] POST to `request.policy.config.inference_url` + `/chat/completions`
         9. [ ] Parse LLM response (tool_calls or content)
         10. [ ] Compare prediction to ground truth
-        11. [ ] Return RolloutResponse with `metrics.reward_mean` = reward
+        11. [ ] Return RolloutResponse with `metrics.outcome_reward` = reward
 
         ## Example: Classification Task
 
@@ -2652,7 +2652,7 @@ paths:
         3. POST to `inference_url/chat/completions` with messages + your tool schema
         4. LLM returns tool_call with `{"intent": "change_pin"}`
         5. Compare: "change_pin" == "change_pin" -> correct!
-        6. Return: `metrics.reward_mean = 1.0`
+        6. Return: `metrics.outcome_reward = 1.0`
       tags:
         - Rollout
       security:

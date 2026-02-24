@@ -497,7 +497,7 @@ class EventRewardResponse(BaseModel):
             raw = v.strip().lower()
             if raw in {"verifier", "evaluator"}:
                 return RewardSource.VERIFIER
-            if raw in {"container", "taskapp", "environment", "runner", "human", "env"}:
+            if raw in {"container", "environment", "runner", "human", "env"}:
                 return getattr(RewardSource, "CONTAINER", None) or RewardSource.FUSED
             if raw == "fused":
                 return RewardSource.FUSED

@@ -78,7 +78,7 @@ pub fn validate_trace_correlation_id(
 
     let inference_url = inference_url.unwrap_or("NOT_SET");
     let error_msg = format!(
-        "CRITICAL: Cannot extract trace_correlation_id!\n\nID: UNKNOWN\nInference URL: {}\n\nChecked:\n1. inference_url path segments\n2. inference_url query params\n\nTask app CANNOT proceed without trace_correlation_id.\nThis indicates the RL trainer is not sending it correctly.\n\nSee monorepo/trace_creation_and_judgement.txt 'Fatal Guards' section.\n",
+        "CRITICAL: Cannot extract trace_correlation_id!\n\nID: UNKNOWN\nInference URL: {}\n\nChecked:\n1. inference_url path segments\n2. inference_url query params\n\nContainer CANNOT proceed without trace_correlation_id.\nThis indicates the RL trainer is not sending it correctly.\n\nSee monorepo/trace_creation_and_judgement.txt 'Fatal Guards' section.\n",
         inference_url
     );
 

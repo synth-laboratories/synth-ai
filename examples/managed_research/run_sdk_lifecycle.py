@@ -18,7 +18,6 @@ import time
 from typing import Any
 
 import requests
-
 from synth_ai.sdk.managed_research import ACTIVE_RUN_STATES, SmrControlClient, first_id
 
 
@@ -257,7 +256,7 @@ def _format_eval_health_preflight_failure(result: dict[str, Any]) -> str:
     return (
         "Eval server preflight failed before triggering run: "
         f"{url} was unreachable after {attempts} attempt(s) ({detail}). "
-        "Start the eval server first (for example the banking77 task app on :8102), "
+        "Start the eval server first (for example the banking77 container server on :8102), "
         "or pass --no-check-eval-health to bypass. "
         "Note: skip_health_check=True only skips SDK-side preflight checks; backend workers "
         "still run container_url health checks."

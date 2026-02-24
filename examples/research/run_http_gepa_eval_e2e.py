@@ -2,7 +2,7 @@
 """Full HTTP E2E: GEPA optimization + Eval jobs + prompt deliverable.
 
 This script performs an end-to-end run over HTTP using the Synth SDK:
-1) Starts a local container task app over HTTP.
+1) Starts a local container server over HTTP.
 2) Submits a GEPA prompt-optimization job.
 3) Retrieves optimized prompts.
 4) Runs two Eval jobs (baseline prompt and optimized prompt).
@@ -217,11 +217,7 @@ async def _classify_via_backend_http(
         response = await client.post(endpoint, headers=headers, json=payload)
     response.raise_for_status()
     data = response.json()
-    content = (
-        data.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-    )
+    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
     if not isinstance(content, str):
         content = str(content)
     label = _extract_label(content)
@@ -230,7 +226,7 @@ async def _classify_via_backend_http(
     return LABELS[0]
 
 
-def _build_task_app(*, backend_base: str, api_key: str, default_model: str) -> Any:
+def _build_container_server(*, backend_base: str, api_key: str, default_model: str) -> Any:
     debug_counter = {"count": 0}
 
     async def rollout(request: RolloutRequest, fastapi_request: Any) -> RolloutResponse:
@@ -362,7 +358,9 @@ def _extract_best_system_prompt(
                 return content_text.strip()
         return None
 
-    candidate = gepa_result.get_system_prompt() if hasattr(gepa_result, "get_system_prompt") else None
+    candidate = (
+        gepa_result.get_system_prompt() if hasattr(gepa_result, "get_system_prompt") else None
+    )
     if isinstance(candidate, str) and candidate.strip():
         return candidate.strip()
 
@@ -460,7 +458,7 @@ async def run() -> None:
         backend_base=backend_base,
         synth_api_key=synth_api_key,
     )
-    app = _build_task_app(
+    app = _build_container_server(
         backend_base=backend_base,
         api_key=synth_api_key,
         default_model=args.model,
@@ -564,7 +562,9 @@ async def run() -> None:
 
         print("Fetching optimized prompt artifacts...")
         gepa_raw_results = await asyncio.to_thread(policy_job.get_results)
-        prompts_payload = await asyncio.to_thread(get_prompts, gepa_job_id, backend_base, synth_api_key)
+        prompts_payload = await asyncio.to_thread(
+            get_prompts, gepa_job_id, backend_base, synth_api_key
+        )
         optimized_system_prompt = _extract_best_system_prompt(
             gepa_result=gepa_result,
             prompts_payload=prompts_payload,
