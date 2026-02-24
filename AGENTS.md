@@ -4,7 +4,7 @@
 
 ## Coding Style
 
-Follow the **Synth Style** guide: `specifications/tanha/references/tigerstyle.md` (sibling repo).
+Follow the **Synth Style** guide: `specifications/tanha/references/synthstyle.md` (sibling repo).
 
 - **Docstrings link to specs.** Use `/// See: specifications/tanha/...` (Rust) or `# See: specifications/tanha/...` (Python) on non-trivial public functions/modules.
 - **All errors handled.** Rust: `thiserror`, never `unwrap()`. Python: never swallow exceptions.

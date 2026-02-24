@@ -108,7 +108,6 @@ exclude = [
     "synth_ai.*old*",
     "synth_ai.*tests*",
     "synth_ai.*units*",
-    "synth_ai.tracing_v3.tests*",
 ]
 
 [tool.setuptools]
@@ -185,7 +184,6 @@ extend-exclude = [
     "traces",
     "traces_*",
     "synth_ai.db",
-    "synth_ai/tracing_v3/tests",
 ]
 
 [tool.ruff.lint]

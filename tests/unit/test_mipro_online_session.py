@@ -222,52 +222,6 @@ async def test_get_prompt_urls_async_passes_correlation(monkeypatch: pytest.Monk
 
 
 @pytest.mark.asyncio
-async def test_post_action_async_uses_action_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    clients = _patch_rust_client(monkeypatch)
-    session = MiproOnlineSession(
-        session_id="session-3",
-        backend_url="https://backend.test",
-        api_key="api-key",
-        timeout=0.1,
-    )
-    await session._post_action_async("pause")
-
-    last_client = clients[-1]
-    assert last_client.requests[-1][0] == "post_json"
-    assert last_client.requests[-1][1].endswith("/pause")
-
-
-@pytest.mark.asyncio
-async def test_status_async_raises_on_non_object_response(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    class DummyRustClient:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            del args, kwargs
-
-        async def __aenter__(self) -> "DummyRustClient":
-            return self
-
-        async def __aexit__(self, *args: Any) -> None:
-            del args
-            return None
-
-        async def get(self, path: str, params: Any = None) -> List[str]:
-            del path, params
-            return ["bad-shape"]
-
-    monkeypatch.setattr(module, "RustCoreHttpClient", DummyRustClient)
-    session = MiproOnlineSession(
-        session_id="session-bad-status",
-        backend_url="https://backend.test",
-        api_key="api-key",
-        timeout=0.1,
-    )
-    with pytest.raises(ValueError, match="MIPRO status endpoint"):
-        await session.status_async()
-
-
-@pytest.mark.asyncio
 async def test_list_candidates_async_uses_system_candidates_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

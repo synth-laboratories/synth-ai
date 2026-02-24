@@ -9,6 +9,11 @@ Prompt Optimization, Graphs, and Agent Infrastructure
 
 Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
 
+## Synth Style
+
+For engineering principles and coding standards, follow:
+`specifications/tanha/references/synthstyle.md`.
+
 <p align="center">
   <picture align="center">
     <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">
