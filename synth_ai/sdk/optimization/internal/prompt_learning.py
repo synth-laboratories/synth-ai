@@ -178,6 +178,111 @@ def _infer_container_url(config: PromptLearningJobConfig) -> Optional[str]:
     return env_url or None
 
 
+def _algorithm_to_kind(algorithm: str) -> str | None:
+    algo = algorithm.strip().lower()
+    if algo == "gepa":
+        return "gepa_offline"
+    if algo in {"mipro", "voyager"}:
+        return "mipro_offline"
+    return None
+
+
+def _normalize_offline_config_value(config_value: Any) -> dict[str, Any]:
+    if isinstance(config_value, dict):
+        if "prompt_learning" in config_value or "policy_optimization" in config_value:
+            return dict(config_value)
+        return {"prompt_learning": dict(config_value)}
+    return {"prompt_learning": config_value}
+
+
+def _default_system_name(kind: str) -> str:
+    if kind == "gepa_offline":
+        return "sdk-gepa-offline"
+    if kind == "mipro_offline":
+        return "sdk-mipro-offline"
+    return "sdk-offline-job"
+
+
+def _canonicalize_offline_create_payload(config_payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize SDK payloads to canonical offline create contract.
+
+    Backend now requires top-level `kind` and rejects top-level `algorithm`.
+    This function hard-cuts legacy payload forms (`algorithm` + `config_body`)
+    into canonical payload shape before crossing the wire.
+    """
+    payload = dict(config_payload)
+
+    kind_raw = payload.get("kind")
+    kind = kind_raw.strip() if isinstance(kind_raw, str) and kind_raw.strip() else None
+    if kind is None:
+        algorithm = None
+        if isinstance(payload.get("algorithm"), str):
+            algorithm = payload["algorithm"]
+        if algorithm is None:
+            config_body = payload.get("config_body")
+            if isinstance(config_body, dict):
+                pl = config_body.get("prompt_learning")
+                if isinstance(pl, dict) and isinstance(pl.get("algorithm"), str):
+                    algorithm = pl["algorithm"]
+                po = config_body.get("policy_optimization")
+                if algorithm is None and isinstance(po, dict) and isinstance(
+                    po.get("algorithm"), str
+                ):
+                    algorithm = po["algorithm"]
+        if algorithm is None and isinstance(payload.get("prompt_learning"), dict):
+            pl = payload["prompt_learning"]
+            if isinstance(pl.get("algorithm"), str):
+                algorithm = pl["algorithm"]
+
+        kind = _algorithm_to_kind(algorithm) if isinstance(algorithm, str) else None
+        if kind is None:
+            raise ValueError(
+                "request kind is required; provide top-level kind in "
+                "{gepa_offline,mipro_offline} or inferable algorithm in {gepa,mipro}."
+            )
+
+    config_value = payload.get("config")
+    if config_value is None and "config_body" in payload:
+        config_value = payload.get("config_body")
+    if config_value is None:
+        config_value = payload
+    canonical_config = _normalize_offline_config_value(config_value)
+
+    technique = payload.get("technique")
+    if not isinstance(technique, str) or not technique.strip():
+        technique = "discrete_optimization"
+
+    config_mode = payload.get("config_mode")
+    if not isinstance(config_mode, str) or not config_mode.strip():
+        config_mode = "DEFAULT"
+
+    system = payload.get("system")
+    if not isinstance(system, dict):
+        system = {}
+    if not isinstance(system.get("name"), str) or not str(system.get("name")).strip():
+        system["name"] = _default_system_name(kind)
+    if "reuse" not in system:
+        system["reuse"] = True
+
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    auto_start = payload.get("auto_start")
+    if not isinstance(auto_start, bool):
+        auto_start = True
+
+    return {
+        "kind": kind,
+        "technique": technique,
+        "config_mode": config_mode,
+        "system": system,
+        "config": canonical_config,
+        "metadata": metadata,
+        "auto_start": auto_start,
+    }
+
+
 _ROLLOUT_HEALTH_CHECK_MODE_ALIASES: Dict[str, str] = {
     "required": "strict",
     "on": "strict",
@@ -730,7 +835,7 @@ class PromptLearningJob:
         # inside the Temporal worker). We still send the worker token via the dedicated
         # `X-SynthTunnel-Worker-Token` header in Rust, but also include it in metadata as a
         # belt-and-suspenders strict in case proxies strip custom headers.
-        config_payload = build.payload
+        config_payload = _canonicalize_offline_create_payload(build.payload)
         if is_synth:
             try:
                 payload_dict = dict(config_payload) if isinstance(config_payload, dict) else {}
