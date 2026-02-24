@@ -1,29 +1,6 @@
-"""Synth AI - Policy optimization and evaluation platform.
+"""Synth AI canonical SDK surface.
 
-This package provides the public API for Synth AI. Most users should import
-directly from this module:
-
-    from synth_ai import (
-        # Optimization
-        PolicyOptimizationJob,
-        GraphOptimizationJob,
-
-        # Evaluation
-        EvalJob,
-
-        # Containers
-        InProcessContainer,
-        ContainerClient,
-        create_container,
-
-        # Clients
-        VerifierClient,
-        InferenceClient,
-    )
-
-For data types, import from synth_ai.data:
-
-    from synth_ai.data import SessionTrace, Rubric, Criterion
+# See: specifications/daily/feb24_2026/tinker_synth_final.md
 """
 
 from __future__ import annotations
@@ -32,7 +9,7 @@ import importlib
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 # Install log filter as early as possible to suppress noisy codex_otel logs
 try:
@@ -40,16 +17,15 @@ try:
 
     install_log_filter()
 except Exception:
-    # Silently fail if log filter can't be installed
     pass
 
 # Version resolution
-try:  # Prefer the installed package metadata when available
+try:
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:  # Strict to pyproject version for editable installs
+except PackageNotFoundError:
     try:
-        import tomllib as _toml  # Python 3.11+
-    except ModuleNotFoundError:  # pragma: no cover - canonical interpreter guard
+        import tomllib as _toml
+    except ModuleNotFoundError:  # pragma: no cover
         import tomli as _toml  # type: ignore[no-redef]
 
     try:
@@ -61,112 +37,64 @@ except PackageNotFoundError:  # Strict to pyproject version for editable install
         __version__ = "0.0.0.dev0"
 
 
-# Type hints for IDE support
-if TYPE_CHECKING:
-    from synth_ai.sdk.container import (
-        ContainerClient,
-        ContainerConfig,
-        InProcessContainer,
-        create_container,
-    )
-    from synth_ai.sdk.eval import EvalJob, EvalJobConfig
-    from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
-    from synth_ai.sdk.graphs.verifier_schemas import (
-        CriterionScorePayload,
-        ReviewPayload,
-        VerifierContainer,
-        VerifierOptions,
-        VerifierScoreRequest,
-        VerifierScoreResponse,
-        VerifierTracePayload,
-    )
-    from synth_ai.sdk.inference import InferenceClient
-    from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
-
-    # Canonical aliases
-    PromptLearningJob = PolicyOptimizationJob
-    GraphEvolveJob = GraphOptimizationJob
-
-
 __all__ = [
-    # Optimization (canonical names)
-    "PolicyOptimizationJob",
-    "GraphOptimizationJob",
-    # Canonical aliases
-    "PromptLearningJob",
-    "GraphEvolveJob",
-    # Evaluation
-    "EvalJob",
-    "EvalJobConfig",
-    # Containers
-    "InProcessContainer",
+    "AsyncSynthClient",
+    "Client",
     "ContainerClient",
-    "ContainerConfig",
-    "ContainerConfig",
-    "create_container",
-    # Clients
-    "VerifierClient",
-    "GraphCompletionsClient",
-    "GraphTarget",
-    "InferenceClient",
-    # Verifier schemas
-    "VerifierScoreRequest",
-    "VerifierScoreResponse",
-    "VerifierOptions",
-    "VerifierContainer",
-    "VerifierTracePayload",
-    "ReviewPayload",
-    "CriterionScorePayload",
-    "gepa",
+    "GraphsClient",
+    "InProcessContainer",
+    "JobsClient",
+    "OfflineJob",
+    "OnlineSession",
+    "PoolsClient",
+    "SynthClient",
+    "System",
+    "VerifiersClient",
+    "container",
     "dspy",
+    "gepa",
+    "graphs",
+    "inference",
+    "optimization",
+    "pools",
+    "verifiers",
 ]
 
-# Lazy loading map: name -> (module, attribute)
 _EXPORTS: dict[str, tuple[str, str]] = {
-    # Optimization
-    "PolicyOptimizationJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
-    "GraphOptimizationJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
-    "PromptLearningJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
-    "GraphEvolveJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
-    # Evaluation
-    "EvalJob": ("synth_ai.sdk.eval", "EvalJob"),
-    "EvalJobConfig": ("synth_ai.sdk.eval", "EvalJobConfig"),
-    # Containers
-    "InProcessContainer": ("synth_ai.sdk.container", "InProcessContainer"),
-    "ContainerClient": ("synth_ai.sdk.container", "ContainerClient"),
-    "ContainerConfig": ("synth_ai.sdk.container", "ContainerConfig"),
-    "create_container": ("synth_ai.sdk.container", "create_container"),
-    # Clients
-    "VerifierClient": ("synth_ai.sdk.graphs", "VerifierClient"),
-    "GraphCompletionsClient": ("synth_ai.sdk.graphs", "GraphCompletionsClient"),
-    "GraphTarget": ("synth_ai.sdk.graphs", "GraphTarget"),
-    "InferenceClient": ("synth_ai.sdk.inference", "InferenceClient"),
-    # Verifier schemas
-    "VerifierScoreRequest": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreRequest"),
-    "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
-    "VerifierOptions": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierOptions"),
-    "VerifierContainer": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierContainer"),
-    "VerifierTracePayload": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTracePayload"),
-    "ReviewPayload": ("synth_ai.sdk.graphs.verifier_schemas", "ReviewPayload"),
-    "CriterionScorePayload": ("synth_ai.sdk.graphs.verifier_schemas", "CriterionScorePayload"),
+    "SynthClient": ("synth_ai.client", "SynthClient"),
+    "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
+    "System": ("synth_ai.optimization", "System"),
+    "OfflineJob": ("synth_ai.optimization", "OfflineJob"),
+    "OnlineSession": ("synth_ai.optimization", "OnlineSession"),
+    "Client": ("synth_ai.inference", "Client"),
+    "JobsClient": ("synth_ai.inference", "JobsClient"),
+    "GraphsClient": ("synth_ai.graphs", "GraphsClient"),
+    "VerifiersClient": ("synth_ai.verifiers", "VerifiersClient"),
+    "PoolsClient": ("synth_ai.pools", "PoolsClient"),
+    "InProcessContainer": ("synth_ai.container", "InProcessContainer"),
+    "ContainerClient": ("synth_ai.container", "ContainerClient"),
+}
+
+_NAMESPACE_MODULES = {
+    "optimization",
+    "inference",
+    "graphs",
+    "verifiers",
+    "pools",
+    "container",
 }
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy load SDK exports on first access."""
+    if name in _NAMESPACE_MODULES:
+        return importlib.import_module(f"{__name__}.{name}")
     if name == "gepa":
-        # Provide Synth's GEPA-compat API as `from synth_ai import gepa`.
-        # Do not import the external `gepa` package (name collision on PyPI).
         return importlib.import_module("synth_ai.gepa")
     if name == "dspy":
-        # Provide Synth's DSPy drop-ins as `from synth_ai import dspy`.
         return importlib.import_module("synth_ai.dspy")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, attr_name = target
-    try:
-        module = importlib.import_module(module_name)
-        return getattr(module, attr_name)
-    except Exception as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    module = importlib.import_module(module_name)
+    return getattr(module, attr_name)
