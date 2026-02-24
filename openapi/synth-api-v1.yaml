@@ -1,0 +1,1568 @@
+openapi: 3.1.0
+info:
+  title: Synth API (Canonical SDK Surface)
+  version: 1.0.0
+  description: |
+    Canonical HTTP contract for synth-ai SDK namespaces, including OpenAI-compatible
+    chat completions for inference.
+servers:
+  - url: https://api.usesynth.ai
+    description: Synth production
+security:
+  - bearerAuth: []
+paths:
+  /api/inference/v1/chat/completions:
+    post:
+      tags: [Inference]
+      summary: OpenAI-compatible chat completions via Synth routing
+      operationId: createChatCompletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAIChatCompletionRequest'
+      responses:
+        '200':
+          description: Chat completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIChatCompletionResponse'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /api/inference/jobs:
+    post:
+      tags: [Inference Jobs]
+      summary: Create inference job
+      operationId: createInferenceJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceJobCreateRequest'
+      responses:
+        '200':
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceJob'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /api/inference/jobs/{job_id}:
+    get:
+      tags: [Inference Jobs]
+      summary: Get inference job (optionally artifact-filtered)
+      operationId: getInferenceJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: artifact_type
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Inference job payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InferenceJob'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /inference/jobs/{job_id}/artifacts/{artifact_id}:
+    get:
+      tags: [Inference Jobs]
+      summary: Download inference artifact bytes
+      operationId: downloadInferenceArtifact
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /v1/policy-optimization/systems:
+    get:
+      tags: [Optimization]
+      summary: List policy-optimization systems
+      operationId: listOptimizationSystems
+      parameters:
+        - name: technique
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [discrete_optimization, model_optimization]
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create policy-optimization system
+      operationId: createOptimizationSystem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationSystemCreateRequest'
+      responses:
+        '200':
+          description: System created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationSystem'
+
+  /v1/policy-optimization/systems/{system_id}:
+    get:
+      tags: [Optimization]
+      summary: Get optimization system
+      operationId: getOptimizationSystem
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+      responses:
+        '200':
+          description: Optimization system
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationSystem'
+    patch:
+      tags: [Optimization]
+      summary: Update optimization system
+      operationId: updateOptimizationSystem
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    delete:
+      tags: [Optimization]
+      summary: Delete/archive optimization system
+      operationId: deleteOptimizationSystem
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/offline/jobs:
+    get:
+      tags: [Optimization]
+      summary: List offline optimization jobs
+      operationId: listOfflineJobs
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create offline optimization job
+      operationId: createOfflineJob
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OfflineJobCreateRequest'
+      responses:
+        '200':
+          description: Offline job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineJob'
+
+  /v1/offline/jobs/{job_id}:
+    get:
+      tags: [Optimization]
+      summary: Get offline optimization job
+      operationId: getOfflineJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Offline job
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineJob'
+    patch:
+      tags: [Optimization]
+      summary: Change offline job state
+      operationId: updateOfflineJob
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatePatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/offline/jobs/{job_id}/events:
+    get:
+      tags: [Optimization]
+      summary: Stream offline job events (SSE)
+      operationId: streamOfflineJobEvents
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/offline/jobs/{job_id}/artifacts:
+    get:
+      tags: [Optimization]
+      summary: List offline job artifacts
+      operationId: listOfflineJobArtifacts
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/online/sessions:
+    get:
+      tags: [Optimization]
+      summary: List online optimization sessions
+      operationId: listOnlineSessions
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create online optimization session
+      operationId: createOnlineSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnlineSessionCreateRequest'
+      responses:
+        '200':
+          description: Online session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnlineSession'
+
+  /v1/online/sessions/{session_id}:
+    get:
+      tags: [Optimization]
+      summary: Get online optimization session
+      operationId: getOnlineSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Online session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnlineSession'
+    patch:
+      tags: [Optimization]
+      summary: Change online session state
+      operationId: updateOnlineSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatePatchRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/online/sessions/{session_id}/reward:
+    post:
+      tags: [Optimization]
+      summary: Submit reward to online session
+      operationId: submitOnlineReward
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnlineRewardRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/online/sessions/{session_id}/events:
+    get:
+      tags: [Optimization]
+      summary: Stream online session events (SSE)
+      operationId: streamOnlineSessionEvents
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /api/graphs/completions:
+    post:
+      tags: [Graphs]
+      summary: Execute graph completion (policy/verifier/RLM)
+      operationId: createGraphCompletion
+      parameters:
+        - name: stream
+          in: query
+          required: false
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphCompletionRequest'
+      responses:
+        '200':
+          description: Graph completion output
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphCompletionResponse'
+            text/event-stream:
+              schema:
+                type: string
+
+  /graph-evolve/graphs:
+    get:
+      tags: [Graphs]
+      summary: List registered graphs
+      operationId: listGraphs
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [policy, verifier]
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Graph list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphListResponse'
+
+  /api/v1/containers:
+    get:
+      tags: [Containers]
+      summary: List hosted containers
+      operationId: listContainers
+      responses:
+        '200':
+          description: Container list
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Container'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Container'
+    post:
+      tags: [Containers]
+      summary: Create hosted container
+      operationId: createContainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainerCreateRequest'
+      responses:
+        '200':
+          description: Hosted container
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Container'
+
+  /api/v1/containers/{container_id}:
+    get:
+      tags: [Containers]
+      summary: Get hosted container
+      operationId: getContainer
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+      responses:
+        '200':
+          description: Hosted container
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Container'
+    delete:
+      tags: [Containers]
+      summary: Delete hosted container
+      operationId: deleteContainer
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/uploads:
+    post:
+      tags: [Pools]
+      summary: Create pool upload
+      operationId: createPoolUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/uploads/{upload_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool upload
+      operationId: getPoolUpload
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources:
+    get:
+      tags: [Pools]
+      summary: List pool data sources
+      operationId: listPoolDataSources
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool data source
+      operationId: createPoolDataSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources/{data_source_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool data source
+      operationId: getPoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Pools]
+      summary: Update pool data source
+      operationId: updatePoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources/{data_source_id}/refresh:
+    post:
+      tags: [Pools]
+      summary: Refresh pool data source
+      operationId: refreshPoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies:
+    get:
+      tags: [Pools]
+      summary: List pool assemblies
+      operationId: listPoolAssemblies
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool assembly
+      operationId: createPoolAssembly
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolAssemblyCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies/{assembly_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool assembly
+      operationId: getPoolAssembly
+      parameters:
+        - $ref: '#/components/parameters/AssemblyId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies/{assembly_id}/events:
+    get:
+      tags: [Pools]
+      summary: Stream pool assembly events (SSE)
+      operationId: streamPoolAssemblyEvents
+      parameters:
+        - $ref: '#/components/parameters/AssemblyId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/pools:
+    get:
+      tags: [Pools]
+      summary: List pools
+      operationId: listPools
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool
+      operationId: createPool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool
+      operationId: getPool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Pools]
+      summary: Update pool
+      operationId: updatePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    delete:
+      tags: [Pools]
+      summary: Delete pool
+      operationId: deletePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/assemblies:
+    post:
+      tags: [Pools]
+      summary: Reassemble pool
+      operationId: reassemblePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts:
+    get:
+      tags: [Pools]
+      summary: List pool rollouts
+      operationId: listPoolRollouts
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool rollout
+      operationId: createPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolRolloutCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool rollout
+      operationId: getPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/cancel:
+    post:
+      tags: [Pools]
+      summary: Cancel pool rollout
+      operationId: cancelPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/artifacts:
+    get:
+      tags: [Pools]
+      summary: List pool rollout artifacts
+      operationId: listPoolRolloutArtifacts
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/usage:
+    get:
+      tags: [Pools]
+      summary: Get pool rollout usage
+      operationId: getPoolRolloutUsage
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/events:
+    get:
+      tags: [Pools]
+      summary: Stream pool rollout events (SSE)
+      operationId: streamPoolRolloutEvents
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/pools/{pool_id}/tasks:
+    get:
+      tags: [Pools]
+      summary: List pool tasks
+      operationId: listPoolTasks
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool task
+      operationId: createPoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/tasks/{task_id}:
+    put:
+      tags: [Pools]
+      summary: Update pool task
+      operationId: updatePoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    delete:
+      tags: [Pools]
+      summary: Delete pool task
+      operationId: deletePoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/metrics:
+    get:
+      tags: [Pools]
+      summary: Get pool metrics
+      operationId: getPoolMetrics
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts:
+    post:
+      tags: [Rollouts]
+      summary: Create global sandbox-agent rollout
+      operationId: createAgentRollout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolRolloutCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}:
+    get:
+      tags: [Rollouts]
+      summary: Get global sandbox-agent rollout
+      operationId: getAgentRollout
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/artifacts:
+    get:
+      tags: [Rollouts]
+      summary: List global rollout artifacts
+      operationId: listAgentRolloutArtifacts
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/support_bundle:
+    get:
+      tags: [Rollouts]
+      summary: Get rollout support bundle metadata
+      operationId: getAgentRolloutSupportBundle
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/artifacts/{path}:
+    get:
+      tags: [Rollouts]
+      summary: Download a rollout artifact path
+      operationId: fetchAgentRolloutArtifact
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /v1/rollouts/{rollout_id}/artifacts.zip:
+    get:
+      tags: [Rollouts]
+      summary: Download rollout artifacts zip
+      operationId: downloadAgentRolloutArtifactsZip
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          description: Zip bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/synthtunnel/leases:
+    post:
+      tags: [Tunnels]
+      summary: Create SynthTunnel lease
+      operationId: createSynthTunnelLease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SynthTunnelLeaseCreateRequest'
+      responses:
+        '200':
+          description: SynthTunnel lease payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthTunnelLease'
+
+  /api/v1/synthtunnel/leases/{lease_id}:
+    delete:
+      tags: [Tunnels]
+      summary: Close SynthTunnel lease
+      operationId: closeSynthTunnelLease
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: APIKey
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    SystemId:
+      name: system_id
+      in: path
+      required: true
+      schema:
+        type: string
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ContainerId:
+      name: container_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UploadId:
+      name: upload_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DataSourceId:
+      name: data_source_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AssemblyId:
+      name: assembly_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PoolId:
+      name: pool_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RolloutId:
+      name: rollout_id
+      in: path
+      required: true
+      schema:
+        type: string
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    LeaseId:
+      name: lease_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    ObjectResponse:
+      description: Generic object response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OpenAIChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenAIChatMessage'
+        temperature:
+          type: number
+        max_tokens:
+          type: integer
+        top_p:
+          type: number
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        stream:
+          type: boolean
+        thinking_budget:
+          type: integer
+      additionalProperties: true
+
+    OpenAIChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        name:
+          type: string
+        tool_call_id:
+          type: string
+      additionalProperties: true
+
+    OpenAIChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OptimizationSystemCreateRequest:
+      type: object
+      required: [name, technique]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        technique:
+          type: string
+          enum: [discrete_optimization, model_optimization]
+        reuse:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OptimizationSystem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        technique:
+          type: string
+      additionalProperties: true
+
+    OfflineJobCreateRequest:
+      type: object
+      required: [kind, system, config_mode, config]
+      properties:
+        technique:
+          type: string
+          enum: [discrete_optimization]
+        kind:
+          type: string
+          enum: [gepa_offline, mipro_offline]
+        system:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            reuse:
+              type: boolean
+          additionalProperties: true
+        config_mode:
+          type: string
+          enum: [DEFAULT, FULL]
+        config:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        auto_start:
+          type: boolean
+      additionalProperties: true
+
+    OfflineJob:
+      type: object
+      properties:
+        job_id:
+          type: string
+        state:
+          type: string
+        kind:
+          type: string
+        system:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OnlineSessionCreateRequest:
+      type: object
+      required: [kind, system, config_mode, config]
+      properties:
+        technique:
+          type: string
+          enum: [discrete_optimization]
+        kind:
+          type: string
+          enum: [gepa_online, mipro_online]
+        system:
+          type: object
+          additionalProperties: true
+        config_mode:
+          type: string
+          enum: [DEFAULT, FULL]
+        config:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        auto_start:
+          type: boolean
+      additionalProperties: true
+
+    OnlineSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+        state:
+          type: string
+        kind:
+          type: string
+        system:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OnlineRewardRequest:
+      type: object
+      required: [reward_info]
+      properties:
+        reward_info:
+          type: object
+          properties:
+            outcome_reward:
+              type: number
+          additionalProperties: true
+        trace_correlation_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    StatePatchRequest:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [paused, running, cancelled]
+      additionalProperties: true
+
+    GraphCompletionRequest:
+      type: object
+      required: [job_id, input]
+      properties:
+        job_id:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        model:
+          type: string
+        prompt_snapshot_id:
+          type: string
+        stream:
+          type: boolean
+      additionalProperties: true
+
+    GraphCompletionResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+        cache_status:
+          type: string
+        latency_ms:
+          type: number
+      additionalProperties: true
+
+    GraphListResponse:
+      type: object
+      properties:
+        graphs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+      additionalProperties: true
+
+    InferenceJobCreateRequest:
+      type: object
+      required: [environment_type, upload]
+      properties:
+        environment_type:
+          type: string
+        upload:
+          type: object
+          required: [bytes_base64]
+          properties:
+            bytes_base64:
+              type: string
+            filename:
+              type: string
+            content_type:
+              type: string
+            archive_type:
+              type: string
+          additionalProperties: true
+        harbor:
+          type: object
+          additionalProperties: true
+        browser:
+          type: object
+          additionalProperties: true
+        policy:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        container_overrides:
+          type: object
+          additionalProperties: true
+        artifact:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    InferenceJob:
+      type: object
+      properties:
+        job_id:
+          type: string
+        state:
+          type: string
+        artifacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      additionalProperties: true
+
+    ContainerCreateRequest:
+      type: object
+      required: [name, task_type, definition]
+      properties:
+        name:
+          type: string
+        task_type:
+          type: string
+          enum: [harbor_code, harbor_browser, archipelago, openenv]
+        definition:
+          type: object
+          additionalProperties: true
+        environment_config:
+          type: object
+          additionalProperties: true
+        internal_url:
+          type: string
+      additionalProperties: true
+
+    Container:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        task_type:
+          type: string
+        status:
+          type: string
+        internal_url:
+          type: [string, 'null']
+      additionalProperties: true
+
+    PoolCreateRequest:
+      type: object
+      properties:
+        assembly_id:
+          type: string
+      additionalProperties: true
+
+    PoolAssemblyCreateRequest:
+      type: object
+      required: [data_source_id, runtime_type]
+      properties:
+        data_source_id:
+          type: string
+        runtime_type:
+          type: string
+          enum: [custom_container, managed_template]
+        template_name:
+          type: string
+        exclusion_patterns:
+          type: array
+          items:
+            type: string
+        agent_model:
+          type: string
+      additionalProperties: true
+
+    PoolRolloutCreateRequest:
+      type: object
+      properties:
+        trace_correlation_id:
+          type: string
+        inference_url:
+          type: string
+        policy:
+          type: object
+          additionalProperties: true
+        policy_config:
+          type: object
+          additionalProperties: true
+        env:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        safety:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        params:
+          type: object
+          additionalProperties: true
+        seed:
+          type: integer
+      additionalProperties: false
+
+    SynthTunnelLeaseCreateRequest:
+      type: object
+      required: [client_instance_id, local_target, requested_ttl_seconds]
+      properties:
+        client_instance_id:
+          type: string
+        local_target:
+          type: object
+          required: [host, port]
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+          additionalProperties: true
+        requested_ttl_seconds:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+        capabilities:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    SynthTunnelLease:
+      type: object
+      properties:
+        lease_id:
+          type: string
+        route_token:
+          type: string
+        public_base_url:
+          type: string
+        public_url:
+          type: string
+        worker_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        agent_connect:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        heartbeat:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
