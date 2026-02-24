@@ -36,10 +36,16 @@ impl PromptLearningValidationResult {
     }
 }
 
-const KNOWN_TOP_LEVEL_SECTIONS: &[&str] = &["prompt_learning", "display", "termination_config"];
+const KNOWN_TOP_LEVEL_SECTIONS: &[&str] = &[
+    "prompt_learning",
+    "display",
+    "termination_config",
+    "kind",
+];
 
 const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "algorithm",
+    "kind",
     "optimization_mode",
     "artifact",
     "artifact_kind",
@@ -67,6 +73,31 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "auto_discover_patterns",
     "use_byok",
 ];
+
+fn kind_to_algorithm(kind: &str) -> Option<&'static str> {
+    match kind.trim().to_ascii_lowercase().as_str() {
+        "gepa_offline" | "gepa_online" => Some("gepa"),
+        "mipro_offline" | "mipro_online" | "voyager_online" => Some("mipro"),
+        _ => None,
+    }
+}
+
+fn resolve_prompt_learning_algorithm(
+    config_map: &Map<String, Value>,
+    pl_map: &Map<String, Value>,
+) -> Option<String> {
+    if let Some(value) = pl_map.get("algorithm").and_then(|v| v.as_str()) {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_ascii_lowercase());
+        }
+    }
+    config_map
+        .get("kind")
+        .and_then(Value::as_str)
+        .and_then(kind_to_algorithm)
+        .map(|v| v.to_string())
+}
 
 const KNOWN_ARTIFACT_FIELDS: &[&str] = &[
     "kind",
@@ -682,19 +713,18 @@ pub fn validate_prompt_learning_config(
     );
     check_deprecated_fields(pl_map, "prompt_learning", &mut result);
 
-    let algorithm = pl_map.get("algorithm").and_then(|v| v.as_str());
+    let algorithm = resolve_prompt_learning_algorithm(config_map, pl_map);
     if algorithm.is_none() {
         result.add_error(format!(
-            "{}Missing required 'algorithm' field in [prompt_learning]",
+            "{}Missing required algorithm selector. Provide [prompt_learning].algorithm ('gepa'|'mipro') or top-level kind ('gepa_offline'|'mipro_offline').",
             path_prefix
         ));
-    } else if !matches!(algorithm, Some("gepa") | Some("mipro")) {
-        if let Some(value) = algorithm {
-            result.add_error(format!(
-                "{}Invalid algorithm '{}'. Must be 'gepa' or 'mipro'",
-                path_prefix, value
-            ));
-        }
+    } else if !matches!(algorithm.as_deref(), Some("gepa") | Some("mipro")) {
+        let value = algorithm.as_deref().unwrap_or_default();
+        result.add_error(format!(
+            "{}Invalid algorithm '{}'. Must be 'gepa' or 'mipro'",
+            path_prefix, value
+        ));
     }
 
     if pl_map
@@ -760,7 +790,7 @@ pub fn validate_prompt_learning_config(
         );
     }
 
-    match algorithm {
+    match algorithm.as_deref() {
         Some("gepa") => {
             if let Some(Value::Object(gepa)) = pl_map.get("gepa") {
                 validate_gepa_config(gepa, &mut result, &path_prefix);
@@ -1287,14 +1317,14 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         }
     };
 
-    let algorithm = pl_section.get("algorithm").and_then(|v| v.as_str());
+    let algorithm = resolve_prompt_learning_algorithm(config_map, pl_section);
     if algorithm.is_none() {
         errors.push(
-            "Missing required field: prompt_learning.algorithm\n  Must be one of: 'gepa', 'mipro'\n  Example:\n    [prompt_learning]\n    algorithm = \"gepa\""
+            "Missing required field: prompt_learning.algorithm or top-level kind\n  Must resolve to one of: 'gepa', 'mipro'\n  Examples:\n    [prompt_learning]\n    algorithm = \"gepa\"\n  Or:\n    kind = \"gepa_offline\""
                 .to_string(),
         );
-    } else if !matches!(algorithm, Some("gepa") | Some("mipro")) {
-        let algo = algorithm.unwrap_or_default();
+    } else if !matches!(algorithm.as_deref(), Some("gepa") | Some("mipro")) {
+        let algo = algorithm.as_deref().unwrap_or_default();
         errors.push(format!(
             "Invalid algorithm: '{}'\n  Must be one of: 'gepa', 'mipro'\n  Got: '{}'",
             algo, algo
@@ -1557,7 +1587,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
     let pipeline_modules = extract_pipeline_modules(pl_section.get("initial_prompt"));
     let has_multi_stage = !pipeline_modules.is_empty();
 
-    match algorithm {
+    match algorithm.as_deref() {
         Some("gepa") => {
             let gepa_config = pl_section.get("gepa");
             let gepa_map = match gepa_config.and_then(|v| v.as_object()) {
@@ -3127,6 +3157,66 @@ mod tests {
                 .any(|err| err.contains("Unsupported OpenAI model")),
             "gpt-5.3-codex should be allowed, errors: {:?}",
             errors
+        );
+    }
+
+    #[test]
+    fn strict_accepts_top_level_kind_without_prompt_learning_algorithm() {
+        let config = json!({
+            "kind": "gepa_offline",
+            "prompt_learning": {
+                "container_url": "http://localhost:8102",
+                "policy": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "inference_mode": "synth_hosted"
+                },
+                "gepa": {
+                    "evaluation": {
+                        "train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        "validation_seeds": [50, 51, 52, 53, 54]
+                    },
+                    "archive": {"pareto_set_size": 10}
+                }
+            }
+        });
+
+        let errors = super::validate_prompt_learning_config_strict(&config);
+        assert!(
+            !errors
+                .iter()
+                .any(|err| err.contains("prompt_learning.algorithm")),
+            "kind-based configs should not require prompt_learning.algorithm: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn validation_accepts_top_level_kind_without_prompt_learning_algorithm() {
+        let config = json!({
+            "kind": "mipro_offline",
+            "prompt_learning": {
+                "container_url": "http://localhost:8102",
+                "policy": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini",
+                    "inference_mode": "synth_hosted"
+                },
+                "mipro": {
+                    "bootstrap_train_seeds": [0, 1],
+                    "online_pool": [2, 3]
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            !result
+                .errors
+                .iter()
+                .any(|err| err.contains("Missing required 'algorithm'")),
+            "kind-based configs should not require prompt_learning.algorithm: {:?}",
+            result.errors
         );
     }
 }

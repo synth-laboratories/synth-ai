@@ -489,6 +489,15 @@ fn infer_offline_kind(request: &Value) -> Option<&'static str> {
     }
 }
 
+fn normalize_offline_config_payload(mut config: Value) -> Value {
+    if let Some(map) = config.as_object_mut() {
+        if map.contains_key("prompt_learning") || map.contains_key("policy_optimization") {
+            return config;
+        }
+    }
+    serde_json::json!({ "prompt_learning": config })
+}
+
 fn default_system_name(kind: &str) -> &'static str {
     match kind {
         GEPA_KIND => "sdk-gepa-offline",
@@ -519,6 +528,14 @@ fn canonicalize_offline_create_payload(request: Value, kind: &str) -> Result<Val
         .as_object()
         .cloned()
         .ok_or_else(|| CoreError::Validation("request payload must be a JSON object".to_string()))?;
+    // Canonical hard-cutover: backend requires top-level `kind`; reject/remove
+    // legacy top-level `algorithm`/`config_body` payload shape in SDK requests.
+    map.remove("algorithm");
+    map.remove("overrides");
+    let config_value = map
+        .remove("config")
+        .or_else(|| map.remove("config_body"))
+        .unwrap_or_else(|| request.clone());
     map.insert("kind".to_string(), Value::String(kind.to_string()));
     map.entry("technique".to_string())
         .or_insert(Value::String("discrete_optimization".to_string()));
@@ -530,14 +547,10 @@ fn canonicalize_offline_create_payload(request: Value, kind: &str) -> Result<Val
             "reuse": true,
         })
     });
-    if !map.contains_key("config") {
-        map.insert(
-            "config".to_string(),
-            serde_json::json!({
-                "prompt_learning": request,
-            }),
-        );
-    }
+    map.insert(
+        "config".to_string(),
+        normalize_offline_config_payload(config_value),
+    );
     Ok(Value::Object(map))
 }
 
@@ -611,6 +624,35 @@ mod tests {
                 "algorithm": "unknown"
             })),
             None
+        );
+    }
+
+    #[test]
+    fn test_canonicalize_raw_payload_strips_top_level_algorithm_and_uses_config_body() {
+        let request = serde_json::json!({
+            "algorithm": "gepa",
+            "config_body": {
+                "prompt_learning": {
+                    "algorithm": "gepa",
+                    "container_url": "https://example.invalid",
+                }
+            },
+            "metadata": {"source": "sdk"},
+        });
+        let payload = canonicalize_raw_offline_request(request).expect("canonicalize");
+        let map = payload.as_object().expect("payload object");
+        assert_eq!(
+            map.get("kind").and_then(|v| v.as_str()),
+            Some("gepa_offline")
+        );
+        assert!(map.get("algorithm").is_none());
+        let config = map.get("config").expect("config field");
+        assert_eq!(
+            config
+                .get("prompt_learning")
+                .and_then(|v| v.get("container_url"))
+                .and_then(|v| v.as_str()),
+            Some("https://example.invalid")
         );
     }
 

@@ -1521,6 +1521,22 @@ class PromptLearningConfig(ExtraModel):
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
 
+        # Canonical contract accepts top-level `kind`; synth-sdk still needs
+        # an internal algorithm selector for config modeling/normalization.
+        if isinstance(pl_data, dict) and not pl_data.get("algorithm"):
+            kind_raw = pl_data.get("kind") or data.get("kind")
+            kind = str(kind_raw).strip().lower() if isinstance(kind_raw, str) else ""
+            kind_to_algorithm = {
+                "gepa_offline": "gepa",
+                "gepa_online": "gepa",
+                "mipro_offline": "mipro",
+                "mipro_online": "mipro",
+                "voyager_online": "mipro",
+            }
+            mapped = kind_to_algorithm.get(kind)
+            if mapped:
+                pl_data["algorithm"] = mapped
+
         # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
         # This ensures top-level proxy_models is available for algorithm configs to check
         # Default: None (proxy models disabled unless explicitly configured)
