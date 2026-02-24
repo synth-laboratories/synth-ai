@@ -1,4 +1,4 @@
-.PHONY: build build-debug test test-unit test-integration test-fast test-slow categorize-tests coverage guard-results-ql
+.PHONY: build build-debug test test-unit test-integration test-fast test-slow
 
 SITE_PKG := $(shell .venv/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 
@@ -15,10 +15,10 @@ build-debug:
 	@.venv/bin/python -c "import synth_ai_py; print('OK: synth_ai_py loaded (' + str(len(dir(synth_ai_py))) + ' symbols)')"
 
 test-unit:
-	@./scripts/test_unit.sh
+	@cd ../testing && bazel test //:synth_ai_unit_tests
 
 test-integration:
-	@./scripts/test_integration.sh
+	@cd ../testing && bazel test //:synth_ai_all_tests
 
 test: test-unit
 
@@ -29,25 +29,3 @@ test-fast:
 test-slow:
 	@echo "Running slow tests (>= 5 seconds)..."
 	@pytest -m slow -v
-
-categorize-tests:
-	@echo "Categorizing tests by speed..."
-	@python scripts/categorize_tests.py --run-and-apply
-
-categorize-tests-dry-run:
-	@echo "Preview test categorization (dry run)..."
-	@python scripts/categorize_tests.py --run-and-apply --dry-run
-
-coverage:
-	@python scripts/coverage_summary.py
-
-coverage-ci:
-	@python scripts/coverage_summary.py --no-readme
-
-.PHONY: guard-results-ql
-guard-results-ql:
-	@bash scripts/check_no_results_ql_public_refs.sh
-
-.PHONY: verify-trace-fixtures
-verify-trace-fixtures:
-	@python scripts/build_trace_fixtures.py --dest ../testing/synth-ai-tests/artifacts/traces --overwrite
