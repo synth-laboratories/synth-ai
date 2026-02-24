@@ -10,6 +10,12 @@ This crate provides the low-level building blocks for Synth AI SDKs:
 - **Tunnels** - Cloudflare tunnel management for local APIs
 - **Orchestration** - Job lifecycle management
 
+## CRITICAL: Container Auth Payload Rule
+
+Policy-optimization payload builders must never embed `container_api_key` or
+`container_api_keys` in outbound job payloads. Container auth is server-resolved
+from org credentials.
+
 ## Usage
 
 Most users should use the high-level [`synth-ai`](https://crates.io/crates/synth-ai) crate instead.

@@ -879,7 +879,7 @@ class GEPAConfig(ExtraModel):
 
     Attributes:
         proposer_type: Type of proposer to use for generating mutations.
-            Default: "dspy". Options: "dspy" (DSPy-style proposer) or "spec" (spec-based).
+            Default: "synth". Options: "synth".
         proposer_effort: Effort level for proposer model selection. Controls which model
             is used for generating prompt mutations. Default: "LOW".
             Options:
@@ -907,10 +907,11 @@ class GEPAConfig(ExtraModel):
     env_name: str = "banking77"
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
-    proposer_type: str = "dspy"
+    proposer_type: str = "synth"
     proposer_backend: Literal["prompt", "rlm", "agent"] | None = None
     proposer: dict[str, Any] | None = None
     context_override: dict[str, Any] | None = None
+    actionable_upfront_context: dict[str, Any] | None = None
     # Keep in sync with backend proposer_effort options.
     proposer_effort: Literal[
         "LOW_CONTEXT",
@@ -1023,6 +1024,15 @@ class GEPAConfig(ExtraModel):
         """
         if not isinstance(data, dict):
             return data
+
+        # Backwards compatibility: accept legacy task_context and map it to
+        # actionable_upfront_context if the new field is not already provided.
+        if (
+            "actionable_upfront_context" not in data
+            and isinstance(data.get("task_context"), dict)
+        ):
+            data = dict(data)
+            data["actionable_upfront_context"] = data["task_context"]
 
         flat_fields_map = {
             "rollout_budget": "Use [prompt_learning.gepa.rollout] section with 'budget' field instead.",

@@ -102,6 +102,63 @@ def _require(condition: bool, message: str) -> None:
         raise ValueError(message)
 
 
+_FORBIDDEN_CONTAINER_AUTH_FIELDS = {"container_api_key", "container_api_keys"}
+
+
+def _collect_forbidden_container_auth_paths(value: Any, path: str = "") -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_str = str(key)
+            next_path = f"{path}.{key_str}" if path else key_str
+            lower = key_str.strip().lower()
+            if (
+                lower in _FORBIDDEN_CONTAINER_AUTH_FIELDS
+                or lower.endswith(".container_api_key")
+                or lower.endswith(".container_api_keys")
+            ):
+                paths.append(next_path)
+            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            next_path = f"{path}[{index}]" if path else f"[{index}]"
+            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
+    return paths
+
+
+def _assert_no_forbidden_container_auth_overrides(overrides_value: Any) -> None:
+    # Non-negotiable contract:
+    # policy-optimization container auth is server-resolved; client payloads and
+    # overrides must never carry container_api_key/container_api_keys.
+    forbidden_paths = _collect_forbidden_container_auth_paths(overrides_value)
+    if not forbidden_paths:
+        return
+    raise ValueError(
+        "container_api_key/container_api_keys must never be embedded in policy-optimization "
+        "job payload overrides. This auth is server-resolved only. Forbidden override paths: "
+        + ", ".join(sorted(forbidden_paths))
+    )
+
+
+def _strip_forbidden_container_auth_fields(config_dict: dict[str, Any]) -> None:
+    # Defense in depth: even if upstream config includes these fields, strip them
+    # before constructing outbound payloads.
+    config_dict.pop("container_api_key", None)
+    config_dict.pop("container_api_keys", None)
+    for key in list(config_dict.keys()):
+        lower = str(key).strip().lower()
+        if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
+            config_dict.pop(key, None)
+    prompt_learning = config_dict.get("prompt_learning")
+    if isinstance(prompt_learning, dict):
+        prompt_learning.pop("container_api_key", None)
+        prompt_learning.pop("container_api_keys", None)
+        for key in list(prompt_learning.keys()):
+            lower = str(key).strip().lower()
+            if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
+                prompt_learning.pop(key, None)
+
+
 def _normalize_mipro_section(
     pl_cfg: PromptLearningConfig,
     config_dict: dict[str, Any],
@@ -378,6 +435,7 @@ def build_prompt_learning_payload(
     # The experiment queue passes flat overrides like {"prompt_learning.policy.model": "..."}
     # But some SDK code passes nested like {"overrides": {"prompt_learning.policy.model": "..."}}
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    _assert_no_forbidden_container_auth_overrides(config_overrides)
     # Remove non-override keys (backend, task_url, metadata, auto_start)
     config_overrides = {
         k: v
@@ -392,6 +450,9 @@ def build_prompt_learning_payload(
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
+
+    _strip_forbidden_container_auth_fields(config_dict)
+
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)
 
@@ -669,6 +730,7 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    _assert_no_forbidden_container_auth_overrides(config_overrides)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
@@ -680,6 +742,8 @@ def build_prompt_learning_payload_from_mapping(
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
+
+    _strip_forbidden_container_auth_fields(config_dict)
 
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)

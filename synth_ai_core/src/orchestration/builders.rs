@@ -21,6 +21,95 @@ fn ensure_api_base(base_url: &str) -> String {
     format!("{}/api", normalized)
 }
 
+fn collect_forbidden_container_auth_paths(value: &Value, path: &str, out: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, child) in map {
+                let next_path = if path.is_empty() {
+                    key.to_string()
+                } else {
+                    format!("{}.{}", path, key)
+                };
+                let lower = key.trim().to_ascii_lowercase();
+                if lower == "container_api_key"
+                    || lower == "container_api_keys"
+                    || lower.ends_with(".container_api_key")
+                    || lower.ends_with(".container_api_keys")
+                {
+                    out.push(next_path.clone());
+                }
+                collect_forbidden_container_auth_paths(child, &next_path, out);
+            }
+        }
+        Value::Array(items) => {
+            for (index, child) in items.iter().enumerate() {
+                let next_path = if path.is_empty() {
+                    format!("[{}]", index)
+                } else {
+                    format!("{}[{}]", path, index)
+                };
+                collect_forbidden_container_auth_paths(child, &next_path, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn assert_no_forbidden_container_auth_overrides(overrides: &Value) -> Result<(), CoreError> {
+    // Non-negotiable contract:
+    // policy-optimization container auth is server-resolved; client payloads and
+    // overrides must never carry container_api_key/container_api_keys.
+    let mut forbidden_paths = Vec::new();
+    collect_forbidden_container_auth_paths(overrides, "", &mut forbidden_paths);
+    if forbidden_paths.is_empty() {
+        return Ok(());
+    }
+    forbidden_paths.sort();
+    Err(CoreError::Validation(format!(
+        "container_api_key/container_api_keys must never be embedded in policy-optimization job \
+         payload overrides. This auth is server-resolved only. Forbidden override paths: {}",
+        forbidden_paths.join(", ")
+    )))
+}
+
+fn strip_forbidden_container_auth_fields(config_dict: &mut Value) {
+    // Defense in depth: strip these fields even if they arrive from legacy
+    // configs so outbound payloads cannot carry container auth.
+    if let Some(root) = config_dict.as_object_mut() {
+        root.remove("container_api_key");
+        root.remove("container_api_keys");
+        let root_forbidden: Vec<String> = root
+            .keys()
+            .filter(|key| {
+                let lower = key.trim().to_ascii_lowercase();
+                lower.ends_with(".container_api_key") || lower.ends_with(".container_api_keys")
+            })
+            .cloned()
+            .collect();
+        for key in root_forbidden {
+            root.remove(&key);
+        }
+        if let Some(prompt_learning) = root
+            .get_mut("prompt_learning")
+            .and_then(Value::as_object_mut)
+        {
+            prompt_learning.remove("container_api_key");
+            prompt_learning.remove("container_api_keys");
+            let prompt_forbidden: Vec<String> = prompt_learning
+                .keys()
+                .filter(|key| {
+                    let lower = key.trim().to_ascii_lowercase();
+                    lower.ends_with(".container_api_key") || lower.ends_with(".container_api_keys")
+                })
+                .cloned()
+                .collect();
+            for key in prompt_forbidden {
+                prompt_learning.remove(&key);
+            }
+        }
+    }
+}
+
 fn prompt_learning_section_mut(config: &mut Value) -> Result<&mut Map<String, Value>, CoreError> {
     let map = config
         .as_object_mut()
@@ -278,6 +367,7 @@ pub fn build_prompt_learning_payload(
     } else {
         overrides_obj.clone()
     };
+    assert_no_forbidden_container_auth_overrides(&Value::Object(config_overrides_src.clone()))?;
 
     let mut config_overrides = Map::new();
     for (k, v) in config_overrides_src {
@@ -290,6 +380,7 @@ pub fn build_prompt_learning_payload(
     if !config_overrides.is_empty() {
         deep_update(&mut config_dict, &Value::Object(config_overrides.clone()));
     }
+    strip_forbidden_container_auth_fields(&mut config_dict);
 
     if algorithm == "mipro" {
         let pl_map = prompt_learning_section_mut(&mut config_dict)?;
@@ -330,4 +421,58 @@ pub fn build_prompt_learning_payload(
     payload.insert("auto_start".to_string(), Value::Bool(auto_start));
 
     Ok((Value::Object(payload), final_task_url.unwrap_or_default()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::build_prompt_learning_payload;
+    use serde_json::json;
+
+    #[test]
+    fn strips_container_auth_from_prompt_learning_payload() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "container_url": "http://localhost:8782",
+                "container_api_key": "forbidden",
+                "container_api_keys": ["forbidden-a", "forbidden-b"],
+                "policy": {"provider": "openai", "model": "gpt-4o-mini"},
+                "gepa": {
+                    "evaluation": {"train_seeds": [0, 1], "val_seeds": [2, 3]}
+                }
+            }
+        });
+        let (payload, _url) =
+            build_prompt_learning_payload(&config, None, Some(&json!({}))).expect("build");
+        let prompt_learning = payload
+            .get("config_body")
+            .and_then(|v| v.get("prompt_learning"))
+            .and_then(|v| v.as_object())
+            .expect("prompt_learning object");
+        assert!(!prompt_learning.contains_key("container_api_key"));
+        assert!(!prompt_learning.contains_key("container_api_keys"));
+    }
+
+    #[test]
+    fn rejects_container_auth_overrides() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "container_url": "http://localhost:8782",
+                "container_api_key": "allowed-for-precheck",
+                "policy": {"provider": "openai", "model": "gpt-4o-mini"},
+                "gepa": {
+                    "evaluation": {"train_seeds": [0, 1], "val_seeds": [2, 3]}
+                }
+            }
+        });
+        let err = build_prompt_learning_payload(
+            &config,
+            None,
+            Some(&json!({"prompt_learning.container_api_key": "forbidden"})),
+        )
+        .expect_err("expected forbidden override error");
+        let msg = err.to_string();
+        assert!(msg.contains("server-resolved only"));
+    }
 }

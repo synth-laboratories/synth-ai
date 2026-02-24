@@ -85,7 +85,7 @@ __all__ = [
     "PlanGatingError",
 ]
 
-_API_PREFIX = "/api/v1/environment-pools"
+_API_PREFIX = "/api/v1"
 _CREDENTIALS_PREFIX = "/api/v1/credentials"
 _PUBLIC_API_PREFIX = "/v1"
 

@@ -223,10 +223,15 @@ def _infer_children_per_generation(max_metric_calls: int | None) -> int:
 def _resolve_proposer_type() -> str:
     """Resolve proposer type for GEPA compatibility runs."""
     override = os.getenv("SYNTH_GEPA_PROPOSER_TYPE", "").strip().lower()
-    if override:
-        return override
-    # DSPy is the stable default in SDK configs; use it for compatibility mode.
-    return "dspy"
+    if not override:
+        return "synth"
+    if override == "builtin":
+        return "synth"
+    if override != "synth":
+        raise ValueError(
+            f"Unsupported SYNTH_GEPA_PROPOSER_TYPE='{override}'. Only 'synth' is supported."
+        )
+    return "synth"
 
 
 def _derive_archive_overrides(

@@ -77,6 +77,31 @@ def test_validate_prompt_learning_config_gepa_proposer_backend_agent() -> None:
     validate_prompt_learning_config(config, Path("<memory>"))
 
 
+def test_validate_prompt_learning_config_allows_gpt_5_3_codex() -> None:
+    config = _gepa_config_dict()
+    config["prompt_learning"]["policy"]["model"] = "gpt-5.3-codex"
+    validate_prompt_learning_config(config, Path("<memory>"))
+
+
+def test_validate_prompt_learning_config_gepa_actionable_upfront_context() -> None:
+    config = _gepa_config_dict()
+    config["prompt_learning"]["gepa"]["actionable_upfront_context"] = {
+        "source_uri": "s3://bucket/engine-bench.tar.gz",
+        "upload_route": "/upload_context",
+        "required": True,
+    }
+    validate_prompt_learning_config(config, Path("<memory>"))
+
+
+def test_validate_prompt_learning_config_gepa_legacy_task_context_alias() -> None:
+    config = _gepa_config_dict()
+    config["prompt_learning"]["gepa"]["task_context"] = {
+        "source_uri": "s3://bucket/engine-bench.tar.gz",
+        "required": False,
+    }
+    validate_prompt_learning_config(config, Path("<memory>"))
+
+
 def test_validate_prompt_learning_config_mipro_dict() -> None:
     validate_prompt_learning_config(_mipro_config_dict(), Path("<memory>"))
 

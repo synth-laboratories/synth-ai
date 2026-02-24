@@ -154,7 +154,8 @@ tunnel = await TunneledContainer.create(
 )
 ```
 
-Requires `cloudflared` installed (`brew install cloudflared`). Use `container_api_key` instead of `worker_token` when configuring jobs.
+Requires `cloudflared` installed (`brew install cloudflared`). For policy optimization, do not pass
+`container_api_key` in payloads; use `container_worker_token` and let backend resolve container auth.
 
 See the [tunnels documentation](https://docs.usesynth.ai/sdk/tunnels) for the full comparison.
 
@@ -175,6 +176,13 @@ There are **three different keys** in the Container + SynthTunnel flow:
 Common failures:
 - `Invalid API key` on `/api/jobs/*` means the backend received the wrong key.
 - `SYNTH_TUNNEL_ERROR: Invalid worker token` means the tunnel relay token is wrong.
+
+### CRITICAL: Container Auth Payload Rule (NO EXCEPTIONS)
+
+- Do **not** embed `container_api_key` or `container_api_keys` in policy-optimization job payloads
+  (`config_body`, overrides, or nested `prompt_learning.*` fields).
+- Container auth for policy optimization is **server-resolved** from org credentials.
+- Client code may validate local availability of env keys, but payloads must not carry them.
 
 ## Branching and CI
 
@@ -272,6 +280,11 @@ pl_job = PromptLearningJob.from_dict({
                 "rollout": {"budget": 100},
                 "population_size": 10,
                 "generations": 5,
+                "actionable_upfront_context": {
+                    "source_uri": "s3://my-bucket/engine-bench-codebase.tar.gz",
+                    "upload_route": "/upload_context",
+                    "required": False,
+                },
             }
         }
     },

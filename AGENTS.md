@@ -70,6 +70,14 @@ When using the local stack with a tunneled container, there are **three differen
 If you see `Invalid API key` on `/api/jobs/*`, you're sending the wrong key to the backend.
 If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong token to the tunnel.
 
+## CRITICAL: Container Auth Payload Rule (NO EXCEPTIONS)
+
+- `container_api_key` and `container_api_keys` are forbidden in client-submitted policy-optimization
+  payloads (`config_body`, overrides, and nested `prompt_learning.*` fields).
+- Backend is the source of truth for rollout auth and must resolve credentials from org storage.
+- If you touch payload builders, request schemas, or job creation paths, preserve this rule and add
+  tests that assert these fields are rejected/stripped.
+
 ## Incident Log Requirement
 
 When you hit a Synth code bug or local dev setup issue, append a timestamped entry to `/Users/joshpurtell/Documents/Github/specifications/issues_log/YYYY-MM-DD.md` before finishing.

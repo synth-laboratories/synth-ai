@@ -112,6 +112,8 @@ const KNOWN_GEPA_FIELDS: &[&str] = &[
     "proposer_backend",
     "proposer",
     "context_override",
+    "actionable_upfront_context",
+    "task_context",
     "proposer_effort",
     "proposer_output_tokens",
     "metaprompt",
@@ -970,7 +972,7 @@ fn validate_model_for_provider(
         "openai" => {
             if !is_supported_openai_model(model_without_prefix) {
                 errors.push(format!(
-                    "Unsupported OpenAI model: '{}'\n  Supported OpenAI models for prompt learning:\n    - gpt-4o\n    - gpt-4o-mini\n    - gpt-4.1, gpt-4.1-mini, gpt-4.1-nano\n    - gpt-5, gpt-5-mini, gpt-5-nano\n    - Image generation: gpt-image-1.5, gpt-image-1, gpt-image-1-mini, chatgpt-image-latest\n  Note: gpt-5-pro is excluded (too expensive)\n  Got: '{}'",
+                    "Unsupported OpenAI model: '{}'\n  Supported OpenAI models for prompt learning:\n    - gpt-4o\n    - gpt-4o-mini\n    - gpt-4.1, gpt-4.1-mini, gpt-4.1-nano\n    - gpt-5, gpt-5-mini, gpt-5-nano\n    - gpt-5.1, gpt-5.2, gpt-5.3-codex\n    - Image generation: gpt-image-1.5, gpt-image-1, gpt-image-1-mini, chatgpt-image-latest\n  Note: gpt-5-pro is excluded (too expensive)\n  Got: '{}'",
                     model, model
                 ));
             }
@@ -3093,6 +3095,37 @@ mod tests {
                 .iter()
                 .any(|err| err.contains("requires ontology connector enabled")),
             "missing ontology connector strict error: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn strict_accepts_openai_gpt_5_3_codex_policy_model() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "container_url": "http://localhost:8102",
+                "policy": {
+                    "provider": "openai",
+                    "model": "gpt-5.3-codex",
+                    "inference_mode": "synth_hosted"
+                },
+                "gepa": {
+                    "evaluation": {
+                        "train_seeds": [0, 1],
+                        "val_seeds": [2]
+                    },
+                    "archive": {"pareto_set_size": 4}
+                }
+            }
+        });
+
+        let errors = super::validate_prompt_learning_config_strict(&config);
+        assert!(
+            !errors
+                .iter()
+                .any(|err| err.contains("Unsupported OpenAI model")),
+            "gpt-5.3-codex should be allowed, errors: {:?}",
             errors
         );
     }

@@ -2,6 +2,12 @@
 
 User-facing programmatic API for Synth AI.
 
+## CRITICAL: Container Auth Payload Rule
+
+For policy-optimization job submission, never embed `container_api_key` or
+`container_api_keys` in payload/config/overrides. Those credentials are
+server-resolved from org storage.
+
 ## Structure
 
 ```

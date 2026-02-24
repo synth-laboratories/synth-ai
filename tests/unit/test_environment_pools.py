@@ -37,11 +37,11 @@ class TestURLBuilding:
         result = _url("https://api.example.com", "rollouts", api_version="v1")
         assert result == "https://api.example.com/v1/rollouts"
 
-    def test_url_builds_legacy_path(self):
+    def test_url_builds_api_prefixed_path_for_non_v1(self):
         from synth_ai.sdk.environment_pools import _url
 
         result = _url("https://api.example.com", "rollouts", api_version="legacy")
-        assert "/api/v1/environment-pools/rollouts" in result
+        assert "/api/v1/rollouts" in result
 
     def test_cred_url_builds_correctly(self):
         from synth_ai.sdk.environment_pools import _cred_url

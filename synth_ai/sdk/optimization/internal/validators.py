@@ -36,6 +36,8 @@ _GEPA_ALIAS_WARNING_PREFIXES = (
     "Unknown field 'context_override' in [prompt_learning.gepa].",
     "Unknown field 'proposer_mode' in [prompt_learning.gepa].",
     "Unknown field 'proposal_pipeline' in [prompt_learning.gepa].",
+    "Unknown field 'actionable_upfront_context' in [prompt_learning.gepa].",
+    "Unknown field 'task_context' in [prompt_learning.gepa].",
 )
 
 _MIPRO_ALIAS_WARNING_PREFIXES = (
@@ -64,6 +66,37 @@ _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
     "Unknown field 'artifact_schema' in [prompt_learning].",
     "Unknown field 'artifact_bounds' in [prompt_learning].",
 )
+
+
+def _iter_model_values(payload: Any) -> Any:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "model" and isinstance(value, str):
+                yield value.strip()
+            yield from _iter_model_values(value)
+    elif isinstance(payload, list):
+        for value in payload:
+            yield from _iter_model_values(value)
+
+
+def _normalize_supported_model_errors(config_data: dict[str, Any], errors: list[str]) -> list[str]:
+    """Drop stale strict-validation errors for models supported by core/backend.
+
+    Some local environments may load an older prebuilt ``synth_ai_py`` extension while
+    using a newer Python SDK checkout. Allowing these known-safe aliases keeps local
+    benchmark/eval scripts unblocked without weakening other validation paths.
+    """
+    requested_models = {model.lower() for model in _iter_model_values(config_data)}
+    if "gpt-5.3-codex" not in requested_models:
+        return errors
+
+    normalized: list[str] = []
+    for err in errors:
+        lowered = err.lower()
+        if "unsupported openai model" in lowered and "gpt-5.3-codex" in lowered:
+            continue
+        normalized.append(err)
+    return normalized
 
 
 def _normalize_container_task_app_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
@@ -160,11 +193,11 @@ def _normalize_legacy_mipro_aliases(config_data: dict[str, Any]) -> dict[str, An
 
 
 def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize GEPA proposer alias fields to canonical proposer_type/proposer_mode.
+    """Normalize GEPA proposer alias fields to canonical synth proposer settings.
 
     Legacy/new benchmark configs may send:
     - prompt_learning.gepa.proposer_backend = "prompt" | "rlm" | "agent"
-    - prompt_learning.gepa.proposer.prompt.strategy = "synth" | "dspy" | "gepa-ai"
+    - prompt_learning.gepa.proposer.prompt.strategy = "synth"
     - prompt_learning.gepa.context_override = {...}
 
     For proposer_backend='prompt', derives proposer_type/proposer_mode. For
@@ -180,10 +213,12 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
 
     def _normalize_prompt_strategy(value: Any) -> str:
         strategy = str(value or "synth").strip().lower()
-        if strategy == "gepa_ai":
-            strategy = "gepa-ai"
         if strategy == "builtin":
             strategy = "synth"
+        if strategy != "synth":
+            raise click.ClickException(
+                f"Invalid GEPA prompt strategy '{strategy}'. Only 'synth' is supported."
+            )
         return strategy
 
     for section in sections:
@@ -254,6 +289,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     normalized_for_strict = normalized_for_validation
     errors = synth_ai_py.validate_prompt_learning_config_strict(normalized_for_strict)
     errors = _normalize_strict_errors(normalized_for_strict, list(errors))
+    errors = _normalize_supported_model_errors(normalized_for_strict, list(errors))
     if errors:
         _raise_validation_errors(list(errors), config_path)
 
