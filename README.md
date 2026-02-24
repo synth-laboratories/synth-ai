@@ -5,20 +5,28 @@
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Prompt Optimization, Graphs, and Agent Infrastructure
+Build systems for OOMs more complexity.
 
-Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
+Continual and offline optimization for prompts, context, skills, and long-horizon memory.
+
+Use the SDK in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or call Synth endpoints from any language.
 
 ## Synth Style
 
-For engineering principles and coding standards, follow:
-`specs/README.md`.
+Synth is built for frontier builders first. We:
+
+- push interface complexity inward (strong server contracts, simpler app surfaces)
+- design online/offline parity with pause/resume as first-class controls
+- meet production code where it is (no forced lock-in or rewrites)
+- build general algorithmic foundations, then layer targeted affordances
+
+For engineering principles and coding standards, see [specs/README.md](specs/README.md).
 
 <p align="center">
   <picture align="center">
     <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/langprobe_v2_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across GPT-4.1 Nano, GPT-4o Mini, and GPT-5 Nano with baseline vs GEPA optimized." src="assets/langprobe_v2_light.png">
+    <img alt="Bar chart comparing baseline vs GEPA-optimized prompt performance across GPT-4.1 Nano, GPT-4o Mini, and GPT-5 Nano." src="assets/langprobe_v2_light.png">
   </picture>
 </p>
 
@@ -32,22 +40,35 @@ For engineering principles and coding standards, follow:
 - [GEPA Crafter VLM Verifier Optimization](https://docs.usesynth.ai/cookbooks/verifier-optimization)
 - [GraphGen Image Style Matching](https://docs.usesynth.ai/cookbooks/graphs/overview)
 
-Benchmark and demo runner source files have moved to the `Benchmarking` repo (`../Benchmarking` in a sibling checkout).
+Benchmark and demo runner source files live in the `Benchmarking` repo (`../Benchmarking` in a sibling checkout).
 
-## Highlights
+## Product Focus
 
-- 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
-- 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable scoring criteria
-- 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
-- 🧰 **Environment Pools** - Managed sandboxes and browser pools for coding and computer-use agents
-- 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
-- ⚡️ **Local Development** - Run experiments locally with tunneled containers. No cloud setup required
-- 🗂️ **Multi-Experiment Management** - Track and compare prompts/models across runs with built-in experiment queues
+- **Continual Learning Sessions (MIPRO + GEPA)**: run online sessions that update prompts from reward feedback during live traffic, with first-class `pause`/`resume`/`cancel` controls.
+- **Discrete GEPA Optimization (Prompt + Context)**: run offline GEPA jobs for controlled batch optimization, compare artifacts, and promote the best candidates.
+- **Voyager for Skills + Long-Term Memory**: optimize skill/context surfaces and use durable memory with retrieval and summarization for long-horizon agent systems.
+- **One Canonical Runtime Surface**: use shared `systems`, `offline`, and `online` primitives across SDK and HTTP APIs.
+- **Agent Infrastructure Built In**: run with pools, containers, and tunnels for local or managed rollouts without forcing app rewrites.
+- **Graph + Verifier Workflows**: train GraphGen pipelines and rubric-based verifiers for domain-specific evaluation loops.
 
 ## Getting Started
 
-### SDK (Python)
+### Python SDK
 
 ```bash
-pip install synth-ai==0
+uv add synth-ai
+# or
+pip install synth-ai
 ```
+
+### Rust SDK (beta)
+
+```bash
+cargo add synth-ai
+```
+
+### API (any language)
+
+Use your `SYNTH_API_KEY` and call Synth HTTP endpoints directly.
+
+Docs: [docs.usesynth.ai](https://docs.usesynth.ai)
