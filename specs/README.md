@@ -7,6 +7,7 @@ This folder is the SDK-specific source of truth for the canonical Synth client s
 - `sdk_logic.md`: canonical object model, namespaces, sync/async behavior, and invariants.
 - `http_openai.md`: transport contract for HTTP endpoints, including OpenAI-compatible chat completions.
 - `api_stability_lifecycle.md`: SDK/API stability levels, deprecation windows, and release lifecycle policy.
+- `smr_sdk_mcp_control_proposal_2026_02_19.md`: SMR SDK MCP control proposal aligned to canonical SDK direction.
 
 ## Scope
 

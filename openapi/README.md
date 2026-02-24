@@ -1,8 +1,9 @@
-# Synth OpenAPI Contract
+# Synth OpenAPI Contracts
 
-- Spec file: `synth-api-v1.yaml`
+- Spec files:
+  - `synth-api-v1.yaml` (canonical SDK HTTP transport + OpenAI-compatible chat completions)
+  - `container-contract-v1.yaml` (container rollout/health/info contract)
 - Version: OpenAPI 3.1
-- Scope: Canonical SDK HTTP transport and OpenAI-compatible chat completions.
 
 ## Includes
 
@@ -12,6 +13,7 @@
 - Hosted containers (`/api/v1/containers`)
 - Container pools and rollouts (`/v1/pools/*`, `/v1/rollouts/*`)
 - SynthTunnel leases (`/api/v1/synthtunnel/leases`)
+- Container runtime endpoints (`/health`, `/rollout`, `/info`, `/validate-candidate`)
 
 ## Codegen examples
 
