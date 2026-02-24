@@ -105,7 +105,7 @@ def compute_outcome_reward(predicted: str, sample: dict) -> float:
 
 
 # =============================================================================
-# TASK APP PROVIDERS
+# CONTAINER PROVIDERS
 # =============================================================================
 
 

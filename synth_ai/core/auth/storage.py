@@ -21,7 +21,7 @@ def store_credentials(credentials, config_path=None):
     if not credentials.get("ENVIRONMENT_API_KEY"):
         print(
             "ENVIRONMENT_API_KEY not provided by device auth. "
-            "Set it manually if you plan to deploy or run task apps."
+            "Set it manually if you plan to deploy or run containers."
         )
 
     resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)

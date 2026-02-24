@@ -49,7 +49,7 @@ class FolderMode(str, Enum):
 
 
 class ApplicationStatus(str, Enum):
-    """Status of override application by task app."""
+    """Status of override application by container."""
 
     APPLIED = "applied"  # Successfully applied
     PARTIAL = "partial"  # Partially applied (some sub-items failed)
@@ -92,12 +92,12 @@ class ContextOverride(BaseModel):
         )
 
     Note:
-        File artifact paths are relative to the task app workspace. Agent-specific
+        File artifact paths are relative to the container workspace. Agent-specific
         paths such as `.codex/skills.yaml` or `.opencode/skills.yaml` are resolved
-        by the task app based on the agent type.
+        by the container based on the agent type.
 
     Warning:
-        Task apps enforce size limits on files, scripts, and env vars. Large
+        containers enforce size limits on files, scripts, and env vars. Large
         overrides may be rejected at application time.
     """
 
@@ -112,12 +112,12 @@ class ContextOverride(BaseModel):
     )
 
     # Bash script to run before agent execution
-    # Must start with #!/bin/bash shebang (validated by task app)
+    # Must start with #!/bin/bash shebang (validated by container)
     preflight_script: Optional[str] = Field(
         default=None,
         description=(
             "Bash script to run before agent execution. Must start with a #!/bin/bash "
-            "shebang and will run with task app timeouts."
+            "shebang and will run with container timeouts."
         ),
     )
 
@@ -222,7 +222,7 @@ class OverrideApplicationError(BaseModel):
 
 
 class ContextOverrideStatus(BaseModel):
-    """Status of context override application by task app.
+    """Status of context override application by container.
 
     Reports per-target application results so GEPA can learn from failures.
 

@@ -1,4 +1,4 @@
-"""Error helpers used across Task App implementations."""
+"""Error helpers used across Container implementations."""
 
 from __future__ import annotations
 

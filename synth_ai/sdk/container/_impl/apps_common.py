@@ -73,7 +73,7 @@ def get_asgi_app(module: ModuleType) -> ASGIApp:
                 break
     if app is None:
         raise RuntimeError(
-            "Task app must expose an ASGI application via `app = FastAPI(...)` or a callable factory."
+            "container must expose an ASGI application via `app = FastAPI(...)` or a callable factory."
         )
     return app
 

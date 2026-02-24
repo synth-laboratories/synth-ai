@@ -1,4 +1,4 @@
-"""Helpers for trace correlation IDs and trace payloads in task apps."""
+"""Helpers for trace correlation IDs and trace payloads in containers."""
 
 from __future__ import annotations
 

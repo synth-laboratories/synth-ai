@@ -1,7 +1,7 @@
-"""Rubric schema, loading, and evaluation helpers for Task Apps.
+"""Rubric schema, loading, and evaluation helpers for Containers.
 
 This module provides:
-- Flexible rubric models (Criterion, Rubric) for general task app use
+- Flexible rubric models (Criterion, Rubric) for general container use
 - Strict validators (StrictCriterion, StrictRubric) for step-wise verifiers
 - Loading utilities supporting JSON, YAML, and HTTP sources
 - Blending utilities for composing rubrics

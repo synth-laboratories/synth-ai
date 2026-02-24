@@ -1,4 +1,4 @@
-"""Dataset registry and helpers shared by Task Apps."""
+"""Dataset registry and helpers shared by Containers."""
 
 from __future__ import annotations
 

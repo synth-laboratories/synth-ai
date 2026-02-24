@@ -88,7 +88,7 @@ class GraphOptimizationJob:
 
     Two construction modes:
     - `from_config()`: Create from TOML config file
-    - `from_dataset()`: Create from JSON dataset (auto-generates task app)
+    - `from_dataset()`: Create from JSON dataset (auto-generates container)
 
     Example (config-based):
         >>> from synth_ai.sdk.optimization.graph import GraphOptimizationJob
@@ -256,8 +256,8 @@ class GraphOptimizationJob:
     ) -> GraphOptimizationJob:
         """Create a job from a JSON dataset (GraphEvolve style).
 
-        This mode auto-generates task apps from the dataset - no user-managed
-        task apps required.
+        This mode auto-generates containers from the dataset - no user-managed
+        containers required.
 
         Args:
             dataset: Dataset as file path, dict, or GraphEvolveTaskSet object

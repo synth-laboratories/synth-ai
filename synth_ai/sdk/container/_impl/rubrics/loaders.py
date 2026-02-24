@@ -89,7 +89,7 @@ def load_rubric(source: str | dict[str, Any] | Rubric | None) -> Rubric | None:
         source_hint = f" ({source})" if isinstance(source, str) else ""
         raise ValueError(
             f"Rubric appears to be in backend verifier format (has 'event'/'outcome' keys){source_hint}. "
-            f"Task apps require rubrics with 'version', 'goal_text', and 'criteria' fields. "
+            f"containers require rubrics with 'version', 'goal_text', and 'criteria' fields. "
             f"Backend verifier rubrics should be named '*_backend_verifier.json' and loaded by verifier functions."
         )
 

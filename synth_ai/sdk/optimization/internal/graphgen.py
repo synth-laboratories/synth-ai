@@ -65,11 +65,11 @@ class GraphEvolveJob:
     """High-level SDK class for running Graph Evolve workflow optimization jobs.
 
     Graph Evolve (Automated Design of Agentic Systems) provides a simplified API for
-    graph/workflow optimization that doesn't require users to manage task apps.
+    graph/workflow optimization that doesn't require users to manage containers.
 
     Key differences from PromptLearningJob:
     - Uses JSON dataset format (GraphEvolveTaskSet) instead of TOML configs
-    - No task app management required - Graph Evolve builds it internally
+    - No container management required - Graph Evolve builds it internally
     - Built-in judge modes (rubric, contrastive, gold_examples)
     - Graph-first: trains multi-node workflows by default (Graph-GEPA)
     - Public graph downloads are redacted `.txt` exports only

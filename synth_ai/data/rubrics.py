@@ -31,7 +31,7 @@ class Criterion:
     """Single evaluation criterion within a rubric.
 
     Flexible variant allowing weights > 1.0 and no normalization requirement.
-    Used by task apps for general reward computation.
+    Used by containers for general reward computation.
 
     Attributes:
         id: Unique identifier for this criterion
@@ -69,10 +69,10 @@ class Criterion:
 
 @dataclass
 class Rubric:
-    """Rubric definition for evaluating task app outcomes.
+    """Rubric definition for evaluating container outcomes.
 
     Supports flexible aggregation and blending. Criteria weights do not need
-    to sum to 1.0, making this suitable for general task app usage.
+    to sum to 1.0, making this suitable for general container usage.
 
     Attributes:
         version: Version string for this rubric definition
