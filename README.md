@@ -12,7 +12,7 @@ Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`)
 ## Synth Style
 
 For engineering principles and coding standards, follow:
-`specifications/tanha/references/synthstyle.md`.
+`specs/README.md`.
 
 <p align="center">
   <picture align="center">
@@ -233,7 +233,7 @@ Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/cita
 
 **[docs.usesynth.ai](https://docs.usesynth.ai)**
 
-- GEPA proposer backend guide (spec): `../specifications/tanha/current/systems/platform/gepa_proposer_backends.md`
+- GEPA proposer backend guide (spec): `specs/sdk_logic.md`
 - GEPA guide (Mintlify): [docs.usesynth.ai/prompt-optimization/gepa](https://docs.usesynth.ai/prompt-optimization/gepa)
 
 ## Community
@@ -278,7 +278,7 @@ print(f"Best score: {result.best_score}")
 ```
 
 See the [Banking77 walkthrough](https://docs.usesynth.ai/cookbooks/banking77-colab) for a complete example with local containers.
-For proposer backend selection (`prompt`, `rlm`, `agent`), see `../specifications/tanha/current/systems/platform/gepa_proposer_backends.md`.
+For proposer backend selection (`prompt`, `rlm`, `agent`), see `specs/sdk_logic.md`.
 
 ## Online MIPRO (SDK, Ontology Enabled)
 

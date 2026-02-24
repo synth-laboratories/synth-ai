@@ -1,7 +1,7 @@
 """Canonical front-door SDK clients.
 
-# See: specifications/tanha/current/documentation/docs_specification.md
-# See: specifications/daily/feb24_2026/tinker_synth_final.md
+# See: specs/README.md
+# See: specs/sdk_logic.md
 """
 
 from __future__ import annotations

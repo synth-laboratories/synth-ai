@@ -1,5 +1,5 @@
 """AIME dataset helper for GEPA compatibility."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from __future__ import annotations
 

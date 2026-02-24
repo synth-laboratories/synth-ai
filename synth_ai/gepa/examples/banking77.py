@@ -1,5 +1,5 @@
 """Banking77 dataset helper for GEPA compatibility."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _extract_label_names(dataset: Any) -> list[str]:
 
 def get_labels() -> list[str]:
     """Return Banking77 intent labels."""
-    # See: specifications/tanha/master_specification.md
+    # See: specs/sdk_logic.md
     from datasets import load_dataset
 
     dataset = load_dataset("banking77")
@@ -37,7 +37,7 @@ def init_dataset(
     test_size: int = 200,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Load Banking77 into (train, val, test) splits."""
-    # See: specifications/tanha/master_specification.md
+    # See: specs/sdk_logic.md
     import random
 
     from datasets import load_dataset

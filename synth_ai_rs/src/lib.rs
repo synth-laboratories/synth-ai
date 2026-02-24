@@ -795,7 +795,7 @@ pub async fn eval(container_url: &str, seeds: Vec<i64>) -> Result<synth_ai_core:
 
 /// Convert a GEPA seed candidate mapping into a Synth prompt pattern.
 ///
-/// See: specifications/tanha/master_specification.md
+/// See: specs/sdk_logic.md
 pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value> {
     synth_ai_core::config::gepa_candidate_to_initial_prompt(seed_candidate).map_err(Error::Core)
 }

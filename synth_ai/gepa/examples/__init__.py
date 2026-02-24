@@ -1,5 +1,5 @@
 """Example datasets for GEPA compatibility."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from . import aime, banking77
 

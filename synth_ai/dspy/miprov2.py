@@ -1,5 +1,5 @@
 """DSPy-compatible MIPROv2 wrapper backed by Synth MIPRO."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 """Default adapter stubs for GEPA compatibility."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from .default_adapter import DefaultAdapter
 

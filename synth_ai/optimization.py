@@ -1,6 +1,6 @@
 """Canonical optimization namespace.
 
-# See: specifications/daily/feb24_2026/tinker_synth_final.md
+# See: specs/sdk_logic.md
 """
 
 from synth_ai.sdk.optimization import (

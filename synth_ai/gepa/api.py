@@ -1,5 +1,5 @@
 """GEPA compatibility API backed by Synth AI optimization."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from __future__ import annotations
 
@@ -431,7 +431,7 @@ def optimize(
     val_evaluation_policy: Any | None = None,
 ) -> GEPAResult[Any, Any]:
     """Run prompt optimization with a GEPA-compatible interface."""
-    # See: specifications/tanha/master_specification.md
+    # See: specs/sdk_logic.md
 
     if adapter is not None:
         raise ValueError("Custom adapters are not supported in Synth GEPA compatibility mode.")

@@ -1,6 +1,6 @@
 """Canonical SDK namespace.
 
-# See: specifications/daily/feb24_2026/tinker_synth_final.md
+# See: specs/sdk_logic.md
 """
 
 from __future__ import annotations

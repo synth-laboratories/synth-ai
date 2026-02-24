@@ -1,5 +1,5 @@
 """Compatibility stop conditions for GEPA-style workflows."""
-# See: specifications/tanha/master_specification.md
+# See: specs/sdk_logic.md
 
 from __future__ import annotations
 

@@ -833,7 +833,7 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
 
 /// Convert a GEPA seed candidate mapping into a Synth prompt pattern.
 ///
-/// See: specifications/tanha/master_specification.md
+/// See: specs/sdk_logic.md
 pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value, CoreError> {
     let map = seed_candidate
         .as_object()

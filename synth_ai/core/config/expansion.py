@@ -273,7 +273,7 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
 
 def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str, Any]:
     """Convert a GEPA seed candidate mapping into a Synth prompt pattern."""
-    # See: specifications/tanha/master_specification.md
+    # See: specs/sdk_logic.md
     if hasattr(synth_ai_py, "gepa_candidate_to_initial_prompt"):
         return synth_ai_py.gepa_candidate_to_initial_prompt(seed_candidate)
 
