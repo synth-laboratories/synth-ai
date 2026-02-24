@@ -1,6 +1,6 @@
-# synth-ai
+# synth-ai (Rust SDK)
 
-Rust SDK for [Synth AI](https://usesynth.ai) - serverless post-training APIs.
+Canonical Rust SDK for [Synth](https://usesynth.ai), aligned to the same namespace model as the Python SDK.
 
 ## Installation
 
@@ -8,33 +8,43 @@ Rust SDK for [Synth AI](https://usesynth.ai) - serverless post-training APIs.
 cargo add synth-ai
 ```
 
-Or add to your `Cargo.toml`:
+Or in `Cargo.toml`:
 
 ```toml
 [dependencies]
-synth-ai = "0.1"
+synth-ai = "0.5"
 ```
 
-## Status
-
-This crate is under active development. It now exposes the shared Rust core for URLs and
-event polling. For the full-featured SDK, see the [Python package](https://pypi.org/project/synth-ai/).
-
-## Quick Example
+## Quick Start
 
 ```rust
-use synth_ai::{Client, CoreConfig, EventKind};
+use synth_ai::SynthClient;
 
-# async fn run() -> Result<(), Box<dyn std::error::Error>> {
-let config = CoreConfig::default();
-let client = Client::new(config);
-let resp = client
-    .poll_events(EventKind::PromptLearning, "pl_123", Some(0), Some(200))
-    .await?;
-println!("events: {}", resp.events.len());
-# Ok(())
-# }
+#[tokio::main]
+async fn main() -> Result<(), synth_ai::Error> {
+    let client = SynthClient::from_env()?;
+
+    let systems = client.optimization().systems().list(None).await?;
+    println!("systems={}", systems.items.len().max(systems.data.len()));
+
+    Ok(())
+}
 ```
+
+## Canonical Namespaces
+
+- `client.optimization()`
+- `client.inference()`
+- `client.graphs()`
+- `client.verifiers()`
+- `client.pools()`
+- `client.containers()`
+- `client.tunnels()`
+
+## Contract Source of Truth
+
+- OpenAPI: `openapi/synth-api-v1.yaml`
+- Container contract: `openapi/container-contract-v1.yaml`
 
 ## Links
 
