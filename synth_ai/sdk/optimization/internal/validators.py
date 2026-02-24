@@ -156,30 +156,17 @@ def _has_container_url(config_data: dict[str, Any]) -> bool:
     return isinstance(container_url, str) and bool(container_url.strip())
 
 
-def _rewrite_legacy_field_terms(error: str) -> str:
-    rewritten = error
-    replacements = (
-        ("task_app_url", "container_url"),
-        ("task_app_api_key", "container_api_key"),
-        ("task_app_worker_token", "container_worker_token"),
-    )
-    for old, new in replacements:
-        rewritten = rewritten.replace(old, new)
-    return rewritten
-
-
 def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> list[str]:
     """Filter strict validation errors that conflict with canonical container fields."""
     has_container_id = _has_container_id(config_data)
     has_container_url = _has_container_url(config_data)
     normalized: list[str] = []
     for err in errors:
-        rewritten = _rewrite_legacy_field_terms(err)
         if (
             has_container_id or has_container_url
-        ) and "Missing required field: prompt_learning.container_url" in rewritten:
+        ) and "Missing required field: prompt_learning.container_url" in err:
             continue
-        normalized.append(rewritten)
+        normalized.append(err)
     return normalized
 
 
