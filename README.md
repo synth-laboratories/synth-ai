@@ -81,18 +81,9 @@ Full Banking77 runthrough: `../Benchmarking/demos/gepa_banking77_compat.py`.
 cargo add synth-ai
 ```
 
-### TUI (Homebrew)
-
-```bash
-brew install synth-laboratories/tap/synth-ai-tui
-synth-ai-tui
-```
-
-The TUI provides a visual interface for managing jobs, viewing events, and monitoring optimization runs.
-
 ## OpenCode Skills (Synth API)
 
-The Synth-AI TUI integrates with OpenCode and ships a **`synth-api`** skill.
+The Synth SDK/CLI integrates with OpenCode and ships a **`synth-api`** skill.
 
 ```bash
 # List packaged skills shipped with synth-ai
@@ -212,7 +203,7 @@ Cross-repo integration tests live in the **testing** repo (`synth-laboratories/t
 
 1. When a PR targets `staging` in `testing`, CI checks out `synth-ai` at the matching branch (e.g. `staging`). Falls back to `main` if the branch doesn't exist.
 2. Tests that exercise synth-ai code:
-   - `synth_ai_unit_tests` — `pytest tests/unit` (runs on every push)
+   - `synth_ai_unit_tests` — `pytest synth-ai-tests/unit` (runs on every push)
    - `synth_ai_all_tests` — package-focused SDK tests from `synth-ai-tests/` in the `testing` repo
    - `testing_unit_tests` — `pytest synth-ai-tests/unit/`
 
@@ -234,22 +225,7 @@ bazel test //:no_llm_tests              # everything except LLM-dependent tests
 bazel test //:all_tests                 # everything
 ```
 
-Or directly:
-
-```bash
-uv run pytest tests/unit -v
-```
-
 See `testing/CLAUDE.md` for the full test tier and suite reference.
-
-## Testing
-
-Run the TUI integration tests:
-
-```bash
-cd tui/app
-bun test
-```
 
 Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
 

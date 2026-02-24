@@ -6,7 +6,6 @@ COMMON_ENV = {
 
 PYTEST_DATA = glob([
     "synth_ai/**",
-    "tests/**",
     "pyproject.toml",
     "uv.lock",
 ])

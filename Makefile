@@ -50,4 +50,4 @@ guard-results-ql:
 
 .PHONY: verify-trace-fixtures
 verify-trace-fixtures:
-	@python scripts/build_trace_fixtures.py --dest tests/artifacts/traces --overwrite
+	@python scripts/build_trace_fixtures.py --dest ../testing/synth-ai-tests/artifacts/traces --overwrite
