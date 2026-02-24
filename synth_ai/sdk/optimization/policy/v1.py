@@ -98,7 +98,7 @@ class PolicyOptimizationSystem:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationSystem":
+    ) -> PolicyOptimizationSystem:
         if not name or not name.strip():
             raise ValueError("name is required")
 
@@ -132,7 +132,7 @@ class PolicyOptimizationSystem:
         )
 
     @classmethod
-    def create(cls, **kwargs: Any) -> "PolicyOptimizationSystem":
+    def create(cls, **kwargs: Any) -> PolicyOptimizationSystem:
         return _run_async(cls.create_async(**kwargs))
 
     @classmethod
@@ -143,7 +143,7 @@ class PolicyOptimizationSystem:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationSystem":
+    ) -> PolicyOptimizationSystem:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
@@ -162,7 +162,7 @@ class PolicyOptimizationSystem:
         )
 
     @classmethod
-    def get(cls, system_id: str, **kwargs: Any) -> "PolicyOptimizationSystem":
+    def get(cls, system_id: str, **kwargs: Any) -> PolicyOptimizationSystem:
         return _run_async(cls.get_async(system_id, **kwargs))
 
     @classmethod
@@ -256,12 +256,13 @@ class PolicyOptimizationOfflineJob:
         reuse_system: bool = True,
         config_mode: Literal["DEFAULT", "FULL"] = "DEFAULT",
         config: Dict[str, Any],
+        container_worker_token: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
         auto_start: bool = True,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationOfflineJob":
+    ) -> PolicyOptimizationOfflineJob:
         if not system_name or not system_name.strip():
             raise ValueError("system_name is required")
 
@@ -280,6 +281,8 @@ class PolicyOptimizationOfflineJob:
             "metadata": metadata or {},
             "auto_start": bool(auto_start),
         }
+        if container_worker_token and container_worker_token.strip():
+            payload["container_worker_token"] = container_worker_token.strip()
         if system_id:
             payload["system"]["id"] = system_id
 
@@ -304,7 +307,7 @@ class PolicyOptimizationOfflineJob:
         )
 
     @classmethod
-    def create(cls, **kwargs: Any) -> "PolicyOptimizationOfflineJob":
+    def create(cls, **kwargs: Any) -> PolicyOptimizationOfflineJob:
         return _run_async(cls.create_async(**kwargs))
 
     @classmethod
@@ -315,7 +318,7 @@ class PolicyOptimizationOfflineJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationOfflineJob":
+    ) -> PolicyOptimizationOfflineJob:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
@@ -337,7 +340,7 @@ class PolicyOptimizationOfflineJob:
         )
 
     @classmethod
-    def get(cls, job_id: str, **kwargs: Any) -> "PolicyOptimizationOfflineJob":
+    def get(cls, job_id: str, **kwargs: Any) -> PolicyOptimizationOfflineJob:
         return _run_async(cls.get_async(job_id, **kwargs))
 
     @classmethod
@@ -493,7 +496,7 @@ class PolicyOptimizationOnlineSession:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationOnlineSession":
+    ) -> PolicyOptimizationOnlineSession:
         if not system_name or not system_name.strip():
             raise ValueError("system_name is required")
 
@@ -537,7 +540,7 @@ class PolicyOptimizationOnlineSession:
         )
 
     @classmethod
-    def create(cls, **kwargs: Any) -> "PolicyOptimizationOnlineSession":
+    def create(cls, **kwargs: Any) -> PolicyOptimizationOnlineSession:
         return _run_async(cls.create_async(**kwargs))
 
     @classmethod
@@ -548,7 +551,7 @@ class PolicyOptimizationOnlineSession:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
-    ) -> "PolicyOptimizationOnlineSession":
+    ) -> PolicyOptimizationOnlineSession:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
@@ -570,7 +573,7 @@ class PolicyOptimizationOnlineSession:
         )
 
     @classmethod
-    def get(cls, session_id: str, **kwargs: Any) -> "PolicyOptimizationOnlineSession":
+    def get(cls, session_id: str, **kwargs: Any) -> PolicyOptimizationOnlineSession:
         return _run_async(cls.get_async(session_id, **kwargs))
 
     @classmethod

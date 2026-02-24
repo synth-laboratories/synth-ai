@@ -162,9 +162,10 @@ def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> 
     has_container_url = _has_container_url(config_data)
     normalized: list[str] = []
     for err in errors:
-        if (
-            has_container_id or has_container_url
-        ) and "Missing required field: prompt_learning.container_url" in err:
+        if (has_container_id or has_container_url) and (
+            "Missing required field: prompt_learning.container_url" in err
+            or "Missing required field: prompt_learning.task_app_url" in err
+        ):
             continue
         normalized.append(err)
     return normalized
