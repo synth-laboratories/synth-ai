@@ -51,12 +51,11 @@ __all__ = [
     "System",
     "VerifiersClient",
     "container",
-    "dspy",
-    "gepa",
     "graphs",
     "inference",
     "optimization",
     "pools",
+    "recipes",
     "verifiers",
 ]
 
@@ -82,16 +81,13 @@ _NAMESPACE_MODULES = {
     "verifiers",
     "pools",
     "container",
+    "recipes",
 }
 
 
 def __getattr__(name: str) -> Any:
     if name in _NAMESPACE_MODULES:
         return importlib.import_module(f"{__name__}.{name}")
-    if name == "gepa":
-        return importlib.import_module("synth_ai.gepa")
-    if name == "dspy":
-        return importlib.import_module("synth_ai.dspy")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

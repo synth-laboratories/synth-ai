@@ -21,7 +21,7 @@ from synth_ai.sdk.container._impl.rollout_helpers import build_rollout_response
 from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
 from synth_ai.sdk.container._impl.validators import normalize_inference_url
 from synth_ai.sdk.container.auth import ensure_container_auth
-from synth_ai.sdk.optimization.policy import PolicyOptimizationJob
+from synth_ai.sdk.optimization.policy.job import PolicyOptimizationJob
 from synth_ai.sdk.shared.models import detect_model_provider
 
 from .core.adapter import DataInst

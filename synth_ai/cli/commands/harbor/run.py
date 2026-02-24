@@ -90,10 +90,8 @@ def run(
 
             try:
                 # Build rollout request in Container format
-                run_id = f"harbor-cli-{deployment_id[:8]}"
-                trace_id = f"{run_id}-s{s}"
+                trace_id = f"harbor-cli-{deployment_id[:8]}-s{s}"
                 payload = {
-                    "run_id": run_id,
                     "trace_correlation_id": trace_id,
                     "env": {
                         "seed": s,
@@ -135,7 +133,7 @@ def run(
                 if "reward_info" in data:
                     reward = data["reward_info"].get("outcome_reward", 0.0)
                 elif "metrics" in data:
-                    reward = data["metrics"].get("reward_mean", 0.0)
+                    reward = data["metrics"].get("outcome_reward", 0.0)
 
                 if not output_json:
                     color = "green" if reward > 0.5 else "yellow" if reward > 0 else "red"

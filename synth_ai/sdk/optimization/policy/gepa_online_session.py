@@ -16,7 +16,6 @@ Online GEPA workflow:
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -75,12 +74,6 @@ class GepaOnlineSession:
         agent_id: Optional[str] = None,
         timeout: float = 30.0,
     ) -> GepaOnlineSession:
-        warnings.warn(
-            'GepaOnlineSession is deprecated and will be removed on 2026-10-01. '
-            'Use PolicyOptimizationOnlineSession.create(kind="voyager_online", ...).',
-            DeprecationWarning,
-            stacklevel=2,
-        )
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import logging
-import warnings
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -89,17 +88,9 @@ def validate_trace_correlation_id(
     trace_correlation_id: str | None,
     policy_config: dict[str, Any] | None = None,
     fatal: bool = False,
-    *,
-    run_id: str | None = None,
 ) -> str | None:
     """Validate that trace_correlation_id is present."""
 
-    if run_id is not None:
-        warnings.warn(
-            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     inference_url = policy_config.get("inference_url") if policy_config else None
     if synth_ai_py is not None and hasattr(synth_ai_py, "container_validate_trace_correlation_id"):
         return synth_ai_py.container_validate_trace_correlation_id(
@@ -120,16 +111,9 @@ def validate_trace_correlation_id(
 def include_trace_correlation_id_in_response(
     response_data: dict[str, Any],
     trace_correlation_id: str | None,
-    run_id: str | None = None,
 ) -> dict[str, Any]:
     """Include trace_correlation_id in all required locations of rollout response."""
 
-    if run_id is not None:
-        warnings.warn(
-            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     if synth_ai_py is not None and hasattr(
         synth_ai_py, "container_include_trace_correlation_id_in_response"
     ):
@@ -220,7 +204,7 @@ def include_event_history_in_response(
     messages: list[dict[str, Any]] | None = None,
     response: dict[str, Any] | None = None,
     *,
-    run_id: str,
+    trace_correlation_id: str,
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     """Ensure response.trace includes a v4 event_history payload."""
@@ -232,7 +216,7 @@ def include_event_history_in_response(
             response_data,
             messages,
             response,
-            run_id=run_id,
+            run_id=trace_correlation_id,
             correlation_id=correlation_id,
         )
     return include_trace_correlation_id_in_response(response_data, correlation_id)
@@ -243,7 +227,7 @@ def include_event_history_in_trajectories(
     messages_by_trajectory: list[list[dict[str, Any]]] | None = None,
     responses_by_trajectory: list[dict[str, Any]] | None = None,
     *,
-    run_id: str,
+    trace_correlation_id: str,
     correlation_id: str | None = None,
 ) -> dict[str, Any]:
     """Backward-compatible alias for include_event_history_in_response."""
@@ -255,7 +239,7 @@ def include_event_history_in_trajectories(
             response_data,
             messages_by_trajectory,
             responses_by_trajectory,
-            run_id=run_id,
+            run_id=trace_correlation_id,
             correlation_id=correlation_id,
         )
     return include_trace_correlation_id_in_response(response_data, correlation_id)
@@ -264,16 +248,9 @@ def include_event_history_in_trajectories(
 def verify_trace_correlation_id_in_response(
     response_data: dict[str, Any],
     expected_correlation_id: str | None,
-    run_id: str | None = None,
 ) -> bool:
     """Verify that trace_correlation_id is present in all required locations."""
 
-    if run_id is not None:
-        warnings.warn(
-            "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     if synth_ai_py is not None and hasattr(
         synth_ai_py, "container_verify_trace_correlation_id_in_response"
     ):

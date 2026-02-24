@@ -102,7 +102,8 @@ def my_command():
 
 ```python
 # CLI importing from SDK (correct)
-from synth_ai.sdk import EvalJob, PolicyOptimizationJob
+from synth_ai import SynthClient
+from synth_ai.sdk import EvalJob
 
 # CLI importing from core (correct)
 from synth_ai.core.auth import get_api_key

@@ -1,4 +1,3 @@
-import warnings
 from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
@@ -94,20 +93,15 @@ class LearningClient:
         name: str | None = None,
         after_step: int | None = None,
         limit: int = 500,
-        run_id: str | None = None,
+        trace_correlation_id: str | None = None,
     ) -> list[dict[str, Any]]:
         params: dict[str, Any] = {"limit": limit}
         if name is not None:
             params["name"] = name
         if after_step is not None:
             params["after_step"] = after_step
-        if run_id is not None:
-            warnings.warn(
-                "run_id is deprecated, use trace_correlation_id instead. Will be removed in v2.0.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            params["run_id"] = run_id
+        if trace_correlation_id is not None:
+            params["trace_correlation_id"] = trace_correlation_id
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             js = await http.get(f"/api/learning/jobs/{job_id}/metrics", params=params)
         if isinstance(js, dict) and isinstance(js.get("points"), list):

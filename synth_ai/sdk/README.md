@@ -13,11 +13,11 @@ server-resolved from org storage.
 ```
 sdk/
 ├── eval/           # Evaluation jobs (EvalJob, EvalJobConfig)
-├── optimization/   # Policy & Graph optimization (PolicyOptimizationJob, GraphOptimizationJob)
+├── optimization/   # Policy & Graph optimization (PolicyOptimizationOfflineJob, GraphOptimizationJob)
 ├── container/       # Container for running containers (ContainerClient, InProcessContainer)
 ├── artifacts/      # Artifact management (models, prompts)
-├── graphs/         # Graph completions & verifiers (VerifierClient, GraphCompletionsClient)
-├── inference/      # Model inference proxy (InferenceClient)
+├── graphs/         # Graph completions & verifiers (VerifiersClient, GraphCompletionsClient)
+├── inference/      # Model inference proxy (Client, JobsClient)
 ├── managed_research.py  # Managed Research project/run control (SmrControlClient)
 ├── shared/         # Internal utilities (NOT public API)
 │   ├── auth.py     # API key helpers
@@ -72,7 +72,8 @@ All user-facing classes are re-exported from `sdk/__init__.py`:
 ```python
 from synth_ai.sdk import (
     # Optimization
-    PolicyOptimizationJob,
+    OfflineJob,
+    OnlineSession,
     GraphOptimizationJob,
     
     # Evaluation
@@ -83,9 +84,10 @@ from synth_ai.sdk import (
     InProcessContainer,
     
     # Clients
-    VerifierClient,
-    GraphCompletionsClient,
+    VerifiersClient,
+    GraphsClient,
     InferenceClient,
+    InferenceJobsClient,
     SmrControlClient,
 )
 ```

@@ -7,10 +7,8 @@ Root package for Synth AI SDK, CLI, and supporting infrastructure.
 ```python
 # SDK classes are available directly from synth_ai
 from synth_ai import (
-    PolicyOptimizationJob,
-    EvalJob,
+    SynthClient,
     InProcessContainer,
-    VerifierClient,
 )
 
 # Data types are available from synth_ai.data
@@ -86,9 +84,10 @@ Internal shared utilities. Not user-facing.
 ### `sdk/` - SDK Layer
 User-facing programmatic API.
 
-- Optimization jobs (PolicyOptimizationJob, GraphOptimizationJob)
+- Front-door clients (SynthClient, AsyncSynthClient)
+- Optimization jobs (OfflineJob, OnlineSession, GraphOptimizationJob)
 - Evaluation jobs (EvalJob)
-- Clients (VerifierClient, InferenceClient)
+- Clients (VerifiersClient, GraphsClient, Client/JobsClient under synth_ai.inference)
 - Container for containers
 
 **Design principle**: Clean, stable API for external consumption.
@@ -108,17 +107,18 @@ The package exports verifier API contracts for compatibility removed:
 
 ```python
 from synth_ai import (
-    VerifierScoreRequest,
-    VerifierScoreResponse,
-    VerifierOptions,
-    # ...
+    SynthClient,
+    AsyncSynthClient,
+    optimization,
+    inference,
 )
 ```
 
 For most use cases, import from the specific module:
 
 ```python
-from synth_ai.sdk import EvalJob, PolicyOptimizationJob
+from synth_ai import SynthClient
+from synth_ai.sdk import EvalJob
 from synth_ai.data import SessionTrace, Rubric
 ```
 

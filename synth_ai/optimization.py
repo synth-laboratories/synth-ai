@@ -4,10 +4,6 @@
 """
 
 from synth_ai.sdk.optimization import (
-    GepaOnlineSession,
-    MiproOnlineSession,
-)
-from synth_ai.sdk.optimization import (
     PolicyOptimizationOfflineJob as OfflineJob,
 )
 from synth_ai.sdk.optimization import (
@@ -18,8 +14,6 @@ from synth_ai.sdk.optimization import (
 )
 
 __all__ = [
-    "GepaOnlineSession",
-    "MiproOnlineSession",
     "OfflineJob",
     "OnlineSession",
     "System",

@@ -122,22 +122,13 @@ class HarborExecutionBackend:
     def _transform_request(self, request: RolloutRequest) -> dict[str, Any]:
         """Transform RolloutRequest to Harbor API format.
 
-        Harbor's /rollout endpoint expects Container format which includes
-        a run_id field for GEPA/MIPRO compatibility.
-
         Args:
             request: RolloutRequest from the container
 
         Returns:
             Dictionary payload for Harbor API
         """
-        payload = request.model_dump(mode="json", exclude_none=True)
-        # Harbor endpoint requires run_id for GEPA/MIPRO compatibility
-        # Derive from trace_correlation_id if not present
-        if "run_id" not in payload:
-            # Use deployment ID as run_id prefix for grouping
-            payload["run_id"] = f"harbor-{self.deployment_ref.deployment_id[:8]}"
-        return payload
+        return request.model_dump(mode="json", exclude_none=True)
 
     def _transform_response(
         self, harbor_response: dict[str, Any], original_request: RolloutRequest
@@ -151,22 +142,6 @@ class HarborExecutionBackend:
         Returns:
             RolloutResponse compatible with container contract
         """
-        # Harbor response format:
-        # {
-        #   "trace_correlation_id": "...",
-        #   "metrics": {"reward_mean": 0.85, "details": {...}},
-        #   "success": true,
-        #   "error": null,
-        #   "execution_metadata": {...}
-        # }
-
-        # Also handle Container format response:
-        # {
-        #   "trace_correlation_id": "...",
-        #   "reward_info": {"outcome_reward": 0.85, ...},
-        #   ...
-        # }
-
         trace_correlation_id = harbor_response.get(
             "trace_correlation_id", original_request.trace_correlation_id
         )
@@ -176,14 +151,12 @@ class HarborExecutionBackend:
         details: dict[str, Any] = {}
 
         if "reward_info" in harbor_response:
-            # Container format response
             reward_info = harbor_response["reward_info"]
             reward = reward_info.get("outcome_reward", 0.0)
             details = reward_info.get("details", {})
         elif "metrics" in harbor_response:
-            # Harbor format response
             metrics = harbor_response["metrics"]
-            reward = metrics.get("reward_mean", metrics.get("outcome_reward", 0.0))
+            reward = metrics.get("outcome_reward", 0.0)
             details = metrics.get("details", {})
 
         # Add Harbor execution metadata to details

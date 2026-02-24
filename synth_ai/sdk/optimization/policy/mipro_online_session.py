@@ -14,7 +14,7 @@ Online MIPRO workflow:
 5. Backend generates new prompt proposals based on rewards
 
 Example:
-    >>> from synth_ai.sdk.optimization.policy import MiproOnlineSession
+    >>> from synth_ai.recipes import MiproOnlineSession
     >>>
     >>> # Create session
     >>> session = MiproOnlineSession.create(
@@ -36,7 +36,6 @@ Example:
 from __future__ import annotations
 
 import os
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -199,12 +198,6 @@ class MiproOnlineSession:
         Note:
             Provide exactly one of: config, config_body, config_name, or config_path
         """
-        warnings.warn(
-            'MiproOnlineSession is deprecated and will be removed on 2026-10-01. '
-            'Use PolicyOptimizationOnlineSession.create(kind="mipro_online", ...).',
-            DeprecationWarning,
-            stacklevel=2,
-        )
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
 

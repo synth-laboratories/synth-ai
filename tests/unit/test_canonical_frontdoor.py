@@ -13,6 +13,16 @@ def test_legacy_top_level_symbol_removed() -> None:
         _ = synth_ai.PolicyOptimizationJob
 
 
+def test_algorithm_wrappers_only_available_in_recipes_namespace() -> None:
+    with pytest.raises(AttributeError):
+        _ = synth_ai.optimization.GepaOnlineSession
+    with pytest.raises(AttributeError):
+        _ = synth_ai.optimization.MiproOnlineSession
+
+    assert hasattr(synth_ai.recipes, "GepaOnlineSession")
+    assert hasattr(synth_ai.recipes, "MiproOnlineSession")
+
+
 def test_frontdoor_sync_client_exposes_canonical_namespaces(monkeypatch: Any) -> None:
     class _StubInferenceClient:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
