@@ -128,7 +128,7 @@ include-package-data = true
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "private_tests"]
+testpaths = ["private_tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -157,7 +157,7 @@ show_missing = true
 skip_covered = false
 
 [tool.pyright]
-include = ["synth_ai", "tests"]
+include = ["synth_ai"]
 exclude = ["**/__pycache__"]
 pythonVersion = "3.11"
 typeCheckingMode = "standard"

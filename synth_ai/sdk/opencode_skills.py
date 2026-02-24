@@ -1,10 +1,7 @@
 """OpenCode skill helpers.
 
-This module ships a small set of OpenCode-compatible skills inside the synth-ai wheel
-and provides utilities to:
-- list skills bundled with the SDK
-- install them into a user's OpenCode local skills directory
-- materialize an OpenCode config directory for the Synth TUI (writable path)
+This module can install packaged OpenCode-compatible skills and materialize a
+writable OpenCode config directory.
 """
 
 from __future__ import annotations
@@ -15,15 +12,6 @@ from pathlib import Path
 from typing import Iterable
 
 _SYNTH_PACKAGE = "synth_ai"
-
-
-def _find_repo_root() -> Path | None:
-    """Find the repository root by looking for pyproject.toml."""
-    current = Path(__file__).resolve().parent
-    for parent in [current, *current.parents]:
-        if (parent / "pyproject.toml").exists() and (parent / "synth_ai").is_dir():
-            return parent
-    return None
 
 
 def _xdg_config_home() -> Path:
@@ -48,21 +36,19 @@ def default_opencode_global_skills_dir() -> Path:
 
 
 def _packaged_opencode_skill_root():
-    """Find the packaged OpenCode skills root.
+    """Find packaged OpenCode skills root.
 
-    Checks two locations:
-    1. Top-level skills/opencode/skill/ (development/repo structure)
-    2. synth_ai/skills/opencode/skill/ (packaged wheel structure)
+    Resolution order:
+    1. `OPENCODE_PACKAGED_SKILLS_DIR` override
+    2. package data under `synth_ai/opencode/skill`
     """
-    # Try top-level repo structure first (development mode)
-    repo_root = _find_repo_root()
-    if repo_root:
-        top_level = repo_root / "skills" / "opencode" / "skill"
-        if top_level.is_dir():
-            return top_level
+    override = (os.environ.get("OPENCODE_PACKAGED_SKILLS_DIR") or "").strip()
+    if override:
+        path = Path(override).expanduser().resolve()
+        if path.is_dir():
+            return path
 
-    # Fall back to packaged structure
-    return files(_SYNTH_PACKAGE).joinpath("skills", "opencode", "skill")
+    return files(_SYNTH_PACKAGE).joinpath("opencode", "skill")
 
 
 def list_packaged_opencode_skill_names() -> list[str]:
@@ -160,21 +146,19 @@ def _copy_path_tree(*, src: Path, dest: Path) -> None:
 
 
 def _find_tui_opencode_config():
-    """Find the TUI OpenCode config directory.
+    """Find OpenCode config template directory.
 
-    Checks two locations:
-    1. Top-level tui/opencode_config/ (development/repo structure)
-    2. synth_ai/tui/opencode_config/ (packaged wheel structure)
+    Resolution order:
+    1. `OPENCODE_CONFIG_TEMPLATE_DIR` override
+    2. package data under `synth_ai/opencode_config`
     """
-    # Try top-level repo structure first (development mode)
-    repo_root = _find_repo_root()
-    if repo_root:
-        top_level = repo_root / "tui" / "opencode_config"
-        if top_level.is_dir():
-            return top_level
+    override = (os.environ.get("OPENCODE_CONFIG_TEMPLATE_DIR") or "").strip()
+    if override:
+        path = Path(override).expanduser().resolve()
+        if path.is_dir():
+            return path
 
-    # Fall back to packaged structure
-    return files(_SYNTH_PACKAGE).joinpath("tui", "opencode_config")
+    return files(_SYNTH_PACKAGE).joinpath("opencode_config")
 
 
 def materialize_tui_opencode_config_dir(
@@ -183,14 +167,14 @@ def materialize_tui_opencode_config_dir(
     force: bool = True,
     include_packaged_skills: Iterable[str] | None = None,
 ) -> Path:
-    """Create a writable OPENCODE_CONFIG_DIR for the Synth TUI.
+    """Create a writable OPENCODE_CONFIG_DIR.
 
     Why: the package directory inside site-packages can be read-only, but OpenCode config
     often needs to be a normal filesystem directory that we can extend (e.g., include skills).
 
     This function copies:
-    - Synth TUI's bundled OpenCode config: tui/opencode_config/** or synth_ai/tui/opencode_config/**
-    - Selected packaged skills from skills/opencode/skill/** or synth_ai/skills/opencode/skill/**
+    - OpenCode config template data (if available)
+    - Selected packaged skills (if available)
     """
 
     if dest_dir is None:
@@ -203,14 +187,14 @@ def materialize_tui_opencode_config_dir(
         # We overwrite on copy anyway, so this is mostly to ensure directories exist.
         pass
 
-    # 1) Copy base TUI OpenCode config
+    # 1) Copy base OpenCode config template (if available)
     base_src = _find_tui_opencode_config()
     if isinstance(base_src, Path):
-        # It's a filesystem Path (development mode)
         _copy_path_tree(src=base_src, dest=dest_dir)
     elif base_src.is_dir():
-        # It's an importlib Traversable (packaged mode)
         _copy_resource_tree(src=base_src, dest=dest_dir)
+    else:
+        dest_dir.mkdir(parents=True, exist_ok=True)
 
     # 2) Copy packaged skills into <dest>/skill/<name>/SKILL.md (additive)
     skill_root = _packaged_opencode_skill_root()
