@@ -231,9 +231,6 @@ def check_container_health(
     timeout: float = 10.0,
     max_retries: int = 5,
 ) -> ContainerHealth:
-    # Send ALL known environment keys so the server can authorize any valid one
-    import os
-
     base = base_url.rstrip("/")
     parsed_base = urlparse(base)
 
@@ -248,15 +245,8 @@ def check_container_health(
     headers: dict[str, str] = {}
     if worker_token:
         headers["Authorization"] = f"Bearer {worker_token}"
-    else:
-        headers = {"X-API-Key": api_key}
-        aliases = (os.getenv("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
-        keys: list[str] = [api_key]
-        if aliases:
-            keys.extend([p.strip() for p in aliases.split(",") if p.strip()])
-        if keys:
-            headers["X-API-Keys"] = ",".join(keys)
-            headers.setdefault("Authorization", f"Bearer {api_key}")
+    elif api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     detail_parts: list[str] = []
     is_synthtunnel = is_synthtunnel_url(base)
 
@@ -269,7 +259,9 @@ def check_container_health(
         for key in keys_to_try or [""]:
             try:
                 resp = http_get(
-                    status_url, headers={"X-API-Key": key} if key else {}, timeout=timeout
+                    status_url,
+                    headers={"Authorization": f"Bearer {key}"} if key else {},
+                    timeout=timeout,
                 )
             except requests.RequestException as exc:
                 return ContainerHealth(
