@@ -1,24 +1,32 @@
 """Internal prompt learning implementation.
 
-Public API: Use `synth_ai.sdk.optimization.PolicyOptimizationJob` instead.
+Public API: Use canonical policy v1 clients under `synth_ai.sdk.optimization`.
 """
 
 from __future__ import annotations
 
 import asyncio
 import os
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Sequence
 from urllib.parse import urlparse, urlunparse
 
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, RUST_BACKEND_URL_BASE, is_synthtunnel_url
-from synth_ai.sdk.container.auth import ensure_container_auth
+from synth_ai.core.utils.optimization_routes import GEPA_API_VERSION, offline_job_path
+from synth_ai.core.utils.urls import (
+    BACKEND_URL_BASE,
+    RUST_BACKEND_URL_BASE,
+    infer_prompt_learning_container_url,
+    is_cloudflare_tunnel_url,
+    is_free_ngrok_url,
+    is_local_http_container_url,
+    is_synth_managed_ngrok_url,
+    is_synthtunnel_url,
+)
+from synth_ai.sdk.container.auth import ensure_container_auth, has_container_token_signing_key
 from synth_ai.sdk.optimization.models import (
     PolicyCandidate,
     PolicyCandidatePage,
-    PolicyJobStatus,
     PromptLearningResult,
 )
 
@@ -36,6 +44,7 @@ from .prompt_learning_service import (
     resume_prompt_learning_job,
 )
 from .utils import ensure_api_base, run_sync
+from .validators import reject_legacy_policy_optimization
 
 try:
     import synth_ai_py  # type: ignore
@@ -135,47 +144,43 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
     return _strip_api_suffix(RUST_BACKEND_URL_BASE)
 
 
-def _extract_container_url(payload: dict[str, Any]) -> Optional[str]:
+def _extract_algorithm(payload: dict[str, Any]) -> Optional[str]:
     if not isinstance(payload, dict):
         return None
+    for key in ("algorithm",):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip().lower()
     section = payload
     if isinstance(payload.get("prompt_learning"), dict):
         section = payload.get("prompt_learning", {})
-    elif isinstance(payload.get("policy_optimization"), dict):
-        section = payload.get("policy_optimization", {})
     if isinstance(section, dict):
-        for key in ("container_url", "container_url", "container_url_base"):
-            value = section.get(key)
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-    for key in ("container_url", "container_url"):
-        value = payload.get(key)
+        value = section.get("algorithm")
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            return value.strip().lower()
     return None
 
 
-def _infer_container_url(config: PromptLearningJobConfig) -> Optional[str]:
+def _infer_algorithm(config: PromptLearningJobConfig) -> str:
     overrides = config.overrides or {}
-    for key in ("task_url", "container_url"):
+    for key in ("algorithm", "prompt_learning.algorithm"):
         value = overrides.get(key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            return value.strip().lower()
     if config.config_dict:
-        url = _extract_container_url(config.config_dict)
-        if url:
-            return url
+        algo = _extract_algorithm(config.config_dict)
+        if algo:
+            return algo
     if config.config_path:
         try:
             payload = synth_ai_py.load_toml(str(config.config_path))
         except Exception:
             payload = None
         if isinstance(payload, dict):
-            url = _extract_container_url(payload)
-            if url:
-                return url
-    env_url = os.environ.get("CONTAINER_URL", "").strip()
-    return env_url or None
+            algo = _extract_algorithm(payload)
+            if algo:
+                return algo
+    return "gepa"
 
 
 def _algorithm_to_kind(algorithm: str) -> str | None:
@@ -189,7 +194,8 @@ def _algorithm_to_kind(algorithm: str) -> str | None:
 
 def _normalize_offline_config_value(config_value: Any) -> dict[str, Any]:
     if isinstance(config_value, dict):
-        if "prompt_learning" in config_value or "policy_optimization" in config_value:
+        reject_legacy_policy_optimization(config_value)
+        if "prompt_learning" in config_value:
             return dict(config_value)
         return {"prompt_learning": dict(config_value)}
     return {"prompt_learning": config_value}
@@ -206,44 +212,32 @@ def _default_system_name(kind: str) -> str:
 def _canonicalize_offline_create_payload(config_payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize SDK payloads to canonical offline create contract.
 
-    Backend now requires top-level `kind` and rejects top-level `algorithm`.
-    This function hard-cuts legacy payload forms (`algorithm` + `config_body`)
-    into canonical payload shape before crossing the wire.
+    Backend requires top-level `kind` and canonical `config`.
+    Legacy shapes (`algorithm`, `config_body`, `policy_optimization`) are rejected.
     """
     payload = dict(config_payload)
+
+    if "algorithm" in payload:
+        raise ValueError("Top-level 'algorithm' is no longer supported; use top-level 'kind'.")
+    # Accept config_body from SDK builder and rename to config
+    if "config_body" in payload and "config" not in payload:
+        payload["config"] = payload.pop("config_body")
+    reject_legacy_policy_optimization(payload)
 
     kind_raw = payload.get("kind")
     kind = kind_raw.strip() if isinstance(kind_raw, str) and kind_raw.strip() else None
     if kind is None:
-        algorithm = None
-        if isinstance(payload.get("algorithm"), str):
-            algorithm = payload["algorithm"]
-        if algorithm is None:
-            config_body = payload.get("config_body")
-            if isinstance(config_body, dict):
-                pl = config_body.get("prompt_learning")
-                if isinstance(pl, dict) and isinstance(pl.get("algorithm"), str):
-                    algorithm = pl["algorithm"]
-                po = config_body.get("policy_optimization")
-                if algorithm is None and isinstance(po, dict) and isinstance(
-                    po.get("algorithm"), str
-                ):
-                    algorithm = po["algorithm"]
-        if algorithm is None and isinstance(payload.get("prompt_learning"), dict):
-            pl = payload["prompt_learning"]
-            if isinstance(pl.get("algorithm"), str):
-                algorithm = pl["algorithm"]
-
-        kind = _algorithm_to_kind(algorithm) if isinstance(algorithm, str) else None
-        if kind is None:
-            raise ValueError(
-                "request kind is required; provide top-level kind in "
-                "{gepa_offline,mipro_offline} or inferable algorithm in {gepa,mipro}."
-            )
+        # Derive kind from algorithm_name + execution_mode (builder output shape)
+        algo = payload.get("algorithm_name", "")
+        mode = payload.get("execution_mode", "offline")
+        if algo:
+            kind = f"{algo}_{mode}"
+    if kind is None:
+        raise ValueError(
+            "request kind is required; provide top-level kind in {gepa_offline,mipro_offline}."
+        )
 
     config_value = payload.get("config")
-    if config_value is None and "config_body" in payload:
-        config_value = payload.get("config_body")
     if config_value is None:
         config_value = payload
     canonical_config = _normalize_offline_config_value(config_value)
@@ -299,12 +293,13 @@ _ROLLOUT_HEALTH_CHECK_MODE_VALUES = {"strict", "warn", "off"}
 
 
 def _normalize_rollout_health_check_mode_for_sdk(value: str) -> str:
-    normalized = _ROLLOUT_HEALTH_CHECK_MODE_ALIASES.get(value.strip().lower(), value.strip().lower())
+    normalized = _ROLLOUT_HEALTH_CHECK_MODE_ALIASES.get(
+        value.strip().lower(), value.strip().lower()
+    )
     if normalized not in _ROLLOUT_HEALTH_CHECK_MODE_VALUES:
         valid = ", ".join(sorted(_ROLLOUT_HEALTH_CHECK_MODE_VALUES))
         raise ValueError(
-            "Invalid rollout_health_check_mode. "
-            f"Expected one of: {valid}. Got {value!r}."
+            f"Invalid rollout_health_check_mode. Expected one of: {valid}. Got {value!r}."
         )
     return normalized
 
@@ -315,8 +310,6 @@ def _extract_rollout_health_check_mode(payload: dict[str, Any]) -> Optional[str]
     section = payload
     if isinstance(payload.get("prompt_learning"), dict):
         section = payload["prompt_learning"]
-    elif isinstance(payload.get("policy_optimization"), dict):
-        section = payload["policy_optimization"]
     if not isinstance(section, dict):
         return None
 
@@ -374,8 +367,15 @@ class PromptLearningJobConfig:
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
         ...             "container_url": "https://tunnel.example.com",
-        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
-        ...             "gepa": {...},
+        ...             "task_data": {
+        ...                 "split": "train",
+        ...                 "train_pools": {"reflection_seeds": [0], "pareto_seeds": []},
+        ...                 "validation_seeds": [1],
+        ...             },
+        ...             "gepa": {
+        ...                 "initial_candidate": {"stages": [...]},
+        ...                 "termination_conditions": {"total_rollouts": 20},
+        ...             },
         ...         }
         ...     },
         ...     backend_url="https://api.usesynth.ai",
@@ -407,36 +407,66 @@ class PromptLearningJobConfig:
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
         if not self.backend_url:
-            raise ValueError(
-                "backend_url is required (pass backend_url or set SYNTH_BACKEND_URL)."
-            )
+            raise ValueError("backend_url is required (pass backend_url or set SYNTH_BACKEND_URL).")
         if not self.api_key:
             raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
 
-        task_url = _infer_container_url(self)
+        task_url = infer_prompt_learning_container_url(
+            overrides=self.overrides or {},
+            config_dict=self.config_dict,
+            config_path=str(self.config_path) if self.config_path else None,
+        )
+        algorithm = _infer_algorithm(self)
+        is_gepa = algorithm == "gepa"
+        has_token_signer = has_container_token_signing_key()
+        if task_url and is_cloudflare_tunnel_url(task_url):
+            raise ValueError(
+                "Cloudflare tunnel URLs are forbidden. Use SynthTunnel or a Synth-managed ngrok-compatible URL."
+            )
+        if task_url:
+            host = (urlparse(task_url).hostname or "").lower()
+            if "ngrok" in host and (
+                is_free_ngrok_url(task_url) or not is_synth_managed_ngrok_url(task_url)
+            ):
+                raise ValueError(
+                    "ngrok URL is not allowed. Use a Synth-managed ngrok-compatible URL allow-listed in SYNTH_MANAGED_TUNNEL_HOSTS."
+                )
         if task_url and is_synthtunnel_url(task_url):
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
                     "Pass tunnel.worker_token or set container_worker_token."
                 )
-            # Even for SynthTunnel, we still want to ensure the backend has an
-            # env key provisioned (the backend uses it to talk to the container).
-            ensure_container_auth(
-                backend_base=self.backend_url,
-                synth_api_key=self.api_key,
-            )
+            if is_gepa and not has_token_signer:
+                raise ValueError(
+                    "GEPA SynthTunnel rollout auth requires "
+                    "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+                )
             # For SynthTunnel: the backend resolves container_api_key from
             # customer_credentials DB, and the SynthTunnel agent injects
             # container_keys on the container side. No need for SDK to send it.
             self.container_api_key = None
         else:
+            if (
+                is_gepa
+                and task_url
+                and not has_token_signer
+                and not is_local_http_container_url(task_url)
+            ):
+                raise ValueError(
+                    "GEPA rollout auth for non-local container_url requires "
+                    "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+                )
             # Get container_api_key from environment if not provided
             if not self.container_api_key:
-                self.container_api_key = ensure_container_auth(
-                    backend_base=self.backend_url,
-                    synth_api_key=self.api_key,
-                )
+                if is_gepa:
+                    # GEPA rollout auth is token-based; do not bootstrap ENV keys.
+                    self.container_api_key = None
+                else:
+                    self.container_api_key = ensure_container_auth(
+                        backend_base=self.backend_url,
+                        synth_api_key=self.api_key,
+                    )
 
 
 class PromptLearningJobPoller(JobPoller):
@@ -451,7 +481,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/v1/offline/jobs/{job_id}")
+        return super().poll(offline_job_path(job_id, api_version=GEPA_API_VERSION))
 
 
 class PromptLearningJob:
@@ -476,9 +506,9 @@ class PromptLearningJob:
         >>> job_id = job.submit()
         >>> print(f"Job submitted: {job_id}")
         >>>
-        >>> # Poll until complete
-        >>> result = job.poll_until_complete(timeout=3600.0)
-        >>> print(f"Best score: {result['best_score']}")
+        >>> # Stream until complete
+        >>> result = job.stream_until_complete(timeout=3600.0)
+        >>> print(f"Best reward: {result['best_reward']}")
         >>>
         >>> # Or poll manually
         >>> status = job.get_status()
@@ -610,8 +640,15 @@ class PromptLearningJob:
             "prompt_learning": {
                 "algorithm": "gepa",
                 "container_url": "https://...",
-                "policy": {"model": "gpt-4o-mini", "provider": "openai"},
-                "gepa": {...},
+                "task_data": {
+                    "split": "train",
+                    "train_pools": {"reflection_seeds": [0], "pareto_seeds": []},
+                    "validation_seeds": [1],
+                },
+                "gepa": {
+                    "initial_candidate": {"stages": [...]},
+                    "termination_conditions": {"total_rollouts": 20},
+                },
             }
         }
         ```
@@ -640,11 +677,9 @@ class PromptLearningJob:
             ...         "prompt_learning": {
             ...             "algorithm": "gepa",
             ...             "container_url": "https://tunnel.example.com",
-            ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
             ...             "gepa": {
-            ...                 "rollout": {"budget": 50, "max_concurrent": 5},
-            ...                 "evaluation": {"train_seeds": [1, 2, 3], "val_seeds": [4, 5]},
-            ...                 "population": {"num_generations": 2, "children_per_generation": 2},
+            ...                 "initial_candidate": {"stages": [...]},
+            ...                 "termination_conditions": {"total_rollouts": 50},
             ...             },
             ...         }
             ...     },
@@ -677,11 +712,7 @@ class PromptLearningJob:
         if skip_health_check is False:  # Only auto-detect if not explicitly True
             pl = config_dict.get("prompt_learning", {}) if isinstance(config_dict, dict) else {}
             task_url = pl.get("container_url")
-            if task_url and (
-                ".trycloudflare.com" in task_url.lower()
-                or ".cfargotunnel.com" in task_url.lower()
-                or is_synthtunnel_url(task_url)
-            ):
+            if task_url and is_synthtunnel_url(task_url):
                 skip_health_check = True
 
         return cls(config, skip_health_check=skip_health_check)
@@ -906,158 +937,6 @@ class PromptLearningJob:
         result = rust_job.get_status()
         return dict(result) if isinstance(result, dict) else {}
 
-    def poll_until_complete(
-        self,
-        *,
-        timeout: float = 3600.0,
-        interval: float = 15.0,
-        progress: bool = False,
-        on_status: Optional[Callable[[Dict[str, Any]], None]] = None,
-        request_timeout: float = 180.0,
-    ) -> PromptLearningResult:
-        """Poll job until it reaches a terminal state.
-
-        Args:
-            timeout: Maximum seconds to wait for job completion
-            interval: Seconds between poll attempts
-            progress: If True, log status updates during polling (useful for notebooks)
-            on_status: Optional callback called on each status update (for custom progress handling)
-            request_timeout: HTTP timeout for each status request (increase for slow vision tasks)
-
-        Returns:
-            PromptLearningResult with typed status, best_score, etc.
-
-        Raises:
-            RuntimeError: If job hasn't been submitted yet
-            TimeoutError: If timeout is exceeded
-
-        Example:
-            >>> result = job.poll_until_complete(progress=True)
-            [00:15] running | score: 0.72
-            [00:30] running | score: 0.78
-            [00:45] succeeded | score: 0.85
-            >>> result.succeeded
-            True
-            >>> result.best_score
-            0.85
-        """
-        if not self._job_id:
-            raise RuntimeError("Job not yet submitted. Call submit() first.")
-
-        rust_job = self._ensure_rust_job()
-        if not progress and on_status is None:
-            result = rust_job.poll_until_complete(timeout, interval)
-            payload = dict(result) if isinstance(result, dict) else {}
-            return PromptLearningResult.from_response(self._job_id, payload)
-
-        import logging
-
-        logger = logging.getLogger(__name__)
-        start_time = time.time()
-        last_data: Dict[str, Any] = {}
-        error_count = 0
-        max_errors = 5
-
-        while time.time() - start_time <= timeout:
-            try:
-                payload = rust_job.get_status()
-                last_data = dict(payload) if isinstance(payload, dict) else {}
-                error_count = 0
-
-                # DEBUG: Always log status for troubleshooting stuck polling
-                raw_status = last_data.get("status", "MISSING")
-                logger.debug(
-                    "[poll_debug] job=%s raw_status=%r is_terminal=%s elapsed=%.0fs",
-                    self._job_id,
-                    raw_status,
-                    PromptLearningResult.from_response(self._job_id, last_data).is_terminal,
-                    time.time() - start_time,
-                )
-
-                if progress:
-                    elapsed = time.time() - start_time
-                    mins, secs = divmod(int(elapsed), 60)
-                    best_score = (
-                        last_data.get("best_score")
-                        or last_data.get("best_reward")
-                        or last_data.get("best_train_score")
-                        or last_data.get("best_train_reward")
-                    )
-                    score_str = (
-                        f"score: {best_score:.2f}" if best_score is not None else "score: --"
-                    )
-                    iteration = last_data.get("iteration") or last_data.get("current_iteration")
-                    iter_str = f" | iter: {iteration}" if iteration is not None else ""
-                    status_str = str(last_data.get("status", "pending"))
-                    logger.info(
-                        "[%02d:%02d] %s | %s%s",
-                        mins,
-                        secs,
-                        status_str,
-                        score_str,
-                        iter_str,
-                    )
-
-                if on_status:
-                    on_status(last_data)
-
-                result = PromptLearningResult.from_response(self._job_id, last_data)
-                if result.is_terminal:
-                    if result.failed:
-                        error_msg = (
-                            result.error
-                            or last_data.get("error")
-                            or last_data.get("error_message")
-                            or last_data.get("failure_reason")
-                            or last_data.get("message")
-                            or "unknown"
-                        )
-                        logger.error(
-                            "Job %s FAILED — %s",
-                            self._job_id,
-                            error_msg,
-                        )
-                        # Dump all available error context
-                        for k in (
-                            "error",
-                            "error_message",
-                            "error_details",
-                            "failure_reason",
-                            "traceback",
-                            "message",
-                        ):
-                            v = last_data.get(k)
-                            if v:
-                                logger.error("  %s: %s", k, v)
-                    elif result.status == PolicyJobStatus.CANCELLED:
-                        logger.warning("Job %s was cancelled", self._job_id)
-                    else:
-                        logger.info("Job %s completed: %s", self._job_id, result.status.value)
-                    return result
-                if result.status == PolicyJobStatus.PAUSED:
-                    logger.warning("Job %s is paused", self._job_id)
-                    return result
-            except Exception as exc:
-                error_count += 1
-                logger.warning(
-                    "Polling error %s/%s for job %s: %s",
-                    error_count,
-                    max_errors,
-                    self._job_id,
-                    exc,
-                )
-                if error_count >= max_errors:
-                    raise RuntimeError(
-                        f"Polling failed after {error_count} consecutive errors."
-                    ) from exc
-
-            time.sleep(interval)
-
-        if progress:
-            logger.warning("Polling timeout after %.0fs for job %s", timeout, self._job_id)
-
-        return PromptLearningResult.from_response(self._job_id, last_data)
-
     async def stream_until_complete_async(
         self,
         *,
@@ -1107,7 +986,7 @@ class PromptLearningJob:
                 final_status.update(
                     {
                         "best_candidate": full_results.get("best_candidate"),
-                        "best_score": full_results.get("best_score"),
+                        "best_reward": full_results.get("best_reward"),
                         "lever_summary": full_results.get("lever_summary"),
                         "sensor_frames": full_results.get("sensor_frames"),
                         "lever_versions": full_results.get("lever_versions"),
@@ -1175,6 +1054,7 @@ class PromptLearningJob:
         client = PromptLearningClient(
             base_url=self.config.backend_url,
             api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
         )
         return await client.list_candidates(
             self._job_id,
@@ -1206,6 +1086,7 @@ class PromptLearningJob:
         client = PromptLearningClient(
             base_url=self.config.backend_url,
             api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
         )
         return await client.list_candidates_typed(
             self._job_id,
@@ -1277,6 +1158,7 @@ class PromptLearningJob:
         client = PromptLearningClient(
             base_url=self.config.backend_url,
             api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
         )
         return await client.get_candidate(self._job_id, candidate_id)
 
@@ -1289,6 +1171,7 @@ class PromptLearningJob:
         client = PromptLearningClient(
             base_url=self.config.backend_url,
             api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
         )
         return await client.get_candidate_typed(self._job_id, candidate_id)
 
@@ -1326,6 +1209,7 @@ class PromptLearningJob:
         client = PromptLearningClient(
             base_url=self.config.backend_url,
             api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
         )
         return await client.list_seed_evals(
             self._job_id,

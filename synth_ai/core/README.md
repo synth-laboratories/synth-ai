@@ -54,7 +54,7 @@ Server-sent events (SSE) infrastructure for job streaming and real-time updates.
 Trace storage, serialization, and helper functions. Note: The data structures (`SessionTrace`, `LLMCallRecord`, etc.) have moved to `data/` - this module now re-exports them for compatibility removed and contains implementation logic.
 
 ### `tunnels/`
-Local development tunnel management (ngrok, cloudflare, etc.) for connecting local containers to Synth backend.
+Local development tunnel management (SynthTunnel + Synth-managed ngrok-compatible flows) for connecting local containers to Synth backend.
 
 ### `utils/`
 General-purpose utilities: hashing, encoding, file operations, etc.

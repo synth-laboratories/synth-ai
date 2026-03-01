@@ -104,7 +104,7 @@ pub struct BaselineEvent {
     #[serde(default)]
     pub objectives: Option<HashMap<String, f64>>,
     /// Per-instance rewards
-    #[serde(default, alias = "instance_scores")]
+    #[serde(default)]
     pub instance_rewards: Option<Vec<f64>>,
     /// Per-instance objectives
     #[serde(default)]
@@ -142,7 +142,7 @@ pub struct CandidateEvent {
     #[serde(default)]
     pub mutation_type: Option<String>,
     /// Per-instance rewards
-    #[serde(default, alias = "instance_scores")]
+    #[serde(default)]
     pub instance_rewards: Option<Vec<f64>>,
     /// Per-instance objectives
     #[serde(default)]
@@ -165,10 +165,10 @@ pub struct FrontierEvent {
     #[serde(default)]
     pub frontier_size: i32,
     /// Best reward on frontier
-    #[serde(default, alias = "best_score")]
+    #[serde(default)]
     pub best_reward: Option<f64>,
     /// Rewards by candidate ID
-    #[serde(default, alias = "frontier_scores")]
+    #[serde(default)]
     pub frontier_rewards: Option<HashMap<String, f64>>,
     /// Objective scores by candidate (if provided)
     #[serde(default)]
@@ -188,10 +188,10 @@ pub struct ProgressEvent {
     #[serde(default)]
     pub trials_completed: i32,
     /// Current best reward
-    #[serde(default, alias = "best_score")]
+    #[serde(default)]
     pub best_reward: Option<f64>,
     /// Baseline reward for comparison
-    #[serde(default, alias = "baseline_score")]
+    #[serde(default)]
     pub baseline_reward: Option<f64>,
 }
 
@@ -216,10 +216,10 @@ pub struct GenerationEvent {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CompleteEvent {
     /// Final best reward
-    #[serde(default, alias = "best_score")]
+    #[serde(default)]
     pub best_reward: Option<f64>,
     /// Baseline reward
-    #[serde(default, alias = "baseline_score")]
+    #[serde(default)]
     pub baseline_reward: Option<f64>,
     /// Finish reason
     #[serde(default)]
@@ -623,7 +623,7 @@ impl EventParser {
         let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
         let accuracy = reward_value
             .or_else(|| Self::coerce_f64(data.get("accuracy")))
-            .or_else(|| Self::coerce_f64(data.get("baseline_score")))
+            .or_else(|| Self::coerce_f64(data.get("baseline_reward")))
             .or_else(|| Self::coerce_f64(data.get("baseline_accuracy")))
             .or_else(|| {
                 data.get("outcome_objectives")
@@ -632,10 +632,6 @@ impl EventParser {
             .or_else(|| {
                 data.get("outcome_reward")
                     .and_then(|v| Self::coerce_f64(Some(v)))
-            })
-            .or_else(|| {
-                data.get("score")
-                    .and_then(|v| Self::extract_reward_from_value(Some(v)))
             });
 
         let instance_objectives = Self::parse_vec_f64_map(data.get("instance_objectives"));
@@ -661,23 +657,14 @@ impl EventParser {
         let candidate_view = candidate_data.as_ref().unwrap_or(&data);
         let candidate_value = Value::Object(candidate_view.clone());
 
-        // Extract objectives: try top-level, then score.objectives
-        let objectives = Self::parse_f64_map(candidate_view.get("objectives")).or_else(|| {
-            candidate_view
-                .get("score")
-                .and_then(|v| v.as_object())
-                .and_then(|score| Self::parse_f64_map(score.get("objectives")))
-        });
+        let objectives = Self::parse_f64_map(candidate_view.get("objectives"));
 
         let reward_value = objectives.as_ref().and_then(|m| m.get("reward").copied());
 
-        // Extract accuracy/reward: try objectives.reward, then direct fields
-        // Backend emits `reward` (top-level), `score.mean_reward`, `score.objectives.reward`
+        // Extract reward from canonical fields.
         let accuracy = reward_value
             .or_else(|| Self::coerce_f64(candidate_view.get("reward")))
             .or_else(|| Self::coerce_f64(candidate_view.get("accuracy")))
-            .or_else(|| Self::coerce_f64(candidate_view.get("score")))
-            .or_else(|| Self::extract_reward_from_value(candidate_view.get("score")))
             .or_else(|| {
                 candidate_view
                     .get("outcome_objectives")
@@ -730,8 +717,8 @@ impl EventParser {
             removed: Self::parse_vec_string(data.get("removed")).unwrap_or_default(),
             frontier_size: Self::coerce_i32(data.get("frontier_size"))
                 .unwrap_or_else(|| frontier.as_ref().map(|v| v.len() as i32).unwrap_or(0)),
-            best_reward: Self::coerce_f64(data.get("best_score")),
-            frontier_rewards: Self::parse_f64_map(data.get("frontier_scores")),
+            best_reward: Self::coerce_f64(data.get("best_reward")),
+            frontier_rewards: Self::parse_f64_map(data.get("frontier_rewards")),
             frontier_objectives: Self::parse_vec_f64_map(data.get("frontier_objectives")),
         }
     }
@@ -747,8 +734,8 @@ impl EventParser {
             rollouts_total: Self::coerce_i32(data.get("rollouts_total"))
                 .or_else(|| Self::coerce_i32(data.get("total_rollouts"))),
             trials_completed: Self::coerce_i32(data.get("trials_completed")).unwrap_or(0),
-            best_reward: Self::coerce_f64(data.get("best_score")),
-            baseline_reward: Self::coerce_f64(data.get("baseline_score")),
+            best_reward: Self::coerce_f64(data.get("best_reward")),
+            baseline_reward: Self::coerce_f64(data.get("baseline_reward")),
         }
     }
 
@@ -769,8 +756,8 @@ impl EventParser {
         let data = event.data.as_object().cloned().unwrap_or_default();
 
         CompleteEvent {
-            best_reward: Self::coerce_f64(data.get("best_score")),
-            baseline_reward: Self::coerce_f64(data.get("baseline_score")),
+            best_reward: Self::coerce_f64(data.get("best_reward")),
+            baseline_reward: Self::coerce_f64(data.get("baseline_reward")),
             finish_reason: Self::coerce_string(data.get("finish_reason"))
                 .or_else(|| Self::coerce_string(data.get("reason_terminated"))),
             total_candidates: Self::coerce_i32(data.get("total_candidates")).unwrap_or(0),
@@ -951,7 +938,7 @@ mod tests {
                 "frontier": ["cand_1", "cand_2"],
                 "added": ["cand_2"],
                 "removed": [],
-                "best_score": 0.88
+                "best_reward": 0.88
             }
         });
 

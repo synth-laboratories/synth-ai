@@ -3,15 +3,15 @@
 This module provides a clean abstraction for setting up tunnels to expose
 local containers to the internet for use with Synth optimization jobs.
 
-Two backends are available:
+Primary backends:
 
 - **SynthTunnel** (default): Relay-based HTTPS tunnel via Synth's servers.
   No ``cloudflared`` binary needed. Supports 128 concurrent in-flight
   requests with dynamic memory-based budgeting. Uses ``worker_token``
   for job authentication.
 
-- **Cloudflare**: Tunnel via Cloudflare's network. Requires ``cloudflared``.
-  Uses ``container_api_key`` for job authentication.
+- **NgrokManaged**: Synth-managed ngrok-compatible endpoint flow.
+  Requires a Synth-provisioned URL and disallows free/personal ngrok URLs.
 
 Example — SynthTunnel (recommended):
 
@@ -22,15 +22,16 @@ Example — SynthTunnel (recommended):
     print(tunnel.worker_token)   # pass this to your job config
     tunnel.close()
 
-Example — Cloudflare quick tunnel:
+Example — managed ngrok-compatible endpoint:
 
     from synth_ai.core.tunnels import TunneledContainer, TunnelBackend
 
     tunnel = await TunneledContainer.create(
         local_port=8001,
-        backend=TunnelBackend.CloudflareQuickTunnel,
+        backend=TunnelBackend.NgrokManaged,
+        managed_ngrok_url="https://example-tunnel.usesynth.ai",
     )
-    print(tunnel.url)  # https://random-words.trycloudflare.com
+    print(tunnel.url)  # https://example-tunnel.usesynth.ai
     tunnel.close()
 
 Using with optimization jobs::
@@ -41,7 +42,7 @@ Using with optimization jobs::
         container_worker_token=tunnel.worker_token,
     )
 
-    # Cloudflare
+    # Managed ngrok-compatible
     job = PromptLearningJob.from_dict(config,
         container_url=tunnel.url,
         container_api_key=env_api_key,
@@ -56,9 +57,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+from synth_ai.core.utils.urls import (
+    is_cloudflare_tunnel_url,
+    is_free_ngrok_url,
+    is_synth_managed_ngrok_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,17 +116,15 @@ def _resolve_synth_tunnel_requested_ttl_seconds(
 class TunnelBackend(str, Enum):
     """Supported tunnel backends for exposing local APIs.
 
-    **SynthTunnel vs Cloudflare:**
+    **SynthTunnel vs managed ngrok-compatible:**
 
     Use **SynthTunnel** (default) for optimization jobs (GEPA, MiPRO).
     It requires no external binary, supports 128 concurrent in-flight
     requests with dynamic memory budgeting, and authenticates via
     ``worker_token``.
 
-    Use **Cloudflare** when you need a stable subdomain that persists
-    across sessions, or for quick anonymous testing without an API key.
-    Requires the ``cloudflared`` binary and authenticates via
-    ``container_api_key``.
+    Use **NgrokManaged** when Synth infra provisions and owns the tunnel URL.
+    Free/personal ngrok URLs are explicitly rejected.
 
     Attributes:
         SynthTunnel: Relay-based HTTPS tunnel (default, recommended).
@@ -126,27 +133,57 @@ class TunnelBackend(str, Enum):
             - Authenticate jobs with ``worker_token``
             - URLs: ``https://st.usesynth.ai/s/rt_...``
 
-        CloudflareManagedLease: Lease-based Cloudflare tunnel.
-            - Stable hostnames that persist across sessions
-            - Fast reconnection (~1-5s after first run)
-            - Requires ``cloudflared`` and Synth API key
+        NgrokManaged: Synth-managed ngrok-compatible endpoint.
+            - Requires Synth-owned/provisioned URL allow-listed by `SYNTH_MANAGED_TUNNEL_HOSTS`
+            - Free ngrok hostnames are rejected
             - Authenticate jobs with ``container_api_key``
 
-        CloudflareManagedTunnel: Canonical managed tunnel (use ManagedLease instead).
-
-        CloudflareQuickTunnel: Anonymous Cloudflare tunnel.
-            - Random subdomains via trycloudflare.com
-            - No API key required
-            - Subject to Cloudflare rate limits
+        Cloudflare* backends: Deprecated and disabled.
 
         Localhost: No tunnel, use ``http://localhost:{port}`` directly.
     """
 
     SynthTunnel = "synthtunnel"
-    CloudflareManagedLease = "cloudflare_managed_lease"  # NEW - recommended
-    CloudflareManagedTunnel = "cloudflare_managed"  # Canonical
+    NgrokManaged = "ngrok_managed"
+    CloudflareManagedLease = "cloudflare_managed_lease"
+    CloudflareManagedTunnel = "cloudflare_managed"
     CloudflareQuickTunnel = "cloudflare_quick"
     Localhost = "localhost"
+
+
+_DEPRECATED_CLOUDFLARE_BACKENDS = {
+    TunnelBackend.CloudflareManagedLease,
+    TunnelBackend.CloudflareManagedTunnel,
+    TunnelBackend.CloudflareQuickTunnel,
+}
+
+
+def _raise_cloudflare_disabled(backend: TunnelBackend) -> None:
+    warnings.warn(
+        f"{backend.value} is deprecated and disabled. Use TunnelBackend.SynthTunnel or TunnelBackend.NgrokManaged.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    raise RuntimeError(
+        f"Tunnel backend '{backend.value}' is disabled. Cloudflare is deprecated; use SynthTunnel or NgrokManaged."
+    )
+
+
+def _resolve_managed_ngrok_url(explicit_url: str | None) -> str:
+    candidate = (explicit_url or os.environ.get("SYNTH_MANAGED_NGROK_URL") or "").strip()
+    if not candidate:
+        raise ValueError(
+            "NgrokManaged requires managed_ngrok_url or SYNTH_MANAGED_NGROK_URL to be set."
+        )
+    if is_cloudflare_tunnel_url(candidate):
+        raise ValueError("Cloudflare URLs are forbidden. Use a Synth-managed ngrok-compatible URL.")
+    if is_free_ngrok_url(candidate):
+        raise ValueError("Free ngrok URLs are forbidden. Use a Synth-managed ngrok-compatible URL.")
+    if not is_synth_managed_ngrok_url(candidate):
+        raise ValueError(
+            "ngrok URL is not recognized as Synth-managed. Add host allowlist in SYNTH_MANAGED_TUNNEL_HOSTS."
+        )
+    return candidate.rstrip("/")
 
 
 @dataclass
@@ -154,10 +191,10 @@ class TunneledContainer:
     """A managed tunnel exposing a local API to the internet.
 
     This class provides a clean interface for:
-    1. Provisioning a tunnel (SynthTunnel or Cloudflare)
-    2. Starting the cloudflared process
+    1. Provisioning a tunnel (SynthTunnel or NgrokManaged)
+    2. Starting the SynthTunnel agent when needed
     3. Verifying DNS resolution and connectivity
-    4. Tracking the process for cleanup
+    4. Tracking lifecycle for cleanup
 
     Use `TunneledContainer.create()` with a `TunnelBackend` to provision a tunnel.
 
@@ -166,7 +203,7 @@ class TunneledContainer:
         hostname: Hostname without protocol (e.g., "task-1234-5678.usesynth.ai")
         local_port: Local port being tunneled
         backend: The tunnel backend used
-        process: The cloudflared subprocess (for advanced use)
+        process: Reserved process handle (legacy/non-canonical paths)
         worker_token: SynthTunnel worker token (if using SynthTunnel)
 
     Example:
@@ -207,12 +244,13 @@ class TunneledContainer:
         progress: bool = False,
         reason: str | None = None,
         requested_ttl_seconds: int | None = None,
+        managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
         """Create a tunnel to expose a local API.
 
         This is the main entry point for creating tunnels. It handles:
-        1. Requesting a tunnel (from Synth backend for managed, or trycloudflare for quick)
-        2. Starting the cloudflared process
+        1. Requesting a tunnel (Synth relay lease) or validating managed ngrok URL
+        2. Starting the SynthTunnel agent for relay leases
         3. Waiting for DNS propagation
         4. Verifying HTTP connectivity
         5. Registering for automatic cleanup
@@ -221,9 +259,7 @@ class TunneledContainer:
             local_port: Local port to tunnel (e.g., 8001)
             backend: Tunnel backend to use. Defaults to SynthTunnel.
                 - SynthTunnel: Relay-based HTTPS tunnel (recommended)
-                - CloudflareManagedLease: Fast, reusable tunnels (canonical)
-                - CloudflareManagedTunnel: Canonical managed tunnel (slower)
-                - CloudflareQuickTunnel: Random subdomain, no api_key needed
+                - NgrokManaged: Synth-managed ngrok-compatible endpoint
             api_key: Synth API key for authentication (required for managed tunnels).
                 If not provided, will be read from SYNTH_API_KEY environment variable.
             env_api_key: API key for the local container (for health checks).
@@ -235,6 +271,8 @@ class TunneledContainer:
             requested_ttl_seconds: Optional SynthTunnel lease TTL in seconds.
                 If not set, reads `SYNTH_TUNNEL_REQUESTED_TTL_SECONDS` env var,
                 then falls back to 3600.
+            managed_ngrok_url: Synth-managed ngrok-compatible URL. If unset, read from
+                `SYNTH_MANAGED_NGROK_URL`.
 
         Returns:
             TunneledContainer instance with .url, .hostname, .close(), etc.
@@ -243,8 +281,6 @@ class TunneledContainer:
             ValueError: If api_key is missing for managed tunnels
             RuntimeError: If tunnel creation or verification fails
         """
-        import os
-
         # Auto-detect API key from environment if not provided
         if api_key is None:
             api_key = os.environ.get("SYNTH_API_KEY")
@@ -263,12 +299,42 @@ class TunneledContainer:
                 _raw={},
             )
 
+        if backend in _DEPRECATED_CLOUDFLARE_BACKENDS:
+            _raise_cloudflare_disabled(backend)
+
+        if backend == TunnelBackend.NgrokManaged:
+            url = _resolve_managed_ngrok_url(managed_ngrok_url)
+            return cls(
+                url=url,
+                hostname=url.split("://", 1)[-1].split("/", 1)[0],
+                local_port=local_port,
+                backend=backend,
+                process=None,
+                tunnel_token=None,
+                worker_token=None,
+                _raw={},
+            )
+
         if backend == TunnelBackend.SynthTunnel:
             if not api_key:
                 raise ValueError("api_key is required for SynthTunnel")
+            env_api_key = (env_api_key or "").strip() or None
             if env_api_key is None:
-                env_api_key = os.environ.get("ENVIRONMENT_API_KEY") or os.environ.get(
-                    "DEV_ENVIRONMENT_API_KEY"
+                env_api_key = (
+                    (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+                    or (os.environ.get("DEV_ENVIRONMENT_API_KEY") or "").strip()
+                    or None
+                )
+            if env_api_key is None:
+                # SynthTunnel agent forwards container auth headers to the local app.
+                # Ensure a stable local key exists even when the caller did not
+                # preconfigure ENVIRONMENT_API_KEY.
+                env_api_key = ensure_container_auth(upload=False)
+            env_api_key = (env_api_key or "").strip() or None
+            if env_api_key is None:
+                raise RuntimeError(
+                    "SynthTunnel requires ENVIRONMENT_API_KEY for local container auth, "
+                    "but no key could be resolved."
                 )
 
             async def _wait_for_agent_online(
@@ -302,7 +368,9 @@ class TunneledContainer:
                                 return
                             # Surfacing non-200 responses is critical for debugging local
                             # auth mismatches (e.g., container expects ENVIRONMENT_API_KEY).
-                            last_err = RuntimeError(f"Health check returned HTTP {resp.status_code}")
+                            last_err = RuntimeError(
+                                f"Health check returned HTTP {resp.status_code}"
+                            )
                         except Exception as exc:
                             last_err = exc
                         await asyncio.sleep(poll_interval_sec)
@@ -352,9 +420,7 @@ class TunneledContainer:
             )
 
             client = SynthTunnelClient(api_key, backend_url=backend_url)
-            lease_ttl_seconds = _resolve_synth_tunnel_requested_ttl_seconds(
-                requested_ttl_seconds
-            )
+            lease_ttl_seconds = _resolve_synth_tunnel_requested_ttl_seconds(requested_ttl_seconds)
             max_attempts = _read_env_int("SYNTH_TUNNEL_CREATE_MAX_ATTEMPTS", default=3)
             base_online_timeout_sec = _read_env_float(
                 "SYNTH_TUNNEL_AGENT_ONLINE_TIMEOUT_SEC", default=20.0, minimum=1.0
@@ -389,8 +455,7 @@ class TunneledContainer:
                 agent = None
                 timeout_for_attempt = min(
                     max_online_timeout_sec,
-                    base_online_timeout_sec
-                    * (online_timeout_backoff_multiplier ** (attempt - 1)),
+                    base_online_timeout_sec * (online_timeout_backoff_multiplier ** (attempt - 1)),
                 )
                 try:
                     lease = await client.create_lease(
@@ -450,8 +515,7 @@ class TunneledContainer:
                             await client.close_lease(lease.lease_id)
                     if attempt >= max_attempts:
                         raise RuntimeError(
-                            "SynthTunnel create failed after "
-                            f"{max_attempts} attempts: {exc!r}"
+                            f"SynthTunnel create failed after {max_attempts} attempts: {exc!r}"
                         ) from exc
 
                     retry_sleep = min(
@@ -500,11 +564,7 @@ class TunneledContainer:
         """Internal: Create a tunnel using Rust core."""
         import synth_ai_py
 
-        backend_map = {
-            TunnelBackend.CloudflareManagedLease: "cloudflare_managed_lease",
-            TunnelBackend.CloudflareManagedTunnel: "cloudflare_managed",
-            TunnelBackend.CloudflareQuickTunnel: "cloudflare_quick",
-        }
+        backend_map = {}
         backend_key = backend_map.get(backend)
         if backend_key is None:
             raise ValueError(f"Unsupported tunnel backend: {backend}")
@@ -585,7 +645,7 @@ class TunneledContainer:
         logger.debug("[TUNNELED_API] close_async() - nothing to close")
 
     def close(self) -> None:
-        """Close the tunnel and terminate the cloudflared process.
+        """Close the tunnel and terminate any associated tunnel runtime.
 
         This is called automatically when the process exits (via atexit),
         but you can call it explicitly for earlier cleanup.
@@ -617,6 +677,7 @@ class TunneledContainer:
         verify_dns: bool = True,
         progress: bool = False,
         requested_ttl_seconds: int | None = None,
+        managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
         """Create a tunnel for a FastAPI/ASGI app, handling server startup automatically.
 
@@ -636,6 +697,7 @@ class TunneledContainer:
             verify_dns: Whether to verify DNS resolution
             progress: If True, print status updates
             requested_ttl_seconds: Optional SynthTunnel lease TTL in seconds.
+            managed_ngrok_url: Synth-managed ngrok-compatible URL for NgrokManaged backend.
 
         Returns:
             TunneledContainer instance with .url, .hostname, .close(), etc.
@@ -683,6 +745,7 @@ class TunneledContainer:
             verify_dns=verify_dns,
             progress=progress,
             requested_ttl_seconds=requested_ttl_seconds,
+            managed_ngrok_url=managed_ngrok_url,
         )
 
 

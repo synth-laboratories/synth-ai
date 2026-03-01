@@ -36,12 +36,8 @@ impl PromptLearningValidationResult {
     }
 }
 
-const KNOWN_TOP_LEVEL_SECTIONS: &[&str] = &[
-    "prompt_learning",
-    "display",
-    "termination_config",
-    "kind",
-];
+const KNOWN_TOP_LEVEL_SECTIONS: &[&str] =
+    &["prompt_learning", "display", "termination_config", "kind"];
 
 const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "algorithm",
@@ -55,8 +51,6 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "container_url",
     "container_api_key",
     "container_id",
-    "initial_prompt",
-    "policy",
     "mipro",
     "gepa",
     "ontology",
@@ -70,6 +64,7 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "online_pool",
     "test_pool",
     "reference_pool",
+    "task_data",
     "auto_discover_patterns",
     "use_byok",
 ];
@@ -109,19 +104,6 @@ const KNOWN_ARTIFACT_FIELDS: &[&str] = &[
     "preview_rules",
 ];
 
-const KNOWN_POLICY_FIELDS: &[&str] = &[
-    "model",
-    "provider",
-    "inference_url",
-    "inference_mode",
-    "temperature",
-    "max_completion_tokens",
-    "policy_name",
-    "config",
-    "context_override",
-    "timeout",
-];
-
 const KNOWN_TERMINATION_CONFIG_FIELDS: &[&str] = &[
     "max_cost_usd",
     "max_trials",
@@ -158,6 +140,9 @@ const KNOWN_GEPA_FIELDS: &[&str] = &[
     "gepa_ai_meta_provider",
     "gepa_ai_inference_url",
     "modules",
+    "initial_candidate",
+    "termination_conditions",
+    "policy_config",
     "rollout",
     "evaluation",
     "mutation",
@@ -738,12 +723,10 @@ pub fn validate_prompt_learning_config(
         ));
     }
 
-    if let Some(Value::Object(policy)) = pl_map.get("policy") {
-        check_unknown_fields(
-            policy,
-            KNOWN_POLICY_FIELDS,
-            "prompt_learning.policy",
-            &mut result,
+    if pl_map.contains_key("policy") {
+        result.add_error(
+            "prompt_learning.policy is forbidden in canonical config; model/provider selection is server-owned"
+                .to_string(),
         );
     }
 
@@ -1247,13 +1230,21 @@ fn validate_adaptive_pool_config(
     }
 }
 
-fn extract_pipeline_modules(initial_prompt: Option<&Value>) -> Vec<String> {
+fn extract_pipeline_modules(initial_candidate: Option<&Value>) -> Vec<String> {
     let mut out = Vec::new();
-    let initial_prompt = match initial_prompt.and_then(|v| v.as_object()) {
+    let candidate = match initial_candidate.and_then(|v| v.as_object()) {
         Some(map) => map,
         None => return out,
     };
-    let metadata = match initial_prompt.get("metadata").and_then(|v| v.as_object()) {
+    let stage = candidate
+        .get("stages")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_object());
+    let metadata = match stage
+        .and_then(|stage_map| stage_map.get("metadata"))
+        .and_then(|v| v.as_object())
+    {
         Some(map) => map,
         None => return out,
     };
@@ -1366,87 +1357,18 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         }
     }
 
-    if let Some(initial_prompt) = pl_section.get("initial_prompt") {
-        if let Some(map) = initial_prompt.as_object() {
-            if let Some(messages) = map.get("messages") {
-                match messages.as_array() {
-                    Some(arr) => {
-                        if arr.is_empty() {
-                            errors.push("prompt_learning.initial_prompt.messages is empty (must have at least one message)".to_string());
-                        }
-                    }
-                    None => {
-                        errors.push(format!(
-                            "prompt_learning.initial_prompt.messages must be an array, got {}",
-                            value_type_name(messages)
-                        ));
-                    }
-                }
-            }
-        } else {
-            errors.push(format!(
-                "prompt_learning.initial_prompt must be a table/dict, got {}",
-                value_type_name(initial_prompt)
-            ));
-        }
+    if pl_section.get("initial_prompt").is_some() {
+        errors.push(
+            "prompt_learning.initial_prompt is no longer supported; use prompt_learning.gepa.initial_candidate"
+                .to_string(),
+        );
     }
 
-    let policy = pl_section.get("policy");
-    if let Some(Value::Object(policy_map)) = policy {
-        let mode = policy_map
-            .get("inference_mode")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_lowercase();
-        if mode.is_empty() {
-            errors.push(
-                "Missing required field: prompt_learning.policy.inference_mode (must be 'synth_hosted')"
-                    .to_string(),
-            );
-        } else if mode != "synth_hosted" {
-            errors.push(
-                "prompt_learning.policy.inference_mode must be 'synth_hosted' (bring_your_own unsupported)"
-                    .to_string(),
-            );
-        }
-
-        let provider = policy_map
-            .get("provider")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        let model = policy_map
-            .get("model")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .trim()
-            .to_string();
-        if provider.is_empty() {
-            errors.push("Missing required field: prompt_learning.policy.provider".to_string());
-        }
-        if model.is_empty() {
-            errors.push("Missing required field: prompt_learning.policy.model".to_string());
-        } else if !provider.is_empty() {
-            errors.extend(validate_model_for_provider(
-                &model,
-                &provider,
-                "prompt_learning.policy.model",
-                true,
-            ));
-        }
-
-        for forbidden in ["inference_url", "api_base", "base_url"] {
-            if policy_map.contains_key(forbidden) {
-                errors.push(format!(
-                    "{} must not be specified in [prompt_learning.policy]. The trainer provides the inference URL in rollout requests. Remove {} from your config file.",
-                    forbidden, forbidden
-                ));
-            }
-        }
-    } else {
-        errors.push("Missing [prompt_learning.policy] section or not a table".to_string());
+    if pl_section.get("policy").is_some() {
+        errors.push(
+            "prompt_learning.policy is forbidden in canonical config; model/provider are server-owned"
+                .to_string(),
+        );
     }
 
     if let Some(proxy_models) = pl_section.get("proxy_models") {
@@ -1584,9 +1506,6 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
         }
     }
 
-    let pipeline_modules = extract_pipeline_modules(pl_section.get("initial_prompt"));
-    let has_multi_stage = !pipeline_modules.is_empty();
-
     match algorithm.as_deref() {
         Some("gepa") => {
             let gepa_config = pl_section.get("gepa");
@@ -1599,6 +1518,38 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     return errors;
                 }
             };
+            let pipeline_modules = extract_pipeline_modules(gepa_map.get("initial_candidate"));
+            let has_multi_stage = !pipeline_modules.is_empty();
+
+            match gepa_map.get("initial_candidate") {
+                Some(Value::Object(candidate)) => match candidate.get("stages").and_then(|v| v.as_array()) {
+                    Some(stages) if !stages.is_empty() => {}
+                    Some(_) => errors.push(
+                        "prompt_learning.gepa.initial_candidate.stages must contain at least one stage"
+                            .to_string(),
+                    ),
+                    None => errors.push(
+                        "prompt_learning.gepa.initial_candidate.stages must be an array"
+                            .to_string(),
+                    ),
+                },
+                Some(other) => errors.push(format!(
+                    "prompt_learning.gepa.initial_candidate must be a table/dict, got {}",
+                    value_type_name(other)
+                )),
+                None => {
+                    if !pl_section
+                        .get("auto_discover_patterns")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
+                    {
+                        errors.push(
+                            "Missing required field: prompt_learning.gepa.initial_candidate (or set prompt_learning.auto_discover_patterns=true)"
+                                .to_string(),
+                        );
+                    }
+                }
+            }
 
             if has_multi_stage {
                 let modules_config = gepa_map.get("modules");
@@ -1629,7 +1580,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                     }
                     _ => {
                         errors.push(format!(
-                            "GEPA multi-stage pipeline detected (found {} modules in prompt_learning.initial_prompt.metadata.pipeline_modules), but [prompt_learning.gepa.modules] is missing or empty. Define module configs for each pipeline stage.",
+                            "GEPA multi-stage pipeline detected (found {} modules in prompt_learning.gepa.initial_candidate.stages[0].metadata.pipeline_modules), but [prompt_learning.gepa.modules] is missing or empty. Define module configs for each pipeline stage.",
                             pipeline_modules.len()
                         ));
                     }
@@ -3096,6 +3047,92 @@ mod tests {
     }
 
     #[test]
+    fn accepts_canonical_gepa_task_data_and_stop_fields_without_unknown_warnings() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "container_url": "http://localhost:8102",
+                "task_data": {
+                    "split": "train",
+                    "train_pools": {
+                        "reflection_seeds": [0, 1],
+                        "pareto_seeds": [2, 3]
+                    },
+                    "validation_seeds": [10, 11]
+                },
+                "gepa": {
+                    "initial_candidate": {
+                        "stages": [{
+                            "id": "single",
+                            "name": "single",
+                            "messages": [{"role": "system", "content": "hello"}]
+                        }]
+                    },
+                    "termination_conditions": {
+                        "total_rollouts": 64,
+                        "time": 300,
+                        "cost": 5.0
+                    },
+                    "policy_config": {
+                        "inference_mode": "synth_hosted"
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        for field in [
+            "task_data",
+            "initial_candidate",
+            "termination_conditions",
+            "policy_config",
+        ] {
+            assert!(
+                !result.warnings.iter().any(|warning| {
+                    warning.contains(&format!("Unknown field '{}' in [prompt_learning", field))
+                        || warning.contains(&format!(
+                            "Unknown field '{}' in [prompt_learning.gepa",
+                            field
+                        ))
+                }),
+                "unexpected unknown-field warning for '{}': {:?}",
+                field,
+                result.warnings
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_prompt_learning_policy_in_non_strict_validation() {
+        let config = json!({
+            "prompt_learning": {
+                "algorithm": "gepa",
+                "container_url": "http://localhost:8102",
+                "policy": {
+                    "provider": "openai",
+                    "model": "gpt-4o-mini"
+                },
+                "gepa": {
+                    "evaluation": {
+                        "train_seeds": [0, 1],
+                        "validation_seeds": [2, 3]
+                    }
+                }
+            }
+        });
+
+        let result = validate_prompt_learning_config(&config, None);
+        assert!(
+            result
+                .errors
+                .iter()
+                .any(|err| err.contains("prompt_learning.policy is forbidden")),
+            "expected policy forbidden error, got: {:?}",
+            result.errors
+        );
+    }
+
+    #[test]
     fn strict_rejects_text_dreamer_wm_only_and_missing_ontology_connector() {
         let config = json!({
             "prompt_learning": {
@@ -3135,11 +3172,6 @@ mod tests {
             "prompt_learning": {
                 "algorithm": "gepa",
                 "container_url": "http://localhost:8102",
-                "policy": {
-                    "provider": "openai",
-                    "model": "gpt-5.3-codex",
-                    "inference_mode": "synth_hosted"
-                },
                 "gepa": {
                     "evaluation": {
                         "train_seeds": [0, 1],
@@ -3154,8 +3186,8 @@ mod tests {
         assert!(
             !errors
                 .iter()
-                .any(|err| err.contains("Unsupported OpenAI model")),
-            "gpt-5.3-codex should be allowed, errors: {:?}",
+                .any(|err| err.contains("prompt_learning.policy")),
+            "policy-free config should not require policy: {:?}",
             errors
         );
     }
@@ -3166,11 +3198,6 @@ mod tests {
             "kind": "gepa_offline",
             "prompt_learning": {
                 "container_url": "http://localhost:8102",
-                "policy": {
-                    "provider": "openai",
-                    "model": "gpt-4o-mini",
-                    "inference_mode": "synth_hosted"
-                },
                 "gepa": {
                     "evaluation": {
                         "train_seeds": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -3192,16 +3219,42 @@ mod tests {
     }
 
     #[test]
-    fn validation_accepts_top_level_kind_without_prompt_learning_algorithm() {
+    fn strict_rejects_prompt_learning_policy_section() {
         let config = json!({
-            "kind": "mipro_offline",
             "prompt_learning": {
+                "algorithm": "gepa",
                 "container_url": "http://localhost:8102",
                 "policy": {
                     "provider": "openai",
                     "model": "gpt-4o-mini",
                     "inference_mode": "synth_hosted"
                 },
+                "gepa": {
+                    "evaluation": {
+                        "train_seeds": [0, 1],
+                        "validation_seeds": [2, 3]
+                    },
+                    "archive": {"pareto_set_size": 4}
+                }
+            }
+        });
+
+        let errors = super::validate_prompt_learning_config_strict(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|err| err.contains("prompt_learning.policy is forbidden")),
+            "expected strict policy-forbidden error, got: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn validation_accepts_top_level_kind_without_prompt_learning_algorithm() {
+        let config = json!({
+            "kind": "mipro_offline",
+            "prompt_learning": {
+                "container_url": "http://localhost:8102",
                 "mipro": {
                     "bootstrap_train_seeds": [0, 1],
                     "online_pool": [2, 3]

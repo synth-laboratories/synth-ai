@@ -266,6 +266,7 @@ def serve(
         backend_enum
         in (
             TunnelBackend.SynthTunnel,
+            TunnelBackend.NgrokManaged,
             TunnelBackend.CloudflareManagedLease,
             TunnelBackend.CloudflareManagedTunnel,
         )

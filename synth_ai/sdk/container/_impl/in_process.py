@@ -9,6 +9,7 @@ import socket
 import subprocess
 import threading
 import time
+import warnings
 from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.error import HTTPError, URLError
@@ -25,14 +26,14 @@ from uvicorn._types import ASGIApplication
 from synth_ai.core.tunnels import TunnelBackend, TunneledContainer
 from synth_ai.core.tunnels.errors import LocalAppError
 from synth_ai.core.tunnels.rust import (
-    create_tunnel,
-    ensure_cloudflared_installed,
-    open_managed_tunnel,
-    open_quick_tunnel_with_dns_verification,
-    rotate_tunnel,
     stop_tunnel,
 )
 from synth_ai.core.utils.paths import REPO_ROOT
+from synth_ai.core.utils.urls import (
+    is_cloudflare_tunnel_url,
+    is_free_ngrok_url,
+    is_synth_managed_ngrok_url,
+)
 from synth_ai.sdk.container._impl.apps_common import get_asgi_app, load_module
 from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
 
@@ -88,6 +89,10 @@ def _normalize_tunnel_backend(value: TunnelBackend | str) -> TunnelBackend:
         "synthtunnel": TunnelBackend.SynthTunnel,
         "synth_tunnel": TunnelBackend.SynthTunnel,
         "synth-tunnel": TunnelBackend.SynthTunnel,
+        "ngrok_managed": TunnelBackend.NgrokManaged,
+        "ngrok-managed": TunnelBackend.NgrokManaged,
+        "ngrok": TunnelBackend.NgrokManaged,
+        "preconfigured": TunnelBackend.NgrokManaged,
         "cloudflare_quick": TunnelBackend.CloudflareQuickTunnel,
         "cloudflare-quick": TunnelBackend.CloudflareQuickTunnel,
         "quick": TunnelBackend.CloudflareQuickTunnel,
@@ -501,7 +506,7 @@ class InProcessContainer:
 
     This class simplifies local development and demos by:
     1. Starting a Local API server in a background thread
-    2. Opening a tunnel automatically (Cloudflare by default, or use preconfigured URL)
+    2. Opening a tunnel automatically (SynthTunnel by default, or Synth-managed ngrok-compatible)
     3. Providing the tunnel URL for GEPA/RL jobs
     4. Cleaning up everything on exit
 
@@ -515,15 +520,11 @@ class InProcessContainer:
 
     Tunnel modes:
     - "synthtunnel": SynthTunnel (default, recommended)
-    - "quick": Cloudflare quick tunnel
-    - "named": Cloudflare named/managed tunnel (canonical flow)
+    - "ngrok_managed": Synth-managed ngrok-compatible URL (first-class)
     - "local": No tunnel, use localhost URL directly
-    - "preconfigured": Use externally-provided URL (set via preconfigured_url param or
-      SYNTH_CONTAINER_URL env var). Useful for ngrok or other external tunnel providers.
+    - "preconfigured": Deprecated alias for "ngrok_managed"
 
-    Advanced: Use `tunnel_backend` to select a specific backend from TunnelBackend,
-    e.g. "cloudflare_managed_lease" or "cloudflare_quick". This bypasses canonical
-    tunnel_mode handling.
+    Advanced: Use `tunnel_backend` to select a specific backend from TunnelBackend.
 
     Attributes:
         url: The public URL of the running Local API (tunnel URL or localhost).
@@ -540,19 +541,19 @@ class InProcessContainer:
         from synth_ai.sdk.container._impl.in_process import InProcessContainer
         from heartdisease_container import build_config
 
-        # Default: use Cloudflare quick tunnel
+        # Default: use SynthTunnel
         async with InProcessContainer(
             config_factory=build_config,
             port=8114,
         ) as container:
             print(f"Local API running at: {container.url}")
 
-        # Use preconfigured URL (e.g., from ngrok, localtunnel, etc.)
+        # Use Synth-managed ngrok-compatible URL
         async with InProcessContainer(
             config_factory=build_config,
             port=8000,
-            tunnel_mode="preconfigured",
-            preconfigured_url="https://abc123.ngrok.io",
+            tunnel_mode="ngrok_managed",
+            preconfigured_url="https://my-managed-tunnel.usesynth.ai",
         ) as container:
             print(f"Local API running at: {container.url}")
         ```
@@ -573,6 +574,7 @@ class InProcessContainer:
         preconfigured_auth_header: Optional[str] = None,
         preconfigured_auth_token: Optional[str] = None,
         api_key: Optional[str] = None,
+        backend_url: Optional[str] = None,
         health_check_timeout: float = 30.0,
         auto_find_port: bool = True,
         skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
@@ -589,14 +591,15 @@ class InProcessContainer:
             container_path: Path to Local API .py file (strict, alias: container)
             port: Local port to run server on
             host: Host to bind to (default: 127.0.0.1, use 0.0.0.0 for external access)
-            tunnel_mode: Tunnel mode - "synthtunnel", "quick", "named", "local", or "preconfigured"
+            tunnel_mode: Tunnel mode - "synthtunnel", "ngrok_managed", "local", or "preconfigured"
             tunnel_backend: Explicit tunnel backend (overrides tunnel_mode when set)
-            preconfigured_url: External tunnel URL to use when tunnel_mode="preconfigured".
-                              Can also be set via SYNTH_CONTAINER_URL env var.
-            preconfigured_auth_header: Optional auth header name for preconfigured URL
-                                       (e.g., "x-custom-auth-token")
-            preconfigured_auth_token: Optional auth token value for preconfigured URL
+            preconfigured_url: Managed tunnel URL to use for ngrok-managed flows.
+                              Can also be set via SYNTH_MANAGED_NGROK_URL env var.
+            preconfigured_auth_header: Deprecated.
+            preconfigured_auth_token: Deprecated.
             api_key: API key for health checks (defaults to ENVIRONMENT_API_KEY env var)
+            backend_url: Backend base URL for tunnel control-plane calls.
+                         When set, overrides SYNTH_BACKEND_URL for this instance.
             health_check_timeout: Max time to wait for health check in seconds
             auto_find_port: If True, automatically find available port if requested port is busy
             skip_tunnel_verification: If True, skip HTTP verification of tunnel connectivity.
@@ -632,6 +635,8 @@ class InProcessContainer:
         valid_modes = (
             "local",
             "localhost",
+            "ngrok",
+            "ngrok_managed",
             "quick",
             "cloudflare_quick",
             "cloudflare_managed_lease",
@@ -672,6 +677,7 @@ class InProcessContainer:
         self.preconfigured_auth_header = preconfigured_auth_header
         self.preconfigured_auth_token = preconfigured_auth_token
         self.api_key = api_key
+        self.backend_url = backend_url
         self.health_check_timeout = health_check_timeout
         self.auto_find_port = auto_find_port
         self.skip_tunnel_verification = skip_tunnel_verification
@@ -699,59 +705,24 @@ class InProcessContainer:
     async def __aenter__(self) -> "InProcessContainer":
         """Start container and tunnel."""
 
-        # For named tunnels, pre-fetch tunnel config to get the correct port
-        # (existing tunnels are configured for a specific port)
         mode = self._effective_tunnel_mode()
-        if mode == "named":
-            try:
-                from synth_ai.core.utils.env import get_api_key as get_synth_api_key
-
-                synth_api_key = get_synth_api_key()
-                if synth_api_key is None:
-                    raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
-                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
-                tunnel_port = tunnel_config.get("local_port")
-                if tunnel_config.get("hostname") and tunnel_port and tunnel_port != self.port:
-                    logger.info(
-                        f"Existing managed tunnel is configured for port {tunnel_port}, "
-                        f"adjusting from requested port {self.port}"
-                    )
-                    self.port = tunnel_port
-                # Store config for later use to avoid re-fetching
-                self._prefetched_tunnel_config = tunnel_config
-            except Exception as e:
-                logger.debug(f"Pre-fetch tunnel config failed: {e}")
-                self._prefetched_tunnel_config = None
-        else:
-            self._prefetched_tunnel_config = None
-
+        if mode in {
+            "quick",
+            "cloudflare_quick",
+            "cloudflare_managed_lease",
+            "cloudflare_managed",
+            "managed_lease",
+            "managed",
+            "named",
+        }:
+            raise RuntimeError(
+                f"tunnel_mode='{mode}' is disabled. Cloudflare is deprecated; use 'synthtunnel' or 'ngrok_managed'."
+            )
         logger.debug(f"Starting in-process container on {self.host}:{self.port}")
-
-        # For named tunnels, the port is baked into the tunnel config - we MUST use it
-        tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
-        tunnel_port = tunnel_config.get("local_port")
-        is_named_tunnel_port = mode == "named" and tunnel_port and tunnel_port == self.port
 
         # Handle port conflicts
         if not _is_port_available(self.host, self.port):
-            if is_named_tunnel_port:
-                # Named tunnel port is REQUIRED - kill whatever is using it
-                print(
-                    f"[CLOUDFLARE-FIX] Named tunnel requires port {self.port}, killing existing process..."
-                )
-                logger.warning(
-                    f"Named tunnel is configured for port {self.port}, killing existing process..."
-                )
-                _kill_process_on_port(self.host, self.port)
-                await asyncio.sleep(1.0)  # Wait for port to free
-
-                if not _is_port_available(self.host, self.port):
-                    raise RuntimeError(
-                        f"Named tunnel requires port {self.port} but it's still in use after kill attempt. "
-                        "Manually kill the process using this port, or delete and recreate the tunnel."
-                    )
-                print(f"[CLOUDFLARE-FIX] Port {self.port} freed successfully")
-            elif self.auto_find_port:
+            if self.auto_find_port:
                 print(f"Port {self.port} is in use, attempting to find available port...")
                 logger.warning(f"Port {self.port} is in use, attempting to find available port...")
                 self.port = _find_available_port(self.host, self.port)
@@ -874,25 +845,55 @@ class InProcessContainer:
         # 4. Determine tunnel mode (env var can override)
         mode = self._effective_tunnel_mode()
 
-        # Check for preconfigured URL via env var
-        env_preconfigured_url = os.getenv("SYNTH_CONTAINER_URL")
-        if env_preconfigured_url:
-            mode = "preconfigured"
+        # Prefer managed ngrok URL env var; keep SYNTH_CONTAINER_URL as deprecated alias.
+        env_managed_ngrok_url = (os.getenv("SYNTH_MANAGED_NGROK_URL") or "").strip()
+        env_preconfigured_url = (os.getenv("SYNTH_CONTAINER_URL") or "").strip()
+        if env_managed_ngrok_url:
+            mode = "ngrok_managed"
+            self.preconfigured_url = env_managed_ngrok_url
+            logger.info("Using managed ngrok URL from SYNTH_MANAGED_NGROK_URL")
+        elif env_preconfigured_url:
+            mode = "ngrok_managed"
             self.preconfigured_url = env_preconfigured_url
-            logger.info(
-                f"Using preconfigured URL from SYNTH_CONTAINER_URL: {env_preconfigured_url}"
+            warnings.warn(
+                "SYNTH_CONTAINER_URL is deprecated; use SYNTH_MANAGED_NGROK_URL.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            logger.info("Using managed ngrok URL from deprecated SYNTH_CONTAINER_URL")
+
+        if mode == "preconfigured":
+            warnings.warn(
+                "tunnel_mode='preconfigured' is deprecated; use tunnel_mode='ngrok_managed'.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            mode = "ngrok_managed"
+
+        deprecated_cloudflare_modes = {
+            "quick",
+            "cloudflare_quick",
+            "cloudflare_managed_lease",
+            "cloudflare_managed",
+            "managed_lease",
+            "managed",
+            "named",
+        }
+        if mode in deprecated_cloudflare_modes:
+            raise RuntimeError(
+                f"tunnel_mode='{mode}' is disabled. Cloudflare is deprecated; use 'synthtunnel' or 'ngrok_managed'."
             )
 
-        override_host = os.getenv("SYNTH_TUNNEL_HOSTNAME")
-
-        # Prefer explicit tunnel_backend when provided (except preconfigured URLs)
+        # Prefer explicit tunnel_backend when provided (except managed-url mode)
         backend: TunnelBackend | None = None
-        if mode != "preconfigured" and self.tunnel_backend is not None:
+        if mode != "ngrok_managed" and self.tunnel_backend is not None:
             backend = _normalize_tunnel_backend(self.tunnel_backend)
 
-        # Allow modern backends to be selected via tunnel_mode string
+        # Allow canonical backends to be selected via tunnel_mode string
         if backend is None and mode in (
             "synthtunnel",
+            "ngrok",
+            "ngrok_managed",
             "cloudflare_quick",
             "cloudflare_managed_lease",
             "cloudflare_managed",
@@ -900,47 +901,55 @@ class InProcessContainer:
         ):
             backend = _normalize_tunnel_backend(mode)
 
-        if mode == "preconfigured":
-            # Preconfigured mode: use externally-provided URL (e.g., ngrok, localtunnel)
-            # This bypasses Cloudflare entirely - the caller is responsible for the tunnel
+        if mode == "ngrok_managed":
+            if self.preconfigured_auth_header or self.preconfigured_auth_token:
+                raise ValueError(
+                    "custom preconfigured auth headers/tokens are not allowed for managed ngrok flows"
+                )
             if not self.preconfigured_url:
                 raise ValueError(
-                    "tunnel_mode='preconfigured' requires preconfigured_url parameter "
-                    "or SYNTH_CONTAINER_URL environment variable"
+                    "tunnel_mode='ngrok_managed' requires preconfigured_url, SYNTH_MANAGED_NGROK_URL, "
+                    "or SYNTH_CONTAINER_URL (deprecated)."
+                )
+            if is_cloudflare_tunnel_url(self.preconfigured_url):
+                raise ValueError("Cloudflare URLs are forbidden for tunnel_mode='ngrok_managed'.")
+            if is_free_ngrok_url(self.preconfigured_url):
+                raise ValueError("Free ngrok URLs are forbidden for tunnel_mode='ngrok_managed'.")
+            if not is_synth_managed_ngrok_url(self.preconfigured_url):
+                raise ValueError(
+                    "URL is not recognized as Synth-managed. Set SYNTH_MANAGED_TUNNEL_HOSTS to the approved host patterns."
                 )
 
             self.url = self.preconfigured_url.rstrip("/")
             self._tunnel_proc = None
             self._is_preconfigured = True
-            logger.info(f"Using preconfigured tunnel URL: {self.url}")
+            logger.info(f"Using managed ngrok-compatible URL: {self.url}")
 
-            # Optionally verify the preconfigured URL is accessible
+            # Optionally verify the managed URL is accessible
             if not self.skip_tunnel_verification:
-                # Build headers including any custom auth for the tunnel
-                extra_headers: dict[str, str] = {}
-                if self.preconfigured_auth_header and self.preconfigured_auth_token:
-                    extra_headers[self.preconfigured_auth_header] = self.preconfigured_auth_token
-
                 ready = await _verify_preconfigured_url_ready(
                     self.url,
                     task_api_key,
-                    extra_headers=extra_headers,
+                    extra_headers={},
                     max_retries=10,  # Fewer retries - external URL should work quickly
                     retry_delay=1.0,
                 )
                 if ready:
-                    logger.info(f"Preconfigured URL verified and ready: {self.url}")
+                    logger.info(f"Managed ngrok URL verified and ready: {self.url}")
                 else:
                     logger.warning(
-                        f"Preconfigured URL {self.url} may not be accessible. "
+                        f"Managed ngrok URL {self.url} may not be accessible. "
                         "Proceeding anyway - set skip_tunnel_verification=True to suppress this warning."
                     )
         elif backend is not None:
-            # Modern tunnel backends (SynthTunnel + Cloudflare variants)
+            # Canonical tunnel backends (SynthTunnel and NgrokManaged)
             from synth_ai.core.utils.env import get_api_key as get_synth_api_key
 
             synth_api_key = get_synth_api_key()
-            backend_url = os.getenv("SYNTH_BACKEND_URL")
+            backend_url = self.backend_url or os.getenv("SYNTH_BACKEND_URL")
+            managed_ngrok_url = (
+                self.preconfigured_url if backend == TunnelBackend.NgrokManaged else None
+            )
 
             self._tunnel_handle = await TunneledContainer.create(
                 local_port=self.port,
@@ -950,6 +959,7 @@ class InProcessContainer:
                 backend_url=backend_url,
                 verify_dns=not self.skip_tunnel_verification,
                 progress=True,
+                managed_ngrok_url=managed_ngrok_url,
             )
             self.url = self._tunnel_handle.url
             if backend == TunnelBackend.SynthTunnel:
@@ -960,274 +970,6 @@ class InProcessContainer:
             self.url = f"http://{self.host}:{self.port}"
             self._tunnel_proc = None
             logger.debug(f"Using local mode: {self.url}")
-        elif mode == "named":
-            # Named tunnel mode: fully automatic managed tunnel
-            # 1. Check for existing tunnel
-            # 2. Auto-create if none exists
-            # 3. Auto-start cloudflared if not accessible
-            # 4. Verify tunnel is working
-            ensure_cloudflared_installed()
-
-            # For tunnel config, we need the SYNTH_API_KEY (not ENVIRONMENT_API_KEY)
-            from synth_ai.core.utils.env import get_api_key as get_synth_api_key
-
-            synth_api_key = get_synth_api_key()
-            if synth_api_key is None:
-                raise ValueError("SYNTH_API_KEY is required for named tunnel mode")
-
-            # For container auth, use the environment API key
-            task_api_key = task_api_key or self._get_api_key()
-
-            # Use pre-fetched config (port was already adjusted before server started)
-            tunnel_config = getattr(self, "_prefetched_tunnel_config", None) or {}
-            if not tunnel_config:
-                # Fetch if not pre-fetched (shouldn't happen normally)
-                tunnel_config = await self._fetch_tunnel_config(synth_api_key)
-
-            named_host = tunnel_config.get("hostname")
-            tunnel_token = tunnel_config.get("tunnel_token")
-
-            # Track if backend verified DNS (so we can skip local verification)
-            dns_verified_by_backend = False
-
-            # Force ROTATE tunnel if requested (deletes old + creates new, stays within limits)
-            if self.force_new_tunnel:
-                print("[CLOUDFLARE-FIX] force_new_tunnel=True, rotating tunnel...")
-                logger.info("force_new_tunnel=True, rotating tunnel (delete+create)")
-                try:
-                    rotated = await rotate_tunnel(
-                        api_key=synth_api_key,
-                        port=self.port,
-                    )
-                    named_host = rotated.get("hostname")
-                    tunnel_token = rotated.get("tunnel_token")
-                    dns_verified_by_backend = rotated.get("dns_verified", False)
-                    print(f"[CLOUDFLARE-FIX] Rotated to fresh tunnel: {named_host}")
-                    print(f"[CLOUDFLARE-FIX] DNS verified by backend: {dns_verified_by_backend}")
-                    logger.info(
-                        f"Rotated to fresh managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}"
-                    )
-                except Exception as e:
-                    print(
-                        f"[CLOUDFLARE-FIX] Rotation failed: {e}, using existing tunnel: {named_host}"
-                    )
-                    logger.warning(
-                        f"Rotation failed: {e}, falling back to existing tunnel: {named_host}"
-                    )
-                    if not named_host or not tunnel_token:
-                        raise RuntimeError(
-                            f"Tunnel rotation failed and no existing tunnel found: {e}\n"
-                            "Try using tunnel_mode='quick' instead."
-                        ) from e
-            # Auto-create tunnel if none exists
-            elif not named_host:
-                logger.info("No managed tunnel found, creating one automatically...")
-                try:
-                    # Generate subdomain from port or use default
-                    subdomain = f"container-{self.port}"
-                    new_tunnel = await create_tunnel(
-                        api_key=synth_api_key,
-                        port=self.port,
-                        subdomain=subdomain,
-                    )
-                    named_host = new_tunnel.get("hostname")
-                    tunnel_token = new_tunnel.get("tunnel_token")
-                    dns_verified_by_backend = new_tunnel.get("dns_verified", False)
-                    logger.info(
-                        f"Created managed tunnel: {named_host}, dns_verified={dns_verified_by_backend}"
-                    )
-                except Exception as e:
-                    # If tunnel creation fails, suggest using quick tunnels
-                    raise RuntimeError(
-                        f"Failed to create managed tunnel: {e}\n"
-                        "This may be because the backend doesn't have Cloudflare configured.\n"
-                        "Options:\n"
-                        "  1. Use tunnel_mode='quick' for automatic quick tunnels\n"
-                        "  2. Ask your admin to configure Cloudflare credentials on the backend"
-                    ) from e
-
-            if not named_host or not tunnel_token:
-                raise RuntimeError(
-                    "Tunnel configuration incomplete (missing hostname or token). "
-                    "Try deleting and recreating the tunnel, or use tunnel_mode='quick'."
-                )
-
-            self.url = f"https://{named_host}"
-            # Store dns_verified for use by job (to skip health check)
-            self._dns_verified_by_backend = dns_verified_by_backend
-
-            print(f"[CLOUDFLARE] Named tunnel URL: {self.url}")
-
-            # CRITICAL: For Cloudflare managed tunnels, DNS will NOT resolve until cloudflared connects.
-            # The DNS record exists in Cloudflare, but proxied CNAMEs to .cfargotunnel.com only
-            # resolve when the tunnel has an active cloudflared connection.
-            # Therefore, we MUST start cloudflared FIRST, then verify the tunnel works.
-
-            # First, check if cloudflared is already running (tunnel might be accessible)
-            ready = await _verify_tunnel_ready(
-                self.url,
-                task_api_key,
-                max_retries=1,  # Single quick check
-                retry_delay=0.5,
-                verify_tls=_should_verify_tls(),
-            )
-
-            if ready:
-                # Tunnel already accessible - cloudflared must be running elsewhere
-                self._tunnel_proc = None
-                print("[CLOUDFLARE] Tunnel already accessible (cloudflared running externally)")
-                logger.info(
-                    f"Tunnel {self.url} is already accessible (cloudflared running externally)"
-                )
-            else:
-                # Tunnel not accessible - start cloudflared FIRST, then verify
-                print(
-                    "[CLOUDFLARE] Starting cloudflared (DNS requires active tunnel connection)..."
-                )
-                logger.info(f"Starting cloudflared for {self.url}...")
-                try:
-                    self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                    print(f"[CLOUDFLARE] cloudflared started, PID={self._tunnel_proc.pid}")
-                    logger.info(f"Started cloudflared (PID: {self._tunnel_proc.pid})")
-                except Exception as e:
-                    print(f"[CLOUDFLARE] ERROR starting cloudflared: {e}")
-                    raise RuntimeError(
-                        f"Failed to start cloudflared: {e}\n"
-                        "Make sure cloudflared is installed: brew install cloudflare/cloudflare/cloudflared"
-                    ) from e
-
-                # Wait for cloudflared to connect and tunnel to become accessible
-                print("[CLOUDFLARE] Waiting for tunnel to become accessible...")
-                ready = await _verify_tunnel_ready(
-                    self.url,
-                    task_api_key,
-                    max_retries=15,  # Up to ~30 seconds for tunnel to connect
-                    retry_delay=2.0,
-                    verify_tls=_should_verify_tls(),
-                )
-
-                if not ready:
-                    # Tunnel still not accessible after starting cloudflared
-                    # Clean up and try auto-rotation
-                    if self._tunnel_proc:
-                        stop_tunnel(self._tunnel_proc)
-                        self._tunnel_proc = None
-
-                    print(f"[CLOUDFLARE] Tunnel {self.url} not accessible, attempting rotation...")
-                    logger.warning(f"Tunnel {self.url} failed to connect. Attempting rotation...")
-
-                    try:
-                        rotated = await rotate_tunnel(
-                            api_key=synth_api_key,
-                            port=self.port,
-                        )
-                        named_host = rotated.get("hostname")
-                        tunnel_token = rotated.get("tunnel_token")
-
-                        if not named_host or not tunnel_token:
-                            raise RuntimeError("Rotation returned incomplete tunnel config")
-
-                        self.url = f"https://{named_host}"
-                        print(f"[CLOUDFLARE] Rotated to new tunnel: {self.url}")
-
-                        # Start cloudflared with the new token
-                        self._tunnel_proc = open_managed_tunnel(tunnel_token)
-                        print(
-                            f"[CLOUDFLARE] Started cloudflared for rotated tunnel, PID={self._tunnel_proc.pid}"
-                        )
-
-                        # Verify the new tunnel
-                        ready = await _verify_tunnel_ready(
-                            self.url,
-                            task_api_key,
-                            max_retries=15,
-                            retry_delay=2.0,
-                            verify_tls=_should_verify_tls(),
-                        )
-
-                        if not ready:
-                            if self._tunnel_proc:
-                                stop_tunnel(self._tunnel_proc)
-                                self._tunnel_proc = None
-                            raise RuntimeError(
-                                f"Rotated tunnel {self.url} also failed. "
-                                "Try using tunnel_mode='quick' instead."
-                            )
-
-                        print(f"[CLOUDFLARE] Rotated tunnel ready: {self.url}")
-
-                    except Exception as rotate_err:
-                        raise RuntimeError(
-                            f"Tunnel failed and rotation failed: {rotate_err}\n"
-                            "Try using tunnel_mode='quick' instead."
-                        ) from rotate_err
-                else:
-                    print(f"[CLOUDFLARE] Tunnel connected and ready: {self.url}")
-
-            logger.info(f"Using managed tunnel: {self.url}")
-        elif mode == "quick":
-            # Quick tunnel mode: create tunnel with DNS verification and retry
-            # Cloudflare quick tunnels can be flaky - retry with fresh tunnels if needed
-            ensure_cloudflared_installed()
-
-            api_key = self.api_key or self._get_api_key()
-            max_tunnel_attempts = int(os.getenv("SYNTH_TUNNEL_MAX_ATTEMPTS", "3"))
-
-            for tunnel_attempt in range(max_tunnel_attempts):
-                if tunnel_attempt > 0:
-                    logger.warning(
-                        f"Tunnel attempt {tunnel_attempt + 1}/{max_tunnel_attempts} - "
-                        "requesting fresh tunnel..."
-                    )
-                    # Kill the previous tunnel process if it exists
-                    if self._tunnel_proc:
-                        try:
-                            self._tunnel_proc.terminate()
-                            await asyncio.sleep(1)
-                        except Exception:
-                            pass
-
-                logger.info("Opening Cloudflare quick tunnel...")
-                try:
-                    self.url, self._tunnel_proc = await open_quick_tunnel_with_dns_verification(
-                        self.port, api_key=api_key
-                    )
-                except Exception as e:
-                    logger.warning(f"Tunnel creation failed: {e}")
-                    if tunnel_attempt == max_tunnel_attempts - 1:
-                        raise
-                    continue
-
-                # Apply hostname override if provided
-                if override_host:
-                    parsed = urlparse(self.url)
-                    self.url = f"{parsed.scheme}://{override_host}"
-                    logger.info(f"Overriding hostname: {self.url}")
-
-                logger.info(f"Tunnel opened: {self.url}")
-
-                # Extra guard: wait for tunnel HTTP routing to become ready (not just DNS)
-                ready = await _verify_tunnel_ready(
-                    self.url,
-                    api_key,
-                    verify_tls=_should_verify_tls(),
-                )
-                if ready:
-                    logger.info(f"Tunnel verified and ready: {self.url}")
-                    break
-                else:
-                    logger.warning(
-                        f"Tunnel {self.url} not routing traffic after verification. "
-                        f"{'Retrying with fresh tunnel...' if tunnel_attempt < max_tunnel_attempts - 1 else 'Giving up.'}"
-                    )
-                    if tunnel_attempt == max_tunnel_attempts - 1:
-                        raise RuntimeError(
-                            f"Failed to establish working tunnel after {max_tunnel_attempts} attempts. "
-                            f"Last tunnel URL: {self.url}. "
-                            "This may indicate Cloudflare rate limiting or network issues. "
-                            "Try: SYNTH_TUNNEL_MODE=local if the backend can reach localhost, "
-                            "or use a named Cloudflare tunnel instead of quick tunnels."
-                        )
         else:
             raise ValueError(f"Unknown SYNTH_TUNNEL_MODE: {mode}")
 
@@ -1318,62 +1060,6 @@ class InProcessContainer:
             return ensure_container_auth(upload=False)
         except Exception:
             return "test"
-
-    async def _fetch_tunnel_config(self, api_key: str) -> dict:
-        """Fetch the customer's tunnel configuration from the backend.
-
-        Uses the existing /api/v1/tunnels/tunnel endpoint to get the customer's
-        active tunnels. Returns the first active tunnel's config.
-
-        Returns a dict with:
-            - hostname: The customer's configured tunnel hostname (e.g., "myapp.usesynth.ai")
-            - tunnel_token: The cloudflared tunnel token for running the tunnel
-            - local_port: The local port the tunnel routes to
-            - local_host: The local host the tunnel routes to
-        """
-        from synth_ai.core.utils.urls import BACKEND_URL_BASE
-
-        backend_url = BACKEND_URL_BASE
-        url = f"{backend_url}/api/v1/tunnels/"
-
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            try:
-                resp = await client.get(
-                    url,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "X-API-Key": api_key,
-                    },
-                )
-
-                if resp.status_code == 404:
-                    logger.debug("No tunnels found for this API key")
-                    return {}
-
-                if resp.status_code == 401:
-                    raise RuntimeError("Invalid API key. Please check your SYNTH_API_KEY.")
-
-                resp.raise_for_status()
-                tunnels = resp.json()
-
-                # Return the first active tunnel
-                if tunnels and len(tunnels) > 0:
-                    tunnel = tunnels[0]
-                    return {
-                        "hostname": tunnel.get("hostname"),
-                        "tunnel_token": tunnel.get("tunnel_token"),
-                        "local_port": tunnel.get("local_port", 8000),
-                        "local_host": tunnel.get("local_host", "127.0.0.1"),
-                    }
-
-                return {}
-
-            except httpx.HTTPStatusError as e:
-                logger.warning(f"Failed to fetch tunnel config: {e}")
-                return {}
-            except Exception as e:
-                logger.debug(f"Tunnel config fetch failed: {e}")
-                return {}
 
 
 def _setup_signal_handlers() -> None:

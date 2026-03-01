@@ -3,7 +3,14 @@
 # See: specs/sdk_logic.md
 """
 
-from synth_ai.client import AsyncSynthTunnel, AsyncTunnelsClient, SynthTunnel, TunnelsClient
+from synth_ai.client import (
+    AsyncNgrokTunnel,
+    AsyncSynthTunnel,
+    AsyncTunnelsClient,
+    NgrokTunnel,
+    SynthTunnel,
+    TunnelsClient,
+)
 from synth_ai.core.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
@@ -19,8 +26,10 @@ from synth_ai.core.tunnels import (
 )
 
 __all__ = [
+    "AsyncNgrokTunnel",
     "AsyncSynthTunnel",
     "AsyncTunnelsClient",
+    "NgrokTunnel",
     "PortConflictBehavior",
     "SynthTunnel",
     "TunnelBackend",

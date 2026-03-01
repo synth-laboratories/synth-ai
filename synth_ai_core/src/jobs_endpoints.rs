@@ -9,10 +9,20 @@
 //! # Endpoint Families
 //!
 //! Canonical: `/api/v1/offline/jobs/*`
+//!
+//! Route construction delegates to `api::routes` which owns the versioned
+//! path segments. This module prepends `/api` as required by the backend.
+
+use crate::api::routes::{self, ApiVersion};
 
 // ---------------------------------------------------------------------------
 // Canonical job endpoint family
 // ---------------------------------------------------------------------------
+
+/// Convenience: `/api` prefix + the versioned route.
+fn api_prefix(route: &str) -> String {
+    format!("/api{}", route)
+}
 
 /// Root for all canonical job endpoints.
 pub const JOBS_ROOT: &str = "/api/v1/offline/jobs";
@@ -26,19 +36,19 @@ pub const JOBS_CREATE_VERIFIER: &str = "/api/v1/offline/jobs";
 
 /// Format helpers for per-job endpoints.
 pub fn jobs_status(job_id: &str) -> String {
-    format!("{}/{}", JOBS_ROOT, job_id)
+    api_prefix(&routes::offline_job_path(job_id, ApiVersion::V1))
 }
 
 pub fn jobs_events(job_id: &str) -> String {
-    format!("{}/{}/events", JOBS_ROOT, job_id)
+    api_prefix(&routes::offline_job_subpath(job_id, "events", ApiVersion::V1))
 }
 
 pub fn jobs_events_stream(job_id: &str) -> String {
-    format!("{}/{}/events/stream", JOBS_ROOT, job_id)
+    api_prefix(&routes::offline_job_subpath(job_id, "events/stream", ApiVersion::V1))
 }
 
 pub fn jobs_artifacts(job_id: &str) -> String {
-    format!("{}/{}/artifacts", JOBS_ROOT, job_id)
+    api_prefix(&routes::offline_job_subpath(job_id, "artifacts", ApiVersion::V1))
 }
 
 pub fn jobs_cancel(job_id: &str) -> String {
@@ -46,7 +56,7 @@ pub fn jobs_cancel(job_id: &str) -> String {
 }
 
 pub fn jobs_metrics(job_id: &str) -> String {
-    format!("{}/{}/metrics", JOBS_ROOT, job_id)
+    api_prefix(&routes::offline_job_subpath(job_id, "metrics", ApiVersion::V1))
 }
 
 // ---------------------------------------------------------------------------

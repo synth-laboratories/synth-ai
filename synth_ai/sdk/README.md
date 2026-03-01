@@ -12,12 +12,9 @@ server-resolved from org storage.
 
 ```
 sdk/
-├── eval/           # Evaluation jobs (EvalJob, EvalJobConfig)
-├── optimization/   # Policy & Graph optimization (PolicyOptimizationOfflineJob, GraphOptimizationJob)
+├── optimization/   # Policy optimization (PolicyOptimizationOfflineJob, OnlineSession)
 ├── container/       # Container for running containers (ContainerClient, InProcessContainer)
 ├── artifacts/      # Artifact management (models, prompts)
-├── graphs/         # Graph completions & verifiers (VerifiersClient, GraphCompletionsClient)
-├── inference/      # Model inference proxy (Client, JobsClient)
 ├── managed_research.py  # Managed Research project/run control (SmrControlClient)
 ├── shared/         # Internal utilities (NOT public API)
 │   ├── auth.py     # API key helpers
@@ -58,12 +55,7 @@ module/
 
 - `sdk/` can import from `core/` and `data/`
 - `sdk/` should NOT import from `cli/`
-- Public API should be importable from the module root:
-  ```python
-  from synth_ai.sdk.eval import EvalJob  # Good
-  from synth_ai.sdk.eval.job import EvalJob  # Also fine
-  from synth_ai.sdk.eval._impl.internals import X  # Avoid - internal
-  ```
+- Public API should be importable from the module root where available.
 
 ## Public Exports
 
@@ -74,20 +66,14 @@ from synth_ai.sdk import (
     # Optimization
     OfflineJob,
     OnlineSession,
-    GraphOptimizationJob,
-    
-    # Evaluation
-    EvalJob,
     
     # Container
     ContainerClient,
     InProcessContainer,
     
-    # Clients
-    VerifiersClient,
-    GraphsClient,
-    InferenceClient,
-    InferenceJobsClient,
-    SmrControlClient,
+    # Other
+    PoolsClient,
+    System,
+    create_container,
 )
 ```

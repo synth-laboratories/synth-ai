@@ -41,7 +41,6 @@ pub struct PhaseSummary {
     #[serde(default)]
     pub candidates_evaluated: Option<i64>,
     #[serde(default)]
-    #[serde(alias = "best_score")]
     pub best_reward: Option<f64>,
     #[serde(default)]
     pub extra: HashMap<String, Value>,
@@ -71,13 +70,13 @@ pub struct ProgramCandidate {
     pub reward: f64,
     #[serde(default, alias = "val_accuracy")]
     pub val_reward: Option<f64>,
-    #[serde(default, alias = "minibatch_score")]
+    #[serde(default)]
     pub minibatch_reward: Option<f64>,
-    #[serde(default, alias = "seed_scores")]
+    #[serde(default)]
     pub seed_rewards: Option<Vec<Value>>,
     #[serde(default)]
     pub seed_info: Option<Vec<SeedInfo>>,
-    #[serde(default, alias = "instance_scores")]
+    #[serde(default)]
     pub instance_rewards: Option<Vec<Value>>,
     #[serde(default)]
     pub objectives: Option<Value>,

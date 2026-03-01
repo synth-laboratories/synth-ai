@@ -48,8 +48,8 @@ CLI commands should be thin wrappers around `sdk/` functionality:
 # Good - CLI delegates to SDK
 @app.command()
 def run_eval(container_url: str):
-    job = EvalJob(container_url=container_url)
-    result = job.run()
+    # Delegate to SDK optimization/session surfaces here.
+    result = run_sdk_workflow(container_url=container_url)
     print_result(result)
 
 # Bad - CLI contains business logic
@@ -103,7 +103,7 @@ def my_command():
 ```python
 # CLI importing from SDK (correct)
 from synth_ai import SynthClient
-from synth_ai.sdk import EvalJob
+from synth_ai.sdk import OfflineJob
 
 # CLI importing from core (correct)
 from synth_ai.core.auth import get_api_key
@@ -125,7 +125,6 @@ synth jobs list      # job management
 synth jobs status <id>
 synth jobs cancel <id>
 
-synth eval run       # evaluation
 synth optimize run   # optimization
 ```
 

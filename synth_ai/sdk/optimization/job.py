@@ -18,11 +18,12 @@ Example:
     >>> print(lifecycle.status)  # JobStatus.IN_PROGRESS
     >>>
     >>> # Emit completion event
-    >>> event = lifecycle.complete(data={"best_score": 0.95})
+    >>> event = lifecycle.complete(data={"best_reward": 0.95})
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -203,7 +204,7 @@ class JobLifecycle:
         """Emit a job.completed event and update status.
 
         Args:
-            data: Optional event data (e.g., results, best_score)
+            data: Optional event data (e.g., results, best_reward)
             message: Optional human-readable message
 
         Returns:
@@ -411,8 +412,8 @@ class JobLifecycle:
                 elapsed = self._rust.elapsed_seconds
                 if isinstance(elapsed, (int, float)):
                     return float(elapsed)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).debug("Rust elapsed_seconds lookup failed: %s", e)
         if self.started_at is None:
             return None
         end = self.ended_at or time.time()

@@ -36,13 +36,16 @@ except Exception:  # pragma: no cover - SFT moved to research repo
     _SFT_AVAILABLE = False
 
 try:
-    import synth_ai_py
+    pass
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.builders.") from exc
 
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
-from synth_ai.core.utils.urls import is_synthtunnel_url  # noqa: E402
-from synth_ai.sdk.container.auth import ensure_container_auth  # noqa: E402
+from synth_ai.core.utils.urls import is_local_http_container_url, is_synthtunnel_url  # noqa: E402
+from synth_ai.sdk.container.auth import (  # noqa: E402
+    ensure_container_auth,
+    has_container_token_signing_key,
+)
 
 from .configs import PromptLearningConfig  # noqa: E402
 from .utils import ensure_api_base  # noqa: E402
@@ -237,6 +240,77 @@ def _normalize_mipro_section(
     )
 
 
+def _resolve_execution_mode(config_dict: dict[str, Any], pl_cfg: PromptLearningConfig) -> str:
+    prompt_learning = config_dict.get("prompt_learning")
+    if isinstance(prompt_learning, dict):
+        explicit = prompt_learning.get("execution_mode")
+        if isinstance(explicit, str) and explicit.strip():
+            return explicit.strip().lower()
+        if pl_cfg.algorithm == "gepa":
+            gepa = prompt_learning.get("gepa")
+            if isinstance(gepa, dict):
+                gepa_mode = gepa.get("execution_mode") or gepa.get("mode")
+                if isinstance(gepa_mode, str) and gepa_mode.strip():
+                    return gepa_mode.strip().lower()
+        if pl_cfg.algorithm == "mipro":
+            mipro = prompt_learning.get("mipro")
+            if isinstance(mipro, dict):
+                mipro_mode = mipro.get("execution_mode") or mipro.get("mode")
+                if isinstance(mipro_mode, str) and mipro_mode.strip():
+                    return mipro_mode.strip().lower()
+    return "offline"
+
+
+def _extract_train_seeds_from_task_data(task_data: dict[str, Any]) -> list | None:
+    """Extract train seeds from task_data.train_pools (reflection + pareto merge)."""
+    pools = task_data.get("train_pools") if isinstance(task_data.get("train_pools"), dict) else {}
+    reflection = (
+        pools.get("reflection_seeds") if isinstance(pools.get("reflection_seeds"), list) else []
+    )
+    pareto = pools.get("pareto_seeds") if isinstance(pools.get("pareto_seeds"), list) else []
+    merged = list(reflection)
+    for seed in pareto:
+        if seed not in merged:
+            merged.append(seed)
+    return merged or None
+
+
+def _extract_val_seeds_from_task_data(task_data: dict[str, Any]) -> list | None:
+    """Extract validation seeds from task_data."""
+    validation_pools = task_data.get("validation_pools")
+    if isinstance(validation_pools, dict) and isinstance(validation_pools.get("main_seeds"), list):
+        return validation_pools.get("main_seeds")
+    if isinstance(task_data.get("validation_seeds"), list):
+        return task_data.get("validation_seeds")
+    return None
+
+
+def _validate_gepa_container_auth(
+    candidate_task_url: str, is_gepa: bool
+) -> tuple[bool, str | None]:
+    """Validate GEPA container auth and resolve env_api_key.
+
+    Returns (signer_configured, env_api_key).
+    """
+    signer_configured = has_container_token_signing_key() if is_gepa else False
+    if candidate_task_url and is_gepa and not signer_configured:
+        if is_synthtunnel_url(candidate_task_url):
+            raise ValueError(
+                "GEPA SynthTunnel rollout auth requires "
+                "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+            )
+        if not is_local_http_container_url(candidate_task_url):
+            raise ValueError(
+                "GEPA rollout auth for non-local container_url requires "
+                "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+            )
+    env_api_key: str | None = None
+    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
+        if not is_gepa:
+            env_api_key = ensure_container_auth()
+    return signer_configured, env_api_key
+
+
 def build_prompt_learning_payload(
     *,
     config_path: Path,
@@ -266,23 +340,28 @@ def build_prompt_learning_payload(
             raise click.ClickException(
                 "GEPA config missing: [prompt_learning.gepa] section is required"
             )
-        if not pl_cfg.gepa.evaluation:
-            raise click.ClickException(
-                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
+        train_seeds = None
+        val_seeds = None
+        if pl_cfg.gepa.evaluation:
+            train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(
+                pl_cfg.gepa.evaluation, "seeds", None
             )
-        train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(
-            pl_cfg.gepa.evaluation, "seeds", None
-        )
+            val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(
+                pl_cfg.gepa.evaluation, "validation_seeds", None
+            )
+        task_data = (raw_config.get("prompt_learning") or {}).get("task_data", {})
+        if isinstance(task_data, dict):
+            if not train_seeds:
+                train_seeds = _extract_train_seeds_from_task_data(task_data)
+            if not val_seeds:
+                val_seeds = _extract_val_seeds_from_task_data(task_data)
         if not train_seeds:
             raise click.ClickException(
-                "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+                "GEPA config missing train seeds: provide prompt_learning.task_data.train_pools.{reflection_seeds,pareto_seeds} or prompt_learning.gepa.evaluation.seeds"
             )
-        val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(
-            pl_cfg.gepa.evaluation, "validation_seeds", None
-        )
         if not val_seeds:
             raise click.ClickException(
-                "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+                "GEPA config missing validation seeds: provide prompt_learning.task_data.validation_seeds or prompt_learning.gepa.evaluation.validation_seeds"
             )
 
     candidate_task_url = (
@@ -290,31 +369,15 @@ def build_prompt_learning_payload(
         or (pl_cfg.container_url or "").strip()
         or (os.environ.get("CONTAINER_URL") or "").strip()
     )
-    env_api_key: str | None = None
-    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
-        env_api_key = ensure_container_auth()
+    is_gepa = pl_cfg.algorithm == "gepa"
+    signer_configured, env_api_key = _validate_gepa_container_auth(candidate_task_url, is_gepa)
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
     _default_verifier_backend_base(config_dict, overrides)
-    container_id_present = bool((pl_cfg.container_id or "").strip())
 
-    if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
-        raise click.ClickException(
-            "Rust core payload builder unavailable. synth_ai_py is required; no Python strict."
-        )
-    try:
-        payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(
-            config_dict, task_url, overrides
-        )
-        return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
-    except Exception as exc:
-        msg = str(exc)
-        if not (
-            container_id_present
-            and ("container_url is required" in msg or "prompt_learning.container_url" in msg)
-        ):
-            raise click.ClickException(msg) from exc
+    # Canonical path: build payload in Python to avoid requiring legacy policy fields.
+    # We intentionally do not route through synth_ai_py.build_prompt_learning_payload().
 
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("CONTAINER_URL")
@@ -362,6 +425,7 @@ def build_prompt_learning_payload(
         "yes",
         "on",
     }
+    skip_container_key = skip_container_key or signer_configured or is_gepa
     _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "container_api_key",
         cli_value=cli_api_key,
@@ -381,8 +445,7 @@ def build_prompt_learning_payload(
         # Spec-compliant behavior: container auth is server-resolved and must not
         # be embedded in job payloads.
 
-        # GEPA: Extract train_seeds from nested structure for compatibility removed
-        # Backend checks for train_seeds at top level before parsing nested structure
+        # GEPA canonical seed surface is task_data / gepa.evaluation only.
         if pl_cfg.algorithm == "gepa" and pl_cfg.gepa:
             # Try to get train_seeds directly from the gepa config object first
             train_seeds = None
@@ -414,11 +477,13 @@ def build_prompt_learning_payload(
                     # Update gepa_section back to pl_section in case we converted it
                     pl_section["gepa"] = gepa_section
 
-            # Add train_seeds to top level for compatibility removed
-            if train_seeds and not pl_section.get("train_seeds"):
-                pl_section["train_seeds"] = train_seeds
-            if train_seeds and not pl_section.get("evaluation_seeds"):
-                pl_section["evaluation_seeds"] = train_seeds
+            # Preferred shape: task_data.train_pools
+            if not train_seeds and isinstance(pl_section, dict):
+                task_data = pl_section.get("task_data")
+                if isinstance(task_data, dict):
+                    train_seeds = _extract_train_seeds_from_task_data(task_data)
+
+            # Canonical-only: do not shadow seeds into deprecated top-level aliases.
 
         if pl_cfg.algorithm == "mipro":
             _normalize_mipro_section(pl_cfg, config_dict, source="pre-merge", prefer_model=True)
@@ -431,9 +496,7 @@ def build_prompt_learning_payload(
         config_dict["prompt_learning"] = replacement
 
     # Build payload matching backend API format
-    # Extract nested overrides if present, otherwise use flat overrides directly
-    # The experiment queue passes flat overrides like {"prompt_learning.policy.model": "..."}
-    # But some SDK code passes nested like {"overrides": {"prompt_learning.policy.model": "..."}}
+    # Extract nested overrides if present, otherwise use flat overrides directly.
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
     _assert_no_forbidden_container_auth_overrides(config_overrides)
     # Remove non-override keys (backend, task_url, metadata, auto_start)
@@ -442,6 +505,19 @@ def build_prompt_learning_payload(
         for k, v in config_overrides.items()
         if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
     }
+
+    forbidden_legacy_override_prefixes = (
+        "prompt_learning.policy.",
+        "policy_optimization.",
+    )
+    forbidden_legacy_override_exact = {"prompt_learning.policy", "policy_optimization"}
+    for override_key in list(config_overrides.keys()):
+        if override_key in forbidden_legacy_override_exact or override_key.startswith(
+            forbidden_legacy_override_prefixes
+        ):
+            raise click.ClickException(
+                f"Legacy override '{override_key}' is no longer supported; use canonical prompt_learning fields only."
+            )
 
     # CRITICAL: Merge overrides into config_dict BEFORE sending to backend
     # This ensures early validation in backend sees merged values
@@ -456,7 +532,7 @@ def build_prompt_learning_payload(
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)
 
-    # ASSERT: Verify critical overrides are reflected in config_body
+    # ASSERT: Verify critical overrides are reflected in config payload
     pl_section_in_dict = config_dict.get("prompt_learning", {})
     if config_overrides:
         # Check rollout budget override
@@ -476,34 +552,6 @@ def build_prompt_learning_payload(
                     "This indicates the override wasn't applied correctly.",
                 )
 
-        # Check model override
-        model_key = "prompt_learning.policy.model"
-        if model_key in config_overrides:
-            expected_model = config_overrides[model_key]
-            policy_section = pl_section_in_dict.get("policy", {})
-            actual_model = policy_section.get("model") if isinstance(policy_section, dict) else None
-            if actual_model is not None:
-                _require(
-                    actual_model == expected_model,
-                    f"Model mismatch: config_body has {actual_model} but override specifies {expected_model}. "
-                    "This indicates the override wasn't applied correctly.",
-                )
-
-        # Check provider override
-        provider_key = "prompt_learning.policy.provider"
-        if provider_key in config_overrides:
-            expected_provider = config_overrides[provider_key]
-            policy_section = pl_section_in_dict.get("policy", {})
-            actual_provider = (
-                policy_section.get("provider") if isinstance(policy_section, dict) else None
-            )
-            if actual_provider is not None:
-                _require(
-                    actual_provider == expected_provider,
-                    f"Provider mismatch: config_body has {actual_provider} but override specifies {expected_provider}. "
-                    "This indicates the override wasn't applied correctly.",
-                )
-
     # FINAL CHECK: Ensure config_body has correct structure for backend
     # Backend expects: {"prompt_learning": {...}} (full TOML structure)
     if "prompt_learning" not in config_dict:
@@ -512,7 +560,17 @@ def build_prompt_learning_payload(
         )
 
     payload: dict[str, Any] = {
-        "algorithm": pl_cfg.algorithm,
+        "job_kind": "optimization",
+        "algorithm_name": pl_cfg.algorithm,
+        "execution_mode": _resolve_execution_mode(config_dict, pl_cfg),
+        "config_schema_version": (
+            (
+                config_dict.get("prompt_learning", {}).get("config_schema_version")
+                if isinstance(config_dict.get("prompt_learning"), dict)
+                else None
+            )
+            or "v2"
+        ),
         "config_body": config_dict,
         "overrides": config_overrides,
         "metadata": overrides.get("metadata", {}),
@@ -558,8 +616,15 @@ def build_prompt_learning_payload_from_mapping(
         ...         "prompt_learning": {
         ...             "algorithm": "gepa",
         ...             "container_url": "https://tunnel.example.com",
-        ...             "policy": {"model": "gpt-4o-mini", "provider": "openai"},
-        ...             "gepa": {...},
+        ...             "task_data": {
+        ...                 "split": "train",
+        ...                 "train_pools": {"reflection_seeds": [0], "pareto_seeds": []},
+        ...                 "validation_seeds": [1],
+        ...             },
+        ...             "gepa": {
+        ...                 "initial_candidate": {"stages": [...]},
+        ...                 "termination_conditions": {"total_rollouts": 20},
+        ...             },
         ...         }
         ...     },
         ...     task_url=None,
@@ -595,23 +660,28 @@ def build_prompt_learning_payload_from_mapping(
             raise click.ClickException(
                 "GEPA config missing: [prompt_learning.gepa] section is required"
             )
-        if not pl_cfg.gepa.evaluation:
-            raise click.ClickException(
-                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
+        train_seeds = None
+        val_seeds = None
+        if pl_cfg.gepa.evaluation:
+            train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(
+                pl_cfg.gepa.evaluation, "seeds", None
             )
-        train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(
-            pl_cfg.gepa.evaluation, "seeds", None
-        )
+            val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(
+                pl_cfg.gepa.evaluation, "validation_seeds", None
+            )
+        task_data = (raw_config.get("prompt_learning") or {}).get("task_data", {})
+        if isinstance(task_data, dict):
+            if not train_seeds:
+                train_seeds = _extract_train_seeds_from_task_data(task_data)
+            if not val_seeds:
+                val_seeds = _extract_val_seeds_from_task_data(task_data)
         if not train_seeds:
             raise click.ClickException(
-                "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+                "GEPA config missing train seeds: provide prompt_learning.task_data.train_pools.{reflection_seeds,pareto_seeds} or prompt_learning.gepa.evaluation.seeds"
             )
-        val_seeds = getattr(pl_cfg.gepa.evaluation, "val_seeds", None) or getattr(
-            pl_cfg.gepa.evaluation, "validation_seeds", None
-        )
         if not val_seeds:
             raise click.ClickException(
-                "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+                "GEPA config missing validation seeds: provide prompt_learning.task_data.validation_pools.main_seeds (or validation_seeds) or prompt_learning.gepa.evaluation.validation_seeds"
             )
 
     candidate_task_url = (
@@ -619,31 +689,15 @@ def build_prompt_learning_payload_from_mapping(
         or (pl_cfg.container_url or "").strip()
         or (os.environ.get("CONTAINER_URL") or "").strip()
     )
-    env_api_key: str | None = None
-    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
-        env_api_key = ensure_container_auth()
+    is_gepa = pl_cfg.algorithm == "gepa"
+    signer_configured, env_api_key = _validate_gepa_container_auth(candidate_task_url, is_gepa)
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
     _default_verifier_backend_base(config_dict, overrides)
-    container_id_present = bool((pl_cfg.container_id or "").strip())
 
-    if synth_ai_py is None or not hasattr(synth_ai_py, "build_prompt_learning_payload"):
-        raise click.ClickException(
-            "Rust core payload builder unavailable. synth_ai_py is required; no Python strict."
-        )
-    try:
-        payload, resolved_task_url = synth_ai_py.build_prompt_learning_payload(
-            config_dict, task_url, overrides
-        )
-        return PromptLearningBuildResult(payload=payload, task_url=resolved_task_url)
-    except Exception as exc:
-        msg = str(exc)
-        if not (
-            container_id_present
-            and ("container_url is required" in msg or "prompt_learning.container_url" in msg)
-        ):
-            raise click.ClickException(msg) from exc
+    # Canonical path: build payload in Python to avoid requiring legacy policy fields.
+    # We intentionally do not route through synth_ai_py.build_prompt_learning_payload().
 
     cli_task_url = overrides.get("task_url") or task_url
     env_task_url = os.environ.get("CONTAINER_URL")
@@ -686,6 +740,7 @@ def build_prompt_learning_payload_from_mapping(
         "yes",
         "on",
     }
+    skip_container_key = skip_container_key or signer_configured or is_gepa
     _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
         "container_api_key",
         cli_value=cli_api_key,
@@ -712,6 +767,10 @@ def build_prompt_learning_payload_from_mapping(
                 train_seeds = getattr(pl_cfg.gepa.evaluation, "train_seeds", None) or getattr(
                     pl_cfg.gepa.evaluation, "seeds", None
                 )
+            if not train_seeds:
+                task_data = pl_section.get("task_data")
+                if isinstance(task_data, dict):
+                    train_seeds = _extract_train_seeds_from_task_data(task_data)
 
             if train_seeds and not pl_section.get("train_seeds"):
                 pl_section["train_seeds"] = train_seeds
@@ -755,7 +814,17 @@ def build_prompt_learning_payload_from_mapping(
         )
 
     payload: dict[str, Any] = {
-        "algorithm": pl_cfg.algorithm,
+        "job_kind": "optimization",
+        "algorithm_name": pl_cfg.algorithm,
+        "execution_mode": _resolve_execution_mode(config_dict, pl_cfg),
+        "config_schema_version": (
+            (
+                config_dict.get("prompt_learning", {}).get("config_schema_version")
+                if isinstance(config_dict.get("prompt_learning"), dict)
+                else None
+            )
+            or "v2"
+        ),
         "config_body": config_dict,
         "overrides": config_overrides,
         "metadata": overrides.get("metadata", {}),

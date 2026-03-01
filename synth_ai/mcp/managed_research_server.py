@@ -318,6 +318,53 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_run,
             ),
             ToolDefinition(
+                name="smr_get_actor_status",
+                description="Fetch unified actor status (orchestrator + workers) for a project.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {
+                            "type": "string",
+                            "description": "Optional run id filter.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_actor_status,
+            ),
+            ToolDefinition(
+                name="smr_control_actor",
+                description="Pause or resume an orchestrator/worker actor within a run.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "actor_id": {
+                            "type": "string",
+                            "description": "Actor id (orchestrator or worker id).",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["pause", "resume"],
+                            "description": "Control action.",
+                        },
+                        "reason": {"type": "string", "description": "Optional operator reason."},
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key for retries.",
+                        },
+                    },
+                    required=["project_id", "run_id", "actor_id", "action"],
+                ),
+                handler=self._tool_control_actor,
+            ),
+            ToolDefinition(
                 name="smr_pause_run",
                 description="Pause a run.",
                 input_schema=_tool_schema(
@@ -814,6 +861,31 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_run(run_id, project_id=project_id)
 
+    def _tool_get_actor_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _optional_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_actor_status(project_id, run_id=run_id)
+
+    def _tool_control_actor(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _require_string(args, "run_id")
+        actor_id = _require_string(args, "actor_id")
+        action = _require_string(args, "action")
+        if action not in {"pause", "resume"}:
+            raise ValueError("'action' must be 'pause' or 'resume'")
+        reason = _optional_string(args, "reason")
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return client.control_actor(
+                project_id,
+                run_id,
+                actor_id,
+                action=action,  # type: ignore[arg-type]
+                reason=reason,
+                idempotency_key=idempotency_key,
+            )
+
     def _tool_pause_run(self, args: JSONDict) -> Any:
         run_id = _require_string(args, "run_id")
         with self._client_from_args(args) as client:
@@ -1091,7 +1163,9 @@ class ManagedResearchMcpServer:
             return _jsonrpc_error(request_id, -32603, f"Internal error: {exc}")
 
 
-def _jsonrpc_error(request_id: Any, code: int, message: str, *, data: Any | None = None) -> JSONDict:
+def _jsonrpc_error(
+    request_id: Any, code: int, message: str, *, data: Any | None = None
+) -> JSONDict:
     error: JSONDict = {"code": code, "message": message}
     if data is not None:
         error["data"] = data
@@ -1172,7 +1246,9 @@ def run_stdio_server() -> None:
         request_id = message.get("id")
 
         if isinstance(method, str) and request_id is None:
-            server.handle_notification(method, message.get("params") if isinstance(message.get("params"), dict) else None)
+            server.handle_notification(
+                method, message.get("params") if isinstance(message.get("params"), dict) else None
+            )
             continue
 
         if isinstance(method, str):

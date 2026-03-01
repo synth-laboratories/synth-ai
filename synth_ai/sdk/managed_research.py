@@ -10,7 +10,7 @@ import mimetypes
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 import httpx
 
@@ -27,8 +27,18 @@ __all__ = [
     "ACTIVE_RUN_STATES",
     "DEFAULT_TIMEOUT_SECONDS",
     "ManagedResearchClient",
+    "SmrActorStatus",
     "SmrApiError",
+    "SmrApproval",
+    "SmrArtifact",
+    "SmrCapabilities",
     "SmrControlClient",
+    "SmrProject",
+    "SmrProjectStatusSnapshot",
+    "SmrQuestion",
+    "SmrRun",
+    "SmrRunEconomics",
+    "SmrRunLogArchive",
     "first_id",
 ]
 
@@ -88,6 +98,380 @@ def _coerce_list(data: Any, *, label: str) -> list[dict[str, Any]]:
     raise SmrApiError(f"Expected list response for {label}, received {type(data).__name__}")
 
 
+def _coerce_dict(data: Any, *, label: str) -> dict[str, Any]:
+    if isinstance(data, dict):
+        return data
+    raise SmrApiError(f"Expected object response for {label}, received {type(data).__name__}")
+
+
+@dataclass(frozen=True)
+class SmrProject:
+    project_id: str
+    org_id: str | None
+    name: str | None
+    archived: bool | None
+    created_at: str | None
+    updated_at: str | None
+    onboarding_state: dict[str, Any]
+    execution: dict[str, Any]
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrProject:
+        return cls(
+            project_id=str(payload.get("project_id") or ""),
+            org_id=(str(payload.get("org_id")) if payload.get("org_id") is not None else None),
+            name=(str(payload.get("name")) if payload.get("name") is not None else None),
+            archived=(
+                bool(payload.get("archived")) if payload.get("archived") is not None else None
+            ),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            updated_at=(
+                str(payload.get("updated_at")) if payload.get("updated_at") is not None else None
+            ),
+            onboarding_state=dict(payload.get("onboarding_state") or {}),
+            execution=dict(payload.get("execution") or {}),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrRun:
+    run_id: str
+    org_id: str | None
+    project_id: str | None
+    trigger: str | None
+    state: str | None
+    created_at: str | None
+    started_at: str | None
+    finished_at: str | None
+    status_detail: dict[str, Any]
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrRun:
+        return cls(
+            run_id=str(payload.get("run_id") or ""),
+            org_id=(str(payload.get("org_id")) if payload.get("org_id") is not None else None),
+            project_id=(
+                str(payload.get("project_id")) if payload.get("project_id") is not None else None
+            ),
+            trigger=(str(payload.get("trigger")) if payload.get("trigger") is not None else None),
+            state=(str(payload.get("state")) if payload.get("state") is not None else None),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            started_at=(
+                str(payload.get("started_at")) if payload.get("started_at") is not None else None
+            ),
+            finished_at=(
+                str(payload.get("finished_at")) if payload.get("finished_at") is not None else None
+            ),
+            status_detail=dict(payload.get("status_detail") or {}),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrQuestion:
+    question_id: str
+    run_id: str
+    project_id: str
+    status: str
+    prompt: str
+    metadata: dict[str, Any]
+    response_text: str | None
+    created_at: str | None
+    responded_at: str | None
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrQuestion:
+        return cls(
+            question_id=str(payload.get("question_id") or ""),
+            run_id=str(payload.get("run_id") or ""),
+            project_id=str(payload.get("project_id") or ""),
+            status=str(payload.get("status") or ""),
+            prompt=str(payload.get("prompt") or ""),
+            metadata=dict(payload.get("metadata") or {}),
+            response_text=(
+                str(payload.get("response_text"))
+                if payload.get("response_text") is not None
+                else None
+            ),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            responded_at=(
+                str(payload.get("responded_at"))
+                if payload.get("responded_at") is not None
+                else None
+            ),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrApproval:
+    approval_id: str
+    run_id: str
+    project_id: str
+    kind: str
+    status: str
+    title: str | None
+    body: str | None
+    metadata: dict[str, Any]
+    created_at: str | None
+    resolved_at: str | None
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrApproval:
+        return cls(
+            approval_id=str(payload.get("approval_id") or ""),
+            run_id=str(payload.get("run_id") or ""),
+            project_id=str(payload.get("project_id") or ""),
+            kind=str(payload.get("kind") or ""),
+            status=str(payload.get("status") or ""),
+            title=(str(payload.get("title")) if payload.get("title") is not None else None),
+            body=(str(payload.get("body")) if payload.get("body") is not None else None),
+            metadata=dict(payload.get("metadata") or {}),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            resolved_at=(
+                str(payload.get("resolved_at")) if payload.get("resolved_at") is not None else None
+            ),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrArtifact:
+    artifact_id: str
+    run_id: str
+    project_id: str
+    artifact_type: str
+    title: str | None
+    uri: str | None
+    digest: str | None
+    metadata: dict[str, Any]
+    created_at: str | None
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrArtifact:
+        return cls(
+            artifact_id=str(payload.get("artifact_id") or ""),
+            run_id=str(payload.get("run_id") or ""),
+            project_id=str(payload.get("project_id") or ""),
+            artifact_type=str(payload.get("artifact_type") or ""),
+            title=(str(payload.get("title")) if payload.get("title") is not None else None),
+            uri=(str(payload.get("uri")) if payload.get("uri") is not None else None),
+            digest=(str(payload.get("digest")) if payload.get("digest") is not None else None),
+            metadata=dict(payload.get("metadata") or {}),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrActorStatus:
+    actor_id: str
+    actor_type: str
+    project_id: str
+    run_id: str
+    state: str
+    phase: str | None
+    task_id: str | None
+    task_key: str | None
+    updated_at: str | None
+    last_heartbeat_at: str | None
+    paused_at: str | None
+    error_summary: str | None
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrActorStatus:
+        return cls(
+            actor_id=str(payload.get("actor_id") or ""),
+            actor_type=str(payload.get("actor_type") or ""),
+            project_id=str(payload.get("project_id") or ""),
+            run_id=str(payload.get("run_id") or ""),
+            state=str(payload.get("state") or ""),
+            phase=(str(payload.get("phase")) if payload.get("phase") is not None else None),
+            task_id=(str(payload.get("task_id")) if payload.get("task_id") is not None else None),
+            task_key=(
+                str(payload.get("task_key")) if payload.get("task_key") is not None else None
+            ),
+            updated_at=(
+                str(payload.get("updated_at")) if payload.get("updated_at") is not None else None
+            ),
+            last_heartbeat_at=(
+                str(payload.get("last_heartbeat_at"))
+                if payload.get("last_heartbeat_at") is not None
+                else None
+            ),
+            paused_at=(
+                str(payload.get("paused_at")) if payload.get("paused_at") is not None else None
+            ),
+            error_summary=(
+                str(payload.get("error_summary"))
+                if payload.get("error_summary") is not None
+                else None
+            ),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrRunLogArchive:
+    log_archive_id: str
+    run_id: str
+    project_id: str
+    storage_backend: str | None
+    record_count: int
+    session_count: int
+    created_at: str | None
+    metadata: dict[str, Any]
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrRunLogArchive:
+        return cls(
+            log_archive_id=str(payload.get("log_archive_id") or ""),
+            run_id=str(payload.get("run_id") or ""),
+            project_id=str(payload.get("project_id") or ""),
+            storage_backend=(
+                str(payload.get("storage_backend"))
+                if payload.get("storage_backend") is not None
+                else None
+            ),
+            record_count=int(payload.get("record_count") or 0),
+            session_count=int(payload.get("session_count") or 0),
+            created_at=(
+                str(payload.get("created_at")) if payload.get("created_at") is not None else None
+            ),
+            metadata=dict(payload.get("metadata") or {}),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrRunEconomics:
+    run_id: str
+    org_id: str | None
+    project_id: str | None
+    summary: dict[str, Any]
+    spend_entries: list[dict[str, Any]]
+    egress_events: list[dict[str, Any]]
+    trace_artifact: dict[str, Any] | None
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrRunEconomics:
+        return cls(
+            run_id=str(payload.get("run_id") or ""),
+            org_id=(str(payload.get("org_id")) if payload.get("org_id") is not None else None),
+            project_id=(
+                str(payload.get("project_id")) if payload.get("project_id") is not None else None
+            ),
+            summary=dict(payload.get("summary") or {}),
+            spend_entries=list(payload.get("spend_entries") or []),
+            egress_events=list(payload.get("egress_events") or []),
+            trace_artifact=(
+                dict(payload.get("trace_artifact"))
+                if isinstance(payload.get("trace_artifact"), dict)
+                else None
+            ),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrCapabilities:
+    supports_project_scoped_runs: bool
+    supports_run_list_filters: bool
+    supports_run_list_cursor: bool
+    supports_project_status_snapshot: bool
+    supports_unified_actor_status: bool
+    actor_status_schema_version: str | None
+    supports_actor_control: bool
+    supports_encrypted_provider_keys: bool
+    supports_run_economics: bool
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrCapabilities:
+        return cls(
+            supports_project_scoped_runs=bool(payload.get("supports_project_scoped_runs")),
+            supports_run_list_filters=bool(payload.get("supports_run_list_filters")),
+            supports_run_list_cursor=bool(payload.get("supports_run_list_cursor")),
+            supports_project_status_snapshot=bool(payload.get("supports_project_status_snapshot")),
+            supports_unified_actor_status=bool(payload.get("supports_unified_actor_status")),
+            actor_status_schema_version=(
+                str(payload.get("actor_status_schema_version"))
+                if payload.get("actor_status_schema_version") is not None
+                else None
+            ),
+            supports_actor_control=bool(payload.get("supports_actor_control")),
+            supports_encrypted_provider_keys=bool(payload.get("supports_encrypted_provider_keys")),
+            supports_run_economics=bool(payload.get("supports_run_economics")),
+            raw=dict(payload),
+        )
+
+
+@dataclass(frozen=True)
+class SmrProjectStatusSnapshot:
+    project_id: str
+    state: str | None
+    active_run_id: str | None
+    active_run_state: str | None
+    active_runs: list[dict[str, Any]]
+    active_actor_summaries: list[dict[str, Any]]
+    queue_backlog_counts: dict[str, int]
+    raw: dict[str, Any] = field(repr=False)
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> SmrProjectStatusSnapshot:
+        queue_counts_raw = payload.get("queue_backlog_counts")
+        queue_counts: dict[str, int] = {}
+        if isinstance(queue_counts_raw, dict):
+            queue_counts = {
+                str(key): int(value)
+                for key, value in queue_counts_raw.items()
+                if key is not None and value is not None
+            }
+        return cls(
+            project_id=str(payload.get("project_id") or ""),
+            state=(str(payload.get("state")) if payload.get("state") is not None else None),
+            active_run_id=(
+                str(payload.get("active_run_id"))
+                if payload.get("active_run_id") is not None
+                else None
+            ),
+            active_run_state=(
+                str(payload.get("active_run_state"))
+                if payload.get("active_run_state") is not None
+                else None
+            ),
+            active_runs=[
+                item for item in list(payload.get("active_runs") or []) if isinstance(item, dict)
+            ],
+            active_actor_summaries=[
+                item
+                for item in list(payload.get("active_actor_summaries") or [])
+                if isinstance(item, dict)
+            ],
+            queue_backlog_counts=queue_counts,
+            raw=dict(payload),
+        )
+
+
 @dataclass
 class SmrControlClient:
     """SMR control-plane client with compatibility stricts."""
@@ -144,22 +528,86 @@ class SmrControlClient:
     def create_project(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request_json("POST", "/smr/projects", json_body=payload)
 
-    def list_projects(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
+    def list_projects(
+        self,
+        *,
+        include_archived: bool = False,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "include_archived": int(include_archived),
+            "limit": int(limit),
+        }
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         data = self._request_json(
             "GET",
             "/smr/projects",
-            params={"include_archived": int(include_archived)},
+            params=params,
         )
         return _coerce_list(data, label="list_projects")
 
+    def list_projects_typed(
+        self,
+        *,
+        include_archived: bool = False,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[SmrProject]:
+        return [
+            SmrProject.from_dict(item)
+            for item in self.list_projects(
+                include_archived=include_archived,
+                created_after=created_after,
+                created_before=created_before,
+                limit=limit,
+                cursor=cursor,
+            )
+        ]
+
     def get_project(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}")
+
+    def get_project_typed(self, project_id: str) -> SmrProject:
+        return SmrProject.from_dict(_coerce_dict(self.get_project(project_id), label="get_project"))
 
     def patch_project(self, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request_json("PATCH", f"/smr/projects/{project_id}", json_body=payload)
 
     def get_project_status(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/status")
+
+    def get_project_status_snapshot(self, project_id: str) -> dict[str, Any]:
+        """Polling-friendly project status snapshot."""
+        return self.get_project_status(project_id)
+
+    def get_project_status_snapshot_typed(self, project_id: str) -> SmrProjectStatusSnapshot:
+        payload = _coerce_dict(
+            self.get_project_status_snapshot(project_id), label="get_project_status_snapshot"
+        )
+        return SmrProjectStatusSnapshot.from_dict(payload)
+
+    def get_project_entitlement(self, project_id: str) -> dict[str, Any]:
+        return self._request_json(
+            "GET", f"/smr/projects/{project_id}/entitlements/managed_research"
+        )
+
+    def get_capabilities(self) -> dict[str, Any]:
+        return self._request_json("GET", "/smr/capabilities")
+
+    def get_capabilities_typed(self) -> SmrCapabilities:
+        return SmrCapabilities.from_dict(
+            _coerce_dict(self.get_capabilities(), label="get_capabilities")
+        )
 
     def pause_project(self, project_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/projects/{project_id}/pause")
@@ -250,7 +698,9 @@ class SmrControlClient:
             )
         return response.json() if response.content else {}
 
-    def provider_key_status(self, project_id: str, provider: str, funding_source: str) -> dict[str, Any]:
+    def provider_key_status(
+        self, project_id: str, provider: str, funding_source: str
+    ) -> dict[str, Any]:
         funding_source_norm = _normalize_provider_funding_source(funding_source)
         return self._request_json(
             "GET",
@@ -372,13 +822,21 @@ class SmrControlClient:
                     raise SmrApiError("starting-data upload item missing path or upload_url")
                 payload = file_payloads.get(path)
                 if payload is None:
-                    raise SmrApiError(f"starting-data upload response returned unknown path '{path}'")
+                    raise SmrApiError(
+                        f"starting-data upload response returned unknown path '{path}'"
+                    )
                 payload_source, content_type = payload
-                content_bytes = payload_source.read_bytes() if isinstance(payload_source, Path) else payload_source
+                content_bytes = (
+                    payload_source.read_bytes()
+                    if isinstance(payload_source, Path)
+                    else payload_source
+                )
                 headers: dict[str, str] = {}
                 if content_type:
                     headers["Content-Type"] = content_type
-                response = upload_client.put(upload_url, content=content_bytes, headers=headers or None)
+                response = upload_client.put(
+                    upload_url, content=content_bytes, headers=headers or None
+                )
                 if response.status_code >= 400:
                     snippet = response.text[:500] if response.text else ""
                     raise SmrApiError(
@@ -506,7 +964,65 @@ class SmrControlClient:
             return []
         return _coerce_list(canonical, label="canonical_list_runs")
 
+    def list_runs_typed(self, project_id: str) -> list[SmrRun]:
+        return [SmrRun.from_dict(item) for item in self.list_runs(project_id)]
+
+    def list_project_runs(
+        self,
+        project_id: str,
+        *,
+        state: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List runs for a project with optional query filters."""
+        params: dict[str, Any] = {}
+        if state:
+            params["state"] = state
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        params["limit"] = int(limit)
+        if cursor:
+            params["cursor"] = cursor
+        data = self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/runs",
+            params=params or None,
+        )
+        return _coerce_list(data, label="list_project_runs")
+
+    def list_project_runs_typed(
+        self,
+        project_id: str,
+        *,
+        state: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> list[SmrRun]:
+        rows = self.list_project_runs(
+            project_id,
+            state=state,
+            created_after=created_after,
+            created_before=created_before,
+            limit=limit,
+            cursor=cursor,
+        )
+        return [SmrRun.from_dict(item) for item in rows]
+
     def list_active_runs(self, project_id: str) -> list[dict[str, Any]]:
+        scoped = self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/runs/active",
+            allow_not_found=True,
+        )
+        if scoped is not None:
+            return _coerce_list(scoped, label="project_scoped_list_active_runs")
         runs = self.list_runs(project_id)
         out: list[dict[str, Any]] = []
         for run in runs:
@@ -514,6 +1030,25 @@ class SmrControlClient:
             if state in ACTIVE_RUN_STATES:
                 out.append(run)
         return out
+
+    def get_actor_status(self, project_id: str, *, run_id: str | None = None) -> dict[str, Any]:
+        params = {"run_id": run_id} if run_id else None
+        return self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/actors/status",
+            params=params,
+        )
+
+    def get_actor_status_typed(
+        self, project_id: str, *, run_id: str | None = None
+    ) -> list[SmrActorStatus]:
+        payload = _coerce_dict(
+            self.get_actor_status(project_id, run_id=run_id), label="get_actor_status"
+        )
+        actor_rows = payload.get("actors")
+        if not isinstance(actor_rows, list):
+            raise SmrApiError("Expected get_actor_status response to include an 'actors' list")
+        return [SmrActorStatus.from_dict(row) for row in actor_rows if isinstance(row, dict)]
 
     def get_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
         if project_id:
@@ -526,36 +1061,234 @@ class SmrControlClient:
                 return scoped
         return self._request_json("GET", f"/smr/runs/{run_id}")
 
+    def get_run_typed(self, run_id: str, *, project_id: str | None = None) -> SmrRun:
+        return SmrRun.from_dict(
+            _coerce_dict(self.get_run(run_id, project_id=project_id), label="get_run")
+        )
+
     def pause_run(self, run_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/runs/{run_id}/pause")
 
     def resume_run(self, run_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/runs/{run_id}/resume")
 
+    def create_run_checkpoint(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        checkpoint_id: str | None = None,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if checkpoint_id is not None:
+            payload["checkpoint_id"] = checkpoint_id
+        if reason is not None:
+            payload["reason"] = reason
+        if project_id:
+            scoped = self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/runs/{run_id}/checkpoints",
+                json_body=payload or {},
+                allow_not_found=True,
+            )
+            if scoped is not None:
+                return scoped
+        return self._request_json(
+            "POST",
+            f"/smr/runs/{run_id}/checkpoints",
+            json_body=payload or {},
+        )
+
+    def list_run_checkpoints(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        if project_id:
+            scoped = self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/checkpoints",
+                allow_not_found=True,
+            )
+            if scoped is not None:
+                return _coerce_list(scoped, label="project_scoped_list_run_checkpoints")
+        canonical = self._request_json("GET", f"/smr/runs/{run_id}/checkpoints")
+        return _coerce_list(canonical, label="canonical_list_run_checkpoints")
+
+    def restore_run_checkpoint(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        checkpoint_id: str | None = None,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if checkpoint_id is not None:
+            payload["checkpoint_id"] = checkpoint_id
+        if reason is not None:
+            payload["reason"] = reason
+        if project_id:
+            scoped = self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/runs/{run_id}/restore",
+                json_body=payload or {},
+                allow_not_found=True,
+            )
+            if scoped is not None:
+                return scoped
+        return self._request_json(
+            "POST",
+            f"/smr/runs/{run_id}/restore",
+            json_body=payload or {},
+        )
+
     def stop_run(self, run_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/runs/{run_id}/stop")
 
+    def control_actor(
+        self,
+        project_id: str,
+        run_id: str,
+        actor_id: str,
+        *,
+        action: Literal["pause", "resume"],
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"action": action}
+        if reason is not None:
+            payload["reason"] = reason
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_id}/control",
+            json_body=payload,
+        )
+
+    def pause_actor(
+        self,
+        project_id: str,
+        run_id: str,
+        actor_id: str,
+        *,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return self.control_actor(
+            project_id,
+            run_id,
+            actor_id,
+            action="pause",
+            reason=reason,
+            idempotency_key=idempotency_key,
+        )
+
+    def resume_actor(
+        self,
+        project_id: str,
+        run_id: str,
+        actor_id: str,
+        *,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        return self.control_actor(
+            project_id,
+            run_id,
+            actor_id,
+            action="resume",
+            reason=reason,
+            idempotency_key=idempotency_key,
+        )
+
     # Questions + approvals --------------------------------------------
 
-    def list_project_questions(self, project_id: str, *, status_filter: str = "pending") -> list[dict[str, Any]]:
+    def list_project_questions(
+        self,
+        project_id: str,
+        *,
+        status_filter: str = "pending",
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "status_filter": status_filter,
+            "limit": int(limit),
+        }
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         data = self._request_json(
             "GET",
             f"/smr/projects/{project_id}/questions",
-            params={"status_filter": status_filter},
+            params=params,
         )
         return _coerce_list(data, label="list_project_questions")
 
-    def list_run_questions(self, run_id: str, *, project_id: str | None = None) -> list[dict[str, Any]]:
+    def list_run_questions(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        status_filter: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if status_filter:
+            params["status_filter"] = status_filter
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         if project_id:
             scoped = self._request_json(
                 "GET",
                 f"/smr/projects/{project_id}/runs/{run_id}/questions",
+                params=params,
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_list(scoped, label="project_scoped_list_run_questions")
-        canonical = self._request_json("GET", f"/smr/runs/{run_id}/questions")
+        canonical = self._request_json("GET", f"/smr/runs/{run_id}/questions", params=params)
         return _coerce_list(canonical, label="canonical_list_run_questions")
+
+    def list_run_questions_typed(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        status_filter: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[SmrQuestion]:
+        return [
+            SmrQuestion.from_dict(item)
+            for item in self.list_run_questions(
+                run_id,
+                project_id=project_id,
+                status_filter=status_filter,
+                created_after=created_after,
+                created_before=created_before,
+                limit=limit,
+                cursor=cursor,
+            )
+        ]
 
     def respond_question(
         self,
@@ -567,8 +1300,12 @@ class SmrControlClient:
     ) -> dict[str, Any]:
         payload = {"response_text": response_text}
         if project_id:
-            scoped_path = f"/smr/projects/{project_id}/runs/{run_id}/questions/{question_id}/respond"
-            scoped = self._request_json("POST", scoped_path, json_body=payload, allow_not_found=True)
+            scoped_path = (
+                f"/smr/projects/{project_id}/runs/{run_id}/questions/{question_id}/respond"
+            )
+            scoped = self._request_json(
+                "POST", scoped_path, json_body=payload, allow_not_found=True
+            )
             if scoped is not None:
                 return scoped
         return self._request_json(
@@ -577,25 +1314,88 @@ class SmrControlClient:
             json_body=payload,
         )
 
-    def list_project_approvals(self, project_id: str, *, status_filter: str = "pending") -> list[dict[str, Any]]:
+    def list_project_approvals(
+        self,
+        project_id: str,
+        *,
+        status_filter: str = "pending",
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "status_filter": status_filter,
+            "limit": int(limit),
+        }
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         data = self._request_json(
             "GET",
             f"/smr/projects/{project_id}/approvals",
-            params={"status_filter": status_filter},
+            params=params,
         )
         return _coerce_list(data, label="list_project_approvals")
 
-    def list_run_approvals(self, run_id: str, *, project_id: str | None = None) -> list[dict[str, Any]]:
+    def list_run_approvals(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        status_filter: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if status_filter:
+            params["status_filter"] = status_filter
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         if project_id:
             scoped = self._request_json(
                 "GET",
                 f"/smr/projects/{project_id}/runs/{run_id}/approvals",
+                params=params,
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_list(scoped, label="project_scoped_list_run_approvals")
-        canonical = self._request_json("GET", f"/smr/runs/{run_id}/approvals")
+        canonical = self._request_json("GET", f"/smr/runs/{run_id}/approvals", params=params)
         return _coerce_list(canonical, label="canonical_list_run_approvals")
+
+    def list_run_approvals_typed(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        status_filter: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[SmrApproval]:
+        return [
+            SmrApproval.from_dict(item)
+            for item in self.list_run_approvals(
+                run_id,
+                project_id=project_id,
+                status_filter=status_filter,
+                created_after=created_after,
+                created_before=created_before,
+                limit=limit,
+                cursor=cursor,
+            )
+        ]
 
     def approve(
         self,
@@ -609,8 +1409,12 @@ class SmrControlClient:
         if comment is not None:
             payload["comment"] = comment
         if project_id:
-            scoped_path = f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/approve"
-            scoped = self._request_json("POST", scoped_path, json_body=payload, allow_not_found=True)
+            scoped_path = (
+                f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/approve"
+            )
+            scoped = self._request_json(
+                "POST", scoped_path, json_body=payload, allow_not_found=True
+            )
             if scoped is not None:
                 return scoped
         return self._request_json(
@@ -632,7 +1436,9 @@ class SmrControlClient:
             payload["comment"] = comment
         if project_id:
             scoped_path = f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/deny"
-            scoped = self._request_json("POST", scoped_path, json_body=payload, allow_not_found=True)
+            scoped = self._request_json(
+                "POST", scoped_path, json_body=payload, allow_not_found=True
+            )
             if scoped is not None:
                 return scoped
         return self._request_json(
@@ -643,17 +1449,61 @@ class SmrControlClient:
 
     # Artifacts ---------------------------------------------------------
 
-    def list_run_artifacts(self, run_id: str, *, project_id: str | None = None) -> list[dict[str, Any]]:
+    def list_run_artifacts(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        artifact_type: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if artifact_type:
+            params["artifact_type"] = artifact_type
+        if created_after:
+            params["created_after"] = created_after
+        if created_before:
+            params["created_before"] = created_before
+        if cursor:
+            params["cursor"] = cursor
         if project_id:
             scoped = self._request_json(
                 "GET",
                 f"/smr/projects/{project_id}/runs/{run_id}/artifacts",
+                params=params,
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_list(scoped, label="project_scoped_list_run_artifacts")
-        canonical = self._request_json("GET", f"/smr/runs/{run_id}/artifacts")
+        canonical = self._request_json("GET", f"/smr/runs/{run_id}/artifacts", params=params)
         return _coerce_list(canonical, label="canonical_list_run_artifacts")
+
+    def list_run_artifacts_typed(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        artifact_type: str | None = None,
+        created_after: str | None = None,
+        created_before: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> list[SmrArtifact]:
+        return [
+            SmrArtifact.from_dict(item)
+            for item in self.list_run_artifacts(
+                run_id,
+                project_id=project_id,
+                artifact_type=artifact_type,
+                created_after=created_after,
+                created_before=created_before,
+                limit=limit,
+                cursor=cursor,
+            )
+        ]
 
     def get_artifact(self, artifact_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/artifacts/{artifact_id}")
@@ -697,7 +1547,9 @@ class SmrControlClient:
     def get_usage(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/usage")
 
-    def get_ops_status(self, project_id: str, *, include_done_tasks: bool | None = None) -> dict[str, Any]:
+    def get_ops_status(
+        self, project_id: str, *, include_done_tasks: bool | None = None
+    ) -> dict[str, Any]:
         params: dict[str, Any] = {}
         if include_done_tasks is not None:
             params["include_done_tasks"] = int(include_done_tasks)
@@ -823,6 +1675,31 @@ class SmrControlClient:
             f"/smr/projects/{project_id}/victoria-logs/search",
             params=params,
         )
+
+    def list_run_log_archives(self, project_id: str, run_id: str) -> list[dict[str, Any]]:
+        """List archived run log bundles (admin-scoped backend policy)."""
+        data = self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/runs/{run_id}/logs/archives",
+        )
+        return _coerce_list(data, label="list_run_log_archives")
+
+    def list_run_log_archives_typed(self, project_id: str, run_id: str) -> list[SmrRunLogArchive]:
+        return [
+            SmrRunLogArchive.from_dict(item)
+            for item in self.list_run_log_archives(project_id, run_id)
+        ]
+
+    def get_run_economics(self, run_id: str) -> dict[str, Any]:
+        """Fetch run economics details (admin-scoped backend policy)."""
+        payload = self._request_json(
+            "GET",
+            f"/smr/admin/runs/{run_id}/economics",
+        )
+        return _coerce_dict(payload, label="get_run_economics")
+
+    def get_run_economics_typed(self, run_id: str) -> SmrRunEconomics:
+        return SmrRunEconomics.from_dict(self.get_run_economics(run_id))
 
 
 def first_id(items: Iterable[dict[str, Any]], key: str) -> str | None:

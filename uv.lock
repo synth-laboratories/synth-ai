@@ -411,6 +411,15 @@ wheels = [
 ]
 
 [[package]]
+name = "cloudpickle"
+version = "3.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/fb/576f067976d320f5f0114a8d9fa1215425441bb35627b1993e5afd8111e5/cloudpickle-3.1.2.tar.gz", hash = "sha256:7fda9eb655c9c230dab534f1983763de5835249750e85fbcef43aaa30a9a2414", size = 22330, upload-time = "2025-11-03T09:25:26.604Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl", hash = "sha256:9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a", size = 22228, upload-time = "2025-11-03T09:25:25.534Z" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -691,6 +700,15 @@ wheels = [
 ]
 
 [[package]]
+name = "farama-notifications"
+version = "0.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/2c/8384832b7a6b1fd6ba95bbdcae26e7137bb3eedc955c42fd5cdcc086cfbf/Farama-Notifications-0.0.4.tar.gz", hash = "sha256:13fceff2d14314cf80703c8266462ebf3733c7d165336eee998fc58e545efd18", size = 2131, upload-time = "2023-02-27T18:28:41.047Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/2c/ffc08c54c05cdce6fbed2aeebc46348dbe180c6d2c541c7af7ba0aa5f5f8/Farama_Notifications-0.0.4-py3-none-any.whl", hash = "sha256:14de931035a41961f7c056361dc7f980762a143d05791ef5794a751a2caf05ae", size = 2511, upload-time = "2023-02-27T18:28:39.447Z" },
+]
+
+[[package]]
 name = "fastapi"
 version = "0.128.0"
 source = { registry = "https://pypi.org/simple" }
@@ -943,6 +961,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/3f/12/f4099a141677fcd2ed79dcc1fcec431e60c52e0e90c9c5d935f0ffaf8c0e/groq-1.0.0.tar.gz", hash = "sha256:66cb7bb729e6eb644daac7ce8efe945e99e4eb33657f733ee6f13059ef0c25a9", size = 146068, upload-time = "2025-12-17T23:34:23.115Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/88/3175759d2ef30406ea721f4d837bfa1ba4339fde3b81ba8c5640a96ed231/groq-1.0.0-py3-none-any.whl", hash = "sha256:6e22bf92ffad988f01d2d4df7729add66b8fd5dbfb2154b5bbf3af245b72c731", size = 138292, upload-time = "2025-12-17T23:34:21.957Z" },
+]
+
+[[package]]
+name = "gymnasium"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cloudpickle" },
+    { name = "farama-notifications" },
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4e/12/1047b8fdbfcdce74022048d916e844ad7e6e1114d81d26a7aed657e3a76d/gymnasium-1.0.0.tar.gz", hash = "sha256:9d2b66f30c1b34fe3c2ce7fae65ecf365d0e9982d2b3d860235e773328a3b403", size = 821389, upload-time = "2024-10-08T10:01:02.49Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/85/f5039ce2df5f0789ff1240f08a59f3e8c92e4c5f99543b7aad7388532f7c/gymnasium-1.0.0-py3-none-any.whl", hash = "sha256:b6f40e1e24c5bd419361e1a5b86a9117d2499baecc3a660d44dfff4c465393ad", size = 958120, upload-time = "2024-10-08T10:01:00.337Z" },
 ]
 
 [[package]]
@@ -1623,6 +1656,23 @@ wheels = [
 ]
 
 [[package]]
+name = "nle"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gymnasium" },
+    { name = "numpy" },
+    { name = "pybind11" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/65/e7/b1a358b46e0f293ff1575855b4a1ad35782dcf4a2aa2c3e4d721e1c26878/nle-1.2.0.tar.gz", hash = "sha256:3d033f8f8bc3dfa819886f620f0bc22aa6d09faa25d9aa1e0b09e047a1a9c450", size = 7438688, upload-time = "2025-05-14T07:51:07.843Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/97/f9/411362c99f18c7159c4d2ea5b9ec8c1c18a851e6eb9d669406aa9c5a9348/nle-1.2.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4a7315f9a262bbef7ed58502decad44ba5be18526427884b0d3aef49c407a94c", size = 3053248, upload-time = "2025-05-14T07:50:53.794Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/e9/8c485441ea08ea4ef90d2a8d1a0e84143144f0be63a33cbc241fea66b650/nle-1.2.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ca4b92773c21d02cced445f9bc9127e7548c24145fc5bc9b8eac467198f09955", size = 3102627, upload-time = "2025-05-14T07:50:55.744Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/b1/8e87d1ef99978369e4b9b337ff1d6073cd7daeb2fba4ba28d898d4c33056/nle-1.2.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4e200b20e7666ecc799e126b1d168a88764bc67ed7d6235f5f39b362f266e5d5", size = 3046338, upload-time = "2025-05-14T07:50:57.385Z" },
+    { url = "https://files.pythonhosted.org/packages/75/8f/e89e963cbfd75c07b09e987c334fef04a45a887f9b3ecb61135758415e1a/nle-1.2.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9afea4baf34a229fb30335537f91a1f5e973ac038b3ac4fe24028beacf928492", size = 3097901, upload-time = "2025-05-14T07:50:59.223Z" },
+]
+
+[[package]]
 name = "nodeenv"
 version = "1.10.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2171,6 +2221,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e9/e6/78ebbb10a8c8e4b61a59249394a4a594c1a7af95593dc933a349c8d00964/pyasn1_modules-0.4.2.tar.gz", hash = "sha256:677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6", size = 307892, upload-time = "2025-03-28T02:41:22.17Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/47/8d/d529b5d697919ba8c11ad626e835d4039be708a35b0d22de83a269a6682c/pyasn1_modules-0.4.2-py3-none-any.whl", hash = "sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a", size = 181259, upload-time = "2025-03-28T02:41:19.028Z" },
+]
+
+[[package]]
+name = "pybind11"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/98/9118a0659646f1628c592ef9bb48e0056efa6bf27c951fd12a178e0136fb/pybind11-3.0.2.tar.gz", hash = "sha256:432f01aeb68e361a3a7fc7575c2c7f497595bf640f747acd909ff238dd766e06", size = 577131, upload-time = "2026-02-17T04:46:52.556Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/88/c5/e98d9c51f3d5300d5e40ad9037dd6b3b60736fd02ab68dcc98c96be7592d/pybind11-3.0.2-py3-none-any.whl", hash = "sha256:f8a6500548919cc33bcd220d5f984688326f574fa97f1107f2f4fdb4c6fb019f", size = 310158, upload-time = "2026-02-17T04:46:49.91Z" },
 ]
 
 [[package]]
@@ -2908,7 +2967,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.9.0"
+version = "0.9.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -2919,6 +2978,7 @@ dependencies = [
     { name = "imageio" },
     { name = "jsonschema" },
     { name = "nest-asyncio" },
+    { name = "nle" },
     { name = "numpy" },
     { name = "openai" },
     { name = "pillow" },
@@ -2999,6 +3059,7 @@ requires-dist = [
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "nest-asyncio", marker = "extra == 'dev'", specifier = ">=1.6.0" },
+    { name = "nle" },
     { name = "numpy", specifier = ">=2.2.3" },
     { name = "openai", specifier = ">=1.99.0" },
     { name = "pandas", marker = "extra == 'analytics'", specifier = ">=2.2.3" },

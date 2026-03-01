@@ -47,7 +47,9 @@ def managed_research() -> None:
 @managed_research.command(name="project-status")
 @click.argument("project_id")
 @_connection_options
-def project_status(project_id: str, api_key: str | None, backend_url: str, json_output: bool) -> None:
+def project_status(
+    project_id: str, api_key: str | None, backend_url: str, json_output: bool
+) -> None:
     """Get current status for a managed research project."""
     with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
         _emit(client.get_project_status(project_id), json_output=json_output)
@@ -95,6 +97,23 @@ def runs(
         _emit(payload, json_output=json_output)
 
 
+@managed_research.command(name="actor-status")
+@click.argument("project_id")
+@click.option("--run-id", help="Optional run id filter.")
+@_connection_options
+def actor_status(
+    project_id: str,
+    run_id: str | None,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Get unified actor status for orchestrator and workers."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        payload = client.get_actor_status(project_id, run_id=run_id)
+        _emit(payload, json_output=json_output)
+
+
 @managed_research.command(name="run-action")
 @click.argument("action", type=click.Choice(["pause", "resume", "stop"]))
 @click.argument("run_id")
@@ -114,6 +133,38 @@ def run_action(
             payload = client.resume_run(run_id)
         else:
             payload = client.stop_run(run_id)
+        _emit(payload, json_output=json_output)
+
+
+@managed_research.command(name="actor-action")
+@click.argument("action", type=click.Choice(["pause", "resume"]))
+@click.argument("project_id")
+@click.argument("run_id")
+@click.argument("actor_id")
+@click.option("--reason", help="Optional reason to include in the control request.")
+@click.option("--idempotency-key", help="Optional idempotency key.")
+@_connection_options
+def actor_action(
+    action: str,
+    project_id: str,
+    run_id: str,
+    actor_id: str,
+    reason: str | None,
+    idempotency_key: str | None,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Pause or resume a specific worker/orchestrator actor."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        payload = client.control_actor(
+            project_id,
+            run_id,
+            actor_id,
+            action=action,  # type: ignore[arg-type]
+            reason=reason,
+            idempotency_key=idempotency_key,
+        )
         _emit(payload, json_output=json_output)
 
 
@@ -214,7 +265,9 @@ def github_connect(port: int, api_key: str | None, backend_url: str, json_output
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<html><body><h2>GitHub connected. You can close this tab.</h2></body></html>")
+            self.wfile.write(
+                b"<html><body><h2>GitHub connected. You can close this tab.</h2></body></html>"
+            )
 
         def log_message(self, format, *args) -> None:  # noqa: A002
             pass  # suppress request logs
@@ -229,7 +282,7 @@ def github_connect(port: int, api_key: str | None, backend_url: str, json_output
         httpd = http.server.HTTPServer(("127.0.0.1", port), CallbackHandler)
         httpd.timeout = 120
 
-        click.echo(f"Opening browser for GitHub authorization...")
+        click.echo("Opening browser for GitHub authorization...")
         click.echo(f"  (listening on http://localhost:{port}/callback)")
         webbrowser.open(authorize_url)
 

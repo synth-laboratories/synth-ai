@@ -1,21 +1,36 @@
-"""Canonical v1 policy optimization SDK clients.
+"""Canonical policy optimization SDK clients.
 
 This module exposes explicit offline-job and online-session clients that target
-canonical `/v1/policy-optimization/systems`, `/v1/offline/jobs`, and
-`/v1/online/sessions` routes.
+versioned routes:
+- `/{v1|v2}/policy-optimization/systems`
+- `/{v1|v2}/offline/jobs`
+- `/{v1|v2}/online/sessions`
 """
 
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Callable, Dict, Literal, Optional, Sequence
 
 import httpx
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.core.utils.optimization_routes import (
+    normalize_api_version,
+    offline_job_path,
+    offline_jobs_base,
+    online_session_path,
+    online_sessions_base,
+    policy_system_path,
+    policy_systems_base,
+)
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
+
+ApiVersion = Literal["v1", "v2"]
+PromptOptVersion = Literal["v1", "v2"]
+PromptOptFallbackPolicy = Literal["none", "preflight_only", "init_only", "preflight_or_init"]
 
 
 def _resolve_backend_url(backend_url: Optional[str]) -> str:
@@ -29,6 +44,13 @@ def _resolve_api_key(api_key: Optional[str]) -> str:
     if not env_key:
         raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY env var)")
     return env_key
+
+
+def _resolve_api_version(api_version: Optional[str] = None) -> ApiVersion:
+    raw = (api_version or os.getenv("SYNTH_POLICY_API_VERSION") or "v2").strip().lower()
+    if raw not in {"v1", "v2"}:
+        raise ValueError("api_version must be 'v1' or 'v2'")
+    return normalize_api_version(raw)
 
 
 def _expect_dict_response(response: Any, *, context: str) -> Dict[str, Any]:
@@ -72,12 +94,12 @@ async def _patch_state_with_action_canonical(
 
 
 def _run_async(coro: Any) -> Any:
-    return run_sync(coro, label="Policy optimization v1 (use async methods in async contexts)")
+    return run_sync(coro, label="Policy optimization client (use async methods in async contexts)")
 
 
 @dataclass
 class PolicyOptimizationSystem:
-    """Canonical client for `/v1/policy-optimization/systems` resources."""
+    """Canonical client for `/{v1|v2}/policy-optimization/systems` resources."""
 
     system_id: str
     name: str
@@ -85,6 +107,7 @@ class PolicyOptimizationSystem:
     backend_url: str
     api_key: str
     timeout: float = 30.0
+    api_version: ApiVersion = "v2"
 
     @classmethod
     async def create_async(
@@ -98,12 +121,15 @@ class PolicyOptimizationSystem:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> PolicyOptimizationSystem:
         if not name or not name.strip():
             raise ValueError("name is required")
 
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        systems_path = policy_systems_base(api_version=version)
         payload: Dict[str, Any] = {
             "name": name.strip(),
             "technique": technique,
@@ -114,8 +140,8 @@ class PolicyOptimizationSystem:
             payload["id"] = system_id
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json("/v1/policy-optimization/systems", json=payload)
-            data = _expect_dict_response(response, context="/v1/policy-optimization/systems")
+            response = await http.post_json(systems_path, json=payload)
+            data = _expect_dict_response(response, context=systems_path)
 
         resolved_id = str(data.get("id") or "")
         resolved_name = str(data.get("name") or name.strip())
@@ -129,6 +155,7 @@ class PolicyOptimizationSystem:
             backend_url=base_url,
             api_key=key,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -143,15 +170,15 @@ class PolicyOptimizationSystem:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> PolicyOptimizationSystem:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        system_path = policy_system_path(system_id, api_version=version)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get(f"/v1/policy-optimization/systems/{system_id}")
-            data = _expect_dict_response(
-                response,
-                context=f"/v1/policy-optimization/systems/{system_id}",
-            )
+            response = await http.get(system_path)
+            data = _expect_dict_response(response, context=system_path)
         return cls(
             system_id=str(data.get("id") or system_id),
             name=str(data.get("name") or ""),
@@ -159,6 +186,7 @@ class PolicyOptimizationSystem:
             backend_url=base_url,
             api_key=key,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -174,13 +202,16 @@ class PolicyOptimizationSystem:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> Dict[str, Any]:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        systems_path = policy_systems_base(api_version=version)
         params = _clean_params({"technique": technique, "limit": limit})
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get("/v1/policy-optimization/systems", params=params)
-        return _expect_dict_response(response, context="/v1/policy-optimization/systems")
+            response = await http.get(systems_path, params=params)
+        return _expect_dict_response(response, context=systems_path)
 
     @classmethod
     def list(cls, **kwargs: Any) -> Dict[str, Any]:
@@ -202,14 +233,12 @@ class PolicyOptimizationSystem:
         )
         if not payload:
             raise ValueError("At least one of name, technique, or metadata must be provided")
-        url = f"{ensure_api_base(self.backend_url).rstrip('/')}/v1/policy-optimization/systems/{self.system_id}"
+        system_path = policy_system_path(self.system_id, api_version=self.api_version)
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{system_path}"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.patch(url, json=payload, headers=_auth_headers(self.api_key))
             response.raise_for_status()
-            data = _expect_dict_response(
-                response.json(),
-                context=f"/v1/policy-optimization/systems/{self.system_id}",
-            )
+            data = _expect_dict_response(response.json(), context=system_path)
         self.name = str(data.get("name") or self.name)
         self.technique = str(data.get("technique") or self.technique)
         self.system_id = str(data.get("id") or self.system_id)
@@ -219,15 +248,13 @@ class PolicyOptimizationSystem:
         return _run_async(self.update_async(**kwargs))
 
     async def delete_async(self) -> Dict[str, Any]:
-        url = f"{ensure_api_base(self.backend_url).rstrip('/')}/v1/policy-optimization/systems/{self.system_id}"
+        system_path = policy_system_path(self.system_id, api_version=self.api_version)
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{system_path}"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.delete(url, headers=_auth_headers(self.api_key))
             response.raise_for_status()
             if response.content:
-                return _expect_dict_response(
-                    response.json(),
-                    context=f"/v1/policy-optimization/systems/{self.system_id}",
-                )
+                return _expect_dict_response(response.json(), context=system_path)
             return {"id": self.system_id, "archived": True}
 
     def delete(self) -> Dict[str, Any]:
@@ -236,7 +263,7 @@ class PolicyOptimizationSystem:
 
 @dataclass
 class PolicyOptimizationOfflineJob:
-    """Canonical client for `/v1/offline/jobs` resources."""
+    """Canonical client for `/{v1|v2}/offline/jobs` resources."""
 
     job_id: str
     backend_url: str
@@ -244,6 +271,7 @@ class PolicyOptimizationOfflineJob:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
+    api_version: ApiVersion = "v2"
 
     @classmethod
     async def create_async(
@@ -262,12 +290,17 @@ class PolicyOptimizationOfflineJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOfflineJob:
         if not system_name or not system_name.strip():
             raise ValueError("system_name is required")
 
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version or prompt_opt_version)
+        jobs_path = offline_jobs_base(api_version=version)
 
         payload: Dict[str, Any] = {
             "technique": technique,
@@ -280,15 +313,18 @@ class PolicyOptimizationOfflineJob:
             "config": config,
             "metadata": metadata or {},
             "auto_start": bool(auto_start),
+            "prompt_opt_version": prompt_opt_version,
         }
+        if prompt_opt_fallback_policy is not None:
+            payload["prompt_opt_fallback_policy"] = prompt_opt_fallback_policy
         if container_worker_token and container_worker_token.strip():
             payload["container_worker_token"] = container_worker_token.strip()
         if system_id:
             payload["system"]["id"] = system_id
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json("/v1/offline/jobs", json=payload)
-            data = _expect_dict_response(response, context="/v1/offline/jobs")
+            response = await http.post_json(jobs_path, json=payload)
+            data = _expect_dict_response(response, context=jobs_path)
 
         job_id = str(data.get("job_id") or "")
         if not job_id:
@@ -304,6 +340,7 @@ class PolicyOptimizationOfflineJob:
             system_id=str(system_id_value) if isinstance(system_id_value, str) else None,
             system_name=str(system_name_value) if isinstance(system_name_value, str) else None,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -318,15 +355,15 @@ class PolicyOptimizationOfflineJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> PolicyOptimizationOfflineJob:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        job_path = offline_job_path(job_id, api_version=version)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get(f"/v1/offline/jobs/{job_id}")
-            data = _expect_dict_response(
-                response,
-                context=f"/v1/offline/jobs/{job_id}",
-            )
+            response = await http.get(job_path)
+            data = _expect_dict_response(response, context=job_path)
         system = data.get("system") if isinstance(data.get("system"), dict) else {}
         system_id_value = system.get("id") if isinstance(system, dict) else None
         system_name_value = system.get("name") if isinstance(system, dict) else None
@@ -337,6 +374,7 @@ class PolicyOptimizationOfflineJob:
             system_id=str(system_id_value) if isinstance(system_id_value, str) else None,
             system_name=str(system_name_value) if isinstance(system_name_value, str) else None,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -358,9 +396,12 @@ class PolicyOptimizationOfflineJob:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> Dict[str, Any]:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        jobs_path = offline_jobs_base(api_version=version)
         params = _clean_params(
             {
                 "state": state,
@@ -374,64 +415,73 @@ class PolicyOptimizationOfflineJob:
             }
         )
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get("/v1/offline/jobs", params=params)
-        return _expect_dict_response(response, context="/v1/offline/jobs")
+            response = await http.get(jobs_path, params=params)
+        return _expect_dict_response(response, context=jobs_path)
 
     @classmethod
     def list(cls, **kwargs: Any) -> Dict[str, Any]:
         return _run_async(cls.list_async(**kwargs))
 
     async def status_async(self) -> Dict[str, Any]:
+        job_path = offline_job_path(self.job_id, api_version=self.api_version)
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            response = await http.get(f"/v1/offline/jobs/{self.job_id}")
-        return _expect_dict_response(
-            response,
-            context=f"/v1/offline/jobs/{self.job_id}",
-        )
+            response = await http.get(job_path)
+        return _expect_dict_response(response, context=job_path)
 
     def status(self) -> Dict[str, Any]:
         return _run_async(self.status_async())
 
     async def events_async(self, *, since_seq: int = 0, limit: int = 500) -> Dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
+        events_path = offline_job_path(self.job_id, api_version=self.api_version) + "/events"
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            response = await http.get(
-                f"/v1/offline/jobs/{self.job_id}/events",
-                params=params,
-            )
-        return _expect_dict_response(
-            response,
-            context=f"/v1/offline/jobs/{self.job_id}/events",
-        )
+            response = await http.get(events_path, params=params)
+        return _expect_dict_response(response, context=events_path)
 
     def events(self, *, since_seq: int = 0, limit: int = 500) -> Dict[str, Any]:
         return _run_async(self.events_async(since_seq=since_seq, limit=limit))
 
     async def artifacts_async(self) -> Any:
+        artifacts_path = offline_job_path(self.job_id, api_version=self.api_version) + "/artifacts"
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            return await http.get(f"/v1/offline/jobs/{self.job_id}/artifacts")
+            return await http.get(artifacts_path)
 
     def artifacts(self) -> Any:
         return _run_async(self.artifacts_async())
+
+    async def checkpoint_async(self) -> Dict[str, Any]:
+        checkpoint_path = (
+            offline_job_path(self.job_id, api_version=self.api_version) + "/checkpoint"
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(checkpoint_path)
+        return _expect_dict_response(response, context=checkpoint_path)
+
+    def checkpoint(self) -> Dict[str, Any]:
+        return _run_async(self.checkpoint_async())
 
     async def pause_async(self) -> Dict[str, Any]:
         return await _patch_state_with_action_canonical(
             backend_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
-            resource_path=f"/v1/offline/jobs/{self.job_id}",
+            resource_path=offline_job_path(self.job_id, api_version=self.api_version),
             state="paused",
             action="pause",
             context="offline_job.pause",
@@ -445,7 +495,7 @@ class PolicyOptimizationOfflineJob:
             backend_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
-            resource_path=f"/v1/offline/jobs/{self.job_id}",
+            resource_path=offline_job_path(self.job_id, api_version=self.api_version),
             state="running",
             action="resume",
             context="offline_job.resume",
@@ -459,7 +509,7 @@ class PolicyOptimizationOfflineJob:
             backend_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
-            resource_path=f"/v1/offline/jobs/{self.job_id}",
+            resource_path=offline_job_path(self.job_id, api_version=self.api_version),
             state="cancelled",
             action="cancel",
             context="offline_job.cancel",
@@ -468,10 +518,93 @@ class PolicyOptimizationOfflineJob:
     def cancel(self) -> Dict[str, Any]:
         return _run_async(self.cancel_async())
 
+    async def restart_from_checkpoint_async(self) -> Dict[str, Any]:
+        base = ensure_api_base(self.backend_url).rstrip("/")
+        headers = _auth_headers(self.api_key)
+        primary = (
+            offline_job_path(self.job_id, api_version=self.api_version) + "/restart-from-checkpoint"
+        )
+        alias = (
+            offline_job_path(self.job_id, api_version=self.api_version) + "/restart_from_checkpoint"
+        )
+        attempted: list[str] = []
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            for resource_path in (primary, alias):
+                attempted.append(resource_path)
+                response = await client.post(f"{base}{resource_path}", headers=headers)
+                if response.status_code == 404:
+                    continue
+                response.raise_for_status()
+                payload = _expect_dict_response(
+                    response.json(),
+                    context="offline_job.restart_from_checkpoint",
+                )
+                # New restart contract: restart may create a child job.
+                # Update this client instance to point at the child so subsequent
+                # status/events/cancel calls operate on the restarted execution.
+                child_job_id = payload.get("child_job_id")
+                if isinstance(child_job_id, str) and child_job_id.strip():
+                    self.job_id = child_job_id.strip()
+                return payload
+        raise ValueError(
+            "restart_from_checkpoint endpoint not found; attempted: " + ", ".join(attempted)
+        )
+
+    def restart_from_checkpoint(self) -> Dict[str, Any]:
+        return _run_async(self.restart_from_checkpoint_async())
+
+    async def stream_until_complete_async(
+        self,
+        *,
+        timeout: float = 3600.0,
+        interval: float = 2.0,
+        handlers: Optional[Sequence[Any]] = None,
+        on_event: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """Stream job events via SSE until terminal state.
+
+        Uses Server-Sent Events for real-time delivery with polling fallback.
+        """
+        from synth_ai.core.streaming import (
+            CallbackHandler,
+            JobStreamer,
+            PromptLearningHandler,
+            StreamConfig,
+            StreamEndpoints,
+            StreamType,
+        )
+
+        config = StreamConfig(
+            enabled_streams={StreamType.STATUS, StreamType.EVENTS, StreamType.METRICS},
+            max_events_per_poll=500,
+            deduplicate=True,
+        )
+
+        effective_handlers: list[Any] = list(handlers) if handlers else [PromptLearningHandler()]
+        if on_event is not None:
+            effective_handlers.append(CallbackHandler(on_event=on_event))
+
+        streamer = JobStreamer(
+            base_url=ensure_api_base(self.backend_url),
+            api_key=self.api_key,
+            job_id=self.job_id,
+            endpoints=StreamEndpoints.offline_job(self.job_id, api_version=self.api_version),
+            config=config,
+            handlers=effective_handlers,
+            interval_seconds=interval,
+            timeout_seconds=timeout,
+        )
+
+        return await streamer.stream_until_terminal()
+
+    def stream_until_complete(self, **kwargs: Any) -> Dict[str, Any]:
+        """Stream job events via SSE until terminal state (sync wrapper)."""
+        return _run_async(self.stream_until_complete_async(**kwargs))
+
 
 @dataclass
 class PolicyOptimizationOnlineSession:
-    """Canonical client for `/v1/online/sessions` resources."""
+    """Canonical client for `/{v1|v2}/online/sessions` resources."""
 
     session_id: str
     backend_url: str
@@ -479,13 +612,14 @@ class PolicyOptimizationOnlineSession:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
+    api_version: ApiVersion = "v2"
 
     @classmethod
     async def create_async(
         cls,
         *,
         technique: Literal["discrete_optimization"] = "discrete_optimization",
-        kind: Literal["mipro_online", "voyager_online"],
+        kind: Literal["gepa_online", "mipro_online", "voyager_online"],
         system_name: str,
         system_id: Optional[str] = None,
         reuse_system: bool = True,
@@ -496,12 +630,17 @@ class PolicyOptimizationOnlineSession:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOnlineSession:
         if not system_name or not system_name.strip():
             raise ValueError("system_name is required")
 
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version or prompt_opt_version)
+        sessions_path = online_sessions_base(api_version=version)
 
         payload: Dict[str, Any] = {
             "technique": technique,
@@ -513,15 +652,18 @@ class PolicyOptimizationOnlineSession:
             "config_mode": config_mode,
             "config": config,
             "metadata": metadata or {},
+            "prompt_opt_version": prompt_opt_version,
         }
+        if prompt_opt_fallback_policy is not None:
+            payload["prompt_opt_fallback_policy"] = prompt_opt_fallback_policy
         if system_id:
             payload["system"]["id"] = system_id
         if correlation_id:
             payload["correlation_id"] = correlation_id
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json("/v1/online/sessions", json=payload)
-            data = _expect_dict_response(response, context="/v1/online/sessions")
+            response = await http.post_json(sessions_path, json=payload)
+            data = _expect_dict_response(response, context=sessions_path)
 
         session_id = str(data.get("session_id") or "")
         if not session_id:
@@ -537,6 +679,7 @@ class PolicyOptimizationOnlineSession:
             system_id=str(system_id_value) if isinstance(system_id_value, str) else None,
             system_name=str(system_name_value) if isinstance(system_name_value, str) else None,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -551,15 +694,15 @@ class PolicyOptimizationOnlineSession:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> PolicyOptimizationOnlineSession:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        session_path = online_session_path(session_id, api_version=version)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get(f"/v1/online/sessions/{session_id}")
-            data = _expect_dict_response(
-                response,
-                context=f"/v1/online/sessions/{session_id}",
-            )
+            response = await http.get(session_path)
+            data = _expect_dict_response(response, context=session_path)
         system = data.get("system") if isinstance(data.get("system"), dict) else {}
         system_id_value = system.get("id") if isinstance(system, dict) else None
         system_name_value = system.get("name") if isinstance(system, dict) else None
@@ -570,6 +713,7 @@ class PolicyOptimizationOnlineSession:
             system_id=str(system_id_value) if isinstance(system_id_value, str) else None,
             system_name=str(system_name_value) if isinstance(system_name_value, str) else None,
             timeout=timeout,
+            api_version=version,
         )
 
     @classmethod
@@ -581,7 +725,7 @@ class PolicyOptimizationOnlineSession:
         cls,
         *,
         state: Optional[str] = None,
-        kind: Optional[Literal["mipro_online", "voyager_online"]] = None,
+        kind: Optional[Literal["gepa_online", "mipro_online", "voyager_online"]] = None,
         system_id: Optional[str] = None,
         system_name: Optional[str] = None,
         created_after: Optional[str] = None,
@@ -591,9 +735,12 @@ class PolicyOptimizationOnlineSession:
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
         timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
     ) -> Dict[str, Any]:
         base_url = _resolve_backend_url(backend_url)
         key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        sessions_path = online_sessions_base(api_version=version)
         params = _clean_params(
             {
                 "state": state,
@@ -607,24 +754,22 @@ class PolicyOptimizationOnlineSession:
             }
         )
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.get("/v1/online/sessions", params=params)
-        return _expect_dict_response(response, context="/v1/online/sessions")
+            response = await http.get(sessions_path, params=params)
+        return _expect_dict_response(response, context=sessions_path)
 
     @classmethod
     def list(cls, **kwargs: Any) -> Dict[str, Any]:
         return _run_async(cls.list_async(**kwargs))
 
     async def status_async(self) -> Dict[str, Any]:
+        session_path = online_session_path(self.session_id, api_version=self.api_version)
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            response = await http.get(f"/v1/online/sessions/{self.session_id}")
-        return _expect_dict_response(
-            response,
-            context=f"/v1/online/sessions/{self.session_id}",
-        )
+            response = await http.get(session_path)
+        return _expect_dict_response(response, context=session_path)
 
     def status(self) -> Dict[str, Any]:
         return _run_async(self.status_async())
@@ -647,7 +792,7 @@ class PolicyOptimizationOnlineSession:
             backend_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
-            resource_path=f"/v1/online/sessions/{self.session_id}",
+            resource_path=online_session_path(self.session_id, api_version=self.api_version),
             state=state,
             action=action_name,
             context=f"online_session.{action}",
@@ -684,38 +829,28 @@ class PolicyOptimizationOnlineSession:
         if metadata is not None:
             payload["metadata"] = metadata
 
+        reward_path = online_session_path(self.session_id, api_version=self.api_version) + "/reward"
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            response = await http.post_json(
-                f"/v1/online/sessions/{self.session_id}/reward",
-                json=payload,
-            )
-        return _expect_dict_response(
-            response,
-            context=f"/v1/online/sessions/{self.session_id}/reward",
-        )
+            response = await http.post_json(reward_path, json=payload)
+        return _expect_dict_response(response, context=reward_path)
 
     def update_reward(self, **kwargs: Any) -> Dict[str, Any]:
         return _run_async(self.update_reward_async(**kwargs))
 
     async def events_async(self, *, since_seq: int = 0, limit: int = 500) -> Dict[str, Any]:
         params = {"since_seq": since_seq, "limit": limit}
+        events_path = online_session_path(self.session_id, api_version=self.api_version) + "/events"
         async with RustCoreHttpClient(
             ensure_api_base(self.backend_url),
             self.api_key,
             timeout=self.timeout,
         ) as http:
-            response = await http.get(
-                f"/v1/online/sessions/{self.session_id}/events",
-                params=params,
-            )
-        return _expect_dict_response(
-            response,
-            context=f"/v1/online/sessions/{self.session_id}/events",
-        )
+            response = await http.get(events_path, params=params)
+        return _expect_dict_response(response, context=events_path)
 
     def events(self, *, since_seq: int = 0, limit: int = 500) -> Dict[str, Any]:
         return _run_async(self.events_async(since_seq=since_seq, limit=limit))

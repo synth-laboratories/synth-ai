@@ -271,11 +271,11 @@ def expand_gepa_config(minimal: dict[str, Any]) -> dict[str, Any]:
     return synth_ai_py.expand_gepa_config(minimal)
 
 
-def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str, Any]:
-    """Convert a GEPA seed candidate mapping into a Synth prompt pattern."""
+def gepa_candidate_to_initial_candidate(seed_candidate: dict[str, Any]) -> dict[str, Any]:
+    """Convert a GEPA seed candidate mapping into a Synth initial candidate."""
     # See: specs/sdk_logic.md
-    if hasattr(synth_ai_py, "gepa_candidate_to_initial_prompt"):
-        return synth_ai_py.gepa_candidate_to_initial_prompt(seed_candidate)
+    if hasattr(synth_ai_py, "gepa_candidate_to_initial_candidate"):
+        return synth_ai_py.gepa_candidate_to_initial_candidate(seed_candidate)
 
     if not isinstance(seed_candidate, dict) or not seed_candidate:
         raise ValueError("seed_candidate must be a non-empty dict.")
@@ -315,7 +315,16 @@ def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str
     if not messages:
         raise ValueError("seed_candidate must include a system prompt or a single prompt string.")
 
-    return {"messages": messages, "wildcards": {}}
+    return {
+        "stages": [
+            {
+                "id": "seed_candidate_stage_0",
+                "name": "Seed Candidate",
+                "messages": messages,
+                "wildcards": {},
+            }
+        ]
+    }
 
 
 def build_termination_config(minimal: dict[str, Any]) -> dict[str, Any] | None:

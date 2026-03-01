@@ -5,10 +5,12 @@
 
 from synth_ai.client import (
     AsyncContainersClient,
+    AsyncNgrokTunnel,
     AsyncPoolsClient,
     AsyncSynthTunnel,
     AsyncTunnelsClient,
     ContainersClient,
+    NgrokTunnel,
     PoolsClient,
     PoolTarget,
     SynthTunnel,
@@ -20,6 +22,7 @@ from synth_ai.sdk.containers import Container, ContainerSpec, ContainerType
 
 __all__ = [
     "AsyncContainersClient",
+    "AsyncNgrokTunnel",
     "AsyncPoolsClient",
     "AsyncSynthTunnel",
     "AsyncTunnelsClient",
@@ -29,6 +32,7 @@ __all__ = [
     "ContainerType",
     "ContainersClient",
     "InProcessContainer",
+    "NgrokTunnel",
     "PoolTarget",
     "PoolsClient",
     "SynthTunnel",

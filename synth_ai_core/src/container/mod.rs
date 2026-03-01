@@ -62,10 +62,12 @@ pub use types::{
     TaskDescriptor, TaskInfo,
 };
 pub use validation::{
-    validate_artifact_size, validate_artifacts_list, validate_context_overrides,
-    validate_context_snapshot, MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH,
-    MAX_ARTIFACT_METADATA_BYTES, MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES,
-    MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
+    is_local_http_container_url, is_synthtunnel_url, validate_gepa_container_auth,
+    GepaAuthRequirement, validate_artifact_size, validate_artifacts_list,
+    validate_context_overrides, validate_context_snapshot, MAX_ARTIFACTS_PER_ROLLOUT,
+    MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
+    MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES, MAX_INLINE_ARTIFACT_BYTES,
+    MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
 };
 pub use validators::{
     normalize_inference_url, validate_container_url, validate_rollout_response_for_rl,

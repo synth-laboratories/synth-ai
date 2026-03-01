@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from synth_ai.sdk.optimization.models import LongHorizonMetricsView, LongHorizonProgressView
+
 try:
     import synth_ai_py
 except Exception as exc:  # pragma: no cover
@@ -53,6 +55,35 @@ def _extract_instance_rewards(data: dict[str, Any]) -> list[float] | None:
             return None
         values.append(reward_val)
     return values if values else None
+
+
+def _extract_mapping_value(
+    payload: dict[str, Any],
+    *keys: str,
+) -> dict[str, Any] | None:
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, dict):
+            return value
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict):
+        for key in keys:
+            value = metadata.get(key)
+            if isinstance(value, dict):
+                return value
+    obj = payload.get("object")
+    if isinstance(obj, dict):
+        for key in keys:
+            value = obj.get(key)
+            if isinstance(value, dict):
+                return value
+        object_metadata = obj.get("metadata")
+        if isinstance(object_metadata, dict):
+            for key in keys:
+                value = object_metadata.get(key)
+                if isinstance(value, dict):
+                    return value
+    return None
 
 
 class EventCategory(Enum):
@@ -107,6 +138,22 @@ class CandidateEvent(ParsedEvent):
     instance_rewards: list[float] | None = None
     instance_objectives: Optional[List[Dict[str, float]]] = None
     mutation_type: str | None = None
+    candidate_priority: dict[str, Any] | None = None
+    candidate_priority_score: float | None = None
+    long_horizon_metrics: dict[str, Any] | None = None
+    long_horizon_progress: dict[str, Any] | None = None
+
+    @property
+    def long_horizon_metrics_typed(self) -> LongHorizonMetricsView | None:
+        if not isinstance(self.long_horizon_metrics, dict):
+            return None
+        return LongHorizonMetricsView.from_dict(self.long_horizon_metrics)
+
+    @property
+    def long_horizon_progress_typed(self) -> LongHorizonProgressView | None:
+        if not isinstance(self.long_horizon_progress, dict):
+            return None
+        return LongHorizonProgressView.from_dict(self.long_horizon_progress)
 
 
 @dataclass
@@ -131,6 +178,20 @@ class ProgressEvent(ParsedEvent):
     trials_completed: int = 0
     best_reward: float | None = None
     baseline_reward: float | None = None
+    long_horizon_metrics: dict[str, Any] | None = None
+    long_horizon_progress: dict[str, Any] | None = None
+
+    @property
+    def long_horizon_metrics_typed(self) -> LongHorizonMetricsView | None:
+        if not isinstance(self.long_horizon_metrics, dict):
+            return None
+        return LongHorizonMetricsView.from_dict(self.long_horizon_metrics)
+
+    @property
+    def long_horizon_progress_typed(self) -> LongHorizonProgressView | None:
+        if not isinstance(self.long_horizon_progress, dict):
+            return None
+        return LongHorizonProgressView.from_dict(self.long_horizon_progress)
 
 
 @dataclass
@@ -302,12 +363,36 @@ class EventParser:
                 timestamp_ms=timestamp_ms,
                 reward=parsed.get("reward") or parsed.get("accuracy"),
                 objectives=parsed.get("objectives"),
-                instance_rewards=parsed.get("instance_rewards") or parsed.get("instance_scores"),
+                instance_rewards=parsed.get("instance_rewards"),
                 instance_objectives=parsed.get("instance_objectives"),
                 prompt=parsed.get("prompt"),
             )
 
         if category == EventCategory.CANDIDATE:
+            candidate_priority = _extract_mapping_value(
+                parsed, "candidate_priority"
+            ) or _extract_mapping_value(
+                data,
+                "candidate_priority",
+            )
+            long_horizon_metrics = _extract_mapping_value(
+                parsed,
+                "long_horizon_metrics",
+                "v2_long_horizon_metrics",
+            ) or _extract_mapping_value(
+                data,
+                "long_horizon_metrics",
+                "v2_long_horizon_metrics",
+            )
+            long_horizon_progress = _extract_mapping_value(
+                parsed,
+                "long_horizon_progress",
+                "v2_long_horizon_progress",
+            ) or _extract_mapping_value(
+                data,
+                "long_horizon_progress",
+                "v2_long_horizon_progress",
+            )
             return CandidateEvent(
                 event_type=event_type,
                 category=category,
@@ -321,9 +406,17 @@ class EventParser:
                 generation=parsed.get("generation"),
                 parent_id=parsed.get("parent_id"),
                 is_pareto=parsed.get("is_pareto", False),
-                instance_rewards=parsed.get("instance_rewards") or parsed.get("instance_scores"),
+                instance_rewards=parsed.get("instance_rewards"),
                 instance_objectives=parsed.get("instance_objectives"),
                 mutation_type=parsed.get("mutation_type"),
+                candidate_priority=candidate_priority,
+                candidate_priority_score=(
+                    _coerce_float(candidate_priority.get("priority_score"))
+                    if isinstance(candidate_priority, dict)
+                    else None
+                ),
+                long_horizon_metrics=long_horizon_metrics,
+                long_horizon_progress=long_horizon_progress,
             )
 
         if category == EventCategory.FRONTIER:
@@ -337,12 +430,30 @@ class EventParser:
                 added=parsed.get("added"),
                 removed=parsed.get("removed"),
                 frontier_size=parsed.get("frontier_size", 0),
-                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
-                frontier_rewards=parsed.get("frontier_rewards") or parsed.get("frontier_scores"),
+                best_reward=parsed.get("best_reward"),
+                frontier_rewards=parsed.get("frontier_rewards"),
                 frontier_objectives=parsed.get("frontier_objectives"),
             )
 
         if category == EventCategory.PROGRESS:
+            long_horizon_metrics = _extract_mapping_value(
+                parsed,
+                "long_horizon_metrics",
+                "v2_long_horizon_metrics",
+            ) or _extract_mapping_value(
+                data,
+                "long_horizon_metrics",
+                "v2_long_horizon_metrics",
+            )
+            long_horizon_progress = _extract_mapping_value(
+                parsed,
+                "long_horizon_progress",
+                "v2_long_horizon_progress",
+            ) or _extract_mapping_value(
+                data,
+                "long_horizon_progress",
+                "v2_long_horizon_progress",
+            )
             return ProgressEvent(
                 event_type=event_type,
                 category=category,
@@ -352,8 +463,10 @@ class EventParser:
                 rollouts_completed=parsed.get("rollouts_completed", 0),
                 rollouts_total=parsed.get("rollouts_total"),
                 trials_completed=parsed.get("trials_completed", 0),
-                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
-                baseline_reward=parsed.get("baseline_reward") or parsed.get("baseline_score"),
+                best_reward=parsed.get("best_reward"),
+                baseline_reward=parsed.get("baseline_reward"),
+                long_horizon_metrics=long_horizon_metrics,
+                long_horizon_progress=long_horizon_progress,
             )
 
         if category == EventCategory.GENERATION:
@@ -376,8 +489,8 @@ class EventParser:
                 data=data,
                 seq=seq,
                 timestamp_ms=timestamp_ms,
-                best_reward=parsed.get("best_reward") or parsed.get("best_score"),
-                baseline_reward=parsed.get("baseline_reward") or parsed.get("baseline_score"),
+                best_reward=parsed.get("best_reward"),
+                baseline_reward=parsed.get("baseline_reward"),
                 finish_reason=parsed.get("finish_reason"),
                 total_candidates=parsed.get("total_candidates", 0),
             )

@@ -7,6 +7,11 @@ from typing import Any
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.utils.env import get_api_key, get_backend_url
+from synth_ai.core.utils.optimization_routes import (
+    EVAL_API_VERSION,
+    GEPA_API_VERSION,
+    offline_job_subpath,
+)
 
 
 @dataclass
@@ -61,7 +66,11 @@ class PatternDiscoveryClient:
         payload.pop("job_id", None)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             return await http.post_json(
-                f"/api/v1/offline/jobs/{request.job_id}/patterns/discover",
+                offline_job_subpath(
+                    request.job_id,
+                    "/patterns/discover",
+                    api_version=GEPA_API_VERSION,
+                ),
                 json=payload,
             )
 
@@ -83,7 +92,9 @@ async def get_eval_patterns(
         api_key = get_api_key("SYNTH_API_KEY", required=True)
 
     async with RustCoreHttpClient(base_url, api_key, timeout=timeout) as http:
-        data = await http.get_json(f"/api/v1/offline/jobs/{job_id}/results")
+        data = await http.get_json(
+            offline_job_subpath(job_id, "/results", api_version=EVAL_API_VERSION)
+        )
     summary = data.get("summary") if isinstance(data, dict) else None
     if isinstance(summary, dict):
         return summary.get("pattern_discovery")

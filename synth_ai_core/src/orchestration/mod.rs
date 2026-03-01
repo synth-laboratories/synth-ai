@@ -22,7 +22,7 @@
 //!
 //! let job_id = job.submit().await?;
 //! let result = job.stream_until_complete(3600.0, None::<fn(_)>).await?;
-//! println!("Best score: {:?}", result.best_score);
+//! println!("Best score: {:?}", result.best_reward);
 //! ```
 
 pub mod base_events;
@@ -31,9 +31,6 @@ pub mod event_extraction;
 pub mod event_schemas;
 pub mod event_types;
 pub mod events;
-pub mod graph_convert;
-pub mod graph_evolve;
-pub mod graph_validation;
 pub mod job_events;
 pub mod progress;
 pub mod prompt_learning;
@@ -53,22 +50,6 @@ pub use event_schemas::{
 };
 pub use event_types::{event_enum_values, is_valid_event_type, validate_event_type};
 pub use events::{EventCategory, EventParser, ParsedEvent};
-pub use graph_convert::convert_openai_sft;
-pub use graph_evolve::{
-    build_graph_evolve_config, build_graph_evolve_graph_record_payload,
-    build_graph_evolve_inference_payload, build_graph_evolve_payload,
-    build_graph_evolve_placeholder_dataset, load_graph_evolve_dataset,
-    normalize_graph_evolve_policy_models, parse_graph_evolve_dataset,
-    resolve_graph_evolve_snapshot_id, GraphEvolveJob,
-};
-pub use graph_validation::{
-    graph_opt_supported_models, load_graphgen_taskset, parse_graphgen_taskset,
-    validate_graphgen_taskset,
-};
-pub use graph_validation::{
-    load_graph_job_toml, validate_graph_job_payload, validate_graph_job_section,
-    validate_graphgen_job_config, GraphGenValidationResult,
-};
 pub use job_events::{
     parse_job_event, validate_base_event, ParsedJobEvent, ValidationError, ValidationResult,
 };

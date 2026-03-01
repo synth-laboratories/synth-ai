@@ -2,7 +2,7 @@
 
 This module keeps everything in-process:
 1) Spins up a FastAPI container via InProcessContainer
-2) Opens a tunnel (Cloudflare by default, or uses preconfigured URL)
+2) Opens a tunnel (SynthTunnel by default, or Synth-managed ngrok-compatible URL)
 3) Applies dot-notation overrides (container_url, budgets, seeds, models)
 4) Submits jobs to the remote backend using SDK clients
 5) Optionally polls until completion and returns a structured result
@@ -10,11 +10,10 @@ This module keeps everything in-process:
 Note: RL job support has been moved to the research repo.
 
 Tunnel Modes:
-- "quick" (default): Creates Cloudflare quick tunnel - works for local development
-- "named": Uses Cloudflare managed tunnel (requires setup)
+- "synthtunnel" (default): Uses SynthTunnel relay
 - "local": No tunnel, uses localhost URL directly
-- "preconfigured": Uses externally-provided URL - for container environments
-  (ngrok, etc.) where Cloudflare tunnels don't work
+- "ngrok_managed": Uses Synth-managed ngrok-compatible URL
+- "preconfigured": Deprecated alias of "ngrok_managed"
 
 Environment Variables:
 - SYNTH_CONTAINER_URL: If set, auto-enables preconfigured mode with this URL
@@ -174,7 +173,7 @@ async def run_in_process_job(
         config: ContainerConfig object
         config_factory: Callable that returns ContainerConfig
         container_path: Path to container .py file
-        tunnel_mode: Tunnel mode - "synthtunnel", "quick", "named", "local", or "preconfigured"
+        tunnel_mode: Tunnel mode - "synthtunnel", "ngrok_managed", "local", or "preconfigured"
         tunnel_backend: Explicit tunnel backend (overrides tunnel_mode when set)
         preconfigured_url: External tunnel URL when tunnel_mode="preconfigured"
         preconfigured_auth_header: Auth header name for preconfigured URL
@@ -214,7 +213,7 @@ async def run_in_process_job(
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    # Launch the container with tunnel (Cloudflare by default, or preconfigured URL)
+    # Launch the container with tunnel (SynthTunnel by default, or managed ngrok-compatible URL)
     async with InProcessContainer(
         app=app,
         config=config,
@@ -230,6 +229,7 @@ async def run_in_process_job(
         skip_tunnel_verification=skip_tunnel_verification,
         force_new_tunnel=force_new_tunnel,
         api_key=resolved_container_key,
+        backend_url=backend_api_base,
         auto_find_port=auto_find_port,
         health_check_timeout=health_check_timeout,
     ) as container:
@@ -294,10 +294,10 @@ async def run_in_process_job(
         if not poll:
             status = {"status": "submitted", "job_id": job_id}
         else:
-            status = job.poll_until_complete(
+            status = job.stream_until_complete(
                 timeout=timeout,
                 interval=poll_interval,
-                on_status=on_status,
+                on_event=on_status,
             )
 
     return InProcessJobResult(

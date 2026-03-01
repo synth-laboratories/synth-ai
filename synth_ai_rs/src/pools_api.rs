@@ -178,28 +178,6 @@ pub struct PoolMetricsResponse {
     pub extra: JsonMap,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TopLevelRollout {
-    #[serde(default)]
-    pub rollout_id: Option<String>,
-    #[serde(default)]
-    pub id: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(flatten)]
-    pub extra: JsonMap,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TopLevelRolloutCreateRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub policy: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub input: Option<Value>,
-    #[serde(flatten)]
-    pub extra: JsonMap,
-}
-
 #[derive(Clone)]
 pub struct PoolsClient {
     transport: Arc<Transport>,
@@ -224,12 +202,6 @@ impl PoolsClient {
 
     pub fn assemblies(&self) -> PoolAssembliesClient {
         PoolAssembliesClient {
-            transport: self.transport.clone(),
-        }
-    }
-
-    pub fn rollouts(&self) -> TopLevelRolloutsClient {
-        TopLevelRolloutsClient {
             transport: self.transport.clone(),
         }
     }
@@ -498,43 +470,3 @@ impl PoolTasksClient {
     }
 }
 
-#[derive(Clone)]
-pub struct TopLevelRolloutsClient {
-    transport: Arc<Transport>,
-}
-
-impl TopLevelRolloutsClient {
-    pub async fn create(&self, request: &TopLevelRolloutCreateRequest) -> Result<TopLevelRollout> {
-        self.transport.post_json(openapi_paths::V1_ROLLOUTS, request).await
-    }
-
-    pub async fn get(&self, rollout_id: &str) -> Result<TopLevelRollout> {
-        self.transport
-            .get_json(&openapi_paths::v1_rollout(rollout_id))
-            .await
-    }
-
-    pub async fn artifacts(&self, rollout_id: &str) -> Result<ArtifactsResponse> {
-        self.transport
-            .get_json(&openapi_paths::v1_rollout_artifacts(rollout_id))
-            .await
-    }
-
-    pub async fn artifacts_zip(&self, rollout_id: &str) -> Result<Vec<u8>> {
-        self.transport
-            .get_bytes(&openapi_paths::v1_rollout_artifacts_zip(rollout_id))
-            .await
-    }
-
-    pub async fn artifact_path(&self, rollout_id: &str, path: &str) -> Result<Vec<u8>> {
-        self.transport
-            .get_bytes(&openapi_paths::v1_rollout_artifact_path(rollout_id, path))
-            .await
-    }
-
-    pub async fn support_bundle(&self, rollout_id: &str) -> Result<Vec<u8>> {
-        self.transport
-            .get_bytes(&openapi_paths::v1_rollout_support_bundle(rollout_id))
-            .await
-    }
-}

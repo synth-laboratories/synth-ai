@@ -10,7 +10,7 @@ Only 6 fields required - everything else is auto-derived:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    container_url = "https://your-tunnel.trycloudflare.com"
+    container_url = "https://your-managed-tunnel.usesynth.ai"
     total_seeds = 200
     proposer_effort = "LOW"
     proposer_output_tokens = "FAST"
@@ -39,7 +39,7 @@ For complete control over all parameters:
     ```toml
     [prompt_learning]
     algorithm = "gepa"
-    container_url = "https://your-tunnel.trycloudflare.com"
+    container_url = "https://your-managed-tunnel.usesynth.ai"
 
     [prompt_learning.gepa]
     env_name = "banking77"
@@ -76,6 +76,7 @@ from pydantic import Field, field_validator, model_validator
 from synth_ai.data.enums import RewardSource
 
 from ..utils import load_toml
+from ..validators import reject_legacy_policy_optimization
 from .shared import ExtraModel
 
 
@@ -713,6 +714,16 @@ class GEPARolloutConfig(ExtraModel):
     minibatch_size: int = 8  # Minibatch size for evaluation
 
 
+class GEPAThroughputConfig(ExtraModel):
+    """GEPA throughput config used by external runners.
+
+    Canonical SDK/backend execution still uses `gepa.rollout.max_concurrent`.
+    This section exists to provide a stable user-facing knob that maps into rollout.
+    """
+
+    max_concurrent_rollouts: int | None = None
+
+
 class GEPAEvaluationConfig(ExtraModel):
     """GEPA evaluation configuration (mirrors RL [evaluation] section).
 
@@ -945,6 +956,7 @@ class GEPAConfig(ExtraModel):
 
     # Nested subsections (preferred, mirrors RL structure)
     rollout: GEPARolloutConfig | None = None
+    throughput: GEPAThroughputConfig | None = None
     evaluation: GEPAEvaluationConfig | None = None
     mutation: GEPAMutationConfig | None = None
     population: GEPAPopulationConfig | None = None
@@ -954,6 +966,10 @@ class GEPAConfig(ExtraModel):
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = (
         None  # Proxy models config (can be at top-level or gepa-specific)
     )
+    job_checkpoint: dict[str, Any] | None = None
+    rollout_checkpoint: dict[str, Any] | None = None
+    rollout_checkpoints: dict[str, Any] | list[Any] | None = None
+    rollout_checkpoint_refs: dict[str, Any] | list[Any] | None = None
 
     # BYOK (Bring Your Own Key) - use user's own API keys for rollouts
     use_byok: bool | None = Field(
@@ -1065,6 +1081,19 @@ class GEPAConfig(ExtraModel):
             if field in data and data[field] is not None:
                 raise ValueError(f"Deprecated flat GEPA format field '{field}': {message}")
 
+        legacy_checkpoint_keys = (
+            "checkpoint",
+            "seed_checkpoint",
+            "seed_checkpoints",
+            "seed_checkpoint_refs",
+        )
+        detected_legacy = [field for field in legacy_checkpoint_keys if data.get(field) is not None]
+        if detected_legacy:
+            raise ValueError(
+                "INVALID_CONFIG_NAMESPACE: prompt_learning.gepa.checkpoint and seed_checkpoint* "
+                "keys are not supported. Use job_checkpoint and rollout_checkpoint*."
+            )
+
         return data
 
     def _get_rollout_budget(self) -> int | None:
@@ -1077,6 +1106,8 @@ class GEPAConfig(ExtraModel):
         """Get max concurrent rollouts from nested or flat structure."""
         if self.rollout and self.rollout.max_concurrent is not None:
             return self.rollout.max_concurrent
+        if self.throughput and self.throughput.max_concurrent_rollouts is not None:
+            return self.throughput.max_concurrent_rollouts
         return self.max_concurrent_rollouts or 20
 
     def _get_minibatch_size(self) -> int:
@@ -1241,6 +1272,24 @@ class GEPAConfig(ExtraModel):
                 self.token.max_limit = self.proposed_prompt_max_tokens
         return self
 
+    @model_validator(mode="after")
+    def _sync_throughput_and_rollout(self) -> "GEPAConfig":
+        """Map throughput.max_concurrent_rollouts into rollout.max_concurrent.
+
+        Rollout remains the canonical execution shape; throughput is a stable UX alias.
+        """
+        throughput_concurrency = (
+            self.throughput.max_concurrent_rollouts if self.throughput is not None else None
+        )
+        if throughput_concurrency is None:
+            return self
+        if self.rollout is None:
+            self.rollout = GEPARolloutConfig(max_concurrent=throughput_concurrency)
+            return self
+        if self.rollout.max_concurrent is None:
+            self.rollout.max_concurrent = throughput_concurrency
+        return self
+
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "GEPAConfig":
         """Load GEPA config from dict/TOML, handling both nested and flat structures."""
@@ -1261,6 +1310,7 @@ class GEPAConfig(ExtraModel):
         for key, value in data.items():
             if key in (
                 "rollout",
+                "throughput",
                 "evaluation",
                 "mutation",
                 "population",
@@ -1281,6 +1331,10 @@ class GEPAConfig(ExtraModel):
         if nested_data:
             if "rollout" in nested_data:
                 nested_data["rollout"] = GEPARolloutConfig.model_validate(nested_data["rollout"])
+            if "throughput" in nested_data:
+                nested_data["throughput"] = GEPAThroughputConfig.model_validate(
+                    nested_data["throughput"]
+                )
             if "evaluation" in nested_data:
                 nested_data["evaluation"] = GEPAEvaluationConfig.model_validate(
                     nested_data["evaluation"]
@@ -1353,6 +1407,106 @@ class GEPAConfig(ExtraModel):
         return cls.model_validate(merged_data)
 
 
+class HorizonDistanceBinConfig(ExtraModel):
+    """Distance bin used for long-horizon generalization scoring."""
+
+    lo: int
+    hi: int
+
+    @model_validator(mode="after")
+    def _validate_bounds(self) -> "HorizonDistanceBinConfig":
+        if self.hi < self.lo:
+            raise ValueError("Horizon distance bin requires hi >= lo")
+        return self
+
+
+class LongHorizonModeConfig(ExtraModel):
+    """Top-level toggle for long-horizon behavior in v2 optimizers."""
+
+    enabled: bool = False
+    window_steps: int | None = None
+    planner_required: bool | None = None
+
+    @field_validator("window_steps")
+    @classmethod
+    def _validate_window_steps(cls, value: int | None) -> int | None:
+        if value is not None and value <= 0:
+            raise ValueError("long_horizon_mode.window_steps must be > 0")
+        return value
+
+
+class MultiAgentModeConfig(ExtraModel):
+    """Top-level toggle for multi-agent behavior in v2 optimizers."""
+
+    enabled: bool = False
+    method: (
+        Literal["independent", "independent_plus_coma", "independent_plus_coma_plus_qmix"] | None
+    ) = None
+    team_mixer: Literal["none", "monotonic_qmix"] | None = None
+
+
+class HorizonGeneralizationConfig(ExtraModel):
+    """Config for horizon generalization metrics (`eta`, `Reach`, per-bin success)."""
+
+    bins: list[HorizonDistanceBinConfig] | None = None
+    tau_success: float | None = None
+    tau_eta: float | None = None
+    eps: float | None = None
+
+
+class BaseCaseGatingConfig(ExtraModel):
+    """Config for base-case coverage gating before long-horizon extrapolation."""
+
+    enabled: bool = False
+    slice_key: str | None = None
+    near_horizon_max: int | None = None
+    tau_base: float | None = None
+    n_min: int | None = None
+
+
+class PairedEvalConfig(ExtraModel):
+    """Paired evaluation config (`direct_goal` vs `waypoint_planned`)."""
+
+    enabled: bool = False
+    mode: Literal["direct_vs_waypoint"] | None = None
+    max_paired_budget: int | None = None
+
+
+class WaypointPlannerConfig(ExtraModel):
+    """Waypoint planner config for long-horizon staged rollouts."""
+
+    type: Literal["distance_model", "symbolic", "hybrid"] | None = None
+    max_waypoints: int | None = None
+    per_stage_budget: int | None = None
+    fallback: Literal["direct", "fail"] | None = None
+
+
+class CounterfactualCreditConfig(ExtraModel):
+    """Lag-aware counterfactual credit assignment config."""
+
+    enabled: bool = False
+    lambda_: float | None = Field(
+        default=None,
+        alias="lambda",
+        validation_alias="lambda",
+        serialization_alias="lambda",
+    )
+    lag_max: int | None = None
+    min_evidence_threshold: float | None = None
+
+
+class MiproConfig(ExtraModel):
+    """Typed v2 schema surface for MIPRO/Voyager long-horizon + multi-agent settings."""
+
+    long_horizon_mode: LongHorizonModeConfig | None = None
+    multi_agent_mode: MultiAgentModeConfig | None = None
+    horizon_generalization: HorizonGeneralizationConfig | None = None
+    base_case_gating: BaseCaseGatingConfig | None = None
+    paired_eval: PairedEvalConfig | None = None
+    waypoint_planner: WaypointPlannerConfig | None = None
+    counterfactual_credit: CounterfactualCreditConfig | None = None
+
+
 class PromptLearningConfig(ExtraModel):
     """Root configuration for Prompt Learning jobs (GEPA).
 
@@ -1373,22 +1527,24 @@ class PromptLearningConfig(ExtraModel):
         # Or from dict
         config = PromptLearningConfig.from_mapping({
             "algorithm": "gepa",
-            "container_url": "https://your-tunnel.trycloudflare.com",
+            "container_url": "https://your-managed-tunnel.usesynth.ai",
+            "task_data": {
+                "split": "train",
+                "train_pools": {"reflection_seeds": [0], "pareto_seeds": []},
+                "validation_seeds": [1],
+            },
             "gepa": {
                 "env_name": "banking77",
-                "policy": {"model": "gpt-4o-mini", "provider": "openai"},
-                "generations": 5,
-                "population_size": 4,
+                "initial_candidate": {"stages": [...]},
+                "termination_conditions": {"total_rollouts": 50},
             },
         })
         ```
 
     Attributes:
         algorithm: Optimization algorithm - "gepa".
-        container_url: URL of your container (typically a Cloudflare tunnel URL).
+        container_url: URL of your container (typically SynthTunnel or Synth-managed ngrok-compatible URL).
         container_id: Optional identifier for the container (for logging).
-        initial_prompt: Initial prompt pattern to seed optimization.
-        policy: Policy (LLM) configuration for rollouts.
         gepa: GEPA-specific configuration (if algorithm="gepa").
         verifier: Optional verifier configuration for LLM-based reward scoring.
         proxy_models: Proxy models configuration for cost-effective evaluation.
@@ -1404,7 +1560,7 @@ class PromptLearningConfig(ExtraModel):
         ```python
         {
             "status": "succeeded",
-            "best_score": 0.92,
+            "best_reward": 0.92,
             "best_snapshot_id": "snap_abc123",
             "final_prompt": "You are a helpful assistant...",
             "metrics": {
@@ -1430,23 +1586,25 @@ class PromptLearningConfig(ExtraModel):
         - Quickstart: /quickstart/prompt-optimization-gepa
     """
 
-    algorithm: str  # "gepa"
+    algorithm: str  # Internal selector ("gepa" | "mipro"), derived from canonical fields.
+    job_kind: str | None = None
+    algorithm_name: str | None = None
+    execution_mode: str | None = None
+    config_schema_version: str | None = None
     container_url: str | None = None
     container_id: str | None = Field(
         default=None,
         description="Hosted container ID for resolution by the backend (alternative to container_url)",
     )
-    initial_prompt: PromptPatternConfig | None = None
     auto_discover_patterns: bool = Field(
         default=False,
         description=(
-            "Enable experimental pattern auto-discovery when initial_prompt is omitted. "
+            "Enable experimental pattern auto-discovery when initial_candidate is omitted. "
             "This runs a validation rollout to infer prompt patterns from traces."
         ),
     )
-    policy: PromptLearningPolicyConfig | None = None
     gepa: GEPAConfig | None = None
-    mipro: dict[str, Any] | None = None
+    mipro: MiproConfig | dict[str, Any] | None = None
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
     proxy_models: ProxyModelsConfig | dict[str, Any] | None = (
         None  # Proxy models config (can be at top-level or algorithm-specific)
@@ -1483,7 +1641,37 @@ class PromptLearningConfig(ExtraModel):
             if field in data:
                 data.pop(field, None)
 
+        forbidden_fields = {"policy", "initial_prompt"}
+        for field in forbidden_fields:
+            if field in data and data.get(field) is not None:
+                raise ValueError(
+                    f"prompt_learning.{field} is no longer supported in canonical config"
+                )
+
         return data
+
+    @model_validator(mode="after")
+    def _sync_canonical_fields(self) -> "PromptLearningConfig":
+        """Keep canonical vocabulary fields aligned with internal selectors."""
+        if not self.algorithm_name:
+            self.algorithm_name = self.algorithm
+        if not self.job_kind:
+            self.job_kind = "optimization"
+        if not self.execution_mode:
+            mode_from_gepa = None
+            if isinstance(self.gepa, GEPAConfig):
+                mode_from_gepa = getattr(self.gepa, "execution_mode", None) or getattr(
+                    self.gepa, "mode", None
+                )
+            mode_from_mipro = None
+            if isinstance(self.mipro, dict):
+                mode_from_mipro = self.mipro.get("execution_mode") or self.mipro.get("mode")
+            elif self.mipro is not None:
+                mode_from_mipro = getattr(self.mipro, "execution_mode", None) or getattr(
+                    self.mipro, "mode", None
+                )
+            self.execution_mode = str(mode_from_gepa or mode_from_mipro or "offline")
+        return self
 
     @model_validator(mode="after")
     def _require_container(self) -> "PromptLearningConfig":
@@ -1499,11 +1687,20 @@ class PromptLearningConfig(ExtraModel):
         if "prompt_learning" not in result:
             pl_data = dict(result.items())
             result = {"prompt_learning": pl_data}
+        prompt_learning = result.get("prompt_learning")
+        if isinstance(prompt_learning, dict):
+            prompt_learning.setdefault("job_kind", "optimization")
+            prompt_learning["algorithm_name"] = str(
+                prompt_learning.get("algorithm_name") or self.algorithm
+            )
+            prompt_learning.setdefault("execution_mode", str(self.execution_mode or "offline"))
         return result
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "PromptLearningConfig":
         """Load prompt learning config from dict/TOML mapping."""
+        reject_legacy_policy_optimization(data)
+
         # Remove deprecated fields at top level (silently for compatibility removed)
         # The CLI validation module will warn about these
         deprecated_top_level = {"display", "results_folder", "container_api_key"}
@@ -1521,21 +1718,38 @@ class PromptLearningConfig(ExtraModel):
             # If no prompt_learning section, assume top-level is prompt_learning
             pl_data = dict(data)
 
-        # Canonical contract accepts top-level `kind`; synth-sdk still needs
-        # an internal algorithm selector for config modeling/normalization.
-        if isinstance(pl_data, dict) and not pl_data.get("algorithm"):
-            kind_raw = pl_data.get("kind") or data.get("kind")
-            kind = str(kind_raw).strip().lower() if isinstance(kind_raw, str) else ""
-            kind_to_algorithm = {
-                "gepa_offline": "gepa",
-                "gepa_online": "gepa",
-                "mipro_offline": "mipro",
-                "mipro_online": "mipro",
-                "voyager_online": "mipro",
-            }
-            mapped = kind_to_algorithm.get(kind)
-            if mapped:
-                pl_data["algorithm"] = mapped
+        if isinstance(pl_data, dict):
+            for forbidden in ("policy", "initial_prompt"):
+                if pl_data.get(forbidden) is not None:
+                    raise ValueError(
+                        f"prompt_learning.{forbidden} is no longer supported in canonical config"
+                    )
+
+            # Canonical field first.
+            if not pl_data.get("algorithm") and isinstance(pl_data.get("algorithm_name"), str):
+                pl_data["algorithm"] = str(pl_data["algorithm_name"]).strip().lower()
+
+            # Legacy kind alias fallback.
+            if not pl_data.get("algorithm"):
+                kind_raw = pl_data.get("kind") or data.get("kind")
+                kind = str(kind_raw).strip().lower() if isinstance(kind_raw, str) else ""
+                kind_to_algorithm_mode = {
+                    "gepa_offline": ("gepa", "offline"),
+                    "gepa_online": ("gepa", "online"),
+                    "mipro_offline": ("mipro", "offline"),
+                    "mipro_online": ("mipro", "online"),
+                    "voyager_online": ("mipro", "online"),
+                }
+                mapped = kind_to_algorithm_mode.get(kind)
+                if mapped:
+                    pl_data["algorithm"], inferred_mode = mapped
+                    pl_data.setdefault("execution_mode", inferred_mode)
+
+            # Prefer canonical execution_mode at prompt_learning scope.
+            execution_mode = pl_data.get("execution_mode")
+            if isinstance(execution_mode, str) and execution_mode.strip():
+                normalized_mode = execution_mode.strip().lower()
+                pl_data["execution_mode"] = normalized_mode
 
         # Handle proxy_models at top-level FIRST (takes precedence over algorithm-specific)
         # This ensures top-level proxy_models is available for algorithm configs to check
@@ -1558,6 +1772,9 @@ class PromptLearningConfig(ExtraModel):
                 # Note: gepa.proxy_models will be None, but top-level proxy_models will be used by backend
                 pass
 
+        if "mipro" in pl_data and isinstance(pl_data["mipro"], dict):
+            pl_data["mipro"] = MiproConfig.model_validate(pl_data["mipro"])
+
         if "verifier" in pl_data and isinstance(pl_data["verifier"], dict):
             pl_data["verifier"] = PromptLearningVerifierConfig.model_validate(pl_data["verifier"])
 
@@ -1574,6 +1791,7 @@ __all__ = [
     "GEPAConfig",
     "GEPAModuleConfig",
     "GEPARolloutConfig",
+    "GEPAThroughputConfig",
     "GEPAEvaluationConfig",
     "GEPAMutationConfig",
     "GEPAPopulationConfig",
@@ -1586,6 +1804,15 @@ __all__ = [
     "PromptPatternConfig",
     "PromptLearningVerifierConfig",
     "ProxyModelsConfig",
+    "MiproConfig",
+    "LongHorizonModeConfig",
+    "MultiAgentModeConfig",
+    "HorizonGeneralizationConfig",
+    "HorizonDistanceBinConfig",
+    "BaseCaseGatingConfig",
+    "PairedEvalConfig",
+    "WaypointPlannerConfig",
+    "CounterfactualCreditConfig",
     "AdaptivePoolConfig",
     "AdaptiveCurriculumLevel",
     "AdaptiveBatchLevel",

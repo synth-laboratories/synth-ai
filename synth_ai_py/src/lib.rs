@@ -116,6 +116,7 @@ use synth_ai_core::urls::{
     normalize_inference_base as core_normalize_inference_base,
     validate_container_url as core_validate_container_url,
 };
+use synth_ai_core::api::routes as core_routes;
 use synth_ai_core::utils as core_utils;
 use synth_ai_core::CoreError;
 
@@ -870,6 +871,122 @@ fn backend_me_url(base_url: &str) -> String {
 #[pyfunction]
 fn backend_demo_keys_url(base_url: &str) -> String {
     core_backend_demo_keys_url(base_url)
+}
+
+// =============================================================================
+// Optimization routes
+// =============================================================================
+
+#[pyfunction]
+fn optimization_route_offline_jobs_base(api_version: &str) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::offline_jobs_base(v))
+}
+
+#[pyfunction]
+fn optimization_route_offline_job_path(job_id: &str, api_version: &str) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::offline_job_path(job_id, v))
+}
+
+#[pyfunction]
+fn optimization_route_offline_job_subpath(
+    job_id: &str,
+    suffix: &str,
+    api_version: &str,
+) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::offline_job_subpath(job_id, suffix, v))
+}
+
+#[pyfunction]
+fn optimization_route_online_sessions_base(api_version: &str) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::online_sessions_base(v))
+}
+
+#[pyfunction]
+fn optimization_route_online_session_path(
+    session_id: &str,
+    api_version: &str,
+) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::online_session_path(session_id, v))
+}
+
+#[pyfunction]
+fn optimization_route_online_session_subpath(
+    session_id: &str,
+    suffix: &str,
+    api_version: &str,
+) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::online_session_subpath(session_id, suffix, v))
+}
+
+#[pyfunction]
+fn optimization_route_policy_systems_base(api_version: &str) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::policy_systems_base(v))
+}
+
+#[pyfunction]
+fn optimization_route_policy_system_path(
+    system_id: &str,
+    api_version: &str,
+) -> PyResult<String> {
+    let v = core_routes::ApiVersion::from_str(api_version)
+        .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
+    Ok(core_routes::policy_system_path(system_id, v))
+}
+
+#[pyfunction]
+fn optimization_route_gepa_api_version() -> String {
+    core_routes::GEPA_API_VERSION.as_str().to_string()
+}
+
+#[pyfunction]
+fn optimization_route_mipro_api_version() -> String {
+    core_routes::MIPRO_API_VERSION.as_str().to_string()
+}
+
+#[pyfunction]
+fn optimization_route_eval_api_version() -> String {
+    core_routes::EVAL_API_VERSION.as_str().to_string()
+}
+
+// =============================================================================
+// Container URL classification
+// =============================================================================
+
+#[pyfunction]
+fn container_is_local_http_url(url: &str) -> bool {
+    core_container_validation::is_local_http_container_url(url)
+}
+
+#[pyfunction]
+fn container_is_synthtunnel_url(url: &str) -> bool {
+    core_container_validation::is_synthtunnel_url(url)
+}
+
+#[pyfunction]
+fn container_validate_gepa_auth(url: &str, has_signing_key: bool) -> Option<String> {
+    match core_container_validation::validate_gepa_container_auth(url, has_signing_key) {
+        core_container_validation::GepaAuthRequirement::Ok => None,
+        core_container_validation::GepaAuthRequirement::SynthTunnelSignerRequired => {
+            Some("SynthTunnel URL requires a container token signing key".to_string())
+        }
+        core_container_validation::GepaAuthRequirement::RemoteSignerRequired => {
+            Some("Remote container URL requires a container token signing key".to_string())
+        }
+    }
 }
 
 // =============================================================================
@@ -1742,6 +1859,20 @@ fn container_allowed_environment_api_keys() -> Vec<String> {
 #[pyfunction]
 fn container_is_api_key_header_authorized(header_values: Vec<String>) -> bool {
     core_container_auth::is_api_key_header_authorized(&header_values)
+}
+
+#[pyfunction]
+#[pyo3(signature = (header_value, required_scope=None))]
+fn container_verify_paseto_header(
+    py: Python,
+    header_value: String,
+    required_scope: Option<String>,
+) -> PyResult<()> {
+    core_container_auth::verify_container_paseto_header(
+        &header_value,
+        required_scope.as_deref(),
+    )
+    .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -2844,10 +2975,10 @@ fn expand_gepa_config(py: Python, minimal: PyObject) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn gepa_candidate_to_initial_prompt(py: Python, seed_candidate: PyObject) -> PyResult<PyObject> {
+fn gepa_candidate_to_initial_candidate(py: Python, seed_candidate: PyObject) -> PyResult<PyObject> {
     let candidate_value: serde_json::Value = pythonize::depythonize(seed_candidate.bind(py))
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let prompt = config::gepa_candidate_to_initial_prompt(&candidate_value)
+    let prompt = config::gepa_candidate_to_initial_candidate(&candidate_value)
         .map_err(|e| map_core_err(py, e))?;
     pythonize::pythonize(py, &prompt)
         .map(|b| b.unbind())
@@ -2932,595 +3063,6 @@ fn validate_prompt_learning_config_strict(py: Python, config: PyObject) -> PyRes
     pythonize::pythonize(py, &errors)
         .map(|b| b.unbind())
         .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (config, dataset))]
-fn validate_graphgen_job_config(
-    py: Python,
-    config: PyObject,
-    dataset: PyObject,
-) -> PyResult<PyObject> {
-    let config_value: serde_json::Value = pythonize::depythonize(config.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = core_validate_graphgen_job_config(&config_value, &dataset_value);
-
-    let mut out = serde_json::Map::new();
-    out.insert("errors".to_string(), Value::Array(result.errors));
-    out.insert(
-        "warnings".to_string(),
-        Value::Array(result.warnings.into_iter().map(Value::String).collect()),
-    );
-
-    pythonize::pythonize(py, &Value::Object(out))
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn graph_opt_supported_models(py: Python) -> PyResult<PyObject> {
-    let value = core_graph_opt_supported_models();
-    pythonize::pythonize(py, &value)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn validate_graphgen_taskset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
-    let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let errors = core_validate_graphgen_taskset(&dataset_value);
-    pythonize::pythonize(py, &errors)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn parse_graphgen_taskset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
-    let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let parsed = core_parse_graphgen_taskset(&dataset_value).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &parsed)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn load_graphgen_taskset(py: Python, path: &str) -> PyResult<PyObject> {
-    let parsed =
-        core_load_graphgen_taskset(std::path::Path::new(path)).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &parsed)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (section, base_dir=None))]
-fn validate_graph_job_section(
-    py: Python,
-    section: PyObject,
-    base_dir: Option<String>,
-) -> PyResult<PyObject> {
-    let section_value: serde_json::Value = pythonize::depythonize(section.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let base_path = base_dir.as_deref().map(std::path::Path::new);
-    let (result, errors) = core_validate_graph_job_section(&section_value, base_path);
-
-    let mut out = serde_json::Map::new();
-    out.insert("errors".to_string(), Value::Array(errors));
-    if let Some(result) = result {
-        out.insert("result".to_string(), result);
-    } else {
-        out.insert("result".to_string(), Value::Null);
-    }
-    pythonize::pythonize(py, &Value::Object(out))
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (path))]
-fn load_graph_job_toml(py: Python, path: &str) -> PyResult<PyObject> {
-    let (result, errors) = core_load_graph_job_toml(std::path::Path::new(path));
-    let mut out = serde_json::Map::new();
-    out.insert("errors".to_string(), Value::Array(errors));
-    if let Some(result) = result {
-        out.insert("result".to_string(), result);
-    } else {
-        out.insert("result".to_string(), Value::Null);
-    }
-    pythonize::pythonize(py, &Value::Object(out))
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (payload))]
-fn validate_graph_job_payload(py: Python, payload: PyObject) -> PyResult<PyObject> {
-    let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let errors = core_validate_graph_job_payload(&payload_value);
-    pythonize::pythonize(py, &errors)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (source, dataset_name="converted_sft", detect_template=true, max_examples=None))]
-fn convert_openai_sft(
-    py: Python,
-    source: PyObject,
-    dataset_name: &str,
-    detect_template: bool,
-    max_examples: Option<usize>,
-) -> PyResult<PyObject> {
-    let source_value: serde_json::Value = pythonize::depythonize(source.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = core_convert_openai_sft(
-        &source_value,
-        Some(dataset_name.to_string()),
-        detect_template,
-        max_examples,
-    )
-    .map_err(|e| map_core_err(py, e))?;
-
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-// =============================================================================
-// Graph Evolve - Builders
-// =============================================================================
-
-#[pyfunction]
-fn parse_graph_evolve_dataset(py: Python, dataset: PyObject) -> PyResult<PyObject> {
-    let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let parsed =
-        core_parse_graph_evolve_dataset(&dataset_value).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &parsed)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn load_graph_evolve_dataset(py: Python, path: &str) -> PyResult<PyObject> {
-    let parsed = core_load_graph_evolve_dataset(path).map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &parsed)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn normalize_graph_evolve_policy_models(py: Python, models: PyObject) -> PyResult<Vec<String>> {
-    let models_value: Vec<String> = pythonize::depythonize(models.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    core_normalize_graph_evolve_policy_models(models_value).map_err(|e| map_core_err(py, e))
-}
-
-#[pyfunction]
-#[pyo3(signature = (policy_models, rollout_budget, proposer_effort, verifier_model=None, verifier_provider=None, population_size=4, num_generations=None, problem_spec=None, target_llm_calls=None, graph_type=None, initial_graph_id=None))]
-fn build_graph_evolve_config(
-    py: Python,
-    policy_models: PyObject,
-    rollout_budget: i64,
-    proposer_effort: &str,
-    verifier_model: Option<String>,
-    verifier_provider: Option<String>,
-    population_size: i64,
-    num_generations: Option<i64>,
-    problem_spec: Option<String>,
-    target_llm_calls: Option<i64>,
-    graph_type: Option<String>,
-    initial_graph_id: Option<String>,
-) -> PyResult<PyObject> {
-    let policy_models_value: Vec<String> = pythonize::depythonize(policy_models.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let config = core_build_graph_evolve_config(
-        policy_models_value,
-        rollout_budget,
-        proposer_effort,
-        verifier_model,
-        verifier_provider,
-        population_size,
-        num_generations,
-        problem_spec,
-        target_llm_calls,
-        graph_type,
-        initial_graph_id,
-    )
-    .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &config)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (dataset, config, metadata=None, auto_start=true))]
-fn build_graph_evolve_payload(
-    py: Python,
-    dataset: PyObject,
-    config: PyObject,
-    metadata: Option<PyObject>,
-    auto_start: bool,
-) -> PyResult<PyObject> {
-    let dataset_value: serde_json::Value = pythonize::depythonize(dataset.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let config_value: serde_json::Value = pythonize::depythonize(config.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let metadata_value: Option<serde_json::Value> = metadata
-        .map(|m| pythonize::depythonize(m.bind(py)))
-        .transpose()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let payload = core_build_graph_evolve_payload(
-        &dataset_value,
-        &config_value,
-        metadata_value.as_ref(),
-        auto_start,
-    )
-    .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &payload)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (prompt_snapshot_id=None, graph_snapshot_id=None))]
-fn resolve_graph_evolve_snapshot_id(
-    py: Python,
-    prompt_snapshot_id: Option<String>,
-    graph_snapshot_id: Option<String>,
-) -> PyResult<Option<String>> {
-    core_resolve_graph_evolve_snapshot_id(
-        prompt_snapshot_id.as_deref(),
-        graph_snapshot_id.as_deref(),
-    )
-    .map_err(|e| map_core_err(py, e))
-}
-
-#[pyfunction]
-#[pyo3(signature = (job_id, prompt_snapshot_id=None, graph_snapshot_id=None))]
-fn build_graph_evolve_graph_record_payload(
-    py: Python,
-    job_id: &str,
-    prompt_snapshot_id: Option<String>,
-    graph_snapshot_id: Option<String>,
-) -> PyResult<PyObject> {
-    let payload = core_build_graph_evolve_graph_record_payload(
-        job_id,
-        prompt_snapshot_id.as_deref(),
-        graph_snapshot_id.as_deref(),
-    )
-    .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &payload)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (job_id, input_data, model=None, prompt_snapshot_id=None, graph_snapshot_id=None))]
-fn build_graph_evolve_inference_payload(
-    py: Python,
-    job_id: &str,
-    input_data: PyObject,
-    model: Option<String>,
-    prompt_snapshot_id: Option<String>,
-    graph_snapshot_id: Option<String>,
-) -> PyResult<PyObject> {
-    let input_value: serde_json::Value = pythonize::depythonize(input_data.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let payload = core_build_graph_evolve_inference_payload(
-        job_id,
-        &input_value,
-        model.as_deref(),
-        prompt_snapshot_id.as_deref(),
-        graph_snapshot_id.as_deref(),
-    )
-    .map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &payload)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-fn build_graph_evolve_placeholder_dataset(py: Python) -> PyResult<PyObject> {
-    let payload = core_build_graph_evolve_placeholder_dataset();
-    pythonize::pythonize(py, &payload)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-// =============================================================================
-// Graph Evolve - API
-// =============================================================================
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, payload))]
-fn graph_evolve_submit_job(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    payload: PyObject,
-) -> PyResult<PyObject> {
-    let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().submit_job(payload_value).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id))]
-fn graph_evolve_get_status(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().get_status(job_id).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id))]
-fn graph_evolve_start_job(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().start_job(job_id).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id, since_seq, limit))]
-fn graph_evolve_get_events(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-    since_seq: i64,
-    limit: i64,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async {
-            client
-                .graph_evolve()
-                .get_events(job_id, since_seq, limit)
-                .await
-        })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id, query_string=""))]
-fn graph_evolve_get_metrics(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-    query_string: &str,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async {
-            client
-                .graph_evolve()
-                .get_metrics(job_id, query_string)
-                .await
-        })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id))]
-fn graph_evolve_download_prompt(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().download_prompt(job_id).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id))]
-fn graph_evolve_download_graph_txt(
-    _py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-) -> PyResult<String> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    RUNTIME
-        .block_on(async { client.graph_evolve().download_graph_txt(job_id).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, payload))]
-fn graph_evolve_run_inference(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    payload: PyObject,
-) -> PyResult<PyObject> {
-    let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().run_inference(payload_value).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, payload))]
-fn graph_evolve_get_graph_record(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    payload: PyObject,
-) -> PyResult<PyObject> {
-    let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().get_graph_record(payload_value).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id, payload=None))]
-fn graph_evolve_cancel_job(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-    payload: Option<PyObject>,
-) -> PyResult<PyObject> {
-    let payload_value: serde_json::Value = if let Some(obj) = payload {
-        pythonize::depythonize(obj.bind(py)).map_err(|e| PyValueError::new_err(e.to_string()))?
-    } else {
-        Value::Object(serde_json::Map::new())
-    };
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async {
-            client
-                .graph_evolve()
-                .cancel_job(job_id, payload_value)
-                .await
-        })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (api_key, backend_url, job_id))]
-fn graph_evolve_query_workflow_state(
-    py: Python,
-    api_key: &str,
-    backend_url: &str,
-    job_id: &str,
-) -> PyResult<PyObject> {
-    let client = RustSynthClient::new(api_key, Some(backend_url))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let result = RUNTIME
-        .block_on(async { client.graph_evolve().query_workflow_state(job_id).await })
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    pythonize::pythonize(py, &result)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-// =============================================================================
-// Graphs - Verifier request builder
-// =============================================================================
-
-#[pyfunction]
-#[pyo3(signature = (rubric, trace_content=None, trace_ref=None, system_prompt=None, user_prompt=None, options=None, model=None, verifier_shape=None, rlm_impl=None))]
-fn build_verifier_request(
-    py: Python,
-    rubric: PyObject,
-    trace_content: Option<PyObject>,
-    trace_ref: Option<String>,
-    system_prompt: Option<String>,
-    user_prompt: Option<String>,
-    options: Option<PyObject>,
-    model: Option<String>,
-    verifier_shape: Option<String>,
-    rlm_impl: Option<String>,
-) -> PyResult<PyObject> {
-    let trace_value: Option<Value> = trace_content
-        .map(|t| pythonize::depythonize(t.bind(py)))
-        .transpose()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let rubric_value: Value = pythonize::depythonize(rubric.bind(py))
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let options_value: Option<Value> = options
-        .map(|o| pythonize::depythonize(o.bind(py)))
-        .transpose()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-    let req = core_build_verifier_request(
-        trace_value,
-        trace_ref,
-        rubric_value,
-        system_prompt,
-        user_prompt,
-        options_value,
-        model,
-        verifier_shape,
-        rlm_impl,
-    )
-    .map_err(|e| map_core_err(py, e))?;
-
-    pythonize::pythonize(py, &req)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (job_id=None, graph=None))]
-fn resolve_graph_job_id(
-    py: Python,
-    job_id: Option<String>,
-    graph: Option<PyObject>,
-) -> PyResult<String> {
-    let graph_value: Option<Value> = graph
-        .map(|g| pythonize::depythonize(g.bind(py)))
-        .transpose()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
-    core_resolve_graph_job_id(job_id, graph_value).map_err(|e| map_core_err(py, e))
 }
 
 // =============================================================================
@@ -4801,47 +4343,29 @@ impl ProgressTrackerPy {
 // =============================================================================
 
 use synth_ai_core::api::{
-    build_verifier_request as core_build_verifier_request,
-    resolve_graph_job_id as core_resolve_graph_job_id, ContainerDeployResponse,
-    ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo, ContainerLimits,
-    EvalJobRequest, GepaJobRequest, GraphCompletionRequest, MiproJobRequest,
-    SynthClient as RustSynthClient, VerifierOptions,
+    ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo,
+    ContainerLimits, GepaJobRequest, MiproJobRequest,
+    SynthClient as RustSynthClient,
 };
 use synth_ai_core::orchestration::events::EventParser as RustEventParser;
 use synth_ai_core::orchestration::{
     base_event_schemas as core_base_event_schemas,
     base_job_event_schema as core_base_job_event_schema,
-    build_graph_evolve_config as core_build_graph_evolve_config,
-    build_graph_evolve_graph_record_payload as core_build_graph_evolve_graph_record_payload,
-    build_graph_evolve_inference_payload as core_build_graph_evolve_inference_payload,
-    build_graph_evolve_payload as core_build_graph_evolve_payload,
-    build_graph_evolve_placeholder_dataset as core_build_graph_evolve_placeholder_dataset,
     build_program_candidate as core_build_program_candidate,
     build_prompt_learning_payload as core_build_prompt_learning_payload,
-    convert_openai_sft as core_convert_openai_sft, event_enum_values as core_event_enum_values,
+    event_enum_values as core_event_enum_values,
     extract_program_candidate_content as core_extract_program_candidate_content,
     extract_stages_from_candidate as core_extract_stages_from_candidate,
     get_base_schema as core_get_base_schema,
-    graph_opt_supported_models as core_graph_opt_supported_models,
     is_valid_event_type as core_is_valid_event_type,
-    load_graph_evolve_dataset as core_load_graph_evolve_dataset,
-    load_graph_job_toml as core_load_graph_job_toml,
-    load_graphgen_taskset as core_load_graphgen_taskset,
     merge_event_schema as core_merge_event_schema,
-    normalize_graph_evolve_policy_models as core_normalize_graph_evolve_policy_models,
     normalize_transformation as core_normalize_transformation,
-    parse_graph_evolve_dataset as core_parse_graph_evolve_dataset,
-    parse_graphgen_taskset as core_parse_graphgen_taskset, parse_job_event as core_parse_job_event,
-    resolve_graph_evolve_snapshot_id as core_resolve_graph_evolve_snapshot_id,
+    parse_job_event as core_parse_job_event,
     seed_reward_entry as core_seed_reward_entry, validate_base_event as core_validate_base_event,
     validate_event_type as core_validate_event_type,
-    validate_graph_job_payload as core_validate_graph_job_payload,
-    validate_graph_job_section as core_validate_graph_job_section,
-    validate_graphgen_job_config as core_validate_graphgen_job_config,
-    validate_graphgen_taskset as core_validate_graphgen_taskset,
     validate_prompt_learning_config as core_validate_prompt_learning_config,
     validate_prompt_learning_config_strict as core_validate_prompt_learning_config_strict,
-    GraphEvolveJob as RustGraphEvolveJob, ProgressTracker as RustProgressTracker,
+    ProgressTracker as RustProgressTracker,
     PromptLearningJob as RustPromptLearningJob,
 };
 
@@ -4970,188 +4494,6 @@ impl SynthClient {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    // -------------------------------------------------------------------------
-    // Eval API
-    // -------------------------------------------------------------------------
-
-    #[pyo3(signature = (request))]
-    fn submit_eval(&self, py: Python, request: PyObject) -> PyResult<String> {
-        let req: EvalJobRequest = pythonize::depythonize(request.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        RUNTIME
-            .block_on(async { self.inner.eval().submit(req).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id))]
-    fn get_eval_status(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME
-            .block_on(async { self.inner.eval().get_status(job_id).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id, timeout_secs=1800.0, interval_secs=10.0))]
-    fn poll_eval(
-        &self,
-        py: Python,
-        job_id: &str,
-        timeout_secs: f64,
-        interval_secs: f64,
-    ) -> PyResult<PyObject> {
-        let result = RUNTIME
-            .block_on(async {
-                self.inner
-                    .eval()
-                    .poll_until_complete(job_id, timeout_secs, interval_secs)
-                    .await
-            })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id, reason=None))]
-    fn cancel_eval(&self, py: Python, job_id: &str, reason: Option<&str>) -> PyResult<PyObject> {
-        let reason_owned = reason.map(|s| s.to_string());
-        let result = RUNTIME
-            .block_on(async { self.inner.eval().cancel(job_id, reason_owned).await })
-            .map_err(|e| map_core_err(py, e))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    // -------------------------------------------------------------------------
-    // Inference API
-    // -------------------------------------------------------------------------
-
-    #[pyo3(signature = (request))]
-    fn inference_chat_completion(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let body: Value = pythonize::depythonize(request.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        let result = RUNTIME
-            .block_on(async { self.inner.inference().chat_completion(body).await })
-            .map_err(|e| map_core_err(py, e))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id))]
-    fn get_eval_results(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME
-            .block_on(async { self.inner.eval().get_results(job_id).await })
-            .map_err(|e| map_core_err(py, e))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id))]
-    fn download_eval_traces(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let bytes = RUNTIME
-            .block_on(async { self.inner.eval().download_traces(job_id).await })
-            .map_err(|e| map_core_err(py, e))?;
-        Ok(PyBytes::new_bound(py, &bytes).into_py(py))
-    }
-
-    #[pyo3(signature = (job_id))]
-    fn query_eval_workflow_state(&self, py: Python, job_id: &str) -> PyResult<PyObject> {
-        let result = RUNTIME
-            .block_on(async { self.inner.eval().query_workflow_state(job_id).await })
-            .map_err(|e| map_core_err(py, e))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    // -------------------------------------------------------------------------
-    // Graphs API
-    // -------------------------------------------------------------------------
-
-    #[pyo3(signature = (kind=None, limit=None))]
-    fn list_graphs(
-        &self,
-        py: Python,
-        kind: Option<&str>,
-        limit: Option<i32>,
-    ) -> PyResult<PyObject> {
-        let result = RUNTIME
-            .block_on(async { self.inner.graphs().list_graphs(kind, limit).await })
-            .map_err(|e| map_core_err(py, e))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (request))]
-    fn graph_complete(&self, py: Python, request: PyObject) -> PyResult<PyObject> {
-        let req: GraphCompletionRequest = pythonize::depythonize(request.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid request: {}", e)))?;
-        let result = RUNTIME
-            .block_on(async { self.inner.graphs().complete(req).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (trace, rubric, options=None))]
-    fn verify(
-        &self,
-        py: Python,
-        trace: PyObject,
-        rubric: PyObject,
-        options: Option<PyObject>,
-    ) -> PyResult<PyObject> {
-        let trace_value: serde_json::Value = pythonize::depythonize(trace.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid trace: {}", e)))?;
-        let rubric_value: serde_json::Value = pythonize::depythonize(rubric.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid rubric: {}", e)))?;
-        let opts: Option<VerifierOptions> = options
-            .map(|o| pythonize::depythonize(o.bind(py)))
-            .transpose()
-            .map_err(|e| PyValueError::new_err(format!("invalid options: {}", e)))?;
-
-        let result = RUNTIME
-            .block_on(async {
-                self.inner
-                    .graphs()
-                    .verify(trace_value, rubric_value, opts)
-                    .await
-            })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (job_id, input, model=None))]
-    fn policy_inference(
-        &self,
-        py: Python,
-        job_id: &str,
-        input: PyObject,
-        model: Option<&str>,
-    ) -> PyResult<PyObject> {
-        let input_value: serde_json::Value = pythonize::depythonize(input.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid input: {}", e)))?;
-        let result = RUNTIME
-            .block_on(async {
-                self.inner
-                    .graphs()
-                    .policy_inference(job_id, input_value, model)
-                    .await
-            })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
 }
 
 // =============================================================================
@@ -5296,180 +4638,6 @@ impl PromptLearningJob {
     }
 }
 
-// =============================================================================
-// Orchestration - GraphEvolveJob
-// =============================================================================
-
-#[pyclass]
-struct GraphEvolveJob {
-    inner: std::sync::Mutex<RustGraphEvolveJob>,
-}
-
-#[pymethods]
-impl GraphEvolveJob {
-    #[staticmethod]
-    #[pyo3(signature = (payload, api_key=None, base_url=None))]
-    fn from_payload(
-        py: Python,
-        payload: PyObject,
-        api_key: Option<&str>,
-        base_url: Option<&str>,
-    ) -> PyResult<Self> {
-        let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
-        let job = RustGraphEvolveJob::from_payload(payload_value, api_key, base_url)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self {
-            inner: std::sync::Mutex::new(job),
-        })
-    }
-
-    #[staticmethod]
-    #[pyo3(signature = (job_id, api_key=None, base_url=None))]
-    fn from_job_id(job_id: &str, api_key: Option<&str>, base_url: Option<&str>) -> PyResult<Self> {
-        let job = RustGraphEvolveJob::from_job_id(job_id, api_key, base_url)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self {
-            inner: std::sync::Mutex::new(job),
-        })
-    }
-
-    #[getter]
-    fn job_id(&self) -> Option<String> {
-        self.inner.lock().unwrap().job_id().map(|s| s.to_string())
-    }
-
-    #[getter]
-    fn canonical_graphgen_job_id(&self) -> Option<String> {
-        self.inner
-            .lock()
-            .unwrap()
-            .canonical_job_id()
-            .map(|s| s.to_string())
-    }
-
-    fn submit(&self, py: Python) -> PyResult<PyObject> {
-        let mut job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.submit().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    fn get_status(&self, py: Python) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.get_status().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    fn start(&self, py: Python) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.start().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (since_seq=0, limit=1000))]
-    fn get_events(&self, py: Python, since_seq: i64, limit: i64) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.get_events(since_seq, limit).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (query_string=""))]
-    fn get_metrics(&self, py: Python, query_string: &str) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.get_metrics(query_string).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    fn download_prompt(&self, py: Python) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.download_prompt().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    fn download_graph_txt(&self) -> PyResult<String> {
-        let job = self.inner.lock().unwrap();
-        RUNTIME
-            .block_on(async { job.download_graph_txt().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (payload))]
-    fn run_inference(&self, py: Python, payload: PyObject) -> PyResult<PyObject> {
-        let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.run_inference(payload_value).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (payload))]
-    fn get_graph_record(&self, py: Python, payload: PyObject) -> PyResult<PyObject> {
-        let payload_value: serde_json::Value = pythonize::depythonize(payload.bind(py))
-            .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?;
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.get_graph_record(payload_value).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    #[pyo3(signature = (payload=None))]
-    fn cancel(&self, py: Python, payload: Option<PyObject>) -> PyResult<PyObject> {
-        let payload_value: serde_json::Value = if let Some(obj) = payload {
-            pythonize::depythonize(obj.bind(py))
-                .map_err(|e| PyValueError::new_err(format!("invalid payload: {}", e)))?
-        } else {
-            Value::Object(serde_json::Map::new())
-        };
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.cancel(payload_value).await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-
-    fn query_workflow_state(&self, py: Python) -> PyResult<PyObject> {
-        let job = self.inner.lock().unwrap();
-        let result = RUNTIME
-            .block_on(async { job.query_workflow_state().await })
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        pythonize::pythonize(py, &result)
-            .map(|b| b.unbind())
-            .map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-}
 
 #[pyfunction]
 #[pyo3(signature = (model_name=None))]
@@ -5937,13 +5105,6 @@ impl StreamEndpointsPy {
     }
 
     #[staticmethod]
-    fn eval(job_id: &str) -> Self {
-        Self {
-            inner: RustStreamEndpoints::eval(job_id),
-        }
-    }
-
-    #[staticmethod]
     fn sft(job_id: &str) -> Self {
         Self {
             inner: RustStreamEndpoints::sft(job_id),
@@ -6398,6 +5559,22 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(backend_health_url, m)?)?;
     m.add_function(wrap_pyfunction!(backend_me_url, m)?)?;
     m.add_function(wrap_pyfunction!(backend_demo_keys_url, m)?)?;
+    // Optimization routes
+    m.add_function(wrap_pyfunction!(optimization_route_offline_jobs_base, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_offline_job_path, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_offline_job_subpath, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_online_sessions_base, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_online_session_path, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_online_session_subpath, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_policy_systems_base, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_policy_system_path, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_gepa_api_version, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_mipro_api_version, m)?)?;
+    m.add_function(wrap_pyfunction!(optimization_route_eval_api_version, m)?)?;
+    // Container URL classification
+    m.add_function(wrap_pyfunction!(container_is_local_http_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_is_synthtunnel_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_validate_gepa_auth, m)?)?;
     // Utils
     m.add_function(wrap_pyfunction!(strip_json_comments, m)?)?;
     m.add_function(wrap_pyfunction!(create_and_write_json, m)?)?;
@@ -6492,6 +5669,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     )?)?;
     m.add_function(wrap_pyfunction!(container_allowed_environment_api_keys, m)?)?;
     m.add_function(wrap_pyfunction!(container_is_api_key_header_authorized, m)?)?;
+    m.add_function(wrap_pyfunction!(container_verify_paseto_header, m)?)?;
     m.add_function(wrap_pyfunction!(
         container_normalize_chat_completion_url,
         m
@@ -6590,45 +5768,11 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(expand_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_eval_config, m)?)?;
     m.add_function(wrap_pyfunction!(expand_gepa_config, m)?)?;
-    m.add_function(wrap_pyfunction!(gepa_candidate_to_initial_prompt, m)?)?;
+    m.add_function(wrap_pyfunction!(gepa_candidate_to_initial_candidate, m)?)?;
     m.add_function(wrap_pyfunction!(is_minimal_config, m)?)?;
     m.add_function(wrap_pyfunction!(build_prompt_learning_payload, m)?)?;
     m.add_function(wrap_pyfunction!(validate_prompt_learning_config, m)?)?;
     m.add_function(wrap_pyfunction!(validate_prompt_learning_config_strict, m)?)?;
-    m.add_function(wrap_pyfunction!(validate_graphgen_job_config, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_opt_supported_models, m)?)?;
-    m.add_function(wrap_pyfunction!(validate_graphgen_taskset, m)?)?;
-    m.add_function(wrap_pyfunction!(parse_graphgen_taskset, m)?)?;
-    m.add_function(wrap_pyfunction!(load_graphgen_taskset, m)?)?;
-    m.add_function(wrap_pyfunction!(validate_graph_job_section, m)?)?;
-    m.add_function(wrap_pyfunction!(load_graph_job_toml, m)?)?;
-    m.add_function(wrap_pyfunction!(validate_graph_job_payload, m)?)?;
-    m.add_function(wrap_pyfunction!(parse_graph_evolve_dataset, m)?)?;
-    m.add_function(wrap_pyfunction!(load_graph_evolve_dataset, m)?)?;
-    m.add_function(wrap_pyfunction!(normalize_graph_evolve_policy_models, m)?)?;
-    m.add_function(wrap_pyfunction!(build_graph_evolve_config, m)?)?;
-    m.add_function(wrap_pyfunction!(build_graph_evolve_payload, m)?)?;
-    m.add_function(wrap_pyfunction!(resolve_graph_evolve_snapshot_id, m)?)?;
-    m.add_function(wrap_pyfunction!(
-        build_graph_evolve_graph_record_payload,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(build_graph_evolve_inference_payload, m)?)?;
-    m.add_function(wrap_pyfunction!(build_graph_evolve_placeholder_dataset, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_submit_job, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_get_status, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_start_job, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_get_events, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_get_metrics, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_download_prompt, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_download_graph_txt, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_run_inference, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_get_graph_record, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_cancel_job, m)?)?;
-    m.add_function(wrap_pyfunction!(graph_evolve_query_workflow_state, m)?)?;
-    m.add_function(wrap_pyfunction!(convert_openai_sft, m)?)?;
-    m.add_function(wrap_pyfunction!(build_verifier_request, m)?)?;
-    m.add_function(wrap_pyfunction!(resolve_graph_job_id, m)?)?;
 
     // Models (NEW)
     m.add_function(wrap_pyfunction!(normalize_model_identifier, m)?)?;
@@ -6745,7 +5889,6 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Orchestration (NEW)
     m.add_class::<PromptLearningJob>()?;
-    m.add_class::<GraphEvolveJob>()?;
 
     // Tracing (NEW)
     m.add_function(wrap_pyfunction!(tracing_detect_provider, m)?)?;

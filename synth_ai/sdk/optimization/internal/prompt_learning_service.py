@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .utils import ensure_api_base, http_get, http_post, parse_json_response
 
 
-def _headers(api_key: str, *, worker_token: str | None = None) -> Dict[str, str]:
-    headers: Dict[str, str] = {
+def _headers(api_key: str, *, worker_token: str | None = None) -> dict[str, str]:
+    headers: dict[str, str] = {
         "X-API-Key": api_key,
         "Content-Type": "application/json",
     }
@@ -20,11 +20,11 @@ def cancel_prompt_learning_job(
     backend_url: str,
     api_key: str,
     job_id: str,
-    reason: Optional[str] = None,
-) -> Dict[str, Any]:
+    reason: str | None = None,
+) -> dict[str, Any]:
     api_base = ensure_api_base(backend_url)
     url = f"{api_base}/jobs/{job_id}/cancel"
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if reason:
         payload["reason"] = reason
     resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
@@ -36,11 +36,11 @@ def pause_prompt_learning_job(
     backend_url: str,
     api_key: str,
     job_id: str,
-    reason: Optional[str] = None,
-) -> Dict[str, Any]:
+    reason: str | None = None,
+) -> dict[str, Any]:
     api_base = ensure_api_base(backend_url)
     url = f"{api_base}/jobs/{job_id}/pause"
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if reason:
         payload["reason"] = reason
     resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
@@ -52,11 +52,11 @@ def resume_prompt_learning_job(
     backend_url: str,
     api_key: str,
     job_id: str,
-    reason: Optional[str] = None,
-) -> Dict[str, Any]:
+    reason: str | None = None,
+) -> dict[str, Any]:
     api_base = ensure_api_base(backend_url)
     url = f"{api_base}/jobs/{job_id}/resume"
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if reason:
         payload["reason"] = reason
     resp = http_post(url, headers=_headers(api_key), json_body=payload, timeout=30.0)
@@ -68,7 +68,7 @@ def query_prompt_learning_workflow_state(
     backend_url: str,
     api_key: str,
     job_id: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     url = f"{ensure_api_base(backend_url)}/jobs/{job_id}/workflow-state"
     resp = http_get(url, headers=_headers(api_key), timeout=10.0)
     if resp.status_code != 200:

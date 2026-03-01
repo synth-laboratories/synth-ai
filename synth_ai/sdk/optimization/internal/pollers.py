@@ -7,6 +7,12 @@ from typing import Any
 
 import click
 
+from synth_ai.core.utils.optimization_routes import (
+    EVAL_API_VERSION,
+    GEPA_API_VERSION,
+    offline_job_path,
+)
+
 from .utils import ensure_api_base, fmt_duration, http_get, parse_json_response, sleep
 
 
@@ -82,7 +88,7 @@ class PromptLearningJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/v1/offline/jobs/{job_id}")
+        return super().poll(offline_job_path(job_id, api_version=GEPA_API_VERSION))
 
 
 class EvalJobPoller(JobPoller):
@@ -102,8 +108,8 @@ class EvalJobPoller(JobPoller):
         ...     print(outcome.payload)
 
     See Also:
-        - `synth_ai.sdk.api.eval.EvalJob`: High-level eval job API
-        - Backend API: GET /api/v1/offline/jobs/{job_id}
+        - `common.synth_eval.EvalJob`: Eval job API used by eval tooling
+        - Backend API: GET /v2/offline/jobs/{job_id}
     """
 
     def poll_job(self, job_id: str) -> PollOutcome:
@@ -115,7 +121,7 @@ class EvalJobPoller(JobPoller):
         Returns:
             PollOutcome with status and payload
         """
-        return super().poll(f"/api/v1/offline/jobs/{job_id}")
+        return super().poll(offline_job_path(job_id, api_version=EVAL_API_VERSION))
 
 
 __all__ = [

@@ -28,7 +28,7 @@ pub struct PromptLearningResult {
     /// Current status
     pub status: PolicyJobStatus,
     /// Best reward achieved
-    #[serde(default, alias = "best_score")]
+    #[serde(default)]
     pub best_reward: Option<f64>,
     /// Best candidate configuration
     #[serde(default)]
@@ -46,7 +46,7 @@ pub struct PromptLearningResult {
     #[serde(default)]
     pub best_lever_version: Option<i64>,
     /// Baseline reward
-    #[serde(default, alias = "baseline_score")]
+    #[serde(default)]
     pub baseline_reward: Option<f64>,
     /// Number of candidates evaluated
     #[serde(default)]
@@ -103,7 +103,7 @@ pub struct PromptResults {
     #[serde(default)]
     pub best_candidate: Option<String>,
     /// Best reward
-    #[serde(default, alias = "best_score")]
+    #[serde(default)]
     pub best_reward: Option<f64>,
     /// Lever summary emitted by optimizer runtimes.
     #[serde(default)]
@@ -218,6 +218,22 @@ impl PromptLearningJob {
     /// Get the progress tracker.
     pub fn tracker(&self) -> &ProgressTracker {
         &self.tracker
+    }
+
+    fn mirrored_status_base_url(&self) -> Option<String> {
+        let base = self.client.base_url().trim_end_matches('/').to_string();
+        let pairs = [
+            ("infra-api-dev.usesynth.ai", "api-dev.usesynth.ai"),
+            ("infra-api.usesynth.ai", "api.usesynth.ai"),
+            ("api-dev.usesynth.ai", "infra-api-dev.usesynth.ai"),
+            ("api.usesynth.ai", "infra-api.usesynth.ai"),
+        ];
+        for (from, to) in pairs {
+            if base.contains(from) {
+                return Some(base.replacen(from, to, 1));
+            }
+        }
+        None
     }
 
     /// Submit the job to the backend.
@@ -338,7 +354,11 @@ impl PromptLearningJob {
 
         let timeout = Duration::from_secs_f64(timeout_secs);
         let base_url = self.client.base_url().trim_end_matches('/').to_string();
-        let events_url = format!("{}/api/v1/offline/jobs/{}/events/stream", base_url, job_id);
+        let events_url = format!(
+            "{}/api{}",
+            base_url,
+            crate::api::routes::offline_job_subpath(job_id, "events/stream", crate::api::routes::ApiVersion::V1)
+        );
         let api_key = self.client.http().api_key().to_string();
         let mut headers = HeaderMap::new();
         headers.insert("Accept", HeaderValue::from_static("text/event-stream"));
@@ -430,9 +450,50 @@ impl PromptLearningJob {
         eprintln!("[PL] Fetching final job status...");
         let status_result = match self.get_status().await {
             Ok(result) => Some(result),
-            Err(err) => {
-                eprintln!("[PL] Warning: failed to fetch final job status: {}", err);
-                None
+            Err(primary_err) => {
+                let mut fallback_result: Option<PromptLearningResult> = None;
+                if let CoreError::HttpResponse(info) = &primary_err {
+                    if info.status == 404 {
+                        if let Some(mirror_base) = self.mirrored_status_base_url() {
+                            if let Ok(mirror_client) =
+                                SynthClient::new(self.client.http().api_key(), Some(&mirror_base))
+                            {
+                                eprintln!(
+                                    "[PL] Final status fallback lookup via mirrored host: {}",
+                                    mirror_base
+                                );
+                                if let Ok(result) = mirror_client.jobs().get_status(job_id).await {
+                                    fallback_result = Some(PromptLearningResult {
+                                        job_id: result.job_id,
+                                        status: result.status,
+                                        best_reward: result.best_reward,
+                                        best_candidate: result.best_candidate,
+                                        lever_summary: result.lever_summary,
+                                        sensor_frames: result.sensor_frames,
+                                        lever_versions: result.lever_versions,
+                                        best_lever_version: result.best_lever_version,
+                                        baseline_reward: None,
+                                        candidates_evaluated: result
+                                            .candidates_evaluated
+                                            .unwrap_or(0),
+                                        generations_completed: result
+                                            .generations_completed
+                                            .unwrap_or(0),
+                                        error: result.error,
+                                        raw: Value::Null,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                if fallback_result.is_none() {
+                    eprintln!(
+                        "[PL] Warning: failed to fetch final job status: {}",
+                        primary_err
+                    );
+                }
+                fallback_result
             }
         };
 

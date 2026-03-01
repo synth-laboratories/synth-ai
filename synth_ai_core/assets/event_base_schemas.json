@@ -225,7 +225,7 @@
                     "null"
                   ]
                 },
-                "best_score": {
+                "best_reward": {
                   "type": [
                     "number",
                     "null"
@@ -563,7 +563,7 @@
                   "null"
                 ]
               },
-              "best_score": {
+              "best_reward": {
                 "type": [
                   "number",
                   "null"

@@ -25,6 +25,7 @@ __all__ = [
     "ensure_container_auth",
     "mint_environment_api_key",
     "setup_environment_api_key",
+    "has_container_token_signing_key",
 ]
 
 
@@ -34,6 +35,41 @@ def mint_environment_api_key() -> str:
         return fn()
     # Strict: generate a local-only API key
     return f"env_{secrets.token_urlsafe(24)}"
+
+
+def _decode_base64_key_material(value: str) -> bytes | None:
+    raw = value.strip()
+    if not raw:
+        return None
+    variants = (raw, raw + "=" * ((4 - len(raw) % 4) % 4))
+    for variant in variants:
+        for decoder in (base64.b64decode, base64.urlsafe_b64decode):
+            try:
+                return decoder(variant.encode("utf-8"))
+            except Exception:
+                continue
+    return None
+
+
+def _parse_signing_key_entry(entry: str) -> bytes | None:
+    raw = entry.strip()
+    if not raw:
+        return None
+    if ":" in raw:
+        _kid, encoded = raw.split(":", 1)
+        decoded = _decode_base64_key_material(encoded)
+        if decoded is not None:
+            return decoded
+    return _decode_base64_key_material(raw)
+
+
+def has_container_token_signing_key() -> bool:
+    raw_list = os.environ.get("SYNTH_CONTAINER_AUTH_PRIVATE_KEYS", "")
+    for part in raw_list.split(","):
+        if _parse_signing_key_entry(part):
+            return True
+    single = os.environ.get("SYNTH_CONTAINER_AUTH_PRIVATE_KEY", "")
+    return _parse_signing_key_entry(single) is not None
 
 
 def _normalize_backend_base(backend_base: str | None) -> str:

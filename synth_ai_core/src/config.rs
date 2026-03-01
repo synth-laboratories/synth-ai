@@ -805,11 +805,10 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
         out.insert("container_id".to_string(), container_id.clone());
     }
     for key in [
-        "policy",
         "env_config",
         "verifier",
         "proxy_models",
-        "initial_prompt",
+        "task_data",
         "auto_discover_patterns",
         "use_byok",
     ] {
@@ -831,10 +830,10 @@ pub fn expand_gepa_config(minimal: &Value) -> Result<Value, CoreError> {
     Ok(Value::Object(out))
 }
 
-/// Convert a GEPA seed candidate mapping into a Synth prompt pattern.
+/// Convert a GEPA seed candidate mapping into a Synth initial candidate.
 ///
 /// See: specs/sdk_logic.md
-pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value, CoreError> {
+pub fn gepa_candidate_to_initial_candidate(seed_candidate: &Value) -> Result<Value, CoreError> {
     let map = seed_candidate
         .as_object()
         .ok_or_else(|| CoreError::Validation("seed_candidate must be an object".to_string()))?;
@@ -901,9 +900,23 @@ pub fn gepa_candidate_to_initial_prompt(seed_candidate: &Value) -> Result<Value,
         ));
     }
 
+    let mut stage = Map::new();
+    stage.insert(
+        "id".to_string(),
+        Value::String("seed_candidate_stage_0".to_string()),
+    );
+    stage.insert(
+        "name".to_string(),
+        Value::String("Seed Candidate".to_string()),
+    );
+    stage.insert("messages".to_string(), Value::Array(messages));
+    stage.insert("wildcards".to_string(), Value::Object(Map::new()));
+
     let mut output = Map::new();
-    output.insert("messages".to_string(), Value::Array(messages));
-    output.insert("wildcards".to_string(), Value::Object(Map::new()));
+    output.insert(
+        "stages".to_string(),
+        Value::Array(vec![Value::Object(stage)]),
+    );
     Ok(Value::Object(output))
 }
 
@@ -963,17 +976,17 @@ mod tests {
     fn test_deep_update_dot_keys() {
         let mut base = json!({
             "prompt_learning": {
-                "policy": { "model": "a" }
+                "gepa": { "rollout": { "budget": 5 } }
             }
         });
         let overrides = json!({
-            "prompt_learning.policy.model": "b",
+            "prompt_learning.gepa.rollout.timeout": 30,
             "prompt_learning.gepa.rollout.budget": 10
         });
 
         deep_update(&mut base, &overrides);
 
-        assert_eq!(base["prompt_learning"]["policy"]["model"], "b");
+        assert_eq!(base["prompt_learning"]["gepa"]["rollout"]["timeout"], 30);
         assert_eq!(base["prompt_learning"]["gepa"]["rollout"]["budget"], 10);
     }
 

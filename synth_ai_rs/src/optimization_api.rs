@@ -154,13 +154,13 @@ pub struct SystemsClient {
 impl SystemsClient {
     pub async fn create(&self, request: &SystemCreateRequest) -> Result<PolicyOptimizationSystem> {
         self.transport
-            .post_json(openapi_paths::V1_POLICY_OPTIMIZATION_SYSTEMS, request)
+            .post_json(openapi_paths::V1_SYSTEMS, request)
             .await
     }
 
     pub async fn get(&self, system_id: &str) -> Result<PolicyOptimizationSystem> {
         self.transport
-            .get_json(&openapi_paths::v1_policy_optimization_system(system_id))
+            .get_json(&openapi_paths::v1_system(system_id))
             .await
     }
 
@@ -168,12 +168,12 @@ impl SystemsClient {
         match params {
             Some(query) => {
                 self.transport
-                    .get_json_with_query(openapi_paths::V1_POLICY_OPTIMIZATION_SYSTEMS, query)
+                    .get_json_with_query(openapi_paths::V1_SYSTEMS, query)
                     .await
             }
             None => {
                 self.transport
-                    .get_json(openapi_paths::V1_POLICY_OPTIMIZATION_SYSTEMS)
+                    .get_json(openapi_paths::V1_SYSTEMS)
                     .await
             }
         }
@@ -185,13 +185,13 @@ impl SystemsClient {
         request: &SystemUpdateRequest,
     ) -> Result<PolicyOptimizationSystem> {
         self.transport
-            .patch_json(&openapi_paths::v1_policy_optimization_system(system_id), request)
+            .patch_json(&openapi_paths::v1_system(system_id), request)
             .await
     }
 
     pub async fn delete(&self, system_id: &str) -> Result<()> {
         self.transport
-            .delete_empty(&openapi_paths::v1_policy_optimization_system(system_id))
+            .delete_empty(&openapi_paths::v1_system(system_id))
             .await
     }
 }

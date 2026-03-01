@@ -12,6 +12,7 @@ from typing import Any, AsyncIterator, Iterable, Sequence
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient, sleep
 from synth_ai.core.rust_core.sse import stream_sse_events
+from synth_ai.core.utils.optimization_routes import GEPA_API_VERSION, ApiVersion, offline_job_path
 
 from .config import StreamConfig
 from .handlers import StreamHandler
@@ -114,7 +115,20 @@ class StreamEndpoints:
     @classmethod
     def prompt_learning(cls, job_id: str) -> StreamEndpoints:
         """Endpoints for prompt learning jobs (GEPA)."""
-        base = f"/v1/offline/jobs/{job_id}"
+        base = offline_job_path(job_id, api_version=GEPA_API_VERSION)
+        return cls(
+            status=base,
+            events=f"{base}/events",
+            metrics=f"{base}/metrics",
+            timeline=None,
+            status_stricts=(),
+            event_stricts=(),
+        )
+
+    @classmethod
+    def offline_job(cls, job_id: str, *, api_version: ApiVersion = "v2") -> StreamEndpoints:
+        """Endpoints for offline optimization jobs (GEPA/MIPRO)."""
+        base = offline_job_path(job_id, api_version=api_version)
         return cls(
             status=base,
             events=f"{base}/events",
@@ -172,21 +186,6 @@ class StreamEndpoints:
     def graphgen(cls, job_id: str) -> StreamEndpoints:
         """Canonical alias for Graph Evolve stream endpoints."""
         return cls.graph_evolve(job_id)
-
-    @classmethod
-    def eval(cls, job_id: str) -> StreamEndpoints:
-        """Endpoints for eval jobs.
-
-        Eval jobs use /api/v1/offline/jobs/{job_id} endpoints.
-        No strict_paths needed - eval endpoints are standalone.
-        """
-        base = f"/v1/offline/jobs/{job_id}"
-        return cls(
-            status=base,
-            events=f"{base}/events",
-            metrics=None,  # Eval jobs don't have a metrics endpoint
-            timeline=None,
-        )
 
 
 class JobStreamer:

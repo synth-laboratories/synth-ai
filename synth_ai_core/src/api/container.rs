@@ -179,7 +179,10 @@ fn map_http_error(e: HttpError) -> CoreError {
             if detail.status == 401 || detail.status == 403 {
                 CoreError::Authentication(format!("authentication failed: {}", detail))
             } else if detail.status == 429 {
-                CoreError::UsageLimit(crate::UsageLimitInfo::from_http_429("container", &detail))
+                match crate::UsageLimitInfo::from_http_429("container", &detail) {
+                    Ok(info) => CoreError::UsageLimit(info),
+                    Err(err) => err,
+                }
             } else {
                 CoreError::HttpResponse(crate::HttpErrorInfo {
                     status: detail.status,

@@ -20,10 +20,11 @@ use super::types::{
     PolicyJobStatus, PromptLearningResult,
 };
 
-/// Canonical API endpoint root for job status/events.
-const JOBS_ENDPOINT: &str = "/api/v1/offline/jobs";
+/// Canonical API endpoint root for job status/events — delegates to
+/// `crate::jobs_endpoints::JOBS_ROOT` which is built from `api::routes`.
+const JOBS_ENDPOINT: &str = crate::jobs_endpoints::JOBS_ROOT;
 /// Canonical generic create endpoint.
-const JOBS_CREATE_ENDPOINT: &str = "/api/v1/offline/jobs";
+const JOBS_CREATE_ENDPOINT: &str = crate::jobs_endpoints::JOBS_CREATE_GEPA;
 
 const GEPA_KIND: &str = "gepa_offline";
 const MIPRO_KIND: &str = "mipro_offline";
@@ -232,7 +233,7 @@ impl<'a> JobsClient<'a> {
     /// // Poll for up to 1 hour, checking every 15 seconds
     /// let result = client.jobs().poll_until_complete(&job_id, 3600.0, 15.0).await?;
     /// if result.status.is_success() {
-    ///     println!("Best score: {:?}", result.best_score);
+    ///     println!("Best score: {:?}", result.best_reward);
     /// }
     /// ```
     pub async fn poll_until_complete(
@@ -422,11 +423,7 @@ struct PromptLearningResultWire {
     #[serde(default)]
     best_reward: Option<f64>,
     #[serde(default)]
-    best_score: Option<f64>,
-    #[serde(default)]
     best_candidate: Option<Value>,
-    #[serde(default)]
-    best_prompt: Option<Value>,
     #[serde(default)]
     lever_summary: Option<Value>,
     #[serde(default)]
@@ -450,16 +447,17 @@ fn parse_prompt_learning_result(
     let wire: PromptLearningResultWire = serde_json::from_value(payload).map_err(|err| {
         CoreError::Protocol(format!("invalid prompt learning status payload: {err}"))
     })?;
-    let status = wire
+    let status_raw = wire
         .status
         .as_deref()
-        .and_then(PolicyJobStatus::from_str)
-        .unwrap_or(PolicyJobStatus::Pending);
+        .ok_or_else(|| CoreError::Protocol("missing required field: status".to_string()))?;
+    let status = PolicyJobStatus::from_str(status_raw)
+        .ok_or_else(|| CoreError::Protocol(format!("invalid job status: {status_raw}")))?;
     Ok(PromptLearningResult {
         job_id: wire.job_id.unwrap_or_else(|| strict_job_id.to_string()),
         status,
-        best_reward: wire.best_reward.or(wire.best_score),
-        best_candidate: wire.best_candidate.or(wire.best_prompt),
+        best_reward: wire.best_reward,
+        best_candidate: wire.best_candidate,
         lever_summary: wire.lever_summary,
         sensor_frames: wire.sensor_frames,
         lever_versions: wire.lever_versions,
@@ -478,7 +476,6 @@ fn infer_offline_kind(request: &Value) -> Option<&'static str> {
             .and_then(|value| value.as_str())
     };
     let algorithm = from_section("prompt_learning")
-        .or_else(|| from_section("policy_optimization"))
         .or_else(|| request.get("algorithm").and_then(|value| value.as_str()))?
         .trim()
         .to_ascii_lowercase();
@@ -491,7 +488,7 @@ fn infer_offline_kind(request: &Value) -> Option<&'static str> {
 
 fn normalize_offline_config_payload(mut config: Value) -> Value {
     if let Some(map) = config.as_object_mut() {
-        if map.contains_key("prompt_learning") || map.contains_key("policy_optimization") {
+        if map.contains_key("prompt_learning") {
             return config;
         }
     }
@@ -547,6 +544,16 @@ fn canonicalize_offline_create_payload(request: Value, kind: &str) -> Result<Val
             "reuse": true,
         })
     });
+    if let Some(config_map) = config_value.as_object() {
+        if config_map.contains_key("policy_optimization")
+            && !config_map.contains_key("prompt_learning")
+        {
+            return Err(CoreError::Validation(
+                "top-level policy_optimization is no longer supported; use prompt_learning"
+                    .to_string(),
+            ));
+        }
+    }
     map.insert(
         "config".to_string(),
         normalize_offline_config_payload(config_value),
@@ -578,7 +585,10 @@ fn map_http_error(e: HttpError) -> CoreError {
             if detail.status == 401 || detail.status == 403 {
                 CoreError::Authentication(format!("authentication failed: {}", detail))
             } else if detail.status == 429 {
-                CoreError::UsageLimit(crate::UsageLimitInfo::from_http_429("jobs", &detail))
+                match crate::UsageLimitInfo::from_http_429("jobs", &detail) {
+                    Ok(info) => CoreError::UsageLimit(info),
+                    Err(err) => err,
+                }
             } else {
                 CoreError::HttpResponse(crate::HttpErrorInfo {
                     status: detail.status,
@@ -615,15 +625,29 @@ mod tests {
         );
         assert_eq!(
             infer_offline_kind(&serde_json::json!({
-                "policy_optimization": {"algorithm": "GEPA"}
-            })),
-            Some(GEPA_KIND)
-        );
-        assert_eq!(
-            infer_offline_kind(&serde_json::json!({
                 "algorithm": "unknown"
             })),
             None
+        );
+    }
+
+    #[test]
+    fn test_canonicalize_raw_payload_rejects_legacy_policy_optimization_config() {
+        let request = serde_json::json!({
+            "algorithm": "gepa",
+            "config": {
+                "policy_optimization": {
+                    "algorithm": "gepa",
+                    "container_url": "https://example.invalid"
+                }
+            }
+        });
+
+        let err = canonicalize_raw_offline_request(request)
+            .expect_err("legacy policy_optimization config must be rejected");
+        assert!(
+            format!("{err}").contains("policy_optimization is no longer supported"),
+            "unexpected error: {err}"
         );
     }
 
@@ -661,7 +685,7 @@ mod tests {
         let payload = serde_json::json!({
             "job_id": "pl_test",
             "status": "running",
-            "best_score": 0.42,
+            "best_reward": 0.42,
             "best_candidate": {"instruction": "new"},
             "best_prompt": {"instruction": "canonical"},
             "lever_versions": {"mipro.prompt.sys": 3},
@@ -680,5 +704,19 @@ mod tests {
             Some("new")
         );
         assert_eq!(parsed.lever_versions.get("mipro.prompt.sys"), Some(&3));
+    }
+
+    #[test]
+    fn test_parse_prompt_learning_result_requires_status_field() {
+        let payload = serde_json::json!({
+            "job_id": "pl_test_state",
+            "best_reward": 0.99
+        });
+        let err = parse_prompt_learning_result(payload, "strict")
+            .expect_err("parse should fail when status is missing");
+        assert!(
+            format!("{err}").contains("missing required field: status"),
+            "unexpected error: {err}"
+        );
     }
 }

@@ -8,10 +8,6 @@ use crate::urls::backend_url_base;
 use crate::CoreError;
 
 use super::container::ContainerDeployClient;
-use super::eval::EvalClient;
-use super::graph_evolve::GraphEvolveClient;
-use super::graphs::GraphsClient;
-use super::inference::InferenceClient;
 use super::jobs::JobsClient;
 
 /// Default backend URL.
@@ -38,8 +34,6 @@ pub const DEFAULT_TIMEOUT_SECS: u64 = 120;
 ///
 /// // Access sub-clients
 /// let jobs = client.jobs();
-/// let eval = client.eval();
-/// let graphs = client.graphs();
 /// ```
 pub struct SynthClient {
     pub(crate) http: HttpClient,
@@ -150,47 +144,6 @@ impl SynthClient {
     /// ```
     pub fn jobs(&self) -> JobsClient<'_> {
         JobsClient::new(self)
-    }
-
-    /// Get an Eval API client.
-    ///
-    /// Use this to run evaluation jobs.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let job_id = client.eval().submit(request).await?;
-    /// let result = client.eval().poll_until_complete(&job_id, 3600.0, 15.0).await?;
-    /// ```
-    pub fn eval(&self) -> EvalClient<'_> {
-        EvalClient::new(self)
-    }
-
-    /// Get a Graphs API client.
-    ///
-    /// Use this for graph completions and verifier inference.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let result = client.graphs().verify(trace, rubric, None).await?;
-    /// ```
-    pub fn graphs(&self) -> GraphsClient<'_> {
-        GraphsClient::new(self)
-    }
-
-    /// Get a Graph Evolve API client.
-    ///
-    /// Use this for Graph Evolve / GraphGen optimization endpoints.
-    pub fn graph_evolve(&self) -> GraphEvolveClient<'_> {
-        GraphEvolveClient::new(self)
-    }
-
-    /// Get an Inference API client.
-    ///
-    /// Use this for chat completions via the inference proxy.
-    pub fn inference(&self) -> InferenceClient<'_> {
-        InferenceClient::new(&self.http)
     }
 
     /// Get a Container Deployments client.

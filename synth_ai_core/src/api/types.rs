@@ -392,10 +392,10 @@ pub struct PromptLearningResult {
     /// Current status.
     pub status: PolicyJobStatus,
     /// Best reward achieved (if available).
-    #[serde(skip_serializing_if = "Option::is_none", alias = "best_score")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub best_reward: Option<f64>,
     /// Best candidate found (if available).
-    #[serde(skip_serializing_if = "Option::is_none", alias = "best_prompt")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub best_candidate: Option<Value>,
     /// Lever summary emitted by optimizer runtimes.
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -1,6 +1,7 @@
 use serde_json::Value;
 use std::time::Duration;
 
+use crate::api::routes::{self, ApiVersion};
 use crate::config::{BackendAuth, CoreConfig};
 use crate::shared_client::{DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_POOL_SIZE};
 use crate::CoreError;
@@ -26,7 +27,7 @@ impl EventKind {
     fn path(&self, job_id: &str) -> String {
         match self {
             EventKind::PromptLearning | EventKind::Eval => {
-                format!("/api/v1/offline/jobs/{job_id}/events")
+                format!("/api{}", routes::offline_job_subpath(job_id, "events", ApiVersion::V1))
             }
         }
     }

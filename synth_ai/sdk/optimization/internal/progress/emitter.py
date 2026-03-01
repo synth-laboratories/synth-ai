@@ -184,9 +184,7 @@ class GEPAProgressEmitter:
         is_baseline = event.data.get("is_baseline", False) or event.data.get("parent_id") is None
 
         if is_baseline and not self.baseline:
-            instance_rewards = event.data.get("instance_rewards") or event.data.get(
-                "instance_scores", []
-            )
+            instance_rewards = event.data.get("instance_rewards", [])
             seeds_evaluated = event.data.get("seeds_evaluated", [])
             prompt = (
                 event.data.get("prompt")
@@ -228,9 +226,7 @@ class GEPAProgressEmitter:
             frontier_size=event.frontier_size,
             optimistic_reward=event.best_reward,
             generation=event.data.get("generation") if event.data else None,
-            baseline_reward=event.data.get("baseline_reward") or event.data.get("baseline_score")
-            if event.data
-            else None,
+            baseline_reward=event.data.get("baseline_reward") if event.data else None,
             timestamp_ms=timestamp_ms,
         )
         self.pareto_history.append(update)

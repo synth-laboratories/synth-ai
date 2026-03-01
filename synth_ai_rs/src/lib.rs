@@ -7,26 +7,20 @@ use std::env;
 use std::sync::Arc;
 
 pub mod containers_api;
-pub mod graphs_api;
-pub mod inference_api;
 pub mod models;
 pub mod openapi_paths;
 pub mod optimization_api;
 pub mod pools_api;
 mod transport;
 pub mod tunnels_api;
-pub mod verifiers_api;
 
 pub use types::SynthError as Error;
 pub use types::{Result, SynthError};
 
 pub use containers_api::ContainersClient;
-pub use graphs_api::GraphsClient;
-pub use inference_api::InferenceClient;
 pub use optimization_api::OptimizationClient;
 pub use pools_api::PoolsClient;
 pub use tunnels_api::TunnelsClient;
-pub use verifiers_api::VerifiersClient;
 
 mod types;
 
@@ -70,18 +64,6 @@ impl SynthClient {
 
     pub fn optimization(&self) -> OptimizationClient {
         OptimizationClient::new(self.transport.clone())
-    }
-
-    pub fn inference(&self) -> InferenceClient {
-        InferenceClient::new(self.transport.clone())
-    }
-
-    pub fn graphs(&self) -> GraphsClient {
-        GraphsClient::new(self.transport.clone())
-    }
-
-    pub fn verifiers(&self) -> VerifiersClient {
-        VerifiersClient::new(self.transport.clone())
     }
 
     pub fn pools(&self) -> PoolsClient {

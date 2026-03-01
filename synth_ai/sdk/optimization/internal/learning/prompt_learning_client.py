@@ -1,13 +1,39 @@
 """Client utilities for querying prompt learning job results."""
 
+import logging
 from typing import Any, Dict, Iterable, List, Optional
 
+logger = logging.getLogger(__name__)
+
 from synth_ai.core.rust_core.http import RustCoreHttpClient
-from synth_ai.sdk.optimization.models import PolicyCandidate, PolicyCandidatePage
+from synth_ai.core.utils.optimization_routes import (
+    ApiVersion,
+    candidate_path,
+    candidate_subpath,
+    normalize_api_version,
+    offline_job_path,
+    offline_job_subpath,
+    online_session_path,
+    online_session_subpath,
+    system_subpath,
+)
 from synth_ai.sdk.optimization.internal.utils import run_sync
+from synth_ai.sdk.optimization.models import PolicyCandidate, PolicyCandidatePage
 
 from .prompt_extraction import extract_candidate_content
 from .prompt_learning_types import PromptResults
+
+
+def _resolve_api_version(explicit: Optional[str]) -> ApiVersion:
+    if explicit is not None:
+        return normalize_api_version(explicit)
+    import os
+
+    for env_var in ("SYNTH_POLICY_API_VERSION", "SYNTH_PROMPT_OPT_API_VERSION"):
+        raw = os.getenv(env_var)
+        if raw:
+            return normalize_api_version(raw)
+    return "v1"
 
 
 def _coerce_float(value: Any) -> Optional[float]:
@@ -210,14 +236,10 @@ def _extract_prompt_learning_fields_from_job_payload(payload: Dict[str, Any]) ->
     best_reward = _first_present(
         [
             _coerce_float(payload.get("best_reward")),
-            _coerce_float(payload.get("best_score")),
             _coerce_float(nested_result.get("best_reward")),
-            _coerce_float(nested_result.get("best_score")),
             _coerce_float(metadata.get("best_reward")),
-            _coerce_float(metadata.get("best_score")),
             _coerce_float(metadata.get("prompt_best_average_reward")),
             _coerce_float(metadata.get("prompt_best_reward")),
-            _coerce_float(metadata.get("prompt_best_score")),
         ]
     )
 
@@ -410,7 +432,6 @@ def _merge_job_payloads(payloads: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     if best_fields["best_reward"] is not None:
         merged["best_reward"] = best_fields["best_reward"]
-        merged["best_score"] = best_fields["best_reward"]
     if best_fields["best_candidate"] is not None:
         merged["best_candidate"] = best_fields["best_candidate"]
         merged["best_prompt"] = best_fields["best_candidate"]
@@ -449,16 +470,16 @@ def _extract_mipro_state_fields(state_payload: Dict[str, Any]) -> Dict[str, Any]
 
     if isinstance(candidates, dict) and best_candidate_id is None:
         best_id: Optional[str] = None
-        best_score: Optional[float] = None
+        best_reward_seen: Optional[float] = None
         for candidate_id, candidate_payload in candidates.items():
             if not isinstance(candidate_id, str) or not isinstance(candidate_payload, dict):
                 continue
-            score = _coerce_float(candidate_payload.get("avg_reward"))
-            if score is None:
+            candidate_reward = _coerce_float(candidate_payload.get("avg_reward"))
+            if candidate_reward is None:
                 continue
-            if best_score is None or score > best_score:
+            if best_reward_seen is None or candidate_reward > best_reward_seen:
                 best_id = candidate_id
-                best_score = score
+                best_reward_seen = candidate_reward
         best_candidate_id = best_id
 
     best_candidate: Any = None
@@ -471,7 +492,7 @@ def _extract_mipro_state_fields(state_payload: Dict[str, Any]) -> Dict[str, Any]
     if isinstance(best_candidate, dict):
         best_reward = _coerce_float(best_candidate.get("avg_reward"))
     if best_reward is None:
-        best_reward = _coerce_float(state_payload.get("best_score"))
+        best_reward = _coerce_float(state_payload.get("best_reward"))
     if best_reward is None and isinstance(candidates, dict):
         best_reward = max(
             (
@@ -625,9 +646,7 @@ def _validate_system_id(system_id: str) -> None:
         raise ValueError("system_id is required")
 
 
-def _extract_reward_value(
-    payload: Any, strict_keys: Optional[List[str]] = None
-) -> Optional[float]:
+def _extract_reward_value(payload: Any, strict_keys: Optional[List[str]] = None) -> Optional[float]:
     if not isinstance(payload, dict):
         return None
     reward_val = _extract_outcome_reward(payload)
@@ -697,7 +716,12 @@ class PromptLearningClient:
     """Client for interacting with prompt learning jobs and retrieving results."""
 
     def __init__(
-        self, base_url: str | None = None, api_key: str | None = None, *, timeout: float = 30.0
+        self,
+        base_url: str | None = None,
+        api_key: str | None = None,
+        *,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion | str] = None,
     ) -> None:
         """Initialize the prompt learning client.
 
@@ -724,16 +748,18 @@ class PromptLearningClient:
 
         self._api_key = api_key
         self._timeout = timeout
+        self._api_version: ApiVersion = _resolve_api_version(api_version)
 
     async def _fetch_mipro_state(self, system_id: str) -> Optional[Dict[str, Any]]:
         system_id = system_id.strip()
         if not system_id:
             return None
-        state_path = f"/api/v1/online/sessions/{system_id}"
+        state_path = online_session_path(system_id, api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
                 payload = await http.get(state_path)
-            except Exception:
+            except Exception as e:
+                logger.debug("Workflow state query failed: %s", e)
                 return None
         return payload if isinstance(payload, dict) else None
 
@@ -743,12 +769,13 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        events_path = f"/api/v1/online/sessions/{system_id}/events"
+        events_path = online_session_subpath(system_id, "events", api_version=self._api_version)
         params = {"since_seq": since_seq, "limit": limit}
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
                 payload = await http.get(events_path, params=params)
-            except Exception:
+            except Exception as e:
+                logger.debug("State events query failed: %s", e)
                 return None
         return _coerce_state_events_list(payload)
 
@@ -759,13 +786,13 @@ class PromptLearningClient:
             job_id: Job ID (e.g., "pl_9c58b711c2644083")
 
         Returns:
-            Job metadata including status, best_score, created_at, etc.
+            Job metadata including status, best_reward, created_at, etc.
 
         Raises:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        job_paths = [f"/api/v1/offline/jobs/{job_id}"]
+        job_paths = [offline_job_path(job_id, api_version=self._api_version)]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -807,7 +834,7 @@ class PromptLearningClient:
                                 and state_fields["best_reward"] is not None
                             ):
                                 merged["best_reward"] = state_fields["best_reward"]
-                                merged["best_score"] = state_fields["best_reward"]
+
                             if (
                                 merged.get("best_candidate") is None
                                 and state_fields["best_candidate"] is not None
@@ -852,10 +879,10 @@ class PromptLearningClient:
                             merged_metadata = _merge_job_metadata(merged)
                             if state_fields["best_reward"] is not None:
                                 merged_metadata.setdefault(
-                                    "prompt_best_score", state_fields["best_reward"]
+                                    "prompt_best_reward", state_fields["best_reward"]
                                 )
                                 merged_metadata.setdefault(
-                                    "best_score", state_fields["best_reward"]
+                                    "best_reward", state_fields["best_reward"]
                                 )
                             if state_fields["best_candidate"] is not None:
                                 merged_metadata.setdefault(
@@ -897,7 +924,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/v1/offline/jobs/{job_id}/candidates"
+        path = offline_job_subpath(job_id, "candidates", api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -938,8 +965,10 @@ class PromptLearningClient:
         if not candidate_id:
             raise ValueError("candidate_id is required")
         paths = [
-            f"/api/v1/offline/jobs/{job_id}/candidates/{candidate_id}",
-            f"/api/candidates/{candidate_id}",
+            offline_job_subpath(
+                job_id, f"candidates/{candidate_id}", api_version=self._api_version
+            ),
+            candidate_path(candidate_id, api_version=self._api_version),
         ]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
@@ -1002,7 +1031,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/systems/{system_id}/candidates"
+        path = system_subpath(system_id, "candidates", api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1017,7 +1046,7 @@ class PromptLearningClient:
         candidate_id = str(candidate_id).strip()
         if not candidate_id:
             raise ValueError("candidate_id is required")
-        path = f"/api/candidates/{candidate_id}"
+        path = candidate_path(candidate_id, api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path)
         if not isinstance(payload, dict):
@@ -1057,7 +1086,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/v1/offline/jobs/{job_id}/seed-evals"
+        path = offline_job_subpath(job_id, "seed-evals", api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1102,7 +1131,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/systems/{system_id}/seed-evals"
+        path = system_subpath(system_id, "seed-evals", api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1146,7 +1175,7 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = f"/api/candidates/{candidate_id}/seed-evals"
+        path = candidate_subpath(candidate_id, "seed-evals", api_version=self._api_version)
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1205,11 +1234,11 @@ class PromptLearningClient:
                         }
                     )
                 return events
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Rust tracker events query failed: %s", e)
 
         params = {"since_seq": since_seq, "limit": limit}
-        event_paths = [f"/api/v1/offline/jobs/{job_id}/events"]
+        event_paths = [offline_job_subpath(job_id, "events", api_version=self._api_version)]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -1237,7 +1266,8 @@ class PromptLearningClient:
             if needs_state_strict:
                 try:
                     job_payload = await self.get_job(job_id)
-                except Exception:
+                except Exception as e:
+                    logger.debug("Job payload fallback query failed: %s", e)
                     job_payload = None
                 if isinstance(job_payload, dict):
                     metadata = _merge_job_metadata(job_payload)
@@ -1273,7 +1303,7 @@ class PromptLearningClient:
         Returns:
             PromptResults dataclass containing:
                 - best_candidate: The top-performing prompt with sections and metadata
-                - best_score: The best accuracy score achieved
+                - best_reward: The best reward achieved
                 - optimized_candidates: All frontier/Pareto-optimal candidates
                 - attempted_candidates: All candidates tried during optimization
 
@@ -1315,9 +1345,9 @@ class PromptLearningClient:
                 result.best_candidate = event_data.get("best_candidate") or event_data.get(
                     "best_prompt"
                 )
-                best_score = _extract_reward_value(event_data, strict_keys=["best_score"])
-                if best_score is not None:
-                    result.best_reward = best_score
+                event_best_reward = _extract_reward_value(event_data, strict_keys=["best_reward"])
+                if event_best_reward is not None:
+                    result.best_reward = event_best_reward
                 best_candidate = (
                     event_data.get("best_candidate")
                     or event_data.get("best_prompt")
@@ -1354,9 +1384,11 @@ class PromptLearningClient:
                         event_data,
                     )
                 if result.best_reward is None:
-                    best_score = _extract_reward_value(event_data, strict_keys=["best_score"])
-                    if best_score is not None:
-                        result.best_reward = best_score
+                    event_best_reward = _extract_reward_value(
+                        event_data, strict_keys=["best_reward"]
+                    )
+                    if event_best_reward is not None:
+                        result.best_reward = event_best_reward
 
                 # Extract rollout and proposal metrics
                 # These may come from event_data directly or from nested state dict
@@ -1398,13 +1430,13 @@ class PromptLearningClient:
                 elif "progress" in event_type or "rollouts.progress" in event_type:
                     _append_event_bucket(result.gepa, "progress_updates", event_type, event_data)
 
-            # MIPRO completion event - extract best_score (canonical)
+            # MIPRO completion event - extract best_reward (canonical)
             elif event_type == "learning.policy.mipro.job.completed":
                 if result.best_reward is None:
-                    # Prefer unified best_score field, strict to best_full_score or best_minibatch_score
+                    # Prefer unified best_reward field, strict to best_full_reward or best_minibatch_reward
                     result.best_reward = _extract_reward_value(
                         event_data,
-                        strict_keys=["best_score", "best_full_score", "best_minibatch_score"],
+                        strict_keys=["best_reward", "best_full_reward", "best_minibatch_reward"],
                     )
                 if result.best_candidate is None:
                     candidate = event_data.get("best_candidate") or event_data.get("best_prompt")
@@ -1444,14 +1476,14 @@ class PromptLearningClient:
                     _append_event_bucket(result.mipro, "trials", event_type, event_data)
                 elif "candidate.new_best" in event_type:
                     _append_event_bucket(result.mipro, "incumbents", event_type, event_data)
-                    best_score = _extract_reward_value(
+                    event_best_reward = _extract_reward_value(
                         event_data,
-                        strict_keys=["best_score", "score", "full_score", "minibatch_score"],
+                        strict_keys=["best_reward", "reward", "full_reward", "minibatch_reward"],
                     )
-                    if best_score is not None and (
-                        result.best_reward is None or best_score > result.best_reward
+                    if event_best_reward is not None and (
+                        result.best_reward is None or event_best_reward > result.best_reward
                     ):
-                        result.best_reward = best_score
+                        result.best_reward = event_best_reward
                     best_candidate = (
                         event_data.get("best_candidate")
                         or event_data.get("best_prompt")
@@ -1461,9 +1493,11 @@ class PromptLearningClient:
                     if isinstance(best_candidate, dict):
                         result.best_candidate = best_candidate
                     if result.best_candidate_content is None:
-                        result.best_candidate_content = _extract_best_candidate_content_from_sources(
-                            best_candidate,
-                            event_data,
+                        result.best_candidate_content = (
+                            _extract_best_candidate_content_from_sources(
+                                best_candidate,
+                                event_data,
+                            )
                         )
                 elif "candidate.evaluated" in event_type:
                     _append_event_bucket(result.mipro, "candidates", event_type, event_data)
@@ -1497,7 +1531,7 @@ class PromptLearningClient:
                             "best_candidate": state_fields["best_candidate"],
                             "best_candidate_content": state_fields["best_candidate_content"],
                             "best_reward": state_fields["best_reward"],
-                            "best_score": state_fields["best_reward"],
+                            "best_reward": state_fields["best_reward"],
                             "attempted_candidates": state_fields["attempted_candidates"],
                             "optimized_candidates": state_fields["optimized_candidates"],
                             "lever_summary": state_fields["lever_summary"],
@@ -1532,12 +1566,12 @@ class PromptLearningClient:
             job_id: Job ID
 
         Returns:
-            Dictionary with scoring statistics:
+            Dictionary with reward statistics:
                 - best_train_accuracy: Best training accuracy
                 - best_val_accuracy: Best validation accuracy (if available)
                 - num_candidates_tried: Total candidates evaluated
                 - num_frontier_candidates: Number in Pareto frontier
-                - score_distribution: Histogram of accuracy scores
+                - reward_distribution: Histogram of accuracy rewards
 
         Raises:
             ValueError: If job_id format is invalid
@@ -1556,8 +1590,8 @@ class PromptLearningClient:
                 continue
             reward_val = _extract_reward_value(candidate)
             if reward_val is None:
-                score = candidate.get("score")
-                reward_val = _extract_reward_value(score)
+                reward = candidate.get("reward")
+                reward_val = _extract_reward_value(reward)
             if reward_val is not None:
                 train_accuracies.append(reward_val)
 
@@ -1571,7 +1605,7 @@ class PromptLearningClient:
             if reward_val is not None:
                 val_accuracies.append(reward_val)
 
-        # Score distribution (bins)
+        # Reward distribution (bins)
         bins = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
         distribution = {f"{bins[i]:.1f}-{bins[i + 1]:.1f}": 0 for i in range(len(bins) - 1)}
         for acc in train_accuracies:
@@ -1585,7 +1619,7 @@ class PromptLearningClient:
             "best_val_accuracy": max(val_accuracies) if val_accuracies else None,
             "num_candidates_tried": len(attempted),
             "num_frontier_candidates": len(optimized),
-            "score_distribution": distribution,
+            "reward_distribution": distribution,
             "mean_train_accuracy": sum(train_accuracies) / len(train_accuracies)
             if train_accuracies
             else None,

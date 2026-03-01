@@ -581,15 +581,15 @@ pub fn build_program_candidate(
         }
     }
 
-    let mut seed_scores = candidate.get("seed_scores").cloned();
-    if seed_scores.is_none() {
-        let instance_scores = candidate.get("instance_scores").and_then(|v| v.as_array());
+    let mut seed_rewards = candidate.get("seed_rewards").cloned();
+    if seed_rewards.is_none() {
+        let instance_rewards = candidate.get("instance_rewards").and_then(|v| v.as_array());
         let eval_seeds = candidate
             .get("seed_eval_info")
             .and_then(|v| v.as_object())
             .and_then(|map| map.get("seeds"))
             .and_then(|v| v.as_array());
-        if let (Some(scores), Some(seeds)) = (instance_scores, eval_seeds) {
+        if let (Some(scores), Some(seeds)) = (instance_rewards, eval_seeds) {
             let count = std::cmp::min(scores.len(), seeds.len());
             let mut entries = Vec::with_capacity(count);
             for idx in 0..count {
@@ -597,22 +597,12 @@ pub fn build_program_candidate(
                 let score = scores.get(idx);
                 entries.push(seed_reward_entry(seed, score));
             }
-            seed_scores = Some(Value::Array(entries));
+            seed_rewards = Some(Value::Array(entries));
         }
     }
 
-    let objectives = candidate.get("objectives").cloned().or_else(|| {
-        candidate
-            .get("score")
-            .and_then(|v| v.get("objectives"))
-            .cloned()
-    });
-    let instance_objectives = candidate.get("instance_objectives").cloned().or_else(|| {
-        candidate
-            .get("score")
-            .and_then(|v| v.get("instance_objectives"))
-            .cloned()
-    });
+    let objectives = candidate.get("objectives").cloned();
+    let instance_objectives = candidate.get("instance_objectives").cloned();
 
     let transformation = candidate
         .get("transformation")
@@ -667,14 +657,14 @@ pub fn build_program_candidate(
         if let Some(num) = serde_json::Number::from_f64(val) {
             map.insert("val_reward".to_string(), Value::Number(num));
         }
-    } else if let Some(val) = candidate.get("full_score").and_then(|v| value_to_f64(v)) {
+    } else if let Some(val) = candidate.get("full_reward").and_then(|v| value_to_f64(v)) {
         if let Some(num) = serde_json::Number::from_f64(val) {
             map.insert("val_reward".to_string(), Value::Number(num));
         }
     }
 
     if let Some(val) = candidate
-        .get("minibatch_score")
+        .get("minibatch_reward")
         .and_then(|v| value_to_f64(v))
     {
         if let Some(num) = serde_json::Number::from_f64(val) {
@@ -682,8 +672,8 @@ pub fn build_program_candidate(
         }
     }
 
-    if let Some(seed_scores) = seed_scores {
-        map.insert("seed_rewards".to_string(), seed_scores);
+    if let Some(seed_rewards) = seed_rewards {
+        map.insert("seed_rewards".to_string(), seed_rewards);
     }
     if let Some(seed_info) = seed_info {
         if let Ok(parsed) = serde_json::from_value::<Vec<SeedInfo>>(seed_info.clone()) {
@@ -695,8 +685,8 @@ pub fn build_program_candidate(
         }
     }
 
-    if let Some(instance_scores) = candidate.get("instance_scores") {
-        map.insert("instance_rewards".to_string(), instance_scores.clone());
+    if let Some(instance_rewards) = candidate.get("instance_rewards") {
+        map.insert("instance_rewards".to_string(), instance_rewards.clone());
     }
     if let Some(objectives) = objectives {
         map.insert("objectives".to_string(), objectives);

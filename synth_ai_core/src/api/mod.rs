@@ -21,7 +21,7 @@
 //!
 //!     // Poll until complete
 //!     let result = client.jobs().poll_until_complete(&job_id, 3600.0, 15.0).await?;
-//!     println!("Best score: {:?}", result.best_score);
+//!     println!("Best score: {:?}", result.best_reward);
 //!
 //!     Ok(())
 //! }
@@ -29,21 +29,19 @@
 
 pub mod client;
 pub mod container;
-pub mod eval;
-pub mod graph_evolve;
-pub mod graphs;
-pub mod inference;
 pub mod jobs;
+pub mod routes;
 pub mod types;
 
 // Re-export main types for convenience
 pub use client::SynthClient;
 pub use container::ContainerDeployClient;
-pub use eval::EvalClient;
-pub use graph_evolve::GraphEvolveClient;
-pub use graphs::{build_verifier_request, resolve_graph_job_id, GraphsClient};
-pub use inference::InferenceClient;
 pub use jobs::JobsClient;
+pub use routes::{
+    ApiVersion, offline_job_path, offline_job_subpath, offline_jobs_base, online_session_path,
+    online_session_subpath, online_sessions_base, policy_system_path, policy_systems_base,
+    EVAL_API_VERSION, GEPA_API_VERSION, MIPRO_API_VERSION,
+};
 pub use types::{
     ContainerDeployResponse,
     ContainerDeploySpec,
@@ -56,7 +54,7 @@ pub use types::{
     GepaConfig,
     // Request types
     GepaJobRequest,
-    // Graph types
+    // Graph types (kept — shared type definitions)
     GraphCompletionRequest,
     GraphCompletionResponse,
     // Response types

@@ -21,6 +21,7 @@ pub mod errors;
 pub mod events;
 pub mod http;
 pub mod jobs;
+pub mod jobs_endpoints;
 pub mod models;
 pub mod orchestration;
 pub mod polling;
@@ -41,8 +42,21 @@ pub use jobs::{CandidateStatus, JobEvent, JobEventType, JobLifecycle, JobStatus}
 // Re-export API types for convenience
 pub use api::{
     ContainerDeployClient, ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus,
-    ContainerDeploymentInfo, ContainerLimits, EvalJobStatus, GraphEvolveClient, InferenceClient,
+    ContainerDeploymentInfo, ContainerLimits, EvalJobStatus,
     PolicyJobStatus, SynthClient,
+};
+
+// Re-export route builders
+pub use api::routes::{
+    ApiVersion, offline_job_path as routes_offline_job_path,
+    offline_job_subpath as routes_offline_job_subpath,
+    offline_jobs_base as routes_offline_jobs_base,
+    online_session_path as routes_online_session_path,
+    online_session_subpath as routes_online_session_subpath,
+    online_sessions_base as routes_online_sessions_base,
+    policy_system_path as routes_policy_system_path,
+    policy_systems_base as routes_policy_systems_base,
+    EVAL_API_VERSION, GEPA_API_VERSION, MIPRO_API_VERSION,
 };
 
 // Re-export model helpers
@@ -50,19 +64,14 @@ pub use models::{detect_model_provider, normalize_model_identifier, supported_mo
 
 // Re-export orchestration types
 pub use orchestration::{
-    base_event_schemas, base_job_event_schema, build_graph_evolve_config,
-    build_graph_evolve_graph_record_payload, build_graph_evolve_inference_payload,
-    build_graph_evolve_payload, build_graph_evolve_placeholder_dataset, build_program_candidate,
-    build_prompt_learning_payload, convert_openai_sft, event_enum_values,
+    base_event_schemas, base_job_event_schema, build_program_candidate,
+    build_prompt_learning_payload, event_enum_values,
     extract_program_candidate_content, extract_stages_from_candidate, get_base_schema,
-    graph_opt_supported_models, is_valid_event_type, load_graph_evolve_dataset,
-    load_graph_job_toml, load_graphgen_taskset, merge_event_schema,
-    normalize_graph_evolve_policy_models, normalize_transformation, parse_graph_evolve_dataset,
-    parse_graphgen_taskset, resolve_graph_evolve_snapshot_id, seed_reward_entry, seed_score_entry,
-    validate_event_type, validate_graph_job_payload, validate_graph_job_section,
-    validate_graphgen_job_config, validate_graphgen_taskset, validate_prompt_learning_config,
+    is_valid_event_type, merge_event_schema,
+    normalize_transformation, seed_reward_entry, seed_score_entry,
+    validate_event_type, validate_prompt_learning_config,
     validate_prompt_learning_config_strict, CandidateInfo, EventCategory, EventParser, EventStream,
-    GEPAProgress, GraphEvolveJob, GraphGenValidationResult, MutationSummary, MutationTypeStats,
+    GEPAProgress, MutationSummary, MutationTypeStats,
     ParsedEvent, PhaseSummary, ProgramCandidate, ProgressTracker, PromptLearningJob,
     PromptLearningResult, PromptLearningValidationResult, PromptResults, SeedAnalysis, SeedInfo,
     StageInfo, TokenUsage, MAX_INSTRUCTION_LENGTH, MAX_ROLLOUT_SAMPLES, MAX_SEED_INFO_COUNT,
@@ -154,7 +163,9 @@ pub use sse::{stream_sse, stream_sse_request, SseEvent, SseStream};
 
 // Re-export local API types
 pub use container::{
-    allowed_environment_api_keys, apply_context_overrides, build_rollout_response,
+    is_local_http_container_url, is_synthtunnel_url, validate_gepa_container_auth,
+    GepaAuthRequirement, allowed_environment_api_keys, apply_context_overrides,
+    build_rollout_response,
     build_trace_payload, build_trajectory_trace, container_health, encrypt_for_backend,
     ensure_container_auth, ensure_split, extract_api_key, extract_message_text,
     extract_trace_correlation_id, get_agent_skills_path, get_applied_env_vars,

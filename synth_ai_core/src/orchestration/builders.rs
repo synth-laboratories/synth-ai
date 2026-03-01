@@ -165,42 +165,68 @@ fn normalize_gepa(pl_map: &mut Map<String, Value>) -> Result<(), CoreError> {
             )
         })?;
 
-    let evaluation = gepa
-        .get_mut("evaluation")
-        .ok_or_else(|| {
-            CoreError::Validation(
-                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
-                    .to_string(),
-            )
-        })?
-        .as_object_mut()
-        .ok_or_else(|| {
-            CoreError::Validation(
-                "GEPA config missing: [prompt_learning.gepa.evaluation] section is required"
-                    .to_string(),
-            )
-        })?;
+    let mut train_seeds: Option<Value> = None;
+    let mut val_seeds: Option<Value> = None;
 
-    let train_seeds = evaluation
-        .get("train_seeds")
-        .or_else(|| evaluation.get("seeds"))
-        .cloned();
+    if let Some(evaluation_obj) = gepa.get_mut("evaluation").and_then(|value| value.as_object_mut()) {
+        train_seeds = evaluation_obj
+            .get("train_seeds")
+            .or_else(|| evaluation_obj.get("seeds"))
+            .cloned();
+        val_seeds = evaluation_obj
+            .get("val_seeds")
+            .or_else(|| evaluation_obj.get("validation_seeds"))
+            .cloned();
+    }
+
+    if value_is_missing(train_seeds.as_ref()) || value_is_missing(val_seeds.as_ref()) {
+        if let Some(task_data) = pl_map.get("task_data").and_then(|value| value.as_object()) {
+            if value_is_missing(train_seeds.as_ref()) {
+                let reflection = task_data
+                    .get("train_pools")
+                    .and_then(|v| v.as_object())
+                    .and_then(|p| p.get("reflection_seeds"))
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                let pareto = task_data
+                    .get("train_pools")
+                    .and_then(|v| v.as_object())
+                    .and_then(|p| p.get("pareto_seeds"))
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                let mut merged = reflection;
+                for seed in pareto {
+                    if !merged.iter().any(|existing| existing == &seed) {
+                        merged.push(seed);
+                    }
+                }
+                if !merged.is_empty() {
+                    train_seeds = Some(Value::Array(merged));
+                }
+            }
+            if value_is_missing(val_seeds.as_ref()) {
+                val_seeds = task_data
+                    .get("validation_pools")
+                    .and_then(|v| v.as_object())
+                    .and_then(|p| p.get("main_seeds"))
+                    .cloned()
+                    .or_else(|| task_data.get("validation_seeds").cloned());
+            }
+        }
+    }
 
     if value_is_missing(train_seeds.as_ref()) {
         return Err(CoreError::Validation(
-            "GEPA config missing train_seeds: [prompt_learning.gepa.evaluation] must have 'train_seeds' or 'seeds' field"
+            "GEPA config missing train_seeds: provide [prompt_learning.task_data.train_pools] (reflection_seeds/pareto_seeds) or [prompt_learning.gepa.evaluation] seeds"
                 .to_string(),
         ));
     }
 
-    let val_seeds = evaluation
-        .get("val_seeds")
-        .or_else(|| evaluation.get("validation_seeds"))
-        .cloned();
-
     if value_is_missing(val_seeds.as_ref()) {
         return Err(CoreError::Validation(
-            "GEPA config missing val_seeds: [prompt_learning.gepa.evaluation] must have 'val_seeds' or 'validation_seeds' field"
+            "GEPA config missing val_seeds: provide prompt_learning.task_data.validation_seeds or [prompt_learning.gepa.evaluation].validation_seeds"
                 .to_string(),
         ));
     }

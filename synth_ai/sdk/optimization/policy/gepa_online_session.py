@@ -21,6 +21,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.core.utils.optimization_routes import (
+    GEPA_API_VERSION,
+    online_session_path,
+    online_session_subpath,
+    online_sessions_base,
+)
 from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.optimization.policy.mipro_online_session import (
     _build_session_payload,
@@ -89,7 +95,7 @@ class GepaOnlineSession:
             agent_id=agent_id,
         )
         canonical_body = dict(body)
-        canonical_body["kind"] = "voyager_online"
+        canonical_body["kind"] = "gepa_online"
         canonical_body.setdefault("technique", "discrete_optimization")
         canonical_body.setdefault(
             "system",
@@ -99,7 +105,7 @@ class GepaOnlineSession:
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await _post_json_with_canonical(
                 http,
-                canonical_path="/v1/online/sessions",
+                canonical_path=online_sessions_base(api_version=GEPA_API_VERSION),
                 payload=canonical_body,
             )
 
@@ -199,7 +205,11 @@ class GepaOnlineSession:
         ) as http:
             result = await _post_json_with_canonical(
                 http,
-                canonical_path=f"/v1/online/sessions/{self.session_id}/reward",
+                canonical_path=online_session_subpath(
+                    self.session_id,
+                    "/reward",
+                    api_version=GEPA_API_VERSION,
+                ),
                 payload=payload,
             )
         return result
@@ -242,7 +252,11 @@ class GepaOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(
-                f"/v1/online/sessions/{self.session_id}/prompt",
+                online_session_subpath(
+                    self.session_id,
+                    "/prompt",
+                    api_version=GEPA_API_VERSION,
+                ),
                 params=params or None,
             )
         return _expect_dict_response(result, context="GEPA prompt endpoint")
@@ -278,6 +292,7 @@ class GepaOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=GEPA_API_VERSION,
         )
         return await client.list_system_candidates(
             self.session_id,
@@ -328,6 +343,7 @@ class GepaOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=GEPA_API_VERSION,
         )
         resolved_job_id = job_id
         if not resolved_job_id:
@@ -410,6 +426,7 @@ class GepaOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=GEPA_API_VERSION,
         )
         return await client.list_system_seed_evals(
             self.session_id,
@@ -483,7 +500,10 @@ class GepaOnlineSession:
         ) as http:
             return await _get_with_canonical(
                 http,
-                canonical_path=f"/v1/online/sessions/{self.session_id}",
+                canonical_path=online_session_path(
+                    self.session_id,
+                    api_version=GEPA_API_VERSION,
+                ),
             )
 
 

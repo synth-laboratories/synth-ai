@@ -34,6 +34,13 @@ def build_rollout_response(
             "event_objectives",
             "instance_objectives",
             "details",
+            "horizon_bin_success",
+            "eta",
+            "reach",
+            "pi_gap",
+            "planner_used",
+            "planner_failure_code",
+            "multi_agent",
         ):
             if key not in kwargs or kwargs[key] is None:
                 continue
@@ -103,6 +110,13 @@ def build_rollout_response(
         "event_objectives",
         "instance_objectives",
         "details",
+        "horizon_bin_success",
+        "eta",
+        "reach",
+        "pi_gap",
+        "planner_used",
+        "planner_failure_code",
+        "multi_agent",
     ):
         if key in kwargs and kwargs[key] is not None:
             metrics_kwargs[key] = kwargs[key]

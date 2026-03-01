@@ -16,6 +16,8 @@ paths:
     post:
       tags: [Inference]
       summary: OpenAI-compatible chat completions via Synth routing
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: createChatCompletion
       requestBody:
         required: true
@@ -39,6 +41,8 @@ paths:
     post:
       tags: [Inference Jobs]
       summary: Create inference job
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: createInferenceJob
       requestBody:
         required: true
@@ -62,6 +66,8 @@ paths:
     get:
       tags: [Inference Jobs]
       summary: Get inference job (optionally artifact-filtered)
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: getInferenceJob
       parameters:
         - $ref: '#/components/parameters/JobId'
@@ -86,6 +92,8 @@ paths:
     get:
       tags: [Inference Jobs]
       summary: Download inference artifact bytes
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: downloadInferenceArtifact
       parameters:
         - $ref: '#/components/parameters/JobId'
@@ -107,10 +115,10 @@ paths:
         '5XX':
           $ref: '#/components/responses/Error'
 
-  /v1/policy-optimization/systems:
+  /v1/systems:
     get:
       tags: [Optimization]
-      summary: List policy-optimization systems
+      summary: List optimization systems
       operationId: listOptimizationSystems
       parameters:
         - name: technique
@@ -125,7 +133,7 @@ paths:
           $ref: '#/components/responses/ObjectResponse'
     post:
       tags: [Optimization]
-      summary: Create policy-optimization system
+      summary: Create optimization system
       operationId: createOptimizationSystem
       requestBody:
         required: true
@@ -141,7 +149,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/OptimizationSystem'
 
-  /v1/policy-optimization/systems/{system_id}:
+  /v1/systems/{system_id}:
     get:
       tags: [Optimization]
       summary: Get optimization system
@@ -371,6 +379,8 @@ paths:
     post:
       tags: [Graphs]
       summary: Execute graph completion (policy/verifier/RLM)
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: createGraphCompletion
       parameters:
         - name: stream
@@ -399,6 +409,8 @@ paths:
     get:
       tags: [Graphs]
       summary: List registered graphs
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
       operationId: listGraphs
       parameters:
         - name: kind
@@ -885,6 +897,8 @@ paths:
     post:
       tags: [Rollouts]
       summary: Create global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: createAgentRollout
       requestBody:
         required: true
@@ -900,6 +914,8 @@ paths:
     get:
       tags: [Rollouts]
       summary: Get global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: getAgentRollout
       parameters:
         - $ref: '#/components/parameters/RolloutId'
@@ -911,6 +927,8 @@ paths:
     get:
       tags: [Rollouts]
       summary: List global rollout artifacts
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: listAgentRolloutArtifacts
       parameters:
         - $ref: '#/components/parameters/RolloutId'
@@ -922,6 +940,8 @@ paths:
     get:
       tags: [Rollouts]
       summary: Get rollout support bundle metadata
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: getAgentRolloutSupportBundle
       parameters:
         - $ref: '#/components/parameters/RolloutId'
@@ -933,6 +953,8 @@ paths:
     get:
       tags: [Rollouts]
       summary: Download a rollout artifact path
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: fetchAgentRolloutArtifact
       parameters:
         - $ref: '#/components/parameters/RolloutId'
@@ -954,6 +976,8 @@ paths:
     get:
       tags: [Rollouts]
       summary: Download rollout artifacts zip
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: downloadAgentRolloutArtifactsZip
       parameters:
         - $ref: '#/components/parameters/RolloutId'
@@ -970,6 +994,8 @@ paths:
     post:
       tags: [Tunnels]
       summary: Create SynthTunnel lease
+      x-internal: true
+      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
       operationId: createSynthTunnelLease
       requestBody:
         required: true
@@ -989,6 +1015,8 @@ paths:
     delete:
       tags: [Tunnels]
       summary: Close SynthTunnel lease
+      x-internal: true
+      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
       operationId: closeSynthTunnelLease
       parameters:
         - $ref: '#/components/parameters/LeaseId'
@@ -1280,6 +1308,20 @@ components:
         config:
           type: object
           additionalProperties: true
+        long_horizon_mode:
+          $ref: '#/components/schemas/LongHorizonModeConfig'
+        multi_agent_mode:
+          $ref: '#/components/schemas/MultiAgentModeConfig'
+        horizon_generalization:
+          $ref: '#/components/schemas/HorizonGeneralizationConfig'
+        base_case_gating:
+          $ref: '#/components/schemas/BaseCaseGatingConfig'
+        paired_eval:
+          $ref: '#/components/schemas/PairedEvalConfig'
+        waypoint_planner:
+          $ref: '#/components/schemas/WaypointPlannerConfig'
+        counterfactual_credit:
+          $ref: '#/components/schemas/CounterfactualCreditConfig'
         metadata:
           type: object
           additionalProperties: true
@@ -1316,6 +1358,330 @@ components:
         metadata:
           type: object
           additionalProperties: true
+        long_horizon:
+          $ref: '#/components/schemas/LongHorizonTelemetry'
+        multi_agent:
+          $ref: '#/components/schemas/MultiAgentTelemetry'
+      additionalProperties: true
+
+    LongHorizonModeConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        window_steps:
+          type: integer
+          minimum: 1
+        planner_required:
+          type: boolean
+      additionalProperties: true
+
+    MultiAgentModeConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        method:
+          type: string
+          enum: [independent, independent_plus_coma, independent_plus_coma_plus_qmix]
+        team_mixer:
+          type: string
+          enum: [none, monotonic_qmix]
+      additionalProperties: true
+
+    HorizonDistanceBin:
+      type: object
+      required: [lo, hi]
+      properties:
+        lo:
+          type: integer
+        hi:
+          type: integer
+      additionalProperties: false
+
+    HorizonGeneralizationConfig:
+      type: object
+      properties:
+        bins:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorizonDistanceBin'
+        tau_success:
+          type: number
+        tau_eta:
+          type: number
+        eps:
+          type: number
+      additionalProperties: true
+
+    BaseCaseGatingConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        slice_key:
+          type: string
+        near_horizon_max:
+          type: integer
+        tau_base:
+          type: number
+        n_min:
+          type: integer
+      additionalProperties: true
+
+    PairedEvalConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [direct_vs_waypoint]
+        max_paired_budget:
+          type: integer
+      additionalProperties: true
+
+    WaypointPlannerConfig:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [distance_model, symbolic, hybrid]
+        max_waypoints:
+          type: integer
+        per_stage_budget:
+          type: integer
+        fallback:
+          type: string
+          enum: [direct, fail]
+      additionalProperties: true
+
+    CounterfactualCreditConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        lambda:
+          type: number
+        lag_max:
+          type: integer
+        min_evidence_threshold:
+          type: number
+      additionalProperties: true
+
+    LongHorizonTelemetry:
+      type: object
+      properties:
+        eta:
+          type: number
+        reach:
+          type: number
+        pi_gap:
+          type: number
+        base_coverage_ok:
+          type: boolean
+        planner_mode:
+          type: string
+        planner_used:
+          type: boolean
+        planner_fallback_used:
+          type: boolean
+        planner_confidence:
+          type: number
+        planner_stage_distances:
+          type: array
+          items:
+            type: number
+        failure_code:
+          type: string
+        long_horizon_failure_codes:
+          type: array
+          items:
+            type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        subgoals:
+          type: array
+          items:
+            type: string
+        achievement_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAchievementEntity'
+        subgoal_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonSubgoalEntity'
+        agent_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAgentEntity'
+        counterfactual_credit:
+          $ref: '#/components/schemas/CounterfactualCreditTelemetry'
+      additionalProperties: true
+
+    MultiAgentTelemetry:
+      type: object
+      properties:
+        team_return:
+          type: number
+        coordination_gain:
+          type: number
+        team_pi_gap:
+          type: number
+        local_advantage:
+          type: object
+          additionalProperties:
+            type: number
+        counterfactual_advantage:
+          type: object
+          additionalProperties:
+            type: number
+        coordination_failure_codes:
+          type: object
+          additionalProperties:
+            type: integer
+        agent_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAgentEntity'
+      additionalProperties: true
+
+    LongHorizonAchievementEntity:
+      type: object
+      properties:
+        achievement_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        global_success_rate:
+          type: number
+        unlock_rate_by_seed_slice:
+          type: object
+          additionalProperties:
+            type: number
+        prereq_achievement_ids:
+          type: array
+          items:
+            type: string
+        learned:
+          type: boolean
+        user_defined:
+          type: boolean
+      additionalProperties: true
+
+    LongHorizonSubgoalEntity:
+      type: object
+      properties:
+        subgoal_id:
+          type: string
+        id:
+          type: string
+        text:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        completion_confidence:
+          type: number
+        completion_rate:
+          type: number
+        seed:
+          type: integer
+        stage_idx:
+          type: integer
+        achievement_refs:
+          type: array
+          items:
+            type: string
+        learned:
+          type: boolean
+        user_defined:
+          type: boolean
+      additionalProperties: true
+
+    LongHorizonAgentEntity:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        eta:
+          type: number
+        reach:
+          type: number
+        pi_gap:
+          type: number
+        failure_codes:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+
+    CounterfactualCreditEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        from:
+          type: string
+        target:
+          type: string
+        to:
+          type: string
+        lag:
+          type: integer
+        weight:
+          type: number
+        edge_weight:
+          type: number
+        evidence:
+          type: number
+        evidence_strength:
+          type: number
+        delta_reward:
+          type: number
+        credit:
+          type: number
+      additionalProperties: true
+
+    CounterfactualCreditTelemetry:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        edge_count:
+          type: integer
+        dropped_edges:
+          type: integer
+        total_credit:
+          type: number
+        positive_credit:
+          type: number
+        negative_credit:
+          type: number
+        top_contributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterfactualCreditEdge'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterfactualCreditEdge'
       additionalProperties: true
 
     StatePatchRequest:

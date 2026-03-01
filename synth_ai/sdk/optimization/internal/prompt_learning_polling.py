@@ -40,21 +40,23 @@ def poll_prompt_learning_until_complete(
             resp = http_get(url, headers=headers, timeout=request_timeout)
             last_data = parse_json_response(resp, context="Prompt learning status")
             error_count = 0
+            raw_status = last_data.get("status")
+            if not isinstance(raw_status, str) or not raw_status.strip():
+                raise RuntimeError(
+                    "Protocol error: missing required 'status' in job status response"
+                )
 
-            status = JobStatus.from_string(last_data.get("status", "pending"))
-            best_score = (
-                last_data.get("best_score")
-                or last_data.get("best_reward")
-                or last_data.get("best_train_score")
-                or last_data.get("best_train_reward")
-            )
+            status = JobStatus.from_string(raw_status)
+            best_reward = last_data.get("best_reward") or last_data.get("best_train_reward")
 
             if progress:
                 mins, secs = divmod(int(elapsed), 60)
-                score_str = f"score: {best_score:.2f}" if best_score is not None else "score: --"
+                reward_str = (
+                    f"reward: {best_reward:.2f}" if best_reward is not None else "reward: --"
+                )
                 iteration = last_data.get("iteration") or last_data.get("current_iteration")
                 iter_str = f" | iter: {iteration}" if iteration is not None else ""
-                line = f"[{mins:02d}:{secs:02d}] {status.value} | {score_str}{iter_str}"
+                line = f"[{mins:02d}:{secs:02d}] {status.value} | {reward_str}{iter_str}"
                 logger.info(line)
 
             if on_status:

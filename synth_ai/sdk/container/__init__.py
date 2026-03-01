@@ -30,12 +30,12 @@ if TYPE_CHECKING:
     )
 
     from .deploy import ContainerDeployResult, deploy_container
-    from .harbor_adapter import (
+    from .harbor.adapter import (
         HarborExecutionBackend,
         HarborExecutionError,
         create_harbor_rollout_executor,
     )
-    from .harbor_provider import (
+    from .harbor.provider import (
         HarborInstanceProvider,
         create_harbor_instance_provider,
     )
@@ -103,11 +103,11 @@ def __getattr__(name: str) -> Any:
             "HarborExecutionError",
             "create_harbor_rollout_executor",
         ):
-            from . import harbor_adapter as _harbor_adapter
+            from .harbor import adapter as _harbor_adapter
 
             return getattr(_harbor_adapter, name)
         if name in ("HarborInstanceProvider", "create_harbor_instance_provider"):
-            from . import harbor_provider as _harbor_provider
+            from .harbor import provider as _harbor_provider
 
             return getattr(_harbor_provider, name)
     if name == "create_container":

@@ -10,10 +10,10 @@ This module provides:
 
 # Core models (flexible validation)
 # Loading and blending
-# Evaluation
-from .evaluation import evaluate_events_against_rubric, evaluate_outcome_against_rubric
+# Scoring
 from .loaders import blend_rubrics, load_rubric
 from .models import Criterion, Rubric
+from .scoring import evaluate_events_against_rubric, evaluate_outcome_against_rubric
 
 # Strict validators (for verifier configs)
 from .strict import (

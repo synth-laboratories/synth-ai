@@ -179,7 +179,8 @@ async def call_chat_completion_api(
     if missing_fields:
         raise HTTPException(
             status_code=400,
-            detail="Missing policy fields in TOML [prompt_learning.policy]: "
+            detail="Missing rollout policy fields in request.policy.config "
+            + "(canonical source: prompt_learning.gepa.policy_config): "
             + ", ".join(missing_fields),
         )
 

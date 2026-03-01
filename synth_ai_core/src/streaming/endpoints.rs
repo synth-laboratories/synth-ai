@@ -39,7 +39,10 @@ impl StreamEndpoints {
 
     /// Create endpoints for a prompt learning (GEPA) job.
     pub fn prompt_learning(job_id: &str) -> Self {
-        let base = format!("/api/v1/offline/jobs/{}", job_id);
+        let base = format!(
+            "/api{}",
+            crate::api::routes::offline_job_path(job_id, crate::api::routes::ApiVersion::V1)
+        );
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),
@@ -54,7 +57,10 @@ impl StreamEndpoints {
 
     /// Create endpoints for an eval job.
     pub fn eval(job_id: &str) -> Self {
-        let base = format!("/api/v1/offline/jobs/{}", job_id);
+        let base = format!(
+            "/api{}",
+            crate::api::routes::offline_job_path(job_id, crate::api::routes::ApiVersion::V1)
+        );
         Self {
             status: Some(base.clone()),
             events: Some(format!("{}/events", base)),

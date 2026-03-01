@@ -316,7 +316,7 @@ class CandidateInfo:
             instance_objectives = None
 
         # Extract seed_rewards [{seed, reward}, ...]
-        seed_rewards = data.get("seed_rewards") or data.get("seed_scores", [])
+        seed_rewards = data.get("seed_rewards", [])
 
         # Extract seed_info [{seed, query, expected}, ...]
         seed_info: list[SeedInfo] = []
@@ -348,10 +348,10 @@ class CandidateInfo:
                     parts.append(f"[{stage_id.upper()}]: {instruction}")
             prompt_summary = "\n".join(parts)
 
-        # Extract minibatch_rewards array (preferred) or strict to single minibatch_reward/score
-        minibatch_rewards = data.get("minibatch_rewards") or data.get("minibatch_scores", [])
+        # Extract minibatch_rewards array (preferred) or strict to single minibatch_reward
+        minibatch_rewards = data.get("minibatch_rewards", [])
         if not minibatch_rewards:
-            mb_val = data.get("minibatch_reward") or data.get("minibatch_score")
+            mb_val = data.get("minibatch_reward")
             if mb_val is not None:
                 minibatch_rewards = [mb_val]
 
@@ -399,10 +399,8 @@ class CandidateInfo:
             candidate_id=cid,
             reward=float(reward_value) if reward_value is not None else None,
             objectives=objectives,
-            val_reward=data.get("val_reward") or data.get("val_accuracy") or data.get("full_score"),
-            train_reward=data.get("train_reward")
-            or data.get("train_accuracy")
-            or data.get("minibatch_score"),
+            val_reward=data.get("val_reward") or data.get("val_accuracy"),
+            train_reward=data.get("train_reward") or data.get("train_accuracy"),
             generation=data.get("generation"),
             parent_id=data.get("parent_id"),
             is_pareto=data.get("is_pareto", False),
@@ -453,14 +451,12 @@ class FrontierUpdate:
             added=data.get("added", []),
             removed=data.get("removed", []),
             frontier=data.get("frontier", []),
-            frontier_rewards=data.get("frontier_rewards") or data.get("frontier_scores", {}),
+            frontier_rewards=data.get("frontier_rewards", {}),
             frontier_objectives=data.get("frontier_objectives"),
             frontier_size=data.get("frontier_size", len(data.get("frontier", []))),
-            optimistic_reward=data.get("optimistic_reward")
-            or data.get("optimistic_score")
-            or data.get("best_score"),
+            optimistic_reward=data.get("optimistic_reward") or data.get("best_reward"),
             generation=data.get("generation"),
-            baseline_reward=data.get("baseline_reward") or data.get("baseline_score"),
+            baseline_reward=data.get("baseline_reward"),
             timestamp_ms=data.get("timestamp_ms"),
         )
 
@@ -502,9 +498,7 @@ class BaselineInfo:
         if reward_value is None:
             reward_value = data.get("reward")
         if reward_value is None:
-            reward_value = (
-                data.get("accuracy") or data.get("baseline_score") or data.get("baseline_accuracy")
-            )
+            reward_value = data.get("accuracy") or data.get("baseline_accuracy")
         if reward_value is None:
             score_val = data.get("score")
             if isinstance(score_val, dict):

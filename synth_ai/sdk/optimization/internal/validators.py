@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
 import warnings
+from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
 import click
+
+logger = logging.getLogger(__name__)
 
 try:
     import tomllib as _toml  # Python 3.11+
@@ -38,6 +42,9 @@ _GEPA_ALIAS_WARNING_PREFIXES = (
     "Unknown field 'proposal_pipeline' in [prompt_learning.gepa].",
     "Unknown field 'actionable_upfront_context' in [prompt_learning.gepa].",
     "Unknown field 'task_context' in [prompt_learning.gepa].",
+    "Unknown field 'termination_conditions' in [prompt_learning.gepa].",
+    "Unknown field 'initial_candidate' in [prompt_learning.gepa].",
+    "Unknown field 'policy_config' in [prompt_learning.gepa].",
 )
 
 _MIPRO_ALIAS_WARNING_PREFIXES = (
@@ -60,7 +67,75 @@ _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
     "Unknown field 'default_artifact_kind' in [prompt_learning].",
     "Unknown field 'artifact_schema' in [prompt_learning].",
     "Unknown field 'artifact_bounds' in [prompt_learning].",
+    # New GEPA task-data ownership surface.
+    "Unknown field 'task_data' in [prompt_learning].",
+    # Kind/mode disambiguation canonical surface.
+    "Unknown field 'job_kind' in [prompt_learning].",
+    "Unknown field 'algorithm_name' in [prompt_learning].",
+    "Unknown field 'execution_mode' in [prompt_learning].",
+    "Unknown field 'config_schema_version' in [prompt_learning].",
 )
+
+_GEPA_ROLLOUT_ALIAS_WARNING_PREFIXES = (
+    "Unknown field 'max_concurrent_rollouts' in [prompt_learning.gepa.rollout].",
+)
+
+_GEPA_THROUGHPUT_ALIAS_WARNING_PREFIXES = (
+    "Unknown field 'throughput' in [prompt_learning.gepa].",
+    "Unknown field 'max_concurrent_rollouts' in [prompt_learning.gepa.throughput].",
+)
+
+_VERIFIER_ALIAS_WARNING_PREFIXES = (
+    "Unknown field 'model' in [prompt_learning.verifier].",
+    "Unknown field 'reward_on_trace' in [prompt_learning.verifier].",
+    "Unknown field 'source' in [prompt_learning.verifier].",
+)
+
+
+def _collect_forbidden_policy_paths(payload: Any, path: str = "") -> list[str]:
+    """Return all config paths where user-submitted policy appears."""
+    paths: list[str] = []
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            next_path = f"{path}.{key}" if path else key
+            if key == "policy":
+                paths.append(next_path)
+            paths.extend(_collect_forbidden_policy_paths(value, next_path))
+    elif isinstance(payload, list):
+        for index, value in enumerate(payload):
+            next_path = f"{path}[{index}]"
+            paths.extend(_collect_forbidden_policy_paths(value, next_path))
+    return paths
+
+
+def _raise_if_forbidden_policy_fields(config_data: dict[str, Any], config_path: Path) -> None:
+    """Reject user-submitted policy config per configs_plan."""
+    policy_paths = _collect_forbidden_policy_paths(config_data)
+    if policy_paths:
+        joined_paths = ", ".join(policy_paths)
+        raise click.ClickException(
+            f"{config_path}: user-submitted policy config is forbidden. "
+            f"Remove these fields: {joined_paths}"
+        )
+
+
+def reject_legacy_policy_optimization(
+    config_data: dict | Mapping, config_path: Path | str | None = None
+) -> None:
+    """Reject legacy policy_optimization top-level section."""
+    if not isinstance(config_data, Mapping):
+        return
+    if "policy_optimization" not in config_data:
+        return
+    prefix = f"{config_path}: " if config_path else ""
+    raise ValueError(
+        f"{prefix}top-level policy_optimization is no longer supported; use prompt_learning."
+    )
+
+
+def _raise_if_legacy_sections(config_data: dict[str, Any], config_path: Path) -> None:
+    """Reject legacy top-level config sections that are no longer supported."""
+    reject_legacy_policy_optimization(config_data, config_path)
 
 
 def _iter_model_values(payload: Any) -> Any:
@@ -94,12 +169,11 @@ def _normalize_supported_model_errors(config_data: dict[str, Any], errors: list[
     return normalized
 
 
-def _normalize_container_fields(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize canonical container fields before strict validation."""
-    normalized = deepcopy(config_data)
-    pl = normalized.get("prompt_learning")
+def _normalize_container_fields(config_data: dict[str, Any]) -> None:
+    """Normalize canonical container fields before strict validation (mutates in-place)."""
+    pl = config_data.get("prompt_learning")
     if not isinstance(pl, dict):
-        return normalized
+        return
 
     def _first_str(*vals: Any) -> str | None:
         for v in vals:
@@ -115,8 +189,16 @@ def _normalize_container_fields(config_data: dict[str, Any]) -> dict[str, Any]:
     if cid:
         pl.setdefault("container_id", cid)
 
-    normalized["prompt_learning"] = pl
-    return normalized
+
+def _normalize_kind_mode_aliases(config_data: dict[str, Any]) -> None:
+    """Normalize canonical algorithm name into strict-validator legacy alias (mutates in-place)."""
+    pl = config_data.get("prompt_learning")
+    if not isinstance(pl, dict):
+        return
+
+    algorithm_name = pl.get("algorithm_name")
+    if pl.get("algorithm") is None and isinstance(algorithm_name, str) and algorithm_name.strip():
+        pl["algorithm"] = algorithm_name.strip().lower()
 
 
 def _filter_known_gepa_alias_warnings(warnings_list: list[str]) -> list[str]:
@@ -129,6 +211,12 @@ def _filter_known_gepa_alias_warnings(warnings_list: list[str]) -> list[str]:
             continue
         if any(warning.startswith(prefix) for prefix in _MIPRO_ALIAS_WARNING_PREFIXES):
             continue
+        if any(warning.startswith(prefix) for prefix in _GEPA_ROLLOUT_ALIAS_WARNING_PREFIXES):
+            continue
+        if any(warning.startswith(prefix) for prefix in _GEPA_THROUGHPUT_ALIAS_WARNING_PREFIXES):
+            continue
+        if any(warning.startswith(prefix) for prefix in _VERIFIER_ALIAS_WARNING_PREFIXES):
+            continue
         filtered.append(warning)
     return filtered
 
@@ -140,20 +228,20 @@ def _raise_validation_errors(errors: list[str], config_path: Path) -> None:
     raise click.ClickException(f"{config_path}: {msg}")
 
 
-def _has_container_id(config_data: dict[str, Any]) -> bool:
+def _has_nonempty_string_field(config_data: dict[str, Any], field: str) -> bool:
     pl = config_data.get("prompt_learning")
     if not isinstance(pl, dict):
         pl = config_data
-    container_id = pl.get("container_id") if isinstance(pl, dict) else None
-    return isinstance(container_id, str) and bool(container_id.strip())
+    value = pl.get(field) if isinstance(pl, dict) else None
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _has_container_id(config_data: dict[str, Any]) -> bool:
+    return _has_nonempty_string_field(config_data, "container_id")
 
 
 def _has_container_url(config_data: dict[str, Any]) -> bool:
-    pl = config_data.get("prompt_learning")
-    if not isinstance(pl, dict):
-        pl = config_data
-    container_url = pl.get("container_url") if isinstance(pl, dict) else None
-    return isinstance(container_url, str) and bool(container_url.strip())
+    return _has_nonempty_string_field(config_data, "container_url")
 
 
 def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> list[str]:
@@ -173,14 +261,11 @@ def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> 
     return normalized
 
 
-def _normalize_canonical_mipro_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize canonical MIPRO field aliases before strict validation."""
-    normalized = deepcopy(config_data)
+def _normalize_canonical_mipro_aliases(config_data: dict[str, Any]) -> None:
+    """Normalize canonical MIPRO field aliases before strict validation (mutates in-place)."""
     sections: list[dict[str, Any]] = []
-    if isinstance(normalized.get("prompt_learning"), dict):
-        sections.append(normalized["prompt_learning"])
-    if isinstance(normalized.get("policy_optimization"), dict):
-        sections.append(normalized["policy_optimization"])
+    if isinstance(config_data.get("prompt_learning"), dict):
+        sections.append(config_data["prompt_learning"])
 
     for section in sections:
         mipro = section.get("mipro")
@@ -191,11 +276,10 @@ def _normalize_canonical_mipro_aliases(config_data: dict[str, Any]) -> dict[str,
                 section["online_pool"] = mipro.get("online_pool")
         if section.get("online_pool") is None and section.get("online_train_seeds") is not None:
             section["online_pool"] = section.get("online_train_seeds")
-    return normalized
 
 
-def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
-    """Normalize GEPA proposer alias fields to canonical synth proposer settings.
+def _normalize_gepa_aliases(config_data: dict[str, Any]) -> None:
+    """Normalize GEPA proposer alias fields to canonical synth proposer settings (mutates in-place).
 
     Canonical/new benchmark configs may send:
     - prompt_learning.gepa.proposer_backend = "prompt" | "rlm" | "agent"
@@ -206,12 +290,9 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
     proposer_backend='rlm' or 'agent', passes through; rust_backend gepa_adapter
     dispatches execution.
     """
-    normalized = deepcopy(config_data)
     sections: list[dict[str, Any]] = []
-    if isinstance(normalized.get("prompt_learning"), dict):
-        sections.append(normalized["prompt_learning"])
-    if isinstance(normalized.get("policy_optimization"), dict):
-        sections.append(normalized["policy_optimization"])
+    if isinstance(config_data.get("prompt_learning"), dict):
+        sections.append(config_data["prompt_learning"])
 
     def _normalize_prompt_strategy(value: Any) -> str:
         strategy = str(value or "synth").strip().lower()
@@ -227,6 +308,46 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
         gepa = section.get("gepa")
         if not isinstance(gepa, dict):
             continue
+
+        top_level_legacy_rollout_keys = (
+            "seed_checkpoint",
+            "seed_checkpoints",
+            "seed_checkpoint_refs",
+        )
+        if any(section.get(key) is not None for key in top_level_legacy_rollout_keys):
+            raise click.ClickException(
+                "INVALID_CONFIG_NAMESPACE: prompt_learning.seed_checkpoint* keys are no longer "
+                "supported for GEPA. Use prompt_learning.gepa.rollout_checkpoint*."
+            )
+
+        # Hard cutover: legacy checkpoint namespace is no longer supported.
+        legacy_checkpoint_keys = (
+            "checkpoint",
+            "seed_checkpoint",
+            "seed_checkpoints",
+            "seed_checkpoint_refs",
+        )
+        detected_legacy = [key for key in legacy_checkpoint_keys if gepa.get(key) is not None]
+        if detected_legacy:
+            raise click.ClickException(
+                "INVALID_CONFIG_NAMESPACE: prompt_learning.gepa.checkpoint and "
+                "seed_checkpoint* keys are no longer supported. "
+                "Use prompt_learning.gepa.job_checkpoint and prompt_learning.gepa.rollout_checkpoint*."
+            )
+
+        # Canonical UX alias: map [prompt_learning.gepa.throughput]
+        # into strict GEPA rollout shape before Rust strict validation.
+        throughput_cfg = gepa.get("throughput")
+        if isinstance(throughput_cfg, dict):
+            max_concurrent_rollouts = throughput_cfg.get("max_concurrent_rollouts")
+            if isinstance(max_concurrent_rollouts, int):
+                rollout_cfg = gepa.get("rollout")
+                if not isinstance(rollout_cfg, dict):
+                    rollout_cfg = {}
+                    gepa["rollout"] = rollout_cfg
+                rollout_cfg.setdefault("max_concurrent", max_concurrent_rollouts)
+            # Strip alias section so strict validators don't reject unknown fields.
+            gepa.pop("throughput", None)
 
         # Accept new top-level context_override alias used by benchmark runners.
         if (
@@ -268,14 +389,16 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> dict[str, Any]:
             "Expected one of: prompt, rlm, agent."
         )
 
-    return normalized
-
 
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """Validate prompt learning config using Rust core."""
-    normalized_for_validation = _normalize_container_fields(
-        _normalize_gepa_aliases(_normalize_canonical_mipro_aliases(config_data))
-    )
+    _raise_if_legacy_sections(config_data, config_path)
+    _raise_if_forbidden_policy_fields(config_data, config_path)
+    normalized_for_validation = deepcopy(config_data)
+    _normalize_canonical_mipro_aliases(normalized_for_validation)
+    _normalize_gepa_aliases(normalized_for_validation)
+    _normalize_kind_mode_aliases(normalized_for_validation)
+    _normalize_container_fields(normalized_for_validation)
     try:
         validation_result = _validate_unknown_fields(
             normalized_for_validation,
@@ -285,8 +408,8 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
             warnings.warn(warning_msg, UserWarning, stacklevel=3)
         for info_msg in validation_result.info:
             warnings.warn(f"Info: {info_msg}", UserWarning, stacklevel=3)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Unknown field validation skipped: %s", e)
 
     normalized_for_strict = normalized_for_validation
     errors = synth_ai_py.validate_prompt_learning_config_strict(normalized_for_strict)
@@ -310,6 +433,7 @@ def validate_prompt_learning_config_from_file(config_path: Path, algorithm: str)
 
 
 __all__ = [
+    "reject_legacy_policy_optimization",
     "validate_prompt_learning_config",
     "validate_prompt_learning_config_from_file",
     "ConfigValidationError",

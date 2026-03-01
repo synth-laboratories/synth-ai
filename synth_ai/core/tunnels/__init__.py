@@ -9,10 +9,10 @@ exposing local containers to the internet. Two tunnel backends are available:
   dynamic memory-based budgeting for large payloads). Uses ``worker_token``
   for authentication.
 
-- **Cloudflare**: Tunnels via Cloudflare's network. Requires the
-  ``cloudflared`` binary. Available in managed (stable subdomain) and
-  quick (random subdomain, no API key) variants. Uses ``container_api_key``
-  for authentication.
+- **NgrokManaged**: Synth-managed ngrok-compatible URL flow. Requires an
+  approved managed URL (`SYNTH_MANAGED_NGROK_URL` or explicit parameter)
+  and allow-listing in `SYNTH_MANAGED_TUNNEL_HOSTS`.
+- **Cloudflare**: Deprecated and disabled.
 
 **Recommended:** Use ``TunneledContainer`` for a clean, one-liner experience:
 
@@ -26,10 +26,11 @@ exposing local containers to the internet. Two tunnel backends are available:
     print(tunnel.url)           # https://dev.st.usesynth.ai/s/rt_...
     print(tunnel.worker_token)  # pass to job config
 
-    # Cloudflare quick tunnel (no API key, random subdomain)
+    # Ngrok managed tunnel URL
     tunnel = await TunneledContainer.create(
         local_port=8001,
-        backend=TunnelBackend.CloudflareQuickTunnel,
+        backend=TunnelBackend.NgrokManaged,
+        managed_ngrok_url="https://example-tunnel.usesynth.ai",
     )
 
     # Localhost passthrough (no tunnel, local dev only)
@@ -40,16 +41,16 @@ exposing local containers to the internet. Two tunnel backends are available:
 
     tunnel.close()
 
-**SynthTunnel vs Cloudflare — when to use which:**
+**SynthTunnel vs NgrokManaged — when to use which:**
 
 +---------------------+----------------------------+----------------------------+
-| Concern             | SynthTunnel                | Cloudflare                 |
+| Concern             | SynthTunnel                | NgrokManaged               |
 +---------------------+----------------------------+----------------------------+
-| Setup               | Zero config, no binary     | Requires ``cloudflared``   |
-| Concurrency         | 128 in-flight (dynamic)    | Cloudflare limits apply    |
+| Setup               | Zero config, no binary     | Managed URL + allow-list   |
+| Concurrency         | 128 in-flight (dynamic)    | Provider limits apply      |
 | Auth                | ``worker_token``           | ``container_api_key``       |
-| URL stability       | Per-lease (session-lived)  | Managed = stable subdomain |
-| Best for            | SDK jobs, GEPA, MiPRO      | Long-lived production apps |
+| URL stability       | Per-lease (session-lived)  | Stable managed endpoint    |
+| Best for            | SDK jobs, GEPA, MiPRO      | Infra-managed ingress      |
 +---------------------+----------------------------+----------------------------+
 
 **Using tunnels with optimization jobs:**
@@ -61,7 +62,7 @@ exposing local containers to the internet. Two tunnel backends are available:
         container_worker_token=tunnel.worker_token,
     )
 
-    # Cloudflare — pass container_api_key instead
+    # Managed ngrok-compatible URL — pass container_api_key
     job = PromptLearningJob.from_dict(
         config,
         container_url=tunnel.url,

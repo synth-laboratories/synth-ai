@@ -98,14 +98,14 @@ class TextReplacement:
 
 
 @dataclass
-class CandidateScore:
-    """Scoring information for a candidate prompt."""
+class CandidateReward:
+    """Reward information for a candidate prompt."""
 
     accuracy: float
     objectives: Optional[Dict[str, float]] = None
     prompt_length: int = 0
     tool_call_rate: float = 0.0
-    instance_scores: List[float] = field(default_factory=list)
+    instance_rewards: List[float] = field(default_factory=list)
 
 
 @dataclass
@@ -124,9 +124,9 @@ class Candidate:
     objectives: Optional[Dict[str, float]] = None
     prompt_length: int = 0
     tool_call_rate: float = 0.0
-    instance_scores: List[float] = field(default_factory=list)
+    instance_rewards: List[float] = field(default_factory=list)
     object: Optional[Dict[str, Any]] = None
-    seed_scores: Optional[List[Dict[str, Any]]] = None  # Per-seed scores: [{seed, score}, ...]
+    seed_rewards: Optional[List[Dict[str, Any]]] = None  # Per-seed rewards: [{seed, reward}, ...]
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Candidate:
@@ -137,9 +137,9 @@ class Candidate:
             objectives=_normalize_objectives(data),
             prompt_length=data.get("prompt_length", 0),
             tool_call_rate=data.get("tool_call_rate", 0.0),
-            instance_scores=data.get("instance_scores", []),
+            instance_rewards=data.get("instance_rewards", []),
             object=data.get("object"),
-            seed_scores=data.get("seed_scores"),
+            seed_rewards=data.get("seed_rewards"),
         )
 
 
@@ -147,30 +147,30 @@ class Candidate:
 class OptimizedCandidate:
     """An optimized candidate from the Pareto frontier."""
 
-    score: CandidateScore
+    reward: CandidateReward
     payload_kind: str  # "transformation" or "pattern"
     object: Optional[Dict[str, Any]] = None
-    instance_scores: Optional[List[float]] = None
+    instance_rewards: Optional[List[float]] = None
     objectives: Optional[Dict[str, float]] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> OptimizedCandidate:
         """Create an OptimizedCandidate from a dictionary."""
-        score_data = data.get("score", {})
-        objectives = _normalize_objectives(score_data if isinstance(score_data, dict) else data)
-        reward_val = _extract_outcome_reward(score_data if isinstance(score_data, dict) else data)
-        if isinstance(score_data, dict):
-            score = CandidateScore(
+        reward_data = data.get("reward", {})
+        objectives = _normalize_objectives(reward_data if isinstance(reward_data, dict) else data)
+        reward_val = _extract_outcome_reward(reward_data if isinstance(reward_data, dict) else data)
+        if isinstance(reward_data, dict):
+            reward = CandidateReward(
                 accuracy=float(reward_val)
                 if reward_val is not None
-                else score_data.get("accuracy", 0.0),
+                else reward_data.get("accuracy", 0.0),
                 objectives=objectives,
-                prompt_length=score_data.get("prompt_length", 0),
-                tool_call_rate=score_data.get("tool_call_rate", 0.0),
-                instance_scores=score_data.get("instance_scores", []),
+                prompt_length=reward_data.get("prompt_length", 0),
+                tool_call_rate=reward_data.get("tool_call_rate", 0.0),
+                instance_rewards=reward_data.get("instance_rewards", []),
             )
         else:
-            score = CandidateScore(
+            reward = CandidateReward(
                 accuracy=float(reward_val) if reward_val is not None else 0.0,
                 objectives=objectives,
             )
@@ -179,10 +179,10 @@ class OptimizedCandidate:
         if payload_kind == "template":
             payload_kind = "pattern"
         return cls(
-            score=score,
+            reward=reward,
             payload_kind=payload_kind,
             object=data.get("object"),
-            instance_scores=data.get("instance_scores"),
+            instance_rewards=data.get("instance_rewards"),
             objectives=objectives,
         )
 
@@ -224,7 +224,7 @@ class BestPromptEventData:
         return cls(
             best_reward=float(reward_val)
             if reward_val is not None
-            else data.get("best_score", 0.0),
+            else data.get("best_reward", 0.0),
             best_candidate=data.get("best_candidate") or data.get("best_prompt") or {},
             best_objectives=_normalize_objectives(data),
         )
@@ -252,7 +252,7 @@ class ValidationScoredEventData:
 
     accuracy: float
     objectives: Optional[Dict[str, float]] = None
-    instance_scores: List[float] = field(default_factory=list)
+    instance_rewards: List[float] = field(default_factory=list)
     is_baseline: bool = False
 
     @classmethod
@@ -262,7 +262,7 @@ class ValidationScoredEventData:
         return cls(
             accuracy=float(reward_val) if reward_val is not None else data.get("accuracy", 0.0),
             objectives=_normalize_objectives(data),
-            instance_scores=data.get("instance_scores", []),
+            instance_rewards=data.get("instance_rewards", []),
             is_baseline=data.get("is_baseline", False),
         )
 
@@ -329,7 +329,7 @@ class PromptResults:
         return cls(
             best_candidate=data.get("best_candidate") or data.get("best_prompt"),
             best_candidate_content=data.get("best_candidate_content"),
-            best_reward=data.get("best_reward") or data.get("best_score"),
+            best_reward=data.get("best_reward"),
             version_tree=data.get("version_tree"),
             optimized_candidates=data.get("optimized_candidates", []),
             attempted_candidates=data.get("attempted_candidates", []),

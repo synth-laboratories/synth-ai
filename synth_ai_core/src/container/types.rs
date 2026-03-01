@@ -197,6 +197,15 @@ pub struct RolloutRequest {
     /// Synth backend URL.
     #[serde(default)]
     pub synth_base_url: Option<String>,
+    /// Optional planner mode for long-horizon paired evals.
+    #[serde(default)]
+    pub planner_mode: Option<String>,
+    /// Optional paired-evaluation marker and metadata.
+    #[serde(default)]
+    pub paired_eval: Option<Value>,
+    /// Optional waypoint/subgoal request payload.
+    #[serde(default)]
+    pub waypoint_plan_request: Option<Value>,
     /// Context overrides to apply.
     #[serde(default)]
     pub context_overrides: Option<Vec<ContextOverride>>,
@@ -220,6 +229,9 @@ impl RolloutRequest {
             safety: RolloutSafetyConfig::default(),
             training_session_id: None,
             synth_base_url: None,
+            planner_mode: None,
+            paired_eval: None,
+            waypoint_plan_request: None,
             context_overrides: None,
             override_bundle_id: None,
         }
@@ -258,9 +270,33 @@ pub struct RolloutMetrics {
     /// Event-level objective values.
     #[serde(default)]
     pub event_objectives: Option<Vec<HashMap<String, f64>>>,
+    /// Per-instance objective values.
+    #[serde(default)]
+    pub instance_objectives: Option<Vec<HashMap<String, f64>>>,
     /// Additional details.
     #[serde(default)]
     pub details: HashMap<String, Value>,
+    /// Per-distance-bin success rates for long-horizon scoring.
+    #[serde(default)]
+    pub horizon_bin_success: Option<HashMap<String, f64>>,
+    /// Doubled-horizon attenuation metric.
+    #[serde(default)]
+    pub eta: Option<f64>,
+    /// Estimated reliable horizon.
+    #[serde(default)]
+    pub reach: Option<f64>,
+    /// Planning-invariance gap (`planned - direct`).
+    #[serde(default)]
+    pub pi_gap: Option<f64>,
+    /// Whether planner-generated waypoints were used.
+    #[serde(default)]
+    pub planner_used: Option<bool>,
+    /// Structured planner failure code.
+    #[serde(default)]
+    pub planner_failure_code: Option<String>,
+    /// Optional multi-agent telemetry payload.
+    #[serde(default)]
+    pub multi_agent: Option<Value>,
 }
 
 impl RolloutMetrics {
@@ -276,7 +312,15 @@ impl RolloutMetrics {
             event_rewards: None,
             outcome_objectives: Some(objectives),
             event_objectives: None,
+            instance_objectives: None,
             details: HashMap::new(),
+            horizon_bin_success: None,
+            eta: None,
+            reach: None,
+            pi_gap: None,
+            planner_used: None,
+            planner_failure_code: None,
+            multi_agent: None,
         }
     }
 
@@ -289,7 +333,15 @@ impl RolloutMetrics {
             event_rewards: None,
             outcome_objectives: Some(outcome_objectives),
             event_objectives: None,
+            instance_objectives: None,
             details: HashMap::new(),
+            horizon_bin_success: None,
+            eta: None,
+            reach: None,
+            pi_gap: None,
+            planner_used: None,
+            planner_failure_code: None,
+            multi_agent: None,
         }
     }
 }

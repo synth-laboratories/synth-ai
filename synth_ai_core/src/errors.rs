@@ -66,61 +66,124 @@ impl Default for UsageLimitInfo {
     }
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct ParsedRateLimitFields {
+    #[serde(default)]
+    error: Option<String>,
+    #[serde(default)]
+    code: Option<String>,
+    #[serde(default)]
+    message: Option<String>,
+    #[serde(default)]
+    limit: Option<f64>,
+    #[serde(default)]
+    current: Option<f64>,
+    #[serde(default)]
+    current_active: Option<f64>,
+    #[serde(default)]
+    tier: Option<String>,
+    #[serde(default)]
+    retry_after_seconds: Option<i64>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ParsedRateLimitBody {
+    detail: Option<ParsedRateLimitFields>,
+    #[serde(flatten)]
+    fields: ParsedRateLimitFields,
+}
+
 impl UsageLimitInfo {
     /// Build a usage limit payload from an HTTP 429 response detail.
     ///
-    /// This parser supports FastAPI-style payloads where fields may be nested
-    /// under `detail`, and gracefully handles string-only `detail` values.
-    pub fn from_http_429(api: &str, detail: &crate::http::HttpErrorDetail) -> Self {
-        let mut info = Self {
-            limit_type: "rate_limit".to_string(),
+    /// This parser expects a structured payload shape:
+    /// `{"detail":{"message": "...", "limit": n, "current": n, "tier": "..."}}`.
+    pub fn from_http_429(api: &str, detail: &crate::http::HttpErrorDetail) -> CoreResult<Self> {
+        let body_snippet = detail.body_snippet.as_deref().unwrap_or("<empty>");
+        let body_value: serde_json::Value = serde_json::from_str(body_snippet).map_err(|err| {
+            CoreError::Protocol(format!(
+                "Corrupted HTTP 429 rate-limit payload for api '{api}': body is not valid JSON \
+({err}). status={} url={} body_snippet={}",
+                detail.status, detail.url, body_snippet
+            ))
+        })?;
+        let body: ParsedRateLimitBody =
+            serde_json::from_value(body_value).map_err(|err| {
+                CoreError::Protocol(format!(
+                    "Corrupted HTTP 429 rate-limit payload for api '{api}': payload schema \
+mismatch ({err}). Expected detail object with {{message, limit, current, tier}}. \
+status={} url={} body_snippet={}",
+                    detail.status, detail.url, body_snippet
+                ))
+            })?;
+
+        let detail_fields = body.detail.ok_or_else(|| {
+            CoreError::Protocol(format!(
+                "Corrupted HTTP 429 rate-limit payload for api '{api}': required key `detail` is \
+missing or not an object. Expected detail object with {{message, limit, current, tier}}. \
+status={} url={} body_snippet={}",
+                detail.status, detail.url, body_snippet
+            ))
+        })?;
+
+        let message = detail_fields
+            .message
+            .or(body.fields.message)
+            .ok_or_else(|| {
+                CoreError::Protocol(format!(
+                    "Corrupted HTTP 429 rate-limit payload for api '{api}': missing required \
+field `detail.message` (string). status={} url={} body_snippet={}",
+                    detail.status, detail.url, body_snippet
+                ))
+            })?;
+
+        let limit = detail_fields.limit.or(body.fields.limit).ok_or_else(|| {
+            CoreError::Protocol(format!(
+                "Corrupted HTTP 429 rate-limit payload for api '{api}': missing required field \
+`detail.limit` (number). status={} url={} body_snippet={}",
+                detail.status, detail.url, body_snippet
+            ))
+        })?;
+
+        let current = detail_fields
+            .current
+            .or(detail_fields.current_active)
+            .or(body.fields.current)
+            .or(body.fields.current_active)
+            .ok_or_else(|| {
+                CoreError::Protocol(format!(
+                    "Corrupted HTTP 429 rate-limit payload for api '{api}': missing required \
+field `detail.current` (number). status={} url={} body_snippet={}",
+                    detail.status, detail.url, body_snippet
+                ))
+            })?;
+
+        let tier = detail_fields
+            .tier
+            .or(body.fields.tier)
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| {
+                CoreError::Protocol(format!(
+                    "Corrupted HTTP 429 rate-limit payload for api '{api}': missing required \
+field `detail.tier` (non-empty string). status={} url={} body_snippet={}",
+                    detail.status, detail.url, body_snippet
+                ))
+            })?;
+
+        let limit_type = detail_fields
+            .error
+            .or(detail_fields.code)
+            .unwrap_or(message.clone());
+
+        Ok(Self {
+            limit_type,
             api: api.to_string(),
-            current: 0.0,
-            limit: 0.0,
-            tier: "unavailable".to_string(),
-            retry_after_seconds: None,
+            current,
+            limit,
+            tier,
+            retry_after_seconds: detail_fields.retry_after_seconds.or(body.fields.retry_after_seconds),
             upgrade_url: "https://usesynth.ai/pricing".to_string(),
-        };
-
-        if let Some(ref snippet) = detail.body_snippet {
-            if let Ok(body) = serde_json::from_str::<serde_json::Value>(snippet) {
-                let payload = body.get("detail").unwrap_or(&body);
-
-                if let Some(obj) = payload.as_object() {
-                    if let Some(value) = obj.get("error").and_then(|v| v.as_str()) {
-                        info.limit_type = value.to_string();
-                    } else if let Some(value) = obj.get("code").and_then(|v| v.as_str()) {
-                        info.limit_type = value.to_string();
-                    }
-
-                    if let Some(value) = obj.get("limit").and_then(|v| v.as_f64()) {
-                        info.limit = value;
-                    }
-                    if let Some(value) = obj
-                        .get("current")
-                        .and_then(|v| v.as_f64())
-                        .or_else(|| obj.get("current_active").and_then(|v| v.as_f64()))
-                    {
-                        info.current = value;
-                    }
-                    if let Some(value) = obj.get("tier").and_then(|v| v.as_str()) {
-                        info.tier = value.to_string();
-                    }
-                    if let Some(value) = obj.get("retry_after_seconds").and_then(|v| v.as_i64()) {
-                        info.retry_after_seconds = Some(value);
-                    }
-                } else if let Some(detail_msg) = payload.as_str() {
-                    // Handles {"detail": "Rate limit exceeded ..."}
-                    info.limit_type = detail_msg.to_string();
-                }
-            }
-        }
-
-        // If backend gave only cap, report "at cap" instead of misleading 0.
-        if info.current == 0.0 && info.limit > 0.0 {
-            info.current = info.limit;
-        }
-        info
+        })
     }
 }
 
@@ -366,5 +429,42 @@ mod tests {
 
         let err_auth = CoreError::auth("invalid key");
         assert_eq!(err_auth.http_status(), None);
+    }
+
+    #[test]
+    fn test_usage_limit_info_parses_fraction_from_detail_string() {
+        let detail = crate::http::HttpErrorDetail {
+            status: 429,
+            url: "https://api.usesynth.ai/v2/offline/jobs".to_string(),
+            message: "request_failed".to_string(),
+            body_snippet: Some(
+                r#"{"detail":"Org prompt optimization concurrent limit reached: 100/100 jobs","code":"rate_limited"}"#.to_string(),
+            ),
+        };
+
+        let err = UsageLimitInfo::from_http_429("jobs", &detail).expect_err(
+            "plain-detail payload without tier should hard-fail with protocol error",
+        );
+        let msg = format!("{err}");
+        assert!(msg.contains("payload schema mismatch"));
+        assert!(msg.contains("invalid type: string"));
+    }
+
+    #[test]
+    fn test_usage_limit_info_prefers_structured_detail_object() {
+        let detail = crate::http::HttpErrorDetail {
+            status: 429,
+            url: "https://api.usesynth.ai/v2/offline/jobs".to_string(),
+            message: "request_failed".to_string(),
+            body_snippet: Some(
+                r#"{"detail":{"message":"Org prompt optimization concurrent limit reached: 100/100 jobs","limit":100,"current":100,"tier":"free"}}"#.to_string(),
+            ),
+        };
+
+        let info = UsageLimitInfo::from_http_429("jobs", &detail)
+            .expect("structured 429 payload should parse");
+        assert_eq!(info.current, 100.0);
+        assert_eq!(info.limit, 100.0);
+        assert_eq!(info.tier, "free");
     }
 }

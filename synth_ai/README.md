@@ -85,9 +85,7 @@ Internal shared utilities. Not user-facing.
 User-facing programmatic API.
 
 - Front-door clients (SynthClient, AsyncSynthClient)
-- Optimization jobs (OfflineJob, OnlineSession, GraphOptimizationJob)
-- Evaluation jobs (EvalJob)
-- Clients (VerifiersClient, GraphsClient, Client/JobsClient under synth_ai.inference)
+- Optimization jobs (OfflineJob, OnlineSession)
 - Container for containers
 
 **Design principle**: Clean, stable API for external consumption.
@@ -110,7 +108,6 @@ from synth_ai import (
     SynthClient,
     AsyncSynthClient,
     optimization,
-    inference,
 )
 ```
 
@@ -118,7 +115,6 @@ For most use cases, import from the specific module:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.sdk import EvalJob
 from synth_ai.data import SessionTrace, Rubric
 ```
 

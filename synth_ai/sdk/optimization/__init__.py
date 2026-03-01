@@ -1,4 +1,4 @@
-"""Optimization SDK namespace (canonical policy v1 + graph).
+"""Optimization SDK namespace (canonical policy v1).
 
 # See: specs/sdk_logic.md
 """
@@ -16,11 +16,6 @@ from synth_ai.sdk.shared.orchestration.events import (
     parse_event,
 )
 
-from .graph import (
-    GraphOptimizationJob,
-    GraphOptimizationJobConfig,
-    GraphOptimizationResult,
-)
 from .job import JobLifecycle, JobStatus
 from .policy import (
     PolicyOptimizationOfflineJob,
@@ -33,10 +28,6 @@ __all__ = [
     "PolicyOptimizationOfflineJob",
     "PolicyOptimizationOnlineSession",
     "PolicyOptimizationSystem",
-    # Graph optimization
-    "GraphOptimizationJob",
-    "GraphOptimizationJobConfig",
-    "GraphOptimizationResult",
     # Event types
     "BaseJobEvent",
     "CandidateEvent",

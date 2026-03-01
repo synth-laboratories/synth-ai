@@ -4,25 +4,38 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import warnings
 from typing import Any
 
 import synth_ai_py
 
 
+def _cloudflare_disabled() -> None:
+    warnings.warn(
+        "Cloudflare tunnel helpers are deprecated and disabled. Use SynthTunnel or NgrokManaged.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    raise RuntimeError("Cloudflare tunnel helpers are disabled.")
+
+
 def get_cloudflared_path(prefer_system: bool = True) -> str | None:
-    return synth_ai_py.get_cloudflared_path(prefer_system)
+    _ = prefer_system
+    _cloudflare_disabled()
 
 
 def ensure_cloudflared_installed(force: bool = False) -> str:
-    return synth_ai_py.ensure_cloudflared_installed(force)
+    _ = force
+    _cloudflare_disabled()
 
 
 def require_cloudflared() -> str:
-    return synth_ai_py.require_cloudflared()
+    _cloudflare_disabled()
 
 
 def open_quick_tunnel(port: int, wait_s: float = 10.0) -> tuple[str, Any]:
-    return synth_ai_py.open_quick_tunnel(port, wait_s)
+    _ = (port, wait_s)
+    _cloudflare_disabled()
 
 
 async def open_quick_tunnel_with_dns_verification(
@@ -31,24 +44,21 @@ async def open_quick_tunnel_with_dns_verification(
     wait_s: float = 10.0,
     api_key: str | None = None,
 ) -> tuple[str, Any]:
-    return await asyncio.to_thread(
-        synth_ai_py.open_quick_tunnel_with_dns_verification, port, wait_s, True, api_key
-    )
+    _ = (port, wait_s, api_key)
+    _cloudflare_disabled()
 
 
 def open_managed_tunnel(tunnel_token: str) -> Any:
-    return synth_ai_py.open_managed_tunnel(tunnel_token)
+    _ = tunnel_token
+    _cloudflare_disabled()
 
 
 async def open_managed_tunnel_with_connection_wait(
     tunnel_token: str,
     timeout_seconds: float = 30.0,
 ) -> Any:
-    return await asyncio.to_thread(
-        synth_ai_py.open_managed_tunnel_with_connection_wait,
-        tunnel_token,
-        timeout_seconds,
-    )
+    _ = (tunnel_token, timeout_seconds)
+    _cloudflare_disabled()
 
 
 def stop_tunnel(proc: Any) -> None:
@@ -56,11 +66,13 @@ def stop_tunnel(proc: Any) -> None:
 
 
 async def rotate_tunnel(api_key: str, port: int, backend_url: str | None = None) -> dict[str, Any]:
-    return await asyncio.to_thread(synth_ai_py.rotate_tunnel, api_key, port, backend_url)
+    _ = (api_key, port, backend_url)
+    _cloudflare_disabled()
 
 
 async def create_tunnel(api_key: str, port: int, subdomain: str | None = None) -> dict[str, Any]:
-    return await asyncio.to_thread(synth_ai_py.create_tunnel, api_key, port, subdomain)
+    _ = (api_key, port, subdomain)
+    _cloudflare_disabled()
 
 
 async def verify_tunnel_dns_resolution(
@@ -69,10 +81,8 @@ async def verify_tunnel_dns_resolution(
     timeout_seconds: float = 60.0,
     api_key: str | None = None,
 ) -> None:
-    _ = name
-    await asyncio.to_thread(
-        synth_ai_py.verify_tunnel_dns_resolution, tunnel_url, timeout_seconds, api_key
-    )
+    _ = (tunnel_url, name, timeout_seconds, api_key)
+    _cloudflare_disabled()
 
 
 async def wait_for_health_check(
@@ -110,7 +120,10 @@ def find_available_port(start_port: int, host: str = "0.0.0.0", max_attempts: in
 
 
 def kill_port(port: int) -> bool:
-    return synth_ai_py.kill_port(port)
+    fn = getattr(synth_ai_py, "kill_port", None)
+    if callable(fn):
+        return fn(port)
+    return False
 
 
 def acquire_port(

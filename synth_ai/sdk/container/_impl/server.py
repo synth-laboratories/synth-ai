@@ -45,8 +45,10 @@ from .proxy import (
 from .rubrics import Rubric
 from .vendors import get_groq_key_or_503, get_openai_key_or_503, normalize_vendor_keys
 
-
 _LOGGER = logging.getLogger(__name__)
+
+_CONTAINER_AUTH_MODE_ENV = "SYNTH_CONTAINER_AUTH_MODE"
+_CONTAINER_AUTH_MODE_OPTIONAL_LOCAL = "optional_local"
 
 
 def log_info(msg: str, ctx: dict[str, Any] | None = None) -> None:
@@ -564,9 +566,7 @@ def create_container(config: ContainerConfig) -> FastAPI:
                         extra={"validation_errors": exc.errors()},
                     ) from exc
                 return to_jsonable(validated.model_dump())
-            raise TypeError(
-                "Candidate validator must return ValidateCandidateResponse or mapping"
-            )
+            raise TypeError("Candidate validator must return ValidateCandidateResponse or mapping")
 
     if cfg.expose_debug_env:
 
@@ -626,6 +626,17 @@ def run_container(
     ctx: dict[str, Any] = {"host": host, "port": port, "reload": reload}
     log_info("run_container invoked", ctx=ctx)
 
+    # Local dev default: allow loopback requests without container bearer token
+    # unless an explicit auth mode is configured by the caller.
+    if not os.getenv(_CONTAINER_AUTH_MODE_ENV):
+        normalized_host = host.strip().lower()
+        if normalized_host in {"127.0.0.1", "localhost", "0.0.0.0", "::", "::1"}:
+            os.environ[_CONTAINER_AUTH_MODE_ENV] = _CONTAINER_AUTH_MODE_OPTIONAL_LOCAL
+            log_info(
+                "defaulted local container auth mode",
+                ctx={"auth_mode": _CONTAINER_AUTH_MODE_OPTIONAL_LOCAL, "host": host},
+            )
+
     config = config_factory()
     # Defensive: ensure the factory produced a valid ContainerConfig to avoid
     # confusing attribute errors later in the boot sequence.
@@ -644,8 +655,6 @@ def run_container(
 
     # Record local service before starting
     try:
-        import os
-
         from synth_ai.core.tunnels.service_records import record_service
 
         local_url = f"http://{host if host not in ('0.0.0.0', '::') else '127.0.0.1'}:{port}"

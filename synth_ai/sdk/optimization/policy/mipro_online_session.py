@@ -43,6 +43,12 @@ from typing import Any, Dict, Optional
 import httpx
 
 from synth_ai.core.rust_core.http import RustCoreHttpClient
+from synth_ai.core.utils.optimization_routes import (
+    MIPRO_API_VERSION,
+    online_session_path,
+    online_session_subpath,
+    online_sessions_base,
+)
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.internal.learning.prompt_learning_client import PromptLearningClient
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
@@ -82,7 +88,7 @@ async def _patch_state_with_action_canonical(
     action: str,
 ) -> Dict[str, Any]:
     base = ensure_api_base(backend_url).rstrip("/")
-    canonical_url = f"{base}/v1/online/sessions/{session_id}"
+    canonical_url = f"{base}{online_session_path(session_id, api_version=MIPRO_API_VERSION)}"
     headers = _auth_headers(api_key)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -223,7 +229,7 @@ class MiproOnlineSession:
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await _post_json_with_canonical(
                 http,
-                canonical_path="/v1/online/sessions",
+                canonical_path=online_sessions_base(api_version=MIPRO_API_VERSION),
                 payload=canonical_body,
             )
 
@@ -321,12 +327,19 @@ class MiproOnlineSession:
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             status_response = await _get_with_canonical(
                 http,
-                canonical_path=f"/v1/online/sessions/{session_id}",
+                canonical_path=online_session_path(
+                    session_id,
+                    api_version=MIPRO_API_VERSION,
+                ),
             )
             online_url = status_response.get("online_url")
             if not online_url:
                 response = await http.get(
-                    f"/v1/online/sessions/{session_id}/prompt",
+                    online_session_subpath(
+                        session_id,
+                        "/prompt",
+                        api_version=MIPRO_API_VERSION,
+                    ),
                     params=params or None,
                 )
                 status_response = _expect_dict_response(
@@ -382,7 +395,10 @@ class MiproOnlineSession:
         ) as http:
             return await _get_with_canonical(
                 http,
-                canonical_path=f"/v1/online/sessions/{self.session_id}",
+                canonical_path=online_session_path(
+                    self.session_id,
+                    api_version=MIPRO_API_VERSION,
+                ),
             )
 
     def status(self) -> Dict[str, Any]:
@@ -492,7 +508,11 @@ class MiproOnlineSession:
         ) as http:
             result = await _post_json_with_canonical(
                 http,
-                canonical_path=f"/v1/online/sessions/{self.session_id}/reward",
+                canonical_path=online_session_subpath(
+                    self.session_id,
+                    "/reward",
+                    api_version=MIPRO_API_VERSION,
+                ),
                 payload=payload,
             )
         return result
@@ -560,7 +580,11 @@ class MiproOnlineSession:
             timeout=self.timeout,
         ) as http:
             result = await http.get(
-                f"/v1/online/sessions/{self.session_id}/prompt",
+                online_session_subpath(
+                    self.session_id,
+                    "/prompt",
+                    api_version=MIPRO_API_VERSION,
+                ),
                 params=params or None,
             )
         return _expect_dict_response(result, context="MIPRO prompt endpoint")
@@ -593,6 +617,7 @@ class MiproOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=MIPRO_API_VERSION,
         )
         return await client.list_system_candidates(
             self.session_id,
@@ -643,6 +668,7 @@ class MiproOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=MIPRO_API_VERSION,
         )
         if job_id:
             return await client.get_candidate(job_id, candidate_id)
@@ -704,6 +730,7 @@ class MiproOnlineSession:
             base_url=self.backend_url,
             api_key=self.api_key,
             timeout=self.timeout,
+            api_version=MIPRO_API_VERSION,
         )
         return await client.list_system_seed_evals(
             self.session_id,

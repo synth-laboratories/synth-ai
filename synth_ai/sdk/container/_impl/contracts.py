@@ -7,7 +7,7 @@ compatibility removed during the naming transition.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -136,6 +136,18 @@ class RolloutRequest(BaseModel):
     safety: RolloutSafetyConfig = RolloutSafetyConfig()
     training_session_id: str | None = None
     synth_base_url: str | None = None
+    planner_mode: Literal["direct", "waypoint_planned"] | None = Field(
+        default=None,
+        description="Optional planner mode for long-horizon paired evals.",
+    )
+    paired_eval: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional paired-evaluation marker and metadata.",
+    )
+    waypoint_plan_request: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional waypoint/subgoal request payload.",
+    )
 
     # Context overrides for unified optimization
     model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
@@ -177,6 +189,13 @@ class RolloutMetrics(BaseModel):
     - `event_objectives`: Per-event objectives aligned to trace events
     - `instance_objectives`: Per-seed objectives aligned to responses
     - `details`: Metadata only (not for scoring)
+    - `horizon_bin_success`: Per-distance-bin success rates
+    - `eta`: Horizon attenuation metric
+    - `reach`: Maximum reliable horizon estimate
+    - `pi_gap`: Planning-invariance gap (`planned - direct`)
+    - `planner_used`: Whether waypoints were used
+    - `planner_failure_code`: Structured planner failure reason
+    - `multi_agent`: Optional team/per-agent telemetry payload
 
     ## Auto-derived Fields
 
@@ -229,6 +248,34 @@ class RolloutMetrics(BaseModel):
     details: dict[str, Any] = Field(
         default_factory=dict,
         description="Metadata only. Do NOT use details for reward computation.",
+    )
+    horizon_bin_success: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Optional per-distance-bin success rates (long-horizon mode).",
+    )
+    eta: float | None = Field(
+        default=None,
+        description="Optional doubled-horizon attenuation metric.",
+    )
+    reach: float | None = Field(
+        default=None,
+        description="Optional maximum reliable horizon estimate.",
+    )
+    pi_gap: float | None = Field(
+        default=None,
+        description="Optional planning invariance gap (`planned - direct`).",
+    )
+    planner_used: bool | None = Field(
+        default=None,
+        description="Whether planner-generated waypoints were used.",
+    )
+    planner_failure_code: str | None = Field(
+        default=None,
+        description="Structured planner failure code (if applicable).",
+    )
+    multi_agent: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional multi-agent telemetry (team/per-agent deltas).",
     )
 
     def model_post_init(self, __context: Any) -> None:

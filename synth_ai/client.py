@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import os
+import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable
 
 from synth_ai.core.tunnels import TunnelBackend, TunneledContainer
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.container import ContainerClient, InProcessContainer, create_container
 from synth_ai.sdk.container_pools import ContainerPoolsClient
 from synth_ai.sdk.containers import (
@@ -29,12 +30,6 @@ from synth_ai.sdk.containers import (
 from synth_ai.sdk.containers import (
     ContainerType as HostedContainerType,
 )
-from synth_ai.sdk.graphs.completions import (
-    GraphCompletionsAsyncClient,
-    GraphCompletionsSyncClient,
-    VerifierAsyncClient,
-)
-from synth_ai.sdk.inference import InferenceClient, InferenceJobsClient
 from synth_ai.sdk.opencode_skills import (
     install_all_packaged_opencode_skills,
     install_packaged_opencode_skill,
@@ -58,6 +53,56 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 def _resolve_base_url(base_url: str | None) -> str:
     return normalize_backend_base(base_url or BACKEND_URL_BASE)
+
+
+def _is_proxy_namespace(value: Any) -> bool:
+    if isinstance(
+        value,
+        (
+            str,
+            bytes,
+            bytearray,
+            int,
+            float,
+            bool,
+            type(None),
+            dict,
+            list,
+            tuple,
+            set,
+            frozenset,
+            Path,
+            Enum,
+        ),
+    ):
+        return False
+    if isinstance(value, type):
+        return False
+    return hasattr(value, "__dict__")
+
+
+class _AsyncThreadProxy:
+    def __init__(self, sync_obj: Any) -> None:
+        self._sync_obj = sync_obj
+        self._proxy_cache: dict[str, Any] = {}
+
+    def __getattr__(self, name: str) -> Any:
+        cached = self._proxy_cache.get(name)
+        if cached is not None:
+            return cached
+        attr = getattr(self._sync_obj, name)
+        if callable(attr):
+
+            async def _wrapped(*args: Any, **kwargs: Any) -> Any:
+                return await asyncio.to_thread(attr, *args, **kwargs)
+
+            self._proxy_cache[name] = _wrapped
+            return _wrapped
+        if _is_proxy_namespace(attr):
+            proxy = _AsyncThreadProxy(attr)
+            self._proxy_cache[name] = proxy
+            return proxy
+        return attr
 
 
 @dataclass(slots=True)
@@ -92,36 +137,9 @@ class _SystemsSyncClient:
         )
 
 
-@dataclass(slots=True)
-class _SystemsAsyncClient:
-    _base_url: str
-    _api_key: str
-    _timeout: float
-
-    async def create(self, **kwargs: Any) -> PolicyOptimizationSystem:
-        return await PolicyOptimizationSystem.create_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def get(self, system_id: str, **kwargs: Any) -> PolicyOptimizationSystem:
-        return await PolicyOptimizationSystem.get_async(
-            system_id,
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def list(self, **kwargs: Any) -> dict[str, Any]:
-        return await PolicyOptimizationSystem.list_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
+class _SystemsAsyncClient(_AsyncThreadProxy):
+    def __init__(self, base_url: str, api_key: str, timeout: float) -> None:
+        super().__init__(_SystemsSyncClient(base_url, api_key, timeout))
 
 
 @dataclass(slots=True)
@@ -156,36 +174,9 @@ class _OfflineSyncClient:
         )
 
 
-@dataclass(slots=True)
-class _OfflineAsyncClient:
-    _base_url: str
-    _api_key: str
-    _timeout: float
-
-    async def create(self, **kwargs: Any) -> PolicyOptimizationOfflineJob:
-        return await PolicyOptimizationOfflineJob.create_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def get(self, job_id: str, **kwargs: Any) -> PolicyOptimizationOfflineJob:
-        return await PolicyOptimizationOfflineJob.get_async(
-            job_id,
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def list(self, **kwargs: Any) -> dict[str, Any]:
-        return await PolicyOptimizationOfflineJob.list_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
+class _OfflineAsyncClient(_AsyncThreadProxy):
+    def __init__(self, base_url: str, api_key: str, timeout: float) -> None:
+        super().__init__(_OfflineSyncClient(base_url, api_key, timeout))
 
 
 @dataclass(slots=True)
@@ -220,36 +211,9 @@ class _OnlineSyncClient:
         )
 
 
-@dataclass(slots=True)
-class _OnlineAsyncClient:
-    _base_url: str
-    _api_key: str
-    _timeout: float
-
-    async def create(self, **kwargs: Any) -> PolicyOptimizationOnlineSession:
-        return await PolicyOptimizationOnlineSession.create_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def get(self, session_id: str, **kwargs: Any) -> PolicyOptimizationOnlineSession:
-        return await PolicyOptimizationOnlineSession.get_async(
-            session_id,
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
-
-    async def list(self, **kwargs: Any) -> dict[str, Any]:
-        return await PolicyOptimizationOnlineSession.list_async(
-            backend_url=self._base_url,
-            api_key=self._api_key,
-            timeout=self._timeout,
-            **kwargs,
-        )
+class _OnlineAsyncClient(_AsyncThreadProxy):
+    def __init__(self, base_url: str, api_key: str, timeout: float) -> None:
+        super().__init__(_OnlineSyncClient(base_url, api_key, timeout))
 
 
 @dataclass(slots=True)
@@ -268,170 +232,6 @@ class _OptimizationAsyncClient:
     systems: _SystemsAsyncClient
     offline: _OfflineAsyncClient
     online: _OnlineAsyncClient
-
-
-class _InferenceChatCompletionsSyncClient:
-    def __init__(self, client: InferenceClient) -> None:
-        self._client = client
-
-    def create(
-        self, *, model: str, messages: list[dict[str, Any]], **kwargs: Any
-    ) -> dict[str, Any]:
-        return run_sync(
-            self._client.create_chat_completion(model=model, messages=messages, **kwargs),
-            label="inference.chat.completions.create",
-        )
-
-
-class _InferenceChatCompletionsAsyncClient:
-    def __init__(self, client: InferenceClient) -> None:
-        self._client = client
-
-    async def create(
-        self, *, model: str, messages: list[dict[str, Any]], **kwargs: Any
-    ) -> dict[str, Any]:
-        return await self._client.create_chat_completion(model=model, messages=messages, **kwargs)
-
-
-@dataclass(slots=True)
-class _InferenceChatSyncClient:
-    completions: _InferenceChatCompletionsSyncClient
-
-
-@dataclass(slots=True)
-class _InferenceChatAsyncClient:
-    completions: _InferenceChatCompletionsAsyncClient
-
-
-class _InferenceJobsSyncClient:
-    def __init__(self, client: InferenceJobsClient) -> None:
-        self._client = client
-
-    def create(self, **kwargs: Any) -> dict[str, Any]:
-        return run_sync(self._client.create_job(**kwargs), label="inference.jobs.create")
-
-    def create_from_request(self, request: Any) -> dict[str, Any]:
-        return run_sync(
-            self._client.create_job_from_request(request),
-            label="inference.jobs.create_from_request",
-        )
-
-    def create_from_path(self, **kwargs: Any) -> dict[str, Any]:
-        return run_sync(
-            self._client.create_job_from_path(**kwargs),
-            label="inference.jobs.create_from_path",
-        )
-
-    def get(self, job_id: str) -> dict[str, Any]:
-        return run_sync(self._client.get_job(job_id), label="inference.jobs.get")
-
-    def list_artifacts(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
-        return run_sync(
-            self._client.list_artifacts(job_id, **kwargs),
-            label="inference.jobs.list_artifacts",
-        )
-
-    def download_artifact(self, job_id: str, artifact_id: str, **kwargs: Any) -> bytes:
-        return run_sync(
-            self._client.download_artifact(job_id, artifact_id, **kwargs),
-            label="inference.jobs.download_artifact",
-        )
-
-
-class _InferenceJobsAsyncClient:
-    def __init__(self, client: InferenceJobsClient) -> None:
-        self._client = client
-
-    async def create(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.create_job(**kwargs)
-
-    async def create_from_request(self, request: Any) -> dict[str, Any]:
-        return await self._client.create_job_from_request(request)
-
-    async def create_from_path(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.create_job_from_path(**kwargs)
-
-    async def get(self, job_id: str) -> dict[str, Any]:
-        return await self._client.get_job(job_id)
-
-    async def list_artifacts(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.list_artifacts(job_id, **kwargs)
-
-    async def download_artifact(self, job_id: str, artifact_id: str, **kwargs: Any) -> bytes:
-        return await self._client.download_artifact(job_id, artifact_id, **kwargs)
-
-
-@dataclass(slots=True)
-class _InferenceSyncClient:
-    chat: _InferenceChatSyncClient
-    jobs: _InferenceJobsSyncClient
-
-
-@dataclass(slots=True)
-class _InferenceAsyncClient:
-    chat: _InferenceChatAsyncClient
-    jobs: _InferenceJobsAsyncClient
-
-
-class GraphsClient:
-    """Canonical sync graph-completions namespace."""
-
-    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
-        self._client = GraphCompletionsSyncClient(
-            base_url=base_url, api_key=api_key, timeout=timeout
-        )
-
-    def run(self, **kwargs: Any) -> Any:
-        return self._client.run(**kwargs)
-
-    def run_output(self, **kwargs: Any) -> Any:
-        return self._client.run_output(**kwargs)
-
-    def list_graphs(self, **kwargs: Any) -> dict[str, Any]:
-        return self._client.list_graphs(**kwargs)
-
-
-class AsyncGraphsClient:
-    """Canonical async graph-completions namespace."""
-
-    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
-        self._client = GraphCompletionsAsyncClient(
-            base_url=base_url,
-            api_key=api_key,
-            timeout=timeout,
-        )
-
-    async def run(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.run(**kwargs)
-
-    async def run_output(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.run_output(**kwargs)
-
-    async def list_graphs(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.list_graphs(**kwargs)
-
-    async def rlm_inference(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.rlm_inference(**kwargs)
-
-
-class VerifiersClient:
-    """Canonical sync verifier namespace."""
-
-    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
-        self._client = VerifierAsyncClient(base_url=base_url, api_key=api_key, timeout=timeout)
-
-    def evaluate(self, **kwargs: Any) -> dict[str, Any]:
-        return run_sync(self._client.evaluate(**kwargs), label="verifiers.evaluate")
-
-
-class AsyncVerifiersClient:
-    """Canonical async verifier namespace."""
-
-    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
-        self._client = VerifierAsyncClient(base_url=base_url, api_key=api_key, timeout=timeout)
-
-    async def evaluate(self, **kwargs: Any) -> dict[str, Any]:
-        return await self._client.evaluate(**kwargs)
 
 
 class PoolTarget(str, Enum):
@@ -633,57 +433,6 @@ class _PoolMetricsSyncClient:
         return self._raw._request("GET", f"/v1/pools/{pool_id}/metrics")
 
 
-class _AgentRolloutsSyncClient:
-    """Global sandbox-agent rollouts (`/v1/rollouts/*`)."""
-
-    def __init__(self, raw: ContainerPoolsClient) -> None:
-        self._raw = raw
-        self._backend_base = str(getattr(raw, "_backend_base", "")).rstrip("/")
-        self._timeout = float(getattr(raw, "_timeout", 30.0))
-        self._api_key = str(getattr(raw, "_api_key", ""))
-
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._api_key}"}
-
-    def _url(self, path: str) -> str:
-        return join_url(self._backend_base, path)
-
-    def create(self, request: dict[str, Any]) -> dict[str, Any]:
-        _validate_rollout_request(request, context="pools.agent_rollouts.create")
-        return self._raw._request("POST", "/v1/rollouts", json_body=request)
-
-    def get(self, rollout_id: str) -> dict[str, Any]:
-        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}")
-
-    def artifacts(self, rollout_id: str) -> dict[str, Any]:
-        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}/artifacts")
-
-    def support_bundle(self, rollout_id: str) -> dict[str, Any]:
-        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}/support_bundle")
-
-    def fetch_artifact(self, rollout_id: str, path: str, *, timeout: float | None = None) -> bytes:
-        import httpx
-
-        resp = httpx.get(
-            self._url(f"/v1/rollouts/{rollout_id}/artifacts/{path}"),
-            headers=self._headers(),
-            timeout=timeout or self._timeout,
-        )
-        resp.raise_for_status()
-        return resp.content
-
-    def download_artifacts_zip(self, rollout_id: str, *, timeout: float | None = None) -> bytes:
-        import httpx
-
-        resp = httpx.get(
-            self._url(f"/v1/rollouts/{rollout_id}/artifacts.zip"),
-            headers=self._headers(),
-            timeout=timeout or self._timeout,
-        )
-        resp.raise_for_status()
-        return resp.content
-
-
 class _PoolSkillsSyncClient:
     """OpenCode skill helpers scoped under container pools."""
 
@@ -808,7 +557,6 @@ class PoolsClient:
         self.rollouts = _PoolRolloutsSyncClient(self._raw)
         self.tasks = _PoolTasksSyncClient(self._raw)
         self.metrics = _PoolMetricsSyncClient(self._raw)
-        self.agent_rollouts = _AgentRolloutsSyncClient(self._raw)
         self.skills = _PoolSkillsSyncClient()
         self.harbor = _PoolTemplateSyncClient(self, PoolTarget.HARBOR)
         self.openenv = _PoolTemplateSyncClient(self, PoolTarget.OPENENV)
@@ -940,56 +688,6 @@ class PoolsClient:
 
     def delete_task(self, pool_id: str, task_id: str) -> dict[str, Any]:
         return self.tasks.delete(pool_id, task_id)
-
-
-def _is_proxy_namespace(value: Any) -> bool:
-    if isinstance(
-        value,
-        (
-            str,
-            bytes,
-            bytearray,
-            int,
-            float,
-            bool,
-            type(None),
-            dict,
-            list,
-            tuple,
-            set,
-            frozenset,
-            Path,
-            Enum,
-        ),
-    ):
-        return False
-    if isinstance(value, type):
-        return False
-    return hasattr(value, "__dict__")
-
-
-class _AsyncThreadProxy:
-    def __init__(self, sync_obj: Any) -> None:
-        self._sync_obj = sync_obj
-        self._proxy_cache: dict[str, Any] = {}
-
-    def __getattr__(self, name: str) -> Any:
-        cached = self._proxy_cache.get(name)
-        if cached is not None:
-            return cached
-        attr = getattr(self._sync_obj, name)
-        if callable(attr):
-
-            async def _wrapped(*args: Any, **kwargs: Any) -> Any:
-                return await asyncio.to_thread(attr, *args, **kwargs)
-
-            self._proxy_cache[name] = _wrapped
-            return _wrapped
-        if _is_proxy_namespace(attr):
-            proxy = _AsyncThreadProxy(attr)
-            self._proxy_cache[name] = proxy
-            return proxy
-        return attr
 
 
 class AsyncPoolsClient(_AsyncThreadProxy):
@@ -1228,17 +926,95 @@ class AsyncSynthTunnel:
         return await self._sync.open_for_app_async(**kwargs)
 
 
+class NgrokTunnel:
+    """First-class Synth-managed ngrok-compatible tunnel abstraction."""
+
+    def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
+        self._api_key = api_key
+        self._base_url = base_url
+
+    async def open_async(
+        self,
+        *,
+        local_port: int,
+        managed_ngrok_url: str | None = None,
+        env_api_key: str | None = None,
+        verify_dns: bool = True,
+        progress: bool = False,
+    ) -> TunneledContainer:
+        return await TunneledContainer.create(
+            local_port=local_port,
+            backend=TunnelBackend.NgrokManaged,
+            managed_ngrok_url=managed_ngrok_url,
+            api_key=self._api_key,
+            env_api_key=env_api_key,
+            backend_url=self._base_url,
+            verify_dns=verify_dns,
+            progress=progress,
+        )
+
+    def open(self, **kwargs: Any) -> TunneledContainer:
+        return run_sync(self.open_async(**kwargs), label="tunnels.ngrok.open")
+
+    async def open_for_app_async(
+        self,
+        *,
+        app: Any,
+        local_port: int | None = None,
+        managed_ngrok_url: str | None = None,
+        verify_dns: bool = True,
+        progress: bool = False,
+    ) -> TunneledContainer:
+        return await TunneledContainer.create_for_app(
+            app=app,
+            local_port=local_port,
+            backend=TunnelBackend.NgrokManaged,
+            managed_ngrok_url=managed_ngrok_url,
+            api_key=self._api_key,
+            backend_url=self._base_url,
+            verify_dns=verify_dns,
+            progress=progress,
+        )
+
+    def open_for_app(self, **kwargs: Any) -> TunneledContainer:
+        return run_sync(self.open_for_app_async(**kwargs), label="tunnels.ngrok.open_for_app")
+
+
+class AsyncNgrokTunnel:
+    """Async-first Synth-managed ngrok-compatible abstraction."""
+
+    def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
+        self._sync = NgrokTunnel(api_key=api_key, base_url=base_url)
+
+    async def open(self, **kwargs: Any) -> TunneledContainer:
+        return await self._sync.open_async(**kwargs)
+
+    async def open_for_app(self, **kwargs: Any) -> TunneledContainer:
+        return await self._sync.open_for_app_async(**kwargs)
+
+
+def _raise_cloudflare_disabled() -> None:
+    warnings.warn(
+        "Cloudflare tunnel backends are deprecated and disabled. Use `synth` or `ngrok`.",
+        DeprecationWarning,
+        stacklevel=3,
+    )
+    raise RuntimeError("Cloudflare tunnel backends are disabled.")
+
+
 class TunnelsClient:
     """First-class tunnel client with explicit backend choices."""
 
     TunnelBackend = TunnelBackend
     TunneledContainer = TunneledContainer
     SynthTunnel = SynthTunnel
+    NgrokTunnel = NgrokTunnel
 
     def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
         self._api_key = api_key
         self._base_url = base_url
         self.synth = SynthTunnel(api_key=api_key, base_url=base_url)
+        self.ngrok = NgrokTunnel(api_key=api_key, base_url=base_url)
 
     async def open_async(
         self,
@@ -1250,10 +1026,12 @@ class TunnelsClient:
         progress: bool = False,
         reason: str | None = None,
         requested_ttl_seconds: int | None = None,
+        managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
         return await TunneledContainer.create(
             local_port=local_port,
             backend=backend,
+            managed_ngrok_url=managed_ngrok_url,
             api_key=self._api_key,
             env_api_key=env_api_key,
             backend_url=self._base_url,
@@ -1270,13 +1048,16 @@ class TunnelsClient:
         )
 
     def cloudflare_quick(self, **kwargs: Any) -> TunneledContainer:
-        return self.open(backend=TunnelBackend.CloudflareQuickTunnel, **kwargs)
+        _raise_cloudflare_disabled()
 
     def cloudflare_managed(self, **kwargs: Any) -> TunneledContainer:
-        return self.open(backend=TunnelBackend.CloudflareManagedTunnel, **kwargs)
+        _raise_cloudflare_disabled()
 
     def cloudflare_managed_lease(self, **kwargs: Any) -> TunneledContainer:
-        return self.open(backend=TunnelBackend.CloudflareManagedLease, **kwargs)
+        _raise_cloudflare_disabled()
+
+    def ngrok_managed(self, **kwargs: Any) -> TunneledContainer:
+        return self.open(backend=TunnelBackend.NgrokManaged, **kwargs)
 
     def localhost(self, **kwargs: Any) -> TunneledContainer:
         return self.open(backend=TunnelBackend.Localhost, **kwargs)
@@ -1290,11 +1071,13 @@ class TunnelsClient:
         verify_dns: bool = True,
         progress: bool = False,
         requested_ttl_seconds: int | None = None,
+        managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
         return await TunneledContainer.create_for_app(
             app=app,
             local_port=local_port,
             backend=backend,
+            managed_ngrok_url=managed_ngrok_url,
             api_key=self._api_key,
             backend_url=self._base_url,
             verify_dns=verify_dns,
@@ -1315,22 +1098,27 @@ class AsyncTunnelsClient:
     TunnelBackend = TunnelBackend
     TunneledContainer = TunneledContainer
     SynthTunnel = AsyncSynthTunnel
+    NgrokTunnel = AsyncNgrokTunnel
 
     def __init__(self, *, api_key: str | None = None, base_url: str | None = None) -> None:
         self._sync = TunnelsClient(api_key=api_key, base_url=base_url)
         self.synth = AsyncSynthTunnel(api_key=api_key, base_url=base_url)
+        self.ngrok = AsyncNgrokTunnel(api_key=api_key, base_url=base_url)
 
     async def open(self, **kwargs: Any) -> TunneledContainer:
         return await self._sync.open_async(**kwargs)
 
     async def cloudflare_quick(self, **kwargs: Any) -> TunneledContainer:
-        return await self.open(backend=TunnelBackend.CloudflareQuickTunnel, **kwargs)
+        _raise_cloudflare_disabled()
 
     async def cloudflare_managed(self, **kwargs: Any) -> TunneledContainer:
-        return await self.open(backend=TunnelBackend.CloudflareManagedTunnel, **kwargs)
+        _raise_cloudflare_disabled()
 
     async def cloudflare_managed_lease(self, **kwargs: Any) -> TunneledContainer:
-        return await self.open(backend=TunnelBackend.CloudflareManagedLease, **kwargs)
+        _raise_cloudflare_disabled()
+
+    async def ngrok_managed(self, **kwargs: Any) -> TunneledContainer:
+        return await self.open(backend=TunnelBackend.NgrokManaged, **kwargs)
 
     async def localhost(self, **kwargs: Any) -> TunneledContainer:
         return await self.open(backend=TunnelBackend.Localhost, **kwargs)
@@ -1348,6 +1136,7 @@ class _ContainerNamespace:
     TunnelBackend = TunnelBackend
     TunneledContainer = TunneledContainer
     SynthTunnel = SynthTunnel
+    NgrokTunnel = NgrokTunnel
 
     def __init__(
         self,
@@ -1402,30 +1191,6 @@ class SynthClient:
             online=_OnlineSyncClient(self.base_url, self.api_key, self.timeout),
         )
 
-        inference_client = InferenceClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
-        inference_jobs = InferenceJobsClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
-        self.inference = _InferenceSyncClient(
-            chat=_InferenceChatSyncClient(
-                completions=_InferenceChatCompletionsSyncClient(inference_client),
-            ),
-            jobs=_InferenceJobsSyncClient(inference_jobs),
-        )
-        self.graphs = GraphsClient(
-            base_url=self.base_url, api_key=self.api_key, timeout=self.timeout
-        )
-        self.verifiers = VerifiersClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
         self.pools = PoolsClient(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -1466,32 +1231,6 @@ class AsyncSynthClient:
             online=_OnlineAsyncClient(self.base_url, self.api_key, self.timeout),
         )
 
-        inference_client = InferenceClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
-        inference_jobs = InferenceJobsClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
-        self.inference = _InferenceAsyncClient(
-            chat=_InferenceChatAsyncClient(
-                completions=_InferenceChatCompletionsAsyncClient(inference_client),
-            ),
-            jobs=_InferenceJobsAsyncClient(inference_jobs),
-        )
-        self.graphs = AsyncGraphsClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
-        self.verifiers = AsyncVerifiersClient(
-            base_url=self.base_url,
-            api_key=self.api_key,
-            timeout=self.timeout,
-        )
         sync_pools = PoolsClient(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -1517,18 +1256,16 @@ class AsyncSynthClient:
 
 __all__ = [
     "AsyncContainersClient",
-    "AsyncGraphsClient",
+    "AsyncNgrokTunnel",
     "AsyncPoolsClient",
     "AsyncSynthTunnel",
     "AsyncSynthClient",
     "AsyncTunnelsClient",
-    "AsyncVerifiersClient",
     "ContainersClient",
-    "GraphsClient",
+    "NgrokTunnel",
     "PoolTarget",
     "PoolsClient",
     "SynthTunnel",
     "SynthClient",
     "TunnelsClient",
-    "VerifiersClient",
 ]

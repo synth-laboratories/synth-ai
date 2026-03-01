@@ -42,8 +42,8 @@ info:
     2. Run locally: `./your-container --port 8001`
     3. Expose via tunnel:
        ```bash
-       cloudflared tunnel --url http://localhost:8001
-       # Returns URL like: https://random-words.trycloudflare.com
+       synth-ai tunnels ngrok-managed --local-port 8001 --managed-url https://your-managed-tunnel.usesynth.ai
+       # Returns/uses URL like: https://your-managed-tunnel.usesynth.ai
        ```
     4. Start optimization (see below)
 
@@ -53,7 +53,7 @@ info:
     ```bash
     uv tool install synth-ai
     synth prompt-learning run \
-      --container-url https://your-tunnel.trycloudflare.com \
+      --container-url https://your-managed-tunnel.usesynth.ai \
       --container-api-key your-env-key \
       --algorithm gepa
     ```
@@ -68,7 +68,7 @@ info:
         "technique": "discrete_optimization",
         "config": {
           "prompt_learning": {
-            "container_url": "https://your-tunnel.trycloudflare.com",
+            "container_url": "https://your-managed-tunnel.usesynth.ai",
             "container_api_key": "your-env-key"
           }
         }
@@ -159,6 +159,21 @@ components:
           type: string
           nullable: true
           description: Base URL for Synth API callbacks
+        planner_mode:
+          type: string
+          nullable: true
+          enum: [direct, waypoint_planned]
+          description: Optional planner mode for long-horizon paired evals.
+        paired_eval:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional paired-evaluation marker and metadata.
+        waypoint_plan_request:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional waypoint/subgoal request payload.
       example:
         trace_correlation_id: "trace_abc123"
         env:
@@ -823,6 +838,95 @@ components:
           additionalProperties: true
           default: {}
           description: "Metadata only. Do NOT use details for reward computation."
+        horizon_bin_success:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
+          description: Optional per-distance-bin success rates (long-horizon mode).
+        eta:
+          type: number
+          nullable: true
+          description: Optional doubled-horizon attenuation metric.
+        reach:
+          type: number
+          nullable: true
+          description: Optional maximum reliable horizon estimate.
+        pi_gap:
+          type: number
+          nullable: true
+          description: Optional planning invariance gap (`planned - direct`).
+        planner_used:
+          type: boolean
+          nullable: true
+          description: Whether planner-generated waypoints were used.
+        planner_fallback_used:
+          type: boolean
+          nullable: true
+          description: Whether planner fell back to direct policy due to unavailable/low-confidence waypoints.
+        planner_confidence:
+          type: number
+          nullable: true
+          description: Optional planner confidence score.
+        planner_stage_distances:
+          type: array
+          nullable: true
+          items:
+            type: number
+          description: Optional per-stage distances emitted by waypoint planning.
+        planner_failure_code:
+          type: string
+          nullable: true
+          description: Structured planner failure code (if applicable).
+        long_horizon_failure_codes:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Optional reason/failure codes for long-horizon scoring/gating.
+        achievements:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Optional achievement ids observed in this rollout.
+        subgoals:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Optional subgoal ids observed in this rollout.
+        achievement_entities:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+          description: Optional typed achievement telemetry entities.
+        subgoal_entities:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+          description: Optional typed subgoal telemetry entities.
+        agent_entities:
+          type: array
+          nullable: true
+          items:
+            type: object
+            additionalProperties: true
+          description: Optional typed per-agent telemetry entities.
+        counterfactual_credit:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional lag-aware counterfactual credit payload (summary + edges/contributions).
+        multi_agent:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Optional multi-agent telemetry (team/per-agent deltas).
 
     SuccessStatus:
       type: string
@@ -1419,8 +1523,8 @@ info:
     2. Run locally: `./your-container --port 8001`
     3. Expose via tunnel:
        ```bash
-       cloudflared tunnel --url http://localhost:8001
-       # Returns URL like: https://random-words.trycloudflare.com
+       synth-ai tunnels ngrok-managed --local-port 8001 --managed-url https://your-managed-tunnel.usesynth.ai
+       # Returns/uses URL like: https://your-managed-tunnel.usesynth.ai
        ```
     4. Start optimization (see below)
 
@@ -1430,7 +1534,7 @@ info:
     ```bash
     uv tool install synth-ai
     synth prompt-learning run \
-      --container-url https://your-tunnel.trycloudflare.com \
+      --container-url https://your-managed-tunnel.usesynth.ai \
       --container-api-key your-env-key \
       --algorithm gepa
     ```
@@ -1445,7 +1549,7 @@ info:
         "technique": "discrete_optimization",
         "config": {
           "prompt_learning": {
-            "container_url": "https://your-tunnel.trycloudflare.com",
+            "container_url": "https://your-managed-tunnel.usesynth.ai",
             "container_api_key": "your-env-key"
           }
         }

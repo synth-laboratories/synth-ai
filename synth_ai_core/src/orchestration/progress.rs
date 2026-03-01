@@ -143,7 +143,7 @@ pub struct CandidateInfo {
     #[serde(default)]
     pub transformation: Option<HashMap<String, Value>>,
     /// Seed rewards
-    #[serde(default, alias = "seed_scores")]
+    #[serde(default)]
     pub seed_rewards: Vec<Value>,
     /// Seeds evaluated
     #[serde(default)]
@@ -158,7 +158,7 @@ pub struct CandidateInfo {
     #[serde(default)]
     pub evaluation_duration_ms: Option<i64>,
     /// Minibatch rewards
-    #[serde(default, alias = "minibatch_scores")]
+    #[serde(default)]
     pub minibatch_rewards: Vec<f64>,
     /// Skip reason
     #[serde(default)]
@@ -214,7 +214,7 @@ pub struct BaselineInfo {
     #[serde(default, alias = "val_accuracy")]
     pub val_reward: Option<f64>,
     /// Per-instance rewards
-    #[serde(default, alias = "instance_scores")]
+    #[serde(default)]
     pub instance_rewards: Vec<f64>,
     /// Per-instance objectives
     #[serde(default)]
@@ -245,7 +245,7 @@ pub struct FrontierUpdate {
     #[serde(default)]
     pub frontier: Vec<String>,
     /// Rewards by candidate
-    #[serde(default, alias = "frontier_scores")]
+    #[serde(default)]
     pub frontier_rewards: HashMap<String, f64>,
     /// Objective scores by candidate (if provided)
     #[serde(default)]
@@ -254,13 +254,13 @@ pub struct FrontierUpdate {
     #[serde(default)]
     pub frontier_size: i32,
     /// Best optimistic reward
-    #[serde(default, alias = "optimistic_score")]
+    #[serde(default)]
     pub optimistic_reward: Option<f64>,
     /// Generation number
     #[serde(default)]
     pub generation: Option<i32>,
     /// Baseline reward (if provided)
-    #[serde(default, alias = "baseline_score")]
+    #[serde(default)]
     pub baseline_reward: Option<f64>,
     /// Timestamp in milliseconds (if provided)
     #[serde(default)]
@@ -281,10 +281,8 @@ pub struct GEPAProgress {
     /// Candidates evaluated
     pub candidates_evaluated: i32,
     /// Current best reward
-    #[serde(alias = "best_score")]
     pub best_reward: f64,
     /// Baseline reward for lift calculation
-    #[serde(alias = "baseline_score")]
     pub baseline_reward: Option<f64>,
     /// Elapsed time in seconds
     pub elapsed_seconds: f64,
@@ -584,18 +582,7 @@ impl ProgressTracker {
                 .and_then(|m| m.get("reward").copied())
                 .or_else(|| candidate_view.get("reward").and_then(|v| v.as_f64()))
                 .or_else(|| candidate_view.get("accuracy").and_then(|v| v.as_f64()))
-                .or_else(|| candidate_view.get("score").and_then(|v| v.as_f64()))
-                .or_else(|| {
-                    candidate_view
-                        .get("score")
-                        .and_then(|v| v.as_object())
-                        .and_then(|score| {
-                            score
-                                .get("reward")
-                                .and_then(|v| v.as_f64())
-                                .or_else(|| score.get("mean_reward").and_then(|v| v.as_f64()))
-                        })
-                });
+                ;
 
             // Auto-derive objectives from accuracy if not found
             let objectives = objectives.or_else(|| {
@@ -606,8 +593,8 @@ impl ProgressTracker {
                 })
             });
 
-            let instance_scores = candidate_view
-                .get("instance_scores")
+            let instance_rewards = candidate_view
+                .get("instance_rewards")
                 .and_then(|v| v.as_array())
                 .and_then(|arr| {
                     let mut out = Vec::with_capacity(arr.len());
@@ -645,7 +632,7 @@ impl ProgressTracker {
                 reward: accuracy,
                 objectives,
                 val_reward: None,
-                instance_rewards: instance_scores,
+                instance_rewards,
                 instance_objectives,
                 seeds_evaluated: merged_data
                     .get("seeds_evaluated")
@@ -712,13 +699,13 @@ impl ProgressTracker {
 
         if let Some(val) = merged_data.get("val_accuracy").and_then(|v| v.as_f64()) {
             candidate.val_reward = Some(val);
-        } else if let Some(val) = merged_data.get("full_score").and_then(|v| v.as_f64()) {
+        } else if let Some(val) = merged_data.get("full_reward").and_then(|v| v.as_f64()) {
             candidate.val_reward = Some(val);
         }
 
         if let Some(val) = merged_data.get("train_accuracy").and_then(|v| v.as_f64()) {
             candidate.train_reward = Some(val);
-        } else if let Some(val) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
+        } else if let Some(val) = merged_data.get("minibatch_reward").and_then(|v| v.as_f64()) {
             candidate.train_reward = Some(val);
         }
 
@@ -734,7 +721,7 @@ impl ProgressTracker {
         }
 
         if let Some(scores) = merged_data
-            .get("minibatch_scores")
+            .get("minibatch_rewards")
             .and_then(|v| v.as_array())
         {
             candidate.minibatch_rewards = scores
@@ -744,7 +731,7 @@ impl ProgressTracker {
                         .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
                 })
                 .collect();
-        } else if let Some(score) = merged_data.get("minibatch_score").and_then(|v| v.as_f64()) {
+        } else if let Some(score) = merged_data.get("minibatch_reward").and_then(|v| v.as_f64()) {
             candidate.minibatch_rewards = vec![score];
         }
 
@@ -752,7 +739,7 @@ impl ProgressTracker {
             candidate.skip_reason = Some(reason.to_string());
         }
 
-        if let Some(scores) = merged_data.get("seed_scores").and_then(|v| v.as_array()) {
+        if let Some(scores) = merged_data.get("seed_rewards").and_then(|v| v.as_array()) {
             candidate.seed_rewards = scores.clone();
         }
 
@@ -877,7 +864,7 @@ impl ProgressTracker {
                 .get("generation")
                 .and_then(|v| v.as_i64())
                 .map(|v| v as i32),
-            baseline_reward: event.data.get("baseline_score").and_then(|v| v.as_f64()),
+            baseline_reward: event.data.get("baseline_reward").and_then(|v| v.as_f64()),
             timestamp_ms: event.timestamp_ms,
         };
         self.frontier_history.push(update);
@@ -1070,7 +1057,7 @@ mod tests {
             "type": "learning.policy.gepa.frontier_updated",
             "data": {
                 "frontier": ["cand_1", "cand_2"],
-                "best_score": 0.88
+                "best_reward": 0.88
             }
         })));
 
@@ -1086,8 +1073,8 @@ mod tests {
         tracker.update(&EventParser::parse(&json!({
             "type": "learning.policy.gepa.job.completed",
             "data": {
-                "best_score": 0.92,
-                "baseline_score": 0.72,
+                "best_reward": 0.92,
+                "baseline_reward": 0.72,
                 "finish_reason": "budget_exhausted"
             }
         })));

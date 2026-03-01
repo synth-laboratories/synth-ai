@@ -5,7 +5,7 @@ Provides functions to save various result files from a GEPAProgressTracker.
 ## Output Files
 
 - `candidates.json` - All candidates with stages, seed_info, token_usage, etc.
-- `pareto_history.json` - Frontier evolution with frontier_scores, timestamps
+- `pareto_history.json` - Frontier evolution with frontier_rewards, timestamps
 - `summary.json` - Full analysis dict with all tracking data
 - `seeds.json` - Aggregated seed manifest with query text and expected output
 - `seed_analysis.json` - Baseline vs best comparison per seed
@@ -140,7 +140,7 @@ def save_candidates(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                 stage_id: stage.to_dict() for stage_id, stage in c.stages.items()
             }
 
-        # Add seed_scores [{seed, score}, ...]
+        # Add seed_rewards [{seed, reward}, ...]
         if c.seed_rewards:
             candidate_dict["seed_rewards"] = c.seed_rewards
 
@@ -290,7 +290,7 @@ def save_seeds(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
                 seeds_map[seed]["query"] = rs.query
                 seeds_map[seed]["expected"] = rs.expected
 
-        # From seed_scores (has score but not query)
+        # From seed_rewards (has reward but not query)
         for ss in c.seed_rewards:
             seed = ss.get("seed", -1)
             if seed < 0:
@@ -327,10 +327,10 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
     """
     filepath = output_dir / "seed_analysis.json"
 
-    # Get baseline instance scores
-    baseline_scores = tracker.baseline.instance_rewards if tracker.baseline else []
+    # Get baseline instance rewards
+    baseline_rewards = tracker.baseline.instance_rewards if tracker.baseline else []
 
-    # Get best candidate instance scores
+    # Get best candidate instance rewards
     best_candidate = None
     best_accuracy = 0.0
     for c in tracker.candidates:
@@ -339,31 +339,31 @@ def save_seed_analysis(tracker: GEPAProgressTracker, output_dir: Path) -> Path:
             best_accuracy = acc
             best_candidate = c
 
-    best_scores = best_candidate.instance_rewards if best_candidate else []
+    best_rewards = best_candidate.instance_rewards if best_candidate else []
 
     # Analyze disagreements
     analysis: dict[str, Any] = {
         "baseline_reward": tracker.baseline_reward,
         "best_reward": tracker.best_reward,
         "best_candidate_id": best_candidate.candidate_id if best_candidate else None,
-        "num_baseline_seeds": len(baseline_scores),
-        "num_best_seeds": len(best_scores),
+        "num_baseline_seeds": len(baseline_rewards),
+        "num_best_seeds": len(best_rewards),
         "disagreement_seeds": [],
         "baseline_wins": 0,
         "best_wins": 0,
     }
 
     # Compare only where we have both
-    min_len = min(len(baseline_scores), len(best_scores))
+    min_len = min(len(baseline_rewards), len(best_rewards))
     for i in range(min_len):
-        baseline_pass = baseline_scores[i] > 0.5
-        best_pass = best_scores[i] > 0.5
+        baseline_pass = baseline_rewards[i] > 0.5
+        best_pass = best_rewards[i] > 0.5
 
         if baseline_pass != best_pass:
             seed_info = {
                 "seed_index": i,
-                "baseline_reward": baseline_scores[i],
-                "best_reward": best_scores[i],
+                "baseline_reward": baseline_rewards[i],
+                "best_reward": best_rewards[i],
                 "baseline_pass": baseline_pass,
                 "best_pass": best_pass,
                 "winner": "baseline" if baseline_pass else "best",

@@ -71,6 +71,32 @@ def _extract_event_reward(
     return None
 
 
+# Canonical allowlist for high-signal stdout streaming.
+# Keep this list intentionally small; everything else is considered verbose/noise.
+MAJOR_STDOUT_EVENT_SUFFIX_ALLOWLIST: tuple[str, ...] = (
+    ".job.started",
+    ".generation.started",
+    ".candidate.evaluated",
+    ".candidate.new_best",
+    ".checkpoint.saved",
+    ".generation.completed",
+    ".rollout.failures",
+    ".validation.completed",
+    ".termination.triggered",
+    ".job.completed",
+    ".complete",
+    ".error",
+    ".failed",
+)
+
+
+def is_major_stdout_event(event_type: str) -> bool:
+    normalized = str(event_type or "").strip().lower()
+    if not normalized:
+        return False
+    return any(normalized.endswith(suffix) for suffix in MAJOR_STDOUT_EVENT_SUFFIX_ALLOWLIST)
+
+
 class StreamHandler(ABC):
     """Base class for log handlers that consume ``StreamMessage`` objects."""
 
@@ -576,8 +602,6 @@ class GraphGenHandler(StreamHandler):
             "mipro",
             "prompt_learning",
             "prompt-learning",
-            "policy_optimization",
-            "policy-optimization",
             None,
         }
 
@@ -906,7 +930,7 @@ class PromptLearningHandler(StreamHandler):
         self.show_validation = show_validation
         self.optimization_curve: list[tuple[int, float]] = []
         self.trial_counter = 0
-        self.best_score_so_far = 0.0
+        self.best_reward_so_far = 0.0
 
         # MIPRO progress tracking
         self.mipro_start_time: float | None = None
@@ -920,8 +944,8 @@ class PromptLearningHandler(StreamHandler):
         self.mipro_current_iteration: int = 0
         self.mipro_num_iterations: int | None = None
         self.mipro_trials_per_iteration: int | None = None
-        self.mipro_best_score: float = 0.0  # Track best full eval score
-        self.mipro_baseline_score: float | None = None  # Track baseline for comparison
+        self.mipro_best_reward: float = 0.0  # Track best full eval score
+        self.mipro_baseline_reward: float | None = None  # Track baseline for comparison
         self.mipro_batch_size: int | None = None  # Track minibatch size (N for minibatch scores)
         self.mipro_rollouts_completed: int = 0  # Total rollouts completed
         self.mipro_max_rollouts: int | None = max_rollouts  # From TOML termination_config
@@ -1176,7 +1200,7 @@ class PromptLearningHandler(StreamHandler):
         - Number of rollouts completed (N)
         - Optimization curve data points
 
-        Updates the optimization curve with (trial_number, best_score) tuples
+        Updates the optimization curve with (trial_number, best_reward) tuples
         for visualization. Displays trial results if show_trial_results is True.
 
         Args:
@@ -1192,8 +1216,8 @@ class PromptLearningHandler(StreamHandler):
         mean_reward = data.get("mean")
         if mean_reward is not None:
             self.trial_counter += 1
-            self.best_score_so_far = max(self.best_score_so_far, float(mean_reward))
-            self.optimization_curve.append((self.trial_counter, self.best_score_so_far))
+            self.best_reward_so_far = max(self.best_reward_so_far, float(mean_reward))
+            self.optimization_curve.append((self.trial_counter, self.best_reward_so_far))
 
             if self.show_trial_results:
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -1209,7 +1233,7 @@ class PromptLearningHandler(StreamHandler):
                 )
 
                 self._write_log(
-                    f"[{timestamp}] [Trial {self.trial_counter}] Reward: {mean_reward:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
+                    f"[{timestamp}] [Trial {self.trial_counter}] Reward: {mean_reward:.4f} (Best: {self.best_reward_so_far:.4f}){n_str}"
                 )
 
     def _handle_validation_summary(self, event_data: dict[str, Any]) -> None:
@@ -1232,14 +1256,14 @@ class PromptLearningHandler(StreamHandler):
 
         # Extract baseline
         baseline = data.get("baseline")
-        baseline_score = None
+        baseline_reward = None
         if isinstance(baseline, dict):
-            baseline_score = _extract_event_reward(
+            baseline_reward = _extract_event_reward(
                 baseline,
-                strict_keys=["accuracy", "score", "best_score"],
+                strict_keys=["accuracy", "reward", "best_reward"],
             )
         elif isinstance(baseline, int | float):
-            baseline_score = float(baseline)
+            baseline_reward = float(baseline)
 
         # Extract results
         results = data.get("results", [])
@@ -1250,8 +1274,8 @@ class PromptLearningHandler(StreamHandler):
         self._write_log(f"[{timestamp}] Validation Summary:")
 
         # Show baseline if available
-        if baseline_score is not None:
-            self._write_log(f"  Baseline: {baseline_score:.4f}")
+        if baseline_reward is not None:
+            self._write_log(f"  Baseline: {baseline_reward:.4f}")
 
         # Show N (number of candidates)
         n_candidates = len(results)
@@ -1264,7 +1288,7 @@ class PromptLearningHandler(StreamHandler):
                 if isinstance(result, dict):
                     reward_val = _extract_event_reward(
                         result,
-                        strict_keys=["accuracy", "score", "best_score"],
+                        strict_keys=["accuracy", "reward", "best_reward"],
                     )
                     if reward_val is not None:
                         self._write_log(f"  Candidate {i + 1}: {reward_val:.4f}")
@@ -1407,8 +1431,8 @@ class PromptLearningHandler(StreamHandler):
 
         Args:
             event_data: Event data dictionary containing:
-                - data.best_score: New best score (reward)
-                - data.previous_best_score: Previous best score
+                - data.best_reward: New best score (reward)
+                - data.previous_best_reward: Previous best score
                 - data.improvement: Absolute improvement
                 - data.version_id: ID of the new best candidate
         """
@@ -1417,12 +1441,12 @@ class PromptLearningHandler(StreamHandler):
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        best_score = _extract_event_reward(data, strict_keys=["best_score", "accuracy", "score"])
-        previous = data.get("previous_best_score")
+        best_reward = _extract_event_reward(data, strict_keys=["best_reward", "accuracy", "reward"])
+        previous = data.get("previous_best_reward")
         improvement = data.get("improvement")
 
-        if best_score is not None:
-            msg = f"[{timestamp}] New best: {best_score:.4f}"
+        if best_reward is not None:
+            msg = f"[{timestamp}] New best: {best_reward:.4f}"
             if previous is not None and improvement is not None:
                 msg += f" (+{improvement:.4f} from {previous:.4f})"
             elif previous is not None:
@@ -1619,7 +1643,7 @@ class PromptLearningHandler(StreamHandler):
 
         Args:
             event_data: Event data dictionary containing:
-                - data.minibatch_score: Score from minibatch evaluation
+                - data.minibatch_reward: Score from minibatch evaluation
                 - data.iteration: Current iteration number
                 - data.trial: Trial number within iteration
                 - data.num_seeds: Number of seeds evaluated (minibatch size N)
@@ -1639,13 +1663,13 @@ class PromptLearningHandler(StreamHandler):
         # Show trial score (minibatch) - like GEPA trial format
         if self.show_trial_results:
             timestamp = datetime.now().strftime("%H:%M:%S")
-            minibatch_score = data.get("minibatch_score")
+            minibatch_reward = data.get("minibatch_reward")
             iteration = data.get("iteration")
             trial = data.get("trial")
 
-            if minibatch_score is not None:
+            if minibatch_reward is not None:
                 try:
-                    score_float = float(minibatch_score)
+                    score_float = float(minibatch_reward)
                     # Calculate trial number for display
                     if (
                         iteration is not None
@@ -1660,7 +1684,9 @@ class PromptLearningHandler(StreamHandler):
 
                     n_str = f" N={num_seeds}" if num_seeds else ""
                     best_str = (
-                        f" (Best: {self.mipro_best_score:.4f})" if self.mipro_best_score > 0 else ""
+                        f" (Best: {self.mipro_best_reward:.4f})"
+                        if self.mipro_best_reward > 0
+                        else ""
                     )
 
                     self._write_log(
@@ -1713,21 +1739,21 @@ class PromptLearningHandler(StreamHandler):
             return
 
         # Initialize baseline if not set (use first score as baseline)
-        if self.mipro_baseline_score is None:
-            self.mipro_baseline_score = score_float
+        if self.mipro_baseline_reward is None:
+            self.mipro_baseline_reward = score_float
 
         # Only show if score is promising:
         # - Better than current best, OR
         # - At least 5% improvement over baseline
         is_promising = False
-        if score_float > self.mipro_best_score:
-            self.mipro_best_score = score_float
+        if score_float > self.mipro_best_reward:
+            self.mipro_best_reward = score_float
             is_promising = True
-        elif self.mipro_baseline_score is not None:
-            improvement = score_float - self.mipro_baseline_score
+        elif self.mipro_baseline_reward is not None:
+            improvement = score_float - self.mipro_baseline_reward
             improvement_pct = (
-                (improvement / self.mipro_baseline_score * 100)
-                if self.mipro_baseline_score > 0
+                (improvement / self.mipro_baseline_reward * 100)
+                if self.mipro_baseline_reward > 0
                 else 0
             )
             if improvement_pct >= 5.0:  # At least 5% improvement over baseline
@@ -1747,19 +1773,19 @@ class PromptLearningHandler(StreamHandler):
             n_str = f" N={seeds}" if seeds else ""
 
             baseline_str = ""
-            if self.mipro_baseline_score is not None:
-                improvement = score_float - self.mipro_baseline_score
+            if self.mipro_baseline_reward is not None:
+                improvement = score_float - self.mipro_baseline_reward
                 improvement_pct = (
-                    (improvement / self.mipro_baseline_score * 100)
-                    if self.mipro_baseline_score > 0
+                    (improvement / self.mipro_baseline_reward * 100)
+                    if self.mipro_baseline_reward > 0
                     else 0
                 )
                 baseline_str = (
-                    f" (Baseline: {self.mipro_baseline_score:.4f}, +{improvement_pct:.1f}%)"
+                    f" (Baseline: {self.mipro_baseline_reward:.4f}, +{improvement_pct:.1f}%)"
                 )
 
             self._write_log(
-                f"[{timestamp}] Full eval: Score={score_float:.4f} (Best: {self.mipro_best_score:.4f}){n_str}{baseline_str}{iter_str}{trial_str}"
+                f"[{timestamp}] Full eval: Score={score_float:.4f} (Best: {self.mipro_best_reward:.4f}){n_str}{baseline_str}{iter_str}{trial_str}"
             )
 
     def _handle_mipro_new_incumbent(self, event_data: dict[str, Any]) -> None:
@@ -1771,8 +1797,8 @@ class PromptLearningHandler(StreamHandler):
 
         Args:
             event_data: Event data dictionary containing:
-                - data.minibatch_score: Minibatch score of the new incumbent
-                - data.best_score: Overall best score
+                - data.minibatch_reward: Minibatch score of the new incumbent
+                - data.best_reward: Overall best score
                 - data.iteration: Current iteration number
                 - data.trial: Trial number within iteration
                 - data.cumulative_trials: Cumulative trial count across iterations
@@ -1783,27 +1809,27 @@ class PromptLearningHandler(StreamHandler):
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-        minibatch_score = data.get("minibatch_score")
-        best_score = data.get("best_score")
+        minibatch_reward = data.get("minibatch_reward")
+        best_reward = data.get("best_reward")
         iteration = data.get("iteration")
         trial = data.get("trial")
         num_seeds = data.get("num_seeds")  # N for minibatch
 
-        if minibatch_score is None:
+        if minibatch_reward is None:
             return
 
         try:
-            score_float = float(minibatch_score)
+            score_float = float(minibatch_reward)
         except (ValueError, TypeError):
             return
 
         # Update best score if this is better
-        if best_score is not None:
-            best_float = float(best_score)
-            if best_float > self.best_score_so_far:
-                self.best_score_so_far = best_float
-        elif score_float > self.best_score_so_far:
-            self.best_score_so_far = score_float
+        if best_reward is not None:
+            best_float = float(best_reward)
+            if best_float > self.best_reward_so_far:
+                self.best_reward_so_far = best_float
+        elif score_float > self.best_reward_so_far:
+            self.best_reward_so_far = score_float
 
         # Track optimization curve
         if trial is not None:
@@ -1818,7 +1844,7 @@ class PromptLearningHandler(StreamHandler):
                 else:
                     trial_num = self.trial_counter + 1
 
-            self.optimization_curve.append((trial_num, self.best_score_so_far))
+            self.optimization_curve.append((trial_num, self.best_reward_so_far))
             self.trial_counter = trial_num
 
         # Format like GEPA: [Trial X] Score: X (Best: Y) N=Z
@@ -1830,7 +1856,7 @@ class PromptLearningHandler(StreamHandler):
         n_str = f" N={num_seeds}" if num_seeds is not None else ""
 
         click.echo(
-            f"[{timestamp}] [Trial {trial_num_display}] Score: {score_float:.4f} (Best: {self.best_score_so_far:.4f}){n_str}"
+            f"[{timestamp}] [Trial {trial_num_display}] Score: {score_float:.4f} (Best: {self.best_reward_so_far:.4f}){n_str}"
         )
 
         # Emit progress update after each trial (throttled internally)
@@ -2161,6 +2187,7 @@ class GraphEvolveHandler(GraphGenHandler):
 
 
 __all__ = [
+    "MAJOR_STDOUT_EVENT_SUFFIX_ALLOWLIST",
     "EvalHandler",
     "GraphGenHandler",
     "GraphEvolveHandler",
@@ -2174,4 +2201,5 @@ __all__ = [
     "LossCurveHandler",
     "RichHandler",
     "StreamHandler",
+    "is_major_stdout_event",
 ]

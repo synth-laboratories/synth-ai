@@ -156,7 +156,11 @@ impl EventStream {
     ///
     /// Returns events since the last sequence number.
     pub async fn poll_events(&mut self) -> Result<Vec<ParsedEvent>, CoreError> {
-        let url = format!("{}/api/v1/offline/jobs/{}/events", self.base_url, self.job_id);
+        let url = format!(
+            "{}/api{}",
+            self.base_url,
+            crate::api::routes::offline_job_subpath(&self.job_id, "events", crate::api::routes::ApiVersion::V1)
+        );
 
         let params = [
             ("since_seq", self.last_seq.to_string()),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 try:
@@ -302,6 +303,14 @@ def backend_demo_keys_url(base_url: str) -> str:
 
 def is_synthtunnel_url(url: str) -> bool:
     """Return True if the URL targets the SynthTunnel gateway."""
+    fn = getattr(synth_ai_py, "container_is_synthtunnel_url", None)
+    if callable(fn):
+        return fn(url)
+    return _is_synthtunnel_url_py(url)
+
+
+def _is_synthtunnel_url_py(url: str) -> bool:
+    """Pure-Python fallback for is_synthtunnel_url."""
     import os
 
     try:
@@ -340,4 +349,126 @@ def is_synthtunnel_url(url: str) -> bool:
             value = raw.strip().lower()
             if value and value not in patterns:
                 patterns.append(value)
+    return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)
+
+
+def extract_prompt_learning_container_url(payload: dict[str, Any]) -> str | None:
+    """Extract container URL from canonical prompt-learning config shapes."""
+    if not isinstance(payload, dict):
+        return None
+
+    prompt_learning = payload.get("prompt_learning")
+    if isinstance(prompt_learning, dict):
+        value = prompt_learning.get("container_url")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    value = payload.get("container_url")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def infer_prompt_learning_container_url(
+    *,
+    overrides: dict[str, Any] | None = None,
+    config_dict: dict[str, Any] | None = None,
+    config_path: str | None = None,
+) -> str | None:
+    """Infer container URL from overrides, config payloads, config file, then env."""
+    if isinstance(overrides, dict):
+        value = overrides.get("container_url")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    if isinstance(config_dict, dict):
+        url = extract_prompt_learning_container_url(config_dict)
+        if url:
+            return url
+
+    if config_path:
+        try:
+            payload = synth_ai_py.load_toml(str(config_path))
+        except Exception:
+            payload = None
+        if isinstance(payload, dict):
+            url = extract_prompt_learning_container_url(payload)
+            if url:
+                return url
+
+    env_url = (os.environ.get("CONTAINER_URL") or "").strip()
+    return env_url or None
+
+
+def is_cloudflare_tunnel_url(url: str) -> bool:
+    """Return True if URL hostname indicates a Cloudflare tunnel."""
+    try:
+        hostname = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    return hostname.endswith(".trycloudflare.com") or hostname.endswith(".cfargotunnel.com")
+
+
+def is_free_ngrok_url(url: str) -> bool:
+    """Return True if URL hostname indicates a free/public ngrok endpoint."""
+    try:
+        hostname = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    free_suffixes = (
+        ".ngrok-free.app",
+        ".ngrok-free.dev",
+    )
+    return any(hostname.endswith(suffix) for suffix in free_suffixes)
+
+
+def is_local_http_container_url(url: str) -> bool:
+    """Check if URL points to a local HTTP container (not HTTPS)."""
+    try:
+        from synth_ai_py import container_is_local_http_url
+
+        return container_is_local_http_url(url)
+    except ImportError:
+        pass
+    # Python fallback
+    parsed = urlparse(url.strip())
+    if (parsed.scheme or "").lower() != "http":
+        return False
+    host = (parsed.hostname or "").strip().lower()
+    return host in {"localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal"}
+
+
+def is_synth_managed_ngrok_url(url: str) -> bool:
+    """Return True if URL is an approved Synth-managed ngrok-compatible endpoint."""
+
+    def _host_matches_pattern(host: str, pattern: str) -> bool:
+        if not pattern:
+            return False
+        if pattern.startswith("*."):
+            suffix = pattern[1:]
+            return host.endswith(suffix) and len(host) > len(suffix)
+        if pattern.startswith("."):
+            return host.endswith(pattern)
+        return host == pattern
+
+    try:
+        parsed = urlparse(url)
+        hostname = (parsed.hostname or "").lower()
+        scheme = (parsed.scheme or "").lower()
+    except Exception:
+        return False
+
+    if scheme != "https" or not hostname:
+        return False
+    if is_cloudflare_tunnel_url(url) or is_free_ngrok_url(url):
+        return False
+
+    # Default allow-list covers Synth-owned domains. Extend via env for custom managed hosts.
+    patterns = ["usesynth.ai", "*.usesynth.ai"]
+    raw_patterns = (os.environ.get("SYNTH_MANAGED_TUNNEL_HOSTS") or "").strip()
+    if raw_patterns:
+        for raw in raw_patterns.split(","):
+            candidate = raw.strip().lower()
+            if candidate and candidate not in patterns:
+                patterns.append(candidate)
     return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)

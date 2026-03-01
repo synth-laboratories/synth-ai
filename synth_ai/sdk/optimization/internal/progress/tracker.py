@@ -155,8 +155,8 @@ class GEPAProgressTracker:
                 }
                 self._log_file.write(json.dumps(log_entry) + "\n")
                 self._log_file.flush()
-            except Exception:
-                pass  # Silently ignore log write errors
+            except Exception as e:
+                logging.getLogger(__name__).debug("Log write failed: %s", e)
 
     def set_job_id(self, job_id: str) -> None:
         """Set job ID after tracker creation (useful when job ID isn't known until submission).
@@ -370,19 +370,9 @@ GEPA Optimization Progress - {self.env_name}
         return self.emitter.progress.best_reward
 
     @property
-    def best_score(self) -> float:
-        """Deprecated: use best_reward instead."""
-        return self.best_reward
-
-    @property
     def baseline_reward(self) -> float | None:
         """Get baseline reward."""
         return self.emitter.progress.baseline_reward
-
-    @property
-    def baseline_score(self) -> float | None:
-        """Deprecated: use baseline_reward instead."""
-        return self.baseline_reward
 
     @property
     def current_frontier(self) -> list[str]:
@@ -570,6 +560,6 @@ GEPA Optimization Progress - {self.env_name}
                 }
                 self._log_file.write(json.dumps(footer) + "\n")
                 self._log_file.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logging.getLogger(__name__).debug("Log footer write failed: %s", e)
             self._log_file = None
