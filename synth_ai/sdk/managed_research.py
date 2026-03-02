@@ -888,6 +888,7 @@ class SmrControlClient:
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
+        workflow: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Trigger a run, optionally overriding agent model and kind for this run only.
 
@@ -899,6 +900,9 @@ class SmrControlClient:
                 applied by the orchestrator at claim time.
             agent_kind: Override agent runtime for this run: ``"codex"``, ``"claude"``,
                 or ``"opencode"``.  Persisted in ``status_detail.agent_kind_override``.
+            workflow: Optional workflow payload for specialized run rails (for
+                example ``{"kind": "data_factory_v1", ...}``). When omitted,
+                run behavior is unchanged.
         """
         payload: dict[str, Any] = {}
         if timebox_seconds is not None:
@@ -907,7 +911,114 @@ class SmrControlClient:
             payload["agent_model"] = agent_model.strip()
         if agent_kind and agent_kind.strip():
             payload["agent_kind"] = agent_kind.strip().lower()
+        if workflow is not None:
+            payload["workflow"] = workflow
         return self._request_json("POST", f"/smr/projects/{project_id}/trigger", json_body=payload)
+
+    def trigger_data_factory_run(
+        self,
+        project_id: str,
+        *,
+        dataset_ref: str,
+        bundle_manifest_path: str,
+        profile: str = "founder_default",
+        source_mode: str = "mcp_local",
+        targets: list[str] | None = None,
+        preferred_target: str = "harbor",
+        runtime_kind: str | None = None,
+        environment_kind: str | None = None,
+        strictness_mode: str = "warn",
+        timebox_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        """Trigger a standardized Data Factory workflow run."""
+        workflow_targets = targets[:] if targets else [preferred_target or "harbor"]
+        workflow_payload: dict[str, Any] = {
+            "kind": "data_factory_v1",
+            "profile": profile,
+            "source_mode": source_mode,
+            "targets": workflow_targets,
+            "preferred_target": preferred_target,
+            "input": {
+                "dataset_ref": dataset_ref,
+                "bundle_manifest_path": bundle_manifest_path,
+            },
+            "options": {
+                "strictness_mode": strictness_mode,
+            },
+        }
+        if runtime_kind:
+            workflow_payload["runtime_kind"] = runtime_kind
+        if environment_kind:
+            workflow_payload["environment_kind"] = environment_kind
+        return self.trigger_run(
+            project_id,
+            timebox_seconds=timebox_seconds,
+            workflow=workflow_payload,
+        )
+
+    # -- Data Factory dedicated API ------------------------------------------
+
+    def data_factory_finalize(
+        self,
+        project_id: str,
+        *,
+        dataset_ref: str = "starting-data",
+        bundle_manifest_path: str = "capture_bundle.json",
+        target_formats: list[str] | None = None,
+        preferred_target: str = "harbor",
+        finalizer_profile: str = "founder_default",
+        source_mode: str = "mcp_local",
+        runtime_kind: str | None = None,
+        environment_kind: str | None = None,
+        strictness_mode: str = "warn",
+        timebox_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        """Submit a Data Factory finalization job via the dedicated API."""
+        payload: dict[str, Any] = {
+            "dataset_ref": dataset_ref,
+            "bundle_manifest_path": bundle_manifest_path,
+            "target_formats": target_formats or [preferred_target or "harbor"],
+            "preferred_target": preferred_target,
+            "finalizer_profile": finalizer_profile,
+            "source_mode": source_mode,
+            "strictness_mode": strictness_mode,
+        }
+        if runtime_kind:
+            payload["runtime_kind"] = runtime_kind
+        if environment_kind:
+            payload["environment_kind"] = environment_kind
+        if timebox_seconds is not None:
+            payload["timebox_seconds"] = int(timebox_seconds)
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/data-factory/finalize",
+            json_body=payload,
+        )
+
+    def data_factory_finalize_status(
+        self,
+        project_id: str,
+        job_id: str,
+    ) -> dict[str, Any]:
+        """Get the status of a Data Factory finalization job."""
+        return self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/data-factory/finalize/{job_id}",
+        )
+
+    def data_factory_publish(
+        self,
+        project_id: str,
+        job_id: str,
+        *,
+        reason: str = "manual_publish",
+    ) -> dict[str, Any]:
+        """Publish finalized Data Factory artifacts."""
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/data-factory/finalize/{job_id}/publish",
+            json_body={"reason": reason},
+        )
 
     def set_agent_config(
         self,

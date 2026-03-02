@@ -99,6 +99,15 @@ def _optional_int(payload: JSONDict, key: str) -> int | None:
     return value
 
 
+def _optional_object(payload: JSONDict, key: str) -> JSONDict | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be an object when provided")
+    return value
+
+
 class ManagedResearchMcpServer:
     """Minimal MCP server for managed research control."""
 
@@ -249,10 +258,121 @@ class ManagedResearchMcpServer:
                                 "'codex' (default), 'claude' (Claude Code), or 'opencode'."
                             ),
                         },
+                        "workflow": {
+                            "type": "object",
+                            "description": (
+                                "Optional workflow payload for rails such as data_factory_v1. "
+                                "When omitted, behavior is unchanged."
+                            ),
+                            "properties": {
+                                "kind": {"type": "string"},
+                                "profile": {"type": "string"},
+                                "source_mode": {
+                                    "type": "string",
+                                    "enum": ["mcp_local", "frontend_interactive"],
+                                },
+                                "targets": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "harbor",
+                                            "openenv",
+                                            "archipelago",
+                                            "synth_container",
+                                        ],
+                                    },
+                                    "minItems": 1,
+                                },
+                                "preferred_target": {
+                                    "type": "string",
+                                    "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                                },
+                                "input": {
+                                    "type": "object",
+                                    "properties": {
+                                        "dataset_ref": {"type": "string"},
+                                        "bundle_manifest_path": {"type": "string"},
+                                    },
+                                    "required": ["dataset_ref", "bundle_manifest_path"],
+                                    "additionalProperties": False,
+                                },
+                                "options": {
+                                    "type": "object",
+                                    "properties": {
+                                        "strictness_mode": {
+                                            "type": "string",
+                                            "enum": ["warn", "strict"],
+                                        }
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            },
+                            "required": ["kind", "source_mode", "targets", "input"],
+                            "additionalProperties": False,
+                        },
                     },
                     required=["project_id"],
                 ),
                 handler=self._tool_trigger_run,
+            ),
+            ToolDefinition(
+                name="smr_trigger_data_factory",
+                description=(
+                    "Trigger a standardized Data Factory run "
+                    "(syntactic sugar over smr_trigger_run with workflow.kind=data_factory_v1)."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "dataset_ref": {
+                            "type": "string",
+                            "description": "S3-prefix style dataset ref containing capture bundle files.",
+                        },
+                        "bundle_manifest_path": {
+                            "type": "string",
+                            "description": "Path under dataset_ref to capture_bundle.json.",
+                        },
+                        "profile": {
+                            "type": "string",
+                            "enum": ["founder_default", "researcher_strict"],
+                            "description": "Data Factory profile rail (default founder_default).",
+                        },
+                        "source_mode": {
+                            "type": "string",
+                            "enum": ["mcp_local", "frontend_interactive"],
+                            "description": "Capture source mode (default mcp_local).",
+                        },
+                        "targets": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                            },
+                            "minItems": 1,
+                            "description": "Execution targets in priority set.",
+                        },
+                        "preferred_target": {
+                            "type": "string",
+                            "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                            "description": "Preferred target (default harbor).",
+                        },
+                        "strictness_mode": {
+                            "type": "string",
+                            "enum": ["warn", "strict"],
+                            "description": "Validation strictness mode (default warn).",
+                        },
+                        "timebox_seconds": {
+                            "type": "integer",
+                            "description": "Optional run timebox in seconds.",
+                        },
+                    },
+                    required=["project_id", "dataset_ref", "bundle_manifest_path"],
+                ),
+                handler=self._tool_trigger_data_factory,
             ),
             ToolDefinition(
                 name="smr_set_agent_config",
@@ -830,12 +950,54 @@ class ManagedResearchMcpServer:
         timebox_seconds = _optional_int(args, "timebox_seconds")
         agent_model = _optional_string(args, "agent_model")
         agent_kind = _optional_string(args, "agent_kind")
+        workflow = _optional_object(args, "workflow")
         with self._client_from_args(args) as client:
             return client.trigger_run(
                 project_id,
                 timebox_seconds=timebox_seconds,
                 agent_model=agent_model,
                 agent_kind=agent_kind,
+                workflow=workflow,
+            )
+
+    def _tool_trigger_data_factory(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        dataset_ref = _require_string(args, "dataset_ref")
+        bundle_manifest_path = _require_string(args, "bundle_manifest_path")
+        profile = _optional_string(args, "profile") or "founder_default"
+        source_mode = _optional_string(args, "source_mode") or "mcp_local"
+        preferred_target = _optional_string(args, "preferred_target") or "harbor"
+        strictness_mode = _optional_string(args, "strictness_mode") or "warn"
+        timebox_seconds = _optional_int(args, "timebox_seconds")
+
+        raw_targets = args.get("targets")
+        targets: list[str] | None = None
+        if raw_targets is not None:
+            if not isinstance(raw_targets, list) or not raw_targets:
+                raise ValueError("'targets' must be a non-empty array when provided")
+            parsed_targets: list[str] = []
+            for value in raw_targets:
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError("each targets entry must be a non-empty string")
+                parsed_targets.append(value.strip())
+            targets = parsed_targets
+
+        runtime_kind = _optional_string(args, "runtime_kind")
+        environment_kind = _optional_string(args, "environment_kind")
+
+        with self._client_from_args(args) as client:
+            return client.trigger_data_factory_run(
+                project_id,
+                dataset_ref=dataset_ref,
+                bundle_manifest_path=bundle_manifest_path,
+                profile=profile,
+                source_mode=source_mode,
+                targets=targets,
+                preferred_target=preferred_target,
+                runtime_kind=runtime_kind,
+                environment_kind=environment_kind,
+                strictness_mode=strictness_mode,
+                timebox_seconds=timebox_seconds,
             )
 
     def _tool_set_agent_config(self, args: JSONDict) -> Any:
