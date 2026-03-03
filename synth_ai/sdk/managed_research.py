@@ -6,6 +6,7 @@ projects and runs through public API routes.
 
 from __future__ import annotations
 
+import json
 import mimetypes
 import os
 from dataclasses import dataclass, field
@@ -22,6 +23,32 @@ ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing",
 DEFAULT_TIMEOUT_SECONDS = 30.0
 _FUNDING_SOURCE_ALIASES = {"byok": "synth", "customer": "synth"}
 _VALID_FUNDING_SOURCES = {"synth"}
+_DATA_FACTORY_SOURCE_MODE_ALIASES = {
+    "mcp_local": "synth_mcp_local",
+    "oneshot_mcp_local": "synth_mcp_local",
+}
+_DATA_FACTORY_TARGET_ALIASES = {"synth_container": "custom_container"}
+_DATA_FACTORY_RUNTIME_KIND_ALIASES = {"react": "react_mcp"}
+_DATA_FACTORY_ENVIRONMENT_KIND_ALIASES = {"synth_container": "custom_container"}
+_POOL_REGISTRY_DEFERRED_TARGET_KINDS = {"horizons_app", "synth_container"}
+_CAPTURE_BUNDLE_REQUIRED_KEYS = {
+    "schema_version",
+    "project_id",
+    "source_mode",
+    "instruction_bundle",
+    "repo_info",
+    "patch_bundle",
+    "trace_bundle_refs",
+    "metadata",
+    "agent_kind",
+}
+_CAPTURE_BUNDLE_REQUIRED_REPO_INFO_KEYS = {
+    "repo_url",
+    "resolved_commit_sha",
+    "default_branch",
+    "is_public",
+    "license",
+}
 
 __all__ = [
     "ACTIVE_RUN_STATES",
@@ -78,6 +105,36 @@ def _normalize_provider_funding_source(funding_source: str) -> str:
     return normalized
 
 
+def _canonical_data_factory_source_mode(source_mode: str) -> str:
+    normalized = (source_mode or "").strip().lower()
+    if not normalized:
+        return "synth_mcp_local"
+    return _DATA_FACTORY_SOURCE_MODE_ALIASES.get(normalized, normalized)
+
+
+def _canonical_data_factory_target(target: str) -> str:
+    normalized = (target or "").strip().lower()
+    return _DATA_FACTORY_TARGET_ALIASES.get(normalized, normalized)
+
+
+def _canonical_data_factory_runtime_kind(runtime_kind: str | None) -> str | None:
+    if runtime_kind is None:
+        return None
+    normalized = runtime_kind.strip().lower()
+    if not normalized:
+        return None
+    return _DATA_FACTORY_RUNTIME_KIND_ALIASES.get(normalized, normalized)
+
+
+def _canonical_data_factory_environment_kind(environment_kind: str | None) -> str | None:
+    if environment_kind is None:
+        return None
+    normalized = environment_kind.strip().lower()
+    if not normalized:
+        return None
+    return _DATA_FACTORY_ENVIRONMENT_KIND_ALIASES.get(normalized, normalized)
+
+
 def _coerce_list(data: Any, *, label: str) -> list[dict[str, Any]]:
     if isinstance(data, list):
         return [item for item in data if isinstance(item, dict)]
@@ -102,6 +159,42 @@ def _coerce_dict(data: Any, *, label: str) -> dict[str, Any]:
     if isinstance(data, dict):
         return data
     raise SmrApiError(f"Expected object response for {label}, received {type(data).__name__}")
+
+
+def _validate_capture_bundle_schema(bundle: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    missing = sorted(_CAPTURE_BUNDLE_REQUIRED_KEYS - set(bundle.keys()))
+    if missing:
+        errors.append(f"missing required keys: {missing}")
+    schema_version = bundle.get("schema_version")
+    if not isinstance(schema_version, (int, str)):
+        errors.append("schema_version must be int or string")
+    repo_info = bundle.get("repo_info")
+    if not isinstance(repo_info, dict):
+        errors.append("repo_info must be an object")
+    else:
+        missing_repo_info = sorted(_CAPTURE_BUNDLE_REQUIRED_REPO_INFO_KEYS - set(repo_info.keys()))
+        if missing_repo_info:
+            errors.append(f"repo_info missing required keys: {missing_repo_info}")
+    return errors
+
+
+def _as_nonempty_string(value: Any) -> str | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _resolve_pool_target_kind(payload: dict[str, Any]) -> str | None:
+    for key in ("pool_type", "target_kind", "environment_kind"):
+        value = _as_nonempty_string(payload.get(key))
+        if value:
+            return value.lower()
+    return None
 
 
 @dataclass(frozen=True)
@@ -580,8 +673,278 @@ class SmrControlClient:
     def get_project_typed(self, project_id: str) -> SmrProject:
         return SmrProject.from_dict(_coerce_dict(self.get_project(project_id), label="get_project"))
 
+    def get_binding(self, project_id: str, *, run_id: str | None = None) -> dict[str, Any]:
+        binding = self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/active_binding",
+            allow_not_found=True,
+        )
+        if isinstance(binding, dict) and binding:
+            resolved = dict(binding)
+        else:
+            project = self.get_project(project_id)
+            execution = dict(project.get("execution") or {})
+            resolved = {
+                "project_id": project_id,
+                "binding_revision": (
+                    project.get("binding_revision")
+                    if project.get("binding_revision") is not None
+                    else project.get("pool_binding_revision")
+                ),
+                "pool_id": project.get("pool_id") or execution.get("pool_id"),
+                "dataset_revision": (
+                    project.get("dataset_revision")
+                    or project.get("dataset_revision_id")
+                    or execution.get("dataset_revision")
+                    or execution.get("dataset_revision_id")
+                ),
+                "runtime_kind": project.get("runtime_kind") or execution.get("runtime_kind"),
+                "environment_kind": project.get("environment_kind") or execution.get("environment_kind"),
+                "published_by_run_id": (
+                    project.get("published_by_run_id")
+                    or project.get("last_published_run_id")
+                    or project.get("last_run_id")
+                ),
+            }
+
+        if resolved.get("dataset_revision") is None and resolved.get("dataset_revision_id") is not None:
+            resolved["dataset_revision"] = resolved.get("dataset_revision_id")
+        if resolved.get("binding_revision") is None and resolved.get("pool_binding_revision") is not None:
+            resolved["binding_revision"] = resolved.get("pool_binding_revision")
+
+        published_by_run_id = str(resolved.get("published_by_run_id") or "").strip()
+        if run_id and published_by_run_id and published_by_run_id != run_id:
+            raise SmrApiError(
+                "POOL_HANDOFF_MISMATCH: "
+                f"binding published_by_run_id '{published_by_run_id}' does not match run_id '{run_id}'"
+            )
+        return resolved
+
+    def promote_binding(
+        self,
+        project_id: str,
+        *,
+        pool_id: str,
+        dataset_revision: str,
+        expected_revision: int,
+        runtime_kind: str | None = None,
+        environment_kind: str | None = None,
+        published_by_run_id: str | None = None,
+        reason: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "pool_id": str(pool_id),
+            "dataset_revision": str(dataset_revision),
+            "expected_revision": int(expected_revision),
+        }
+        if runtime_kind:
+            payload["runtime_kind"] = runtime_kind
+        if environment_kind:
+            payload["environment_kind"] = environment_kind
+        if published_by_run_id:
+            payload["published_by_run_id"] = published_by_run_id
+        if reason:
+            payload["reason"] = reason
+        if idempotency_key:
+            payload["idempotency_key"] = idempotency_key
+
+        primary_path = f"/smr/projects/{project_id}/active_binding/promote"
+        fallback_path = f"/smr/projects/{project_id}/binding/promote"
+        try:
+            response = self._request_json("POST", primary_path, json_body=payload)
+        except SmrApiError as exc:
+            if "(404)" not in str(exc):
+                raise
+            response = self._request_json("POST", fallback_path, json_body=payload)
+
+        resolved = _coerce_dict(response, label="promote_binding")
+        if resolved.get("binding_revision") is None and resolved.get("pool_binding_revision") is not None:
+            resolved["binding_revision"] = resolved.get("pool_binding_revision")
+        return resolved
+
+    def get_pool_context(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        task_id: str | None = None,
+    ) -> dict[str, Any]:
+        binding: dict[str, Any] = {}
+        binding_error: str | None = None
+        try:
+            binding = self.get_binding(project_id, run_id=run_id)
+        except SmrApiError as exc:
+            # Preserve strict handoff mismatch semantics.
+            if "POOL_HANDOFF_MISMATCH" in str(exc):
+                raise
+            binding_error = str(exc)
+
+        run_pool_ledger: dict[str, Any] = {
+            "run_id": run_id,
+            "project_id": project_id,
+            "pools_created": [],
+            "pool_claims": [],
+            "task_assignments": [],
+            "fallback_events": [],
+        }
+        if run_id:
+            run_payload = self.get_run(run_id, project_id=project_id)
+            status_detail = run_payload.get("status_detail")
+            if isinstance(status_detail, dict):
+                ledger_payload = status_detail.get("run_pool_ledger")
+                if isinstance(ledger_payload, dict):
+                    run_pool_ledger.update(ledger_payload)
+                    run_pool_ledger.setdefault("run_id", run_id)
+                    run_pool_ledger.setdefault("project_id", project_id)
+                task_assignments = status_detail.get("task_pool_assignments")
+                if isinstance(task_assignments, list):
+                    run_pool_ledger["task_assignments"] = [
+                        item for item in task_assignments if isinstance(item, dict)
+                    ]
+                fallback_events = status_detail.get("fallback_events")
+                if isinstance(fallback_events, list):
+                    run_pool_ledger["fallback_events"] = [
+                        item for item in fallback_events if isinstance(item, dict)
+                    ]
+                # Transitional fallback: synthesize a minimal pool entry from status detail.
+                if not run_pool_ledger.get("pools_created"):
+                    pool_binding = status_detail.get("pool_binding")
+                    if isinstance(pool_binding, dict):
+                        pool_id = _as_nonempty_string(pool_binding.get("pool_id"))
+                        if pool_id:
+                            run_pool_ledger["pools_created"] = [
+                                {
+                                    "pool_id": pool_id,
+                                    "runtime_kind": pool_binding.get("runtime_kind"),
+                                    "environment_kind": pool_binding.get("environment_kind"),
+                                    "dataset_ref": pool_binding.get("dataset_ref"),
+                                    "status": "ready",
+                                    "source": "status_detail.pool_binding",
+                                }
+                            ]
+
+        # Normalize ledger list fields for callers.
+        for key in ("pools_created", "pool_claims", "task_assignments", "fallback_events"):
+            value = run_pool_ledger.get(key)
+            if not isinstance(value, list):
+                run_pool_ledger[key] = []
+            else:
+                run_pool_ledger[key] = [item for item in value if isinstance(item, dict)]
+
+        recommended_target: dict[str, Any] | None = None
+        task_id_text = _as_nonempty_string(task_id)
+        task_assignments = run_pool_ledger.get("task_assignments") or []
+        if task_id_text:
+            for assignment in task_assignments:
+                if _as_nonempty_string(assignment.get("task_id")) != task_id_text:
+                    continue
+                pool_id = _as_nonempty_string(
+                    assignment.get("assigned_pool_id") or assignment.get("pool_id")
+                )
+                if not pool_id:
+                    continue
+                recommended_target = {
+                    "pool_id": pool_id,
+                    "assignment_source": _as_nonempty_string(assignment.get("assignment_source"))
+                    or "run_claim",
+                    "task_id": task_id_text,
+                }
+                break
+
+        if recommended_target is None:
+            binding_pool_id = _as_nonempty_string(binding.get("pool_id"))
+            if binding_pool_id:
+                recommended_target = {
+                    "pool_id": binding_pool_id,
+                    "assignment_source": "project_binding",
+                }
+
+        fallback_policy = {
+            "require_pool_target": True,
+            "allow_container_url_fallback": False,
+            "allow_local_bootstrap": False,
+        }
+        try:
+            project = self.get_project(project_id)
+        except SmrApiError:
+            project = {}
+        project_policy = project.get("execution_policy") if isinstance(project, dict) else None
+        if not isinstance(project_policy, dict):
+            project_policy = project.get("pool_policy") if isinstance(project, dict) else None
+        if isinstance(project_policy, dict):
+            for key in (
+                "require_pool_target",
+                "allow_container_url_fallback",
+                "allow_local_bootstrap",
+            ):
+                if key in project_policy:
+                    fallback_policy[key] = bool(project_policy.get(key))
+
+        reason_code: str | None = None
+        if recommended_target is None:
+            if binding_error:
+                reason_code = "BINDING_API_NOT_AVAILABLE"
+            elif run_id and not (
+                run_pool_ledger["pools_created"] or run_pool_ledger["task_assignments"]
+            ):
+                reason_code = "NO_RUN_POOL_ENTRIES"
+            else:
+                reason_code = "NO_ACTIVE_PROJECT_BINDING"
+
+        # The orchestration plan explicitly defers these pool target kinds in MVP.
+        if recommended_target is not None:
+            pool_kind = _resolve_pool_target_kind(binding)
+            if pool_kind in _POOL_REGISTRY_DEFERRED_TARGET_KINDS:
+                reason_code = "POOL_TYPE_NOT_SUPPORTED_YET"
+                recommended_target = None
+
+        payload: dict[str, Any] = {
+            "project_id": project_id,
+            "run_id": run_id,
+            "task_id": task_id_text,
+            "active_binding": binding,
+            "run_pool_ledger": run_pool_ledger,
+            "recommended_target": recommended_target,
+            "fallback_policy": fallback_policy,
+            "reason_code": reason_code,
+        }
+        if binding_error:
+            payload["binding_error"] = binding_error
+        return payload
+
     def patch_project(self, project_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request_json("PATCH", f"/smr/projects/{project_id}", json_body=payload)
+
+    def get_project_repos(self, project_id: str) -> list[dict[str, Any]]:
+        """Return project-scoped GitHub repo entries from integrations.github.repos."""
+        project = _coerce_dict(self.get_project(project_id), label="get_project")
+        integrations = project.get("integrations") if isinstance(project, dict) else None
+        github = integrations.get("github") if isinstance(integrations, dict) else None
+        repos = github.get("repos") if isinstance(github, dict) else None
+        if isinstance(repos, list):
+            return [item for item in repos if isinstance(item, dict)]
+        return []
+
+    def link_org_github(self, project_id: str) -> dict[str, Any]:
+        """Link a project to the org-level GitHub credential."""
+        return self._request_json("POST", f"/smr/projects/{project_id}/integrations/github/link-org")
+
+    def add_project_repo(
+        self,
+        project_id: str,
+        *,
+        repo: str,
+        pr_write_enabled: bool = False,
+    ) -> dict[str, Any]:
+        """Add a repo to project integrations.github.repos."""
+        payload = {"repo": repo, "pr_write_enabled": bool(pr_write_enabled)}
+        return self._request_json("POST", f"/smr/projects/{project_id}/repos", json_body=payload)
+
+    def remove_project_repo(self, project_id: str, *, repo: str) -> dict[str, Any]:
+        """Remove a repo from project integrations.github.repos."""
+        payload = {"repo": repo}
+        return self._request_json("DELETE", f"/smr/projects/{project_id}/repos", json_body=payload)
 
     def get_project_status(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/status")
@@ -608,6 +971,71 @@ class SmrControlClient:
         return SmrCapabilities.from_dict(
             _coerce_dict(self.get_capabilities(), label="get_capabilities")
         )
+
+    # Codex subscription (ChatGPT connect) ------------------------------
+
+    def chatgpt_connection_status(self, *, project_id: str | None = None) -> dict[str, Any]:
+        params: dict[str, Any] | None = None
+        if project_id and project_id.strip():
+            params = {"project_id": project_id.strip()}
+        return self._request_json("GET", "/smr/integrations/chatgpt/status", params=params)
+
+    def chatgpt_connect_start(
+        self,
+        *,
+        sandbox_agent_url: str | None = None,
+        external_account_hint: str | None = None,
+        provider_id: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if sandbox_agent_url and sandbox_agent_url.strip():
+            payload["sandbox_agent_url"] = sandbox_agent_url.strip()
+        if external_account_hint and external_account_hint.strip():
+            payload["external_account_hint"] = external_account_hint.strip()
+        if provider_id and provider_id.strip():
+            payload["provider_id"] = provider_id.strip()
+        return self._request_json("POST", "/smr/integrations/chatgpt/connect/start", json_body=payload)
+
+    def chatgpt_connect_complete(
+        self,
+        *,
+        code: str | None = None,
+        sandbox_agent_url: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if code and code.strip():
+            payload["code"] = code.strip()
+        if sandbox_agent_url and sandbox_agent_url.strip():
+            payload["sandbox_agent_url"] = sandbox_agent_url.strip()
+        return self._request_json("POST", "/smr/integrations/chatgpt/connect/complete", json_body=payload)
+
+    def chatgpt_disconnect(self) -> dict[str, Any]:
+        return self._request_json("POST", "/smr/integrations/chatgpt/disconnect", json_body={})
+
+    def set_execution_preferences(
+        self,
+        project_id: str,
+        *,
+        preferred_lane: Literal["auto", "synth_hosted", "user_connected"],
+        allow_fallback_to_synth: bool | None = None,
+        free_tier_eligible: bool | None = None,
+        monthly_soft_limit_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"preferred_lane": preferred_lane}
+        if allow_fallback_to_synth is not None:
+            payload["allow_fallback_to_synth"] = bool(allow_fallback_to_synth)
+        if free_tier_eligible is not None:
+            payload["free_tier_eligible"] = bool(free_tier_eligible)
+        if monthly_soft_limit_tokens is not None:
+            payload["monthly_soft_limit_tokens"] = int(monthly_soft_limit_tokens)
+        return self._request_json(
+            "PATCH",
+            f"/smr/projects/{project_id}/execution-preferences",
+            json_body=payload,
+        )
+
+    def get_capacity_lane_preview(self, project_id: str) -> dict[str, Any]:
+        return self._request_json("GET", f"/smr/projects/{project_id}/capacity-lane-preview")
 
     def pause_project(self, project_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/projects/{project_id}/pause")
@@ -715,6 +1143,7 @@ class SmrControlClient:
         *,
         files: list[dict[str, Any]],
         dataset_ref: str | None = None,
+        idempotency_key_upload: str | None = None,
     ) -> dict[str, Any]:
         if not files:
             raise ValueError("files must contain at least one entry")
@@ -741,6 +1170,8 @@ class SmrControlClient:
             "dataset_ref": resolved_dataset_ref,
             "files": payload_files,
         }
+        if idempotency_key_upload is not None:
+            payload["idempotency_key_upload"] = idempotency_key_upload
 
         return self._request_json(
             "POST",
@@ -754,6 +1185,7 @@ class SmrControlClient:
         *,
         files: list[dict[str, Any]],
         dataset_ref: str | None = None,
+        idempotency_key_upload: str | None = None,
     ) -> dict[str, Any]:
         if not files:
             raise ValueError("files must contain at least one entry")
@@ -802,10 +1234,29 @@ class SmrControlClient:
             request_files.append(entry)
             file_payloads[path] = (payload_source, resolved_content_type)
 
+            if path == "capture_bundle.json":
+                bundle_bytes = (
+                    payload_source.read_bytes() if isinstance(payload_source, Path) else payload_source
+                )
+                try:
+                    bundle_payload = json.loads(bundle_bytes.decode("utf-8"))
+                except Exception as exc:
+                    raise SmrApiError(
+                        f"INVALID_BUNDLE_SCHEMA: capture_bundle.json must be valid JSON ({exc})"
+                    ) from exc
+                if not isinstance(bundle_payload, dict):
+                    raise SmrApiError("INVALID_BUNDLE_SCHEMA: capture_bundle.json must be a JSON object")
+                schema_errors = _validate_capture_bundle_schema(bundle_payload)
+                if schema_errors:
+                    raise SmrApiError(
+                        "INVALID_BUNDLE_SCHEMA: " + "; ".join(schema_errors)
+                    )
+
         upload_response = self.get_starting_data_upload_urls(
             project_id,
             files=request_files,
             dataset_ref=dataset_ref,
+            idempotency_key_upload=idempotency_key_upload,
         )
 
         uploads = upload_response.get("uploads")
@@ -813,6 +1264,7 @@ class SmrControlClient:
             raise SmrApiError("starting-data upload response missing 'uploads' list")
 
         with httpx.Client(timeout=self.timeout_seconds) as upload_client:
+            uploaded_paths: list[str] = []
             for upload in uploads:
                 if not isinstance(upload, dict):
                     raise SmrApiError("starting-data upload response contains invalid upload item")
@@ -841,8 +1293,9 @@ class SmrControlClient:
                     snippet = response.text[:500] if response.text else ""
                     raise SmrApiError(
                         f"PUT starting-data upload for '{path}' failed "
-                        f"({response.status_code}): {snippet}"
+                        f"({response.status_code}): {snippet}; uploaded_paths={uploaded_paths}"
                     )
+                uploaded_paths.append(path)
 
         return upload_response
 
@@ -852,6 +1305,7 @@ class SmrControlClient:
         directory: str | os.PathLike[str],
         *,
         dataset_ref: str | None = None,
+        idempotency_key_upload: str | None = None,
     ) -> dict[str, Any]:
         root = Path(directory).expanduser().resolve()
         if not root.exists():
@@ -877,6 +1331,7 @@ class SmrControlClient:
             project_id,
             files=files_to_upload,
             dataset_ref=dataset_ref,
+            idempotency_key_upload=idempotency_key_upload,
         )
 
     # Runs --------------------------------------------------------------
@@ -888,6 +1343,8 @@ class SmrControlClient:
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
+        workflow: dict[str, Any] | None = None,
+        idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
         """Trigger a run, optionally overriding agent model and kind for this run only.
 
@@ -899,6 +1356,9 @@ class SmrControlClient:
                 applied by the orchestrator at claim time.
             agent_kind: Override agent runtime for this run: ``"codex"``, ``"claude"``,
                 or ``"opencode"``.  Persisted in ``status_detail.agent_kind_override``.
+            workflow: Optional workflow payload for specialized run rails (for
+                example ``{"kind": "data_factory_v1", ...}``). When omitted,
+                run behavior is unchanged.
         """
         payload: dict[str, Any] = {}
         if timebox_seconds is not None:
@@ -907,7 +1367,159 @@ class SmrControlClient:
             payload["agent_model"] = agent_model.strip()
         if agent_kind and agent_kind.strip():
             payload["agent_kind"] = agent_kind.strip().lower()
+        if workflow is not None:
+            payload["workflow"] = workflow
+        if idempotency_key_run_create and idempotency_key_run_create.strip():
+            payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
         return self._request_json("POST", f"/smr/projects/{project_id}/trigger", json_body=payload)
+
+    def trigger_data_factory_run(
+        self,
+        project_id: str,
+        *,
+        dataset_ref: str,
+        bundle_manifest_path: str,
+        template: str | None = None,
+        profile: str = "founder_default",
+        source_mode: str = "synth_mcp_local",
+        targets: list[str] | None = None,
+        preferred_target: str = "harbor",
+        runtime_kind: str | None = None,
+        environment_kind: str | None = None,
+        session_id: str | None = None,
+        session_state: str | None = None,
+        session_title: str | None = None,
+        session_notes: str | None = None,
+        strictness_mode: str = "warn",
+        timebox_seconds: int | None = None,
+        idempotency_key_run_create: str | None = None,
+    ) -> dict[str, Any]:
+        """Trigger a standardized Data Factory workflow run."""
+        canonical_preferred_target = _canonical_data_factory_target(preferred_target or "harbor")
+        workflow_targets = (
+            [_canonical_data_factory_target(target) for target in targets]
+            if targets
+            else [canonical_preferred_target]
+        )
+        canonical_source_mode = _canonical_data_factory_source_mode(source_mode)
+        canonical_runtime_kind = _canonical_data_factory_runtime_kind(runtime_kind)
+        canonical_environment_kind = _canonical_data_factory_environment_kind(environment_kind)
+        workflow_payload: dict[str, Any] = {
+            "kind": "data_factory_v1",
+            "profile": profile,
+            "source_mode": canonical_source_mode,
+            "targets": workflow_targets,
+            "preferred_target": canonical_preferred_target,
+            "input": {
+                "dataset_ref": dataset_ref,
+                "bundle_manifest_path": bundle_manifest_path,
+            },
+            "options": {
+                "strictness_mode": strictness_mode,
+            },
+        }
+        if template:
+            workflow_payload["template"] = template
+        if canonical_runtime_kind:
+            workflow_payload["runtime_kind"] = canonical_runtime_kind
+        if canonical_environment_kind:
+            workflow_payload["environment_kind"] = canonical_environment_kind
+        if session_id:
+            workflow_payload["input"]["session_id"] = session_id
+        if session_state:
+            workflow_payload["input"]["session_state"] = session_state
+        if session_title:
+            workflow_payload["input"]["session_title"] = session_title
+        if session_notes:
+            workflow_payload["input"]["session_notes"] = session_notes
+        return self.trigger_run(
+            project_id,
+            timebox_seconds=timebox_seconds,
+            workflow=workflow_payload,
+            idempotency_key_run_create=idempotency_key_run_create,
+        )
+
+    # -- Data Factory dedicated API ------------------------------------------
+
+    def data_factory_finalize(
+        self,
+        project_id: str,
+        *,
+        dataset_ref: str = "starting-data",
+        bundle_manifest_path: str = "capture_bundle.json",
+        template: str | None = None,
+        target_formats: list[str] | None = None,
+        preferred_target: str = "harbor",
+        finalizer_profile: str = "founder_default",
+        source_mode: str = "synth_mcp_local",
+        runtime_kind: str | None = None,
+        environment_kind: str | None = None,
+        strictness_mode: str = "warn",
+        timebox_seconds: int | None = None,
+        idempotency_key_run_create: str | None = None,
+    ) -> dict[str, Any]:
+        """Submit a Data Factory finalization job via the dedicated API."""
+        canonical_preferred_target = _canonical_data_factory_target(preferred_target or "harbor")
+        canonical_source_mode = _canonical_data_factory_source_mode(source_mode)
+        canonical_runtime_kind = _canonical_data_factory_runtime_kind(runtime_kind)
+        canonical_environment_kind = _canonical_data_factory_environment_kind(environment_kind)
+        payload: dict[str, Any] = {
+            "dataset_ref": dataset_ref,
+            "bundle_manifest_path": bundle_manifest_path,
+            "target_formats": (
+                [_canonical_data_factory_target(target) for target in target_formats]
+                if target_formats
+                else [canonical_preferred_target]
+            ),
+            "preferred_target": canonical_preferred_target,
+            "finalizer_profile": finalizer_profile,
+            "source_mode": canonical_source_mode,
+            "strictness_mode": strictness_mode,
+        }
+        if template:
+            payload["template"] = template
+        if canonical_runtime_kind:
+            payload["runtime_kind"] = canonical_runtime_kind
+        if canonical_environment_kind:
+            payload["environment_kind"] = canonical_environment_kind
+        if timebox_seconds is not None:
+            payload["timebox_seconds"] = int(timebox_seconds)
+        if idempotency_key_run_create is not None:
+            payload["idempotency_key_run_create"] = idempotency_key_run_create
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/data-factory/finalize",
+            json_body=payload,
+        )
+
+    def data_factory_finalize_status(
+        self,
+        project_id: str,
+        job_id: str,
+    ) -> dict[str, Any]:
+        """Get the status of a Data Factory finalization job."""
+        return self._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/data-factory/finalize/{job_id}",
+        )
+
+    def data_factory_publish(
+        self,
+        project_id: str,
+        job_id: str,
+        *,
+        reason: str = "manual_publish",
+        idempotency_key_publish: str | None = None,
+    ) -> dict[str, Any]:
+        """Publish finalized Data Factory artifacts."""
+        payload: dict[str, Any] = {"reason": reason}
+        if idempotency_key_publish is not None:
+            payload["idempotency_key_publish"] = idempotency_key_publish
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/data-factory/finalize/{job_id}/publish",
+            json_body=payload,
+        )
 
     def set_agent_config(
         self,
@@ -1507,6 +2119,45 @@ class SmrControlClient:
 
     def get_artifact(self, artifact_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/artifacts/{artifact_id}")
+
+    def list_run_pull_requests(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List pull requests associated with a run via github_pr artifacts."""
+        artifacts = self.list_run_artifacts(
+            run_id,
+            project_id=project_id,
+            artifact_type="github_pr",
+            limit=limit,
+        )
+        rows: list[dict[str, Any]] = []
+        for item in artifacts:
+            if not isinstance(item, dict):
+                continue
+            metadata = item.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+            rows.append(
+                {
+                    "artifact_id": item.get("artifact_id"),
+                    "run_id": item.get("run_id") or run_id,
+                    "project_id": item.get("project_id") or project_id,
+                    "title": item.get("title"),
+                    "created_at": item.get("created_at"),
+                    "repo": metadata.get("repo"),
+                    "pr_number": metadata.get("pr_number"),
+                    "pr_url": metadata.get("pr_url") or item.get("uri"),
+                    "base_branch": metadata.get("base_branch"),
+                    "head_branch": metadata.get("head_branch"),
+                    "state": metadata.get("state"),
+                    "metadata": metadata,
+                }
+            )
+        return rows
 
     def get_artifact_content_response(
         self,

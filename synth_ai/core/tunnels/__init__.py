@@ -12,7 +12,6 @@ exposing local containers to the internet. Two tunnel backends are available:
 - **NgrokManaged**: Synth-managed ngrok-compatible URL flow. Requires an
   approved managed URL (`SYNTH_MANAGED_NGROK_URL` or explicit parameter)
   and allow-listing in `SYNTH_MANAGED_TUNNEL_HOSTS`.
-- **Cloudflare**: Deprecated and disabled.
 
 **Recommended:** Use ``TunneledContainer`` for a clean, one-liner experience:
 
@@ -48,7 +47,7 @@ exposing local containers to the internet. Two tunnel backends are available:
 +---------------------+----------------------------+----------------------------+
 | Setup               | Zero config, no binary     | Managed URL + allow-list   |
 | Concurrency         | 128 in-flight (dynamic)    | Provider limits apply      |
-| Auth                | ``worker_token``           | ``container_api_key``       |
+| Auth                | ``worker_token``           | Relay/token auth            |
 | URL stability       | Per-lease (session-lived)  | Stable managed endpoint    |
 | Best for            | SDK jobs, GEPA, MiPRO      | Infra-managed ingress      |
 +---------------------+----------------------------+----------------------------+
@@ -62,20 +61,19 @@ exposing local containers to the internet. Two tunnel backends are available:
         container_worker_token=tunnel.worker_token,
     )
 
-    # Managed ngrok-compatible URL — pass container_api_key
+    # Managed ngrok-compatible URL
     job = PromptLearningJob.from_dict(
         config,
         container_url=tunnel.url,
-        container_api_key=env_api_key,
     )
 
-**Low-level:** For more control, use the individual functions:
+**Low-level:** For local process/runtime control:
 
     from synth_ai.core.tunnels import (
-        rotate_tunnel,
-        open_managed_tunnel,
-        track_process,
-        verify_tunnel_dns_resolution,
+        acquire_port,
+        find_available_port,
+        kill_port,
+        wait_for_health_check,
     )
 
 Note:
@@ -98,29 +96,21 @@ from .errors import (
     TunnelAPIError,
     TunnelConfigurationError,
     TunnelError,
+    TunnelErrorCode,
+    TunnelProviderError,
 )
 from .ports import PortConflictBehavior, PortInUseError
 from .rust import (
     acquire_port,
-    create_tunnel,
-    ensure_cloudflared_installed,
     find_available_port,
-    get_cloudflared_path,
     is_port_available,
     kill_port,
-    open_managed_tunnel,
-    open_managed_tunnel_with_connection_wait,
-    open_quick_tunnel,
-    open_quick_tunnel_with_dns_verification,
-    require_cloudflared,
-    rotate_tunnel,
     stop_tunnel,
-    verify_tunnel_dns_resolution,
     wait_for_health_check,
 )
 
 # New: high-level tunnel abstraction
-from .tunneled_api import TunnelBackend, TunneledContainer
+from .tunneled_api import TunnelBackend, TunneledContainer, TunnelProvider
 from .types import (
     ConnectorState,
     Diagnostics,
@@ -137,6 +127,7 @@ async def create_tunneled_api(
     local_port: int | None = None,
     backend: TunnelBackend = TunnelBackend.SynthTunnel,
     *,
+    provider: TunnelProvider | str | None = None,
     api_key: str | None = None,
     backend_url: str | None = None,
     verify_dns: bool = True,
@@ -154,6 +145,7 @@ async def create_tunneled_api(
         app: FastAPI or ASGI application to tunnel
         local_port: Port to use (defaults to auto-finding an available port from 8001)
         backend: Tunnel backend to use
+        provider: Provider selector ("SynthTunnel" | "Ngrok" | "Localhost")
         api_key: Synth API key (defaults to SYNTH_API_KEY env var)
         backend_url: Backend URL (defaults to production)
         verify_dns: Whether to verify DNS resolution
@@ -172,6 +164,7 @@ async def create_tunneled_api(
         app=app,
         local_port=local_port,
         backend=backend,
+        provider=provider,
         api_key=api_key,
         backend_url=backend_url,
         verify_dns=verify_dns,
@@ -183,6 +176,7 @@ __all__ = [
     # High-level (RECOMMENDED)
     "TunneledContainer",
     "TunnelBackend",
+    "TunnelProvider",
     "create_tunneled_api",
     # Lease-based system types
     "TunnelHandle",
@@ -193,6 +187,8 @@ __all__ = [
     "GatewayState",
     # Errors
     "TunnelError",
+    "TunnelErrorCode",
+    "TunnelProviderError",
     "TunnelConfigurationError",
     "TunnelAPIError",
     "LeaseError",
@@ -201,21 +197,9 @@ __all__ = [
     "ConnectorNotInstalledError",
     "GatewayError",
     "LocalAppError",
-    # Canonical: Tunnel lifecycle
-    "rotate_tunnel",
-    "create_tunnel",
-    "open_managed_tunnel",
-    "open_managed_tunnel_with_connection_wait",
-    "open_quick_tunnel",
-    "open_quick_tunnel_with_dns_verification",
+    # Canonical: runtime lifecycle
     "stop_tunnel",
-    # Verification
-    "verify_tunnel_dns_resolution",
     "wait_for_health_check",
-    # Installation
-    "require_cloudflared",
-    "ensure_cloudflared_installed",
-    "get_cloudflared_path",
     # Process tracking
     "track_process",
     "cleanup_all",

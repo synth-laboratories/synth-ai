@@ -357,7 +357,11 @@ impl PromptLearningJob {
         let events_url = format!(
             "{}/api{}",
             base_url,
-            crate::api::routes::offline_job_subpath(job_id, "events/stream", crate::api::routes::ApiVersion::V1)
+            crate::api::routes::offline_job_subpath(
+                job_id,
+                "events/stream",
+                crate::api::routes::ApiVersion::V1
+            )
         );
         let api_key = self.client.http().api_key().to_string();
         let mut headers = HeaderMap::new();
@@ -365,11 +369,6 @@ impl PromptLearningJob {
         headers.insert(
             "Authorization",
             HeaderValue::from_str(&format!("Bearer {}", api_key))
-                .map_err(|_| CoreError::Validation("invalid api key".to_string()))?,
-        );
-        headers.insert(
-            "X-API-Key",
-            HeaderValue::from_str(&api_key)
                 .map_err(|_| CoreError::Validation("invalid api key".to_string()))?,
         );
 

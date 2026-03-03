@@ -142,6 +142,9 @@ const SYNTHTUNNEL_DEFAULT_PATTERNS: &[&str] = &[
     "::1",
 ];
 
+/// Default Synth-managed tunnel host patterns.
+const SYNTH_MANAGED_TUNNEL_DEFAULT_PATTERNS: &[&str] = &["usesynth.ai", "*.usesynth.ai"];
+
 /// Match a hostname against a pattern (exact, `*.suffix`, or `.suffix`).
 fn host_matches_pattern(host: &str, pattern: &str) -> bool {
     if pattern.is_empty() {
@@ -193,6 +196,50 @@ pub fn is_synthtunnel_url(url: &str) -> bool {
         }
     }
 
+    patterns.iter().any(|p| host_matches_pattern(&hostname, p))
+}
+
+/// Returns `true` if URL is an approved Synth-managed ngrok-compatible endpoint.
+///
+/// Rules:
+/// - URL must be HTTPS.
+/// - Host must not be Cloudflare tunnel host.
+/// - Host must not match known free ngrok suffixes.
+/// - Host must match default or env-extended managed host patterns.
+pub fn is_synth_managed_ngrok_url(url: &str) -> bool {
+    let parsed = match url::Url::parse(url) {
+        Ok(u) => u,
+        Err(_) => return false,
+    };
+    if parsed.scheme() != "https" {
+        return false;
+    }
+    let hostname = match parsed.host_str() {
+        Some(h) => h.to_ascii_lowercase(),
+        None => return false,
+    };
+    if hostname.ends_with(".trycloudflare.com") || hostname.ends_with(".cfargotunnel.com") {
+        return false;
+    }
+    if hostname.ends_with(".ngrok-free.app") || hostname.ends_with(".ngrok-free.dev") {
+        return false;
+    }
+
+    let mut patterns: Vec<String> = SYNTH_MANAGED_TUNNEL_DEFAULT_PATTERNS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    if let Ok(extra) = std::env::var("SYNTH_MANAGED_TUNNEL_HOSTS") {
+        let extra = extra.trim().to_string();
+        if !extra.is_empty() {
+            for raw in extra.split(',') {
+                let value = raw.trim().to_lowercase();
+                if !value.is_empty() && !patterns.contains(&value) {
+                    patterns.push(value);
+                }
+            }
+        }
+    }
     patterns.iter().any(|p| host_matches_pattern(&hostname, p))
 }
 
@@ -253,7 +300,9 @@ mod url_classification_tests {
         assert!(is_local_http_container_url("http://localhost:8000"));
         assert!(is_local_http_container_url("http://127.0.0.1:8000"));
         assert!(is_local_http_container_url("http://0.0.0.0:9000"));
-        assert!(is_local_http_container_url("http://host.docker.internal:8000"));
+        assert!(is_local_http_container_url(
+            "http://host.docker.internal:8000"
+        ));
         assert!(is_local_http_container_url("http://localhost"));
         assert!(is_local_http_container_url("http://localhost:8080/api"));
     }
@@ -284,19 +333,13 @@ mod url_classification_tests {
         assert!(is_synthtunnel_url(
             "https://infra-api-dev.usesynth.ai/s/rt_token/path"
         ));
-        assert!(is_synthtunnel_url(
-            "http://localhost/s/rt_token"
-        ));
-        assert!(is_synthtunnel_url(
-            "http://127.0.0.1/s/rt_token"
-        ));
+        assert!(is_synthtunnel_url("http://localhost/s/rt_token"));
+        assert!(is_synthtunnel_url("http://127.0.0.1/s/rt_token"));
     }
 
     #[test]
     fn test_synthtunnel_wildcard_match() {
-        assert!(is_synthtunnel_url(
-            "https://foo.st.usesynth.ai/s/rt_abc"
-        ));
+        assert!(is_synthtunnel_url("https://foo.st.usesynth.ai/s/rt_abc"));
     }
 
     #[test]
@@ -304,13 +347,28 @@ mod url_classification_tests {
         // Missing /s/rt_ prefix
         assert!(!is_synthtunnel_url("https://st.usesynth.ai/other/path"));
         // Wrong host
-        assert!(!is_synthtunnel_url(
-            "https://evil.com/s/rt_abc"
-        ));
+        assert!(!is_synthtunnel_url("https://evil.com/s/rt_abc"));
         // Empty
         assert!(!is_synthtunnel_url(""));
         // No path
         assert!(!is_synthtunnel_url("https://st.usesynth.ai"));
+    }
+
+    // ---- is_synth_managed_ngrok_url ----
+
+    #[test]
+    fn test_synth_managed_ngrok_url_accepts_default_patterns() {
+        assert!(is_synth_managed_ngrok_url("https://example.usesynth.ai"));
+        assert!(is_synth_managed_ngrok_url("https://usesynth.ai"));
+    }
+
+    #[test]
+    fn test_synth_managed_ngrok_url_rejects_invalid_or_forbidden() {
+        assert!(!is_synth_managed_ngrok_url("http://example.usesynth.ai"));
+        assert!(!is_synth_managed_ngrok_url("https://foo.trycloudflare.com"));
+        assert!(!is_synth_managed_ngrok_url("https://abc.ngrok-free.app"));
+        assert!(!is_synth_managed_ngrok_url("https://attacker.example.com"));
+        assert!(!is_synth_managed_ngrok_url("not-a-url"));
     }
 
     // ---- validate_gepa_container_auth ----
@@ -356,7 +414,10 @@ mod url_classification_tests {
     #[test]
     fn test_host_matches_pattern() {
         assert!(host_matches_pattern("localhost", "localhost"));
-        assert!(host_matches_pattern("foo.st.usesynth.ai", "*.st.usesynth.ai"));
+        assert!(host_matches_pattern(
+            "foo.st.usesynth.ai",
+            "*.st.usesynth.ai"
+        ));
         assert!(!host_matches_pattern("st.usesynth.ai", "*.st.usesynth.ai"));
         assert!(host_matches_pattern("foo.bar", ".bar"));
         assert!(!host_matches_pattern("", "localhost"));

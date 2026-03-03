@@ -159,7 +159,11 @@ impl EventStream {
         let url = format!(
             "{}/api{}",
             self.base_url,
-            crate::api::routes::offline_job_subpath(&self.job_id, "events", crate::api::routes::ApiVersion::V1)
+            crate::api::routes::offline_job_subpath(
+                &self.job_id,
+                "events",
+                crate::api::routes::ApiVersion::V1
+            )
         );
 
         let params = [

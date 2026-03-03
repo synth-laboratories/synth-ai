@@ -182,24 +182,6 @@ def deploy_container(
         with httpx.Client(timeout=build_timeout_s) as client:
             url = f"{resolved_backend.rstrip('/')}/api/container/deployments"
             response = client.post(url, files=files, headers=headers)
-
-            if response.status_code == 400:
-                detail = ""
-                try:
-                    body = response.json()
-                    detail = str(body.get("detail", body.get("message", "")))
-                except Exception:
-                    detail = response.text or ""
-                if "ENVIRONMENT_API_KEY" in detail:
-                    from synth_ai.sdk.container.auth import ensure_container_auth
-
-                    ensure_container_auth(
-                        backend_base=resolved_backend,
-                        synth_api_key=api_key,
-                        upload=True,
-                    )
-                    response = client.post(url, files=files, headers=headers)
-
             response.raise_for_status()
             payload = response.json()
 

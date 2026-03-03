@@ -47,8 +47,9 @@ impl Transport {
         let bytes = resp.bytes().await.map_err(SynthError::Http)?;
         if status.is_success() {
             if bytes.is_empty() {
-                return serde_json::from_str("{}")
-                    .map_err(|e| SynthError::UnexpectedResponse(format!("empty JSON response: {e}")));
+                return serde_json::from_str("{}").map_err(|e| {
+                    SynthError::UnexpectedResponse(format!("empty JSON response: {e}"))
+                });
             }
             serde_json::from_slice::<R>(&bytes).map_err(SynthError::Json)
         } else {
@@ -83,7 +84,11 @@ impl Transport {
         Self::parse_json(resp).await
     }
 
-    pub async fn post_json<B: Serialize, R: DeserializeOwned>(&self, path: &str, body: &B) -> Result<R> {
+    pub async fn post_json<B: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<R> {
         let resp = self
             .request(reqwest::Method::POST, path)
             .json(body)
@@ -107,7 +112,11 @@ impl Transport {
         Self::parse_json(resp).await
     }
 
-    pub async fn put_json<B: Serialize, R: DeserializeOwned>(&self, path: &str, body: &B) -> Result<R> {
+    pub async fn put_json<B: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<R> {
         let resp = self
             .request(reqwest::Method::PUT, path)
             .json(body)

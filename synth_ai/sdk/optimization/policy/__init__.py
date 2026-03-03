@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from .job import PolicyOptimizationJob, PolicyOptimizationJobConfig
 from .v1 import (
     PolicyOptimizationOfflineJob,
     PolicyOptimizationOnlineSession,
@@ -12,6 +13,8 @@ from .v1 import (
 )
 
 __all__ = [
+    "PolicyOptimizationJob",
+    "PolicyOptimizationJobConfig",
     "PolicyOptimizationOfflineJob",
     "PolicyOptimizationOnlineSession",
     "PolicyOptimizationSystem",

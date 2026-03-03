@@ -200,10 +200,7 @@ async def call_chat_completion_api(
     is_provider_host = ("api.openai.com" in lowered) or ("api.groq.com" in lowered)
 
     if api_key:
-        if is_provider_host:
-            headers["Authorization"] = f"Bearer {api_key}"
-        else:
-            headers["X-API-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
 
     payload: dict[str, Any] = {
         "model": model,
@@ -377,49 +374,30 @@ async def call_chat_completion_api(
 
 def add_health_endpoints(app: FastAPI) -> None:
     """Add standard /health and /health/rollout endpoints."""
-    from synth_ai.sdk.container._impl.auth import (
-        is_api_key_header_authorized,
-        normalize_environment_api_key,
-    )
+    from types import SimpleNamespace
 
-    def _log_env_key_prefix(source: str, env_key: str | None) -> str | None:
-        if not env_key:
-            return None
-        prefix = env_key[: max(1, len(env_key) // 2)]
-        print(f"[{source}] expected ENVIRONMENT_API_KEY prefix: {prefix}")
-        return prefix
+    from synth_ai.sdk.container._impl.auth import require_api_key_dependency
 
     @app.get("/health")
     async def health(request: Request):
-        env_key = normalize_environment_api_key()
-        if not env_key:
-            return JSONResponse(
-                status_code=503,
-                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
-            )
-        if not is_api_key_header_authorized(request):
-            prefix = _log_env_key_prefix("health", env_key)
-            content = {"status": "healthy", "authorized": False}
-            if prefix:
-                content["expected_api_key_prefix"] = prefix
-            return JSONResponse(status_code=200, content=content)
-        return {"status": "healthy", "authorized": True}
+        del request
+        return {"status": "healthy"}
 
     @app.get("/health/rollout")
     async def health_rollout(request: Request):
-        env_key = normalize_environment_api_key()
-        if not env_key:
+        probe = SimpleNamespace(
+            url=SimpleNamespace(path="/rollout"),
+            headers=request.headers,
+            client=request.client,
+        )
+        try:
+            require_api_key_dependency(probe)
+            return {"ok": True, "authorized": True}
+        except Exception as exc:
             return JSONResponse(
-                status_code=503,
-                content={"status": "unhealthy", "detail": "Missing ENVIRONMENT_API_KEY"},
+                status_code=200,
+                content={"status": "healthy", "authorized": False, "detail": str(exc)},
             )
-        if not is_api_key_header_authorized(request):
-            prefix = _log_env_key_prefix("health/rollout", env_key)
-            content = {"status": "healthy", "authorized": False}
-            if prefix:
-                content["expected_api_key_prefix"] = prefix
-            return JSONResponse(status_code=200, content=content)
-        return {"ok": True, "authorized": True}
 
 
 def add_metadata_endpoint(app: FastAPI) -> None:

@@ -8,7 +8,7 @@ locations so `import synth_ai_py` resolves to the actual bindings.
 
 from __future__ import annotations
 
-from importlib.machinery import ExtensionFileLoader
+from importlib.machinery import EXTENSION_SUFFIXES, ExtensionFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 from pathlib import Path
 from types import ModuleType
@@ -16,11 +16,34 @@ from types import ModuleType
 
 def _candidate_extension_paths() -> list[Path]:
     root = Path(__file__).resolve().parents[1]
-    return [
-        root / ".venv/lib/python3.11/site-packages/synth_ai_py/synth_ai_py.cpython-311-darwin.so",
-        root / "target/release/libsynth_ai_py.dylib",
-        root / "target/debug/libsynth_ai_py.dylib",
-    ]
+    pkg_dir = Path(__file__).resolve().parent
+    candidates: list[Path] = []
+
+    # First preference: the compiled extension shipped inside the installed wheel.
+    for suffix in EXTENSION_SUFFIXES:
+        candidates.append(pkg_dir / f"synth_ai_py{suffix}")
+
+    # Local checkout fallbacks for developer workflows.
+    candidates.extend(
+        [
+            root / "target/release/libsynth_ai_py.so",
+            root / "target/release/libsynth_ai_py.dylib",
+            root / "target/release/synth_ai_py.dll",
+            root / "target/debug/libsynth_ai_py.so",
+            root / "target/debug/libsynth_ai_py.dylib",
+            root / "target/debug/synth_ai_py.dll",
+        ]
+    )
+
+    # Deduplicate while preserving order.
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        deduped.append(candidate)
+    return deduped
 
 
 def _load_extension() -> ModuleType:

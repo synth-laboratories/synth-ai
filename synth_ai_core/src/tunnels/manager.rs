@@ -218,7 +218,7 @@ async fn verify_public_ready(
             .map_err(|e| TunnelError::dns(e.to_string()))?;
         let mut req = client.get(&ready_url);
         if let Some(key) = api_key.clone() {
-            req = req.header("X-API-Key", key);
+            req = req.header("X-Synth-Container-Authorization", format!("Bearer {key}"));
         }
         match req.send().await {
             Ok(resp) => {

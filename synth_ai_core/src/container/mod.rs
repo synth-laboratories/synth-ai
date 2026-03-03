@@ -23,10 +23,9 @@ pub mod validators;
 pub mod vendors;
 
 pub use auth::{
-    allowed_environment_api_keys, encrypt_for_backend, ensure_container_auth,
-    is_api_key_header_authorized, mint_environment_api_key, normalize_environment_api_key,
-    setup_environment_api_key, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME,
-    ENVIRONMENT_API_KEY_NAME, MAX_ENVIRONMENT_API_KEY_BYTES, SEALED_BOX_ALGORITHM,
+    encrypt_for_backend, CONTAINER_AUTHORIZATION_HEADER_NAME, SEALED_BOX_ALGORITHM,
+    SYNTH_CONTAINER_AUTH_AUDIENCE, SYNTH_CONTAINER_AUTH_DEFAULT_ISSUER,
+    SYNTH_CONTAINER_AUTH_ISSUER_NAME, SYNTH_CONTAINER_TRUSTED_PUBKEYS_NAME,
 };
 pub use client::{ContainerClient, EnvClient};
 pub use datasets::{ensure_split, normalise_seed, TaskDatasetSpec};
@@ -62,10 +61,10 @@ pub use types::{
     TaskDescriptor, TaskInfo,
 };
 pub use validation::{
-    is_local_http_container_url, is_synthtunnel_url, validate_gepa_container_auth,
-    GepaAuthRequirement, validate_artifact_size, validate_artifacts_list,
-    validate_context_overrides, validate_context_snapshot, MAX_ARTIFACTS_PER_ROLLOUT,
-    MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
+    is_local_http_container_url, is_synth_managed_ngrok_url, is_synthtunnel_url,
+    validate_artifact_size, validate_artifacts_list, validate_context_overrides,
+    validate_context_snapshot, validate_gepa_container_auth, GepaAuthRequirement,
+    MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
     MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES, MAX_INLINE_ARTIFACT_BYTES,
     MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
 };

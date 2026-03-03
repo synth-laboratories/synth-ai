@@ -23,7 +23,7 @@ from synth_ai.core.utils.urls import (
     is_synth_managed_ngrok_url,
     is_synthtunnel_url,
 )
-from synth_ai.sdk.container.auth import ensure_container_auth, has_container_token_signing_key
+from synth_ai.sdk.container.auth import has_container_token_signing_key
 from synth_ai.sdk.optimization.models import (
     PolicyCandidate,
     PolicyCandidatePage,
@@ -192,12 +192,16 @@ def _algorithm_to_kind(algorithm: str) -> str | None:
     return None
 
 
-def _normalize_offline_config_value(config_value: Any) -> dict[str, Any]:
+def _normalize_offline_config_value(config_value: Any, kind: str) -> dict[str, Any]:
     if isinstance(config_value, dict):
+        if kind == "eval":
+            return dict(config_value)
         reject_legacy_policy_optimization(config_value)
         if "prompt_learning" in config_value:
             return dict(config_value)
         return {"prompt_learning": dict(config_value)}
+    if kind == "eval":
+        raise ValueError("eval offline jobs require config to be a dictionary")
     return {"prompt_learning": config_value}
 
 
@@ -234,13 +238,17 @@ def _canonicalize_offline_create_payload(config_payload: dict[str, Any]) -> dict
             kind = f"{algo}_{mode}"
     if kind is None:
         raise ValueError(
-            "request kind is required; provide top-level kind in {gepa_offline,mipro_offline}."
+            "request kind is required; provide top-level kind in {gepa_offline,mipro_offline,eval}."
         )
 
     config_value = payload.get("config")
     if config_value is None:
         config_value = payload
-    canonical_config = _normalize_offline_config_value(config_value)
+    canonical_config = _normalize_offline_config_value(config_value, kind)
+    if kind == "eval":
+        inference_mode = payload.get("inference_mode")
+        if inference_mode is not None and isinstance(canonical_config, dict):
+            canonical_config.setdefault("inference_mode", inference_mode)
 
     technique = payload.get("technique")
     if not isinstance(technique, str) or not technique.strip():
@@ -349,10 +357,17 @@ class PromptLearningJobConfig:
             Should have the same structure as the TOML file (with 'prompt_learning' section).
         backend_url: Base URL of the Synth API backend (e.g., "https://api.usesynth.ai").
         api_key: Synth API key for authentication.
-        container_api_key: API key for authenticating with the Local API.
         container_worker_token: SynthTunnel worker token for relay auth when using st.usesynth.ai URLs.
         allow_experimental: If True, allows use of experimental models.
         overrides: Dictionary of config overrides.
+
+    Auth lifecycle:
+        - SDK/backend auth uses `SYNTH_API_KEY` bearer auth.
+        - SynthTunnel relay auth uses `container_worker_token`.
+        - GEPA rollout auth for SynthTunnel/non-local container URLs requires
+          signer keys (`SYNTH_CONTAINER_AUTH_PRIVATE_KEY(S)`) for signed
+          container auth tokens.
+        - `container_api_key` is not part of this API.
 
     Example (file-based):
         >>> config = PromptLearningJobConfig(
@@ -387,7 +402,8 @@ class PromptLearningJobConfig:
     api_key: str
     config_path: Optional[Path] = None
     config_dict: Optional[Dict[str, Any]] = None
-    container_api_key: Optional[str] = None
+    container_api_key: Optional[str] = field(default=None, repr=False)
+    container_key: Optional[str] = field(default=None, repr=False)
     container_worker_token: Optional[str] = field(default=None, repr=False)
     allow_experimental: Optional[bool] = None
     overrides: Optional[Dict[str, Any]] = None
@@ -410,6 +426,10 @@ class PromptLearningJobConfig:
             raise ValueError("backend_url is required (pass backend_url or set SYNTH_BACKEND_URL).")
         if not self.api_key:
             raise ValueError("api_key is required (pass api_key or set SYNTH_API_KEY).")
+
+        if (not self.container_api_key) and isinstance(self.container_key, str):
+            container_key = self.container_key.strip()
+            self.container_api_key = container_key or None
 
         task_url = infer_prompt_learning_container_url(
             overrides=self.overrides or {},
@@ -442,10 +462,6 @@ class PromptLearningJobConfig:
                     "GEPA SynthTunnel rollout auth requires "
                     "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
                 )
-            # For SynthTunnel: the backend resolves container_api_key from
-            # customer_credentials DB, and the SynthTunnel agent injects
-            # container_keys on the container side. No need for SDK to send it.
-            self.container_api_key = None
         else:
             if (
                 is_gepa
@@ -457,16 +473,6 @@ class PromptLearningJobConfig:
                     "GEPA rollout auth for non-local container_url requires "
                     "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
                 )
-            # Get container_api_key from environment if not provided
-            if not self.container_api_key:
-                if is_gepa:
-                    # GEPA rollout auth is token-based; do not bootstrap ENV keys.
-                    self.container_api_key = None
-                else:
-                    self.container_api_key = ensure_container_auth(
-                        backend_base=self.backend_url,
-                        synth_api_key=self.api_key,
-                    )
 
 
 class PromptLearningJobPoller(JobPoller):
@@ -569,7 +575,6 @@ class PromptLearningJob:
         config_path: str | Path,
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        container_api_key: Optional[str] = None,
         container_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -580,7 +585,6 @@ class PromptLearningJob:
             config_path: Path to TOML config file
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
-            container_api_key: Container API key (defaults to ENVIRONMENT_API_KEY env var)
             container_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
@@ -609,7 +613,6 @@ class PromptLearningJob:
             config_path=config_path_obj,
             backend_url=backend_url,
             api_key=api_key,
-            container_api_key=container_api_key,
             container_worker_token=container_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
@@ -623,7 +626,6 @@ class PromptLearningJob:
         config_dict: Dict[str, Any],
         backend_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        container_api_key: Optional[str] = None,
         container_worker_token: Optional[str] = None,
         allow_experimental: Optional[bool] = None,
         overrides: Optional[Dict[str, Any]] = None,
@@ -657,7 +659,6 @@ class PromptLearningJob:
             config_dict: Configuration dictionary with 'prompt_learning' section
             backend_url: Backend API URL (defaults to env or production)
             api_key: API key (defaults to SYNTH_API_KEY env var)
-            container_api_key: Container API key (defaults to ENVIRONMENT_API_KEY env var)
             container_worker_token: SynthTunnel worker token for relay auth
             allow_experimental: Allow experimental models
             overrides: Config overrides
@@ -702,7 +703,6 @@ class PromptLearningJob:
             config_dict=config_dict,
             backend_url=backend_url,
             api_key=api_key,
-            container_api_key=container_api_key,
             container_worker_token=container_worker_token,
             allow_experimental=allow_experimental,
             overrides=overrides or {},
@@ -860,25 +860,9 @@ class PromptLearningJob:
                 "Pass tunnel.worker_token or set container_worker_token."
             )
 
-        # Ensure Temporal workers can authenticate to SynthTunnel relay traffic.
-        #
-        # The backend persists `request.metadata` into the job row (and later rehydrates it
-        # inside the Temporal worker). We still send the worker token via the dedicated
-        # `X-SynthTunnel-Worker-Token` header in Rust, but also include it in metadata as a
-        # belt-and-suspenders strict in case proxies strip custom headers.
+        # Header-only worker-token transport policy:
+        # worker token must be sent via dedicated transport header in backend flows.
         config_payload = _canonicalize_offline_create_payload(build.payload)
-        if is_synth:
-            try:
-                payload_dict = dict(config_payload) if isinstance(config_payload, dict) else {}
-                meta = payload_dict.get("metadata")
-                if not isinstance(meta, dict):
-                    meta = {}
-                meta.setdefault("worker_token", self.config.container_worker_token)
-                payload_dict["metadata"] = meta
-                config_payload = payload_dict
-            except Exception:
-                # If anything goes wrong, fall back to the original payload.
-                config_payload = build.payload
 
         # Health check (skip if _skip_health_check is set - useful for tunnels with DNS delay)
         if not self._skip_health_check and task_url:
@@ -888,13 +872,18 @@ class PromptLearningJob:
                     "",
                     worker_token=self.config.container_worker_token,
                 )
+                if not health.ok:
+                    raise ValueError(
+                        f"Container health check failed for container_url={task_url!r}: {health.detail}. "
+                        "If this URL is a fresh tunnel, retry after DNS propagation or use skip_health_check=True."
+                    )
             else:
-                health = check_container_health(task_url, self.config.container_api_key or "")
-            if not health.ok:
-                raise ValueError(
-                    f"Container health check failed for container_url={task_url!r}: {health.detail}. "
-                    "If this URL is a fresh tunnel, retry after DNS propagation or use skip_health_check=True."
-                )
+                health = check_container_health(task_url, "")
+                if not health.ok:
+                    raise ValueError(
+                        f"Container health check failed for container_url={task_url!r}: {health.detail}. "
+                        "If this URL is a fresh tunnel, retry after DNS propagation or use skip_health_check=True."
+                    )
 
         # Submit job
         import logging
@@ -1187,6 +1176,462 @@ class PromptLearningJob:
         return run_sync(
             self.get_candidate_typed_async(candidate_id),
             label="get_candidate_typed() (use get_candidate_typed_async in async contexts)",
+        )
+
+    async def submit_candidates_async(
+        self,
+        *,
+        algorithm_kind: str,
+        candidates: list[Dict[str, Any]],
+        proposal_session_id: Optional[str] = None,
+        proposer_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Submit typed GEPA/MIPRO candidates through the explicit submit contract."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.submit_candidates(
+            job_id=self._job_id,
+            algorithm_kind=algorithm_kind,
+            candidates=candidates,
+            proposal_session_id=proposal_session_id,
+            proposer_metadata=proposer_metadata,
+        )
+
+    def submit_candidates(
+        self,
+        *,
+        algorithm_kind: str,
+        candidates: list[Dict[str, Any]],
+        proposal_session_id: Optional[str] = None,
+        proposer_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Submit typed GEPA/MIPRO candidates through the explicit submit contract."""
+        return run_sync(
+            self.submit_candidates_async(
+                algorithm_kind=algorithm_kind,
+                candidates=candidates,
+                proposal_session_id=proposal_session_id,
+                proposer_metadata=proposer_metadata,
+            ),
+            label="submit_candidates() (use submit_candidates_async in async contexts)",
+        )
+
+    async def get_state_baseline_info_async(self) -> Dict[str, Any]:
+        """Get persisted state-envelope baseline_info for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.get_state_baseline_info(self._job_id)
+
+    def get_state_baseline_info(self) -> Dict[str, Any]:
+        """Get persisted state-envelope baseline_info for this job."""
+        return run_sync(
+            self.get_state_baseline_info_async(),
+            label="get_state_baseline_info() (use get_state_baseline_info_async in async contexts)",
+        )
+
+    async def get_state_envelope_async(self) -> Dict[str, Any]:
+        """Get full persisted state-envelope payload for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.get_state_envelope(self._job_id)
+
+    def get_state_envelope(self) -> Dict[str, Any]:
+        """Get full persisted state-envelope payload for this job."""
+        return run_sync(
+            self.get_state_envelope_async(),
+            label="get_state_envelope() (use get_state_envelope_async in async contexts)",
+        )
+
+    async def list_trial_queue_async(self) -> Dict[str, Any]:
+        """List persisted trial queue for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.list_trial_queue(self._job_id)
+
+    def list_trial_queue(self) -> Dict[str, Any]:
+        """List persisted trial queue for this job."""
+        return run_sync(
+            self.list_trial_queue_async(),
+            label="list_trial_queue() (use list_trial_queue_async in async contexts)",
+        )
+
+    async def enqueue_trial_async(
+        self,
+        *,
+        trial: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enqueue one persisted trial spec for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.enqueue_trial(
+            self._job_id,
+            trial=trial,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def enqueue_trial(
+        self,
+        *,
+        trial: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enqueue one persisted trial spec for this job."""
+        return run_sync(
+            self.enqueue_trial_async(trial=trial, algorithm_kind=algorithm_kind),
+            label="enqueue_trial() (use enqueue_trial_async in async contexts)",
+        )
+
+    async def update_trial_async(
+        self,
+        trial_id: str,
+        *,
+        patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch one persisted trial spec for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.update_trial(
+            self._job_id,
+            trial_id,
+            patch=patch,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def update_trial(
+        self,
+        trial_id: str,
+        *,
+        patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch one persisted trial spec for this job."""
+        return run_sync(
+            self.update_trial_async(
+                trial_id,
+                patch=patch,
+                algorithm_kind=algorithm_kind,
+            ),
+            label="update_trial() (use update_trial_async in async contexts)",
+        )
+
+    async def cancel_trial_async(
+        self,
+        trial_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Cancel one persisted trial for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.cancel_trial(
+            self._job_id,
+            trial_id,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def cancel_trial(
+        self,
+        trial_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Cancel one persisted trial for this job."""
+        return run_sync(
+            self.cancel_trial_async(trial_id, algorithm_kind=algorithm_kind),
+            label="cancel_trial() (use cancel_trial_async in async contexts)",
+        )
+
+    async def reorder_trials_async(
+        self,
+        *,
+        trial_ids: list[str],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Reorder persisted trial queue for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.reorder_trials(
+            self._job_id,
+            trial_ids=trial_ids,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def reorder_trials(
+        self,
+        *,
+        trial_ids: list[str],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Reorder persisted trial queue for this job."""
+        return run_sync(
+            self.reorder_trials_async(trial_ids=trial_ids, algorithm_kind=algorithm_kind),
+            label="reorder_trials() (use reorder_trials_async in async contexts)",
+        )
+
+    async def apply_default_trial_plan_async(
+        self,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Apply default persisted trial plan templates for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.apply_default_trial_plan(
+            self._job_id,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def apply_default_trial_plan(
+        self,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Apply default persisted trial plan templates for this job."""
+        return run_sync(
+            self.apply_default_trial_plan_async(algorithm_kind=algorithm_kind),
+            label="apply_default_trial_plan() (use apply_default_trial_plan_async in async contexts)",
+        )
+
+    async def get_rollout_queue_async(self) -> Dict[str, Any]:
+        """Get persisted rollout queue state for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.get_rollout_queue(self._job_id)
+
+    def get_rollout_queue(self) -> Dict[str, Any]:
+        """Get persisted rollout queue state for this job."""
+        return run_sync(
+            self.get_rollout_queue_async(),
+            label="get_rollout_queue() (use get_rollout_queue_async in async contexts)",
+        )
+
+    async def set_rollout_queue_policy_async(
+        self,
+        *,
+        policy_patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch persisted rollout queue policy for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.set_rollout_queue_policy(
+            self._job_id,
+            policy_patch=policy_patch,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def set_rollout_queue_policy(
+        self,
+        *,
+        policy_patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch persisted rollout queue policy for this job."""
+        return run_sync(
+            self.set_rollout_queue_policy_async(
+                policy_patch=policy_patch,
+                algorithm_kind=algorithm_kind,
+            ),
+            label="set_rollout_queue_policy() (use set_rollout_queue_policy_async in async contexts)",
+        )
+
+    async def get_rollout_dispatch_metrics_async(self) -> Dict[str, Any]:
+        """Get persisted rollout dispatch metrics for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.get_rollout_dispatch_metrics(self._job_id)
+
+    def get_rollout_dispatch_metrics(self) -> Dict[str, Any]:
+        """Get persisted rollout dispatch metrics for this job."""
+        return run_sync(
+            self.get_rollout_dispatch_metrics_async(),
+            label=(
+                "get_rollout_dispatch_metrics() "
+                "(use get_rollout_dispatch_metrics_async in async contexts)"
+            ),
+        )
+
+    async def get_rollout_limiter_status_async(self) -> Dict[str, Any]:
+        """Get rollout scheduler limiter status for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.get_rollout_limiter_status(self._job_id)
+
+    def get_rollout_limiter_status(self) -> Dict[str, Any]:
+        """Get rollout scheduler limiter status for this job."""
+        return run_sync(
+            self.get_rollout_limiter_status_async(),
+            label=(
+                "get_rollout_limiter_status() "
+                "(use get_rollout_limiter_status_async in async contexts)"
+            ),
+        )
+
+    async def retry_rollout_dispatch_async(
+        self,
+        dispatch_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retry a rollout dispatch for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.retry_rollout_dispatch(
+            self._job_id,
+            dispatch_id,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def retry_rollout_dispatch(
+        self,
+        dispatch_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retry a rollout dispatch for this job."""
+        return run_sync(
+            self.retry_rollout_dispatch_async(
+                dispatch_id,
+                algorithm_kind=algorithm_kind,
+            ),
+            label=("retry_rollout_dispatch() (use retry_rollout_dispatch_async in async contexts)"),
+        )
+
+    async def drain_rollout_queue_async(
+        self,
+        *,
+        cancel_queued: bool = False,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Set rollout queue draining mode for this job (async)."""
+        if not self._job_id:
+            raise RuntimeError("Job not yet submitted. Call submit() first.")
+        from .learning.prompt_learning_client import PromptLearningClient
+
+        client = PromptLearningClient(
+            base_url=self.config.backend_url,
+            api_key=self.config.api_key,
+            api_version=GEPA_API_VERSION,
+        )
+        return await client.drain_rollout_queue(
+            self._job_id,
+            cancel_queued=cancel_queued,
+            algorithm_kind=algorithm_kind,
+        )
+
+    def drain_rollout_queue(
+        self,
+        *,
+        cancel_queued: bool = False,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Set rollout queue draining mode for this job."""
+        return run_sync(
+            self.drain_rollout_queue_async(
+                cancel_queued=cancel_queued,
+                algorithm_kind=algorithm_kind,
+            ),
+            label="drain_rollout_queue() (use drain_rollout_queue_async in async contexts)",
         )
 
     async def list_seed_evals_async(

@@ -62,23 +62,6 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...{value[-visible_chars:]}"
 
 
-def get_synth_and_env_keys() -> tuple[str, str]:
-    synth_ai_py.auth_load_user_env()
-    synth_api_key = os.environ.get("SYNTH_API_KEY")
-    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not synth_api_key:
-        raise RuntimeError(
-            f"SYNTH_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
-            "Either run synth-ai setup to load automatically or manually set it in your shell."
-        )
-    if not env_api_key:
-        raise RuntimeError(
-            f"ENVIRONMENT_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
-            "Either run synth-ai setup to load automatically or manually set it in your shell."
-        )
-    return synth_api_key, env_api_key
-
-
 def get_backend_url() -> str:
     """Return the configured backend URL base."""
     return BACKEND_URL_BASE
@@ -265,7 +248,6 @@ def ensure_synth_api_key(
 
 __all__ = [
     "get_api_key",
-    "get_synth_and_env_keys",
     "ensure_synth_api_key",
     "LOCAL_DEV_SYNTH_API_KEY",
     "mint_demo_api_key",

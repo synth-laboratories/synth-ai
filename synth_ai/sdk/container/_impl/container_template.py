@@ -15,7 +15,7 @@ Usage:
     1. Copy this template to your project
     2. Customize the dataset loading and task-specific logic
     3. Update the reward computation function for your task
-    4. Run with: ENVIRONMENT_API_KEY=<your-key> python your_container.py
+    4. Run with: python your_container.py
 """
 
 import importlib
@@ -152,7 +152,7 @@ async def call_llm(
 
     headers = {"Content-Type": "application/json"}
     if api_key:
-        headers["X-API-Key"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
 
     payload = {
         "model": model,

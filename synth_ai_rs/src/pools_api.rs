@@ -207,15 +207,18 @@ impl PoolsClient {
     }
 
     pub async fn create(&self, request: &PoolCreateRequest) -> Result<Pool> {
-        self.transport.post_json(openapi_paths::V1_POOLS, request).await
+        self.transport
+            .post_json(openapi_paths::V1_POOLS, request)
+            .await
     }
 
     pub async fn list(&self, params: Option<&CursorParams>) -> Result<ResourceList<Pool>> {
         match params {
-            Some(query) => self
-                .transport
-                .get_json_with_query(openapi_paths::V1_POOLS, query)
-                .await,
+            Some(query) => {
+                self.transport
+                    .get_json_with_query(openapi_paths::V1_POOLS, query)
+                    .await
+            }
             None => self.transport.get_json(openapi_paths::V1_POOLS).await,
         }
     }
@@ -300,16 +303,21 @@ impl PoolDataSourcesClient {
             .await
     }
 
-    pub async fn list(&self, params: Option<&CursorParams>) -> Result<ResourceList<PoolDataSource>> {
+    pub async fn list(
+        &self,
+        params: Option<&CursorParams>,
+    ) -> Result<ResourceList<PoolDataSource>> {
         match params {
-            Some(query) => self
-                .transport
-                .get_json_with_query(openapi_paths::V1_POOLS_DATA_SOURCES, query)
-                .await,
-            None => self
-                .transport
-                .get_json(openapi_paths::V1_POOLS_DATA_SOURCES)
-                .await,
+            Some(query) => {
+                self.transport
+                    .get_json_with_query(openapi_paths::V1_POOLS_DATA_SOURCES, query)
+                    .await
+            }
+            None => {
+                self.transport
+                    .get_json(openapi_paths::V1_POOLS_DATA_SOURCES)
+                    .await
+            }
         }
     }
 
@@ -325,7 +333,10 @@ impl PoolDataSourcesClient {
         request: &PoolDataSourceUpdateRequest,
     ) -> Result<PoolDataSource> {
         self.transport
-            .patch_json(&openapi_paths::v1_pools_data_source(data_source_id), request)
+            .patch_json(
+                &openapi_paths::v1_pools_data_source(data_source_id),
+                request,
+            )
             .await
     }
 
@@ -353,14 +364,16 @@ impl PoolAssembliesClient {
 
     pub async fn list(&self, params: Option<&CursorParams>) -> Result<ResourceList<PoolAssembly>> {
         match params {
-            Some(query) => self
-                .transport
-                .get_json_with_query(openapi_paths::V1_POOLS_ASSEMBLIES, query)
-                .await,
-            None => self
-                .transport
-                .get_json(openapi_paths::V1_POOLS_ASSEMBLIES)
-                .await,
+            Some(query) => {
+                self.transport
+                    .get_json_with_query(openapi_paths::V1_POOLS_ASSEMBLIES, query)
+                    .await
+            }
+            None => {
+                self.transport
+                    .get_json(openapi_paths::V1_POOLS_ASSEMBLIES)
+                    .await
+            }
         }
     }
 
@@ -370,7 +383,11 @@ impl PoolAssembliesClient {
             .await
     }
 
-    pub async fn events(&self, assembly_id: &str, params: Option<&CursorParams>) -> Result<EventsResponse> {
+    pub async fn events(
+        &self,
+        assembly_id: &str,
+        params: Option<&CursorParams>,
+    ) -> Result<EventsResponse> {
         let path = openapi_paths::v1_pools_assembly_events(assembly_id);
         match params {
             Some(query) => self.transport.get_json_with_query(&path, query).await,
@@ -417,17 +434,27 @@ impl PoolRolloutsClient {
 
     pub async fn artifacts(&self, rollout_id: &str) -> Result<ArtifactsResponse> {
         self.transport
-            .get_json(&openapi_paths::v1_pool_rollout_artifacts(&self.pool_id, rollout_id))
+            .get_json(&openapi_paths::v1_pool_rollout_artifacts(
+                &self.pool_id,
+                rollout_id,
+            ))
             .await
     }
 
     pub async fn usage(&self, rollout_id: &str) -> Result<Value> {
         self.transport
-            .get_json(&openapi_paths::v1_pool_rollout_usage(&self.pool_id, rollout_id))
+            .get_json(&openapi_paths::v1_pool_rollout_usage(
+                &self.pool_id,
+                rollout_id,
+            ))
             .await
     }
 
-    pub async fn events(&self, rollout_id: &str, params: Option<&CursorParams>) -> Result<EventsResponse> {
+    pub async fn events(
+        &self,
+        rollout_id: &str,
+        params: Option<&CursorParams>,
+    ) -> Result<EventsResponse> {
         let path = openapi_paths::v1_pool_rollout_events(&self.pool_id, rollout_id);
         match params {
             Some(query) => self.transport.get_json_with_query(&path, query).await,
@@ -459,7 +486,10 @@ impl PoolTasksClient {
 
     pub async fn update(&self, task_id: &str, request: &PoolTaskUpdateRequest) -> Result<PoolTask> {
         self.transport
-            .put_json(&openapi_paths::v1_pool_task(&self.pool_id, task_id), request)
+            .put_json(
+                &openapi_paths::v1_pool_task(&self.pool_id, task_id),
+                request,
+            )
             .await
     }
 
@@ -469,4 +499,3 @@ impl PoolTasksClient {
             .await
     }
 }
-

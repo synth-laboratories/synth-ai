@@ -581,8 +581,7 @@ impl ProgressTracker {
                 .as_ref()
                 .and_then(|m| m.get("reward").copied())
                 .or_else(|| candidate_view.get("reward").and_then(|v| v.as_f64()))
-                .or_else(|| candidate_view.get("accuracy").and_then(|v| v.as_f64()))
-                ;
+                .or_else(|| candidate_view.get("accuracy").and_then(|v| v.as_f64()));
 
             // Auto-derive objectives from accuracy if not found
             let objectives = objectives.or_else(|| {

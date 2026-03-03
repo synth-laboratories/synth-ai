@@ -82,21 +82,13 @@ pub fn online_session_path(session_id: &str, api_version: ApiVersion) -> String 
 }
 
 /// e.g. `/v1/online/sessions/{session_id}/reward`
-pub fn online_session_subpath(
-    session_id: &str,
-    suffix: &str,
-    api_version: ApiVersion,
-) -> String {
+pub fn online_session_subpath(session_id: &str, suffix: &str, api_version: ApiVersion) -> String {
     let suffix = if suffix.starts_with('/') {
         suffix.to_string()
     } else {
         format!("/{}", suffix)
     };
-    format!(
-        "{}{}",
-        online_session_path(session_id, api_version),
-        suffix
-    )
+    format!("{}{}", online_session_path(session_id, api_version), suffix)
 }
 
 // ---------------------------------------------------------------------------
@@ -182,14 +174,8 @@ mod tests {
 
     #[test]
     fn test_online_sessions_base() {
-        assert_eq!(
-            online_sessions_base(ApiVersion::V1),
-            "/v1/online/sessions"
-        );
-        assert_eq!(
-            online_sessions_base(ApiVersion::V2),
-            "/v2/online/sessions"
-        );
+        assert_eq!(online_sessions_base(ApiVersion::V1), "/v1/online/sessions");
+        assert_eq!(online_sessions_base(ApiVersion::V2), "/v2/online/sessions");
     }
 
     #[test]
@@ -243,7 +229,10 @@ mod tests {
         );
         // jobs_events("abc") == "/api/v1/offline/jobs/abc/events"
         assert_eq!(
-            format!("/api{}", offline_job_subpath("abc", "events", ApiVersion::V1)),
+            format!(
+                "/api{}",
+                offline_job_subpath("abc", "events", ApiVersion::V1)
+            ),
             "/api/v1/offline/jobs/abc/events"
         );
         // jobs_events_stream("abc") == "/api/v1/offline/jobs/abc/events/stream"

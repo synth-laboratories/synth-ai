@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from synth_ai.sdk.optimization.internal import builders as builders_module
 from synth_ai.sdk.optimization.internal import prompt_learning as prompt_learning_module
 
@@ -26,27 +25,7 @@ def _stub_resolve(
 
 
 def test_prompt_learning_config_skips_env_key_bootstrap_when_signer_present(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-local"
-
     monkeypatch.setattr(prompt_learning_module, "has_container_token_signing_key", lambda: True)
-    monkeypatch.setattr(prompt_learning_module, "ensure_container_auth", _ensure)
 
     cfg = prompt_learning_module.PromptLearningJobConfig(
         config_dict={"prompt_learning": {"container_url": "http://127.0.0.1:9001"}},
@@ -54,32 +33,11 @@ def test_prompt_learning_config_skips_env_key_bootstrap_when_signer_present(monk
         api_key="sk_test",
     )
 
-    assert cfg.container_api_key is None
-    assert calls == []
+    assert cfg.container_worker_token is None
 
 
 def test_prompt_learning_config_skips_backend_key_bootstrap_without_signer(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-backend"
-
     monkeypatch.setattr(prompt_learning_module, "has_container_token_signing_key", lambda: False)
-    monkeypatch.setattr(prompt_learning_module, "ensure_container_auth", _ensure)
 
     cfg = prompt_learning_module.PromptLearningJobConfig(
         config_dict={"prompt_learning": {"container_url": "http://127.0.0.1:9001"}},
@@ -87,32 +45,11 @@ def test_prompt_learning_config_skips_backend_key_bootstrap_without_signer(monke
         api_key="sk_test",
     )
 
-    assert cfg.container_api_key is None
-    assert calls == []
+    assert cfg.container_worker_token is None
 
 
-def test_prompt_learning_config_mipro_bootstraps_backend_key_with_signer(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-backend"
-
+def test_prompt_learning_config_mipro_uses_server_resolved_auth(monkeypatch) -> None:
     monkeypatch.setattr(prompt_learning_module, "has_container_token_signing_key", lambda: True)
-    monkeypatch.setattr(prompt_learning_module, "ensure_container_auth", _ensure)
 
     cfg = prompt_learning_module.PromptLearningJobConfig(
         config_dict={"prompt_learning": {"algorithm": "mipro", "container_url": "http://127.0.0.1:9001"}},
@@ -120,15 +57,7 @@ def test_prompt_learning_config_mipro_bootstraps_backend_key_with_signer(monkeyp
         api_key="sk_test",
     )
 
-    assert cfg.container_api_key == "env-backend"
-    assert calls == [
-        {
-            "backend_base": "http://127.0.0.1:8080",
-            "synth_api_key": "sk_test",
-            "upload": True,
-            "persist": None,
-        }
-    ]
+    assert cfg.container_worker_token is None
 
 
 def test_prompt_learning_config_requires_signer_for_gepa_synthtunnel(monkeypatch) -> None:
@@ -228,27 +157,7 @@ class _StubMiproPromptLearningConfig:
 
 
 def test_builder_mapping_skips_env_key_bootstrap_when_signer_present(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-local"
-
     monkeypatch.setattr(builders_module, "has_container_token_signing_key", lambda: True)
-    monkeypatch.setattr(builders_module, "ensure_container_auth", _ensure)
     monkeypatch.setattr(
         builders_module,
         "_normalize_mipro_section",
@@ -276,31 +185,10 @@ def test_builder_mapping_skips_env_key_bootstrap_when_signer_present(monkeypatch
         source_label="test",
     )
     assert result.task_url == "http://127.0.0.1:9001"
-    assert calls == []
 
 
 def test_builder_mapping_skips_bootstrap_when_signer_missing(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-backend"
-
     monkeypatch.setattr(builders_module, "has_container_token_signing_key", lambda: False)
-    monkeypatch.setattr(builders_module, "ensure_container_auth", _ensure)
     monkeypatch.setattr(
         builders_module,
         "_normalize_mipro_section",
@@ -328,7 +216,6 @@ def test_builder_mapping_skips_bootstrap_when_signer_missing(monkeypatch) -> Non
         source_label="test",
     )
     assert result.task_url == "http://127.0.0.1:9001"
-    assert calls == []
 
 
 def test_builder_mapping_requires_signer_for_gepa_synthtunnel(monkeypatch) -> None:
@@ -393,28 +280,8 @@ def test_builder_mapping_requires_signer_for_gepa_non_local_url(monkeypatch) -> 
         )
 
 
-def test_builder_mapping_mipro_bootstraps_backend_key_with_signer(monkeypatch) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-backend"
-
+def test_builder_mapping_mipro_uses_server_resolved_auth(monkeypatch) -> None:
     monkeypatch.setattr(builders_module, "has_container_token_signing_key", lambda: True)
-    monkeypatch.setattr(builders_module, "ensure_container_auth", _ensure)
     monkeypatch.setattr(
         builders_module,
         "_normalize_mipro_section",
@@ -442,46 +309,18 @@ def test_builder_mapping_mipro_bootstraps_backend_key_with_signer(monkeypatch) -
         source_label="test",
     )
     assert result.task_url == "http://127.0.0.1:9001"
-    assert calls == [
-        {
-            "backend_base": None,
-            "synth_api_key": None,
-            "upload": True,
-            "persist": None,
-        }
-    ]
 
 
 def test_builder_file_mode_skips_env_key_bootstrap_when_signer_present(monkeypatch, tmp_path) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-local"
-
     monkeypatch.setattr(builders_module, "has_container_token_signing_key", lambda: True)
-    monkeypatch.setattr(builders_module, "ensure_container_auth", _ensure)
     monkeypatch.setattr(
         builders_module,
         "_normalize_mipro_section",
         lambda _pl_cfg, _cfg, source, prefer_model: None,
     )
 
-    import synth_ai.sdk.optimization.internal.validators as validators_module
     import synth_ai.sdk.optimization.internal.configs.prompt_learning as pl_configs_module
+    import synth_ai.sdk.optimization.internal.validators as validators_module
 
     monkeypatch.setattr(validators_module, "validate_prompt_learning_config", lambda *_a, **_k: None)
     monkeypatch.setattr(pl_configs_module, "load_toml", lambda _path: {"prompt_learning": {}})
@@ -505,39 +344,18 @@ def test_builder_file_mode_skips_env_key_bootstrap_when_signer_present(monkeypat
         overrides={},
     )
     assert result.task_url == "http://127.0.0.1:9001"
-    assert calls == []
 
 
 def test_builder_file_mode_skips_bootstrap_when_signer_missing(monkeypatch, tmp_path) -> None:
-    calls: list[dict[str, object]] = []
-
-    def _ensure(
-        backend_base: str | None = None,
-        synth_api_key: str | None = None,
-        *,
-        upload: bool = True,
-        persist: bool | None = None,
-    ) -> str:
-        calls.append(
-            {
-                "backend_base": backend_base,
-                "synth_api_key": synth_api_key,
-                "upload": upload,
-                "persist": persist,
-            }
-        )
-        return "env-backend"
-
     monkeypatch.setattr(builders_module, "has_container_token_signing_key", lambda: False)
-    monkeypatch.setattr(builders_module, "ensure_container_auth", _ensure)
     monkeypatch.setattr(
         builders_module,
         "_normalize_mipro_section",
         lambda _pl_cfg, _cfg, source, prefer_model: None,
     )
 
-    import synth_ai.sdk.optimization.internal.validators as validators_module
     import synth_ai.sdk.optimization.internal.configs.prompt_learning as pl_configs_module
+    import synth_ai.sdk.optimization.internal.validators as validators_module
 
     monkeypatch.setattr(validators_module, "validate_prompt_learning_config", lambda *_a, **_k: None)
     monkeypatch.setattr(pl_configs_module, "load_toml", lambda _path: {"prompt_learning": {}})
@@ -561,6 +379,3 @@ def test_builder_file_mode_skips_bootstrap_when_signer_missing(monkeypatch, tmp_
         overrides={},
     )
     assert result.task_url == "http://127.0.0.1:9001"
-    assert calls == []
-
-

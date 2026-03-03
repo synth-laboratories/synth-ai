@@ -31,6 +31,11 @@ from urllib.parse import urlparse
 
 import httpx
 
+from synth_ai.core.tunnels.errors import (
+    TunnelErrorCode,
+    TunnelProviderError,
+    map_problem_to_tunnel_error_code,
+)
 from synth_ai.core.utils.urls import normalize_backend_base, resolve_synth_backend_url
 
 logger = logging.getLogger(__name__)
@@ -62,6 +67,40 @@ def _parse_datetime(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def _raise_for_problem_response(resp: httpx.Response, *, provider: str) -> None:
+    if resp.status_code < 400:
+        return
+    payload: dict[str, Any] = {}
+    try:
+        parsed = resp.json()
+        if isinstance(parsed, dict):
+            payload = parsed
+    except Exception:
+        payload = {}
+    detail = str(payload.get("detail") or payload.get("message") or "").strip()
+    backend_code = str(payload.get("code") or "").strip() or None
+    request_id = str(payload.get("request_id") or "").strip() or None
+    mapped_code = map_problem_to_tunnel_error_code(backend_code, detail)
+    # Refine common SynthTunnel lifecycle cases.
+    detail_lc = detail.lower()
+    if "lease_pending" in detail_lc:
+        mapped_code = TunnelErrorCode.LEASE_PENDING
+    elif "lease_expired" in detail_lc:
+        mapped_code = TunnelErrorCode.LEASE_EXPIRED
+    elif "agent_offline" in detail_lc:
+        mapped_code = TunnelErrorCode.AGENT_OFFLINE
+
+    raise TunnelProviderError(
+        f"{provider} backend request failed (HTTP {resp.status_code}).",
+        code=mapped_code,
+        status=resp.status_code,
+        request_id=request_id,
+        backend_code=backend_code,
+        provider=provider,
+        hint=detail or resp.text[:200],
+    )
+
+
 def _required_response_str(payload: Dict[str, Any], field: str) -> str:
     raw = payload.get(field)
     if raw is None:
@@ -72,7 +111,7 @@ def _required_response_str(payload: Dict[str, Any], field: str) -> str:
     return value
 
 
-def _parse_lease_response(data: Dict[str, Any]) -> "SynthTunnelLease":
+def _parse_lease_response(data: Dict[str, Any]) -> SynthTunnelLease:
     if not isinstance(data, dict):
         raise RuntimeError("SynthTunnel lease response must be a JSON object")
 
@@ -84,7 +123,9 @@ def _parse_lease_response(data: Dict[str, Any]) -> "SynthTunnelLease":
     try:
         expires_at = _parse_datetime(expires_raw)
     except Exception as exc:
-        raise RuntimeError(f"SynthTunnel lease response has invalid expires_at: {expires_raw}") from exc
+        raise RuntimeError(
+            f"SynthTunnel lease response has invalid expires_at: {expires_raw}"
+        ) from exc
 
     limits = data.get("limits", {}) or {}
     heartbeat = data.get("heartbeat", {}) or {}
@@ -108,22 +149,8 @@ def _parse_lease_response(data: Dict[str, Any]) -> "SynthTunnelLease":
 
 
 def _collect_container_keys(primary: Optional[str]) -> list[str]:
-    keys: list[str] = []
-    if primary and primary.strip():
-        keys.append(primary.strip())
-    env_primary = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
-    if env_primary and env_primary not in keys:
-        keys.append(env_primary)
-    dev_primary = (os.environ.get("DEV_ENVIRONMENT_API_KEY") or "").strip()
-    if dev_primary and dev_primary not in keys:
-        keys.append(dev_primary)
-    aliases_raw = (os.environ.get("ENVIRONMENT_API_KEY_ALIASES") or "").strip()
-    if aliases_raw:
-        for part in aliases_raw.split(","):
-            candidate = part.strip()
-            if candidate and candidate not in keys:
-                keys.append(candidate)
-    return keys
+    # Legacy compatibility shim: relay path uses worker-token gated auth.
+    return [primary.strip()] if primary and primary.strip() else []
 
 
 @dataclass
@@ -171,7 +198,7 @@ class SynthTunnelClient:
         timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
         async with httpx.AsyncClient(timeout=timeout_sec) as client:
             resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
+            _raise_for_problem_response(resp, provider="SynthTunnel")
             data = resp.json()
         return _parse_lease_response(data)
 
@@ -181,7 +208,7 @@ class SynthTunnelClient:
         timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
         async with httpx.AsyncClient(timeout=timeout_sec) as client:
             resp = await client.delete(url, headers=headers)
-            resp.raise_for_status()
+            _raise_for_problem_response(resp, provider="SynthTunnel")
 
 
 def hostname_from_url(url: str) -> str:

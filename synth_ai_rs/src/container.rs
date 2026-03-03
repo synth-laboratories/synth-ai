@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -11,6 +10,9 @@ use axum::{Json, Router};
 use futures_util::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use synth_ai_core::container::auth::{
+    verify_container_paseto_header, CONTAINER_AUTHORIZATION_HEADER_NAME,
+};
 
 use crate::types::{Result, SynthError};
 
@@ -202,15 +204,11 @@ impl ContainerConfig {
         Fut: Future<Output = std::result::Result<RolloutResponse, ContainerError>> + Send + 'static,
     {
         let rollout: RolloutHandler = Arc::new(move |req| Box::pin(handler(req)));
-        let mut api_keys = Vec::new();
-        if let Ok(val) = std::env::var("ENVIRONMENT_API_KEY") {
-            api_keys.push(val);
-        }
         Self {
             task_info: TaskInfo::minimal(app_id, name, description),
             rollout,
             require_api_key: true,
-            api_keys,
+            api_keys: Vec::new(),
         }
     }
 }
@@ -253,11 +251,8 @@ async fn root() -> Response {
 
 async fn health(
     State(config): State<Arc<ContainerConfig>>,
-    headers: HeaderMap,
 ) -> Response {
-    if let Err(resp) = authorize(&config, &headers) {
-        return resp;
-    }
+    let _ = config;
     Json(json!({ "healthy": true })).into_response()
 }
 
@@ -265,7 +260,7 @@ async fn task_info(
     State(config): State<Arc<ContainerConfig>>,
     headers: HeaderMap,
 ) -> Response {
-    if let Err(resp) = authorize(&config, &headers) {
+    if let Err(resp) = authorize(&config, &headers, Some("task_info")) {
         return resp;
     }
     Json(config.task_info.clone()).into_response()
@@ -275,7 +270,7 @@ async fn info(
     State(config): State<Arc<ContainerConfig>>,
     headers: HeaderMap,
 ) -> Response {
-    if let Err(resp) = authorize(&config, &headers) {
+    if let Err(resp) = authorize(&config, &headers, Some("task_info")) {
         return resp;
     }
     let task = config.task_info.task.clone();
@@ -299,7 +294,7 @@ async fn rollout(
     headers: HeaderMap,
     Json(request): Json<RolloutRequest>,
 ) -> impl IntoResponse {
-    if let Err(resp) = authorize(&config, &headers) {
+    if let Err(resp) = authorize(&config, &headers, Some("rollout")) {
         return resp;
     }
     let handler = config.rollout.clone();
@@ -313,69 +308,45 @@ async fn rollout(
     }
 }
 
-fn authorize(config: &ContainerConfig, headers: &HeaderMap) -> std::result::Result<(), axum::response::Response> {
+fn authorize(
+    config: &ContainerConfig,
+    headers: &HeaderMap,
+    required_scope: Option<&str>,
+) -> std::result::Result<(), axum::response::Response> {
     if !config.require_api_key {
         return Ok(());
     }
-    let allowed = api_key_set(config);
-    if allowed.is_empty() {
+    let token_header = headers
+        .get("x-synth-container-authorization")
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    let Some(token_header) = token_header else {
         let resp = (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(json!({ "error": "ENVIRONMENT_API_KEY is not configured" })),
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "error": "Container token missing",
+                "required_header": CONTAINER_AUTHORIZATION_HEADER_NAME,
+            })),
         )
-            .into_response();
-        return Err(resp);
-    }
-    let provided = header_keys(headers);
-    if provided.iter().any(|key| allowed.contains(key)) {
-        return Ok(());
-    }
-    let resp = (
-        StatusCode::UNAUTHORIZED,
-        Json(json!({ "error": "API key missing or invalid" })),
-    )
         .into_response();
-    Err(resp)
-}
+        return Err(resp);
+    };
 
-fn api_key_set(config: &ContainerConfig) -> HashSet<String> {
-    let mut set = HashSet::new();
-    for key in &config.api_keys {
-        if !key.is_empty() {
-            set.insert(key.clone());
+    match verify_container_paseto_header(token_header, required_scope) {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            let resp = (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "error": "Container token invalid or expired",
+                    "detail": err.to_string(),
+                    "required_header": CONTAINER_AUTHORIZATION_HEADER_NAME,
+                })),
+            )
+            .into_response();
+            Err(resp)
         }
     }
-    if let Ok(aliases) = std::env::var("ENVIRONMENT_API_KEY_ALIASES") {
-        for part in aliases.split(',') {
-            let trimmed = part.trim();
-            if !trimmed.is_empty() {
-                set.insert(trimmed.to_string());
-            }
-        }
-    }
-    set
-}
-
-fn header_keys(headers: &HeaderMap) -> Vec<String> {
-    let mut keys = Vec::new();
-    for header in ["x-api-key", "x-api-keys", "authorization"] {
-        if let Some(value) = headers.get(header) {
-            if let Ok(text) = value.to_str() {
-                if header == "authorization" && text.to_lowercase().starts_with("bearer ") {
-                    keys.extend(split_keys(&text[7..]));
-                } else {
-                    keys.extend(split_keys(text));
-                }
-            }
-        }
-    }
-    keys
-}
-
-fn split_keys(input: &str) -> Vec<String> {
-    input
-        .split(',')
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
 }

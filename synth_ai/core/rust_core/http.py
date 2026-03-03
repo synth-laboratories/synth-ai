@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+from synth_ai.core.errors import HTTPError
 from synth_ai.core.rust_core.urls import ensure_api_base, normalize_base_url
 
 try:
@@ -63,12 +64,26 @@ class RustCoreHttpClient:
     async def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         if self._rust_client is None:
             await self.__aenter__()
-        return await asyncio.to_thread(self._rust_client.get_json, path, params)
+        for attempt in range(2):
+            try:
+                return await asyncio.to_thread(self._rust_client.get_json, path, params)
+            except HTTPError as exc:
+                if exc.status == 0 and attempt == 0:
+                    await asyncio.sleep(0.05)
+                    continue
+                raise
 
     async def post_json(self, path: str, *, json: dict[str, Any]) -> Any:
         if self._rust_client is None:
             await self.__aenter__()
-        return await asyncio.to_thread(self._rust_client.post_json, path, json)
+        for attempt in range(2):
+            try:
+                return await asyncio.to_thread(self._rust_client.post_json, path, json)
+            except HTTPError as exc:
+                if exc.status == 0 and attempt == 0:
+                    await asyncio.sleep(0.05)
+                    continue
+                raise
 
     async def post_multipart(
         self,
@@ -79,12 +94,27 @@ class RustCoreHttpClient:
     ) -> Any:
         if self._rust_client is None:
             await self.__aenter__()
-        return await asyncio.to_thread(self._rust_client.post_multipart, path, data, files)
+        for attempt in range(2):
+            try:
+                return await asyncio.to_thread(self._rust_client.post_multipart, path, data, files)
+            except HTTPError as exc:
+                if exc.status == 0 and attempt == 0:
+                    await asyncio.sleep(0.05)
+                    continue
+                raise
 
     async def delete(self, path: str) -> Any:
         if self._rust_client is None:
             await self.__aenter__()
-        await asyncio.to_thread(self._rust_client.delete, path)
+        for attempt in range(2):
+            try:
+                await asyncio.to_thread(self._rust_client.delete, path)
+                break
+            except HTTPError as exc:
+                if exc.status == 0 and attempt == 0:
+                    await asyncio.sleep(0.05)
+                    continue
+                raise
         return None
 
 

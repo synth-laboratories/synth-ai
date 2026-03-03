@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, ValidationError, field_serializer
 from starlette.middleware import Middleware
 
-from .auth import normalize_environment_api_key, require_api_key_dependency
+from .auth import require_api_key_dependency
 from .contracts import (
     DatasetInfo,
     InferenceInfo,
@@ -173,7 +173,8 @@ class ContainerConfig:
         middleware: Additional middleware to apply
         app_state: Mutable state dict accessible to routes
         require_api_key: Whether to require API key authentication
-        ensure_container_auth: Whether to auto-ensure ENVIRONMENT_API_KEY on startup
+        ensure_container_auth: Legacy compatibility flag (ignored; rollout auth
+            is token-based and server-resolved in current synth-ai flows)
         expose_debug_env: Whether to expose debug environment endpoint
         cors_origins: CORS allowed origins
         startup_hooks: Functions to call on app startup
@@ -446,13 +447,8 @@ def create_container(config: ContainerConfig) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
-        # Auto-ensure environment API key if enabled (defaults to True)
-        # This handles minting, persisting, and uploading the key transparently
-        if cfg.ensure_container_auth:
-            from synth_ai.sdk.container.auth import ensure_container_auth
-
-            ensure_container_auth()
-        normalize_environment_api_key()
+        # Legacy no-op retained for call-site compatibility.
+        _ = cfg.ensure_container_auth
         normalize_vendor_keys()
         for hook in cfg.startup_hooks:
             await _call_hook(hook)
@@ -473,15 +469,14 @@ def create_container(config: ContainerConfig) -> FastAPI:
         return to_jsonable({"status": "ok"})
 
     @app.get("/health", dependencies=[Depends(auth_dependency)])
-    async def health(request: Request) -> Mapping[str, Any]:
-        # If we got here, auth_dependency already verified the key exactly matches
-        expected = normalize_environment_api_key()
+    async def health(_request: Request) -> Mapping[str, Any]:
         return to_jsonable(
             {
                 "healthy": True,
                 "auth": {
                     "required": True,
-                    "expected_prefix": (expected[:6] + "...") if expected else "<unset>",
+                    "mode": os.getenv("SYNTH_CONTAINER_AUTH_MODE", "required"),
+                    "required_header": "x-synth-container-authorization",
                 },
             }
         )
@@ -579,7 +574,10 @@ def create_container(config: ContainerConfig) -> FastAPI:
 
             return to_jsonable(
                 {
-                    "has_ENVIRONMENT_API_KEY": bool(os.getenv("ENVIRONMENT_API_KEY")),
+                    "container_auth_mode": os.getenv("SYNTH_CONTAINER_AUTH_MODE", "required"),
+                    "has_SYNTH_CONTAINER_TRUSTED_PUBKEYS": bool(
+                        os.getenv("SYNTH_CONTAINER_TRUSTED_PUBKEYS")
+                    ),
                     "OPENAI_API_KEY_prefix": _mask(os.getenv("OPENAI_API_KEY")),
                     "GROQ_API_KEY_prefix": _mask(os.getenv("GROQ_API_KEY")),
                 }

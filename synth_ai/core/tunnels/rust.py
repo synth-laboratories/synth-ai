@@ -4,85 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import socket
-import warnings
 from typing import Any
 
 import synth_ai_py
 
 
-def _cloudflare_disabled() -> None:
-    warnings.warn(
-        "Cloudflare tunnel helpers are deprecated and disabled. Use SynthTunnel or NgrokManaged.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    raise RuntimeError("Cloudflare tunnel helpers are disabled.")
-
-
-def get_cloudflared_path(prefer_system: bool = True) -> str | None:
-    _ = prefer_system
-    _cloudflare_disabled()
-
-
-def ensure_cloudflared_installed(force: bool = False) -> str:
-    _ = force
-    _cloudflare_disabled()
-
-
-def require_cloudflared() -> str:
-    _cloudflare_disabled()
-
-
-def open_quick_tunnel(port: int, wait_s: float = 10.0) -> tuple[str, Any]:
-    _ = (port, wait_s)
-    _cloudflare_disabled()
-
-
-async def open_quick_tunnel_with_dns_verification(
-    port: int,
-    *,
-    wait_s: float = 10.0,
-    api_key: str | None = None,
-) -> tuple[str, Any]:
-    _ = (port, wait_s, api_key)
-    _cloudflare_disabled()
-
-
-def open_managed_tunnel(tunnel_token: str) -> Any:
-    _ = tunnel_token
-    _cloudflare_disabled()
-
-
-async def open_managed_tunnel_with_connection_wait(
-    tunnel_token: str,
-    timeout_seconds: float = 30.0,
-) -> Any:
-    _ = (tunnel_token, timeout_seconds)
-    _cloudflare_disabled()
-
-
 def stop_tunnel(proc: Any) -> None:
     synth_ai_py.stop_tunnel(proc)
-
-
-async def rotate_tunnel(api_key: str, port: int, backend_url: str | None = None) -> dict[str, Any]:
-    _ = (api_key, port, backend_url)
-    _cloudflare_disabled()
-
-
-async def create_tunnel(api_key: str, port: int, subdomain: str | None = None) -> dict[str, Any]:
-    _ = (api_key, port, subdomain)
-    _cloudflare_disabled()
-
-
-async def verify_tunnel_dns_resolution(
-    tunnel_url: str,
-    name: str = "tunnel",
-    timeout_seconds: float = 60.0,
-    api_key: str | None = None,
-) -> None:
-    _ = (tunnel_url, name, timeout_seconds, api_key)
-    _cloudflare_disabled()
 
 
 async def wait_for_health_check(

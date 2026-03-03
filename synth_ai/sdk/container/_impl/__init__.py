@@ -5,8 +5,6 @@ compatibility during the naming transition.
 """
 
 from .auth import (
-    is_api_key_header_authorized,
-    normalize_environment_api_key,
     require_api_key_dependency,
 )
 from .client import ContainerClient
@@ -143,8 +141,6 @@ __all__ = [
     "ValidateCandidateRequest",
     "ValidateCandidateResponse",
     "to_jsonable",
-    "normalize_environment_api_key",
-    "is_api_key_header_authorized",
     "require_api_key_dependency",
     "normalize_vendor_keys",
     "get_openai_key_or_503",

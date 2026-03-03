@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.9.1"
+version = "0.9.3"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -38,6 +38,7 @@ dependencies = [
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
 synth-ai-mcp-managed-research = "synth_ai.mcp.managed_research_server:main"
+synth-ai-mcp-optimization = "synth_ai.mcp.optimization_server:main"
 
 [project.optional-dependencies]
 schemas = []

@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import os
-import warnings
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable
 
-from synth_ai.core.tunnels import TunnelBackend, TunneledContainer
+from synth_ai.core.tunnels import TunnelBackend, TunneledContainer, TunnelProvider
+from synth_ai.core.tunnels.errors import TunnelErrorCode, TunnelProviderError
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.container import ContainerClient, InProcessContainer, create_container
 from synth_ai.sdk.container_pools import ContainerPoolsClient
@@ -53,6 +53,36 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 def _resolve_base_url(base_url: str | None) -> str:
     return normalize_backend_base(base_url or BACKEND_URL_BASE)
+
+
+def _resolve_tunnel_backend(
+    *,
+    backend: TunnelBackend | None,
+    provider: TunnelProvider | str | None,
+) -> TunnelBackend:
+    if provider is None:
+        return backend or TunnelBackend.SynthTunnel
+    provider_raw = str(provider).strip()
+    provider_lc = provider_raw.lower()
+    provider_map = {
+        "synthtunnel": TunnelBackend.SynthTunnel,
+        "ngrok": TunnelBackend.NgrokManaged,
+        "localhost": TunnelBackend.Localhost,
+    }
+    resolved_from_provider = provider_map.get(provider_lc)
+    if resolved_from_provider is None:
+        raise TunnelProviderError(
+            f"provider must be one of SynthTunnel, Ngrok, or Localhost (got {provider!r})",
+            code=TunnelErrorCode.PROVIDER_INVALID,
+            provider=str(provider),
+        )
+    if backend is not None and backend != resolved_from_provider:
+        raise TunnelProviderError(
+            "backend and provider conflict; pass one selector or matching values.",
+            code=TunnelErrorCode.PROVIDER_INVALID,
+            provider=provider_raw,
+        )
+    return resolved_from_provider
 
 
 def _is_proxy_namespace(value: Any) -> bool:
@@ -204,6 +234,14 @@ class _OnlineSyncClient:
 
     def list(self, **kwargs: Any) -> dict[str, Any]:
         return PolicyOptimizationOnlineSession.list(
+            backend_url=self._base_url,
+            api_key=self._api_key,
+            timeout=self._timeout,
+            **kwargs,
+        )
+
+    def runtime_compatibility(self, **kwargs: Any) -> dict[str, Any]:
+        return PolicyOptimizationOnlineSession.runtime_compatibility(
             backend_url=self._base_url,
             api_key=self._api_key,
             timeout=self._timeout,
@@ -862,7 +900,6 @@ class SynthTunnel:
         self,
         *,
         local_port: int,
-        env_api_key: str | None = None,
         verify_dns: bool = True,
         progress: bool = False,
         reason: str | None = None,
@@ -872,7 +909,6 @@ class SynthTunnel:
             local_port=local_port,
             backend=TunnelBackend.SynthTunnel,
             api_key=self._api_key,
-            env_api_key=env_api_key,
             backend_url=self._base_url,
             verify_dns=verify_dns,
             progress=progress,
@@ -938,7 +974,6 @@ class NgrokTunnel:
         *,
         local_port: int,
         managed_ngrok_url: str | None = None,
-        env_api_key: str | None = None,
         verify_dns: bool = True,
         progress: bool = False,
     ) -> TunneledContainer:
@@ -947,7 +982,6 @@ class NgrokTunnel:
             backend=TunnelBackend.NgrokManaged,
             managed_ngrok_url=managed_ngrok_url,
             api_key=self._api_key,
-            env_api_key=env_api_key,
             backend_url=self._base_url,
             verify_dns=verify_dns,
             progress=progress,
@@ -993,19 +1027,11 @@ class AsyncNgrokTunnel:
         return await self._sync.open_for_app_async(**kwargs)
 
 
-def _raise_cloudflare_disabled() -> None:
-    warnings.warn(
-        "Cloudflare tunnel backends are deprecated and disabled. Use `synth` or `ngrok`.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
-    raise RuntimeError("Cloudflare tunnel backends are disabled.")
-
-
 class TunnelsClient:
-    """First-class tunnel client with explicit backend choices."""
+    """First-class tunnel client with provider-first selection."""
 
     TunnelBackend = TunnelBackend
+    TunnelProvider = TunnelProvider
     TunneledContainer = TunneledContainer
     SynthTunnel = SynthTunnel
     NgrokTunnel = NgrokTunnel
@@ -1020,20 +1046,21 @@ class TunnelsClient:
         self,
         *,
         local_port: int,
-        backend: TunnelBackend = TunnelBackend.SynthTunnel,
-        env_api_key: str | None = None,
+        backend: TunnelBackend | None = None,
+        provider: TunnelProvider | str | None = None,
         verify_dns: bool = True,
         progress: bool = False,
         reason: str | None = None,
         requested_ttl_seconds: int | None = None,
         managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
+        resolved_backend = _resolve_tunnel_backend(backend=backend, provider=provider)
         return await TunneledContainer.create(
             local_port=local_port,
-            backend=backend,
+            backend=resolved_backend,
+            provider=provider,
             managed_ngrok_url=managed_ngrok_url,
             api_key=self._api_key,
-            env_api_key=env_api_key,
             backend_url=self._base_url,
             verify_dns=verify_dns,
             progress=progress,
@@ -1047,15 +1074,6 @@ class TunnelsClient:
             label="tunnels.open",
         )
 
-    def cloudflare_quick(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
-
-    def cloudflare_managed(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
-
-    def cloudflare_managed_lease(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
-
     def ngrok_managed(self, **kwargs: Any) -> TunneledContainer:
         return self.open(backend=TunnelBackend.NgrokManaged, **kwargs)
 
@@ -1067,16 +1085,19 @@ class TunnelsClient:
         *,
         app: Any,
         local_port: int | None = None,
-        backend: TunnelBackend = TunnelBackend.SynthTunnel,
+        backend: TunnelBackend | None = None,
+        provider: TunnelProvider | str | None = None,
         verify_dns: bool = True,
         progress: bool = False,
         requested_ttl_seconds: int | None = None,
         managed_ngrok_url: str | None = None,
     ) -> TunneledContainer:
+        resolved_backend = _resolve_tunnel_backend(backend=backend, provider=provider)
         return await TunneledContainer.create_for_app(
             app=app,
             local_port=local_port,
-            backend=backend,
+            backend=resolved_backend,
+            provider=provider,
             managed_ngrok_url=managed_ngrok_url,
             api_key=self._api_key,
             backend_url=self._base_url,
@@ -1096,6 +1117,7 @@ class AsyncTunnelsClient:
     """Async-first tunnel client."""
 
     TunnelBackend = TunnelBackend
+    TunnelProvider = TunnelProvider
     TunneledContainer = TunneledContainer
     SynthTunnel = AsyncSynthTunnel
     NgrokTunnel = AsyncNgrokTunnel
@@ -1107,15 +1129,6 @@ class AsyncTunnelsClient:
 
     async def open(self, **kwargs: Any) -> TunneledContainer:
         return await self._sync.open_async(**kwargs)
-
-    async def cloudflare_quick(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
-
-    async def cloudflare_managed(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
-
-    async def cloudflare_managed_lease(self, **kwargs: Any) -> TunneledContainer:
-        _raise_cloudflare_disabled()
 
     async def ngrok_managed(self, **kwargs: Any) -> TunneledContainer:
         return await self.open(backend=TunnelBackend.NgrokManaged, **kwargs)
@@ -1134,6 +1147,7 @@ class _ContainerNamespace:
     ContainerSpec = HostedContainerSpec
     ContainerType = HostedContainerType
     TunnelBackend = TunnelBackend
+    TunnelProvider = TunnelProvider
     TunneledContainer = TunneledContainer
     SynthTunnel = SynthTunnel
     NgrokTunnel = NgrokTunnel

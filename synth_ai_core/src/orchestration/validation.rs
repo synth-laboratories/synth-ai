@@ -43,13 +43,14 @@ const KNOWN_PROMPT_LEARNING_FIELDS: &[&str] = &[
     "algorithm",
     "kind",
     "optimization_mode",
+    "target_mode",
+    "target_kind",
     "artifact",
     "artifact_kind",
     "default_artifact_kind",
     "artifact_schema",
     "artifact_bounds",
     "container_url",
-    "container_api_key",
     "container_id",
     "mipro",
     "gepa",
@@ -228,7 +229,6 @@ const KNOWN_GEPA_TOKEN_FIELDS: &[&str] = &[
 
 const KNOWN_MIPRO_FIELDS: &[&str] = &[
     "container_url",
-    "container_api_key",
     "container_id",
     "mode",
     "online",
@@ -335,7 +335,6 @@ const KNOWN_MIPRO_TEXT_DREAMER_FIELDS: &[&str] = &[
     "observation_trigger_every_rollouts",
     "observation_log_window",
     "container_url",
-    "container_api_key",
     "shadow_rollouts",
     "shadow_max_turns",
     "shadow_timeout_seconds",
@@ -1772,17 +1771,20 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
             let proposer_backend = gepa_map
                 .get("proposer_backend")
                 .and_then(|v| v.as_str())
-                .unwrap_or("prompt")
+                .unwrap_or("rlm")
                 .trim()
                 .to_lowercase();
-            if !matches!(proposer_backend.as_str(), "prompt" | "rlm" | "agent") {
+            if proposer_backend == "prompt" {
+                errors.push(
+                    "prompt_learning.gepa.proposer_backend='prompt' is removed; must be 'rlm' or 'agent'".to_string(),
+                );
+            } else if !matches!(proposer_backend.as_str(), "rlm" | "agent") {
                 errors.push(format!(
-                    "Invalid proposer_backend: '{}'\n  Must be one of: 'prompt', 'rlm', 'agent'\n  Got: '{}'",
+                    "Invalid proposer_backend: '{}'\n  Must be one of: 'rlm', 'agent'\n  Got: '{}'",
                     proposer_backend, proposer_backend
                 ));
             }
-            // proposer_backend='rlm' and 'agent' are supported by rust_backend gepa_adapter.
-            // Validation accepts them; execution is dispatched by the backend.
+            // proposer_backend='rlm' and 'agent' are supported by rust_backend GEPA adapters.
 
             let proposer_prompt_strategy = gepa_map
                 .get("proposer")
@@ -2739,7 +2741,7 @@ pub fn validate_prompt_learning_config_strict(config: &Value) -> Vec<String> {
                         }
                     }
 
-                    for field in ["container_url", "container_api_key"] {
+                    for field in ["container_url"] {
                         if let Some(value) = td_map.get(field) {
                             if value.as_str().is_none() {
                                 errors.push(format!(

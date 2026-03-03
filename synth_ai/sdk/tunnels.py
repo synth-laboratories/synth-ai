@@ -9,12 +9,12 @@ from synth_ai.core.tunnels import (  # noqa: F401
     PortConflictBehavior,
     TunnelBackend,
     TunneledContainer,
+    TunnelProvider,
     acquire_port,
     cleanup_all,
     find_available_port,
     is_port_available,
     kill_port,
-    open_quick_tunnel_with_dns_verification,
     track_process,
     tracked_processes,
     wait_for_health_check,
@@ -23,13 +23,13 @@ from synth_ai.core.tunnels import (  # noqa: F401
 __all__ = [
     "PortConflictBehavior",
     "TunnelBackend",
+    "TunnelProvider",
     "TunneledContainer",
     "acquire_port",
     "cleanup_all",
     "find_available_port",
     "is_port_available",
     "kill_port",
-    "open_quick_tunnel_with_dns_verification",
     "track_process",
     "tracked_processes",
     "wait_for_health_check",
@@ -39,6 +39,7 @@ __all__ = [
 _submodules: dict[str, dict[str, object]] = {
     "synth_ai.sdk.tunnels.tunneled_api": {
         "TunnelBackend": TunnelBackend,
+        "TunnelProvider": TunnelProvider,
         "TunneledContainer": TunneledContainer,
     },
     "synth_ai.sdk.tunnels.ports": {
@@ -52,9 +53,6 @@ _submodules: dict[str, dict[str, object]] = {
         "cleanup_all": cleanup_all,
         "track_process": track_process,
         "tracked_processes": tracked_processes,
-    },
-    "synth_ai.sdk.tunnels.rust": {
-        "open_quick_tunnel_with_dns_verification": open_quick_tunnel_with_dns_verification,
     },
 }
 

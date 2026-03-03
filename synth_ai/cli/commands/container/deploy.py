@@ -234,7 +234,6 @@ def deploy(
                         "status": result.status,
                         "snapshot_id": result.snapshot_id,
                         "container_url": container_url,
-                        "container_api_key_env": "SYNTH_API_KEY",
                         "provider": result.provider,
                     }
                 )
@@ -251,7 +250,6 @@ def deploy(
         if result.snapshot_id:
             click.echo(f"  Snapshot ID: {result.snapshot_id}")
         click.echo(f"  Container URL: {container_url}")
-        click.echo("  Container API key: SYNTH_API_KEY")
 
         if not wait and result.status != "ready":
             click.echo("\nTo wait for build completion, run:")

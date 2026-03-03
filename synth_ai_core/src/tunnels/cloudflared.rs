@@ -382,7 +382,6 @@ pub async fn rotate_tunnel(
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
         .post(url)
-        .header("X-API-Key", api_key)
         .header("Authorization", format!("Bearer {api_key}"))
         .json(&serde_json::json!({
             "local_port": port,
@@ -425,7 +424,6 @@ pub async fn create_tunnel(
         .map_err(|e| TunnelError::api(e.to_string()))?;
     let resp = client
         .post(url)
-        .header("X-API-Key", api_key)
         .header("Authorization", format!("Bearer {api_key}"))
         .json(&serde_json::json!({
             "subdomain": subdomain.unwrap_or_else(|| format!("tunnel-{port}")),
@@ -461,11 +459,11 @@ pub async fn wait_for_health_check(
         .build()
         .map_err(|e| TunnelError::local(e.to_string()))?;
     let start = Instant::now();
-    let headers = api_key.map(|k| ("X-API-Key", k));
+    let headers = api_key.map(|k| ("X-Synth-Container-Authorization", format!("Bearer {k}")));
     while start.elapsed() < Duration::from_secs_f64(timeout) {
         let mut req = client.get(&url);
-        if let Some((k, v)) = headers.clone() {
-            req = req.header(k, v);
+        if let Some((header_name, header_value)) = headers.clone() {
+            req = req.header(header_name, header_value);
         }
         if let Ok(resp) = req.send().await {
             let status = resp.status().as_u16();
@@ -568,7 +566,7 @@ pub async fn verify_tunnel_dns_resolution(
             .map_err(|e| TunnelError::dns(e.to_string()))?;
         let mut req = client.get(parsed.clone());
         if let Some(key) = api_key.clone() {
-            req = req.header("X-API-Key", key);
+            req = req.header("X-Synth-Container-Authorization", format!("Bearer {key}"));
         }
         match req.send().await {
             Ok(resp) => {

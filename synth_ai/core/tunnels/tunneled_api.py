@@ -151,6 +151,14 @@ class TunnelBackend(str, Enum):
     Localhost = "localhost"
 
 
+class TunnelProvider(str, Enum):
+    """Provider-level tunnel selector used by canonical helpers."""
+
+    SynthTunnel = "SynthTunnel"
+    Ngrok = "Ngrok"
+    Localhost = "Localhost"
+
+
 _DEPRECATED_CLOUDFLARE_BACKENDS = {
     TunnelBackend.CloudflareManagedLease,
     TunnelBackend.CloudflareManagedTunnel,
@@ -184,6 +192,26 @@ def _resolve_managed_ngrok_url(explicit_url: str | None) -> str:
             "ngrok URL is not recognized as Synth-managed. Add host allowlist in SYNTH_MANAGED_TUNNEL_HOSTS."
         )
     return candidate.rstrip("/")
+
+
+def _resolve_backend_from_provider(
+    backend: TunnelBackend,
+    provider: TunnelProvider | str | None,
+) -> TunnelBackend:
+    if provider is None:
+        return backend
+    if isinstance(provider, TunnelProvider):
+        provider_value = provider.value
+    else:
+        provider_value = str(provider).strip()
+    normalized = provider_value.lower()
+    if normalized in {"synthtunnel", "synth_tunnel", "synth"}:
+        return TunnelBackend.SynthTunnel
+    if normalized in {"ngrok", "ngrokmanaged", "ngrok_managed"}:
+        return TunnelBackend.NgrokManaged
+    if normalized in {"localhost", "local"}:
+        return TunnelBackend.Localhost
+    raise ValueError("provider must be one of 'SynthTunnel', 'Ngrok', or 'Localhost'")
 
 
 @dataclass
@@ -237,6 +265,7 @@ class TunneledContainer:
         local_port: int,
         backend: TunnelBackend = TunnelBackend.SynthTunnel,
         *,
+        provider: TunnelProvider | str | None = None,
         api_key: Optional[str] = None,
         env_api_key: Optional[str] = None,
         backend_url: Optional[str] = None,
@@ -286,6 +315,8 @@ class TunneledContainer:
             api_key = os.environ.get("SYNTH_API_KEY")
 
         from synth_ai.sdk.container.auth import ensure_container_auth
+
+        backend = _resolve_backend_from_provider(backend, provider)
 
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"
@@ -672,6 +703,7 @@ class TunneledContainer:
         local_port: int | None = None,
         backend: TunnelBackend = TunnelBackend.SynthTunnel,
         *,
+        provider: TunnelProvider | str | None = None,
         api_key: Optional[str] = None,
         backend_url: Optional[str] = None,
         verify_dns: bool = True,
@@ -740,6 +772,7 @@ class TunneledContainer:
         return await cls.create(
             local_port=local_port,
             backend=backend,
+            provider=provider,
             api_key=api_key,
             backend_url=backend_url,
             verify_dns=verify_dns,
@@ -749,4 +782,4 @@ class TunneledContainer:
         )
 
 
-__all__ = ["TunneledContainer", "TunnelBackend"]
+__all__ = ["TunneledContainer", "TunnelBackend", "TunnelProvider"]

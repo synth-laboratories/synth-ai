@@ -45,6 +45,49 @@ pub const V2_ONLINE_SESSIONS: &str = "/v2/online/sessions";
 pub const V2_ONLINE_SESSIONS_SESSION_ID: &str = "/v2/online/sessions/{session_id}";
 pub const V2_ONLINE_SESSIONS_SESSION_ID_REWARD: &str = "/v2/online/sessions/{session_id}/reward";
 pub const V2_ONLINE_SESSIONS_SESSION_ID_EVENTS: &str = "/v2/online/sessions/{session_id}/events";
+pub const V2_RUNTIME_COMPATIBILITY: &str = "/v2/runtime/compatibility";
+pub const V1_OPTIMIZER_EVENTS: &str = "/v1/optimizer/events";
+pub const V2_OPTIMIZER_EVENTS: &str = "/v2/optimizer/events";
+pub const V1_FAILURES_QUERY: &str = "/v1/failures/query";
+pub const V2_FAILURES_QUERY: &str = "/v2/failures/query";
+pub const V1_ADMIN_OPTIMIZER_EVENTS: &str = "/v1/admin/optimizer/events";
+pub const V2_ADMIN_OPTIMIZER_EVENTS: &str = "/v2/admin/optimizer/events";
+pub const V1_ADMIN_FAILURES_QUERY: &str = "/v1/admin/failures/query";
+pub const V2_ADMIN_FAILURES_QUERY: &str = "/v2/admin/failures/query";
+pub const V1_ADMIN_VICTORIA_LOGS_QUERY: &str = "/v1/admin/victoria-logs/query";
+pub const V2_ADMIN_VICTORIA_LOGS_QUERY: &str = "/v2/admin/victoria-logs/query";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_TRIALS: &str =
+    "/v2/runtime/systems/{system_id}/queue/trials";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_CONTRACT: &str =
+    "/v2/runtime/systems/{system_id}/queue/contract";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_TRIALS_TRIAL_ID: &str =
+    "/v2/runtime/systems/{system_id}/queue/trials/{trial_id}";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_ROLLOUTS: &str =
+    "/v2/runtime/systems/{system_id}/queue/rollouts";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_ROLLOUTS_LEASE: &str =
+    "/v2/runtime/systems/{system_id}/queue/rollouts/lease";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_ROLLOUTS_EXPIRE_LEASES: &str =
+    "/v2/runtime/systems/{system_id}/queue/rollouts/expire-leases";
+pub const V2_RUNTIME_SYSTEMS_SYSTEM_ID_QUEUE_ROLLOUTS_ROLLOUT_ID: &str =
+    "/v2/runtime/systems/{system_id}/queue/rollouts/{rollout_id}";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_TRIALS: &str =
+    "/v2/runtime/sessions/{session_id}/queue/trials";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_CONTRACT: &str =
+    "/v2/runtime/sessions/{session_id}/queue/contract";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_TRIALS_TRIAL_ID: &str =
+    "/v2/runtime/sessions/{session_id}/queue/trials/{trial_id}";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_ROLLOUTS: &str =
+    "/v2/runtime/sessions/{session_id}/queue/rollouts";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_ROLLOUTS_LEASE: &str =
+    "/v2/runtime/sessions/{session_id}/queue/rollouts/lease";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_ROLLOUTS_EXPIRE_LEASES: &str =
+    "/v2/runtime/sessions/{session_id}/queue/rollouts/expire-leases";
+pub const V2_RUNTIME_SESSIONS_SESSION_ID_QUEUE_ROLLOUTS_ROLLOUT_ID: &str =
+    "/v2/runtime/sessions/{session_id}/queue/rollouts/{rollout_id}";
+pub const V2_RUNTIME_CONTAINERS_CONTAINER_ID_ROLLOUTS_ROLLOUT_ID_CHECKPOINT_DUMP: &str =
+    "/v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/dump";
+pub const V2_RUNTIME_CONTAINERS_CONTAINER_ID_ROLLOUTS_ROLLOUT_ID_CHECKPOINT_RESTORE: &str =
+    "/v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/restore";
 
 pub fn v2_online_session(session_id: &str) -> String {
     format!("/v2/online/sessions/{session_id}")
@@ -56,6 +99,120 @@ pub fn v2_online_session_reward(session_id: &str) -> String {
 
 pub fn v2_online_session_events(session_id: &str) -> String {
     format!("/v2/online/sessions/{session_id}/events")
+}
+
+pub fn v2_runtime_compatibility() -> &'static str {
+    V2_RUNTIME_COMPATIBILITY
+}
+
+pub fn v1_optimizer_events() -> &'static str {
+    V1_OPTIMIZER_EVENTS
+}
+
+pub fn v2_optimizer_events() -> &'static str {
+    V2_OPTIMIZER_EVENTS
+}
+
+pub fn v1_failures_query() -> &'static str {
+    V1_FAILURES_QUERY
+}
+
+pub fn v2_failures_query() -> &'static str {
+    V2_FAILURES_QUERY
+}
+
+pub fn v1_admin_optimizer_events() -> &'static str {
+    V1_ADMIN_OPTIMIZER_EVENTS
+}
+
+pub fn v2_admin_optimizer_events() -> &'static str {
+    V2_ADMIN_OPTIMIZER_EVENTS
+}
+
+pub fn v1_admin_failures_query() -> &'static str {
+    V1_ADMIN_FAILURES_QUERY
+}
+
+pub fn v2_admin_failures_query() -> &'static str {
+    V2_ADMIN_FAILURES_QUERY
+}
+
+pub fn v1_admin_victoria_logs_query() -> &'static str {
+    V1_ADMIN_VICTORIA_LOGS_QUERY
+}
+
+pub fn v2_admin_victoria_logs_query() -> &'static str {
+    V2_ADMIN_VICTORIA_LOGS_QUERY
+}
+
+pub fn v2_runtime_queue_trials(system_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/trials")
+}
+
+pub fn v2_runtime_queue_contract(system_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/contract")
+}
+
+pub fn v2_runtime_queue_trial(system_id: &str, trial_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/trials/{trial_id}")
+}
+
+pub fn v2_runtime_queue_rollouts(system_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/rollouts")
+}
+
+pub fn v2_runtime_queue_rollout_lease(system_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/rollouts/lease")
+}
+
+pub fn v2_runtime_queue_rollout_expire_leases(system_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/rollouts/expire-leases")
+}
+
+pub fn v2_runtime_queue_rollout(system_id: &str, rollout_id: &str) -> String {
+    format!("/v2/runtime/systems/{system_id}/queue/rollouts/{rollout_id}")
+}
+
+pub fn v2_runtime_session_queue_trials(session_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/trials")
+}
+
+pub fn v2_runtime_session_queue_contract(session_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/contract")
+}
+
+pub fn v2_runtime_session_queue_trial(session_id: &str, trial_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/trials/{trial_id}")
+}
+
+pub fn v2_runtime_session_queue_rollouts(session_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/rollouts")
+}
+
+pub fn v2_runtime_session_queue_rollout_lease(session_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/rollouts/lease")
+}
+
+pub fn v2_runtime_session_queue_rollout_expire_leases(session_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/rollouts/expire-leases")
+}
+
+pub fn v2_runtime_session_queue_rollout(session_id: &str, rollout_id: &str) -> String {
+    format!("/v2/runtime/sessions/{session_id}/queue/rollouts/{rollout_id}")
+}
+
+pub fn v2_runtime_container_rollout_checkpoint_dump(
+    container_id: &str,
+    rollout_id: &str,
+) -> String {
+    format!("/v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/dump")
+}
+
+pub fn v2_runtime_container_rollout_checkpoint_restore(
+    container_id: &str,
+    rollout_id: &str,
+) -> String {
+    format!("/v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/restore")
 }
 
 pub const V1_SYSTEMS: &str = "/v1/systems";
@@ -76,8 +233,7 @@ pub const V1_POOLS_POOL_ID: &str = "/v1/pools/{pool_id}";
 pub const V1_POOLS_POOL_ID_ASSEMBLIES: &str = "/v1/pools/{pool_id}/assemblies";
 pub const V1_POOLS_POOL_ID_METRICS: &str = "/v1/pools/{pool_id}/metrics";
 pub const V1_POOLS_POOL_ID_ROLLOUTS: &str = "/v1/pools/{pool_id}/rollouts";
-pub const V1_POOLS_POOL_ID_ROLLOUTS_ROLLOUT_ID: &str =
-    "/v1/pools/{pool_id}/rollouts/{rollout_id}";
+pub const V1_POOLS_POOL_ID_ROLLOUTS_ROLLOUT_ID: &str = "/v1/pools/{pool_id}/rollouts/{rollout_id}";
 pub const V1_POOLS_POOL_ID_ROLLOUTS_ROLLOUT_ID_ARTIFACTS: &str =
     "/v1/pools/{pool_id}/rollouts/{rollout_id}/artifacts";
 pub const V1_POOLS_POOL_ID_ROLLOUTS_ROLLOUT_ID_CANCEL: &str =
@@ -189,3 +345,101 @@ pub fn v1_pool_task(pool_id: &str, task_id: &str) -> String {
     format!("/v1/pools/{pool_id}/tasks/{task_id}")
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn v2_runtime_compatibility_path_is_stable() {
+        assert_eq!(V2_RUNTIME_COMPATIBILITY, "/v2/runtime/compatibility");
+        assert_eq!(v2_runtime_compatibility(), "/v2/runtime/compatibility");
+    }
+
+    #[test]
+    fn optimizer_and_failure_query_paths_are_stable() {
+        assert_eq!(v1_optimizer_events(), "/v1/optimizer/events");
+        assert_eq!(v2_optimizer_events(), "/v2/optimizer/events");
+        assert_eq!(v1_failures_query(), "/v1/failures/query");
+        assert_eq!(v2_failures_query(), "/v2/failures/query");
+        assert_eq!(v1_admin_optimizer_events(), "/v1/admin/optimizer/events");
+        assert_eq!(v2_admin_optimizer_events(), "/v2/admin/optimizer/events");
+        assert_eq!(v1_admin_failures_query(), "/v1/admin/failures/query");
+        assert_eq!(v2_admin_failures_query(), "/v2/admin/failures/query");
+        assert_eq!(
+            v1_admin_victoria_logs_query(),
+            "/v1/admin/victoria-logs/query"
+        );
+        assert_eq!(
+            v2_admin_victoria_logs_query(),
+            "/v2/admin/victoria-logs/query"
+        );
+    }
+
+    #[test]
+    fn v2_runtime_queue_paths_are_stable() {
+        assert_eq!(
+            v2_runtime_queue_trials("sys-1"),
+            "/v2/runtime/systems/sys-1/queue/trials"
+        );
+        assert_eq!(
+            v2_runtime_queue_contract("sys-1"),
+            "/v2/runtime/systems/sys-1/queue/contract"
+        );
+        assert_eq!(
+            v2_runtime_queue_trial("sys-1", "trial-1"),
+            "/v2/runtime/systems/sys-1/queue/trials/trial-1"
+        );
+        assert_eq!(
+            v2_runtime_queue_rollouts("sys-1"),
+            "/v2/runtime/systems/sys-1/queue/rollouts"
+        );
+        assert_eq!(
+            v2_runtime_queue_rollout_lease("sys-1"),
+            "/v2/runtime/systems/sys-1/queue/rollouts/lease"
+        );
+        assert_eq!(
+            v2_runtime_queue_rollout_expire_leases("sys-1"),
+            "/v2/runtime/systems/sys-1/queue/rollouts/expire-leases"
+        );
+        assert_eq!(
+            v2_runtime_queue_rollout("sys-1", "rollout-1"),
+            "/v2/runtime/systems/sys-1/queue/rollouts/rollout-1"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_trials("sess-1"),
+            "/v2/runtime/sessions/sess-1/queue/trials"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_contract("sess-1"),
+            "/v2/runtime/sessions/sess-1/queue/contract"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_trial("sess-1", "trial-1"),
+            "/v2/runtime/sessions/sess-1/queue/trials/trial-1"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_rollouts("sess-1"),
+            "/v2/runtime/sessions/sess-1/queue/rollouts"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_rollout_lease("sess-1"),
+            "/v2/runtime/sessions/sess-1/queue/rollouts/lease"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_rollout_expire_leases("sess-1"),
+            "/v2/runtime/sessions/sess-1/queue/rollouts/expire-leases"
+        );
+        assert_eq!(
+            v2_runtime_session_queue_rollout("sess-1", "rollout-1"),
+            "/v2/runtime/sessions/sess-1/queue/rollouts/rollout-1"
+        );
+        assert_eq!(
+            v2_runtime_container_rollout_checkpoint_dump("ctr-1", "rollout-1"),
+            "/v2/runtime/containers/ctr-1/rollouts/rollout-1/checkpoint/dump"
+        );
+        assert_eq!(
+            v2_runtime_container_rollout_checkpoint_restore("ctr-1", "rollout-1"),
+            "/v2/runtime/containers/ctr-1/rollouts/rollout-1/checkpoint/restore"
+        );
+    }
+}

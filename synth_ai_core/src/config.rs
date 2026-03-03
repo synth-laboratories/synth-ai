@@ -17,15 +17,13 @@ use std::path::Path;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum BackendAuth {
-    /// Use `X-API-Key` header.
-    XApiKey,
     /// Use `Authorization: Bearer` header.
     Bearer,
 }
 
 impl Default for BackendAuth {
     fn default() -> Self {
-        BackendAuth::XApiKey
+        BackendAuth::Bearer
     }
 }
 

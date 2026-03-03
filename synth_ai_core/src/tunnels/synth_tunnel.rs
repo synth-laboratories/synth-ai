@@ -474,23 +474,7 @@ async fn forward_request(
         }
     }
 
-    // Inject local API keys — always overwrite relay-supplied auth headers
-    // because the relay forwards the worker_token, not the local env key.
-    if !config.container_keys.is_empty() {
-        let primary = &config.container_keys[0];
-        if let Ok(v) = reqwest::header::HeaderValue::from_str(primary) {
-            headers.insert("x-api-key", v);
-        }
-        if let Ok(v) = reqwest::header::HeaderValue::from_str(&format!("Bearer {primary}")) {
-            headers.insert("authorization", v);
-        }
-        if config.container_keys.len() > 1 {
-            let joined = config.container_keys.join(",");
-            if let Ok(v) = reqwest::header::HeaderValue::from_str(&joined) {
-                headers.insert("x-api-keys", v);
-            }
-        }
-    }
+    // Relay-signed container auth is forwarded by the tunnel backend.
 
     // Inject tunnel metadata headers
     if !headers.contains_key("x-synthtunnel-lease-id") {

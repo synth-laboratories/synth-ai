@@ -252,9 +252,6 @@ pub struct GepaJobRequest {
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
     pub container_worker_token: Option<String>,
-    /// Optional API key for the container.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub container_api_key: Option<String>,
     /// Environment name within the container.
     pub env_name: String,
     /// Policy configuration.
@@ -273,7 +270,6 @@ impl Default for GepaJobRequest {
             algorithm: default_gepa_algorithm(),
             container_url: String::new(),
             container_worker_token: None,
-            container_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
             gepa: GepaConfig::default(),
@@ -292,9 +288,6 @@ pub struct MiproJobRequest {
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
     pub container_worker_token: Option<String>,
-    /// Optional API key for the container.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub container_api_key: Option<String>,
     /// Environment name.
     pub env_name: String,
     /// Policy configuration.
@@ -313,7 +306,6 @@ impl Default for MiproJobRequest {
             algorithm: default_mipro_algorithm(),
             container_url: String::new(),
             container_worker_token: None,
-            container_api_key: None,
             env_name: "default".to_string(),
             policy: PolicyConfig::default(),
             mipro: MiproConfig::default(),
@@ -328,13 +320,12 @@ pub struct EvalJobRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub app_id: Option<String>,
     /// Container URL.
+    ///
+    /// May be empty when using `inference_mode.pool_id`.
     pub container_url: String,
     /// Optional SynthTunnel worker token (sent via header, not body).
     #[serde(default, skip_serializing)]
     pub container_worker_token: Option<String>,
-    /// Optional API key for the container.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub container_api_key: Option<String>,
     /// Environment name.
     pub env_name: String,
     /// Optional environment configuration payload.
@@ -353,6 +344,9 @@ pub struct EvalJobRequest {
     /// Optional timeout in seconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<f64>,
+    /// Optional inference-mode block for ephemeral pool resolution.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inference_mode: Option<Value>,
 }
 
 impl Default for EvalJobRequest {
@@ -361,7 +355,6 @@ impl Default for EvalJobRequest {
             app_id: None,
             container_url: String::new(),
             container_worker_token: None,
-            container_api_key: None,
             env_name: "default".to_string(),
             env_config: None,
             verifier_config: None,
@@ -369,6 +362,7 @@ impl Default for EvalJobRequest {
             policy: PolicyConfig::default(),
             max_concurrent: None,
             timeout: None,
+            inference_mode: None,
         }
     }
 }
@@ -743,8 +737,6 @@ pub struct ContainerDeployResponse {
     pub deployment_id: String,
     pub status: String,
     pub container_url: String,
-    #[serde(default)]
-    pub container_api_key_env: Option<String>,
 }
 
 /// Status response for Container deployments.
