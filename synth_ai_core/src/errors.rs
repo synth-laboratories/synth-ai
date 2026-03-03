@@ -107,15 +107,14 @@ impl UsageLimitInfo {
                 detail.status, detail.url, body_snippet
             ))
         })?;
-        let body: ParsedRateLimitBody =
-            serde_json::from_value(body_value).map_err(|err| {
-                CoreError::Protocol(format!(
-                    "Corrupted HTTP 429 rate-limit payload for api '{api}': payload schema \
+        let body: ParsedRateLimitBody = serde_json::from_value(body_value).map_err(|err| {
+            CoreError::Protocol(format!(
+                "Corrupted HTTP 429 rate-limit payload for api '{api}': payload schema \
 mismatch ({err}). Expected detail object with {{message, limit, current, tier}}. \
 status={} url={} body_snippet={}",
-                    detail.status, detail.url, body_snippet
-                ))
-            })?;
+                detail.status, detail.url, body_snippet
+            ))
+        })?;
 
         let detail_fields = body.detail.ok_or_else(|| {
             CoreError::Protocol(format!(
@@ -181,7 +180,9 @@ field `detail.tier` (non-empty string). status={} url={} body_snippet={}",
             current,
             limit,
             tier,
-            retry_after_seconds: detail_fields.retry_after_seconds.or(body.fields.retry_after_seconds),
+            retry_after_seconds: detail_fields
+                .retry_after_seconds
+                .or(body.fields.retry_after_seconds),
             upgrade_url: "https://usesynth.ai/pricing".to_string(),
         })
     }
@@ -442,9 +443,8 @@ mod tests {
             ),
         };
 
-        let err = UsageLimitInfo::from_http_429("jobs", &detail).expect_err(
-            "plain-detail payload without tier should hard-fail with protocol error",
-        );
+        let err = UsageLimitInfo::from_http_429("jobs", &detail)
+            .expect_err("plain-detail payload without tier should hard-fail with protocol error");
         let msg = format!("{err}");
         assert!(msg.contains("payload schema mismatch"));
         assert!(msg.contains("invalid type: string"));

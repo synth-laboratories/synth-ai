@@ -1,11 +1,10 @@
-"""Local API authentication helpers (Rust-backed with Python strict)."""
+"""Container auth helpers for token-signing workflows."""
 
 from __future__ import annotations
 
 import base64
 import os
 import secrets
-from datetime import datetime
 from typing import Any
 
 try:
@@ -13,28 +12,12 @@ try:
 except Exception:  # pragma: no cover - optional in minimal runtime images
     synth_ai_py = None  # type: ignore[assignment]
 
-ENVIRONMENT_API_KEY_NAME = "ENVIRONMENT_API_KEY"
-DEV_ENVIRONMENT_API_KEY_NAME = "DEV_ENVIRONMENT_API_KEY"
-MAX_ENVIRONMENT_API_KEY_BYTES = 8 * 1024
-
 __all__ = [
-    "ENVIRONMENT_API_KEY_NAME",
-    "DEV_ENVIRONMENT_API_KEY_NAME",
-    "MAX_ENVIRONMENT_API_KEY_BYTES",
-    "encrypt_for_backend",
+    "_fetch_backend_env_key",
     "ensure_container_auth",
-    "mint_environment_api_key",
-    "setup_environment_api_key",
+    "encrypt_for_backend",
     "has_container_token_signing_key",
 ]
-
-
-def mint_environment_api_key() -> str:
-    fn = getattr(synth_ai_py, "mint_environment_api_key", None) if synth_ai_py else None
-    if callable(fn):
-        return fn()
-    # Strict: generate a local-only API key
-    return f"env_{secrets.token_urlsafe(24)}"
 
 
 def _decode_base64_key_material(value: str) -> bytes | None:
@@ -72,94 +55,104 @@ def has_container_token_signing_key() -> bool:
     return _parse_signing_key_entry(single) is not None
 
 
-def _normalize_backend_base(backend_base: str | None) -> str:
-    if not backend_base:
-        return ""
-    base = backend_base.rstrip("/")
-    for suffix in ("/api/v1", "/api"):
-        if base.endswith(suffix):
-            base = base[: -len(suffix)]
-            break
-    return base
+def _select_environment_key_from_payload(payload: Any) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+    entries = payload.get("credentials")
+    if not isinstance(entries, list):
+        entries = payload.get("items")
+    if not isinstance(entries, list):
+        return None
+
+    normalized: list[dict[str, str]] = []
+    for raw in entries:
+        if not isinstance(raw, dict):
+            continue
+        plaintext = raw.get("plaintext")
+        if not isinstance(plaintext, str) or not plaintext.strip():
+            continue
+        normalized.append(
+            {
+                "name": str(raw.get("name") or ""),
+                "plaintext": plaintext.strip(),
+                "created_at": str(raw.get("created_at") or ""),
+            }
+        )
+    if not normalized:
+        return None
+
+    env_named = [entry for entry in normalized if entry["name"] == "ENVIRONMENT_API_KEY"]
+    candidates = env_named or normalized
+    dated = [entry for entry in candidates if entry["created_at"]]
+    if dated:
+        dated.sort(key=lambda item: item["created_at"], reverse=True)
+        return dated[0]["plaintext"]
+    return candidates[0]["plaintext"]
 
 
-def _backend_headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}"}
-
-
-def _created_at_sort_value(value: Any) -> float:
-    if isinstance(value, (int, float)):
-        return float(value)
-    if not isinstance(value, str):
-        return float("-inf")
-    raw = value.strip()
-    if not raw:
-        return float("-inf")
-    normalized = f"{raw[:-1]}+00:00" if raw.endswith("Z") else raw
+def _fetch_backend_env_key(backend_base: str, synth_api_key: str) -> str | None:
+    base = (backend_base or "").strip().rstrip("/")
+    key = (synth_api_key or "").strip()
+    if not base or not key:
+        return None
     try:
-        return datetime.fromisoformat(normalized).timestamp()
-    except ValueError:
-        return float("-inf")
+        import httpx
+    except Exception:
+        return None
+
+    headers = {"Authorization": f"Bearer {key}"}
+    urls = (
+        f"{base}/v1/credentials",
+        f"{base}/api/v1/credentials",
+    )
+    for url in urls:
+        try:
+            response = httpx.get(url, headers=headers, timeout=10.0)
+        except Exception:
+            continue
+        if int(getattr(response, "status_code", 0)) == 404:
+            return None
+        if int(getattr(response, "status_code", 0)) >= 400:
+            continue
+        with_response = _select_environment_key_from_payload(response.json())
+        if with_response:
+            return with_response
+    return None
 
 
-def _fetch_backend_env_key(
-    backend_base: str,
-    synth_api_key: str,
+def ensure_container_auth(
     *,
-    timeout: float = 15.0,
-) -> str | None:
-    import httpx
+    backend_base: str | None = None,
+    synth_api_key: str | None = None,
+    upload: bool = True,
+) -> str:
+    existing = (os.environ.get("ENVIRONMENT_API_KEY") or "").strip()
+    if existing:
+        return existing
 
-    base = _normalize_backend_base(backend_base)
-    if not base:
-        return None
-    url = f"{base}/api/v1/env-keys"
-    resp = httpx.get(url, headers=_backend_headers(synth_api_key), timeout=timeout)
-    if resp.status_code == 404:
-        return None
-    resp.raise_for_status()
-    payload = resp.json()
-    credentials = payload.get("credentials") if isinstance(payload, dict) else None
-    if not credentials:
-        return None
-    selected_plaintext: str | None = None
-    selected_created_at = float("-inf")
-    for record in credentials:
-        if not isinstance(record, dict):
-            continue
-        name = record.get("name")
-        if isinstance(name, str) and name and name != ENVIRONMENT_API_KEY_NAME:
-            continue
-        plaintext = record.get("plaintext")
-        if not isinstance(plaintext, str):
-            continue
-        cleaned_plaintext = plaintext.strip()
-        if not cleaned_plaintext:
-            continue
-        created_at_rank = _created_at_sort_value(record.get("created_at"))
-        if selected_plaintext is None or created_at_rank > selected_created_at:
-            selected_plaintext = cleaned_plaintext
-            selected_created_at = created_at_rank
-    return selected_plaintext
+    dev_existing = (os.environ.get("DEV_ENVIRONMENT_API_KEY") or "").strip()
+    if dev_existing:
+        os.environ["ENVIRONMENT_API_KEY"] = dev_existing
+        return dev_existing
 
+    resolved_backend = (backend_base or os.environ.get("SYNTH_BACKEND_URL") or "").strip()
+    resolved_api_key = (synth_api_key or os.environ.get("SYNTH_API_KEY") or "").strip()
+    if upload and resolved_backend and resolved_api_key:
+        fetched = _fetch_backend_env_key(resolved_backend, resolved_api_key)
+        if fetched:
+            os.environ["ENVIRONMENT_API_KEY"] = fetched
+            return fetched
 
-def _backend_env_key_exists(
-    backend_base: str,
-    synth_api_key: str,
-    *,
-    timeout: float = 10.0,
-) -> bool:
-    import httpx
+    fn = getattr(synth_ai_py, "ensure_container_auth", None) if synth_ai_py else None
+    if callable(fn):
+        minted = fn(resolved_backend, resolved_api_key, upload)
+        if isinstance(minted, str) and minted.strip():
+            os.environ["ENVIRONMENT_API_KEY"] = minted.strip()
+            return minted.strip()
 
-    base = _normalize_backend_base(backend_base)
-    if not base:
-        return False
-    url = f"{base}/api/v1/env-keys/verify"
-    resp = httpx.get(url, headers=_backend_headers(synth_api_key), timeout=timeout)
-    if resp.status_code == 404:
-        return False
-    resp.raise_for_status()
-    return True
+    minted = f"env_{secrets.token_urlsafe(24)}"
+    os.environ["ENVIRONMENT_API_KEY"] = minted
+    return minted
 
 
 def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
@@ -181,102 +174,3 @@ def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
     box = SealedBox(PublicKey(pubkey_raw))
     ciphertext = box.encrypt(secret.encode("utf-8"))
     return base64.b64encode(ciphertext).decode("utf-8")
-
-
-def ensure_container_auth(
-    backend_base: str | None = None,
-    synth_api_key: str | None = None,
-    *,
-    upload: bool = True,
-    persist: bool | None = None,
-) -> str:
-    fn = getattr(synth_ai_py, "ensure_container_auth", None) if synth_ai_py else None
-    if callable(fn):
-        return fn(backend_base, synth_api_key, upload, persist)
-
-    existing = os.environ.get(ENVIRONMENT_API_KEY_NAME, "").strip()
-    backend_base = _normalize_backend_base(backend_base)
-
-    if upload and backend_base and synth_api_key:
-        if not existing:
-            # Prefer reusing backend-stored env key to avoid mismatches.
-            try:
-                backend_key = _fetch_backend_env_key(backend_base, synth_api_key)
-            except Exception:
-                backend_key = None
-            if backend_key:
-                os.environ[ENVIRONMENT_API_KEY_NAME] = backend_key
-                return backend_key
-
-        # If backend already has a key and we don't have one, use it.
-        if not existing:
-            try:
-                if _backend_env_key_exists(backend_base, synth_api_key):
-                    backend_key = _fetch_backend_env_key(backend_base, synth_api_key)
-                    if backend_key:
-                        os.environ[ENVIRONMENT_API_KEY_NAME] = backend_key
-                        return backend_key
-            except Exception:
-                pass
-
-    if existing:
-        if upload and backend_base and synth_api_key:
-            backend_key = None
-            try:
-                backend_key = _fetch_backend_env_key(backend_base, synth_api_key)
-            except Exception:
-                backend_key = None
-            if backend_key != existing:
-                # Ensure backend matches the explicit key if provided locally.
-                setup_environment_api_key(backend_base, synth_api_key, token=existing)
-        return existing
-
-    key = mint_environment_api_key()
-    os.environ[ENVIRONMENT_API_KEY_NAME] = key
-    if upload and backend_base and synth_api_key:
-        setup_environment_api_key(backend_base, synth_api_key, token=key)
-    return key
-
-
-def setup_environment_api_key(
-    backend_base: str,
-    synth_api_key: str,
-    token: str | None = None,
-    *,
-    timeout: float = 15.0,
-) -> dict[str, Any]:
-    fn = getattr(synth_ai_py, "setup_environment_api_key", None) if synth_ai_py else None
-    if callable(fn):
-        result = fn(backend_base, synth_api_key, token, timeout)
-        return result if isinstance(result, dict) else {}
-    import httpx
-
-    base = _normalize_backend_base(backend_base)
-    if not base:
-        raise ValueError("backend_base is required")
-    if not synth_api_key:
-        raise ValueError("synth_api_key is required")
-
-    env_key = token or mint_environment_api_key()
-    pubkey_url = f"{base}/api/v1/crypto/public-key"
-    env_key_url = f"{base}/api/v1/env-keys"
-
-    resp = httpx.get(pubkey_url, headers=_backend_headers(synth_api_key), timeout=timeout)
-    resp.raise_for_status()
-    payload = resp.json()
-    pubkey_b64 = payload.get("public_key") if isinstance(payload, dict) else None
-    if not isinstance(pubkey_b64, str) or not pubkey_b64:
-        raise RuntimeError("Backend public key missing in response")
-
-    ciphertext_b64 = encrypt_for_backend(pubkey_b64, env_key)
-    upsert_payload = {"name": "ENVIRONMENT_API_KEY", "ciphertext_b64": ciphertext_b64}
-    upsert_resp = httpx.post(
-        env_key_url,
-        headers=_backend_headers(synth_api_key),
-        json=upsert_payload,
-        timeout=timeout,
-    )
-    upsert_resp.raise_for_status()
-    os.environ.setdefault(ENVIRONMENT_API_KEY_NAME, env_key)
-    result = upsert_resp.json()
-    return result if isinstance(result, dict) else {}

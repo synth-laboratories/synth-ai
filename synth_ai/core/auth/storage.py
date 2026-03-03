@@ -18,12 +18,6 @@ def store_credentials(credentials, config_path=None):
     if missing:
         raise ValueError(f"Missing credential values: {', '.join(missing)}")
 
-    if not credentials.get("ENVIRONMENT_API_KEY"):
-        print(
-            "ENVIRONMENT_API_KEY not provided by device auth. "
-            "Set it manually if you plan to deploy or run containers."
-        )
-
     resolved_path = config_path or str(SYNTH_USER_CONFIG_PATH)
     if hasattr(synth_ai_py, "auth_store_credentials_atomic"):
         synth_ai_py.auth_store_credentials_atomic(credentials, resolved_path)

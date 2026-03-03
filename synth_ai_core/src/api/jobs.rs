@@ -521,10 +521,9 @@ fn derive_system_name(request: &Value, kind: &str) -> String {
 }
 
 fn canonicalize_offline_create_payload(request: Value, kind: &str) -> Result<Value, CoreError> {
-    let mut map = request
-        .as_object()
-        .cloned()
-        .ok_or_else(|| CoreError::Validation("request payload must be a JSON object".to_string()))?;
+    let mut map = request.as_object().cloned().ok_or_else(|| {
+        CoreError::Validation("request payload must be a JSON object".to_string())
+    })?;
     // Canonical hard-cutover: backend requires top-level `kind`; reject/remove
     // legacy top-level `algorithm`/`config_body` payload shape in SDK requests.
     map.remove("algorithm");
@@ -690,8 +689,7 @@ mod tests {
             "best_prompt": {"instruction": "canonical"},
             "lever_versions": {"mipro.prompt.sys": 3},
         });
-        let parsed =
-            parse_prompt_learning_result(payload, "strict").expect("parse should succeed");
+        let parsed = parse_prompt_learning_result(payload, "strict").expect("parse should succeed");
         assert_eq!(parsed.job_id, "pl_test");
         assert_eq!(parsed.status, PolicyJobStatus::Running);
         assert_eq!(parsed.best_reward, Some(0.42));

@@ -27,16 +27,17 @@ class EvalStatus(str, Enum):
 class EvalJobConfig:
     container_url: str
     api_key: str
+    container_api_key: Optional[str]
     backend_url: str
     env_name: str
     seeds: list[int]
     policy_config: dict[str, Any]
-    container_api_key: Optional[str] = None
+    inference_mode: Optional[dict[str, Any]]
 
     def __init__(
         self,
         *,
-        container_url: str,
+        container_url: str = "",
         api_key: str,
         backend_url: str,
         env_name: str,
@@ -44,15 +45,27 @@ class EvalJobConfig:
         policy_config: dict[str, Any],
         container_api_key: Optional[str] = None,
         container_key: Optional[str] = None,
+        inference_mode: Optional[dict[str, Any]] = None,
         **_: Any,
     ) -> None:
         self.container_url = container_url
         self.api_key = api_key
+        self.container_api_key = (
+            container_api_key
+            if isinstance(container_api_key, str) and container_api_key.strip()
+            else None
+        )
+        if (
+            self.container_api_key is None
+            and isinstance(container_key, str)
+            and container_key.strip()
+        ):
+            self.container_api_key = container_key.strip()
         self.backend_url = backend_url
         self.env_name = env_name
         self.seeds = seeds
         self.policy_config = policy_config
-        self.container_api_key = container_api_key or container_key
+        self.inference_mode = inference_mode
 
 
 @dataclass

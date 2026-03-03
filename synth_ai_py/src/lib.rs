@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use base64::{engine::general_purpose, Engine as _};
 
+use synth_ai_core::api::routes as core_routes;
 use synth_ai_core::config::CoreConfig;
 use synth_ai_core::container::auth as core_container_auth;
 use synth_ai_core::container::datasets as core_container_datasets;
@@ -116,7 +117,6 @@ use synth_ai_core::urls::{
     normalize_inference_base as core_normalize_inference_base,
     validate_container_url as core_validate_container_url,
 };
-use synth_ai_core::api::routes as core_routes;
 use synth_ai_core::utils as core_utils;
 use synth_ai_core::CoreError;
 
@@ -910,10 +910,7 @@ fn optimization_route_online_sessions_base(api_version: &str) -> PyResult<String
 }
 
 #[pyfunction]
-fn optimization_route_online_session_path(
-    session_id: &str,
-    api_version: &str,
-) -> PyResult<String> {
+fn optimization_route_online_session_path(session_id: &str, api_version: &str) -> PyResult<String> {
     let v = core_routes::ApiVersion::from_str(api_version)
         .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
     Ok(core_routes::online_session_path(session_id, v))
@@ -938,10 +935,7 @@ fn optimization_route_policy_systems_base(api_version: &str) -> PyResult<String>
 }
 
 #[pyfunction]
-fn optimization_route_policy_system_path(
-    system_id: &str,
-    api_version: &str,
-) -> PyResult<String> {
+fn optimization_route_policy_system_path(system_id: &str, api_version: &str) -> PyResult<String> {
     let v = core_routes::ApiVersion::from_str(api_version)
         .ok_or_else(|| PyValueError::new_err(format!("unsupported api version: {api_version}")))?;
     Ok(core_routes::policy_system_path(system_id, v))
@@ -974,6 +968,11 @@ fn container_is_local_http_url(url: &str) -> bool {
 #[pyfunction]
 fn container_is_synthtunnel_url(url: &str) -> bool {
     core_container_validation::is_synthtunnel_url(url)
+}
+
+#[pyfunction]
+fn container_is_synth_managed_ngrok_url(url: &str) -> bool {
+    core_container_validation::is_synth_managed_ngrok_url(url)
 }
 
 #[pyfunction]
@@ -1389,14 +1388,13 @@ fn acquire_port(
 }
 
 #[pyfunction]
-#[pyo3(signature = (backend, local_port, api_key=None, backend_url=None, env_api_key=None, verify_local=None, verify_dns=true, progress=false))]
+#[pyo3(signature = (backend, local_port, api_key=None, backend_url=None, verify_local=None, verify_dns=true, progress=false))]
 fn tunnel_open(
     py: Python,
     backend: String,
     local_port: u16,
     api_key: Option<String>,
     backend_url: Option<String>,
-    env_api_key: Option<String>,
     verify_local: Option<bool>,
     verify_dns: bool,
     progress: bool,
@@ -1415,7 +1413,7 @@ fn tunnel_open(
             local_port,
             api_key,
             backend_url,
-            env_api_key,
+            None,
             verify_local,
             verify_dns,
             progress,
@@ -1791,74 +1789,9 @@ fn auth_update_user_config(py: Python, updates: PyObject) -> PyResult<PyObject> 
 // Container auth helpers
 
 #[pyfunction]
-fn mint_environment_api_key() -> String {
-    core_container_auth::mint_environment_api_key()
-}
-
-#[pyfunction]
 fn encrypt_for_backend(pubkey_b64: &str, secret: &str) -> PyResult<String> {
     core_container_auth::encrypt_for_backend(pubkey_b64, secret.as_bytes())
         .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (backend_base, synth_api_key, token=None, timeout=15.0))]
-fn setup_environment_api_key(
-    py: Python,
-    backend_base: String,
-    synth_api_key: String,
-    token: Option<String>,
-    timeout: f64,
-) -> PyResult<PyObject> {
-    let result = RUNTIME.block_on(async move {
-        core_container_auth::setup_environment_api_key(
-            &backend_base,
-            &synth_api_key,
-            token.as_deref(),
-            timeout,
-        )
-        .await
-    });
-    let value = result.map_err(|e| map_core_err(py, e))?;
-    pythonize::pythonize(py, &value)
-        .map(|b| b.unbind())
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pyfunction]
-#[pyo3(signature = (backend_base=None, synth_api_key=None, upload=true, persist=None))]
-fn ensure_container_auth(
-    py: Python,
-    backend_base: Option<String>,
-    synth_api_key: Option<String>,
-    upload: bool,
-    persist: Option<bool>,
-) -> PyResult<String> {
-    let result = RUNTIME.block_on(async move {
-        core_container_auth::ensure_container_auth(
-            backend_base.as_deref(),
-            synth_api_key.as_deref(),
-            upload,
-            persist,
-        )
-        .await
-    });
-    result.map_err(|e| map_core_err(py, e))
-}
-
-#[pyfunction]
-fn container_normalize_environment_api_key() -> Option<String> {
-    core_container_auth::normalize_environment_api_key()
-}
-
-#[pyfunction]
-fn container_allowed_environment_api_keys() -> Vec<String> {
-    core_container_auth::allowed_environment_api_keys()
-}
-
-#[pyfunction]
-fn container_is_api_key_header_authorized(header_values: Vec<String>) -> bool {
-    core_container_auth::is_api_key_header_authorized(&header_values)
 }
 
 #[pyfunction]
@@ -1868,11 +1801,8 @@ fn container_verify_paseto_header(
     header_value: String,
     required_scope: Option<String>,
 ) -> PyResult<()> {
-    core_container_auth::verify_container_paseto_header(
-        &header_value,
-        required_scope.as_deref(),
-    )
-    .map_err(|e| map_core_err(py, e))
+    core_container_auth::verify_container_paseto_header(&header_value, required_scope.as_deref())
+        .map_err(|e| map_core_err(py, e))
 }
 
 #[pyfunction]
@@ -4344,8 +4274,7 @@ impl ProgressTrackerPy {
 
 use synth_ai_core::api::{
     ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus, ContainerDeploymentInfo,
-    ContainerLimits, GepaJobRequest, MiproJobRequest,
-    SynthClient as RustSynthClient,
+    ContainerLimits, GepaJobRequest, MiproJobRequest, SynthClient as RustSynthClient,
 };
 use synth_ai_core::orchestration::events::EventParser as RustEventParser;
 use synth_ai_core::orchestration::{
@@ -4356,17 +4285,15 @@ use synth_ai_core::orchestration::{
     event_enum_values as core_event_enum_values,
     extract_program_candidate_content as core_extract_program_candidate_content,
     extract_stages_from_candidate as core_extract_stages_from_candidate,
-    get_base_schema as core_get_base_schema,
-    is_valid_event_type as core_is_valid_event_type,
+    get_base_schema as core_get_base_schema, is_valid_event_type as core_is_valid_event_type,
     merge_event_schema as core_merge_event_schema,
     normalize_transformation as core_normalize_transformation,
-    parse_job_event as core_parse_job_event,
-    seed_reward_entry as core_seed_reward_entry, validate_base_event as core_validate_base_event,
+    parse_job_event as core_parse_job_event, seed_reward_entry as core_seed_reward_entry,
+    validate_base_event as core_validate_base_event,
     validate_event_type as core_validate_event_type,
     validate_prompt_learning_config as core_validate_prompt_learning_config,
     validate_prompt_learning_config_strict as core_validate_prompt_learning_config_strict,
-    ProgressTracker as RustProgressTracker,
-    PromptLearningJob as RustPromptLearningJob,
+    ProgressTracker as RustProgressTracker, PromptLearningJob as RustPromptLearningJob,
 };
 
 #[pyclass]
@@ -4493,7 +4420,6 @@ impl SynthClient {
             .block_on(async { self.inner.jobs().resume(job_id, reason).await })
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
-
 }
 
 // =============================================================================
@@ -4637,7 +4563,6 @@ impl PromptLearningJob {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 }
-
 
 #[pyfunction]
 #[pyo3(signature = (model_name=None))]
@@ -5563,9 +5488,15 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(optimization_route_offline_jobs_base, m)?)?;
     m.add_function(wrap_pyfunction!(optimization_route_offline_job_path, m)?)?;
     m.add_function(wrap_pyfunction!(optimization_route_offline_job_subpath, m)?)?;
-    m.add_function(wrap_pyfunction!(optimization_route_online_sessions_base, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        optimization_route_online_sessions_base,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(optimization_route_online_session_path, m)?)?;
-    m.add_function(wrap_pyfunction!(optimization_route_online_session_subpath, m)?)?;
+    m.add_function(wrap_pyfunction!(
+        optimization_route_online_session_subpath,
+        m
+    )?)?;
     m.add_function(wrap_pyfunction!(optimization_route_policy_systems_base, m)?)?;
     m.add_function(wrap_pyfunction!(optimization_route_policy_system_path, m)?)?;
     m.add_function(wrap_pyfunction!(optimization_route_gepa_api_version, m)?)?;
@@ -5574,6 +5505,7 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Container URL classification
     m.add_function(wrap_pyfunction!(container_is_local_http_url, m)?)?;
     m.add_function(wrap_pyfunction!(container_is_synthtunnel_url, m)?)?;
+    m.add_function(wrap_pyfunction!(container_is_synth_managed_ngrok_url, m)?)?;
     m.add_function(wrap_pyfunction!(container_validate_gepa_auth, m)?)?;
     // Utils
     m.add_function(wrap_pyfunction!(strip_json_comments, m)?)?;
@@ -5657,18 +5589,9 @@ fn synth_ai_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(auth_load_user_config, m)?)?;
     m.add_function(wrap_pyfunction!(auth_save_user_config, m)?)?;
     m.add_function(wrap_pyfunction!(auth_update_user_config, m)?)?;
-    m.add_function(wrap_pyfunction!(mint_environment_api_key, m)?)?;
     m.add_function(wrap_pyfunction!(encrypt_for_backend, m)?)?;
-    m.add_function(wrap_pyfunction!(setup_environment_api_key, m)?)?;
-    m.add_function(wrap_pyfunction!(ensure_container_auth, m)?)?;
 
     // Container (NEW)
-    m.add_function(wrap_pyfunction!(
-        container_normalize_environment_api_key,
-        m
-    )?)?;
-    m.add_function(wrap_pyfunction!(container_allowed_environment_api_keys, m)?)?;
-    m.add_function(wrap_pyfunction!(container_is_api_key_header_authorized, m)?)?;
     m.add_function(wrap_pyfunction!(container_verify_paseto_header, m)?)?;
     m.add_function(wrap_pyfunction!(
         container_normalize_chat_completion_url,

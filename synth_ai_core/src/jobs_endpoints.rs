@@ -40,15 +40,27 @@ pub fn jobs_status(job_id: &str) -> String {
 }
 
 pub fn jobs_events(job_id: &str) -> String {
-    api_prefix(&routes::offline_job_subpath(job_id, "events", ApiVersion::V1))
+    api_prefix(&routes::offline_job_subpath(
+        job_id,
+        "events",
+        ApiVersion::V1,
+    ))
 }
 
 pub fn jobs_events_stream(job_id: &str) -> String {
-    api_prefix(&routes::offline_job_subpath(job_id, "events/stream", ApiVersion::V1))
+    api_prefix(&routes::offline_job_subpath(
+        job_id,
+        "events/stream",
+        ApiVersion::V1,
+    ))
 }
 
 pub fn jobs_artifacts(job_id: &str) -> String {
-    api_prefix(&routes::offline_job_subpath(job_id, "artifacts", ApiVersion::V1))
+    api_prefix(&routes::offline_job_subpath(
+        job_id,
+        "artifacts",
+        ApiVersion::V1,
+    ))
 }
 
 pub fn jobs_cancel(job_id: &str) -> String {
@@ -56,7 +68,11 @@ pub fn jobs_cancel(job_id: &str) -> String {
 }
 
 pub fn jobs_metrics(job_id: &str) -> String {
-    api_prefix(&routes::offline_job_subpath(job_id, "metrics", ApiVersion::V1))
+    api_prefix(&routes::offline_job_subpath(
+        job_id,
+        "metrics",
+        ApiVersion::V1,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -97,13 +113,8 @@ pub fn terminal_event_to_status(event_type: &str) -> Option<&'static str> {
 }
 
 /// Canonical terminal status strings (from status endpoint).
-pub const TERMINAL_STATUSES: &[&str] = &[
-    "succeeded",
-    "failed",
-    "cancelled",
-    "canceled",
-    "completed",
-];
+pub const TERMINAL_STATUSES: &[&str] =
+    &["succeeded", "failed", "cancelled", "canceled", "completed"];
 
 /// Check if a status string is terminal.
 pub fn is_terminal_status(status: &str) -> bool {
@@ -148,8 +159,12 @@ mod tests {
         assert!(is_terminal_event_type("learning.policy.gepa.job.completed"));
         assert!(is_terminal_event_type("eval.policy.job.failed"));
         assert!(is_terminal_event_type("some.new.domain.job.cancelled"));
-        assert!(!is_terminal_event_type("learning.policy.gepa.candidate.evaluated"));
-        assert!(!is_terminal_event_type("learning.policy.gepa.generation.completed"));
+        assert!(!is_terminal_event_type(
+            "learning.policy.gepa.candidate.evaluated"
+        ));
+        assert!(!is_terminal_event_type(
+            "learning.policy.gepa.generation.completed"
+        ));
     }
 
     #[test]

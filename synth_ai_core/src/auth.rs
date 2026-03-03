@@ -29,9 +29,6 @@ pub const CONTAINER_CONFIG_FILE: &str = "container_config.json";
 /// Default environment variable for API key
 pub const ENV_API_KEY: &str = "SYNTH_API_KEY";
 
-/// Default environment variable for environment API key
-pub const ENV_ENVIRONMENT_API_KEY: &str = "ENVIRONMENT_API_KEY";
-
 /// Default frontend URL for device auth
 pub const DEFAULT_FRONTEND_URL: &str = "https://usesynth.ai";
 
@@ -229,9 +226,6 @@ pub struct DeviceAuthResponse {
     /// Synth API key
     #[serde(default)]
     pub synth_api_key: Option<String>,
-    /// Environment API key
-    #[serde(default)]
-    pub environment_api_key: Option<String>,
     /// Canonical keys format
     #[serde(default)]
     pub keys: Option<HashMap<String, String>>,
@@ -369,23 +363,6 @@ fn extract_credentials(data: DeviceAuthResponse) -> HashMap<String, String> {
 
     if let Some(key) = synth_key {
         result.insert(ENV_API_KEY.to_string(), key);
-    }
-
-    // Get ENVIRONMENT_API_KEY
-    let env_key = data
-        .environment_api_key
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            data.keys.as_ref().and_then(|k| {
-                k.get("rl_env")
-                    .or_else(|| k.get("environment_api_key"))
-                    .cloned()
-                    .filter(|s| !s.is_empty())
-            })
-        });
-
-    if let Some(key) = env_key {
-        result.insert(ENV_ENVIRONMENT_API_KEY.to_string(), key);
     }
 
     result
@@ -534,14 +511,6 @@ pub fn load_user_env_with(override_env: bool) -> Result<HashMap<String, String>,
                             modal_map.insert("CONTAINER_SECRET_NAME".to_string(), v.clone());
                         }
                         apply(&modal_map);
-                    }
-                    if let Some(Value::Object(secrets)) = entry.get("secrets") {
-                        let mut secrets_map = HashMap::new();
-                        if let Some(v) = secrets.get("environment_api_key") {
-                            secrets_map.insert("ENVIRONMENT_API_KEY".to_string(), v.clone());
-                            secrets_map.insert("DEV_ENVIRONMENT_API_KEY".to_string(), v.clone());
-                        }
-                        apply(&secrets_map);
                     }
                 }
             }
@@ -733,31 +702,23 @@ mod tests {
         // Modern format
         let data = DeviceAuthResponse {
             synth_api_key: Some("sk_test_123".to_string()),
-            environment_api_key: Some("env_test_456".to_string()),
             keys: None,
         };
         let creds = extract_credentials(data);
         assert_eq!(creds.get("SYNTH_API_KEY"), Some(&"sk_test_123".to_string()));
-        assert_eq!(
-            creds.get("ENVIRONMENT_API_KEY"),
-            Some(&"env_test_456".to_string())
-        );
 
         // Canonical format
         let mut canonical_keys = HashMap::new();
         canonical_keys.insert("synth".to_string(), "sk_canonical".to_string());
-        canonical_keys.insert("rl_env".to_string(), "env_canonical".to_string());
 
         let data = DeviceAuthResponse {
             synth_api_key: None,
-            environment_api_key: None,
             keys: Some(canonical_keys),
         };
         let creds = extract_credentials(data);
-        assert_eq!(creds.get("SYNTH_API_KEY"), Some(&"sk_canonical".to_string()));
         assert_eq!(
-            creds.get("ENVIRONMENT_API_KEY"),
-            Some(&"env_canonical".to_string())
+            creds.get("SYNTH_API_KEY"),
+            Some(&"sk_canonical".to_string())
         );
     }
 }

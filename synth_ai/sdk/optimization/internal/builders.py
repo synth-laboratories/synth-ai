@@ -43,7 +43,6 @@ except Exception as exc:  # pragma: no cover
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
 from synth_ai.core.utils.urls import is_local_http_container_url, is_synthtunnel_url  # noqa: E402
 from synth_ai.sdk.container.auth import (  # noqa: E402
-    ensure_container_auth,
     has_container_token_signing_key,
 )
 
@@ -103,63 +102,6 @@ def _format_validation_error(path: Path, exc: ValidationError) -> str:
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
-
-
-_FORBIDDEN_CONTAINER_AUTH_FIELDS = {"container_api_key", "container_api_keys"}
-
-
-def _collect_forbidden_container_auth_paths(value: Any, path: str = "") -> list[str]:
-    paths: list[str] = []
-    if isinstance(value, dict):
-        for key, child in value.items():
-            key_str = str(key)
-            next_path = f"{path}.{key_str}" if path else key_str
-            lower = key_str.strip().lower()
-            if (
-                lower in _FORBIDDEN_CONTAINER_AUTH_FIELDS
-                or lower.endswith(".container_api_key")
-                or lower.endswith(".container_api_keys")
-            ):
-                paths.append(next_path)
-            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
-    elif isinstance(value, list):
-        for index, child in enumerate(value):
-            next_path = f"{path}[{index}]" if path else f"[{index}]"
-            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
-    return paths
-
-
-def _assert_no_forbidden_container_auth_overrides(overrides_value: Any) -> None:
-    # Non-negotiable contract:
-    # policy-optimization container auth is server-resolved; client payloads and
-    # overrides must never carry container_api_key/container_api_keys.
-    forbidden_paths = _collect_forbidden_container_auth_paths(overrides_value)
-    if not forbidden_paths:
-        return
-    raise ValueError(
-        "container_api_key/container_api_keys must never be embedded in policy-optimization "
-        "job payload overrides. This auth is server-resolved only. Forbidden override paths: "
-        + ", ".join(sorted(forbidden_paths))
-    )
-
-
-def _strip_forbidden_container_auth_fields(config_dict: dict[str, Any]) -> None:
-    # Defense in depth: even if upstream config includes these fields, strip them
-    # before constructing outbound payloads.
-    config_dict.pop("container_api_key", None)
-    config_dict.pop("container_api_keys", None)
-    for key in list(config_dict.keys()):
-        lower = str(key).strip().lower()
-        if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
-            config_dict.pop(key, None)
-    prompt_learning = config_dict.get("prompt_learning")
-    if isinstance(prompt_learning, dict):
-        prompt_learning.pop("container_api_key", None)
-        prompt_learning.pop("container_api_keys", None)
-        for key in list(prompt_learning.keys()):
-            lower = str(key).strip().lower()
-            if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
-                prompt_learning.pop(key, None)
 
 
 def _normalize_mipro_section(
@@ -285,13 +227,8 @@ def _extract_val_seeds_from_task_data(task_data: dict[str, Any]) -> list | None:
     return None
 
 
-def _validate_gepa_container_auth(
-    candidate_task_url: str, is_gepa: bool
-) -> tuple[bool, str | None]:
-    """Validate GEPA container auth and resolve env_api_key.
-
-    Returns (signer_configured, env_api_key).
-    """
+def _validate_gepa_container_auth(candidate_task_url: str, is_gepa: bool) -> bool:
+    """Validate GEPA container auth and return signer-key availability."""
     signer_configured = has_container_token_signing_key() if is_gepa else False
     if candidate_task_url and is_gepa and not signer_configured:
         if is_synthtunnel_url(candidate_task_url):
@@ -304,11 +241,7 @@ def _validate_gepa_container_auth(
                 "GEPA rollout auth for non-local container_url requires "
                 "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
             )
-    env_api_key: str | None = None
-    if not (candidate_task_url and is_synthtunnel_url(candidate_task_url)):
-        if not is_gepa:
-            env_api_key = ensure_container_auth()
-    return signer_configured, env_api_key
+    return signer_configured
 
 
 def build_prompt_learning_payload(
@@ -370,7 +303,7 @@ def build_prompt_learning_payload(
         or (os.environ.get("CONTAINER_URL") or "").strip()
     )
     is_gepa = pl_cfg.algorithm == "gepa"
-    signer_configured, env_api_key = _validate_gepa_container_auth(candidate_task_url, is_gepa)
+    _validate_gepa_container_auth(candidate_task_url, is_gepa)
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
@@ -411,27 +344,6 @@ def build_prompt_learning_payload(
     _require(
         final_task_url is not None or config_container_id is not None,
         "container_url or container_id is required",
-    )
-
-    # Get container_api_key from config or environment
-    # Note: container_api_key is not a field on PromptLearningConfig, use getattr
-    config_api_key = (getattr(pl_cfg, "container_api_key", None) or "").strip() or None
-    cli_api_key = overrides.get("container_api_key")
-    skip_container_key = os.environ.get(
-        "SYNTH_BACKEND_RESOLVES_CONTAINER_KEY", ""
-    ).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    skip_container_key = skip_container_key or signer_configured or is_gepa
-    _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
-        "container_api_key",
-        cli_value=cli_api_key,
-        env_value=env_api_key,
-        config_value=config_api_key,
-        required=(final_task_url is not None and not skip_container_key),
     )
 
     # Ensure container routing is set. For hosted containers, container_id can be used
@@ -498,12 +410,11 @@ def build_prompt_learning_payload(
     # Build payload matching backend API format
     # Extract nested overrides if present, otherwise use flat overrides directly.
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
-    _assert_no_forbidden_container_auth_overrides(config_overrides)
     # Remove non-override keys (backend, task_url, metadata, auto_start)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
+        if k not in ("backend", "task_url", "metadata", "auto_start")
     }
 
     forbidden_legacy_override_prefixes = (
@@ -526,8 +437,6 @@ def build_prompt_learning_payload(
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
-
-    _strip_forbidden_container_auth_fields(config_dict)
 
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)
@@ -690,7 +599,7 @@ def build_prompt_learning_payload_from_mapping(
         or (os.environ.get("CONTAINER_URL") or "").strip()
     )
     is_gepa = pl_cfg.algorithm == "gepa"
-    signer_configured, env_api_key = _validate_gepa_container_auth(candidate_task_url, is_gepa)
+    _validate_gepa_container_auth(candidate_task_url, is_gepa)
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
@@ -726,27 +635,6 @@ def build_prompt_learning_payload_from_mapping(
     _require(
         final_task_url is not None or config_container_id is not None,
         "container_url or container_id is required",
-    )
-
-    # Get container_api_key from config or environment
-    # Note: container_api_key is not a field on PromptLearningConfig, use getattr
-    config_api_key = (getattr(pl_cfg, "container_api_key", None) or "").strip() or None
-    cli_api_key = overrides.get("container_api_key")
-    skip_container_key = os.environ.get(
-        "SYNTH_BACKEND_RESOLVES_CONTAINER_KEY", ""
-    ).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    skip_container_key = skip_container_key or signer_configured or is_gepa
-    _container_api_key = ConfigResolver.resolve(  # noqa: F841 (validation only)
-        "container_api_key",
-        cli_value=cli_api_key,
-        env_value=env_api_key,
-        config_value=config_api_key,
-        required=(final_task_url is not None and not skip_container_key),
     )
 
     # Ensure container routing is set. For hosted containers, container_id can be used
@@ -789,11 +677,10 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
-    _assert_no_forbidden_container_auth_overrides(config_overrides)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
+        if k not in ("backend", "task_url", "metadata", "auto_start")
     }
 
     # Merge overrides into config_dict
@@ -801,8 +688,6 @@ def build_prompt_learning_payload_from_mapping(
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
-
-    _strip_forbidden_container_auth_fields(config_dict)
 
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)

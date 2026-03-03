@@ -8,13 +8,6 @@ use crate::types::{Result, SynthError};
 pub mod http;
 pub mod sse;
 
-#[derive(Clone, Copy, Debug)]
-pub enum AuthStyle {
-    Bearer,
-    ApiKey,
-    Both,
-}
-
 #[derive(Clone)]
 pub struct CoreClient {
     base_url: String,
@@ -52,18 +45,11 @@ impl CoreClient {
         shared_client()
     }
 
-    pub(crate) fn auth_headers(&self, auth: AuthStyle) -> HeaderMap {
+    pub(crate) fn auth_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        if matches!(auth, AuthStyle::Bearer | AuthStyle::Both) {
-            let value = format!("Bearer {}", self.api_key);
-            if let Ok(hv) = HeaderValue::from_str(&value) {
-                headers.insert(AUTHORIZATION, hv);
-            }
-        }
-        if matches!(auth, AuthStyle::ApiKey | AuthStyle::Both) {
-            if let Ok(hv) = HeaderValue::from_str(&self.api_key) {
-                headers.insert("X-API-Key", hv);
-            }
+        let value = format!("Bearer {}", self.api_key);
+        if let Ok(hv) = HeaderValue::from_str(&value) {
+            headers.insert(AUTHORIZATION, hv);
         }
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers
@@ -80,12 +66,12 @@ impl CoreClient {
         format!("{}/{}", self.api_base(), rel)
     }
 
-    pub async fn get_json(&self, path: &str, auth: AuthStyle) -> Result<Value> {
+    pub async fn get_json(&self, path: &str) -> Result<Value> {
         let url = self.url(path);
         let resp = self
             .http()
             .get(url)
-            .headers(self.auth_headers(auth))
+            .headers(self.auth_headers())
             .send()
             .await?;
         Self::json_or_error(resp).await
@@ -95,13 +81,12 @@ impl CoreClient {
         &self,
         path: &str,
         body: &T,
-        auth: AuthStyle,
     ) -> Result<Value> {
         let url = self.url(path);
         let resp = self
             .http()
             .post(url)
-            .headers(self.auth_headers(auth))
+            .headers(self.auth_headers())
             .json(body)
             .send()
             .await?;
@@ -112,11 +97,10 @@ impl CoreClient {
         &self,
         path: &str,
         body: &T,
-        auth: AuthStyle,
         extra_headers: Option<HeaderMap>,
     ) -> Result<Value> {
         let url = self.url(path);
-        let mut headers = self.auth_headers(auth);
+        let mut headers = self.auth_headers();
         if let Some(extra) = extra_headers {
             headers.extend(extra);
         }
@@ -140,10 +124,10 @@ impl CoreClient {
         }
     }
 
-    pub async fn get_json_strict(&self, paths: &[&str], auth: AuthStyle) -> Result<Value> {
+    pub async fn get_json_strict(&self, paths: &[&str]) -> Result<Value> {
         let mut last_error = None;
         for path in paths {
-            match self.get_json(path, auth).await {
+            match self.get_json(path).await {
                 Ok(val) => return Ok(val),
                 Err(err) => {
                     if Self::is_strict_error(&err) {
@@ -163,11 +147,10 @@ impl CoreClient {
         &self,
         paths: &[&str],
         body: &T,
-        auth: AuthStyle,
     ) -> Result<Value> {
         let mut last_error = None;
         for path in paths {
-            match self.post_json(path, body, auth).await {
+            match self.post_json(path, body).await {
                 Ok(val) => return Ok(val),
                 Err(err) => {
                     if Self::is_strict_error(&err) {
@@ -187,13 +170,12 @@ impl CoreClient {
         &self,
         paths: &[&str],
         body: &T,
-        auth: AuthStyle,
         extra_headers: Option<HeaderMap>,
     ) -> Result<Value> {
         let mut last_error = None;
         for path in paths {
             match self
-                .post_json_with_headers(path, body, auth, extra_headers.clone())
+                .post_json_with_headers(path, body, extra_headers.clone())
                 .await
             {
                 Ok(val) => return Ok(val),

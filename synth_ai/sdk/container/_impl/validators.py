@@ -178,9 +178,9 @@ async def validate_container_endpoint(
     endpoints = ContainerEndpoints()
 
     # Set up headers
-    headers = {}
+    headers: dict[str, str] = {}
     if api_key:
-        headers["X-API-Key"] = api_key
+        headers["X-Synth-Container-Authorization"] = f"Bearer {api_key}"
 
     click.echo(f"\n{'=' * 60}")
     click.echo(f"Validating Container: {url}")
@@ -219,14 +219,16 @@ async def validate_container_endpoint(
                 auth_info = data.get("auth", {})
                 if auth_info.get("required"):
                     _print_info(f"Auth required: {auth_info.get('required')}")
-                    _print_info(f"Expected key prefix: {auth_info.get('expected_prefix', 'N/A')}")
+                    _print_info(
+                        f"Required header: {auth_info.get('required_header', 'x-synth-container-authorization')}"
+                    )
 
                     if api_key:
-                        _print_success("API key provided and accepted")
+                        _print_success("Container token provided and accepted")
                         results["auth"]["provided"] = True
                         results["auth"]["accepted"] = True
                     else:
-                        _print_warning("No API key provided but may be required")
+                        _print_warning("No container token provided but may be required")
                         results["auth"]["provided"] = False
                         results["auth"]["required"] = True
             else:

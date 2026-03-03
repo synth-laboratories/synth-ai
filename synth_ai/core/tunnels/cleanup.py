@@ -1,18 +1,8 @@
 """Process tracking with automatic atexit cleanup.
 
-This module provides a simple way to track cloudflared processes and ensure
-they are terminated when Python exits (via atexit) or when cleanup_all() is
-called explicitly.
-
-Example:
-    from synth_ai.core.tunnels import open_managed_tunnel, track_process
-
-    # Start a cloudflared process and track it
-    proc = track_process(open_managed_tunnel(tunnel_token))
-
-    # Process will be automatically terminated when Python exits
-    # Or you can clean up early:
-    # cleanup_all()
+This module tracks long-running tunnel-related subprocesses and ensures they
+are terminated when Python exits (via atexit) or when cleanup_all() is called
+explicitly.
 """
 
 from __future__ import annotations
@@ -42,19 +32,13 @@ def tracked_processes() -> List[_Terminable]:
 
 
 def track_process(proc: _Terminable) -> _Terminable:
-    """Track a cloudflared process for automatic cleanup on exit.
+    """Track a subprocess for automatic cleanup on exit.
 
     Args:
-        proc: Process returned by open_managed_tunnel() or similar
+        proc: Managed process handle
 
     Returns:
         The same process (for chaining)
-
-    Example:
-        from synth_ai.core.tunnels import open_managed_tunnel, track_process
-
-        proc = track_process(open_managed_tunnel(token))
-        # proc will be terminated automatically when Python exits
     """
     global _cleanup_registered
     _tracked.append(proc)
@@ -67,7 +51,7 @@ def track_process(proc: _Terminable) -> _Terminable:
 
 
 def cleanup_all() -> None:
-    """Stop all tracked cloudflared processes.
+    """Stop all tracked processes.
 
     This is called automatically on Python exit via atexit.
     You can also call it manually to clean up early.

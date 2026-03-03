@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
 use crate::models::{JsonMap, ResourceList};
 use crate::openapi_paths;
 use crate::transport::Transport;
 use crate::types::Result;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct HostedContainerSpec {
@@ -51,7 +51,9 @@ impl ContainersClient {
     }
 
     pub async fn list(&self) -> Result<ResourceList<HostedContainer>> {
-        self.transport.get_json(openapi_paths::API_V1_CONTAINERS).await
+        self.transport
+            .get_json(openapi_paths::API_V1_CONTAINERS)
+            .await
     }
 
     pub async fn get(&self, container_id: &str) -> Result<HostedContainer> {

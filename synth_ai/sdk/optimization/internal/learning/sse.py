@@ -21,7 +21,6 @@ async def stream_events(
     headers = {
         "Accept": "text/event-stream",
         "Authorization": f"Bearer {api_key}",
-        "X-API-Key": api_key,
     }
     api_base = ensure_api_base(base_url)
     candidates = [

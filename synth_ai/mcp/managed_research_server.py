@@ -6,6 +6,7 @@ agents can control SMR projects and runs through synth-ai.
 
 from __future__ import annotations
 
+import base64
 import json
 import sys
 from dataclasses import dataclass
@@ -114,6 +115,10 @@ class ManagedResearchMcpServer:
     def __init__(self) -> None:
         self._tools = {tool.name: tool for tool in self._build_tools()}
 
+    def available_tool_names(self) -> list[str]:
+        """Return sorted MCP tool names exposed by this server."""
+        return sorted(self._tools.keys())
+
     def _client_from_args(self, args: JSONDict) -> SmrControlClient:
         return SmrControlClient(
             api_key=_optional_string(args, "api_key"),
@@ -165,6 +170,95 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_project_status,
             ),
             ToolDefinition(
+                name="smr_get_binding",
+                description="Fetch the active project binding (pool lineage and runtime/environment resolution).",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {
+                            "type": "string",
+                            "description": "Optional expected published_by_run_id for handoff verification.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_binding,
+            ),
+            ToolDefinition(
+                name="smr_promote_binding",
+                description="Promote/update active binding with expected-revision CAS semantics.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "pool_id": {
+                            "type": "string",
+                            "description": "Target pool id to bind.",
+                        },
+                        "dataset_revision": {
+                            "type": "string",
+                            "description": "Dataset revision id to bind.",
+                        },
+                        "expected_revision": {
+                            "type": "integer",
+                            "description": "Current binding revision expected by caller (CAS).",
+                        },
+                        "runtime_kind": {
+                            "type": "string",
+                            "description": "Optional runtime kind override.",
+                        },
+                        "environment_kind": {
+                            "type": "string",
+                            "description": "Optional environment kind override.",
+                        },
+                        "published_by_run_id": {
+                            "type": "string",
+                            "description": "Optional run id publishing this binding.",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Optional reason for audit trail.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "pool_id", "dataset_revision", "expected_revision"],
+                ),
+                handler=self._tool_promote_binding,
+            ),
+            ToolDefinition(
+                name="smr_get_pool_context",
+                description=(
+                    "Fetch project/run pool context for worker coordination: active binding, "
+                    "run-level pool ledger summary, recommended target (if any), and fallback policy."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {
+                            "type": "string",
+                            "description": "Optional run id used to read run-scoped pool metadata.",
+                        },
+                        "task_id": {
+                            "type": "string",
+                            "description": "Optional task id for task-level assignment lookup.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_pool_context,
+            ),
+            ToolDefinition(
                 name="smr_get_starting_data_upload_urls",
                 description="Request presigned upload URLs for starting-data files.",
                 input_schema=_tool_schema(
@@ -190,6 +284,14 @@ class ManagedResearchMcpServer:
                                 "additionalProperties": False,
                             },
                             "minItems": 1,
+                        },
+                        "idempotency_key_upload": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for upload retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_upload.",
                         },
                     },
                     required=["project_id", "files"],
@@ -223,6 +325,14 @@ class ManagedResearchMcpServer:
                                 "additionalProperties": False,
                             },
                             "minItems": 1,
+                        },
+                        "idempotency_key_upload": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for upload retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_upload.",
                         },
                     },
                     required=["project_id", "files"],
@@ -269,7 +379,12 @@ class ManagedResearchMcpServer:
                                 "profile": {"type": "string"},
                                 "source_mode": {
                                     "type": "string",
-                                    "enum": ["mcp_local", "frontend_interactive"],
+                                    "enum": [
+                                        "mcp_local",
+                                        "oneshot_mcp_local",
+                                        "synth_mcp_local",
+                                        "frontend_interactive",
+                                    ],
                                 },
                                 "targets": {
                                     "type": "array",
@@ -279,6 +394,7 @@ class ManagedResearchMcpServer:
                                             "harbor",
                                             "openenv",
                                             "archipelago",
+                                            "custom_container",
                                             "synth_container",
                                         ],
                                     },
@@ -286,13 +402,41 @@ class ManagedResearchMcpServer:
                                 },
                                 "preferred_target": {
                                     "type": "string",
-                                    "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                                    "enum": [
+                                        "harbor",
+                                        "openenv",
+                                        "archipelago",
+                                        "custom_container",
+                                        "synth_container",
+                                    ],
+                                },
+                                "runtime_kind": {
+                                    "type": "string",
+                                    "enum": ["react_mcp", "react", "horizons", "sandbox_agent"],
+                                },
+                                "environment_kind": {
+                                    "type": "string",
+                                    "enum": [
+                                        "harbor",
+                                        "openenv",
+                                        "archipelago",
+                                        "custom_container",
+                                        "synth_container",
+                                    ],
+                                },
+                                "template": {
+                                    "type": "string",
+                                    "enum": ["harbor_hardening_v1"],
                                 },
                                 "input": {
                                     "type": "object",
                                     "properties": {
                                         "dataset_ref": {"type": "string"},
                                         "bundle_manifest_path": {"type": "string"},
+                                        "session_id": {"type": "string"},
+                                        "session_state": {"type": "string"},
+                                        "session_title": {"type": "string"},
+                                        "session_notes": {"type": "string"},
                                     },
                                     "required": ["dataset_ref", "bundle_manifest_path"],
                                     "additionalProperties": False,
@@ -310,6 +454,14 @@ class ManagedResearchMcpServer:
                             },
                             "required": ["kind", "source_mode", "targets", "input"],
                             "additionalProperties": False,
+                        },
+                        "idempotency_key_run_create": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for run-create retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_run_create.",
                         },
                     },
                     required=["project_id"],
@@ -343,22 +495,60 @@ class ManagedResearchMcpServer:
                         },
                         "source_mode": {
                             "type": "string",
-                            "enum": ["mcp_local", "frontend_interactive"],
-                            "description": "Capture source mode (default mcp_local).",
+                            "enum": [
+                                "mcp_local",
+                                "oneshot_mcp_local",
+                                "synth_mcp_local",
+                                "frontend_interactive",
+                            ],
+                            "description": "Capture source mode (default synth_mcp_local).",
+                        },
+                        "template": {
+                            "type": "string",
+                            "enum": ["harbor_hardening_v1"],
+                            "description": "Optional workflow template preset.",
                         },
                         "targets": {
                             "type": "array",
                             "items": {
                                 "type": "string",
-                                "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                                "enum": [
+                                    "harbor",
+                                    "openenv",
+                                    "archipelago",
+                                    "custom_container",
+                                    "synth_container",
+                                ],
                             },
                             "minItems": 1,
                             "description": "Execution targets in priority set.",
                         },
                         "preferred_target": {
                             "type": "string",
-                            "enum": ["harbor", "openenv", "archipelago", "synth_container"],
+                            "enum": [
+                                "harbor",
+                                "openenv",
+                                "archipelago",
+                                "custom_container",
+                                "synth_container",
+                            ],
                             "description": "Preferred target (default harbor).",
+                        },
+                        "runtime_kind": {
+                            "type": "string",
+                            "enum": ["react_mcp", "react", "horizons", "sandbox_agent"],
+                            "description": "Optional runtime kind for compatibility gating.",
+                        },
+                        "environment_kind": {
+                            "type": "string",
+                            "enum": [
+                                "harbor",
+                                "openenv",
+                                "archipelago",
+                                "custom_container",
+                                "synth_container",
+                            ],
+                            "description": "Optional environment kind for compatibility gating.",
                         },
                         "strictness_mode": {
                             "type": "string",
@@ -369,10 +559,194 @@ class ManagedResearchMcpServer:
                             "type": "integer",
                             "description": "Optional run timebox in seconds.",
                         },
+                        "session_id": {
+                            "type": "string",
+                            "description": "Interactive session identifier when source_mode=frontend_interactive.",
+                        },
+                        "session_state": {
+                            "type": "string",
+                            "enum": [
+                                "empty",
+                                "active",
+                                "completed",
+                                "uploaded",
+                                "finalizing",
+                                "finalized",
+                                "publish-ready",
+                                "blocked",
+                                "recoverable-fail",
+                            ],
+                            "description": "Interactive session lifecycle state.",
+                        },
+                        "session_title": {
+                            "type": "string",
+                            "description": "Optional interactive session title.",
+                        },
+                        "session_notes": {
+                            "type": "string",
+                            "description": "Optional interactive session notes/context.",
+                        },
+                        "idempotency_key_run_create": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for run-create retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_run_create.",
+                        },
                     },
                     required=["project_id", "dataset_ref", "bundle_manifest_path"],
                 ),
                 handler=self._tool_trigger_data_factory,
+            ),
+            ToolDefinition(
+                name="smr_data_factory_finalize",
+                description=("Submit a Data Factory finalization run via the dedicated endpoint."),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "dataset_ref": {
+                            "type": "string",
+                            "description": "Dataset ref containing capture bundle files.",
+                        },
+                        "bundle_manifest_path": {
+                            "type": "string",
+                            "description": "Path under dataset_ref to capture_bundle.json.",
+                        },
+                        "template": {
+                            "type": "string",
+                            "enum": ["harbor_hardening_v1"],
+                            "description": "Optional workflow template preset.",
+                        },
+                        "target_formats": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "harbor",
+                                    "openenv",
+                                    "archipelago",
+                                    "custom_container",
+                                    "synth_container",
+                                ],
+                            },
+                            "minItems": 1,
+                            "description": "Execution target formats.",
+                        },
+                        "preferred_target": {
+                            "type": "string",
+                            "enum": [
+                                "harbor",
+                                "openenv",
+                                "archipelago",
+                                "custom_container",
+                                "synth_container",
+                            ],
+                            "description": "Preferred target (default harbor).",
+                        },
+                        "finalizer_profile": {
+                            "type": "string",
+                            "enum": ["founder_default", "researcher_strict"],
+                            "description": "Data Factory profile rail (default founder_default).",
+                        },
+                        "source_mode": {
+                            "type": "string",
+                            "enum": [
+                                "mcp_local",
+                                "oneshot_mcp_local",
+                                "synth_mcp_local",
+                                "frontend_interactive",
+                            ],
+                            "description": "Capture source mode (default synth_mcp_local).",
+                        },
+                        "runtime_kind": {
+                            "type": "string",
+                            "enum": ["react_mcp", "react", "horizons", "sandbox_agent"],
+                            "description": "Optional runtime kind for compatibility gating.",
+                        },
+                        "environment_kind": {
+                            "type": "string",
+                            "enum": [
+                                "harbor",
+                                "openenv",
+                                "archipelago",
+                                "custom_container",
+                                "synth_container",
+                            ],
+                            "description": "Optional environment kind for compatibility gating.",
+                        },
+                        "strictness_mode": {
+                            "type": "string",
+                            "enum": ["warn", "strict"],
+                            "description": "Validation strictness mode (default warn).",
+                        },
+                        "timebox_seconds": {
+                            "type": "integer",
+                            "description": "Optional run timebox in seconds.",
+                        },
+                        "idempotency_key_run_create": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for run-create retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_run_create.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_data_factory_finalize,
+            ),
+            ToolDefinition(
+                name="smr_data_factory_finalize_status",
+                description="Fetch Data Factory finalization status by job id.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "job_id": {
+                            "type": "string",
+                            "description": "Finalization job id (run id).",
+                        },
+                    },
+                    required=["project_id", "job_id"],
+                ),
+                handler=self._tool_data_factory_finalize_status,
+            ),
+            ToolDefinition(
+                name="smr_data_factory_publish",
+                description="Publish finalized Data Factory artifacts.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "job_id": {
+                            "type": "string",
+                            "description": "Finalization job id (run id).",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "Publish reason (default manual_publish).",
+                        },
+                        "idempotency_key_publish": {
+                            "type": "string",
+                            "description": "Canonical idempotency key for publish retries.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Deprecated alias for idempotency_key_publish.",
+                        },
+                    },
+                    required=["project_id", "job_id"],
+                ),
+                handler=self._tool_data_factory_publish,
             ),
             ToolDefinition(
                 name="smr_set_agent_config",
@@ -621,6 +995,111 @@ class ManagedResearchMcpServer:
                 ),
                 handler=self._tool_get_ops_status,
             ),
+            ToolDefinition(
+                name="smr_codex_subscription_status",
+                description="Get global Codex subscription connection status.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Optional project id to read project-bound state.",
+                        }
+                    },
+                    required=[],
+                ),
+                handler=self._tool_codex_subscription_status,
+            ),
+            ToolDefinition(
+                name="smr_codex_subscription_connect_start",
+                description="Start Codex subscription login (returns authorize_url and instructions).",
+                input_schema=_tool_schema(
+                    {
+                        "sandbox_agent_url": {
+                            "type": "string",
+                            "description": "Optional connector URL override.",
+                        },
+                        "provider_id": {
+                            "type": "string",
+                            "description": "Optional connector provider id override (for example openai or codex).",
+                        },
+                        "external_account_hint": {
+                            "type": "string",
+                            "description": "Optional account hint to store with the connection.",
+                        },
+                    },
+                    required=[],
+                ),
+                handler=self._tool_codex_subscription_connect_start,
+            ),
+            ToolDefinition(
+                name="smr_codex_subscription_connect_complete",
+                description="Complete Codex subscription login after browser consent.",
+                input_schema=_tool_schema(
+                    {
+                        "code": {
+                            "type": "string",
+                            "description": "Optional OAuth code for code-based flows.",
+                        },
+                        "sandbox_agent_url": {
+                            "type": "string",
+                            "description": "Optional connector URL override.",
+                        },
+                    },
+                    required=[],
+                ),
+                handler=self._tool_codex_subscription_connect_complete,
+            ),
+            ToolDefinition(
+                name="smr_codex_subscription_disconnect",
+                description="Disconnect the global Codex subscription from SMR.",
+                input_schema=_tool_schema({}, required=[]),
+                handler=self._tool_codex_subscription_disconnect,
+            ),
+            ToolDefinition(
+                name="smr_set_execution_preferences",
+                description="Set execution lane preferences for a project.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "preferred_lane": {
+                            "type": "string",
+                            "enum": ["auto", "synth_hosted", "user_connected"],
+                            "description": "Preferred execution lane.",
+                        },
+                        "allow_fallback_to_synth": {
+                            "type": "boolean",
+                            "description": "Allow fallback to synth-hosted lane.",
+                        },
+                        "free_tier_eligible": {
+                            "type": "boolean",
+                            "description": "Mark project eligible for free-tier synth hosted lane.",
+                        },
+                        "monthly_soft_limit_tokens": {
+                            "type": "integer",
+                            "description": "Optional monthly soft token limit.",
+                        },
+                    },
+                    required=["project_id", "preferred_lane"],
+                ),
+                handler=self._tool_set_execution_preferences,
+            ),
+            ToolDefinition(
+                name="smr_get_capacity_lane_preview",
+                description="Preview resolved execution lane for a project.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_capacity_lane_preview,
+            ),
             # --- Project lifecycle mutations ---
             ToolDefinition(
                 name="smr_create_project",
@@ -639,6 +1118,74 @@ class ManagedResearchMcpServer:
                     required=["name"],
                 ),
                 handler=self._tool_create_project,
+            ),
+            ToolDefinition(
+                name="smr_get_project_repos",
+                description="List project-scoped GitHub repos configured in integrations.github.repos.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_project_repos,
+            ),
+            ToolDefinition(
+                name="smr_link_org_github",
+                description="Link a project to the org-level GitHub credential.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_link_org_github,
+            ),
+            ToolDefinition(
+                name="smr_add_project_repo",
+                description="Add a GitHub repo to a project with optional PR write enablement.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "repo": {
+                            "type": "string",
+                            "description": "Repo in owner/name format.",
+                        },
+                        "pr_write_enabled": {
+                            "type": "boolean",
+                            "description": "Whether PR creation should be enabled for this repo.",
+                        },
+                    },
+                    required=["project_id", "repo"],
+                ),
+                handler=self._tool_add_project_repo,
+            ),
+            ToolDefinition(
+                name="smr_remove_project_repo",
+                description="Remove a GitHub repo from a project.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "repo": {
+                            "type": "string",
+                            "description": "Repo in owner/name format.",
+                        },
+                    },
+                    required=["project_id", "repo"],
+                ),
+                handler=self._tool_remove_project_repo,
             ),
             ToolDefinition(
                 name="smr_pause_project",
@@ -813,6 +1360,53 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_artifact,
             ),
             ToolDefinition(
+                name="smr_get_artifact_content",
+                description=(
+                    "Download artifact content by artifact id. Returns UTF-8 text when possible, "
+                    "otherwise base64-encoded bytes."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "artifact_id": {
+                            "type": "string",
+                            "description": "Artifact id.",
+                        },
+                        "disposition": {
+                            "type": "string",
+                            "description": "Either 'inline' or 'attachment'.",
+                        },
+                        "max_bytes": {
+                            "type": "integer",
+                            "description": "Maximum bytes to return in the response (default 200000).",
+                        },
+                    },
+                    required=["artifact_id"],
+                ),
+                handler=self._tool_get_artifact_content,
+            ),
+            ToolDefinition(
+                name="smr_list_run_pull_requests",
+                description="List pull requests created for a run via github_pr artifacts.",
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {
+                            "type": "string",
+                            "description": "Run id.",
+                        },
+                        "project_id": {
+                            "type": "string",
+                            "description": "Optional project id for project-scoped lookup.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum PR artifacts to inspect (default 100).",
+                        },
+                    },
+                    required=["run_id"],
+                ),
+                handler=self._tool_list_run_pull_requests,
+            ),
+            ToolDefinition(
                 name="smr_get_run_results",
                 description=(
                     "Get a run result summary: outcome, artifacts grouped by type, "
@@ -892,9 +1486,50 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_project_status(project_id)
 
+    def _tool_get_binding(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _optional_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_binding(project_id, run_id=run_id)
+
+    def _tool_promote_binding(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        pool_id = _require_string(args, "pool_id")
+        dataset_revision = _require_string(args, "dataset_revision")
+        expected_revision = _optional_int(args, "expected_revision")
+        if expected_revision is None:
+            raise ValueError("'expected_revision' is required")
+        runtime_kind = _optional_string(args, "runtime_kind")
+        environment_kind = _optional_string(args, "environment_kind")
+        published_by_run_id = _optional_string(args, "published_by_run_id")
+        reason = _optional_string(args, "reason")
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return client.promote_binding(
+                project_id,
+                pool_id=pool_id,
+                dataset_revision=dataset_revision,
+                expected_revision=expected_revision,
+                runtime_kind=runtime_kind,
+                environment_kind=environment_kind,
+                published_by_run_id=published_by_run_id,
+                reason=reason,
+                idempotency_key=idempotency_key,
+            )
+
+    def _tool_get_pool_context(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _optional_string(args, "run_id")
+        task_id = _optional_string(args, "task_id")
+        with self._client_from_args(args) as client:
+            return client.get_pool_context(project_id, run_id=run_id, task_id=task_id)
+
     def _tool_get_starting_data_upload_urls(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
         dataset_ref = _optional_string(args, "dataset_ref")
+        idempotency_key_upload = _optional_string(
+            args, "idempotency_key_upload"
+        ) or _optional_string(args, "idempotency_key")
         files = args.get("files")
         if not isinstance(files, list) or not files:
             raise ValueError("'files' must be a non-empty array")
@@ -915,11 +1550,15 @@ class ManagedResearchMcpServer:
                 project_id,
                 files=normalized_files,
                 dataset_ref=dataset_ref,
+                idempotency_key_upload=idempotency_key_upload,
             )
 
     def _tool_upload_starting_data(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
         dataset_ref = _optional_string(args, "dataset_ref")
+        idempotency_key_upload = _optional_string(
+            args, "idempotency_key_upload"
+        ) or _optional_string(args, "idempotency_key")
         files = args.get("files")
         if not isinstance(files, list) or not files:
             raise ValueError("'files' must be a non-empty array")
@@ -943,6 +1582,7 @@ class ManagedResearchMcpServer:
                 project_id,
                 files=normalized_files,
                 dataset_ref=dataset_ref,
+                idempotency_key_upload=idempotency_key_upload,
             )
 
     def _tool_trigger_run(self, args: JSONDict) -> Any:
@@ -951,6 +1591,9 @@ class ManagedResearchMcpServer:
         agent_model = _optional_string(args, "agent_model")
         agent_kind = _optional_string(args, "agent_kind")
         workflow = _optional_object(args, "workflow")
+        idempotency_key_run_create = _optional_string(
+            args, "idempotency_key_run_create"
+        ) or _optional_string(args, "idempotency_key")
         with self._client_from_args(args) as client:
             return client.trigger_run(
                 project_id,
@@ -958,6 +1601,7 @@ class ManagedResearchMcpServer:
                 agent_model=agent_model,
                 agent_kind=agent_kind,
                 workflow=workflow,
+                idempotency_key_run_create=idempotency_key_run_create,
             )
 
     def _tool_trigger_data_factory(self, args: JSONDict) -> Any:
@@ -965,7 +1609,8 @@ class ManagedResearchMcpServer:
         dataset_ref = _require_string(args, "dataset_ref")
         bundle_manifest_path = _require_string(args, "bundle_manifest_path")
         profile = _optional_string(args, "profile") or "founder_default"
-        source_mode = _optional_string(args, "source_mode") or "mcp_local"
+        source_mode = _optional_string(args, "source_mode") or "synth_mcp_local"
+        template = _optional_string(args, "template")
         preferred_target = _optional_string(args, "preferred_target") or "harbor"
         strictness_mode = _optional_string(args, "strictness_mode") or "warn"
         timebox_seconds = _optional_int(args, "timebox_seconds")
@@ -984,20 +1629,101 @@ class ManagedResearchMcpServer:
 
         runtime_kind = _optional_string(args, "runtime_kind")
         environment_kind = _optional_string(args, "environment_kind")
+        session_id = _optional_string(args, "session_id")
+        session_state = _optional_string(args, "session_state")
+        session_title = _optional_string(args, "session_title")
+        session_notes = _optional_string(args, "session_notes")
+        idempotency_key_run_create = _optional_string(
+            args, "idempotency_key_run_create"
+        ) or _optional_string(args, "idempotency_key")
 
         with self._client_from_args(args) as client:
             return client.trigger_data_factory_run(
                 project_id,
                 dataset_ref=dataset_ref,
                 bundle_manifest_path=bundle_manifest_path,
+                template=template,
                 profile=profile,
                 source_mode=source_mode,
                 targets=targets,
                 preferred_target=preferred_target,
                 runtime_kind=runtime_kind,
                 environment_kind=environment_kind,
+                session_id=session_id,
+                session_state=session_state,
+                session_title=session_title,
+                session_notes=session_notes,
                 strictness_mode=strictness_mode,
                 timebox_seconds=timebox_seconds,
+                idempotency_key_run_create=idempotency_key_run_create,
+            )
+
+    def _tool_data_factory_finalize(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        dataset_ref = _optional_string(args, "dataset_ref") or "starting-data"
+        bundle_manifest_path = (
+            _optional_string(args, "bundle_manifest_path") or "capture_bundle.json"
+        )
+        template = _optional_string(args, "template")
+        finalizer_profile = _optional_string(args, "finalizer_profile") or "founder_default"
+        source_mode = _optional_string(args, "source_mode") or "synth_mcp_local"
+        preferred_target = _optional_string(args, "preferred_target") or "harbor"
+        strictness_mode = _optional_string(args, "strictness_mode") or "warn"
+        runtime_kind = _optional_string(args, "runtime_kind")
+        environment_kind = _optional_string(args, "environment_kind")
+        timebox_seconds = _optional_int(args, "timebox_seconds")
+        idempotency_key_run_create = _optional_string(
+            args, "idempotency_key_run_create"
+        ) or _optional_string(args, "idempotency_key")
+
+        raw_target_formats = args.get("target_formats")
+        target_formats: list[str] | None = None
+        if raw_target_formats is not None:
+            if not isinstance(raw_target_formats, list) or not raw_target_formats:
+                raise ValueError("'target_formats' must be a non-empty array when provided")
+            parsed_target_formats: list[str] = []
+            for value in raw_target_formats:
+                if not isinstance(value, str) or not value.strip():
+                    raise ValueError("each target_formats entry must be a non-empty string")
+                parsed_target_formats.append(value.strip())
+            target_formats = parsed_target_formats
+
+        with self._client_from_args(args) as client:
+            return client.data_factory_finalize(
+                project_id,
+                dataset_ref=dataset_ref,
+                bundle_manifest_path=bundle_manifest_path,
+                template=template,
+                target_formats=target_formats,
+                preferred_target=preferred_target,
+                finalizer_profile=finalizer_profile,
+                source_mode=source_mode,
+                runtime_kind=runtime_kind,
+                environment_kind=environment_kind,
+                strictness_mode=strictness_mode,
+                timebox_seconds=timebox_seconds,
+                idempotency_key_run_create=idempotency_key_run_create,
+            )
+
+    def _tool_data_factory_finalize_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        job_id = _require_string(args, "job_id")
+        with self._client_from_args(args) as client:
+            return client.data_factory_finalize_status(project_id, job_id)
+
+    def _tool_data_factory_publish(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        job_id = _require_string(args, "job_id")
+        reason = _optional_string(args, "reason") or "manual_publish"
+        idempotency_key_publish = _optional_string(
+            args, "idempotency_key_publish"
+        ) or _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return client.data_factory_publish(
+                project_id,
+                job_id,
+                reason=reason,
+                idempotency_key_publish=idempotency_key_publish,
             )
 
     def _tool_set_agent_config(self, args: JSONDict) -> Any:
@@ -1115,6 +1841,60 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_ops_status(project_id, include_done_tasks=include_done_tasks)
 
+    def _tool_codex_subscription_status(self, args: JSONDict) -> Any:
+        project_id = _optional_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.chatgpt_connection_status(project_id=project_id)
+
+    def _tool_codex_subscription_connect_start(self, args: JSONDict) -> Any:
+        sandbox_agent_url = _optional_string(args, "sandbox_agent_url")
+        provider_id = _optional_string(args, "provider_id")
+        external_account_hint = _optional_string(args, "external_account_hint")
+        with self._client_from_args(args) as client:
+            return client.chatgpt_connect_start(
+                sandbox_agent_url=sandbox_agent_url,
+                provider_id=provider_id,
+                external_account_hint=external_account_hint,
+            )
+
+    def _tool_codex_subscription_connect_complete(self, args: JSONDict) -> Any:
+        code = _optional_string(args, "code")
+        sandbox_agent_url = _optional_string(args, "sandbox_agent_url")
+        with self._client_from_args(args) as client:
+            return client.chatgpt_connect_complete(code=code, sandbox_agent_url=sandbox_agent_url)
+
+    def _tool_codex_subscription_disconnect(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.chatgpt_disconnect()
+
+    def _tool_set_execution_preferences(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        preferred_lane = _require_string(args, "preferred_lane")
+        if preferred_lane not in {"auto", "synth_hosted", "user_connected"}:
+            raise ValueError("'preferred_lane' must be one of: auto, synth_hosted, user_connected")
+        allow_fallback_to_synth = args.get("allow_fallback_to_synth")
+        if allow_fallback_to_synth is not None and not isinstance(allow_fallback_to_synth, bool):
+            raise ValueError("'allow_fallback_to_synth' must be a boolean when provided")
+        free_tier_eligible = args.get("free_tier_eligible")
+        if free_tier_eligible is not None and not isinstance(free_tier_eligible, bool):
+            raise ValueError("'free_tier_eligible' must be a boolean when provided")
+        monthly_soft_limit_tokens = args.get("monthly_soft_limit_tokens")
+        if monthly_soft_limit_tokens is not None and not isinstance(monthly_soft_limit_tokens, int):
+            raise ValueError("'monthly_soft_limit_tokens' must be an integer when provided")
+        with self._client_from_args(args) as client:
+            return client.set_execution_preferences(
+                project_id,
+                preferred_lane=preferred_lane,  # type: ignore[arg-type]
+                allow_fallback_to_synth=allow_fallback_to_synth,
+                free_tier_eligible=free_tier_eligible,
+                monthly_soft_limit_tokens=monthly_soft_limit_tokens,
+            )
+
+    def _tool_get_capacity_lane_preview(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.get_capacity_lane_preview(project_id)
+
     # Project lifecycle mutations ---------------------------------------
 
     def _tool_create_project(self, args: JSONDict) -> Any:
@@ -1125,6 +1905,33 @@ class ManagedResearchMcpServer:
         payload: JSONDict = {"name": name, **config}
         with self._client_from_args(args) as client:
             return client.create_project(payload)
+
+    def _tool_get_project_repos(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.get_project_repos(project_id)
+
+    def _tool_link_org_github(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.link_org_github(project_id)
+
+    def _tool_add_project_repo(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        repo = _require_string(args, "repo")
+        pr_write_enabled = _optional_bool(args, "pr_write_enabled", default=False)
+        with self._client_from_args(args) as client:
+            return client.add_project_repo(
+                project_id,
+                repo=repo,
+                pr_write_enabled=pr_write_enabled,
+            )
+
+    def _tool_remove_project_repo(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        repo = _require_string(args, "repo")
+        with self._client_from_args(args) as client:
+            return client.remove_project_repo(project_id, repo=repo)
 
     def _tool_pause_project(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
@@ -1200,6 +2007,65 @@ class ManagedResearchMcpServer:
         artifact_id = _require_string(args, "artifact_id")
         with self._client_from_args(args) as client:
             return client.get_artifact(artifact_id)
+
+    def _tool_get_artifact_content(self, args: JSONDict) -> Any:
+        artifact_id = _require_string(args, "artifact_id")
+        disposition = _optional_string(args, "disposition") or "inline"
+        if disposition not in {"inline", "attachment"}:
+            raise ValueError("'disposition' must be 'inline' or 'attachment'")
+        max_bytes_raw = _optional_int(args, "max_bytes")
+        max_bytes = max_bytes_raw if max_bytes_raw is not None else 200_000
+        if max_bytes <= 0:
+            raise ValueError("'max_bytes' must be a positive integer")
+
+        with self._client_from_args(args) as client:
+            artifact = client.get_artifact(artifact_id)
+            response = client.get_artifact_content_response(
+                artifact_id,
+                disposition=disposition,
+                follow_redirects=True,
+            )
+            content_bytes = response.content or b""
+
+        full_size = len(content_bytes)
+        truncated = full_size > max_bytes
+        payload_bytes = content_bytes[:max_bytes] if truncated else content_bytes
+
+        try:
+            text_content = payload_bytes.decode("utf-8")
+            encoding = "utf-8"
+            content: str = text_content
+        except UnicodeDecodeError:
+            encoding = "base64"
+            content = base64.b64encode(payload_bytes).decode("ascii")
+
+        return {
+            "artifact_id": artifact_id,
+            "artifact_type": artifact.get("artifact_type"),
+            "title": artifact.get("title"),
+            "uri": artifact.get("uri"),
+            "content_type": response.headers.get("content-type"),
+            "encoding": encoding,
+            "content": content,
+            "content_bytes_returned": len(payload_bytes),
+            "content_bytes_total": full_size,
+            "truncated": truncated,
+            "max_bytes": max_bytes,
+        }
+
+    def _tool_list_run_pull_requests(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        limit_raw = _optional_int(args, "limit")
+        limit = limit_raw if limit_raw is not None else 100
+        if limit <= 0:
+            raise ValueError("'limit' must be a positive integer")
+        with self._client_from_args(args) as client:
+            return client.list_run_pull_requests(
+                run_id,
+                project_id=project_id,
+                limit=limit,
+            )
 
     def _tool_get_run_results(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

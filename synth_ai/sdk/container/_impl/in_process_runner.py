@@ -10,14 +10,23 @@ This module keeps everything in-process:
 Note: RL job support has been moved to the research repo.
 
 Tunnel Modes:
-- "synthtunnel" (default): Uses SynthTunnel relay
-- "local": No tunnel, uses localhost URL directly
-- "ngrok_managed": Uses Synth-managed ngrok-compatible URL
-- "preconfigured": Deprecated alias of "ngrok_managed"
+- provider="SynthTunnel" (default): Uses SynthTunnel relay
+- provider="Ngrok": Uses Synth-managed ngrok-compatible URL
+- provider="Localhost": No tunnel, uses localhost URL directly
+
+Container auth lifecycle (current):
+- Backend API auth uses `Authorization: Bearer <SYNTH_API_KEY>`.
+- SynthTunnel relay auth uses `container_worker_token` (forwarded on runtime
+  paths as `X-SynthTunnel-Worker-Token`).
+- GEPA rollout auth for SynthTunnel and non-local container URLs uses signed
+  container auth tokens and requires
+  `SYNTH_CONTAINER_AUTH_PRIVATE_KEY` or
+  `SYNTH_CONTAINER_AUTH_PRIVATE_KEYS`.
+- Legacy `container_api_key` / `ENVIRONMENT_API_KEY` rollout auth is not used
+  by synth-ai prompt-learning flows.
 
 Environment Variables:
-- SYNTH_CONTAINER_URL: If set, auto-enables preconfigured mode with this URL
-- SYNTH_TUNNEL_MODE: Override tunnel mode (e.g., "preconfigured", "local")
+- SYNTH_MANAGED_NGROK_URL: Managed URL used when provider="Ngrok"
 """
 
 import asyncio
@@ -27,7 +36,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping
 from urllib.parse import urlparse
 
-from synth_ai.core.tunnels import TunnelBackend
+from synth_ai.core.tunnels import TunnelProvider
 from synth_ai.core.utils.dict import deep_update as _deep_update
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.container._impl.in_process import InProcessContainer
@@ -130,7 +139,6 @@ async def run_in_process_job(
     config_path: str | Path,
     backend_url: str | None = None,
     api_key: str | None = None,
-    container_api_key: str | None = None,
     allow_experimental: bool | None = None,
     overrides: Mapping[str, Any] | None = None,
     poll: bool = True,
@@ -142,11 +150,8 @@ async def run_in_process_job(
     config: Any | None = None,
     config_factory: Callable[[], Any] | None = None,
     container_path: str | Path | None = None,
-    tunnel_mode: str = "synthtunnel",
-    tunnel_backend: TunnelBackend | str | None = None,
-    preconfigured_url: str | None = None,
-    preconfigured_auth_header: str | None = None,
-    preconfigured_auth_token: str | None = None,
+    provider: TunnelProvider | str | None = None,
+    managed_ngrok_url: str | None = None,
     skip_tunnel_verification: bool = True,  # Default True - verification is unreliable
     force_new_tunnel: bool = True,  # Default True - always get fresh tunnel
     host: str = "127.0.0.1",
@@ -154,15 +159,13 @@ async def run_in_process_job(
     auto_find_port: bool = True,
     health_check_timeout: float = 30.0,
 ) -> InProcessJobResult:
-    """Run a prompt-learning or RL job with a tunneled container."""
-    """Run a prompt-learning or RL job with a tunneled container.
-    
+    """Run a prompt-learning job with a tunneled container.
+
     Args:
-        job_type: Type of job - "prompt_learning" or "rl"
+        job_type: Type of job - "prompt_learning"
         config_path: Path to the TOML config file
         backend_url: Optional backend URL override
         api_key: Synth API key for backend auth
-        container_api_key: API key for container auth
         allow_experimental: Allow experimental features
         overrides: Config overrides (dot-notation supported)
         poll: Whether to poll for completion
@@ -173,41 +176,28 @@ async def run_in_process_job(
         config: ContainerConfig object
         config_factory: Callable that returns ContainerConfig
         container_path: Path to container .py file
-        tunnel_mode: Tunnel mode - "synthtunnel", "ngrok_managed", "local", or "preconfigured"
-        tunnel_backend: Explicit tunnel backend (overrides tunnel_mode when set)
-        preconfigured_url: External tunnel URL when tunnel_mode="preconfigured"
-        preconfigured_auth_header: Auth header name for preconfigured URL
-        preconfigured_auth_token: Auth token for preconfigured URL
+        provider: Provider selector - "SynthTunnel", "Ngrok", or "Localhost"
+        managed_ngrok_url: Managed ngrok URL when provider="Ngrok"
         skip_tunnel_verification: Skip HTTP verification of tunnel
         host: Local host to bind to
         port: Local port to bind to
         auto_find_port: Auto-find available port if busy
         health_check_timeout: Max time to wait for health check
-        
+
     Returns:
         InProcessJobResult with job_id, status, and URLs
     """
     backend_api_base = resolve_backend_api_base(backend_url)
 
-    # Set SYNTH_BACKEND_URL so that tunnel operations (like rotate_tunnel) use the correct backend
+    # Set SYNTH_BACKEND_URL so tunnel control-plane calls use the intended backend.
     os.environ["SYNTH_BACKEND_URL"] = backend_api_base
 
-    # Local prompt-learning runs don't need a tunnel. Default to direct localhost unless:
-    # - the caller explicitly chose a tunnel mode, or
-    # - an explicit tunnel backend is set, or
-    # - SYNTH_TUNNEL_MODE is set (CLI override).
-    if (
-        tunnel_backend is None
-        and tunnel_mode == "synthtunnel"
-        and not (os.environ.get("SYNTH_TUNNEL_MODE") or "").strip()
-        and _is_local_backend_api_base(backend_api_base)
-    ):
-        tunnel_mode = "local"
+    # Local prompt-learning runs don't need a tunnel. Default to direct localhost unless
+    # the caller explicitly chose a provider.
+    if provider is None and _is_local_backend_api_base(backend_api_base):
+        provider = TunnelProvider.Localhost
 
     resolved_api_key = api_key or _require_env("SYNTH_API_KEY", friendly_name="Backend API key")
-    resolved_container_key = container_api_key or _require_env(
-        "ENVIRONMENT_API_KEY", friendly_name="Container API key"
-    )
 
     config_path = Path(config_path)
     if not config_path.exists():
@@ -221,14 +211,11 @@ async def run_in_process_job(
         container_path=container_path,
         host=host,
         port=port,
-        tunnel_mode=tunnel_mode,
-        tunnel_backend=tunnel_backend,
-        preconfigured_url=preconfigured_url,
-        preconfigured_auth_header=preconfigured_auth_header,
-        preconfigured_auth_token=preconfigured_auth_token,
+        provider=provider,
+        managed_ngrok_url=managed_ngrok_url,
         skip_tunnel_verification=skip_tunnel_verification,
         force_new_tunnel=force_new_tunnel,
-        api_key=resolved_container_key,
+        api_key="",
         backend_url=backend_api_base,
         auto_find_port=auto_find_port,
         health_check_timeout=health_check_timeout,
@@ -258,7 +245,7 @@ async def run_in_process_job(
         else:
             health = check_container_health(
                 task_url,
-                resolved_container_key,
+                "",
                 worker_token=worker_token,
             )
             if not health.ok:
@@ -276,7 +263,6 @@ async def run_in_process_job(
                 config_path=config_path,
                 backend_url=backend_api_base,
                 api_key=resolved_api_key,
-                container_api_key=resolved_container_key,
                 container_worker_token=worker_token,
                 allow_experimental=allow_experimental,
                 overrides=merged_overrides,

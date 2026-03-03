@@ -36,6 +36,7 @@ Example:
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -75,7 +76,7 @@ async def _get_with_canonical(
 
 
 def _auth_headers(api_key: str) -> Dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "x-api-key": api_key}
+    return {"Authorization": f"Bearer {api_key}"}
 
 
 async def _patch_state_with_action_canonical(
@@ -223,7 +224,7 @@ class MiproOnlineSession:
         canonical_body.setdefault("technique", "discrete_optimization")
         canonical_body.setdefault(
             "system",
-            {"name": session_id or "mipro-online-session"},
+            {"name": session_id or str(uuid.uuid4())},
         )
 
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
@@ -236,15 +237,16 @@ class MiproOnlineSession:
         session_id = str(response.get("session_id") or "")
         if not session_id:
             raise ValueError("Missing session_id in response")
+        normalized_urls = _normalize_prompt_urls(response)
 
         return cls(
             session_id=session_id,
             backend_url=base_url,
             api_key=key,
             correlation_id=(response.get("correlation_id") or correlation_id or agent_id),
-            proxy_url=_coerce_str(response.get("proxy_url")),
-            online_url=_coerce_str(response.get("online_url")),
-            chat_completions_url=_coerce_str(response.get("chat_completions_url")),
+            proxy_url=_coerce_str(normalized_urls.get("proxy_url")),
+            online_url=_coerce_str(normalized_urls.get("online_url")),
+            chat_completions_url=_coerce_str(normalized_urls.get("chat_completions_url")),
             timeout=timeout,
         )
 
@@ -332,7 +334,7 @@ class MiproOnlineSession:
                     api_version=MIPRO_API_VERSION,
                 ),
             )
-            online_url = status_response.get("online_url")
+            online_url = _normalize_prompt_urls(status_response).get("online_url")
             if not online_url:
                 response = await http.get(
                     online_session_subpath(
@@ -346,7 +348,7 @@ class MiproOnlineSession:
                     response,
                     context="MIPRO prompt endpoint",
                 )
-                online_url = status_response.get("online_url")
+                online_url = _normalize_prompt_urls(status_response).get("online_url")
         if not online_url:
             raise ValueError("Missing online_url in response")
         return str(online_url)
@@ -587,7 +589,8 @@ class MiproOnlineSession:
                 ),
                 params=params or None,
             )
-        return _expect_dict_response(result, context="MIPRO prompt endpoint")
+        payload = _expect_dict_response(result, context="MIPRO prompt endpoint")
+        return _normalize_prompt_urls(payload)
 
     def get_prompt_urls(self, *, correlation_id: Optional[str] = None) -> Dict[str, Any]:
         """Get proxy URLs for prompt selection (synchronous wrapper).
@@ -881,6 +884,23 @@ def _expect_dict_response(response: Any, *, context: str) -> Dict[str, Any]:
     if isinstance(response, dict):
         return dict(response)
     raise ValueError(f"Invalid response from {context}: expected JSON object")
+
+
+def _normalize_prompt_urls(payload: Dict[str, Any]) -> Dict[str, Any]:
+    normalized = dict(payload)
+    proxy_url = _coerce_str(payload.get("proxy_url"))
+    online_url = _coerce_str(payload.get("online_url")) or proxy_url
+    chat_completions_url = _coerce_str(payload.get("chat_completions_url"))
+    if not chat_completions_url and online_url:
+        base = online_url.rstrip("/")
+        if base.endswith("/chat/completions"):
+            chat_completions_url = base
+        else:
+            chat_completions_url = f"{base}/chat/completions"
+    normalized["proxy_url"] = proxy_url
+    normalized["online_url"] = online_url
+    normalized["chat_completions_url"] = chat_completions_url
+    return normalized
 
 
 def _run_async(coro: Any) -> Any:

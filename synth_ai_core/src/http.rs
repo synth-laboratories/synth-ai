@@ -148,11 +148,6 @@ impl HttpClient {
                 HeaderValue::from_str(&auth_value)
                     .map_err(|_| HttpError::InvalidUrl("invalid api key characters".to_string()))?,
             );
-            headers.insert(
-                "X-API-Key",
-                HeaderValue::from_str(api_key)
-                    .map_err(|_| HttpError::InvalidUrl("invalid api key characters".to_string()))?,
-            );
         }
 
         // Optional dev headers

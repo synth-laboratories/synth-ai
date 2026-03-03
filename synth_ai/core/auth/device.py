@@ -51,5 +51,4 @@ def fetch_credentials_from_web_browser() -> dict:
     print(f"Connected to {FRONTEND_URL_BASE}")
     return {
         "SYNTH_API_KEY": str(creds.get("SYNTH_API_KEY") or ""),
-        "ENVIRONMENT_API_KEY": str(creds.get("ENVIRONMENT_API_KEY") or ""),
     }

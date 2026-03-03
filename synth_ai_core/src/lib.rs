@@ -42,21 +42,19 @@ pub use jobs::{CandidateStatus, JobEvent, JobEventType, JobLifecycle, JobStatus}
 // Re-export API types for convenience
 pub use api::{
     ContainerDeployClient, ContainerDeployResponse, ContainerDeploySpec, ContainerDeployStatus,
-    ContainerDeploymentInfo, ContainerLimits, EvalJobStatus,
-    PolicyJobStatus, SynthClient,
+    ContainerDeploymentInfo, ContainerLimits, EvalJobStatus, PolicyJobStatus, SynthClient,
 };
 
 // Re-export route builders
 pub use api::routes::{
-    ApiVersion, offline_job_path as routes_offline_job_path,
-    offline_job_subpath as routes_offline_job_subpath,
+    offline_job_path as routes_offline_job_path, offline_job_subpath as routes_offline_job_subpath,
     offline_jobs_base as routes_offline_jobs_base,
     online_session_path as routes_online_session_path,
     online_session_subpath as routes_online_session_subpath,
     online_sessions_base as routes_online_sessions_base,
     policy_system_path as routes_policy_system_path,
-    policy_systems_base as routes_policy_systems_base,
-    EVAL_API_VERSION, GEPA_API_VERSION, MIPRO_API_VERSION,
+    policy_systems_base as routes_policy_systems_base, ApiVersion, EVAL_API_VERSION,
+    GEPA_API_VERSION, MIPRO_API_VERSION,
 };
 
 // Re-export model helpers
@@ -65,13 +63,11 @@ pub use models::{detect_model_provider, normalize_model_identifier, supported_mo
 // Re-export orchestration types
 pub use orchestration::{
     base_event_schemas, base_job_event_schema, build_program_candidate,
-    build_prompt_learning_payload, event_enum_values,
-    extract_program_candidate_content, extract_stages_from_candidate, get_base_schema,
-    is_valid_event_type, merge_event_schema,
-    normalize_transformation, seed_reward_entry, seed_score_entry,
-    validate_event_type, validate_prompt_learning_config,
-    validate_prompt_learning_config_strict, CandidateInfo, EventCategory, EventParser, EventStream,
-    GEPAProgress, MutationSummary, MutationTypeStats,
+    build_prompt_learning_payload, event_enum_values, extract_program_candidate_content,
+    extract_stages_from_candidate, get_base_schema, is_valid_event_type, merge_event_schema,
+    normalize_transformation, seed_reward_entry, seed_score_entry, validate_event_type,
+    validate_prompt_learning_config, validate_prompt_learning_config_strict, CandidateInfo,
+    EventCategory, EventParser, EventStream, GEPAProgress, MutationSummary, MutationTypeStats,
     ParsedEvent, PhaseSummary, ProgramCandidate, ProgressTracker, PromptLearningJob,
     PromptLearningResult, PromptLearningValidationResult, PromptResults, SeedAnalysis, SeedInfo,
     StageInfo, TokenUsage, MAX_INSTRUCTION_LENGTH, MAX_ROLLOUT_SAMPLES, MAX_SEED_INFO_COUNT,
@@ -163,32 +159,28 @@ pub use sse::{stream_sse, stream_sse_request, SseEvent, SseStream};
 
 // Re-export local API types
 pub use container::{
-    is_local_http_container_url, is_synthtunnel_url, validate_gepa_container_auth,
-    GepaAuthRequirement, allowed_environment_api_keys, apply_context_overrides,
-    build_rollout_response,
-    build_trace_payload, build_trajectory_trace, container_health, encrypt_for_backend,
-    ensure_container_auth, ensure_split, extract_api_key, extract_message_text,
+    apply_context_overrides, build_rollout_response, build_trace_payload, build_trajectory_trace,
+    container_health, encrypt_for_backend, ensure_split, extract_api_key, extract_message_text,
     extract_trace_correlation_id, get_agent_skills_path, get_applied_env_vars,
     get_default_max_completion_tokens, get_groq_key, get_openai_key,
     include_event_history_in_response, include_event_history_in_trajectories,
-    include_trace_correlation_id_in_response, inject_system_hint, is_api_key_header_authorized,
-    is_direct_provider_call, mint_environment_api_key, normalise_seed,
-    normalize_chat_completion_url, normalize_environment_api_key, normalize_inference_url,
-    normalize_response_format_for_groq, normalize_vendor_keys, parse_tool_call_from_text,
-    parse_tool_calls_from_response, prepare_for_groq, prepare_for_openai, resolve_sft_output_dir,
-    resolve_tracing_db_url, setup_environment_api_key, synthesize_tool_call_if_missing,
-    tracing_env_enabled, unique_sft_path, validate_artifact_size, validate_artifacts_list,
-    validate_container_url, validate_context_overrides, validate_context_snapshot,
-    validate_rollout_response_for_rl, validate_trace_correlation_id,
-    verify_trace_correlation_id_in_response, ContainerClient, DatasetInfo, HealthResponse,
-    InferenceInfo, InfoResponse, LimitsInfo, RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec,
-    RolloutRequest, RolloutResponse, RolloutSafetyConfig, TaskDatasetSpec, TaskDescriptor,
-    TaskInfo, DEV_ENVIRONMENT_API_KEY_NAME, ENVIRONMENT_API_KEY_ALIASES_NAME,
-    ENVIRONMENT_API_KEY_NAME, MAX_ARTIFACTS_PER_ROLLOUT, MAX_ARTIFACT_CONTENT_TYPE_LENGTH,
-    MAX_ARTIFACT_METADATA_BYTES, MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES,
-    MAX_ENVIRONMENT_API_KEY_BYTES, MAX_ENV_VARS, MAX_ENV_VAR_VALUE_LENGTH, MAX_FILES_PER_OVERRIDE,
-    MAX_FILE_SIZE_BYTES, MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES,
-    MAX_TOTAL_SIZE_BYTES, PREFLIGHT_SCRIPT_TIMEOUT_SECONDS, SEALED_BOX_ALGORITHM,
+    include_trace_correlation_id_in_response, inject_system_hint, is_direct_provider_call,
+    is_local_http_container_url, is_synth_managed_ngrok_url, is_synthtunnel_url, normalise_seed,
+    normalize_chat_completion_url, normalize_inference_url, normalize_response_format_for_groq,
+    normalize_vendor_keys, parse_tool_call_from_text, parse_tool_calls_from_response,
+    prepare_for_groq, prepare_for_openai, resolve_sft_output_dir, resolve_tracing_db_url,
+    synthesize_tool_call_if_missing, tracing_env_enabled, unique_sft_path, validate_artifact_size,
+    validate_artifacts_list, validate_container_url, validate_context_overrides,
+    validate_context_snapshot, validate_gepa_container_auth, validate_rollout_response_for_rl,
+    validate_trace_correlation_id, verify_trace_correlation_id_in_response, ContainerClient,
+    DatasetInfo, GepaAuthRequirement, HealthResponse, InferenceInfo, InfoResponse, LimitsInfo,
+    RolloutEnvSpec, RolloutMetrics, RolloutPolicySpec, RolloutRequest, RolloutResponse,
+    RolloutSafetyConfig, TaskDatasetSpec, TaskDescriptor, TaskInfo, MAX_ARTIFACTS_PER_ROLLOUT,
+    MAX_ARTIFACT_CONTENT_TYPE_LENGTH, MAX_ARTIFACT_METADATA_BYTES,
+    MAX_CONTEXT_OVERRIDES_PER_ROLLOUT, MAX_CONTEXT_SNAPSHOT_BYTES, MAX_ENV_VARS,
+    MAX_ENV_VAR_VALUE_LENGTH, MAX_FILES_PER_OVERRIDE, MAX_FILE_SIZE_BYTES,
+    MAX_INLINE_ARTIFACT_BYTES, MAX_TOTAL_INLINE_ARTIFACTS_BYTES, MAX_TOTAL_SIZE_BYTES,
+    PREFLIGHT_SCRIPT_TIMEOUT_SECONDS, SEALED_BOX_ALGORITHM,
 };
 
 // Re-export trace upload types

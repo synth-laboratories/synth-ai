@@ -6,8 +6,6 @@ remains for compatibility removed while the naming transition completes.
 
 from typing import TYPE_CHECKING, Any
 
-from .auth import ensure_container_auth
-
 # Defer template imports to avoid circular dependency
 # template.py imports from sdk.task, which may transitively import container
 
@@ -77,6 +75,11 @@ _HARBOR_IMPORTS = {
     "HarborInstanceProvider",
     "create_harbor_instance_provider",
 }
+_AUTH_IMPORTS = {
+    "ensure_container_auth",
+    "encrypt_for_backend",
+    "has_container_token_signing_key",
+}
 
 
 def __getattr__(name: str) -> Any:
@@ -110,6 +113,10 @@ def __getattr__(name: str) -> Any:
             from .harbor import provider as _harbor_provider
 
             return getattr(_harbor_provider, name)
+    if name in _AUTH_IMPORTS:
+        from . import auth as _auth
+
+        return getattr(_auth, name)
     if name == "create_container":
         from synth_ai.sdk.container._impl import create_container
 
@@ -149,7 +156,6 @@ __all__ = [
     "RolloutResponseBuilder",
     "ContainerDeployResult",
     "deploy_container",
-    "ensure_container_auth",
     "build_template_config",
     "create_template_app",
     # Harbor integration
@@ -158,4 +164,7 @@ __all__ = [
     "create_harbor_rollout_executor",
     "HarborInstanceProvider",
     "create_harbor_instance_provider",
+    "ensure_container_auth",
+    "encrypt_for_backend",
+    "has_container_token_signing_key",
 ]

@@ -919,7 +919,7 @@ class GEPAConfig(ExtraModel):
     env_config: dict[str, Any] | None = None
     rng_seed: int | None = None
     proposer_type: str = "synth"
-    proposer_backend: Literal["prompt", "rlm", "agent"] | None = None
+    proposer_backend: Literal["rlm", "agent"] | None = None
     proposer: dict[str, Any] | None = None
     context_override: dict[str, Any] | None = None
     actionable_upfront_context: dict[str, Any] | None = None
@@ -1635,7 +1635,7 @@ class PromptLearningConfig(ExtraModel):
             return data
 
         # Silently remove deprecated fields (don't raise errors)
-        deprecated_fields = {"display", "results_folder", "container_api_key"}
+        deprecated_fields = {"display", "results_folder"}
 
         for field in deprecated_fields:
             if field in data:
@@ -1703,7 +1703,7 @@ class PromptLearningConfig(ExtraModel):
 
         # Remove deprecated fields at top level (silently for compatibility removed)
         # The CLI validation module will warn about these
-        deprecated_top_level = {"display", "results_folder", "container_api_key"}
+        deprecated_top_level = {"display", "results_folder"}
 
         # Convert to mutable dict (creates a copy to avoid modifying the original)
         data = dict(data)

@@ -38,9 +38,9 @@ pub use client::SynthClient;
 pub use container::ContainerDeployClient;
 pub use jobs::JobsClient;
 pub use routes::{
-    ApiVersion, offline_job_path, offline_job_subpath, offline_jobs_base, online_session_path,
+    offline_job_path, offline_job_subpath, offline_jobs_base, online_session_path,
     online_session_subpath, online_sessions_base, policy_system_path, policy_systems_base,
-    EVAL_API_VERSION, GEPA_API_VERSION, MIPRO_API_VERSION,
+    ApiVersion, EVAL_API_VERSION, GEPA_API_VERSION, MIPRO_API_VERSION,
 };
 pub use types::{
     ContainerDeployResponse,

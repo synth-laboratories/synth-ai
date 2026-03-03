@@ -16,7 +16,7 @@ from synth_ai.client import (
     SynthTunnel,
     TunnelsClient,
 )
-from synth_ai.core.tunnels import TunnelBackend, TunneledContainer
+from synth_ai.core.tunnels import TunnelBackend, TunneledContainer, TunnelProvider
 from synth_ai.sdk.container import ContainerClient, InProcessContainer, create_container
 from synth_ai.sdk.containers import Container, ContainerSpec, ContainerType
 
@@ -37,6 +37,7 @@ __all__ = [
     "PoolsClient",
     "SynthTunnel",
     "TunnelBackend",
+    "TunnelProvider",
     "TunneledContainer",
     "TunnelsClient",
     "create_container",

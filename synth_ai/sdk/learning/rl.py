@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from synth_ai.sdk.container.auth import (  # noqa: F401
-    mint_environment_api_key,
-    setup_environment_api_key,
+    encrypt_for_backend,
+    has_container_token_signing_key,
 )
 
 __all__ = [
-    "mint_environment_api_key",
-    "setup_environment_api_key",
+    "encrypt_for_backend",
+    "has_container_token_signing_key",
 ]

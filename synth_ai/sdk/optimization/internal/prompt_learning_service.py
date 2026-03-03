@@ -7,7 +7,7 @@ from .utils import ensure_api_base, http_get, http_post, parse_json_response
 
 def _headers(api_key: str, *, worker_token: str | None = None) -> dict[str, str]:
     headers: dict[str, str] = {
-        "X-API-Key": api_key,
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
     if worker_token and worker_token.strip():

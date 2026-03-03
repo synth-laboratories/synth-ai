@@ -362,18 +362,1095 @@ paths:
   /v1/online/sessions/{session_id}/events:
     get:
       tags: [Optimization]
-      summary: Stream online session events (SSE)
+      summary: List or stream online session events
       operationId: streamOnlineSessionEvents
       parameters:
         - $ref: '#/components/parameters/SessionId'
         - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
-          description: SSE stream
+          description: 'JSON polling by default, SSE when `Accept: text/event-stream`'
           content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
             text/event-stream:
               schema:
                 type: string
+
+  /v2/online/sessions/{session_id}/events:
+    get:
+      tags: [Optimization]
+      summary: List or stream online session events
+      operationId: streamOnlineSessionEventsV2
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: 'JSON polling by default, SSE when `Accept: text/event-stream`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+            text/event-stream:
+              schema:
+                type: string
+
+  /v2/runtime/compatibility:
+    get:
+      tags: [Optimization]
+      summary: Get runtime route compatibility map
+      operationId: getRuntimeRouteCompatibility
+      responses:
+        '200':
+          description: Runtime route compatibility contract
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /v2/runtime/systems/{system_id}/queue/trials:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue trials
+      operationId: listRuntimeQueueTrials
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create runtime queue trial
+      operationId: createRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/contract:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue contract
+      operationId: getRuntimeQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue contract
+      operationId: patchRuntimeQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/trials/{trial_id}:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue trial
+      operationId: getRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue trial
+      operationId: patchRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue rollouts
+      operationId: listRuntimeQueueRollouts
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Enqueue runtime rollout request
+      operationId: enqueueRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/lease:
+    post:
+      tags: [Optimization]
+      summary: Lease next runtime rollout request
+      operationId: leaseRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/expire-leases:
+    post:
+      tags: [Optimization]
+      summary: Expire stale runtime rollout leases
+      operationId: expireRuntimeQueueRolloutLeases
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/{rollout_id}:
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue rollout state
+      operationId: patchRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - $ref: '#/components/parameters/RolloutId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/trials:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue trials by session alias
+      operationId: listRuntimeSessionQueueTrials
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create runtime queue trial by session alias
+      operationId: createRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/contract:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue contract by session alias
+      operationId: getRuntimeSessionQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue contract by session alias
+      operationId: patchRuntimeSessionQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/trials/{trial_id}:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue trial by session alias
+      operationId: getRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue trial by session alias
+      operationId: patchRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue rollouts by session alias
+      operationId: listRuntimeSessionQueueRollouts
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Enqueue runtime rollout request by session alias
+      operationId: enqueueRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/lease:
+    post:
+      tags: [Optimization]
+      summary: Lease next runtime rollout by session alias
+      operationId: leaseRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/expire-leases:
+    post:
+      tags: [Optimization]
+      summary: Expire runtime rollout leases by session alias
+      operationId: expireRuntimeSessionQueueRolloutLeases
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/{rollout_id}:
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue rollout by session alias
+      operationId: patchRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/RolloutId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/dump:
+    post:
+      tags: [Optimization]
+      summary: Dump runtime container rollout checkpoint
+      operationId: runtimeContainerRolloutCheckpointDump
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+        - $ref: '#/components/parameters/RolloutId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/restore:
+    post:
+      tags: [Optimization]
+      summary: Restore runtime container rollout checkpoint
+      operationId: runtimeContainerRolloutCheckpointRestore
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+        - $ref: '#/components/parameters/RolloutId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Query optimizer events (Victoria-backed)
+      operationId: listOptimizerEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Query optimizer events (Victoria-backed)
+      operationId: listOptimizerEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Query failure events (Victoria-backed)
+      operationId: listFailureEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Query failure events (Victoria-backed)
+      operationId: listFailureEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Admin query optimizer events (Victoria-backed)
+      operationId: listAdminOptimizerEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Admin query optimizer events (Victoria-backed)
+      operationId: listAdminOptimizerEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Admin query failure events (Victoria-backed)
+      operationId: listAdminFailureEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Admin query failure events (Victoria-backed)
+      operationId: listAdminFailureEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/victoria-logs/query:
+    get:
+      tags: [Optimization]
+      summary: Admin raw Victoria logs query
+      operationId: listAdminVictoriaLogsQueryV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/RedactQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/victoria-logs/query:
+    get:
+      tags: [Optimization]
+      summary: Admin raw Victoria logs query
+      operationId: listAdminVictoriaLogsQueryV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/RedactQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
 
   /api/graphs/completions:
     post:
@@ -1047,6 +2124,209 @@ components:
       required: false
       schema:
         type: string
+    OrgIdQuery:
+      name: org_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SystemIdQuery:
+      name: system_id
+      in: query
+      required: false
+      schema:
+        type: string
+    JobIdQuery:
+      name: job_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RunIdQuery:
+      name: run_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RolloutIdQuery:
+      name: rollout_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CandidateIdQuery:
+      name: candidate_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SeedQuery:
+      name: seed
+      in: query
+      required: false
+      schema:
+        type: string
+    ActorIdQuery:
+      name: actor_id
+      in: query
+      required: false
+      schema:
+        type: string
+    StageIdQuery:
+      name: stage_id
+      in: query
+      required: false
+      schema:
+        type: string
+    TraceIdQuery:
+      name: trace_id
+      in: query
+      required: false
+      schema:
+        type: string
+    EventIdQuery:
+      name: event_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CausationIdQuery:
+      name: causation_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CorrelationIdQuery:
+      name: correlation_id
+      in: query
+      required: false
+      schema:
+        type: string
+    AlgorithmQuery:
+      name: algorithm
+      in: query
+      required: false
+      schema:
+        type: string
+    EventTypeQuery:
+      name: event_type
+      in: query
+      required: false
+      schema:
+        type: string
+    StatusQuery:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceQuery:
+      name: source
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [proposer, runtime, rollout, container, checkpoint, system]
+    EventFamilyQuery:
+      name: event_family
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [candidate, trial, rollout, runtime, checkpoint, proposer, container, system]
+    StreamIdQuery:
+      name: stream_id
+      in: query
+      required: false
+      schema:
+        type: string
+    TrialIdQuery:
+      name: trial_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RuntimeTickIdQuery:
+      name: runtime_tick_id
+      in: query
+      required: false
+      schema:
+        type: string
+    ProposalSessionIdQuery:
+      name: proposal_session_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceSessionIdQuery:
+      name: source_session_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SequenceQuery:
+      name: sequence
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceSequenceQuery:
+      name: source_sequence
+      in: query
+      required: false
+      schema:
+        type: string
+    PayloadRedactedQuery:
+      name: payload_redacted
+      in: query
+      required: false
+      schema:
+        type: boolean
+    ReasonCodeQuery:
+      name: reason_code
+      in: query
+      required: false
+      schema:
+        type: string
+    ErrorTypeQuery:
+      name: error_type
+      in: query
+      required: false
+      schema:
+        type: string
+    StartTimeQuery:
+      name: start
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+    EndTimeQuery:
+      name: end
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+    RawLogSqlQuery:
+      name: q
+      in: query
+      required: false
+      schema:
+        type: string
+    RedactQuery:
+      name: redact
+      in: query
+      required: false
+      schema:
+        type: boolean
+    ExpectedStateRevision:
+      name: expected_state_revision
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
     SystemId:
       name: system_id
       in: path
@@ -1251,7 +2531,7 @@ components:
           enum: [discrete_optimization]
         kind:
           type: string
-          enum: [gepa_offline, mipro_offline]
+          enum: [gepa_offline, mipro_offline, eval]
         system:
           type: object
           properties:
@@ -1273,6 +2553,8 @@ components:
           additionalProperties: true
         auto_start:
           type: boolean
+        inference_mode:
+          $ref: '#/components/schemas/EvalInferenceMode'
       additionalProperties: true
 
     OfflineJob:
@@ -1287,6 +2569,33 @@ components:
         system:
           type: object
           additionalProperties: true
+      additionalProperties: true
+
+    EvalInferenceMode:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: Inference resolver mode. Current supported mode is ephemeral_pool.
+        pool_id:
+          type: string
+          description: Existing Rhodes pool identifier resolved into `/v1/pools/{pool_id}` for eval rollouts.
+        pool_ttl_seconds:
+          type: integer
+          format: int64
+          minimum: 1
+        auto_cleanup:
+          type: boolean
+        runtime_type:
+          type: string
+        template_name:
+          type: string
+        data_source_id:
+          type: string
+        dockerfile_upload_path:
+          type: string
+        environment_type:
+          type: string
       additionalProperties: true
 
     OnlineSessionCreateRequest:

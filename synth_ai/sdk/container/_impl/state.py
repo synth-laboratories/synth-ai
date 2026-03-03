@@ -16,7 +16,6 @@ __all__ = [
     "load_template_id",
     "now_iso",
     "persist_api_key",
-    "persist_env_api_key",
     "persist_container_url",
     "persist_template_id",
     "read_container_config",
@@ -219,16 +218,6 @@ def persist_api_key(key: str) -> None:
     def _mutate(entry: dict[str, Any]) -> None:
         secrets = entry.setdefault("secrets", {})
         secrets["synth_api_key"] = key
-
-    update_container_entry(target, mutate=_mutate)
-
-
-def persist_env_api_key(key: str, path: str | Path | None = None) -> None:
-    target = path or current_container_id()
-
-    def _mutate(entry: dict[str, Any]) -> None:
-        secrets = entry.setdefault("secrets", {})
-        secrets["environment_api_key"] = key
 
     update_container_entry(target, mutate=_mutate)
 

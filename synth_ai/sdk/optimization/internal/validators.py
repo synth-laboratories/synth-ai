@@ -62,6 +62,8 @@ _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
     "Unknown field 'container_id' in [prompt_learning].",
     # Canonical optimize-anything fields.
     "Unknown field 'optimization_mode' in [prompt_learning].",
+    "Unknown field 'target_mode' in [prompt_learning].",
+    "Unknown field 'target_kind' in [prompt_learning].",
     "Unknown field 'artifact' in [prompt_learning].",
     "Unknown field 'artifact_kind' in [prompt_learning].",
     "Unknown field 'default_artifact_kind' in [prompt_learning].",
@@ -169,11 +171,11 @@ def _normalize_supported_model_errors(config_data: dict[str, Any], errors: list[
     return normalized
 
 
-def _normalize_container_fields(config_data: dict[str, Any]) -> None:
+def _normalize_container_fields(config_data: dict[str, Any]) -> dict[str, Any]:
     """Normalize canonical container fields before strict validation (mutates in-place)."""
     pl = config_data.get("prompt_learning")
     if not isinstance(pl, dict):
-        return
+        return config_data
 
     def _first_str(*vals: Any) -> str | None:
         for v in vals:
@@ -188,10 +190,11 @@ def _normalize_container_fields(config_data: dict[str, Any]) -> None:
     cid = _first_str(pl.get("container_id"))
     if cid:
         pl.setdefault("container_id", cid)
+    return config_data
 
 
 def _normalize_kind_mode_aliases(config_data: dict[str, Any]) -> None:
-    """Normalize canonical algorithm name into strict-validator legacy alias (mutates in-place)."""
+    """Normalize canonical v2 algorithm/mode aliases (mutates in-place)."""
     pl = config_data.get("prompt_learning")
     if not isinstance(pl, dict):
         return
@@ -199,6 +202,63 @@ def _normalize_kind_mode_aliases(config_data: dict[str, Any]) -> None:
     algorithm_name = pl.get("algorithm_name")
     if pl.get("algorithm") is None and isinstance(algorithm_name, str) and algorithm_name.strip():
         pl["algorithm"] = algorithm_name.strip().lower()
+
+    def _norm_target_mode(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower().replace("-", "_")
+        if normalized == "prompt":
+            return "prompt"
+        if normalized in {"anything", "optimize_anything", "context"}:
+            return "anything"
+        return None
+
+    def _norm_target_kind(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower().replace("-", "_")
+        if normalized in {"generic", "context"}:
+            return normalized
+        if normalized in {"skills", "skill", "skill_bundle", "trajectory_index"}:
+            return "skills"
+        return None
+
+    def _norm_optimization_mode(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        normalized = value.strip().lower().replace("-", "_")
+        if normalized in {"prompt", "context", "optimize_anything"}:
+            return normalized
+        return None
+
+    target_mode = _norm_target_mode(pl.get("target_mode"))
+    target_kind = _norm_target_kind(pl.get("target_kind"))
+    optimization_mode = _norm_optimization_mode(pl.get("optimization_mode"))
+
+    if target_mode is None and optimization_mode is not None:
+        if optimization_mode == "prompt":
+            target_mode = "prompt"
+        else:
+            target_mode = "anything"
+            if target_kind is None:
+                target_kind = "context" if optimization_mode == "context" else "generic"
+
+    if target_mode == "prompt":
+        target_kind = None
+        optimization_mode = "prompt"
+    elif target_mode == "anything":
+        if target_kind is None:
+            target_kind = "generic"
+        optimization_mode = "context" if target_kind == "context" else "optimize_anything"
+
+    if target_mode is not None:
+        pl["target_mode"] = target_mode
+    if target_kind is None:
+        pl["target_kind"] = None
+    else:
+        pl["target_kind"] = target_kind
+    if optimization_mode is not None:
+        pl["optimization_mode"] = optimization_mode
 
 
 def _filter_known_gepa_alias_warnings(warnings_list: list[str]) -> list[str]:
@@ -282,27 +342,16 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> None:
     """Normalize GEPA proposer alias fields to canonical synth proposer settings (mutates in-place).
 
     Canonical/new benchmark configs may send:
-    - prompt_learning.gepa.proposer_backend = "prompt" | "rlm" | "agent"
-    - prompt_learning.gepa.proposer.prompt.strategy = "synth"
+    - prompt_learning.gepa.proposer_backend = "rlm" | "agent"
     - prompt_learning.gepa.context_override = {...}
 
-    For proposer_backend='prompt', derives proposer_type/proposer_mode. For
-    proposer_backend='rlm' or 'agent', passes through; rust_backend gepa_adapter
-    dispatches execution.
+    proposer_backend='prompt' is removed and rejected.
+    proposer_backend='rlm' and 'agent' pass through; rust_backend GEPA adapters
+    dispatch execution.
     """
     sections: list[dict[str, Any]] = []
     if isinstance(config_data.get("prompt_learning"), dict):
         sections.append(config_data["prompt_learning"])
-
-    def _normalize_prompt_strategy(value: Any) -> str:
-        strategy = str(value or "synth").strip().lower()
-        if strategy == "builtin":
-            strategy = "synth"
-        if strategy != "synth":
-            raise click.ClickException(
-                f"Invalid GEPA prompt strategy '{strategy}'. Only 'synth' is supported."
-            )
-        return strategy
 
     for section in sections:
         gepa = section.get("gepa")
@@ -362,22 +411,10 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> None:
 
         proposer_backend = str(proposer_backend_raw).strip().lower()
         if proposer_backend == "prompt":
-            proposer = gepa.get("proposer")
-            prompt_strategy = None
-            if isinstance(proposer, dict):
-                prompt_cfg = proposer.get("prompt")
-                if isinstance(prompt_cfg, dict):
-                    prompt_strategy = prompt_cfg.get("strategy")
-            normalized_strategy = _normalize_prompt_strategy(
-                prompt_strategy
-                or gepa.get("proposer_type")
-                or gepa.get("proposer_mode")
-                or gepa.get("proposal_pipeline")
+            raise click.ClickException(
+                "prompt_learning.gepa.proposer_backend='prompt' is removed. "
+                "Use proposer_backend='rlm' or proposer_backend='agent'."
             )
-            gepa["proposer_type"] = normalized_strategy
-            gepa["proposer_mode"] = normalized_strategy
-            gepa["proposal_pipeline"] = normalized_strategy
-            continue
 
         # proposer_backend='rlm' and 'agent' are supported by rust_backend gepa_adapter.
         # Pass through; no normalization needed.
@@ -386,7 +423,7 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> None:
 
         raise click.ClickException(
             f"Invalid prompt_learning.gepa.proposer_backend='{proposer_backend_raw}'. "
-            "Expected one of: prompt, rlm, agent."
+            "Expected one of: rlm, agent."
         )
 
 

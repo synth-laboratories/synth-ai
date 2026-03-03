@@ -286,7 +286,7 @@ def check_container_health(
                 )
 
             if resp.status_code in (401, 403):
-                # Try next key (ENVIRONMENT_API_KEY vs SYNTH_API_KEY)
+                # Try next available bearer token
                 continue
 
             # Unexpected response from Harbor status endpoint.

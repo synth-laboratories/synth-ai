@@ -6,6 +6,7 @@ error messages and suggested remediation steps.
 
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import Optional
 
 
@@ -62,7 +63,10 @@ class TunnelAPIError(TunnelError):
         elif status_code == 429:
             hint = hint or "Rate limited. Wait a moment and try again."
         elif status_code == 502:
-            hint = hint or "Cloudflare provisioning failed. This is usually temporary - try again."
+            hint = (
+                hint
+                or "Tunnel provisioning failed upstream. This is usually temporary - try again."
+            )
         elif status_code == 503:
             hint = hint or "Tunnel service is not configured. Contact support."
 
@@ -110,7 +114,7 @@ class LeaseNotFoundError(LeaseError):
 
 
 class ConnectorError(TunnelError):
-    """Error with the cloudflared connector."""
+    """Error with the tunnel connector runtime."""
 
     def __init__(
         self,
@@ -123,20 +127,17 @@ class ConnectorError(TunnelError):
 
 
 class ConnectorNotInstalledError(ConnectorError):
-    """cloudflared is not installed."""
+    """A required tunnel connector is not installed."""
 
     def __init__(self):
         super().__init__(
-            "cloudflared is not installed",
-            hint=(
-                "Install cloudflared with: synth_ai.tunnels.ensure_cloudflared_installed()\n"
-                "Or download from: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
-            ),
+            "Tunnel connector is not installed",
+            hint="Install the required tunnel connector and retry.",
         )
 
 
 class ConnectorConnectionError(ConnectorError):
-    """cloudflared failed to connect to Cloudflare edge."""
+    """Connector failed to establish an edge connection."""
 
     def __init__(self, message: str, *, timeout: Optional[float] = None):
         hint = "Check your network connection and firewall settings."
@@ -228,8 +229,8 @@ class DNSResolutionError(TunnelError):
         super().__init__(
             msg,
             hint=(
-                "DNS propagation can take a few seconds after cloudflared connects.\n"
-                "If this persists, check that cloudflared is connected and your network can reach Cloudflare."
+                "DNS propagation can take a few seconds after tunnel creation.\n"
+                "If this persists, verify your network resolver and managed tunnel host configuration."
             ),
         )
 
@@ -246,3 +247,88 @@ class RateLimitError(TunnelError):
             msg,
             hint=f"{hint}\nConsider using managed tunnels instead of quick tunnels for more reliability.",
         )
+
+
+class TunnelErrorCode(StrEnum):
+    """Stable tunnel error taxonomy exposed by SDK surfaces."""
+
+    PROVIDER_INVALID = "TUNNEL_PROVIDER_INVALID"
+    PROVIDER_DEPRECATED_INPUT = "TUNNEL_PROVIDER_DEPRECATED_INPUT"
+    URL_REQUIRED = "TUNNEL_URL_REQUIRED"
+    URL_INVALID = "TUNNEL_URL_INVALID"
+    URL_FORBIDDEN = "TUNNEL_URL_FORBIDDEN"
+    AUTH_REQUIRED = "TUNNEL_AUTH_REQUIRED"
+    AUTH_INVALID = "TUNNEL_AUTH_INVALID"
+    LEASE_PENDING = "TUNNEL_LEASE_PENDING"
+    LEASE_EXPIRED = "TUNNEL_LEASE_EXPIRED"
+    AGENT_OFFLINE = "TUNNEL_AGENT_OFFLINE"
+    ENDPOINT_UNREACHABLE = "TUNNEL_ENDPOINT_UNREACHABLE"
+    CAPACITY_EXCEEDED = "TUNNEL_CAPACITY_EXCEEDED"
+    PAYLOAD_TOO_LARGE = "TUNNEL_PAYLOAD_TOO_LARGE"
+    TIMEOUT = "TUNNEL_TIMEOUT"
+    INTERNAL = "TUNNEL_INTERNAL"
+
+
+class TunnelProviderError(TunnelError):
+    """Structured tunnel/provider error with stable code and backend metadata."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: TunnelErrorCode,
+        status: int | None = None,
+        request_id: str | None = None,
+        backend_code: str | None = None,
+        provider: str | None = None,
+        hint: str | None = None,
+    ):
+        self.code = code
+        self.status = status
+        self.request_id = request_id
+        self.backend_code = backend_code
+        self.provider = provider
+        super().__init__(message, hint=hint, diagnostics_id=request_id)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "code": self.code.value,
+            "status": self.status,
+            "request_id": self.request_id,
+            "backend_code": self.backend_code,
+            "provider": self.provider,
+            "message": self.message,
+            "hint": self.hint,
+        }
+
+
+def map_problem_to_tunnel_error_code(
+    problem_code: str | None, detail: str | None
+) -> TunnelErrorCode:
+    """Map backend problem+json codes/details into stable tunnel taxonomy codes."""
+    code = (problem_code or "").strip().lower()
+    detail_lc = (detail or "").strip().lower()
+
+    if code in {"unauthorized", "forbidden"}:
+        return TunnelErrorCode.AUTH_INVALID
+    if code == "rate_limited":
+        return TunnelErrorCode.CAPACITY_EXCEEDED
+    if code == "upstream_error":
+        return TunnelErrorCode.ENDPOINT_UNREACHABLE
+    if code == "internal_error":
+        return TunnelErrorCode.INTERNAL
+
+    if "x-synthtunnel-worker-token" in detail_lc:
+        return TunnelErrorCode.AUTH_REQUIRED
+    if "no default managed ngrok url" in detail_lc:
+        return TunnelErrorCode.URL_REQUIRED
+    if "allow-listed" in detail_lc or "allowlisted" in detail_lc:
+        return TunnelErrorCode.URL_FORBIDDEN
+    if "invalid" in detail_lc and "url" in detail_lc:
+        return TunnelErrorCode.URL_INVALID
+    if "timed out" in detail_lc or "timeout" in detail_lc:
+        return TunnelErrorCode.TIMEOUT
+    if "agent_offline" in detail_lc or "agent offline" in detail_lc:
+        return TunnelErrorCode.AGENT_OFFLINE
+
+    return TunnelErrorCode.INTERNAL

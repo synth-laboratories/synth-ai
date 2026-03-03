@@ -23,7 +23,7 @@ class LeaseState(str, Enum):
 
 
 class ConnectorState(str, Enum):
-    """State of the cloudflared connector."""
+    """State of the tunnel connector runtime."""
 
     STOPPED = "stopped"
     STARTING = "starting"
@@ -85,7 +85,7 @@ class ManagedTunnelInfo:
 
 @dataclass(slots=True)
 class ConnectorStatus:
-    """Status of the cloudflared connector process."""
+    """Status of the connector process."""
 
     state: ConnectorState
     pid: Optional[int] = None

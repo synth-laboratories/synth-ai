@@ -12,18 +12,55 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Literal, Optional, Sequence
+from urllib.parse import urlencode
 
 import httpx
 
+from synth_ai.core.errors import HTTPError, UsageLimitError, ValidationError
 from synth_ai.core.rust_core.http import RustCoreHttpClient
 from synth_ai.core.utils.optimization_routes import (
+    admin_failures_query_path,
+    admin_optimizer_events_path,
+    admin_victoria_logs_query_path,
+    candidates_submit_path,
+    failures_query_path,
     normalize_api_version,
     offline_job_path,
+    offline_job_queue_default_plan_path,
+    offline_job_queue_rollout_drain_path,
+    offline_job_queue_rollout_limiter_status_path,
+    offline_job_queue_rollout_metrics_path,
+    offline_job_queue_rollout_policy_path,
+    offline_job_queue_rollout_retry_path,
+    offline_job_queue_rollouts_path,
+    offline_job_queue_trial_path,
+    offline_job_queue_trials_path,
+    offline_job_queue_trials_reorder_path,
+    offline_job_state_baseline_info_path,
+    offline_job_state_envelope_path,
     offline_jobs_base,
     online_session_path,
     online_sessions_base,
+    optimizer_events_path,
     policy_system_path,
     policy_systems_base,
+    runtime_compatibility_path,
+    runtime_container_rollout_checkpoint_dump_path,
+    runtime_container_rollout_checkpoint_restore_path,
+    runtime_queue_contract_path,
+    runtime_queue_rollout_expire_leases_path,
+    runtime_queue_rollout_lease_path,
+    runtime_queue_rollout_path,
+    runtime_queue_rollouts_path,
+    runtime_queue_trial_path,
+    runtime_queue_trials_path,
+    runtime_session_queue_contract_path,
+    runtime_session_queue_rollout_expire_leases_path,
+    runtime_session_queue_rollout_lease_path,
+    runtime_session_queue_rollout_path,
+    runtime_session_queue_rollouts_path,
+    runtime_session_queue_trial_path,
+    runtime_session_queue_trials_path,
 )
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 from synth_ai.sdk.optimization.utils import ensure_api_base, run_sync
@@ -63,11 +100,167 @@ def _clean_params(params: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in params.items() if v is not None}
 
 
+def _append_query_params(path: str, params: Dict[str, Any]) -> str:
+    cleaned = _clean_params(params)
+    if not cleaned:
+        return path
+    return f"{path}?{urlencode(cleaned, doseq=True)}"
+
+
+def _normalize_algorithm_kind(algorithm_kind: Optional[str]) -> Optional[str]:
+    if algorithm_kind is None:
+        return None
+    normalized = str(algorithm_kind).strip().lower()
+    if normalized not in {"gepa", "mipro"}:
+        raise ValueError("algorithm_kind must be 'gepa' or 'mipro'")
+    return normalized
+
+
+def _optimizer_event_query_params(
+    *,
+    limit: int = 200,
+    org_id: Optional[str] = None,
+    system_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    rollout_id: Optional[str] = None,
+    candidate_id: Optional[str] = None,
+    seed: Optional[str] = None,
+    actor_id: Optional[str] = None,
+    stage_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    event_id: Optional[str] = None,
+    causation_id: Optional[str] = None,
+    correlation_id: Optional[str] = None,
+    algorithm: Optional[str] = None,
+    event_type: Optional[str] = None,
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    event_family: Optional[str] = None,
+    stream_id: Optional[str] = None,
+    trial_id: Optional[str] = None,
+    runtime_tick_id: Optional[str] = None,
+    proposal_session_id: Optional[str] = None,
+    source_session_id: Optional[str] = None,
+    sequence: Optional[str] = None,
+    source_sequence: Optional[str] = None,
+    payload_redacted: Optional[bool] = None,
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    q: Optional[str] = None,
+    cursor: Optional[str] = None,
+) -> Dict[str, Any]:
+    return _clean_params(
+        {
+            "limit": limit,
+            "org_id": org_id,
+            "system_id": system_id,
+            "job_id": job_id,
+            "run_id": run_id,
+            "rollout_id": rollout_id,
+            "candidate_id": candidate_id,
+            "seed": seed,
+            "actor_id": actor_id,
+            "stage_id": stage_id,
+            "trace_id": trace_id,
+            "event_id": event_id,
+            "causation_id": causation_id,
+            "correlation_id": correlation_id,
+            "algorithm": algorithm,
+            "event_type": event_type,
+            "status": status,
+            "source": source,
+            "event_family": event_family,
+            "stream_id": stream_id,
+            "trial_id": trial_id,
+            "runtime_tick_id": runtime_tick_id,
+            "proposal_session_id": proposal_session_id,
+            "source_session_id": source_session_id,
+            "sequence": sequence,
+            "source_sequence": source_sequence,
+            "payload_redacted": payload_redacted,
+            "start": start,
+            "end": end,
+            "q": q,
+            "cursor": cursor,
+        }
+    )
+
+
 def _auth_headers(api_key: str) -> Dict[str, str]:
     return {
         "Authorization": f"Bearer {api_key}",
-        "x-api-key": api_key,
     }
+
+
+def _parse_429_usage_limit_payload(body: Any) -> UsageLimitError | ValidationError:
+    if not isinstance(body, dict):
+        return ValidationError(
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
+            "(expected JSON object)."
+        )
+    detail = body.get("detail")
+    if not isinstance(detail, dict):
+        return ValidationError(
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
+            "(detail must be an object with message/limit/current/tier)."
+        )
+
+    message = detail.get("message")
+    limit = detail.get("limit")
+    current = detail.get("current")
+    tier = detail.get("tier")
+    if not isinstance(message, str):
+        return ValidationError(
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
+            "(detail.message must be a string)."
+        )
+    if not isinstance(limit, (int, float)) or not isinstance(current, (int, float)):
+        return ValidationError(
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
+            "(detail.limit/current must be numeric)."
+        )
+    if not isinstance(tier, str):
+        return ValidationError(
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
+            "(detail.tier must be a string)."
+        )
+    return UsageLimitError(
+        limit_type=message,
+        api="jobs",
+        current=current,
+        limit=limit,
+        tier=tier,
+    )
+
+
+async def _post_json_with_httpx_fallback(
+    *,
+    base_url: str,
+    api_key: str,
+    timeout: float,
+    path: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    url = f"{ensure_api_base(base_url).rstrip('/')}{path}"
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, json=payload, headers=_auth_headers(api_key))
+
+    if response.status_code == 429:
+        parsed: Any
+        try:
+            parsed = response.json()
+        except Exception:
+            parsed = {}
+        error = _parse_429_usage_limit_payload(parsed)
+        raise error
+
+    response.raise_for_status()
+    try:
+        response_payload = response.json()
+    except Exception as exc:
+        raise ValidationError(f"Invalid response from {path}: expected JSON object") from exc
+    return _expect_dict_response(response_payload, context=path)
 
 
 async def _patch_state_with_action_canonical(
@@ -278,7 +471,7 @@ class PolicyOptimizationOfflineJob:
         cls,
         *,
         technique: Literal["discrete_optimization"] = "discrete_optimization",
-        kind: Literal["gepa_offline", "mipro_offline"],
+        kind: Literal["gepa_offline", "mipro_offline", "eval"],
         system_name: str,
         system_id: Optional[str] = None,
         reuse_system: bool = True,
@@ -322,9 +515,20 @@ class PolicyOptimizationOfflineJob:
         if system_id:
             payload["system"]["id"] = system_id
 
-        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
-            response = await http.post_json(jobs_path, json=payload)
-            data = _expect_dict_response(response, context=jobs_path)
+        try:
+            async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+                response = await http.post_json(jobs_path, json=payload)
+                data = _expect_dict_response(response, context=jobs_path)
+        except HTTPError as exc:
+            if exc.status != 0:
+                raise
+            data = await _post_json_with_httpx_fallback(
+                base_url=base_url,
+                api_key=key,
+                timeout=timeout,
+                path=jobs_path,
+                payload=payload,
+            )
 
         job_id = str(data.get("job_id") or "")
         if not job_id:
@@ -475,6 +679,363 @@ class PolicyOptimizationOfflineJob:
 
     def checkpoint(self) -> Dict[str, Any]:
         return _run_async(self.checkpoint_async())
+
+    async def submit_candidates_async(
+        self,
+        *,
+        algorithm_kind: str,
+        candidates: list[Dict[str, Any]],
+        proposal_session_id: Optional[str] = None,
+        proposer_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        normalized_algorithm = _normalize_algorithm_kind(algorithm_kind)
+        payload: Dict[str, Any] = {
+            "job_id": self.job_id,
+            "algorithm_kind": normalized_algorithm,
+            "candidates": list(candidates or []),
+            "proposal_session_id": proposal_session_id,
+            "proposer_metadata": dict(proposer_metadata or {}),
+        }
+        path = candidates_submit_path(api_version=self.api_version)
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=path)
+
+    def submit_candidates(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.submit_candidates_async(**kwargs))
+
+    async def get_state_baseline_info_async(self) -> Dict[str, Any]:
+        path = offline_job_state_baseline_info_path(self.job_id, api_version=self.api_version)
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def get_state_baseline_info(self) -> Dict[str, Any]:
+        return _run_async(self.get_state_baseline_info_async())
+
+    async def get_state_envelope_async(self) -> Dict[str, Any]:
+        path = offline_job_state_envelope_path(self.job_id, api_version=self.api_version)
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def get_state_envelope(self) -> Dict[str, Any]:
+        return _run_async(self.get_state_envelope_async())
+
+    async def list_trial_queue_async(self) -> Dict[str, Any]:
+        path = offline_job_queue_trials_path(self.job_id, api_version=self.api_version)
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def list_trial_queue(self) -> Dict[str, Any]:
+        return _run_async(self.list_trial_queue_async())
+
+    async def enqueue_trial_async(
+        self,
+        *,
+        trial: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = _append_query_params(
+            offline_job_queue_trials_path(self.job_id, api_version=self.api_version),
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)},
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=dict(trial or {}))
+        return _expect_dict_response(response, context=path)
+
+    def enqueue_trial(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.enqueue_trial_async(**kwargs))
+
+    async def update_trial_async(
+        self,
+        trial_id: str,
+        *,
+        patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = offline_job_queue_trial_path(
+            self.job_id,
+            trial_id,
+            api_version=self.api_version,
+        )
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
+        params = _clean_params(
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)}
+        )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                url,
+                params=params,
+                json=dict(patch or {}),
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def update_trial(self, trial_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.update_trial_async(trial_id, **kwargs))
+
+    async def cancel_trial_async(
+        self,
+        trial_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = offline_job_queue_trial_path(
+            self.job_id,
+            trial_id,
+            api_version=self.api_version,
+        )
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
+        params = _clean_params(
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)}
+        )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(
+                url,
+                params=params,
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def cancel_trial(
+        self,
+        trial_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            self.cancel_trial_async(trial_id, algorithm_kind=algorithm_kind)
+        )
+
+    async def reorder_trials_async(
+        self,
+        *,
+        trial_ids: list[str],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = _append_query_params(
+            offline_job_queue_trials_reorder_path(
+                self.job_id,
+                api_version=self.api_version,
+            ),
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)},
+        )
+        payload = {"trial_ids": [str(item) for item in trial_ids]}
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=path)
+
+    def reorder_trials(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.reorder_trials_async(**kwargs))
+
+    async def apply_default_trial_plan_async(
+        self,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = _append_query_params(
+            offline_job_queue_default_plan_path(
+                self.job_id,
+                api_version=self.api_version,
+            ),
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)},
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json={})
+        return _expect_dict_response(response, context=path)
+
+    def apply_default_trial_plan(
+        self,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            self.apply_default_trial_plan_async(algorithm_kind=algorithm_kind)
+        )
+
+    async def get_rollout_queue_async(self) -> Dict[str, Any]:
+        path = offline_job_queue_rollouts_path(self.job_id, api_version=self.api_version)
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def get_rollout_queue(self) -> Dict[str, Any]:
+        return _run_async(self.get_rollout_queue_async())
+
+    async def set_rollout_queue_policy_async(
+        self,
+        *,
+        policy_patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = offline_job_queue_rollout_policy_path(
+            self.job_id,
+            api_version=self.api_version,
+        )
+        params = _clean_params({"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)})
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                f"{ensure_api_base(self.backend_url).rstrip('/')}{path}",
+                params=params,
+                json=dict(policy_patch or {}),
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def set_rollout_queue_policy(
+        self,
+        *,
+        policy_patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            self.set_rollout_queue_policy_async(
+                policy_patch=policy_patch,
+                algorithm_kind=algorithm_kind,
+            )
+        )
+
+    async def get_rollout_dispatch_metrics_async(self) -> Dict[str, Any]:
+        path = offline_job_queue_rollout_metrics_path(
+            self.job_id,
+            api_version=self.api_version,
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def get_rollout_dispatch_metrics(self) -> Dict[str, Any]:
+        return _run_async(self.get_rollout_dispatch_metrics_async())
+
+    async def get_rollout_limiter_status_async(self) -> Dict[str, Any]:
+        path = offline_job_queue_rollout_limiter_status_path(
+            self.job_id,
+            api_version=self.api_version,
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    def get_rollout_limiter_status(self) -> Dict[str, Any]:
+        return _run_async(self.get_rollout_limiter_status_async())
+
+    async def retry_rollout_dispatch_async(
+        self,
+        dispatch_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        dispatch_id_norm = str(dispatch_id).strip()
+        if not dispatch_id_norm:
+            raise ValueError("dispatch_id is required")
+        path = _append_query_params(
+            offline_job_queue_rollout_retry_path(
+                self.job_id,
+                dispatch_id_norm,
+                api_version=self.api_version,
+            ),
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)},
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json={})
+        return _expect_dict_response(response, context=path)
+
+    def retry_rollout_dispatch(
+        self,
+        dispatch_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            self.retry_rollout_dispatch_async(
+                dispatch_id,
+                algorithm_kind=algorithm_kind,
+            )
+        )
+
+    async def drain_rollout_queue_async(
+        self,
+        *,
+        cancel_queued: bool = False,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        path = _append_query_params(
+            offline_job_queue_rollout_drain_path(
+                self.job_id,
+                api_version=self.api_version,
+            ),
+            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)},
+        )
+        payload = {"cancel_queued": bool(cancel_queued)}
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=path)
+
+    def drain_rollout_queue(
+        self,
+        *,
+        cancel_queued: bool = False,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            self.drain_rollout_queue_async(
+                cancel_queued=cancel_queued,
+                algorithm_kind=algorithm_kind,
+            )
+        )
 
     async def pause_async(self) -> Dict[str, Any]:
         return await _patch_state_with_action_canonical(
@@ -760,6 +1321,908 @@ class PolicyOptimizationOnlineSession:
     @classmethod
     def list(cls, **kwargs: Any) -> Dict[str, Any]:
         return _run_async(cls.list_async(**kwargs))
+
+    @classmethod
+    async def runtime_compatibility_async(
+        cls,
+        *,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        """Fetch runtime-route compatibility contract.
+
+        This endpoint currently exists on v2 only.
+        """
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        if version != "v2":
+            raise ValueError("runtime compatibility contract is available only for api_version='v2'")
+        path = runtime_compatibility_path(api_version=version)
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def runtime_compatibility(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.runtime_compatibility_async(**kwargs))
+
+    @classmethod
+    async def runtime_container_rollout_checkpoint_dump_async(
+        cls,
+        container_id: str,
+        rollout_id: str,
+        *,
+        payload: Optional[Dict[str, Any]] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = runtime_container_rollout_checkpoint_dump_path(
+            container_id,
+            rollout_id,
+            api_version=version,
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.post_json(path, json=payload or {})
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def runtime_container_rollout_checkpoint_dump(
+        cls,
+        container_id: str,
+        rollout_id: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            cls.runtime_container_rollout_checkpoint_dump_async(
+                container_id,
+                rollout_id,
+                **kwargs,
+            )
+        )
+
+    @classmethod
+    async def runtime_container_rollout_checkpoint_restore_async(
+        cls,
+        container_id: str,
+        rollout_id: str,
+        *,
+        payload: Optional[Dict[str, Any]] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = runtime_container_rollout_checkpoint_restore_path(
+            container_id,
+            rollout_id,
+            api_version=version,
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.post_json(path, json=payload or {})
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def runtime_container_rollout_checkpoint_restore(
+        cls,
+        container_id: str,
+        rollout_id: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        return _run_async(
+            cls.runtime_container_rollout_checkpoint_restore_async(
+                container_id,
+                rollout_id,
+                **kwargs,
+            )
+        )
+
+    @classmethod
+    async def optimizer_events_async(
+        cls,
+        *,
+        limit: int = 200,
+        org_id: Optional[str] = None,
+        system_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        rollout_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        seed: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        causation_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        event_type: Optional[str] = None,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        event_family: Optional[str] = None,
+        stream_id: Optional[str] = None,
+        trial_id: Optional[str] = None,
+        runtime_tick_id: Optional[str] = None,
+        proposal_session_id: Optional[str] = None,
+        source_session_id: Optional[str] = None,
+        sequence: Optional[str] = None,
+        source_sequence: Optional[str] = None,
+        payload_redacted: Optional[bool] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        q: Optional[str] = None,
+        cursor: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = optimizer_events_path(api_version=version)
+        params = _optimizer_event_query_params(
+            limit=limit,
+            org_id=org_id,
+            system_id=system_id,
+            job_id=job_id,
+            run_id=run_id,
+            rollout_id=rollout_id,
+            candidate_id=candidate_id,
+            seed=seed,
+            actor_id=actor_id,
+            stage_id=stage_id,
+            trace_id=trace_id,
+            event_id=event_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            algorithm=algorithm,
+            event_type=event_type,
+            status=status,
+            source=source,
+            event_family=event_family,
+            stream_id=stream_id,
+            trial_id=trial_id,
+            runtime_tick_id=runtime_tick_id,
+            proposal_session_id=proposal_session_id,
+            source_session_id=source_session_id,
+            sequence=sequence,
+            source_sequence=source_sequence,
+            payload_redacted=payload_redacted,
+            start=start,
+            end=end,
+            q=q,
+            cursor=cursor,
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def optimizer_events(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.optimizer_events_async(**kwargs))
+
+    @classmethod
+    async def failure_events_async(
+        cls,
+        *,
+        reason_code: Optional[str] = None,
+        error_type: Optional[str] = None,
+        limit: int = 200,
+        org_id: Optional[str] = None,
+        system_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        rollout_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        seed: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        causation_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        event_type: Optional[str] = None,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        event_family: Optional[str] = None,
+        stream_id: Optional[str] = None,
+        trial_id: Optional[str] = None,
+        runtime_tick_id: Optional[str] = None,
+        proposal_session_id: Optional[str] = None,
+        source_session_id: Optional[str] = None,
+        sequence: Optional[str] = None,
+        source_sequence: Optional[str] = None,
+        payload_redacted: Optional[bool] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        q: Optional[str] = None,
+        cursor: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = failures_query_path(api_version=version)
+        params = _optimizer_event_query_params(
+            limit=limit,
+            org_id=org_id,
+            system_id=system_id,
+            job_id=job_id,
+            run_id=run_id,
+            rollout_id=rollout_id,
+            candidate_id=candidate_id,
+            seed=seed,
+            actor_id=actor_id,
+            stage_id=stage_id,
+            trace_id=trace_id,
+            event_id=event_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            algorithm=algorithm,
+            event_type=event_type,
+            status=status,
+            source=source,
+            event_family=event_family,
+            stream_id=stream_id,
+            trial_id=trial_id,
+            runtime_tick_id=runtime_tick_id,
+            proposal_session_id=proposal_session_id,
+            source_session_id=source_session_id,
+            sequence=sequence,
+            source_sequence=source_sequence,
+            payload_redacted=payload_redacted,
+            start=start,
+            end=end,
+            q=q,
+            cursor=cursor,
+        )
+        params = _clean_params(
+            {
+                **params,
+                "reason_code": reason_code,
+                "error_type": error_type,
+            }
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def failure_events(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.failure_events_async(**kwargs))
+
+    @classmethod
+    async def admin_optimizer_events_async(
+        cls,
+        *,
+        limit: int = 200,
+        org_id: Optional[str] = None,
+        system_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        rollout_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        seed: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        causation_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        event_type: Optional[str] = None,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        event_family: Optional[str] = None,
+        stream_id: Optional[str] = None,
+        trial_id: Optional[str] = None,
+        runtime_tick_id: Optional[str] = None,
+        proposal_session_id: Optional[str] = None,
+        source_session_id: Optional[str] = None,
+        sequence: Optional[str] = None,
+        source_sequence: Optional[str] = None,
+        payload_redacted: Optional[bool] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        q: Optional[str] = None,
+        cursor: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = admin_optimizer_events_path(api_version=version)
+        params = _optimizer_event_query_params(
+            limit=limit,
+            org_id=org_id,
+            system_id=system_id,
+            job_id=job_id,
+            run_id=run_id,
+            rollout_id=rollout_id,
+            candidate_id=candidate_id,
+            seed=seed,
+            actor_id=actor_id,
+            stage_id=stage_id,
+            trace_id=trace_id,
+            event_id=event_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            algorithm=algorithm,
+            event_type=event_type,
+            status=status,
+            source=source,
+            event_family=event_family,
+            stream_id=stream_id,
+            trial_id=trial_id,
+            runtime_tick_id=runtime_tick_id,
+            proposal_session_id=proposal_session_id,
+            source_session_id=source_session_id,
+            sequence=sequence,
+            source_sequence=source_sequence,
+            payload_redacted=payload_redacted,
+            start=start,
+            end=end,
+            q=q,
+            cursor=cursor,
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def admin_optimizer_events(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.admin_optimizer_events_async(**kwargs))
+
+    @classmethod
+    async def admin_failure_events_async(
+        cls,
+        *,
+        reason_code: Optional[str] = None,
+        error_type: Optional[str] = None,
+        limit: int = 200,
+        org_id: Optional[str] = None,
+        system_id: Optional[str] = None,
+        job_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        rollout_id: Optional[str] = None,
+        candidate_id: Optional[str] = None,
+        seed: Optional[str] = None,
+        actor_id: Optional[str] = None,
+        stage_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        event_id: Optional[str] = None,
+        causation_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+        algorithm: Optional[str] = None,
+        event_type: Optional[str] = None,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+        event_family: Optional[str] = None,
+        stream_id: Optional[str] = None,
+        trial_id: Optional[str] = None,
+        runtime_tick_id: Optional[str] = None,
+        proposal_session_id: Optional[str] = None,
+        source_session_id: Optional[str] = None,
+        sequence: Optional[str] = None,
+        source_sequence: Optional[str] = None,
+        payload_redacted: Optional[bool] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        q: Optional[str] = None,
+        cursor: Optional[str] = None,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = admin_failures_query_path(api_version=version)
+        params = _optimizer_event_query_params(
+            limit=limit,
+            org_id=org_id,
+            system_id=system_id,
+            job_id=job_id,
+            run_id=run_id,
+            rollout_id=rollout_id,
+            candidate_id=candidate_id,
+            seed=seed,
+            actor_id=actor_id,
+            stage_id=stage_id,
+            trace_id=trace_id,
+            event_id=event_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            algorithm=algorithm,
+            event_type=event_type,
+            status=status,
+            source=source,
+            event_family=event_family,
+            stream_id=stream_id,
+            trial_id=trial_id,
+            runtime_tick_id=runtime_tick_id,
+            proposal_session_id=proposal_session_id,
+            source_session_id=source_session_id,
+            sequence=sequence,
+            source_sequence=source_sequence,
+            payload_redacted=payload_redacted,
+            start=start,
+            end=end,
+            q=q,
+            cursor=cursor,
+        )
+        params = _clean_params(
+            {
+                **params,
+                "reason_code": reason_code,
+                "error_type": error_type,
+            }
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def admin_failure_events(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.admin_failure_events_async(**kwargs))
+
+    @classmethod
+    async def admin_victoria_logs_query_async(
+        cls,
+        *,
+        q: Optional[str] = None,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        cursor: Optional[str] = None,
+        redact: Optional[bool] = None,
+        limit: int = 200,
+        backend_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        timeout: float = 30.0,
+        api_version: Optional[ApiVersion] = None,
+    ) -> Dict[str, Any]:
+        base_url = _resolve_backend_url(backend_url)
+        key = _resolve_api_key(api_key)
+        version = _resolve_api_version(api_version)
+        path = admin_victoria_logs_query_path(api_version=version)
+        params = _clean_params(
+            {
+                "q": q,
+                "start": start,
+                "end": end,
+                "cursor": cursor,
+                "redact": redact,
+                "limit": limit,
+            }
+        )
+        async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    @classmethod
+    def admin_victoria_logs_query(cls, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(cls.admin_victoria_logs_query_async(**kwargs))
+
+    def _runtime_queue_trials_path(self) -> str:
+        if self.system_id:
+            return runtime_queue_trials_path(self.system_id, api_version=self.api_version)
+        return runtime_session_queue_trials_path(self.session_id, api_version=self.api_version)
+
+    def _runtime_queue_contract_path(self) -> str:
+        if self.system_id:
+            return runtime_queue_contract_path(self.system_id, api_version=self.api_version)
+        return runtime_session_queue_contract_path(self.session_id, api_version=self.api_version)
+
+    def _runtime_queue_trial_path(self, trial_id: str) -> str:
+        if self.system_id:
+            return runtime_queue_trial_path(self.system_id, trial_id, api_version=self.api_version)
+        return runtime_session_queue_trial_path(self.session_id, trial_id, api_version=self.api_version)
+
+    def _runtime_queue_rollouts_path(self) -> str:
+        if self.system_id:
+            return runtime_queue_rollouts_path(self.system_id, api_version=self.api_version)
+        return runtime_session_queue_rollouts_path(self.session_id, api_version=self.api_version)
+
+    def _runtime_queue_rollout_path(self, rollout_id: str) -> str:
+        if self.system_id:
+            return runtime_queue_rollout_path(self.system_id, rollout_id, api_version=self.api_version)
+        return runtime_session_queue_rollout_path(
+            self.session_id,
+            rollout_id,
+            api_version=self.api_version,
+        )
+
+    def _runtime_queue_rollout_lease_path(self) -> str:
+        if self.system_id:
+            return runtime_queue_rollout_lease_path(self.system_id, api_version=self.api_version)
+        return runtime_session_queue_rollout_lease_path(self.session_id, api_version=self.api_version)
+
+    def _runtime_queue_rollout_expire_leases_path(self) -> str:
+        if self.system_id:
+            return runtime_queue_rollout_expire_leases_path(
+                self.system_id,
+                api_version=self.api_version,
+            )
+        return runtime_session_queue_rollout_expire_leases_path(
+            self.session_id,
+            api_version=self.api_version,
+        )
+
+    async def runtime_queue_trials_async(
+        self,
+        *,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        path = self._runtime_queue_trials_path()
+        params = _clean_params(
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "status": status,
+                "limit": limit,
+            }
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    def runtime_queue_trials(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_trials_async(**kwargs))
+
+    async def runtime_queue_contract_async(
+        self,
+        *,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        path = self._runtime_queue_contract_path()
+        params = _clean_params({"actor": actor, "algorithm": algorithm})
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    def runtime_queue_contract(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_contract_async(**kwargs))
+
+    async def runtime_queue_patch_contract_async(
+        self,
+        *,
+        queue_contract: Optional[Dict[str, Any]] = None,
+        patch: Optional[Dict[str, Any]] = None,
+        clear_override: Optional[bool] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        payload = _clean_params(
+            {
+                "queue_contract": queue_contract,
+                "patch": patch,
+                "clear_override": clear_override,
+            }
+        )
+        if not payload:
+            raise ValueError(
+                "contract patch requires at least one of queue_contract, patch, clear_override"
+            )
+        path = self._runtime_queue_contract_path()
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
+        params = _clean_params(
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            }
+        )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                url,
+                params=params,
+                json=payload,
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def runtime_queue_patch_contract(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_patch_contract_async(**kwargs))
+
+    async def runtime_queue_trial_async(
+        self,
+        trial_id: str,
+        *,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        path = self._runtime_queue_trial_path(trial_id)
+        params = _clean_params({"actor": actor, "algorithm": algorithm})
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    def runtime_queue_trial(self, trial_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_trial_async(trial_id, **kwargs))
+
+    async def runtime_queue_create_trial_async(
+        self,
+        *,
+        candidate_id: str,
+        trial_id: Optional[str] = None,
+        seed: Optional[int] = None,
+        priority: Optional[int] = None,
+        checkpoint_ref: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        if not candidate_id or not candidate_id.strip():
+            raise ValueError("candidate_id is required")
+        base_path = self._runtime_queue_trials_path()
+        path = _append_query_params(
+            base_path,
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            },
+        )
+        payload = _clean_params(
+            {
+                "trial_id": trial_id,
+                "candidate_id": candidate_id.strip(),
+                "seed": seed,
+                "priority": priority,
+                "checkpoint_ref": checkpoint_ref,
+                "metadata": metadata,
+            }
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=base_path)
+
+    def runtime_queue_create_trial(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_create_trial_async(**kwargs))
+
+    async def runtime_queue_patch_trial_async(
+        self,
+        trial_id: str,
+        *,
+        status: Optional[str] = None,
+        priority: Optional[int] = None,
+        cancel: Optional[bool] = None,
+        checkpoint_ref: Optional[Dict[str, Any]] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        payload = _clean_params(
+            {
+                "status": status,
+                "priority": priority,
+                "cancel": cancel,
+                "checkpoint_ref": checkpoint_ref,
+            }
+        )
+        if not payload:
+            raise ValueError("patch requires at least one field")
+        path = self._runtime_queue_trial_path(trial_id)
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
+        params = _clean_params(
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            }
+        )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                url,
+                params=params,
+                json=payload,
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def runtime_queue_patch_trial(self, trial_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_patch_trial_async(trial_id, **kwargs))
+
+    async def runtime_queue_rollouts_async(
+        self,
+        *,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        path = self._runtime_queue_rollouts_path()
+        params = _clean_params(
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "status": status,
+                "limit": limit,
+            }
+        )
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.get(path, params=params)
+        return _expect_dict_response(response, context=path)
+
+    def runtime_queue_rollouts(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_rollouts_async(**kwargs))
+
+    async def runtime_queue_enqueue_rollout_async(
+        self,
+        *,
+        trial_id: str,
+        not_before_ms: Optional[int] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        if not trial_id or not trial_id.strip():
+            raise ValueError("trial_id is required")
+        base_path = self._runtime_queue_rollouts_path()
+        path = _append_query_params(
+            base_path,
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            },
+        )
+        payload = _clean_params({"trial_id": trial_id.strip(), "not_before_ms": not_before_ms})
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=base_path)
+
+    def runtime_queue_enqueue_rollout(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_enqueue_rollout_async(**kwargs))
+
+    async def runtime_queue_lease_rollout_async(
+        self,
+        *,
+        now_ms: Optional[int] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        base_path = self._runtime_queue_rollout_lease_path()
+        path = _append_query_params(
+            base_path,
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            },
+        )
+        payload = _clean_params({"now_ms": now_ms})
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=base_path)
+
+    def runtime_queue_lease_rollout(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_lease_rollout_async(**kwargs))
+
+    async def runtime_queue_expire_rollout_leases_async(
+        self,
+        *,
+        now_ms: Optional[int] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        base_path = self._runtime_queue_rollout_expire_leases_path()
+        path = _append_query_params(
+            base_path,
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            },
+        )
+        payload = _clean_params({"now_ms": now_ms})
+        async with RustCoreHttpClient(
+            ensure_api_base(self.backend_url),
+            self.api_key,
+            timeout=self.timeout,
+        ) as http:
+            response = await http.post_json(path, json=payload)
+        return _expect_dict_response(response, context=base_path)
+
+    def runtime_queue_expire_rollout_leases(self, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_expire_rollout_leases_async(**kwargs))
+
+    async def runtime_queue_patch_rollout_async(
+        self,
+        rollout_id: str,
+        *,
+        status: Literal["dispatching", "inflight", "completed", "failed", "cancelled"],
+        started_at_ms: Optional[int] = None,
+        now_ms: Optional[int] = None,
+        expected_state_revision: Optional[int] = None,
+        actor: Optional[Literal["runtime", "proposer", "operator"]] = None,
+        algorithm: Optional[Literal["gepa", "mipro"]] = None,
+    ) -> Dict[str, Any]:
+        path = self._runtime_queue_rollout_path(rollout_id)
+        payload = _clean_params(
+            {
+                "status": status,
+                "started_at_ms": started_at_ms,
+                "now_ms": now_ms,
+            }
+        )
+        url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
+        params = _clean_params(
+            {
+                "actor": actor,
+                "algorithm": algorithm,
+                "expected_state_revision": expected_state_revision,
+            }
+        )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                url,
+                params=params,
+                json=payload,
+                headers=_auth_headers(self.api_key),
+            )
+            response.raise_for_status()
+            return _expect_dict_response(response.json(), context=path)
+
+    def runtime_queue_patch_rollout(self, rollout_id: str, **kwargs: Any) -> Dict[str, Any]:
+        return _run_async(self.runtime_queue_patch_rollout_async(rollout_id, **kwargs))
 
     async def status_async(self) -> Dict[str, Any]:
         session_path = online_session_path(self.session_id, api_version=self.api_version)

@@ -17,16 +17,12 @@ from synth_ai.core.tunnels import (
     PortConflictBehavior,
     TunnelBackend,
     TunneledContainer,
+    TunnelProvider,
     acquire_port,
     wait_for_health_check,
 )
 from synth_ai.core.utils.urls import resolve_synth_backend_url
 from synth_ai.sdk.container._impl.server import run_server_background
-from synth_ai.sdk.container.auth import (
-    ENVIRONMENT_API_KEY_NAME,
-    ensure_container_auth,
-    mint_environment_api_key,
-)
 
 
 def _load_module(path: Path) -> ModuleType:
@@ -100,35 +96,18 @@ def _validate_container(module: ModuleType, path: Path) -> str | None:
     return None
 
 
-def _resolve_env_api_key(
-    api_key: str | None,
-    backend_url: str | None,
-    explicit_env_key: str | None,
-) -> str:
-    if explicit_env_key:
-        os.environ[ENVIRONMENT_API_KEY_NAME] = explicit_env_key
-        return explicit_env_key
-    if api_key:
-        return ensure_container_auth(backend_base=backend_url, synth_api_key=api_key)
-    env_key = mint_environment_api_key()
-    os.environ[ENVIRONMENT_API_KEY_NAME] = env_key
-    return env_key
-
-
 async def _serve_async(
     *,
     container_path: Path,
     backend: TunnelBackend,
+    provider: TunnelProvider,
     port: int,
     host: str,
     port_conflict: PortConflictBehavior,
     api_key: str | None,
     backend_url: str,
-    env_api_key: str | None,
     json_output: bool,
 ) -> None:
-    env_key = _resolve_env_api_key(api_key, backend_url, env_api_key)
-
     sys.path.insert(0, str(container_path.parent))
     try:
         module = _load_module(container_path)
@@ -142,10 +121,12 @@ async def _serve_async(
 
     app = module.app
     resolved_port = acquire_port(port, on_conflict=port_conflict)
+    if not os.getenv("SYNTH_CONTAINER_AUTH_MODE"):
+        os.environ["SYNTH_CONTAINER_AUTH_MODE"] = "optional_local"
     proc = run_server_background(app, resolved_port, host=host)
 
     try:
-        await wait_for_health_check("localhost", resolved_port, api_key=env_key, timeout=30.0)
+        await wait_for_health_check("localhost", resolved_port, timeout=30.0)
     except Exception as exc:
         proc.terminate()
         raise click.ClickException(f"Health check failed: {exc}") from exc
@@ -158,8 +139,8 @@ async def _serve_async(
         tunnel = await TunneledContainer.create(
             local_port=resolved_port,
             backend=backend,
+            provider=provider,
             api_key=api_key,
-            env_api_key=env_key,
             backend_url=backend_url,
         )
         url = tunnel.url
@@ -171,9 +152,9 @@ async def _serve_async(
                 {
                     "container_url": url,
                     "container_worker_token": worker_token,
-                    "container_api_key": None if worker_token else env_key,
                     "local_port": resolved_port,
                     "backend": backend.value,
+                    "provider": provider.value,
                 }
             )
         )
@@ -182,9 +163,8 @@ async def _serve_async(
         click.echo(f"  Container URL: {url}")
         if worker_token:
             click.echo(f"  Container worker token: {worker_token}")
-        else:
-            click.echo(f"  Container API key: {env_key}")
         click.echo(f"  Local port: {resolved_port}")
+        click.echo(f"  Tunnel provider: {provider.value}")
         click.echo(f"  Tunnel backend: {backend.value}")
 
     try:
@@ -199,11 +179,24 @@ async def _serve_async(
 @click.command()
 @click.argument("container_path", type=click.Path(exists=True, dir_okay=False))
 @click.option(
-    "--backend",
-    type=click.Choice([b.value for b in TunnelBackend]),
-    default=TunnelBackend.SynthTunnel.value,
+    "--provider",
+    type=click.Choice([p.value for p in TunnelProvider], case_sensitive=False),
+    default=TunnelProvider.SynthTunnel.value,
     show_default=True,
-    help="Tunnel backend to use.",
+    help="Tunnel provider to use.",
+)
+@click.option(
+    "--backend",
+    type=click.Choice(
+        [
+            TunnelBackend.SynthTunnel.value,
+            TunnelBackend.NgrokManaged.value,
+            TunnelBackend.Localhost.value,
+        ]
+    ),
+    default=None,
+    hidden=True,
+    help="Deprecated. Use --provider.",
 )
 @click.option(
     "--port",
@@ -238,52 +231,60 @@ async def _serve_async(
     help="Synth backend URL.",
 )
 @click.option(
-    "--env-api-key",
-    envvar=ENVIRONMENT_API_KEY_NAME,
-    help="Environment API key (optional).",
-)
-@click.option(
     "--json-output/--no-json-output",
     default=False,
     help="Emit machine-readable JSON output.",
 )
 def serve(
     container_path: str,
-    backend: str,
+    provider: str,
+    backend: str | None,
     port: int,
     host: str,
     port_conflict: str,
     api_key: str | None,
     backend_url: str,
-    env_api_key: str | None,
     json_output: bool,
 ) -> None:
     """Serve a Container locally and expose it through a tunnel."""
-    backend_enum = TunnelBackend(backend)
+    provider_key = (provider or "").strip().lower()
+    provider_aliases = {
+        "synthtunnel": TunnelProvider.SynthTunnel,
+        "synth": TunnelProvider.SynthTunnel,
+        "ngrok": TunnelProvider.Ngrok,
+        "localhost": TunnelProvider.Localhost,
+        "local": TunnelProvider.Localhost,
+    }
+    provider_enum = provider_aliases.get(provider_key)
+    if provider_enum is None:
+        raise click.ClickException(
+            f"provider must be one of SynthTunnel, Ngrok, or Localhost (got {provider!r})"
+        )
+    provider_to_backend = {
+        TunnelProvider.SynthTunnel: TunnelBackend.SynthTunnel,
+        TunnelProvider.Ngrok: TunnelBackend.NgrokManaged,
+        TunnelProvider.Localhost: TunnelBackend.Localhost,
+    }
+    backend_enum = provider_to_backend[provider_enum]
+    if backend:
+        backend_from_flag = TunnelBackend(backend)
+        if backend_from_flag != backend_enum:
+            raise click.ClickException("--provider and --backend conflict. Use --provider only.")
     conflict = PortConflictBehavior(port_conflict)
 
-    if (
-        backend_enum
-        in (
-            TunnelBackend.SynthTunnel,
-            TunnelBackend.NgrokManaged,
-            TunnelBackend.CloudflareManagedLease,
-            TunnelBackend.CloudflareManagedTunnel,
-        )
-        and not api_key
-    ):
+    if backend_enum in (TunnelBackend.SynthTunnel, TunnelBackend.NgrokManaged) and not api_key:
         raise click.ClickException("SYNTH_API_KEY is required for managed tunnels.")
 
     asyncio.run(
         _serve_async(
             container_path=Path(container_path).resolve(),
             backend=backend_enum,
+            provider=provider_enum,
             port=port,
             host=host,
             port_conflict=conflict,
             api_key=api_key,
             backend_url=backend_url,
-            env_api_key=env_api_key,
             json_output=json_output,
         )
     )

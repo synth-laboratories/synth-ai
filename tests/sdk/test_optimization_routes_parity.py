@@ -8,9 +8,14 @@ from __future__ import annotations
 import pytest
 
 from synth_ai.core.utils.optimization_routes import (
+    admin_failures_query_path,
+    admin_optimizer_events_path,
+    admin_victoria_logs_query_path,
     EVAL_API_VERSION,
     GEPA_API_VERSION,
+    failures_query_path,
     MIPRO_API_VERSION,
+    optimizer_events_path,
     candidate_path,
     candidate_subpath,
     normalize_api_version,
@@ -22,6 +27,24 @@ from synth_ai.core.utils.optimization_routes import (
     online_sessions_base,
     policy_system_path,
     policy_systems_base,
+    runtime_queue_contract_path,
+    runtime_queue_rollout_expire_leases_path,
+    runtime_queue_rollout_lease_path,
+    runtime_queue_rollout_path,
+    runtime_queue_rollouts_path,
+    runtime_container_rollout_checkpoint_dump_path,
+    runtime_container_rollout_checkpoint_restore_path,
+    runtime_session_queue_contract_path,
+    runtime_session_path,
+    runtime_session_queue_rollout_expire_leases_path,
+    runtime_session_queue_rollout_lease_path,
+    runtime_session_queue_rollout_path,
+    runtime_session_queue_rollouts_path,
+    runtime_session_queue_trial_path,
+    runtime_session_queue_trials_path,
+    runtime_queue_trial_path,
+    runtime_queue_trials_path,
+    runtime_compatibility_path,
     system_subpath,
 )
 
@@ -95,6 +118,128 @@ class TestOnlineSessions:
     ])
     def test_session_subpath(self, version, session_id, suffix, expected):
         assert online_session_subpath(session_id, suffix, api_version=version) == expected
+
+
+class TestRuntimeCompatibility:
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/runtime/compatibility"),
+        ("v2", "/v2/runtime/compatibility"),
+    ])
+    def test_runtime_compatibility_path(self, version, expected):
+        assert runtime_compatibility_path(api_version=version) == expected
+
+
+class TestOptimizerEventPaths:
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/optimizer/events"),
+        ("v2", "/v2/optimizer/events"),
+    ])
+    def test_optimizer_events_path(self, version, expected):
+        assert optimizer_events_path(api_version=version) == expected
+
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/failures/query"),
+        ("v2", "/v2/failures/query"),
+    ])
+    def test_failures_query_path(self, version, expected):
+        assert failures_query_path(api_version=version) == expected
+
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/admin/optimizer/events"),
+        ("v2", "/v2/admin/optimizer/events"),
+    ])
+    def test_admin_optimizer_events_path(self, version, expected):
+        assert admin_optimizer_events_path(api_version=version) == expected
+
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/admin/failures/query"),
+        ("v2", "/v2/admin/failures/query"),
+    ])
+    def test_admin_failures_query_path(self, version, expected):
+        assert admin_failures_query_path(api_version=version) == expected
+
+    @pytest.mark.parametrize("version,expected", [
+        ("v1", "/v1/admin/victoria-logs/query"),
+        ("v2", "/v2/admin/victoria-logs/query"),
+    ])
+    def test_admin_victoria_logs_query_path(self, version, expected):
+        assert admin_victoria_logs_query_path(api_version=version) == expected
+
+
+class TestRuntimeQueuePaths:
+    def test_runtime_queue_trials_path(self):
+        assert runtime_queue_trials_path("sys-1", api_version="v2") == "/v2/runtime/systems/sys-1/queue/trials"
+        assert runtime_queue_contract_path("sys-1", api_version="v2") == "/v2/runtime/systems/sys-1/queue/contract"
+
+    def test_runtime_queue_trial_path(self):
+        assert (
+            runtime_queue_trial_path("sys-1", "trial-9", api_version="v2")
+            == "/v2/runtime/systems/sys-1/queue/trials/trial-9"
+        )
+
+    def test_runtime_queue_rollouts_paths(self):
+        assert runtime_queue_rollouts_path("sys-1", api_version="v2") == "/v2/runtime/systems/sys-1/queue/rollouts"
+        assert (
+            runtime_queue_rollout_path("sys-1", "roll-2", api_version="v2")
+            == "/v2/runtime/systems/sys-1/queue/rollouts/roll-2"
+        )
+        assert (
+            runtime_queue_rollout_lease_path("sys-1", api_version="v2")
+            == "/v2/runtime/systems/sys-1/queue/rollouts/lease"
+        )
+        assert (
+            runtime_queue_rollout_expire_leases_path("sys-1", api_version="v2")
+            == "/v2/runtime/systems/sys-1/queue/rollouts/expire-leases"
+        )
+
+    def test_runtime_session_queue_paths(self):
+        assert runtime_session_path("sess-1", api_version="v2") == "/v2/runtime/sessions/sess-1"
+        assert (
+            runtime_session_queue_trials_path("sess-1", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/trials"
+        )
+        assert (
+            runtime_session_queue_contract_path("sess-1", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/contract"
+        )
+        assert (
+            runtime_session_queue_trial_path("sess-1", "trial-9", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/trials/trial-9"
+        )
+        assert (
+            runtime_session_queue_rollouts_path("sess-1", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/rollouts"
+        )
+        assert (
+            runtime_session_queue_rollout_path("sess-1", "roll-2", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/rollouts/roll-2"
+        )
+        assert (
+            runtime_session_queue_rollout_lease_path("sess-1", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/rollouts/lease"
+        )
+        assert (
+            runtime_session_queue_rollout_expire_leases_path("sess-1", api_version="v2")
+            == "/v2/runtime/sessions/sess-1/queue/rollouts/expire-leases"
+        )
+
+    def test_runtime_container_checkpoint_paths(self):
+        assert (
+            runtime_container_rollout_checkpoint_dump_path(
+                "ctr-1",
+                "roll-2",
+                api_version="v2",
+            )
+            == "/v2/runtime/containers/ctr-1/rollouts/roll-2/checkpoint/dump"
+        )
+        assert (
+            runtime_container_rollout_checkpoint_restore_path(
+                "ctr-1",
+                "roll-2",
+                api_version="v2",
+            )
+            == "/v2/runtime/containers/ctr-1/rollouts/roll-2/checkpoint/restore"
+        )
 
 
 class TestPolicySystems:

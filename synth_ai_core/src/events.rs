@@ -2,7 +2,7 @@ use serde_json::Value;
 use std::time::Duration;
 
 use crate::api::routes::{self, ApiVersion};
-use crate::config::{BackendAuth, CoreConfig};
+use crate::config::CoreConfig;
 use crate::shared_client::{DEFAULT_CONNECT_TIMEOUT_SECS, DEFAULT_POOL_SIZE};
 use crate::CoreError;
 use synth_ai_core_types::{CoreEvent, EventPollResponse};
@@ -27,7 +27,10 @@ impl EventKind {
     fn path(&self, job_id: &str) -> String {
         match self {
             EventKind::PromptLearning | EventKind::Eval => {
-                format!("/api{}", routes::offline_job_subpath(job_id, "events", ApiVersion::V1))
+                format!(
+                    "/api{}",
+                    routes::offline_job_subpath(job_id, "events", ApiVersion::V1)
+                )
             }
         }
     }
@@ -142,10 +145,8 @@ pub async fn poll_events(
 
     let mut req = client.get(url);
     if let Some(api_key) = &config.api_key {
-        req = match config.auth {
-            BackendAuth::XApiKey => req.header("X-API-Key", api_key),
-            BackendAuth::Bearer => req.header("Authorization", format!("Bearer {api_key}")),
-        };
+        let _ = &config.auth;
+        req = req.header("Authorization", format!("Bearer {api_key}"));
     }
 
     let resp = req.send().await?;

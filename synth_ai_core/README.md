@@ -12,9 +12,8 @@ This crate provides the low-level building blocks for Synth AI SDKs:
 
 ## CRITICAL: Container Auth Payload Rule
 
-Policy-optimization payload builders must never embed `container_api_key` or
-`container_api_keys` in outbound job payloads. Container auth is server-resolved
-from org credentials.
+Policy-optimization payload builders must never embed container auth credentials
+in outbound job payloads. Container auth is server-resolved from org credentials.
 
 ## Usage
 

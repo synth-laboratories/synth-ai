@@ -10,8 +10,21 @@ from synth_ai.core.utils.optimization_routes import (
     ApiVersion,
     candidate_path,
     candidate_subpath,
+    candidates_submit_path,
     normalize_api_version,
     offline_job_path,
+    offline_job_queue_default_plan_path,
+    offline_job_queue_rollout_drain_path,
+    offline_job_queue_rollout_limiter_status_path,
+    offline_job_queue_rollout_metrics_path,
+    offline_job_queue_rollout_policy_path,
+    offline_job_queue_rollout_retry_path,
+    offline_job_queue_rollouts_path,
+    offline_job_queue_trial_path,
+    offline_job_queue_trials_path,
+    offline_job_queue_trials_reorder_path,
+    offline_job_state_baseline_info_path,
+    offline_job_state_envelope_path,
     offline_job_subpath,
     online_session_path,
     online_session_subpath,
@@ -52,6 +65,14 @@ def _coerce_int(value: Any) -> Optional[int]:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _with_algorithm_kind(path: str, algorithm_kind: Optional[str]) -> str:
+    normalized = str(algorithm_kind or "").strip().lower()
+    if normalized not in {"gepa", "mipro"}:
+        return path
+    joiner = "&" if "?" in path else "?"
+    return f"{path}{joiner}algorithm_kind={normalized}"
 
 
 def _parse_lever_versions_raw(raw: Any) -> Dict[str, int]:
@@ -930,6 +951,318 @@ class PromptLearningClient:
         if not isinstance(payload, dict):
             raise ValueError(
                 f"Unexpected response structure from candidates endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def submit_candidates(
+        self,
+        *,
+        job_id: str,
+        algorithm_kind: str,
+        candidates: List[Dict[str, Any]],
+        proposal_session_id: Optional[str] = None,
+        proposer_metadata: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Submit typed candidates via the v2 submit-candidates contract."""
+        _validate_job_id(job_id)
+        normalized_algorithm = str(algorithm_kind or "").strip().lower()
+        if normalized_algorithm not in {"gepa", "mipro"}:
+            raise ValueError("algorithm_kind must be one of: gepa, mipro")
+        if not isinstance(candidates, list):
+            raise ValueError("candidates must be a list")
+        payload = {
+            "job_id": job_id,
+            "algorithm_kind": normalized_algorithm,
+            "candidates": candidates,
+            "proposal_session_id": proposal_session_id,
+            "proposer_metadata": dict(proposer_metadata or {}),
+        }
+        path = candidates_submit_path(api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            response = await http.post_json(path, json=payload)
+        if not isinstance(response, dict):
+            raise ValueError(
+                f"Unexpected response structure from submit candidates endpoint {path}: "
+                f"{type(response).__name__}"
+            )
+        return response
+
+    async def get_state_baseline_info(self, job_id: str) -> Dict[str, Any]:
+        """Read persisted state-envelope baseline info projection for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_state_baseline_info_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from state baseline endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def get_state_envelope(self, job_id: str) -> Dict[str, Any]:
+        """Read full persisted state-envelope payload for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_state_envelope_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from state envelope endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def list_trial_queue(self, job_id: str) -> Dict[str, Any]:
+        """Read persisted trial queue for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_queue_trials_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from trial queue endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def enqueue_trial(
+        self,
+        job_id: str,
+        *,
+        trial: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Enqueue one trial spec in persisted trial queue."""
+        _validate_job_id(job_id)
+        path = _with_algorithm_kind(
+            offline_job_queue_trials_path(job_id, api_version=self._api_version),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json=trial)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from enqueue trial endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def update_trial(
+        self,
+        job_id: str,
+        trial_id: str,
+        *,
+        patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch one trial spec in persisted trial queue."""
+        _validate_job_id(job_id)
+        trial_id_norm = str(trial_id).strip()
+        if not trial_id_norm:
+            raise ValueError("trial_id is required")
+        path = _with_algorithm_kind(
+            offline_job_queue_trial_path(
+                job_id,
+                trial_id_norm,
+                api_version=self._api_version,
+            ),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json=patch)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from patch trial endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def cancel_trial(
+        self,
+        job_id: str,
+        trial_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Cancel one trial in persisted trial queue."""
+        _validate_job_id(job_id)
+        trial_id_norm = str(trial_id).strip()
+        if not trial_id_norm:
+            raise ValueError("trial_id is required")
+        path = _with_algorithm_kind(
+            offline_job_queue_trial_path(
+                job_id,
+                trial_id_norm,
+                api_version=self._api_version,
+            ),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.delete(path)
+        if payload is None:
+            return {"status": "ok"}
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from cancel trial endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def reorder_trials(
+        self,
+        job_id: str,
+        *,
+        trial_ids: List[str],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Reorder trial queue by explicit trial id ordering."""
+        _validate_job_id(job_id)
+        path = _with_algorithm_kind(
+            offline_job_queue_trials_reorder_path(job_id, api_version=self._api_version),
+            algorithm_kind,
+        )
+        body = {"trial_ids": [str(trial_id) for trial_id in trial_ids]}
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json=body)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from reorder trials endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def apply_default_trial_plan(
+        self,
+        job_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Apply default trial planner templates for the job."""
+        _validate_job_id(job_id)
+        path = _with_algorithm_kind(
+            offline_job_queue_default_plan_path(job_id, api_version=self._api_version),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json={})
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from default plan endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def get_rollout_queue(self, job_id: str) -> Dict[str, Any]:
+        """Read persisted rollout queue state for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_queue_rollouts_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from rollout queue endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def set_rollout_queue_policy(
+        self,
+        job_id: str,
+        *,
+        policy_patch: Dict[str, Any],
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Patch rollout queue policies for a job."""
+        _validate_job_id(job_id)
+        path = _with_algorithm_kind(
+            offline_job_queue_rollout_policy_path(job_id, api_version=self._api_version),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json=policy_patch)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from rollout policy endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def get_rollout_dispatch_metrics(self, job_id: str) -> Dict[str, Any]:
+        """Read rollout dispatch metrics view for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_queue_rollout_metrics_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from rollout metrics endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def get_rollout_limiter_status(self, job_id: str) -> Dict[str, Any]:
+        """Read rollout scheduler limiter/runtime status for a job."""
+        _validate_job_id(job_id)
+        path = offline_job_queue_rollout_limiter_status_path(job_id, api_version=self._api_version)
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.get(path)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from rollout limiter endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def retry_rollout_dispatch(
+        self,
+        job_id: str,
+        dispatch_id: str,
+        *,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retry one dispatch item in persisted rollout queue state."""
+        _validate_job_id(job_id)
+        dispatch_id_norm = str(dispatch_id).strip()
+        if not dispatch_id_norm:
+            raise ValueError("dispatch_id is required")
+        path = _with_algorithm_kind(
+            offline_job_queue_rollout_retry_path(
+                job_id,
+                dispatch_id_norm,
+                api_version=self._api_version,
+            ),
+            algorithm_kind,
+        )
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json={})
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from retry dispatch endpoint {path}: "
+                f"{type(payload).__name__}"
+            )
+        return payload
+
+    async def drain_rollout_queue(
+        self,
+        job_id: str,
+        *,
+        cancel_queued: bool = False,
+        algorithm_kind: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Set rollout queue draining mode and optionally cancel queued dispatches."""
+        _validate_job_id(job_id)
+        path = _with_algorithm_kind(
+            offline_job_queue_rollout_drain_path(job_id, api_version=self._api_version),
+            algorithm_kind,
+        )
+        body = {"cancel_queued": bool(cancel_queued)}
+        async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
+            payload = await http.post_json(path, json=body)
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"Unexpected response structure from drain rollout endpoint {path}: "
                 f"{type(payload).__name__}"
             )
         return payload

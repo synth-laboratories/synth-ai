@@ -122,12 +122,6 @@ pub fn extract_api_key(
         }
     }
 
-    if let Some(value) = header_map.get("x-api-key") {
-        if !value.trim().is_empty() {
-            return Some(value.clone());
-        }
-    }
-
     if let Some(value) = header_map.get("authorization") {
         let trimmed = value.trim();
         if trimmed.to_lowercase().starts_with("bearer ") {
