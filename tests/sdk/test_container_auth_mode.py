@@ -98,6 +98,43 @@ def test_token_header_uses_verifier(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls == [("Bearer v4.public.test", "task_info")]
 
 
+def test_required_mode_allows_loopback_relay_when_verifier_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SYNTH_CONTAINER_AUTH_MODE", "required")
+    monkeypatch.setattr(auth, "synth_ai_py", None)
+
+    req = _Request(
+        path="/rollout",
+        headers={
+            "x-synth-container-authorization": "Bearer v4.public.test",
+            "authorization": "Bearer worker-token",
+            "x-synth-relay": "1",
+        },
+        host="127.0.0.1",
+    )
+    auth.require_api_key_dependency(req)
+
+
+def test_required_mode_denies_loopback_relay_without_worker_authorization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SYNTH_CONTAINER_AUTH_MODE", "required")
+    monkeypatch.setattr(auth, "synth_ai_py", None)
+
+    req = _Request(
+        path="/rollout",
+        headers={
+            "x-synth-container-authorization": "Bearer v4.public.test",
+            "x-synth-relay": "1",
+        },
+        host="127.0.0.1",
+    )
+    with pytest.raises(Exception) as err:
+        auth.require_api_key_dependency(req)
+    _assert_http_error(err.value, 401, "auth_missing")
+
+
 def test_invalid_token_fails_even_in_optional_local(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SYNTH_CONTAINER_AUTH_MODE", "optional_local")
 
