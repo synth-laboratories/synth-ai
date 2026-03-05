@@ -72,3 +72,21 @@ cargo add synth-ai
 Use your `SYNTH_API_KEY` and call Synth HTTP endpoints directly.
 
 Docs: [docs.usesynth.ai](https://docs.usesynth.ai)
+
+## Codex CLI Setup
+
+Install Synth, then register the hosted managed-research MCP server with one command:
+
+```bash
+uv tool install synth-ai
+synth-ai mcp codex install
+```
+
+Codex will start the OAuth flow for the hosted MCP server. After login, call `smr_projects_list`, `smr_project_status_get`, or `smr_project_trigger_run`.
+
+If you need the local stdio fallback instead of the hosted endpoint:
+
+```bash
+synth-ai setup
+synth-ai mcp codex install --transport stdio
+```

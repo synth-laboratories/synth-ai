@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import httpx
 import pytest
@@ -41,6 +42,7 @@ def test_mcp_tool_health_reports_server_version_and_protocol() -> None:
 
     assert payload["status"] in {"pass", "fail"}
     assert payload["tool_count"] > 0
+    assert "smr_health_check" not in payload["missing_critical_tools"]
     assert payload["server_name"] == "synth-ai-managed-research"
     assert isinstance(payload["server_version"], str)
     assert isinstance(payload["supported_protocol_versions"], list)
@@ -126,3 +128,130 @@ def test_status_compact_outputs_summary(monkeypatch: pytest.MonkeyPatch) -> None
     assert result.exit_code == 0
     assert "SMR MCP status: OK" in result.output
     assert "- backend_ping: pass" in result.output
+
+
+def test_codex_install_registers_managed_research_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(mcp_module.shutil, "which", lambda _name: "/usr/local/bin/codex")
+
+    def _fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mcp_module, "_run_command", _fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "mcp",
+            "codex",
+            "install",
+            "--name",
+            "synth_prod",
+            "--hosted-url",
+            "https://mcp.usesynth.ai/mcp",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        [
+            "/usr/local/bin/codex",
+            "mcp",
+            "add",
+            "synth_prod",
+            "--url",
+            "https://mcp.usesynth.ai/mcp",
+        ]
+    ]
+    assert "Installed Codex MCP server 'synth_prod'." in result.output
+    assert "Hosted MCP URL: https://mcp.usesynth.ai/mcp" in result.output
+
+
+def test_codex_install_stdio_registers_local_server(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(mcp_module.shutil, "which", lambda _name: "/usr/local/bin/codex")
+
+    def _fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mcp_module, "_run_command", _fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "mcp",
+            "codex",
+            "install",
+            "--transport",
+            "stdio",
+            "--name",
+            "synth_stdio",
+            "--python-executable",
+            "/tmp/synth-python",
+            "--backend-url",
+            "https://api.usesynth.ai",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [
+        [
+            "/usr/local/bin/codex",
+            "mcp",
+            "add",
+            "synth_stdio",
+            "--env",
+            "SYNTH_BACKEND_URL=https://api.usesynth.ai",
+            "--",
+            "/tmp/synth-python",
+            "-m",
+            "synth_ai.mcp.managed_research_server",
+        ]
+    ]
+    assert "Launch command: /tmp/synth-python -m synth_ai.mcp.managed_research_server" in result.output
+
+
+def test_codex_install_requires_codex_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mcp_module.shutil, "which", lambda _name: None)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["mcp", "codex", "install"])
+
+    assert result.exit_code != 0
+    assert "Codex CLI was not found on PATH" in result.output
+
+
+def test_codex_login_invokes_codex_oauth_login(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[list[str]] = []
+
+    monkeypatch.setattr(mcp_module.shutil, "which", lambda _name: "/usr/local/bin/codex")
+
+    def _fake_run(args: list[str]) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mcp_module, "_run_command", _fake_run)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["mcp", "codex", "login", "--name", "synth_prod"])
+
+    assert result.exit_code == 0
+    assert calls == [[
+        "/usr/local/bin/codex",
+        "mcp",
+        "login",
+        "synth_prod",
+        "--scopes",
+        "smr:read,smr:write",
+    ]]
+    assert "Started Codex OAuth login for 'synth_prod'." in result.output

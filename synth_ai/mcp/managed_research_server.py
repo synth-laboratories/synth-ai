@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import sys
 from dataclasses import dataclass
 from typing import Any, Callable
 
 from synth_ai import __version__
+from synth_ai.core.utils.env import get_api_key
 from synth_ai.sdk.managed_research import SmrControlClient
 
 JSONDict = dict[str, Any]
@@ -127,6 +129,20 @@ class ManagedResearchMcpServer:
 
     def _build_tools(self) -> list[ToolDefinition]:
         return [
+            ToolDefinition(
+                name="smr_health_check",
+                description="Return a setup and connectivity health report for the managed research MCP server.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Optional project id to validate project status access.",
+                        }
+                    },
+                    required=[],
+                ),
+                handler=self._tool_health_check,
+            ),
             ToolDefinition(
                 name="smr_list_projects",
                 description="List managed research projects.",
@@ -797,6 +813,36 @@ class ManagedResearchMcpServer:
                 handler=self._tool_list_runs,
             ),
             ToolDefinition(
+                name="smr_list_jobs",
+                description=(
+                    "List org-level SMR jobs feed (runs), optionally filtered by project/state."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Optional managed research project id filter.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Optional run state filter (single or comma-separated).",
+                        },
+                        "active_only": {
+                            "type": "boolean",
+                            "description": "Return only active runs.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 200,
+                            "description": "Maximum rows to return (default 50).",
+                        },
+                    },
+                    required=[],
+                ),
+                handler=self._tool_list_jobs,
+            ),
+            ToolDefinition(
                 name="smr_get_run",
                 description="Fetch a run by id.",
                 input_schema=_tool_schema(
@@ -1054,6 +1100,180 @@ class ManagedResearchMcpServer:
                 description="Disconnect the global Codex subscription from SMR.",
                 input_schema=_tool_schema({}, required=[]),
                 handler=self._tool_codex_subscription_disconnect,
+            ),
+            ToolDefinition(
+                name="smr_github_org_status",
+                description="Get org-level GitHub integration status.",
+                input_schema=_tool_schema({}, required=[]),
+                handler=self._tool_github_org_status,
+            ),
+            ToolDefinition(
+                name="smr_github_org_oauth_start",
+                description="Start org-level GitHub OAuth flow.",
+                input_schema=_tool_schema(
+                    {
+                        "redirect_uri": {
+                            "type": "string",
+                            "description": "Optional callback URL override.",
+                        }
+                    },
+                    required=[],
+                ),
+                handler=self._tool_github_org_oauth_start,
+            ),
+            ToolDefinition(
+                name="smr_github_org_oauth_callback",
+                description="Complete org-level GitHub OAuth callback.",
+                input_schema=_tool_schema(
+                    {
+                        "code": {
+                            "type": "string",
+                            "description": "OAuth callback code.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Optional OAuth state value.",
+                        },
+                        "redirect_uri": {
+                            "type": "string",
+                            "description": "Optional callback URL override.",
+                        },
+                    },
+                    required=["code"],
+                ),
+                handler=self._tool_github_org_oauth_callback,
+            ),
+            ToolDefinition(
+                name="smr_github_org_disconnect",
+                description="Disconnect org-level GitHub integration.",
+                input_schema=_tool_schema({}, required=[]),
+                handler=self._tool_github_org_disconnect,
+            ),
+            ToolDefinition(
+                name="smr_github_org_pat_connect",
+                description="Connect org-level GitHub PAT credential.",
+                input_schema=_tool_schema(
+                    {
+                        "pat": {
+                            "type": "string",
+                            "description": "GitHub PAT value.",
+                        }
+                    },
+                    required=["pat"],
+                ),
+                handler=self._tool_github_org_pat_connect,
+            ),
+            ToolDefinition(
+                name="smr_github_project_pat_connect",
+                description="Connect project-level GitHub PAT credential.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "pat": {
+                            "type": "string",
+                            "description": "GitHub PAT value.",
+                        },
+                        "repo": {
+                            "type": "string",
+                            "description": "Optional default repo in owner/name format.",
+                        },
+                        "pr_write_enabled": {
+                            "type": "boolean",
+                            "description": "Require push permission for selected repo.",
+                        },
+                    },
+                    required=["project_id", "pat"],
+                ),
+                handler=self._tool_github_project_pat_connect,
+            ),
+            ToolDefinition(
+                name="smr_linear_status",
+                description="Get project-level Linear integration status.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_linear_status,
+            ),
+            ToolDefinition(
+                name="smr_linear_oauth_start",
+                description="Start project-level Linear OAuth flow.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "redirect_uri": {
+                            "type": "string",
+                            "description": "Optional callback URL override.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_linear_oauth_start,
+            ),
+            ToolDefinition(
+                name="smr_linear_oauth_callback",
+                description="Complete project-level Linear OAuth callback.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "code": {
+                            "type": "string",
+                            "description": "OAuth callback code.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "description": "Optional OAuth state value.",
+                        },
+                        "redirect_uri": {
+                            "type": "string",
+                            "description": "Optional callback URL override.",
+                        },
+                    },
+                    required=["project_id", "code"],
+                ),
+                handler=self._tool_linear_oauth_callback,
+            ),
+            ToolDefinition(
+                name="smr_linear_disconnect",
+                description="Disconnect project-level Linear integration.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_linear_disconnect,
+            ),
+            ToolDefinition(
+                name="smr_linear_list_teams",
+                description="List Linear teams available to the project integration.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_linear_list_teams,
             ),
             ToolDefinition(
                 name="smr_set_execution_preferences",
@@ -1743,6 +1963,19 @@ class ManagedResearchMcpServer:
                 return client.list_active_runs(project_id)
             return client.list_runs(project_id)
 
+    def _tool_list_jobs(self, args: JSONDict) -> Any:
+        project_id = _optional_string(args, "project_id")
+        state = _optional_string(args, "state")
+        active_only = _optional_bool(args, "active_only", default=False)
+        limit = _optional_int(args, "limit") or 50
+        with self._client_from_args(args) as client:
+            return client.list_jobs(
+                project_id=project_id,
+                state=state,
+                active_only=active_only,
+                limit=limit,
+            )
+
     def _tool_get_run(self, args: JSONDict) -> Any:
         run_id = _require_string(args, "run_id")
         project_id = _optional_string(args, "project_id")
@@ -1866,6 +2099,82 @@ class ManagedResearchMcpServer:
     def _tool_codex_subscription_disconnect(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
             return client.chatgpt_disconnect()
+
+    def _tool_github_org_status(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.github_org_status()
+
+    def _tool_github_org_oauth_start(self, args: JSONDict) -> Any:
+        redirect_uri = _optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.github_org_oauth_start(redirect_uri=redirect_uri)
+
+    def _tool_github_org_oauth_callback(self, args: JSONDict) -> Any:
+        code = _require_string(args, "code")
+        state = _optional_string(args, "state")
+        redirect_uri = _optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.github_org_oauth_callback(
+                code=code,
+                state=state,
+                redirect_uri=redirect_uri,
+            )
+
+    def _tool_github_org_disconnect(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.github_org_disconnect()
+
+    def _tool_github_org_pat_connect(self, args: JSONDict) -> Any:
+        pat = _require_string(args, "pat")
+        with self._client_from_args(args) as client:
+            return client.github_org_pat_connect(pat=pat)
+
+    def _tool_github_project_pat_connect(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        pat = _require_string(args, "pat")
+        repo = _optional_string(args, "repo")
+        pr_write_enabled = _optional_bool(args, "pr_write_enabled", default=False)
+        with self._client_from_args(args) as client:
+            return client.github_pat_connect(
+                project_id=project_id,
+                pat=pat,
+                repo=repo,
+                pr_write_enabled=pr_write_enabled,
+            )
+
+    def _tool_linear_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.linear_status(project_id)
+
+    def _tool_linear_oauth_start(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        redirect_uri = _optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.linear_oauth_start(project_id=project_id, redirect_uri=redirect_uri)
+
+    def _tool_linear_oauth_callback(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        code = _require_string(args, "code")
+        state = _optional_string(args, "state")
+        redirect_uri = _optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.linear_oauth_callback(
+                project_id=project_id,
+                code=code,
+                state=state,
+                redirect_uri=redirect_uri,
+            )
+
+    def _tool_linear_disconnect(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.linear_disconnect(project_id)
+
+    def _tool_linear_list_teams(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.linear_list_teams(project_id)
 
     def _tool_set_execution_preferences(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
@@ -2084,6 +2393,116 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_run_orchestrator_status(project_id, run_id)
 
+    def _tool_health_check(self, args: JSONDict) -> Any:
+        project_id = _optional_string(args, "project_id")
+        backend_base = _optional_string(args, "backend_base")
+        api_key_override = _optional_string(args, "api_key")
+        resolved_backend_base = (
+            backend_base
+            or os.environ.get("SYNTH_BACKEND_URL", "").strip()
+            or "https://api.usesynth.ai"
+        )
+        try:
+            resolved_api_key = api_key_override or get_api_key("SYNTH_API_KEY", required=False)
+        except Exception:
+            resolved_api_key = api_key_override or os.environ.get("SYNTH_API_KEY", "").strip()
+        api_key_present = bool(resolved_api_key)
+        tools = self.available_tool_names()
+        checks: JSONDict = {
+            "api_key": {
+                "status": "pass" if api_key_present else "fail",
+                "message": (
+                    "Synth API key available."
+                    if api_key_present
+                    else "No Synth API key was resolved from args, environment, or Synth config."
+                ),
+                "hint": (
+                    None
+                    if api_key_present
+                    else "Run `synth-ai setup` or export SYNTH_API_KEY before launching Codex."
+                ),
+            },
+            "mcp_server": {
+                "status": "pass",
+                "server_name": "synth-ai-managed-research",
+                "server_version": __version__,
+                "protocol_version": DEFAULT_PROTOCOL_VERSION,
+                "supported_protocol_versions": list(SUPPORTED_PROTOCOL_VERSIONS),
+                "tool_count": len(tools),
+            },
+        }
+        ok = api_key_present
+
+        try:
+            with self._client_from_args(args) as client:
+                capabilities = client.get_capabilities()
+                backend_check: JSONDict = {
+                    "status": "pass",
+                    "backend_url": resolved_backend_base,
+                    "capability_keys": sorted(capabilities.keys())
+                    if isinstance(capabilities, dict)
+                    else [],
+                }
+                if isinstance(capabilities, dict):
+                    for key in ("version", "backend_version", "api_version", "build_sha"):
+                        value = capabilities.get(key)
+                        if isinstance(value, str) and value.strip():
+                            backend_check["backend_version"] = value.strip()
+                            break
+                checks["backend_ping"] = backend_check
+
+                projects = client.list_projects(limit=1)
+                checks["project_access"] = {
+                    "status": "pass",
+                    "project_count_sampled": len(projects),
+                }
+
+                if project_id:
+                    project_status = client.get_project_status(project_id)
+                    checks["project_status"] = {
+                        "status": "pass",
+                        "project_id": project_id,
+                        "project_status_keys": sorted(project_status.keys())
+                        if isinstance(project_status, dict)
+                        else [],
+                    }
+        except Exception as exc:
+            checks["backend_ping"] = {
+                "status": "fail",
+                "backend_url": resolved_backend_base,
+                "message": f"{type(exc).__name__}: {exc}",
+                "hint": "Verify SYNTH_API_KEY, SYNTH_BACKEND_URL, and backend availability.",
+            }
+            checks.setdefault(
+                "project_access",
+                {
+                    "status": "fail",
+                    "message": "Project access check skipped after backend failure.",
+                },
+            )
+            ok = False
+        else:
+            ok = ok and True
+
+        return {
+            "ok": ok
+            and all(
+                isinstance(check, dict) and check.get("status") == "pass"
+                for check in checks.values()
+            ),
+            "backend_url": resolved_backend_base,
+            "project_id": project_id,
+            "checks": checks,
+            "tooling": {
+                "mcp_server": "synth-ai-managed-research",
+                "mcp_server_version": __version__,
+            },
+            "recommended_next_steps": [
+                "Run synth-ai mcp codex install to register this MCP server with Codex.",
+                "Run synth-ai setup or export SYNTH_API_KEY before launching Codex.",
+            ],
+        }
+
     # Protocol ----------------------------------------------------------
 
     def list_tools(self) -> list[JSONDict]:
@@ -2200,13 +2619,28 @@ def _jsonrpc_error(
     return {"jsonrpc": "2.0", "id": request_id, "error": error}
 
 
-def _read_message(stdin: Any) -> JSONDict | None:
+def _read_message(stdin: Any) -> tuple[JSONDict | None, str | None]:
     headers: dict[str, str] = {}
 
     while True:
         line = stdin.readline()
         if line == b"":
-            return None
+            return None, None
+        stripped = line.strip()
+        if not stripped:
+            if headers:
+                break
+            continue
+        # Codex CLI sends newline-delimited JSON-RPC requests on stdio during MCP startup.
+        # Accept that form in addition to Content-Length framed messages.
+        if not headers and stripped[:1] in (b"{", b"["):
+            try:
+                message = json.loads(stripped.decode("utf-8"))
+            except Exception as exc:
+                raise ValueError(f"Invalid JSON payload: {exc}") from exc
+            if not isinstance(message, dict):
+                raise ValueError("JSON-RPC message must be a JSON object")
+            return message, "jsonl"
         if line in (b"\r\n", b"\n"):
             break
 
@@ -2243,14 +2677,17 @@ def _read_message(stdin: Any) -> JSONDict | None:
 
     if not isinstance(message, dict):
         raise ValueError("JSON-RPC message must be a JSON object")
-    return message
+    return message, "content-length"
 
 
-def _write_message(stdout: Any, message: JSONDict) -> None:
+def _write_message(stdout: Any, message: JSONDict, mode: str = "content-length") -> None:
     payload = json.dumps(message, separators=(",", ":"), default=str).encode("utf-8")
-    header = f"Content-Length: {len(payload)}\r\n\r\n".encode("ascii")
-    stdout.write(header)
-    stdout.write(payload)
+    if mode == "jsonl":
+        stdout.write(payload + b"\n")
+    else:
+        header = f"Content-Length: {len(payload)}\r\n\r\n".encode("ascii")
+        stdout.write(header)
+        stdout.write(payload)
     stdout.flush()
 
 
@@ -2259,12 +2696,17 @@ def run_stdio_server() -> None:
     server = ManagedResearchMcpServer()
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
+    response_mode = "content-length"
 
     while True:
         try:
-            message = _read_message(stdin)
+            message, message_mode = _read_message(stdin)
+            if message_mode is not None:
+                response_mode = message_mode
         except Exception as exc:
-            _write_message(stdout, _jsonrpc_error(None, -32700, f"Parse error: {exc}"))
+            _write_message(
+                stdout, _jsonrpc_error(None, -32700, f"Parse error: {exc}"), response_mode
+            )
             continue
 
         if message is None:
@@ -2280,10 +2722,14 @@ def run_stdio_server() -> None:
             continue
 
         if isinstance(method, str):
-            _write_message(stdout, server.handle_request(message))
+            _write_message(stdout, server.handle_request(message), response_mode)
             continue
 
-        _write_message(stdout, _jsonrpc_error(message.get("id"), -32600, "Invalid request"))
+        _write_message(
+            stdout,
+            _jsonrpc_error(message.get("id"), -32600, "Invalid request"),
+            response_mode,
+        )
 
 
 def main() -> None:
@@ -2292,3 +2738,7 @@ def main() -> None:
 
 
 __all__ = ["ManagedResearchMcpServer", "main", "run_stdio_server"]
+
+
+if __name__ == "__main__":
+    main()

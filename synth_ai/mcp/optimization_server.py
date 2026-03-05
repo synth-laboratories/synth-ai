@@ -827,13 +827,28 @@ def _jsonrpc_error(
     return {"jsonrpc": "2.0", "id": request_id, "error": error}
 
 
-def _read_message(stdin: Any) -> JSONDict | None:
+def _read_message(stdin: Any) -> tuple[JSONDict | None, str | None]:
     headers: dict[str, str] = {}
 
     while True:
         line = stdin.readline()
         if line == b"":
-            return None
+            return None, None
+        stripped = line.strip()
+        if not stripped:
+            if headers:
+                break
+            continue
+        # Codex CLI sends newline-delimited JSON-RPC requests on stdio during MCP startup.
+        # Accept that form in addition to Content-Length framed messages.
+        if not headers and stripped[:1] in (b"{", b"["):
+            try:
+                message = json.loads(stripped.decode("utf-8"))
+            except Exception as exc:
+                raise ValueError(f"Invalid JSON payload: {exc}") from exc
+            if not isinstance(message, dict):
+                raise ValueError("JSON-RPC message must be a JSON object")
+            return message, "jsonl"
         if line in (b"\r\n", b"\n"):
             break
 
@@ -870,14 +885,17 @@ def _read_message(stdin: Any) -> JSONDict | None:
 
     if not isinstance(message, dict):
         raise ValueError("JSON-RPC message must be a JSON object")
-    return message
+    return message, "content-length"
 
 
-def _write_message(stdout: Any, message: JSONDict) -> None:
+def _write_message(stdout: Any, message: JSONDict, mode: str = "content-length") -> None:
     payload = json.dumps(message, separators=(",", ":"), default=str).encode("utf-8")
-    header = f"Content-Length: {len(payload)}\r\n\r\n".encode("ascii")
-    stdout.write(header)
-    stdout.write(payload)
+    if mode == "jsonl":
+        stdout.write(payload + b"\n")
+    else:
+        header = f"Content-Length: {len(payload)}\r\n\r\n".encode("ascii")
+        stdout.write(header)
+        stdout.write(payload)
     stdout.flush()
 
 
@@ -886,12 +904,17 @@ def run_stdio_server() -> None:
     server = OptimizationMcpServer()
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
+    response_mode = "content-length"
 
     while True:
         try:
-            message = _read_message(stdin)
+            message, message_mode = _read_message(stdin)
+            if message_mode is not None:
+                response_mode = message_mode
         except Exception as exc:
-            _write_message(stdout, _jsonrpc_error(None, -32700, f"Parse error: {exc}"))
+            _write_message(
+                stdout, _jsonrpc_error(None, -32700, f"Parse error: {exc}"), response_mode
+            )
             continue
 
         if message is None:
@@ -907,10 +930,14 @@ def run_stdio_server() -> None:
             continue
 
         if isinstance(method, str):
-            _write_message(stdout, server.handle_request(message))
+            _write_message(stdout, server.handle_request(message), response_mode)
             continue
 
-        _write_message(stdout, _jsonrpc_error(message.get("id"), -32600, "Invalid request"))
+        _write_message(
+            stdout,
+            _jsonrpc_error(message.get("id"), -32600, "Invalid request"),
+            response_mode,
+        )
 
 
 def main() -> None:
