@@ -1,7 +1,7 @@
 # Synth
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/PyPI-0.9.3-orange)](https://pypi.org/project/synth-ai/)
+[![PyPI](https://img.shields.io/badge/PyPI-0.9.4-orange)](https://pypi.org/project/synth-ai/)
 [![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -58,7 +58,7 @@ Benchmark and demo runner source files live in the `Benchmarking` repo (`../Benc
 ```bash
 uv add synth-ai
 # or
-pip install synth-ai==0.9.3
+pip install synth-ai==0.9.4
 ```
 
 ### Rust SDK (beta)
