@@ -1,0 +1,14 @@
+interface:
+  display_name: "SMR Setup"
+  short_description: "Validate MCP and backend access for Synth Managed Research."
+  default_prompt: "Validate Synth Managed Research MCP setup and tell me the shortest fix if anything is missing."
+dependencies:
+  tools:
+    - type: mcp_server
+      value: synth_managed_research
+      description: "Synth Managed Research MCP server"
+    - type: env
+      value: SYNTH_API_KEY
+      description: "Synth backend API key"
+policy:
+  allow_implicit_invocation: false

@@ -858,6 +858,21 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_run,
             ),
             ToolDefinition(
+                name="smr_get_run_usage",
+                description="Fetch run-level usage with charged-spend totals and ledger entries.",
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "project_id": {
+                            "type": "string",
+                            "description": "Optional project id for project-scoped strict route.",
+                        },
+                    },
+                    required=["run_id"],
+                ),
+                handler=self._tool_get_run_usage,
+            ),
+            ToolDefinition(
                 name="smr_get_actor_status",
                 description="Fetch unified actor status (orchestrator + workers) for a project.",
                 input_schema=_tool_schema(
@@ -1981,6 +1996,12 @@ class ManagedResearchMcpServer:
         project_id = _optional_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.get_run(run_id, project_id=project_id)
+
+    def _tool_get_run_usage(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.get_run_usage(run_id, project_id=project_id)
 
     def _tool_get_actor_status(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

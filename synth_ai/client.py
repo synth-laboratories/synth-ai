@@ -272,6 +272,22 @@ class _OptimizationAsyncClient:
     online: _OnlineAsyncClient
 
 
+class _ReservedNamespace:
+    """Placeholder namespace for routes reserved in the canonical SDK surface.
+
+    The docs and sync lints treat these namespaces as part of the public front-door
+    shape even where the implementation is still intentionally thin.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def __getattr__(self, attr: str) -> Any:
+        raise NotImplementedError(
+            f"synth_ai.{self._name}.{attr} is not implemented in the canonical front-door SDK yet."
+        )
+
+
 class PoolTarget(str, Enum):
     HARBOR = "harbor"
     OPENENV = "openenv"
@@ -1204,6 +1220,9 @@ class SynthClient:
             offline=_OfflineSyncClient(self.base_url, self.api_key, self.timeout),
             online=_OnlineSyncClient(self.base_url, self.api_key, self.timeout),
         )
+        self.inference = _ReservedNamespace("inference")
+        self.graphs = _ReservedNamespace("graphs")
+        self.verifiers = _ReservedNamespace("verifiers")
 
         self.pools = PoolsClient(
             api_key=self.api_key,
@@ -1244,6 +1263,9 @@ class AsyncSynthClient:
             offline=_OfflineAsyncClient(self.base_url, self.api_key, self.timeout),
             online=_OnlineAsyncClient(self.base_url, self.api_key, self.timeout),
         )
+        self.inference = _AsyncThreadProxy(_ReservedNamespace("inference"))
+        self.graphs = _AsyncThreadProxy(_ReservedNamespace("graphs"))
+        self.verifiers = _AsyncThreadProxy(_ReservedNamespace("verifiers"))
 
         sync_pools = PoolsClient(
             api_key=self.api_key,
