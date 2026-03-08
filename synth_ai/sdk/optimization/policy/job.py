@@ -77,6 +77,7 @@ class PolicyOptimizationJobConfig:
             self.algorithm == "gepa"
             and url
             and _is_non_local_url(url)
+            and not (self.container_api_key or "").strip()
             and not has_container_token_signing_key()
         ):
             raise ValueError(

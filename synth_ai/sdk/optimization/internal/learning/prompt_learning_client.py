@@ -1,6 +1,7 @@
 """Client utilities for querying prompt learning job results."""
 
 import logging
+import re
 from typing import Any, Dict, Iterable, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,22 @@ def _with_algorithm_kind(path: str, algorithm_kind: Optional[str]) -> str:
         return path
     joiner = "&" if "?" in path else "?"
     return f"{path}{joiner}algorithm_kind={normalized}"
+
+
+def _as_versioned_api_path(path: str) -> str:
+    if path.startswith("/api/"):
+        return path
+    if path.startswith("/"):
+        return f"/api{path}"
+    return f"/api/{path}"
+
+
+def _as_global_api_path(path: str) -> str:
+    if path.startswith("/api/"):
+        return path
+    normalized = path if path.startswith("/") else f"/{path}"
+    normalized = re.sub(r"^/v[0-9]+(?=/)", "", normalized)
+    return f"/api{normalized}"
 
 
 def _parse_lever_versions_raw(raw: Any) -> Dict[str, int]:
@@ -257,8 +274,11 @@ def _extract_prompt_learning_fields_from_job_payload(payload: Dict[str, Any]) ->
     best_reward = _first_present(
         [
             _coerce_float(payload.get("best_reward")),
+            _coerce_float(payload.get("best_score")),
             _coerce_float(nested_result.get("best_reward")),
+            _coerce_float(nested_result.get("best_score")),
             _coerce_float(metadata.get("best_reward")),
+            _coerce_float(metadata.get("best_score")),
             _coerce_float(metadata.get("prompt_best_average_reward")),
             _coerce_float(metadata.get("prompt_best_reward")),
         ]
@@ -514,6 +534,8 @@ def _extract_mipro_state_fields(state_payload: Dict[str, Any]) -> Dict[str, Any]
         best_reward = _coerce_float(best_candidate.get("avg_reward"))
     if best_reward is None:
         best_reward = _coerce_float(state_payload.get("best_reward"))
+    if best_reward is None:
+        best_reward = _coerce_float(state_payload.get("best_score"))
     if best_reward is None and isinstance(candidates, dict):
         best_reward = max(
             (
@@ -775,7 +797,9 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        state_path = online_session_path(system_id, api_version=self._api_version)
+        state_path = _as_versioned_api_path(
+            online_session_path(system_id, api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
                 payload = await http.get(state_path)
@@ -790,7 +814,9 @@ class PromptLearningClient:
         system_id = system_id.strip()
         if not system_id:
             return None
-        events_path = online_session_subpath(system_id, "events", api_version=self._api_version)
+        events_path = _as_versioned_api_path(
+            online_session_subpath(system_id, "events", api_version=self._api_version)
+        )
         params = {"since_seq": since_seq, "limit": limit}
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             try:
@@ -813,7 +839,9 @@ class PromptLearningClient:
             ValueError: If job_id format is invalid
         """
         _validate_job_id(job_id)
-        job_paths = [offline_job_path(job_id, api_version=self._api_version)]
+        job_paths = [
+            _as_versioned_api_path(offline_job_path(job_id, api_version=self._api_version))
+        ]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None
@@ -837,6 +865,10 @@ class PromptLearningClient:
                     continue
             if payloads:
                 merged = _merge_job_payloads(payloads)
+                if merged.get("best_reward") is None and merged.get("best_score") is not None:
+                    merged["best_reward"] = merged.get("best_score")
+                if merged.get("best_score") is None and merged.get("best_reward") is not None:
+                    merged["best_score"] = merged.get("best_reward")
                 metadata = _merge_job_metadata(merged)
                 algorithm = (
                     str(merged.get("algorithm") or metadata.get("algorithm") or "").strip().lower()
@@ -855,6 +887,11 @@ class PromptLearningClient:
                                 and state_fields["best_reward"] is not None
                             ):
                                 merged["best_reward"] = state_fields["best_reward"]
+                            if (
+                                merged.get("best_score") is None
+                                and state_fields["best_reward"] is not None
+                            ):
+                                merged["best_score"] = state_fields["best_reward"]
 
                             if (
                                 merged.get("best_candidate") is None
@@ -945,7 +982,9 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = offline_job_subpath(job_id, "candidates", api_version=self._api_version)
+        path = _as_versioned_api_path(
+            offline_job_subpath(job_id, "candidates", api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -978,7 +1017,7 @@ class PromptLearningClient:
             "proposal_session_id": proposal_session_id,
             "proposer_metadata": dict(proposer_metadata or {}),
         }
-        path = candidates_submit_path(api_version=self._api_version)
+        path = _as_versioned_api_path(candidates_submit_path(api_version=self._api_version))
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             response = await http.post_json(path, json=payload)
         if not isinstance(response, dict):
@@ -1298,10 +1337,12 @@ class PromptLearningClient:
         if not candidate_id:
             raise ValueError("candidate_id is required")
         paths = [
-            offline_job_subpath(
-                job_id, f"candidates/{candidate_id}", api_version=self._api_version
+            _as_versioned_api_path(
+                offline_job_subpath(
+                    job_id, f"candidates/{candidate_id}", api_version=self._api_version
+                )
             ),
-            candidate_path(candidate_id, api_version=self._api_version),
+            _as_global_api_path(candidate_path(candidate_id, api_version=self._api_version)),
         ]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
@@ -1364,7 +1405,9 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = system_subpath(system_id, "candidates", api_version=self._api_version)
+        path = _as_global_api_path(
+            system_subpath(system_id, "candidates", api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1379,7 +1422,7 @@ class PromptLearningClient:
         candidate_id = str(candidate_id).strip()
         if not candidate_id:
             raise ValueError("candidate_id is required")
-        path = candidate_path(candidate_id, api_version=self._api_version)
+        path = _as_global_api_path(candidate_path(candidate_id, api_version=self._api_version))
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path)
         if not isinstance(payload, dict):
@@ -1419,7 +1462,9 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = offline_job_subpath(job_id, "seed-evals", api_version=self._api_version)
+        path = _as_versioned_api_path(
+            offline_job_subpath(job_id, "seed-evals", api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1464,7 +1509,9 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = system_subpath(system_id, "seed-evals", api_version=self._api_version)
+        path = _as_global_api_path(
+            system_subpath(system_id, "seed-evals", api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1508,7 +1555,9 @@ class PromptLearningClient:
             params["sort"] = sort
         if include:
             params["include"] = include
-        path = candidate_subpath(candidate_id, "seed-evals", api_version=self._api_version)
+        path = _as_global_api_path(
+            candidate_subpath(candidate_id, "seed-evals", api_version=self._api_version)
+        )
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             payload = await http.get(path, params=params)
         if not isinstance(payload, dict):
@@ -1571,7 +1620,11 @@ class PromptLearningClient:
                 logger.debug("Rust tracker events query failed: %s", e)
 
         params = {"since_seq": since_seq, "limit": limit}
-        event_paths = [offline_job_subpath(job_id, "events", api_version=self._api_version)]
+        event_paths = [
+            _as_versioned_api_path(
+                offline_job_subpath(job_id, "events", api_version=self._api_version)
+            )
+        ]
         async with RustCoreHttpClient(self._base_url, self._api_key, timeout=self._timeout) as http:
             last_not_found: Optional[Exception] = None
             first_error: Optional[Exception] = None

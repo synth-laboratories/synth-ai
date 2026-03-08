@@ -23,7 +23,7 @@ from synth_ai.core.utils.urls import (
     is_synth_managed_ngrok_url,
     is_synthtunnel_url,
 )
-from synth_ai.sdk.container.auth import has_container_token_signing_key
+from synth_ai.sdk.container.auth import ensure_container_auth, has_container_token_signing_key
 from synth_ai.sdk.optimization.models import (
     PolicyCandidate,
     PolicyCandidatePage,
@@ -452,21 +452,21 @@ class PromptLearningJobConfig:
                     "ngrok URL is not allowed. Use a Synth-managed ngrok-compatible URL allow-listed in SYNTH_MANAGED_TUNNEL_HOSTS."
                 )
         if task_url and is_synthtunnel_url(task_url):
+            ensure_container_auth(
+                backend_base=self.backend_url,
+                synth_api_key=self.api_key,
+            )
             if not (self.container_worker_token or "").strip():
                 raise ValueError(
                     "container_worker_token is required for SynthTunnel container_url. "
                     "Pass tunnel.worker_token or set container_worker_token."
-                )
-            if is_gepa and not has_token_signer:
-                raise ValueError(
-                    "GEPA SynthTunnel rollout auth requires "
-                    "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
                 )
         else:
             if (
                 is_gepa
                 and task_url
                 and not has_token_signer
+                and not (self.container_api_key or "").strip()
                 and not is_local_http_container_url(task_url)
             ):
                 raise ValueError(
@@ -982,6 +982,8 @@ class PromptLearningJob:
                         "best_lever_version": full_results.get("best_lever_version"),
                     }
                 )
+        if final_status.get("best_reward") is None and final_status.get("best_score") is not None:
+            final_status["best_reward"] = final_status.get("best_score")
 
         return PromptLearningResult.from_response(self._job_id, final_status)
 

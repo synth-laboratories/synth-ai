@@ -41,7 +41,7 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.builders.") from exc
 
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
-from synth_ai.core.utils.urls import is_local_http_container_url, is_synthtunnel_url  # noqa: E402
+from synth_ai.core.utils.urls import is_synthtunnel_url  # noqa: E402
 from synth_ai.sdk.container.auth import (  # noqa: E402
     has_container_token_signing_key,
 )
@@ -102,6 +102,58 @@ def _format_validation_error(path: Path, exc: ValidationError) -> str:
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
+
+
+_FORBIDDEN_CONTAINER_AUTH_FIELDS = {"container_api_key", "container_api_keys"}
+
+
+def _collect_forbidden_container_auth_paths(value: Any, path: str = "") -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            key_str = str(key)
+            next_path = f"{path}.{key_str}" if path else key_str
+            lower = key_str.strip().lower()
+            if (
+                lower in _FORBIDDEN_CONTAINER_AUTH_FIELDS
+                or lower.endswith(".container_api_key")
+                or lower.endswith(".container_api_keys")
+            ):
+                paths.append(next_path)
+            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            next_path = f"{path}[{index}]" if path else f"[{index}]"
+            paths.extend(_collect_forbidden_container_auth_paths(child, next_path))
+    return paths
+
+
+def _assert_no_forbidden_container_auth_overrides(overrides_value: Any) -> None:
+    forbidden_paths = _collect_forbidden_container_auth_paths(overrides_value)
+    if not forbidden_paths:
+        return
+    raise ValueError(
+        "container_api_key/container_api_keys must never be embedded in policy-optimization "
+        "job payload overrides. This auth is server-resolved only. Forbidden override paths: "
+        + ", ".join(sorted(forbidden_paths))
+    )
+
+
+def _strip_forbidden_container_auth_fields(config_dict: dict[str, Any]) -> None:
+    config_dict.pop("container_api_key", None)
+    config_dict.pop("container_api_keys", None)
+    for key in list(config_dict.keys()):
+        lower = str(key).strip().lower()
+        if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
+            config_dict.pop(key, None)
+    prompt_learning = config_dict.get("prompt_learning")
+    if isinstance(prompt_learning, dict):
+        prompt_learning.pop("container_api_key", None)
+        prompt_learning.pop("container_api_keys", None)
+        for key in list(prompt_learning.keys()):
+            lower = str(key).strip().lower()
+            if lower.endswith(".container_api_key") or lower.endswith(".container_api_keys"):
+                prompt_learning.pop(key, None)
 
 
 def _normalize_mipro_section(
@@ -236,11 +288,6 @@ def _validate_gepa_container_auth(candidate_task_url: str, is_gepa: bool) -> boo
                 "GEPA SynthTunnel rollout auth requires "
                 "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
             )
-        if not is_local_http_container_url(candidate_task_url):
-            raise ValueError(
-                "GEPA rollout auth for non-local container_url requires "
-                "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
-            )
     return signer_configured
 
 
@@ -307,6 +354,13 @@ def build_prompt_learning_payload(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    raw_prompt_learning = raw_config.get("prompt_learning")
+    if isinstance(raw_prompt_learning, dict) and isinstance(
+        raw_prompt_learning.get("policy"), dict
+    ):
+        config_dict.setdefault("prompt_learning", {})["policy"] = dict(
+            raw_prompt_learning["policy"]
+        )
     _default_verifier_backend_base(config_dict, overrides)
 
     # Canonical path: build payload in Python to avoid requiring legacy policy fields.
@@ -410,18 +464,16 @@ def build_prompt_learning_payload(
     # Build payload matching backend API format
     # Extract nested overrides if present, otherwise use flat overrides directly.
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    _assert_no_forbidden_container_auth_overrides(config_overrides)
     # Remove non-override keys (backend, task_url, metadata, auto_start)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
     }
 
-    forbidden_legacy_override_prefixes = (
-        "prompt_learning.policy.",
-        "policy_optimization.",
-    )
-    forbidden_legacy_override_exact = {"prompt_learning.policy", "policy_optimization"}
+    forbidden_legacy_override_prefixes = ("policy_optimization.",)
+    forbidden_legacy_override_exact = {"policy_optimization"}
     for override_key in list(config_overrides.keys()):
         if override_key in forbidden_legacy_override_exact or override_key.startswith(
             forbidden_legacy_override_prefixes
@@ -437,6 +489,8 @@ def build_prompt_learning_payload(
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
+
+    _strip_forbidden_container_auth_fields(config_dict)
 
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)
@@ -603,6 +657,13 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build config dict for backend
     config_dict = pl_cfg.to_dict()
+    raw_prompt_learning = raw_config.get("prompt_learning")
+    if isinstance(raw_prompt_learning, dict) and isinstance(
+        raw_prompt_learning.get("policy"), dict
+    ):
+        config_dict.setdefault("prompt_learning", {})["policy"] = dict(
+            raw_prompt_learning["policy"]
+        )
     _default_verifier_backend_base(config_dict, overrides)
 
     # Canonical path: build payload in Python to avoid requiring legacy policy fields.
@@ -677,17 +738,30 @@ def build_prompt_learning_payload_from_mapping(
 
     # Build payload matching backend API format
     config_overrides = overrides.get("overrides", {}) if "overrides" in overrides else overrides
+    _assert_no_forbidden_container_auth_overrides(config_overrides)
     config_overrides = {
         k: v
         for k, v in config_overrides.items()
-        if k not in ("backend", "task_url", "metadata", "auto_start")
+        if k not in ("backend", "task_url", "metadata", "auto_start", "container_api_key")
     }
+
+    forbidden_legacy_override_prefixes = ("policy_optimization.",)
+    forbidden_legacy_override_exact = {"policy_optimization"}
+    for override_key in list(config_overrides.keys()):
+        if override_key in forbidden_legacy_override_exact or override_key.startswith(
+            forbidden_legacy_override_prefixes
+        ):
+            raise click.ClickException(
+                f"Legacy override '{override_key}' is no longer supported; use canonical prompt_learning fields only."
+            )
 
     # Merge overrides into config_dict
     if config_overrides:
         from synth_ai.core.utils.dict import deep_update as _deep_update
 
         _deep_update(config_dict, config_overrides)
+
+    _strip_forbidden_container_auth_fields(config_dict)
 
     if pl_cfg.algorithm == "mipro":
         _normalize_mipro_section(pl_cfg, config_dict, source="post-merge", prefer_model=False)
@@ -727,6 +801,8 @@ def build_prompt_learning_payload_from_mapping(
 
 __all__ = [
     "PromptLearningBuildResult",
+    "_assert_no_forbidden_container_auth_overrides",
+    "_strip_forbidden_container_auth_fields",
     "build_prompt_learning_payload",
     "build_prompt_learning_payload_from_mapping",
 ]

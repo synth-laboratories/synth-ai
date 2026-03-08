@@ -84,7 +84,7 @@ def _resolve_api_key(api_key: Optional[str]) -> str:
 
 
 def _resolve_api_version(api_version: Optional[str] = None) -> ApiVersion:
-    raw = (api_version or os.getenv("SYNTH_POLICY_API_VERSION") or "v2").strip().lower()
+    raw = (api_version or os.getenv("SYNTH_POLICY_API_VERSION") or "v1").strip().lower()
     if raw not in {"v1", "v2"}:
         raise ValueError("api_version must be 'v1' or 'v2'")
     return normalize_api_version(raw)
@@ -196,8 +196,7 @@ def _auth_headers(api_key: str) -> Dict[str, str]:
 def _parse_429_usage_limit_payload(body: Any) -> UsageLimitError | ValidationError:
     if not isinstance(body, dict):
         return ValidationError(
-            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch "
-            "(expected JSON object)."
+            "Corrupted HTTP 429 rate-limit payload: payload schema mismatch (expected JSON object)."
         )
     detail = body.get("detail")
     if not isinstance(detail, dict):
@@ -300,7 +299,7 @@ class PolicyOptimizationSystem:
     backend_url: str
     api_key: str
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -464,7 +463,7 @@ class PolicyOptimizationOfflineJob:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -484,7 +483,7 @@ class PolicyOptimizationOfflineJob:
         api_key: Optional[str] = None,
         timeout: float = 30.0,
         api_version: Optional[ApiVersion] = None,
-        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_version: PromptOptVersion = "v1",
         prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOfflineJob:
         if not system_name or not system_name.strip():
@@ -781,9 +780,7 @@ class PolicyOptimizationOfflineJob:
             api_version=self.api_version,
         )
         url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
-        params = _clean_params(
-            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)}
-        )
+        params = _clean_params({"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)})
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.patch(
                 url,
@@ -809,9 +806,7 @@ class PolicyOptimizationOfflineJob:
             api_version=self.api_version,
         )
         url = f"{ensure_api_base(self.backend_url).rstrip('/')}{path}"
-        params = _clean_params(
-            {"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)}
-        )
+        params = _clean_params({"algorithm_kind": _normalize_algorithm_kind(algorithm_kind)})
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.delete(
                 url,
@@ -827,9 +822,7 @@ class PolicyOptimizationOfflineJob:
         *,
         algorithm_kind: Optional[str] = None,
     ) -> Dict[str, Any]:
-        return _run_async(
-            self.cancel_trial_async(trial_id, algorithm_kind=algorithm_kind)
-        )
+        return _run_async(self.cancel_trial_async(trial_id, algorithm_kind=algorithm_kind))
 
     async def reorder_trials_async(
         self,
@@ -881,9 +874,7 @@ class PolicyOptimizationOfflineJob:
         *,
         algorithm_kind: Optional[str] = None,
     ) -> Dict[str, Any]:
-        return _run_async(
-            self.apply_default_trial_plan_async(algorithm_kind=algorithm_kind)
-        )
+        return _run_async(self.apply_default_trial_plan_async(algorithm_kind=algorithm_kind))
 
     async def get_rollout_queue_async(self) -> Dict[str, Any]:
         path = offline_job_queue_rollouts_path(self.job_id, api_version=self.api_version)
@@ -1173,7 +1164,7 @@ class PolicyOptimizationOnlineSession:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -1192,7 +1183,7 @@ class PolicyOptimizationOnlineSession:
         api_key: Optional[str] = None,
         timeout: float = 30.0,
         api_version: Optional[ApiVersion] = None,
-        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_version: PromptOptVersion = "v1",
         prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOnlineSession:
         if not system_name or not system_name.strip():
@@ -1339,7 +1330,9 @@ class PolicyOptimizationOnlineSession:
         key = _resolve_api_key(api_key)
         version = _resolve_api_version(api_version)
         if version != "v2":
-            raise ValueError("runtime compatibility contract is available only for api_version='v2'")
+            raise ValueError(
+                "runtime compatibility contract is available only for api_version='v2'"
+            )
         path = runtime_compatibility_path(api_version=version)
         async with RustCoreHttpClient(ensure_api_base(base_url), key, timeout=timeout) as http:
             response = await http.get(path)
@@ -1835,7 +1828,9 @@ class PolicyOptimizationOnlineSession:
     def _runtime_queue_trial_path(self, trial_id: str) -> str:
         if self.system_id:
             return runtime_queue_trial_path(self.system_id, trial_id, api_version=self.api_version)
-        return runtime_session_queue_trial_path(self.session_id, trial_id, api_version=self.api_version)
+        return runtime_session_queue_trial_path(
+            self.session_id, trial_id, api_version=self.api_version
+        )
 
     def _runtime_queue_rollouts_path(self) -> str:
         if self.system_id:
@@ -1844,7 +1839,9 @@ class PolicyOptimizationOnlineSession:
 
     def _runtime_queue_rollout_path(self, rollout_id: str) -> str:
         if self.system_id:
-            return runtime_queue_rollout_path(self.system_id, rollout_id, api_version=self.api_version)
+            return runtime_queue_rollout_path(
+                self.system_id, rollout_id, api_version=self.api_version
+            )
         return runtime_session_queue_rollout_path(
             self.session_id,
             rollout_id,
@@ -1854,7 +1851,9 @@ class PolicyOptimizationOnlineSession:
     def _runtime_queue_rollout_lease_path(self) -> str:
         if self.system_id:
             return runtime_queue_rollout_lease_path(self.system_id, api_version=self.api_version)
-        return runtime_session_queue_rollout_lease_path(self.session_id, api_version=self.api_version)
+        return runtime_session_queue_rollout_lease_path(
+            self.session_id, api_version=self.api_version
+        )
 
     def _runtime_queue_rollout_expire_leases_path(self) -> str:
         if self.system_id:

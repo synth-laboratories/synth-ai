@@ -62,33 +62,18 @@ def _normalize_suffix(suffix: str) -> str:
 
 def offline_jobs_base(*, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
-    return _rs_or_fallback(
-        "optimization_route_offline_jobs_base",
-        f"{_api_prefix(version)}/offline/jobs",
-        version,
-    )
+    return f"{_api_prefix(version)}/offline/jobs"
 
 
 def offline_job_path(job_id: str, *, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
-    return _rs_or_fallback(
-        "optimization_route_offline_job_path",
-        f"{offline_jobs_base(api_version=version)}/{job_id}",
-        job_id,
-        version,
-    )
+    return f"{offline_jobs_base(api_version=version)}/{job_id}"
 
 
 def offline_job_subpath(job_id: str, suffix: str, *, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
     normalized_suffix = _normalize_suffix(suffix)
-    return _rs_or_fallback(
-        "optimization_route_offline_job_subpath",
-        f"{offline_job_path(job_id, api_version=version)}{normalized_suffix}",
-        job_id,
-        suffix,
-        version,
-    )
+    return f"{offline_job_path(job_id, api_version=version)}{normalized_suffix}"
 
 
 def offline_job_state_baseline_info_path(job_id: str, *, api_version: ApiVersion) -> str:
@@ -158,33 +143,18 @@ def offline_job_queue_rollout_drain_path(job_id: str, *, api_version: ApiVersion
 
 def online_sessions_base(*, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
-    return _rs_or_fallback(
-        "optimization_route_online_sessions_base",
-        f"{_api_prefix(version)}/online/sessions",
-        version,
-    )
+    return f"{_api_prefix(version)}/online/sessions"
 
 
 def online_session_path(session_id: str, *, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
-    return _rs_or_fallback(
-        "optimization_route_online_session_path",
-        f"{online_sessions_base(api_version=version)}/{session_id}",
-        session_id,
-        version,
-    )
+    return f"{online_sessions_base(api_version=version)}/{session_id}"
 
 
 def online_session_subpath(session_id: str, suffix: str, *, api_version: ApiVersion) -> str:
     version = normalize_api_version(api_version)
     normalized_suffix = _normalize_suffix(suffix)
-    return _rs_or_fallback(
-        "optimization_route_online_session_subpath",
-        f"{online_session_path(session_id, api_version=version)}{normalized_suffix}",
-        session_id,
-        suffix,
-        version,
-    )
+    return f"{online_session_path(session_id, api_version=version)}{normalized_suffix}"
 
 
 def runtime_compatibility_path(*, api_version: ApiVersion) -> str:
