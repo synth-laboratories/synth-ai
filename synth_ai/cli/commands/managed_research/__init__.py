@@ -97,6 +97,32 @@ def runs(
         _emit(payload, json_output=json_output)
 
 
+@managed_research.command(name="jobs")
+@click.option("--project-id", help="Optional project_id filter.")
+@click.option("--state", help="Optional run-state filter (single or comma-separated).")
+@click.option("--active", is_flag=True, help="Only include active runs.")
+@click.option("--limit", type=int, default=50, show_default=True, help="Maximum rows to return.")
+@_connection_options
+def jobs(
+    project_id: str | None,
+    state: str | None,
+    active: bool,
+    limit: int,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """List org-level jobs feed (SMR runs), optionally filtered by project."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        payload = client.list_jobs(
+            project_id=project_id,
+            state=state,
+            active_only=active,
+            limit=limit,
+        )
+        _emit(payload, json_output=json_output)
+
+
 @managed_research.command(name="actor-status")
 @click.argument("project_id")
 @click.option("--run-id", help="Optional run id filter.")
@@ -250,12 +276,10 @@ def github_status(api_key: str | None, backend_url: str, json_output: bool) -> N
 def github_connect(port: int, api_key: str | None, backend_url: str, json_output: bool) -> None:
     """Connect GitHub via OAuth (opens browser)."""
     import http.server
-    import threading
     import urllib.parse
     import webbrowser
 
     captured: dict[str, str] = {}
-    server_ready = threading.Event()
 
     class CallbackHandler(http.server.BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -310,6 +334,45 @@ def github_disconnect(api_key: str | None, backend_url: str, json_output: bool) 
         _emit(client.github_org_disconnect(), json_output=json_output)
 
 
+@github_group.command(name="connect-pat")
+@click.option("--pat", required=True, prompt=True, hide_input=True, help="GitHub PAT.")
+@_connection_options
+def github_connect_pat(pat: str, api_key: str | None, backend_url: str, json_output: bool) -> None:
+    """Connect org-level GitHub PAT credential."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.github_org_pat_connect(pat=pat), json_output=json_output)
+
+
+@github_group.command(name="project-connect-pat")
+@click.argument("project_id")
+@click.option("--pat", required=True, prompt=True, hide_input=True, help="GitHub PAT.")
+@click.option("--repo", help="Optional default repo owner/name.")
+@click.option(
+    "--pr-write-enabled", is_flag=True, help="Require push permission for the selected repo."
+)
+@_connection_options
+def github_project_connect_pat(
+    project_id: str,
+    pat: str,
+    repo: str | None,
+    pr_write_enabled: bool,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Connect project-level GitHub PAT credential."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(
+            client.github_pat_connect(
+                project_id=project_id,
+                pat=pat,
+                repo=repo,
+                pr_write_enabled=pr_write_enabled,
+            ),
+            json_output=json_output,
+        )
+
+
 @github_group.command(name="link")
 @click.argument("project_id")
 @_connection_options
@@ -317,6 +380,183 @@ def github_link(project_id: str, api_key: str | None, backend_url: str, json_out
     """Link a project to the org-level GitHub credential."""
     with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
         _emit(client.github_link_org(project_id), json_output=json_output)
+
+
+# -- Linear project-level integration commands ------------------------------
+
+
+@managed_research.group(name="linear")
+def linear_group() -> None:
+    """Manage project-level Linear connection."""
+
+
+@linear_group.command(name="status")
+@click.argument("project_id")
+@_connection_options
+def linear_status(
+    project_id: str, api_key: str | None, backend_url: str, json_output: bool
+) -> None:
+    """Show project-level Linear connection status."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.linear_status(project_id), json_output=json_output)
+
+
+@linear_group.command(name="connect")
+@click.argument("project_id")
+@click.option("--port", type=int, default=9877, help="Local port for OAuth callback.")
+@_connection_options
+def linear_connect(
+    project_id: str,
+    port: int,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Connect Linear via OAuth (opens browser)."""
+    import http.server
+    import urllib.parse
+    import webbrowser
+
+    captured: dict[str, str] = {}
+
+    class CallbackHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            qs = urllib.parse.urlparse(self.path).query
+            params = dict(urllib.parse.parse_qsl(qs))
+            captured.update(params)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"<html><body><h2>Linear connected. You can close this tab.</h2></body></html>"
+            )
+
+        def log_message(self, format, *args) -> None:  # noqa: A002
+            pass  # suppress request logs
+
+    redirect_uri = f"http://localhost:{port}/callback"
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        start_resp = client.linear_oauth_start(project_id=project_id, redirect_uri=redirect_uri)
+        authorize_url = start_resp.get("authorize_url")
+        if not authorize_url:
+            raise click.ClickException("Backend did not return authorize_url")
+
+        httpd = http.server.HTTPServer(("127.0.0.1", port), CallbackHandler)
+        httpd.timeout = 120
+
+        click.echo("Opening browser for Linear authorization...")
+        click.echo(f"  (listening on http://localhost:{port}/callback)")
+        webbrowser.open(authorize_url)
+
+        # Wait for single callback request.
+        httpd.handle_request()
+        httpd.server_close()
+
+        code = captured.get("code", "")
+        state = captured.get("state", "")
+        if not code:
+            raise click.ClickException("No authorization code received from Linear.")
+
+        result = client.linear_oauth_callback(
+            project_id=project_id,
+            code=code,
+            state=state,
+            redirect_uri=redirect_uri,
+        )
+        _emit(result, json_output=json_output)
+        if not json_output:
+            click.echo("Linear connected.")
+
+
+@linear_group.command(name="disconnect")
+@click.argument("project_id")
+@_connection_options
+def linear_disconnect(
+    project_id: str, api_key: str | None, backend_url: str, json_output: bool
+) -> None:
+    """Disconnect project-level Linear credential."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.linear_disconnect(project_id), json_output=json_output)
+
+
+@linear_group.command(name="teams")
+@click.argument("project_id")
+@_connection_options
+def linear_teams(project_id: str, api_key: str | None, backend_url: str, json_output: bool) -> None:
+    """List available Linear teams for a connected project."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.linear_list_teams(project_id), json_output=json_output)
+
+
+@managed_research.group(name="codex")
+def codex_group() -> None:
+    """Manage global Codex subscription connection."""
+
+
+@codex_group.command(name="status")
+@click.option("--project-id", help="Optional project id to read project-bound state.")
+@_connection_options
+def codex_status(
+    project_id: str | None,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Show Codex subscription connection status."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.chatgpt_connection_status(project_id=project_id), json_output=json_output)
+
+
+@codex_group.command(name="connect-start")
+@click.option("--sandbox-agent-url", help="Optional connector URL override.")
+@click.option("--provider-id", help="Optional connector provider id override.")
+@click.option("--external-account-hint", help="Optional account hint to store.")
+@_connection_options
+def codex_connect_start(
+    sandbox_agent_url: str | None,
+    provider_id: str | None,
+    external_account_hint: str | None,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Start Codex subscription login flow."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(
+            client.chatgpt_connect_start(
+                sandbox_agent_url=sandbox_agent_url,
+                provider_id=provider_id,
+                external_account_hint=external_account_hint,
+            ),
+            json_output=json_output,
+        )
+
+
+@codex_group.command(name="connect-complete")
+@click.option("--code", help="Optional OAuth code for code-based flows.")
+@click.option("--sandbox-agent-url", help="Optional connector URL override.")
+@_connection_options
+def codex_connect_complete(
+    code: str | None,
+    sandbox_agent_url: str | None,
+    api_key: str | None,
+    backend_url: str,
+    json_output: bool,
+) -> None:
+    """Complete Codex subscription login flow."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(
+            client.chatgpt_connect_complete(code=code, sandbox_agent_url=sandbox_agent_url),
+            json_output=json_output,
+        )
+
+
+@codex_group.command(name="disconnect")
+@_connection_options
+def codex_disconnect(api_key: str | None, backend_url: str, json_output: bool) -> None:
+    """Disconnect global Codex subscription."""
+    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
+        _emit(client.chatgpt_disconnect(), json_output=json_output)
 
 
 __all__ = ["managed_research"]

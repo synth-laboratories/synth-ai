@@ -1,0 +1,12 @@
+{
+  "name": "synth-ai-local",
+  "plugins": [
+    {
+      "name": "synth-managed-research",
+      "source": {
+        "source": "local",
+        "path": "./synth-managed-research"
+      }
+    }
+  ]
+}

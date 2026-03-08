@@ -1,0 +1,11 @@
+interface:
+  display_name: "SMR Run Monitor"
+  short_description: "Trigger or monitor a managed research run."
+  default_prompt: "Start or monitor a Synth Managed Research run and tell me the next thing that matters."
+dependencies:
+  tools:
+    - type: mcp_server
+      value: synth_managed_research
+      description: "Synth Managed Research MCP server"
+policy:
+  allow_implicit_invocation: false

@@ -186,7 +186,7 @@ class SynthTunnelClient:
         metadata: Optional[Dict[str, Any]] = None,
         capabilities: Optional[Dict[str, Any]] = None,
     ) -> SynthTunnelLease:
-        url = f"{self.backend_url}/api/v1/synthtunnel/leases"
+        url = f"{self.backend_url}{_synthtunnel_leases_path()}"
         payload = {
             "client_instance_id": client_instance_id,
             "local_target": {"host": local_host, "port": local_port},
@@ -203,12 +203,20 @@ class SynthTunnelClient:
         return _parse_lease_response(data)
 
     async def close_lease(self, lease_id: str) -> None:
-        url = f"{self.backend_url}/api/v1/synthtunnel/leases/{lease_id}"
+        url = f"{self.backend_url}{_synthtunnel_lease_path(lease_id)}"
         headers = {"Authorization": f"Bearer {self.api_key}"}
         timeout_sec = float(os.environ.get("SYNTH_TUNNEL_TIMEOUT_SEC", "30"))
         async with httpx.AsyncClient(timeout=timeout_sec) as client:
             resp = await client.delete(url, headers=headers)
             _raise_for_problem_response(resp, provider="SynthTunnel")
+
+
+def _synthtunnel_leases_path() -> str:
+    return "/api/v1/synthtunnel/leases"
+
+
+def _synthtunnel_lease_path(lease_id: str) -> str:
+    return f"/api/v1/synthtunnel/leases/{lease_id}"
 
 
 def hostname_from_url(url: str) -> str:

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "synth_managed_research": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--quiet",
+        "synth-ai-mcp-managed-research"
+      ],
+      "cwd": "../../..",
+      "env_vars": [
+        "SYNTH_API_KEY",
+        "SYNTH_BACKEND_URL"
+      ],
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 180
+    }
+  }
+}

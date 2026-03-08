@@ -194,7 +194,7 @@ def mint_demo_api_key(
     return str(key)
 
 
-# Local dev default (non-secret): backend/local_dev.sh seeds this key for local runs.
+# Local dev default (non-secret): the Synth-Bazel runtime manager seeds this key for local runs.
 LOCAL_DEV_SYNTH_API_KEY = "sk_dev_00000000000000000000000000000001"
 
 

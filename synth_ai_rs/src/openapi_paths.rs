@@ -5,6 +5,10 @@ pub const API_V1_CONTAINERS: &str = "/api/v1/containers";
 pub const API_V1_CONTAINERS_CONTAINER_ID: &str = "/api/v1/containers/{container_id}";
 pub const API_V1_SYNTHTUNNEL_LEASES: &str = "/api/v1/synthtunnel/leases";
 pub const API_V1_SYNTHTUNNEL_LEASES_LEASE_ID: &str = "/api/v1/synthtunnel/leases/{lease_id}";
+pub const API_V1_SYNTHTUNNEL_LEASES_LEASE_ID_RENEW: &str =
+    "/api/v1/synthtunnel/leases/{lease_id}/renew";
+pub const API_V1_SYNTHTUNNEL_LEASES_LEASE_ID_REFRESH_WORKER_TOKEN: &str =
+    "/api/v1/synthtunnel/leases/{lease_id}/token:refresh";
 
 pub const V1_OFFLINE_JOBS: &str = "/v1/offline/jobs";
 pub const V1_OFFLINE_JOBS_JOB_ID: &str = "/v1/offline/jobs/{job_id}";

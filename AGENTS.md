@@ -11,31 +11,27 @@ Follow the **Synth Style** guide: `specifications/tanha/references/synthstyle.md
 - **Naming.** No abbreviations. Units last: `timeout_ms`, `retry_count_max`.
 - **Comments say why.** Code says what. Comments say why. Specs say the full story.
 
-## CRITICAL: Running the Backend Locally
+## CRITICAL: Running The Backend Locally
 
-**NEVER attempt to start the backend yourself.** Too many interdependent services and env vars.
-
-**Always use `local_dev.sh` with Colima (Docker) for infrastructure:**
+**Do not hand-roll the local stack.** Use the Synth-Bazel runtime manager.
 
 ```bash
-cd ../backend
-colima start                # if not already running
-./local_dev.sh up           # start infra (Postgres :65432, Redis :6379, MinIO :9000, HelixDB :6969)
-eval $(./local_dev.sh env)  # export DATABASE_URL, REDIS_URL, etc.
+cd ../synth-bazel
+./scripts/runtime.py up
+./scripts/runtime.py claim-slot alpha
+./scripts/runtime.py build rust --profile dev-fast
+./scripts/runtime.py services up alpha --profile local-only
+eval "$(./scripts/runtime.py env alpha --exports)"
 ```
 
-Then start services on host (separate terminals):
+This starts shared infra and a managed local slot with the Python backend, Rust backend,
+and worker on deterministic slot ports.
+
+For GEPA/eval jobs, source local runtime env only from:
+
 ```bash
-# Rust backend on port 8080 (GEPA engine, interceptor, graph service)
-cd ../rust_backend && PORT=8080 cargo run --release
-
-# Python backend on port 8000 (API gateway)
-cd ../backend && ./scripts/with_secrets.sh -- uv run uvicorn app.routes.main:app --host 0.0.0.0 --port 8000
+./scripts/runtime.py env <nickname> --exports
 ```
-
-**Rust backend MUST be on port 8080** (local scripts assume `http://localhost:8080`).
-
-**For GEPA/eval jobs**, both backends must be healthy before running `run_gepa_*.py` or `run_eval.py` scripts.
 
 ## CRITICAL: Auth Basics (Container + SynthTunnel)
 

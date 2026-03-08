@@ -21,8 +21,18 @@ from synth_ai.sdk.container.auth import encrypt_for_backend
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
 DEFAULT_TIMEOUT_SECONDS = 30.0
-_FUNDING_SOURCE_ALIASES = {"byok": "synth", "customer": "synth"}
-_VALID_FUNDING_SOURCES = {"synth"}
+_FUNDING_SOURCE_ALIASES = {
+    "synth": "synth_managed",
+    "synth_managed": "synth_managed",
+    "synth_hosted": "synth_managed",
+    "byok": "customer_byok",
+    "customer": "customer_byok",
+    "customer_byok": "customer_byok",
+    "chatgpt": "user_connected",
+    "chatgpt_connected": "user_connected",
+    "user_connected": "user_connected",
+}
+_VALID_FUNDING_SOURCES = {"synth_managed", "customer_byok", "user_connected"}
 _DATA_FACTORY_SOURCE_MODE_ALIASES = {
     "mcp_local": "synth_mcp_local",
     "oneshot_mcp_local": "synth_mcp_local",
@@ -195,6 +205,90 @@ def _resolve_pool_target_kind(payload: dict[str, Any]) -> str | None:
         if value:
             return value.lower()
     return None
+
+
+def _parse_boolish(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes", "y", "on"}:
+        return True
+    if text in {"false", "0", "no", "n", "off"}:
+        return False
+    return None
+
+
+def _normalize_run_usage_payload(
+    data: Any,
+    *,
+    run_id: str,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    payload = _coerce_dict(data, label="get_run_usage")
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        return payload
+
+    normalized_entries = [item for item in entries if isinstance(item, dict)]
+    normalized_project_id = _as_nonempty_string(payload.get("project_id")) or project_id
+    total_cost_cents = payload.get("total_cost_cents")
+    total_charged_cents = payload.get("total_charged_cents")
+    if normalized_project_id and total_cost_cents is not None and total_charged_cents is not None:
+        return payload
+
+    derived_project_id = normalized_project_id
+    derived_total_cost_cents = 0
+    derived_total_charged_cents = 0
+    for entry in normalized_entries:
+        if derived_project_id is None:
+            derived_project_id = _as_nonempty_string(entry.get("project_id"))
+
+        try:
+            cost_cents = int(entry.get("cost_cents") or 0)
+        except (TypeError, ValueError):
+            cost_cents = 0
+        derived_total_cost_cents += cost_cents
+
+        if entry.get("charged_amount_cents") is not None:
+            try:
+                charged_amount_cents = int(entry.get("charged_amount_cents") or 0)
+            except (TypeError, ValueError):
+                charged_amount_cents = 0
+        else:
+            billing_meta = entry.get("metadata") if isinstance(entry.get("metadata"), dict) else {}
+            billing = (
+                billing_meta.get("billing") if isinstance(billing_meta.get("billing"), dict) else {}
+            )
+            charged_raw = billing.get("charged_amount_cents")
+            if charged_raw is not None:
+                try:
+                    charged_amount_cents = int(charged_raw)
+                except (TypeError, ValueError):
+                    charged_amount_cents = 0
+            elif (
+                _parse_boolish(entry.get("chargeable")) is True
+                or _parse_boolish(billing.get("chargeable")) is True
+            ):
+                charged_amount_cents = cost_cents
+            else:
+                charged_amount_cents = 0
+        derived_total_charged_cents += charged_amount_cents
+
+    return {
+        "run_id": _as_nonempty_string(payload.get("run_id")) or run_id,
+        "project_id": derived_project_id,
+        "total_cost_cents": int(total_cost_cents)
+        if total_cost_cents is not None
+        else derived_total_cost_cents,
+        "total_charged_cents": (
+            int(total_charged_cents)
+            if total_charged_cents is not None
+            else derived_total_charged_cents
+        ),
+        "entries": normalized_entries,
+    }
 
 
 @dataclass(frozen=True)
@@ -699,7 +793,8 @@ class SmrControlClient:
                     or execution.get("dataset_revision_id")
                 ),
                 "runtime_kind": project.get("runtime_kind") or execution.get("runtime_kind"),
-                "environment_kind": project.get("environment_kind") or execution.get("environment_kind"),
+                "environment_kind": project.get("environment_kind")
+                or execution.get("environment_kind"),
                 "published_by_run_id": (
                     project.get("published_by_run_id")
                     or project.get("last_published_run_id")
@@ -707,9 +802,15 @@ class SmrControlClient:
                 ),
             }
 
-        if resolved.get("dataset_revision") is None and resolved.get("dataset_revision_id") is not None:
+        if (
+            resolved.get("dataset_revision") is None
+            and resolved.get("dataset_revision_id") is not None
+        ):
             resolved["dataset_revision"] = resolved.get("dataset_revision_id")
-        if resolved.get("binding_revision") is None and resolved.get("pool_binding_revision") is not None:
+        if (
+            resolved.get("binding_revision") is None
+            and resolved.get("pool_binding_revision") is not None
+        ):
             resolved["binding_revision"] = resolved.get("pool_binding_revision")
 
         published_by_run_id = str(resolved.get("published_by_run_id") or "").strip()
@@ -759,7 +860,10 @@ class SmrControlClient:
             response = self._request_json("POST", fallback_path, json_body=payload)
 
         resolved = _coerce_dict(response, label="promote_binding")
-        if resolved.get("binding_revision") is None and resolved.get("pool_binding_revision") is not None:
+        if (
+            resolved.get("binding_revision") is None
+            and resolved.get("pool_binding_revision") is not None
+        ):
             resolved["binding_revision"] = resolved.get("pool_binding_revision")
         return resolved
 
@@ -928,7 +1032,125 @@ class SmrControlClient:
 
     def link_org_github(self, project_id: str) -> dict[str, Any]:
         """Link a project to the org-level GitHub credential."""
-        return self._request_json("POST", f"/smr/projects/{project_id}/integrations/github/link-org")
+        return self._request_json(
+            "POST", f"/smr/projects/{project_id}/integrations/github/link-org"
+        )
+
+    def github_link_org(self, project_id: str) -> dict[str, Any]:
+        """Backward-compatible alias used by CLI command wiring."""
+        return self.link_org_github(project_id)
+
+    def github_org_status(self) -> dict[str, Any]:
+        return self._request_json("GET", "/smr/integrations/github/org/status")
+
+    def github_org_oauth_start(self, *, redirect_uri: str | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if redirect_uri and redirect_uri.strip():
+            payload["redirect_uri"] = redirect_uri.strip()
+        return self._request_json(
+            "POST", "/smr/integrations/github/org/oauth/start", json_body=payload
+        )
+
+    def github_org_oauth_callback(
+        self,
+        *,
+        installation_id: int | None = None,
+        code: str | None = None,
+        state: str | None = None,
+        redirect_uri: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if installation_id is not None:
+            payload["installation_id"] = int(installation_id)
+        if code and code.strip():
+            payload["code"] = code.strip()
+        if state and state.strip():
+            payload["state"] = state.strip()
+        if redirect_uri and redirect_uri.strip():
+            payload["redirect_uri"] = redirect_uri.strip()
+        return self._request_json(
+            "POST", "/smr/integrations/github/org/oauth/callback", json_body=payload
+        )
+
+    def github_org_disconnect(self) -> dict[str, Any]:
+        return self._request_json("DELETE", "/smr/integrations/github/org/disconnect")
+
+    def github_pat_connect(
+        self,
+        *,
+        project_id: str,
+        pat: str,
+        repo: str | None = None,
+        pr_write_enabled: bool = False,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "project_id": project_id,
+            "pat": pat,
+            "pr_write_enabled": bool(pr_write_enabled),
+        }
+        if repo and repo.strip():
+            payload["repo"] = repo.strip()
+        return self._request_json("POST", "/smr/integrations/github/pat/connect", json_body=payload)
+
+    def github_org_pat_connect(self, *, pat: str) -> dict[str, Any]:
+        payload = {"pat": pat}
+        return self._request_json(
+            "POST", "/smr/integrations/github/org/pat/connect", json_body=payload
+        )
+
+    def linear_oauth_start(
+        self, *, project_id: str, redirect_uri: str | None = None
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"project_id": project_id}
+        if redirect_uri and redirect_uri.strip():
+            payload["redirect_uri"] = redirect_uri.strip()
+        return self._request_json("POST", "/smr/integrations/linear/oauth/start", json_body=payload)
+
+    def linear_oauth_callback(
+        self,
+        *,
+        project_id: str,
+        code: str,
+        state: str,
+        redirect_uri: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "project_id": project_id,
+            "code": code,
+            "state": state,
+        }
+        if redirect_uri and redirect_uri.strip():
+            payload["redirect_uri"] = redirect_uri.strip()
+        return self._request_json(
+            "POST", "/smr/integrations/linear/oauth/callback", json_body=payload
+        )
+
+    def linear_status(self, project_id: str) -> dict[str, Any]:
+        return self._request_json("GET", f"/smr/projects/{project_id}/integrations/linear/status")
+
+    def linear_disconnect(self, project_id: str) -> dict[str, Any]:
+        return self._request_json(
+            "DELETE", f"/smr/projects/{project_id}/integrations/linear/disconnect"
+        )
+
+    def linear_list_teams(self, project_id: str) -> dict[str, Any]:
+        return self._request_json("GET", f"/smr/projects/{project_id}/integrations/linear/teams")
+
+    def linear_provision(
+        self,
+        project_id: str,
+        *,
+        team_id: str,
+        project_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"team_id": team_id}
+        if project_name and project_name.strip():
+            payload["project_name"] = project_name.strip()
+        return self._request_json(
+            "POST",
+            f"/smr/projects/{project_id}/integrations/linear/provision",
+            json_body=payload,
+        )
 
     def add_project_repo(
         self,
@@ -994,7 +1216,9 @@ class SmrControlClient:
             payload["external_account_hint"] = external_account_hint.strip()
         if provider_id and provider_id.strip():
             payload["provider_id"] = provider_id.strip()
-        return self._request_json("POST", "/smr/integrations/chatgpt/connect/start", json_body=payload)
+        return self._request_json(
+            "POST", "/smr/integrations/chatgpt/connect/start", json_body=payload
+        )
 
     def chatgpt_connect_complete(
         self,
@@ -1007,7 +1231,9 @@ class SmrControlClient:
             payload["code"] = code.strip()
         if sandbox_agent_url and sandbox_agent_url.strip():
             payload["sandbox_agent_url"] = sandbox_agent_url.strip()
-        return self._request_json("POST", "/smr/integrations/chatgpt/connect/complete", json_body=payload)
+        return self._request_json(
+            "POST", "/smr/integrations/chatgpt/connect/complete", json_body=payload
+        )
 
     def chatgpt_disconnect(self) -> dict[str, Any]:
         return self._request_json("POST", "/smr/integrations/chatgpt/disconnect", json_body={})
@@ -1236,7 +1462,9 @@ class SmrControlClient:
 
             if path == "capture_bundle.json":
                 bundle_bytes = (
-                    payload_source.read_bytes() if isinstance(payload_source, Path) else payload_source
+                    payload_source.read_bytes()
+                    if isinstance(payload_source, Path)
+                    else payload_source
                 )
                 try:
                     bundle_payload = json.loads(bundle_bytes.decode("utf-8"))
@@ -1245,12 +1473,12 @@ class SmrControlClient:
                         f"INVALID_BUNDLE_SCHEMA: capture_bundle.json must be valid JSON ({exc})"
                     ) from exc
                 if not isinstance(bundle_payload, dict):
-                    raise SmrApiError("INVALID_BUNDLE_SCHEMA: capture_bundle.json must be a JSON object")
+                    raise SmrApiError(
+                        "INVALID_BUNDLE_SCHEMA: capture_bundle.json must be a JSON object"
+                    )
                 schema_errors = _validate_capture_bundle_schema(bundle_payload)
                 if schema_errors:
-                    raise SmrApiError(
-                        "INVALID_BUNDLE_SCHEMA: " + "; ".join(schema_errors)
-                    )
+                    raise SmrApiError("INVALID_BUNDLE_SCHEMA: " + "; ".join(schema_errors))
 
         upload_response = self.get_starting_data_upload_urls(
             project_id,
@@ -1576,6 +1804,40 @@ class SmrControlClient:
             return []
         return _coerce_list(canonical, label="canonical_list_runs")
 
+    def list_jobs(
+        self,
+        *,
+        project_id: str | None = None,
+        state: str | None = None,
+        active_only: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if project_id and project_id.strip():
+            params["project_id"] = project_id.strip()
+        if state and state.strip():
+            params["state"] = state.strip()
+        if active_only:
+            params["active_only"] = True
+        data = self._request_json("GET", "/smr/jobs", params=params or None)
+        return _coerce_list(data, label="list_jobs")
+
+    def list_jobs_typed(
+        self,
+        *,
+        project_id: str | None = None,
+        state: str | None = None,
+        active_only: bool = False,
+        limit: int = 50,
+    ) -> list[SmrRun]:
+        rows = self.list_jobs(
+            project_id=project_id,
+            state=state,
+            active_only=active_only,
+            limit=limit,
+        )
+        return [SmrRun.from_dict(item) for item in rows]
+
     def list_runs_typed(self, project_id: str) -> list[SmrRun]:
         return [SmrRun.from_dict(item) for item in self.list_runs(project_id)]
 
@@ -1672,6 +1934,14 @@ class SmrControlClient:
             if scoped is not None:
                 return scoped
         return self._request_json("GET", f"/smr/runs/{run_id}")
+
+    def get_run_usage(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
+        if project_id:
+            # Reuse the scoped run lookup to enforce project membership when the caller
+            # wants the stricter route semantics.
+            self.get_run(run_id, project_id=project_id)
+        data = self._request_json("GET", f"/smr/runs/{run_id}/spend")
+        return _normalize_run_usage_payload(data, run_id=run_id, project_id=project_id)
 
     def get_run_typed(self, run_id: str, *, project_id: str | None = None) -> SmrRun:
         return SmrRun.from_dict(

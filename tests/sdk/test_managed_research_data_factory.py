@@ -51,6 +51,145 @@ def test_trigger_run_includes_workflow_payload() -> None:
     client.close()
 
 
+def test_get_run_usage_uses_run_spend_endpoint() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    captured: dict[str, Any] = {}
+
+    def fake_request_json(
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        allow_not_found: bool = False,
+    ) -> Any:
+        captured["method"] = method
+        captured["path"] = path
+        captured["params"] = params
+        captured["json_body"] = json_body
+        captured["allow_not_found"] = allow_not_found
+        return {"run_id": "run_123", "entries": []}
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    response = client.get_run_usage("run_123")
+
+    assert response == {
+        "run_id": "run_123",
+        "project_id": None,
+        "total_cost_cents": 0,
+        "total_charged_cents": 0,
+        "entries": [],
+    }
+    assert captured["method"] == "GET"
+    assert captured["path"] == "/smr/runs/run_123/spend"
+    assert captured["params"] is None
+    assert captured["json_body"] is None
+    assert captured["allow_not_found"] is False
+    client.close()
+
+
+def test_get_run_usage_validates_project_membership_when_project_id_provided() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    calls: list[tuple[str, str, bool]] = []
+
+    def fake_request_json(
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        allow_not_found: bool = False,
+    ) -> Any:
+        calls.append((method, path, allow_not_found))
+        if path == "/smr/projects/proj_123/runs/run_123":
+            return {"run_id": "run_123", "project_id": "proj_123"}
+        if path == "/smr/runs/run_123/spend":
+            return {"run_id": "run_123", "entries": []}
+        raise AssertionError(f"Unexpected request path: {path}")
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    response = client.get_run_usage("run_123", project_id="proj_123")
+
+    assert response == {
+        "run_id": "run_123",
+        "project_id": "proj_123",
+        "total_cost_cents": 0,
+        "total_charged_cents": 0,
+        "entries": [],
+    }
+    assert calls == [
+        ("GET", "/smr/projects/proj_123/runs/run_123", True),
+        ("GET", "/smr/runs/run_123/spend", False),
+    ]
+    client.close()
+
+
+def test_get_run_usage_normalizes_legacy_entry_only_payload() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+
+    def fake_request_json(
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        allow_not_found: bool = False,
+    ) -> Any:
+        if path != "/smr/runs/run_123/spend":
+            raise AssertionError(f"Unexpected request path: {path}")
+        return {
+            "run_id": "run_123",
+            "entries": [
+                {
+                    "project_id": "proj_123",
+                    "cost_cents": 12,
+                    "metadata": {"billing": {"chargeable": True}},
+                },
+                {
+                    "project_id": "proj_123",
+                    "cost_cents": 30,
+                    "metadata": {"billing": {"charged_amount_cents": "7"}},
+                },
+                {
+                    "project_id": "proj_123",
+                    "cost_cents": 5,
+                    "metadata": {"billing": {"chargeable": False}},
+                },
+            ],
+        }
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    response = client.get_run_usage("run_123")
+
+    assert response == {
+        "run_id": "run_123",
+        "project_id": "proj_123",
+        "total_cost_cents": 47,
+        "total_charged_cents": 19,
+        "entries": [
+            {
+                "project_id": "proj_123",
+                "cost_cents": 12,
+                "metadata": {"billing": {"chargeable": True}},
+            },
+            {
+                "project_id": "proj_123",
+                "cost_cents": 30,
+                "metadata": {"billing": {"charged_amount_cents": "7"}},
+            },
+            {
+                "project_id": "proj_123",
+                "cost_cents": 5,
+                "metadata": {"billing": {"chargeable": False}},
+            },
+        ],
+    }
+    client.close()
+
+
 def test_trigger_data_factory_run_builds_expected_workflow_defaults() -> None:
     client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
     captured: dict[str, Any] = {}
