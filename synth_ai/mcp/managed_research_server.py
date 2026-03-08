@@ -1798,12 +1798,13 @@ class ManagedResearchMcpServer:
             normalized_files.append(normalized)
 
         with self._client_from_args(args) as client:
-            return client.upload_starting_data_files(
-                project_id,
-                files=normalized_files,
-                dataset_ref=dataset_ref,
-                idempotency_key_upload=idempotency_key_upload,
-            )
+            kwargs: JSONDict = {
+                "files": normalized_files,
+                "dataset_ref": dataset_ref,
+            }
+            if idempotency_key_upload:
+                kwargs["idempotency_key_upload"] = idempotency_key_upload
+            return client.upload_starting_data_files(project_id, **kwargs)
 
     def _tool_trigger_run(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

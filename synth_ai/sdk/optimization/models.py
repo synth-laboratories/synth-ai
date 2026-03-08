@@ -144,9 +144,9 @@ def _extract_candidate_objective(candidate: Dict[str, Any]) -> Optional[float]:
 
 def _extract_best_reward_value(data: Dict[str, Any], include_train: bool = True) -> Optional[float]:
     if include_train:
-        reward_keys = ("best_reward", "best_train_reward")
+        reward_keys = ("best_reward", "best_score", "best_train_reward", "best_train_score")
     else:
-        reward_keys = ("best_reward",)
+        reward_keys = ("best_reward", "best_score")
     parsed = _coerce_float(_first_present(data, reward_keys))
     if parsed is not None:
         return parsed
@@ -196,6 +196,46 @@ def _parse_lever_versions(raw: Any) -> Dict[str, int]:
         except (TypeError, ValueError):
             continue
     return versions
+
+
+def _infer_lever_versions_from_summary(lever_summary: Any) -> Dict[str, int]:
+    if not isinstance(lever_summary, dict):
+        return {}
+    prompt_lever_id = lever_summary.get("prompt_lever_id")
+    candidate_versions = lever_summary.get("candidate_lever_versions")
+    if not isinstance(prompt_lever_id, str) or not isinstance(candidate_versions, dict):
+        return {}
+    candidate_id = (
+        lever_summary.get("selected_candidate_id")
+        or lever_summary.get("best_candidate_id")
+        or (next(iter(candidate_versions.keys())) if len(candidate_versions) == 1 else None)
+    )
+    if candidate_id is None:
+        return {}
+    try:
+        version = int(candidate_versions.get(str(candidate_id)))
+    except (TypeError, ValueError):
+        return {}
+    return {prompt_lever_id: version}
+
+
+def _infer_best_lever_version_from_summary(lever_summary: Any) -> Optional[int]:
+    if not isinstance(lever_summary, dict):
+        return None
+    candidate_versions = lever_summary.get("candidate_lever_versions")
+    if not isinstance(candidate_versions, dict):
+        return None
+    candidate_id = (
+        lever_summary.get("selected_candidate_id")
+        or lever_summary.get("best_candidate_id")
+        or (next(iter(candidate_versions.keys())) if len(candidate_versions) == 1 else None)
+    )
+    if candidate_id is None:
+        return None
+    try:
+        return int(candidate_versions.get(str(candidate_id)))
+    except (TypeError, ValueError):
+        return None
 
 
 def _extract_candidate_list(data: Dict[str, Any], key: str) -> list[PolicyCandidate]:
@@ -1092,6 +1132,9 @@ class PolicyOptimizationResult:
         sensor_frames_raw = _from_data_or_metadata(data, "sensor_frames")
         sensor_frames = sensor_frames_raw if isinstance(sensor_frames_raw, list) else []
         lever_versions = _parse_lever_versions(_from_data_or_metadata(data, "lever_versions"))
+        inferred_lever_versions = _infer_lever_versions_from_summary(lever_summary)
+        if inferred_lever_versions and not lever_versions:
+            lever_versions = inferred_lever_versions
         best_lever_version_raw = _from_data_or_metadata(data, "best_lever_version")
         best_lever_version = None
         if best_lever_version_raw is not None:
@@ -1099,6 +1142,8 @@ class PolicyOptimizationResult:
                 best_lever_version = int(best_lever_version_raw)
             except (TypeError, ValueError):
                 best_lever_version = None
+        if best_lever_version is None:
+            best_lever_version = _infer_best_lever_version_from_summary(lever_summary)
         if lever_versions:
             best_lever_version = best_lever_version or max(int(v) for v in lever_versions.values())
         return cls(

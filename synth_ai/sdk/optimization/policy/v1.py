@@ -84,7 +84,7 @@ def _resolve_api_key(api_key: Optional[str]) -> str:
 
 
 def _resolve_api_version(api_version: Optional[str] = None) -> ApiVersion:
-    raw = (api_version or os.getenv("SYNTH_POLICY_API_VERSION") or "v2").strip().lower()
+    raw = (api_version or os.getenv("SYNTH_POLICY_API_VERSION") or "v1").strip().lower()
     if raw not in {"v1", "v2"}:
         raise ValueError("api_version must be 'v1' or 'v2'")
     return normalize_api_version(raw)
@@ -300,7 +300,7 @@ class PolicyOptimizationSystem:
     backend_url: str
     api_key: str
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -464,7 +464,7 @@ class PolicyOptimizationOfflineJob:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -484,7 +484,7 @@ class PolicyOptimizationOfflineJob:
         api_key: Optional[str] = None,
         timeout: float = 30.0,
         api_version: Optional[ApiVersion] = None,
-        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_version: PromptOptVersion = "v1",
         prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOfflineJob:
         if not system_name or not system_name.strip():
@@ -1173,7 +1173,7 @@ class PolicyOptimizationOnlineSession:
     system_id: Optional[str] = None
     system_name: Optional[str] = None
     timeout: float = 30.0
-    api_version: ApiVersion = "v2"
+    api_version: ApiVersion = "v1"
 
     @classmethod
     async def create_async(
@@ -1192,7 +1192,7 @@ class PolicyOptimizationOnlineSession:
         api_key: Optional[str] = None,
         timeout: float = 30.0,
         api_version: Optional[ApiVersion] = None,
-        prompt_opt_version: PromptOptVersion = "v2",
+        prompt_opt_version: PromptOptVersion = "v1",
         prompt_opt_fallback_policy: Optional[PromptOptFallbackPolicy] = None,
     ) -> PolicyOptimizationOnlineSession:
         if not system_name or not system_name.strip():

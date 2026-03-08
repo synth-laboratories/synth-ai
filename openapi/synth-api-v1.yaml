@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Synth API (Canonical SDK Surface)
   version: 1.0.0
-  x-sdk-package-version: 0.9.1
+  x-sdk-package-version: 0.9.4
   description: |
     Canonical HTTP contract for synth-ai SDK namespaces, including OpenAI-compatible
     chat completions for inference.
@@ -2007,6 +2007,19 @@ paths:
       x-research-track: research/feb28_2026
       x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
       operationId: listAgentRolloutArtifacts
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/cancel:
+    post:
+      tags: [Rollouts]
+      summary: Cancel global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: cancelAgentRollout
       parameters:
         - $ref: '#/components/parameters/RolloutId'
       responses:

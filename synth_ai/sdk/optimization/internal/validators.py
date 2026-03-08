@@ -21,6 +21,7 @@ except ModuleNotFoundError:  # pragma: no cover
 from synth_ai.sdk.optimization.internal.validation.prompt_learning_validation import (
     validate_prompt_learning_config as _validate_unknown_fields,
 )
+from synth_ai.sdk.shared.models import normalize_model_identifier
 
 try:
     import synth_ai_py
@@ -60,6 +61,7 @@ _MIPRO_ALIAS_WARNING_PREFIXES = (
 _PROMPT_LEARNING_ALIAS_WARNING_PREFIXES: tuple[str, ...] = (
     "Unknown field 'container_url' in [prompt_learning].",
     "Unknown field 'container_id' in [prompt_learning].",
+    "Unknown field 'policy' in [prompt_learning].",
     # Canonical optimize-anything fields.
     "Unknown field 'optimization_mode' in [prompt_learning].",
     "Unknown field 'target_mode' in [prompt_learning].",
@@ -93,14 +95,21 @@ _VERIFIER_ALIAS_WARNING_PREFIXES = (
     "Unknown field 'source' in [prompt_learning.verifier].",
 )
 
+_GEPA_SPEC_ALIAS_WARNING_PREFIXES = (
+    "Unknown field 'spec_path' in [prompt_learning.gepa].",
+    "Unknown field 'spec_max_tokens' in [prompt_learning.gepa].",
+    "Unknown field 'spec_include_examples' in [prompt_learning.gepa].",
+    "Unknown field 'spec_priority_threshold' in [prompt_learning.gepa].",
+)
+
 
 def _collect_forbidden_policy_paths(payload: Any, path: str = "") -> list[str]:
-    """Return all config paths where user-submitted policy appears."""
+    """Return non-canonical policy locations while allowing prompt_learning.policy."""
     paths: list[str] = []
     if isinstance(payload, dict):
         for key, value in payload.items():
             next_path = f"{path}.{key}" if path else key
-            if key == "policy":
+            if key == "policy" and not next_path.startswith("prompt_learning."):
                 paths.append(next_path)
             paths.extend(_collect_forbidden_policy_paths(value, next_path))
     elif isinstance(payload, list):
@@ -111,7 +120,7 @@ def _collect_forbidden_policy_paths(payload: Any, path: str = "") -> list[str]:
 
 
 def _raise_if_forbidden_policy_fields(config_data: dict[str, Any], config_path: Path) -> None:
-    """Reject user-submitted policy config per configs_plan."""
+    """Reject non-canonical policy sections while keeping prompt_learning.policy compatible."""
     policy_paths = _collect_forbidden_policy_paths(config_data)
     if policy_paths:
         joined_paths = ", ".join(policy_paths)
@@ -277,6 +286,8 @@ def _filter_known_gepa_alias_warnings(warnings_list: list[str]) -> list[str]:
             continue
         if any(warning.startswith(prefix) for prefix in _VERIFIER_ALIAS_WARNING_PREFIXES):
             continue
+        if any(warning.startswith(prefix) for prefix in _GEPA_SPEC_ALIAS_WARNING_PREFIXES):
+            continue
         filtered.append(warning)
     return filtered
 
@@ -310,6 +321,17 @@ def _normalize_strict_errors(config_data: dict[str, Any], errors: list[str]) -> 
     has_container_url = _has_container_url(config_data)
     normalized: list[str] = []
     for err in errors:
+        if (
+            "prompt_learning.policy is forbidden in canonical config; model/provider are server-owned"
+            in err
+        ):
+            continue
+        if (
+            "Missing required field: prompt_learning.gepa.initial_candidate" in err
+            and isinstance(config_data.get("prompt_learning"), dict)
+            and config_data["prompt_learning"].get("algorithm") == "gepa"
+        ):
+            continue
         if (has_container_id or has_container_url) and (
             "Missing required field: prompt_learning.container_url" in err
             # Older prebuilt synth_ai_py may still emit legacy field names.
@@ -427,6 +449,116 @@ def _normalize_gepa_aliases(config_data: dict[str, Any]) -> None:
         )
 
 
+_SUPPORTED_POLICY_MODELS: dict[str, set[str]] = {
+    "openai": {
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "gpt-4.1-nano",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "gpt-5.3-codex",
+    },
+    "groq": {
+        "gpt-oss-20b",
+        "gpt-oss-120b",
+        "llama-3.3-70b-versatile",
+        "qwen3-32b",
+    },
+    "google": {
+        "gemini-2.5-pro",
+        "gemini-2.5-pro-gt200k",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+    },
+}
+
+
+def _normalize_provider(provider: Any) -> str:
+    return str(provider or "").strip().lower()
+
+
+def _normalize_model_name(model: Any, provider: str) -> str:
+    raw = str(model or "").strip()
+    if not raw:
+        return ""
+    if "/" in raw:
+        _prefix, rest = raw.split("/", 1)
+        if rest.strip():
+            raw = rest.strip()
+    return raw.lower()
+
+
+def _validate_model_choice(*, provider: Any, model: Any, label: str, allow_nano: bool) -> None:
+    provider_name = _normalize_provider(provider)
+    if not provider_name:
+        raise click.ClickException(f"Missing required field: {label}.provider")
+    if provider_name not in _SUPPORTED_POLICY_MODELS:
+        raise click.ClickException(f"Unsupported provider: {provider_name}")
+
+    model_name = _normalize_model_name(model, provider_name)
+    if not model_name:
+        raise click.ClickException(f"Missing required field: {label}.model")
+    if provider_name == "openai" and model_name == "gpt-5-pro":
+        raise click.ClickException("gpt-5-pro is too expensive for prompt-learning jobs")
+
+    try:
+        normalize_model_identifier(model_name)
+    except Exception:
+        pass
+
+    if model_name not in _SUPPORTED_POLICY_MODELS[provider_name]:
+        provider_label = {
+            "openai": "OpenAI",
+            "groq": "Groq",
+            "google": "Google",
+        }[provider_name]
+        raise click.ClickException(f"Unsupported {provider_label} model: {model}")
+    if not allow_nano and model_name.endswith("-nano"):
+        raise click.ClickException("Nano models are NOT allowed for proposal/mutation models")
+
+
+def _validate_prompt_learning_models(config_data: dict[str, Any]) -> None:
+    pl = config_data.get("prompt_learning")
+    if not isinstance(pl, dict):
+        return
+
+    policy = pl.get("policy")
+    if isinstance(policy, dict):
+        _validate_model_choice(
+            provider=policy.get("provider"),
+            model=policy.get("model"),
+            label="prompt_learning.policy",
+            allow_nano=True,
+        )
+
+    gepa = pl.get("gepa")
+    if isinstance(gepa, dict):
+        mutation = gepa.get("mutation")
+        if isinstance(mutation, dict) and (
+            mutation.get("llm_model") is not None or mutation.get("llm_provider") is not None
+        ):
+            _validate_model_choice(
+                provider=mutation.get("llm_provider"),
+                model=mutation.get("llm_model"),
+                label="prompt_learning.gepa.mutation",
+                allow_nano=False,
+            )
+
+    mipro = pl.get("mipro")
+    if isinstance(mipro, dict) and (
+        mipro.get("meta_model") is not None or mipro.get("meta_model_provider") is not None
+    ):
+        _validate_model_choice(
+            provider=mipro.get("meta_model_provider"),
+            model=mipro.get("meta_model"),
+            label="prompt_learning.mipro",
+            allow_nano=False,
+        )
+
+
 def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Path) -> None:
     """Validate prompt learning config using Rust core."""
     _raise_if_legacy_sections(config_data, config_path)
@@ -436,6 +568,7 @@ def validate_prompt_learning_config(config_data: dict[str, Any], config_path: Pa
     _normalize_gepa_aliases(normalized_for_validation)
     _normalize_kind_mode_aliases(normalized_for_validation)
     _normalize_container_fields(normalized_for_validation)
+    _validate_prompt_learning_models(normalized_for_validation)
     try:
         validation_result = _validate_unknown_fields(
             normalized_for_validation,

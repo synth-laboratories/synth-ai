@@ -1603,6 +1603,7 @@ class PromptLearningConfig(ExtraModel):
             "This runs a validation rollout to infer prompt patterns from traces."
         ),
     )
+    policy: PromptLearningPolicyConfig | dict[str, Any] | None = None
     gepa: GEPAConfig | None = None
     mipro: MiproConfig | dict[str, Any] | None = None
     verifier: PromptLearningVerifierConfig | dict[str, Any] | None = None
@@ -1641,7 +1642,7 @@ class PromptLearningConfig(ExtraModel):
             if field in data:
                 data.pop(field, None)
 
-        forbidden_fields = {"policy", "initial_prompt"}
+        forbidden_fields = {"initial_prompt"}
         for field in forbidden_fields:
             if field in data and data.get(field) is not None:
                 raise ValueError(
@@ -1649,6 +1650,17 @@ class PromptLearningConfig(ExtraModel):
                 )
 
         return data
+
+    @field_validator("policy", mode="before")
+    @classmethod
+    def _validate_policy(cls, v: Any) -> Any:
+        if v is None:
+            return None
+        if isinstance(v, dict):
+            if not v.get("provider"):
+                raise ValueError("policy must include 'provider' field")
+            return PromptLearningPolicyConfig.model_validate(v)
+        return v
 
     @model_validator(mode="after")
     def _sync_canonical_fields(self) -> "PromptLearningConfig":
@@ -1719,7 +1731,7 @@ class PromptLearningConfig(ExtraModel):
             pl_data = dict(data)
 
         if isinstance(pl_data, dict):
-            for forbidden in ("policy", "initial_prompt"):
+            for forbidden in ("initial_prompt",):
                 if pl_data.get(forbidden) is not None:
                     raise ValueError(
                         f"prompt_learning.{forbidden} is no longer supported in canonical config"

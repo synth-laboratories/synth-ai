@@ -327,6 +327,11 @@ def gepa_candidate_to_initial_candidate(seed_candidate: dict[str, Any]) -> dict[
     }
 
 
+def gepa_candidate_to_initial_prompt(seed_candidate: dict[str, Any]) -> dict[str, Any]:
+    """Backward-compatible alias for GEPA prompt shims."""
+    return gepa_candidate_to_initial_candidate(seed_candidate)
+
+
 def build_termination_config(minimal: dict[str, Any]) -> dict[str, Any] | None:
     """Build termination config from optional budget constraints.
 

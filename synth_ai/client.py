@@ -18,6 +18,12 @@ from synth_ai.core.tunnels.errors import TunnelErrorCode, TunnelProviderError
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.container import ContainerClient, InProcessContainer, create_container
 from synth_ai.sdk.container_pools import ContainerPoolsClient
+from synth_ai.sdk.graphs.completions import (
+    GraphCompletionsAsyncClient,
+    GraphCompletionsSyncClient,
+    VerifierClient,
+)
+from synth_ai.sdk.inference import InferenceClient, InferenceJobsClient
 from synth_ai.sdk.containers import (
     Container as HostedContainer,
 )
@@ -254,6 +260,148 @@ class _OnlineAsyncClient(_AsyncThreadProxy):
         super().__init__(_OnlineSyncClient(base_url, api_key, timeout))
 
 
+class _InferenceChatCompletionsSyncClient:
+    def __init__(self, client: InferenceClient) -> None:
+        self._client = client
+
+    def create(self, **kwargs: Any) -> dict[str, Any]:
+        return run_sync(self._client.create_chat_completion(**kwargs), label="inference.chat.completions.create")
+
+
+class _InferenceChatCompletionsAsyncClient:
+    def __init__(self, client: InferenceClient) -> None:
+        self._client = client
+
+    async def create(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.create_chat_completion(**kwargs)
+
+
+@dataclass(slots=True)
+class _InferenceChatSyncClient:
+    completions: _InferenceChatCompletionsSyncClient
+
+
+@dataclass(slots=True)
+class _InferenceChatAsyncClient:
+    completions: _InferenceChatCompletionsAsyncClient
+
+
+class _InferenceJobsSyncClient:
+    def __init__(self, client: InferenceJobsClient) -> None:
+        self._client = client
+
+    def create(self, **kwargs: Any) -> dict[str, Any]:
+        return run_sync(self._client.create_job(**kwargs), label="inference.jobs.create")
+
+    def create_from_request(self, request: Any) -> dict[str, Any]:
+        return run_sync(self._client.create_job_from_request(request), label="inference.jobs.create_from_request")
+
+    def create_from_path(self, **kwargs: Any) -> dict[str, Any]:
+        return run_sync(self._client.create_job_from_path(**kwargs), label="inference.jobs.create_from_path")
+
+    def get(self, job_id: str) -> dict[str, Any]:
+        return run_sync(self._client.get_job(job_id), label="inference.jobs.get")
+
+    def list_artifacts(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
+        return run_sync(self._client.list_artifacts(job_id, **kwargs), label="inference.jobs.list_artifacts")
+
+    def download_artifact(self, job_id: str, artifact_id: str, **kwargs: Any) -> bytes:
+        return run_sync(
+            self._client.download_artifact(job_id, artifact_id, **kwargs),
+            label="inference.jobs.download_artifact",
+        )
+
+
+class _InferenceJobsAsyncClient:
+    def __init__(self, client: InferenceJobsClient) -> None:
+        self._client = client
+
+    async def create(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.create_job(**kwargs)
+
+    async def create_from_request(self, request: Any) -> dict[str, Any]:
+        return await self._client.create_job_from_request(request)
+
+    async def create_from_path(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.create_job_from_path(**kwargs)
+
+    async def get(self, job_id: str) -> dict[str, Any]:
+        return await self._client.get_job(job_id)
+
+    async def list_artifacts(self, job_id: str, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.list_artifacts(job_id, **kwargs)
+
+    async def download_artifact(self, job_id: str, artifact_id: str, **kwargs: Any) -> bytes:
+        return await self._client.download_artifact(job_id, artifact_id, **kwargs)
+
+
+@dataclass(slots=True)
+class _InferenceSyncClient:
+    chat: _InferenceChatSyncClient
+    jobs: _InferenceJobsSyncClient
+
+
+@dataclass(slots=True)
+class _InferenceAsyncClient:
+    chat: _InferenceChatAsyncClient
+    jobs: _InferenceJobsAsyncClient
+
+
+class GraphsClient:
+    """Canonical sync graph-completions namespace."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
+        self._client = GraphCompletionsSyncClient(base_url=base_url, api_key=api_key, timeout=timeout)
+
+    def run(self, **kwargs: Any) -> Any:
+        return self._client.run(**kwargs)
+
+    def run_output(self, **kwargs: Any) -> Any:
+        return self._client.run_output(**kwargs)
+
+    def list_graphs(self, **kwargs: Any) -> dict[str, Any]:
+        return self._client.list_graphs(**kwargs)
+
+
+class AsyncGraphsClient:
+    """Canonical async graph-completions namespace."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
+        self._client = GraphCompletionsAsyncClient(base_url=base_url, api_key=api_key, timeout=timeout)
+
+    async def run(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.run(**kwargs)
+
+    async def run_output(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.run_output(**kwargs)
+
+    async def list_graphs(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.list_graphs(**kwargs)
+
+    async def rlm_inference(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.rlm_inference(**kwargs)
+
+
+class VerifiersClient:
+    """Canonical sync verifier namespace."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
+        self._client = VerifierClient(base_url=base_url, api_key=api_key, timeout=timeout)
+
+    def evaluate(self, **kwargs: Any) -> dict[str, Any]:
+        return run_sync(self._client.evaluate(**kwargs), label="verifiers.evaluate")
+
+
+class AsyncVerifiersClient:
+    """Canonical async verifier namespace."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float) -> None:
+        self._client = VerifierClient(base_url=base_url, api_key=api_key, timeout=timeout)
+
+    async def evaluate(self, **kwargs: Any) -> dict[str, Any]:
+        return await self._client.evaluate(**kwargs)
+
+
 @dataclass(slots=True)
 class _OptimizationSyncClient:
     """Canonical sync optimization namespace."""
@@ -446,6 +594,24 @@ class _PoolRolloutsSyncClient:
         return self._raw.stream_rollout_events(pool_id, rollout_id, cursor=cursor)
 
 
+class _PoolAgentRolloutsSyncClient:
+    def __init__(self, raw: ContainerPoolsClient) -> None:
+        self._raw = raw
+
+    def create(self, request: dict[str, Any]) -> dict[str, Any]:
+        _validate_rollout_request(request, context="pools.agent_rollouts.create")
+        return self._raw._request("POST", "/v1/rollouts", json_body=request)
+
+    def get(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}")
+
+    def artifacts(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("GET", f"/v1/rollouts/{rollout_id}/artifacts")
+
+    def cancel(self, rollout_id: str) -> dict[str, Any]:
+        return self._raw._request("POST", f"/v1/rollouts/{rollout_id}/cancel", json_body={})
+
+
 class _PoolTasksSyncClient:
     def __init__(self, raw: ContainerPoolsClient) -> None:
         self._raw = raw
@@ -593,6 +759,7 @@ class PoolsClient:
         self.data_sources = _PoolDataSourcesSyncClient(self._raw)
         self.assemblies = _PoolAssembliesSyncClient(self._raw)
         self.rollouts = _PoolRolloutsSyncClient(self._raw)
+        self.agent_rollouts = _PoolAgentRolloutsSyncClient(self._raw)
         self.tasks = _PoolTasksSyncClient(self._raw)
         self.metrics = _PoolMetricsSyncClient(self._raw)
         self.skills = _PoolSkillsSyncClient()
@@ -1205,6 +1372,32 @@ class SynthClient:
             online=_OnlineSyncClient(self.base_url, self.api_key, self.timeout),
         )
 
+        inference_client = InferenceClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        inference_jobs = InferenceJobsClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.inference = _InferenceSyncClient(
+            chat=_InferenceChatSyncClient(
+                completions=_InferenceChatCompletionsSyncClient(inference_client),
+            ),
+            jobs=_InferenceJobsSyncClient(inference_jobs),
+        )
+        self.graphs = GraphsClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.verifiers = VerifiersClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
         self.pools = PoolsClient(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -1245,6 +1438,32 @@ class AsyncSynthClient:
             online=_OnlineAsyncClient(self.base_url, self.api_key, self.timeout),
         )
 
+        inference_client = InferenceClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        inference_jobs = InferenceJobsClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.inference = _InferenceAsyncClient(
+            chat=_InferenceChatAsyncClient(
+                completions=_InferenceChatCompletionsAsyncClient(inference_client),
+            ),
+            jobs=_InferenceJobsAsyncClient(inference_jobs),
+        )
+        self.graphs = AsyncGraphsClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
+        self.verifiers = AsyncVerifiersClient(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=self.timeout,
+        )
         sync_pools = PoolsClient(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -1270,16 +1489,20 @@ class AsyncSynthClient:
 
 __all__ = [
     "AsyncContainersClient",
+    "AsyncGraphsClient",
     "AsyncNgrokTunnel",
     "AsyncPoolsClient",
     "AsyncSynthTunnel",
     "AsyncSynthClient",
     "AsyncTunnelsClient",
+    "AsyncVerifiersClient",
     "ContainersClient",
+    "GraphsClient",
     "NgrokTunnel",
     "PoolTarget",
     "PoolsClient",
     "SynthTunnel",
     "SynthClient",
     "TunnelsClient",
+    "VerifiersClient",
 ]
