@@ -36,16 +36,6 @@ def test_github_org_methods_call_expected_routes() -> None:
         == {"ok": True}
     )
     assert client.github_org_disconnect() == {"ok": True}
-    assert client.github_org_pat_connect(pat="ghp_org_pat_123") == {"ok": True}
-    assert (
-        client.github_pat_connect(
-            project_id="proj_789",
-            pat="ghp_project_pat_123",
-            repo="owner/repo",
-            pr_write_enabled=True,
-        )
-        == {"ok": True}
-    )
     assert client.github_link_org("proj_123") == {"ok": True}
     assert client.link_org_github("proj_456") == {"ok": True}
 
@@ -66,17 +56,6 @@ def test_github_org_methods_call_expected_routes() -> None:
             },
         ),
         ("DELETE", "/smr/integrations/github/org/disconnect", None),
-        ("POST", "/smr/integrations/github/org/pat/connect", {"pat": "ghp_org_pat_123"}),
-        (
-            "POST",
-            "/smr/integrations/github/pat/connect",
-            {
-                "project_id": "proj_789",
-                "pat": "ghp_project_pat_123",
-                "repo": "owner/repo",
-                "pr_write_enabled": True,
-            },
-        ),
         ("POST", "/smr/projects/proj_123/integrations/github/link-org", None),
         ("POST", "/smr/projects/proj_456/integrations/github/link-org", None),
     ]

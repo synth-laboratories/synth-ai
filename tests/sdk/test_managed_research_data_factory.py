@@ -35,6 +35,7 @@ def test_trigger_run_includes_workflow_payload() -> None:
 
     response = client.trigger_run(
         "proj_123",
+        work_mode="directed_effort",
         timebox_seconds=600,
         agent_model="gpt-4o",
         agent_kind="codex",
@@ -48,6 +49,55 @@ def test_trigger_run_includes_workflow_payload() -> None:
     assert captured["json_body"]["timebox_seconds"] == 600
     assert captured["json_body"]["agent_model"] == "gpt-4o"
     assert captured["json_body"]["agent_kind"] == "codex"
+    client.close()
+
+
+def test_trigger_run_includes_work_mode() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    captured: dict[str, Any] = {}
+
+    def fake_request_json(
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+        allow_not_found: bool = False,
+    ) -> Any:
+        captured["method"] = method
+        captured["path"] = path
+        captured["json_body"] = json_body
+        return {"ok": True}
+
+    client._request_json = fake_request_json  # type: ignore[method-assign]
+
+    response = client.trigger_run(
+        "proj_123",
+        work_mode="directed_effort",
+    )
+
+    assert response == {"ok": True}
+    assert captured["method"] == "POST"
+    assert captured["path"] == "/smr/projects/proj_123/trigger"
+    assert captured["json_body"]["work_mode"] == "directed_effort"
+    client.close()
+
+
+def test_trigger_run_requires_work_mode() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+
+    with pytest.raises(ValueError, match="work_mode is required"):
+        client.trigger_run("proj_123", work_mode=None)  # type: ignore[arg-type]
+
+    client.close()
+
+
+def test_trigger_run_rejects_unknown_work_mode() -> None:
+    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+
+    with pytest.raises(ValueError, match="work_mode"):
+        client.trigger_run("proj_123", work_mode="freeform")
+
     client.close()
 
 
@@ -197,6 +247,7 @@ def test_trigger_data_factory_run_builds_expected_workflow_defaults() -> None:
     def fake_trigger_run(
         project_id: str,
         *,
+        work_mode: str,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
@@ -204,6 +255,7 @@ def test_trigger_data_factory_run_builds_expected_workflow_defaults() -> None:
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
         captured["project_id"] = project_id
+        captured["work_mode"] = work_mode
         captured["timebox_seconds"] = timebox_seconds
         captured["workflow"] = workflow
         captured["idempotency_key_run_create"] = idempotency_key_run_create
@@ -213,12 +265,14 @@ def test_trigger_data_factory_run_builds_expected_workflow_defaults() -> None:
 
     response = client.trigger_data_factory_run(
         "proj_123",
+        work_mode="directed_effort",
         dataset_ref="starting-data/demo",
         bundle_manifest_path="capture_bundle.json",
     )
 
     assert response == {"run_id": "run_123"}
     assert captured["project_id"] == "proj_123"
+    assert captured["work_mode"] == "directed_effort"
     assert captured["workflow"] == {
         "kind": "data_factory_v1",
         "profile": "founder_default",
@@ -238,6 +292,7 @@ def test_trigger_data_factory_run_builds_expected_workflow_defaults() -> None:
 
 class _FakeSmrClient:
     def __init__(self) -> None:
+        self.trigger_run_calls: list[tuple[str, dict[str, Any]]] = []
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.upload_calls: list[tuple[str, dict[str, Any]]] = []
         self.finalize_calls: list[tuple[str, dict[str, Any]]] = []
@@ -251,6 +306,10 @@ class _FakeSmrClient:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         return None
+
+    def trigger_run(self, project_id: str, **kwargs: Any) -> dict[str, Any]:
+        self.trigger_run_calls.append((project_id, kwargs))
+        return {"ok": True, "project_id": project_id, "kwargs": kwargs}
 
     def trigger_data_factory_run(self, project_id: str, **kwargs: Any) -> dict[str, Any]:
         self.calls.append((project_id, kwargs))
@@ -340,9 +399,33 @@ def test_mcp_trigger_data_factory_rejects_empty_targets_list() -> None:
                 "project_id": "proj_123",
                 "dataset_ref": "starting-data/demo",
                 "bundle_manifest_path": "capture_bundle.json",
+                "work_mode": "directed_effort",
                 "targets": [],
             }
         )
+
+
+def test_mcp_trigger_run_forwards_work_mode() -> None:
+    server = ManagedResearchMcpServer()
+    fake_client = _FakeSmrClient()
+    server._client_from_args = lambda args: fake_client  # type: ignore[method-assign]
+
+    response = server._tool_trigger_run(
+        {
+            "project_id": "proj_123",
+            "timebox_seconds": 300,
+            "agent_kind": "codex",
+            "work_mode": "open_ended_discovery",
+        }
+    )
+
+    assert response["ok"] is True
+    assert len(fake_client.trigger_run_calls) == 1
+    project_id, kwargs = fake_client.trigger_run_calls[0]
+    assert project_id == "proj_123"
+    assert kwargs["timebox_seconds"] == 300
+    assert kwargs["agent_kind"] == "codex"
+    assert kwargs["work_mode"] == "open_ended_discovery"
 
 
 def test_mcp_trigger_data_factory_calls_sdk_with_expected_defaults() -> None:
@@ -355,6 +438,7 @@ def test_mcp_trigger_data_factory_calls_sdk_with_expected_defaults() -> None:
             "project_id": "proj_123",
             "dataset_ref": "starting-data/demo",
             "bundle_manifest_path": "capture_bundle.json",
+            "work_mode": "directed_effort",
             "targets": ["harbor", "openenv"],
             "preferred_target": "harbor",
             "strictness_mode": "strict",
@@ -370,6 +454,7 @@ def test_mcp_trigger_data_factory_calls_sdk_with_expected_defaults() -> None:
     assert kwargs["bundle_manifest_path"] == "capture_bundle.json"
     assert kwargs["profile"] == "founder_default"
     assert kwargs["source_mode"] == "synth_mcp_local"
+    assert kwargs["work_mode"] == "directed_effort"
     assert kwargs["targets"] == ["harbor", "openenv"]
     assert kwargs["preferred_target"] == "harbor"
     assert kwargs["strictness_mode"] == "strict"
@@ -383,12 +468,14 @@ def test_trigger_data_factory_run_passes_runtime_env_kinds() -> None:
     def fake_trigger_run(
         project_id: str,
         *,
+        work_mode: str,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
+        captured["work_mode"] = work_mode
         captured["workflow"] = workflow
         captured["idempotency_key_run_create"] = idempotency_key_run_create
         return {"run_id": "run_123"}
@@ -397,6 +484,7 @@ def test_trigger_data_factory_run_passes_runtime_env_kinds() -> None:
 
     client.trigger_data_factory_run(
         "proj_123",
+        work_mode="directed_effort",
         dataset_ref="starting-data/demo",
         bundle_manifest_path="capture_bundle.json",
         runtime_kind="sandbox_agent",
@@ -405,6 +493,7 @@ def test_trigger_data_factory_run_passes_runtime_env_kinds() -> None:
 
     assert captured["workflow"]["runtime_kind"] == "sandbox_agent"
     assert captured["workflow"]["environment_kind"] == "harbor"
+    assert captured["work_mode"] == "directed_effort"
     client.close()
 
 
@@ -415,12 +504,14 @@ def test_trigger_data_factory_run_omits_runtime_env_when_none() -> None:
     def fake_trigger_run(
         project_id: str,
         *,
+        work_mode: str,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
+        captured["work_mode"] = work_mode
         captured["workflow"] = workflow
         captured["idempotency_key_run_create"] = idempotency_key_run_create
         return {"run_id": "run_123"}
@@ -429,12 +520,14 @@ def test_trigger_data_factory_run_omits_runtime_env_when_none() -> None:
 
     client.trigger_data_factory_run(
         "proj_123",
+        work_mode="open_ended_discovery",
         dataset_ref="starting-data/demo",
         bundle_manifest_path="capture_bundle.json",
     )
 
     assert "runtime_kind" not in captured["workflow"]
     assert "environment_kind" not in captured["workflow"]
+    assert captured["work_mode"] == "open_ended_discovery"
     client.close()
 
 
@@ -445,12 +538,14 @@ def test_trigger_data_factory_run_passes_template_and_session_fields() -> None:
     def fake_trigger_run(
         project_id: str,
         *,
+        work_mode: str,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
+        captured["work_mode"] = work_mode
         captured["workflow"] = workflow
         captured["idempotency_key_run_create"] = idempotency_key_run_create
         return {"run_id": "run_123"}
@@ -459,6 +554,7 @@ def test_trigger_data_factory_run_passes_template_and_session_fields() -> None:
 
     client.trigger_data_factory_run(
         "proj_123",
+        work_mode="directed_effort",
         dataset_ref="starting-data/demo",
         bundle_manifest_path="capture_bundle.json",
         template="harbor_hardening_v1",
@@ -476,6 +572,7 @@ def test_trigger_data_factory_run_passes_template_and_session_fields() -> None:
     assert workflow["input"]["session_state"] == "completed"
     assert workflow["input"]["session_title"] == "Interactive task draft"
     assert workflow["input"]["session_notes"] == "Initial draft complete."
+    assert captured["work_mode"] == "directed_effort"
     client.close()
 
 
@@ -486,12 +583,14 @@ def test_trigger_data_factory_run_canonicalizes_legacy_aliases() -> None:
     def fake_trigger_run(
         project_id: str,
         *,
+        work_mode: str,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
+        captured["work_mode"] = work_mode
         captured["workflow"] = workflow
         captured["idempotency_key_run_create"] = idempotency_key_run_create
         return {"run_id": "run_123"}
@@ -500,6 +599,7 @@ def test_trigger_data_factory_run_canonicalizes_legacy_aliases() -> None:
 
     client.trigger_data_factory_run(
         "proj_123",
+        work_mode="directed_effort",
         dataset_ref="starting-data/demo",
         bundle_manifest_path="capture_bundle.json",
         source_mode="mcp_local",
@@ -515,6 +615,7 @@ def test_trigger_data_factory_run_canonicalizes_legacy_aliases() -> None:
     assert workflow["preferred_target"] == "custom_container"
     assert workflow["runtime_kind"] == "react_mcp"
     assert workflow["environment_kind"] == "custom_container"
+    assert captured["work_mode"] == "directed_effort"
     client.close()
 
 
@@ -534,7 +635,11 @@ def test_trigger_run_includes_idempotency_key_run_create() -> None:
         return {"ok": True}
 
     client._request_json = fake_request_json  # type: ignore[method-assign]
-    client.trigger_run("proj_123", idempotency_key_run_create="run-create-key")
+    client.trigger_run(
+        "proj_123",
+        work_mode="directed_effort",
+        idempotency_key_run_create="run-create-key",
+    )
     assert captured["json_body"]["idempotency_key_run_create"] == "run-create-key"
     client.close()
 
@@ -549,12 +654,14 @@ def test_mcp_trigger_data_factory_forwards_idempotency_key_run_create() -> None:
             "project_id": "proj_123",
             "dataset_ref": "starting-data/demo",
             "bundle_manifest_path": "capture_bundle.json",
+            "work_mode": "directed_effort",
             "idempotency_key_run_create": "run-key-123",
         }
     )
 
     assert len(fake_client.calls) == 1
     _, kwargs = fake_client.calls[0]
+    assert kwargs["work_mode"] == "directed_effort"
     assert kwargs["idempotency_key_run_create"] == "run-key-123"
 
 

@@ -452,6 +452,11 @@ class PromptLearningJobConfig:
                     "ngrok URL is not allowed. Use a Synth-managed ngrok-compatible URL allow-listed in SYNTH_MANAGED_TUNNEL_HOSTS."
                 )
         if task_url and is_synthtunnel_url(task_url):
+            if is_gepa and not has_token_signer:
+                raise ValueError(
+                    "GEPA SynthTunnel rollout auth requires "
+                    "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+                )
             ensure_container_auth(
                 backend_base=self.backend_url,
                 synth_api_key=self.api_key,

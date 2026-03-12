@@ -68,6 +68,7 @@ from synth_ai.core.utils.urls import (
     is_free_ngrok_url,
     is_synth_managed_ngrok_url,
 )
+from synth_ai.core.tunnels.errors import TunnelErrorCode, TunnelProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,20 @@ class TunneledContainer:
 
         from synth_ai.sdk.container.auth import ensure_container_auth
 
-        backend = _resolve_backend_from_provider(backend, provider)
+        resolved_backend = _resolve_backend_from_provider(backend, provider)
+        if (
+            provider is not None
+            and backend != TunnelBackend.SynthTunnel
+            and resolved_backend != backend
+        ):
+            provider_name = provider.value if isinstance(provider, TunnelProvider) else str(provider)
+            raise TunnelProviderError(
+                "provider conflicts with backend",
+                code=TunnelErrorCode.PROVIDER_INVALID,
+                provider=provider_name,
+                hint="Pass either provider or backend, or make them agree.",
+            )
+        backend = resolved_backend
 
         if backend == TunnelBackend.Localhost:
             url = f"http://localhost:{local_port}"

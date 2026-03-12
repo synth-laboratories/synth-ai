@@ -24,7 +24,7 @@ class _RouteUnavailableHttpClient:
     async def post_json(self, path: str, *, json):  # noqa: ANN001
         del json
         _RouteUnavailableHttpClient.post_calls.append(path)
-        if path == "/v2/candidates/submit":
+        if path == "/api/v2/candidates/submit":
             raise HTTPError(status=405, url="mock://submit-v2", message="method_not_allowed")
         raise AssertionError(f"unexpected POST path: {path}")
 
@@ -68,7 +68,7 @@ def test_prompt_learning_client_submit_has_no_fallback(
             )
         )
     assert exc_info.value.status == 405
-    assert _RouteUnavailableHttpClient.post_calls == ["/v2/candidates/submit"]
+    assert _RouteUnavailableHttpClient.post_calls == ["/api/v2/candidates/submit"]
 
 
 def test_prompt_learning_client_state_reads_have_no_fallback(

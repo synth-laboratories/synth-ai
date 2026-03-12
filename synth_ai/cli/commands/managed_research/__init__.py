@@ -62,17 +62,28 @@ def project_status(
     type=int,
     help="Optional run timebox in seconds.",
 )
+@click.option(
+    "--work-mode",
+    type=click.Choice(["open_ended_discovery", "directed_effort"], case_sensitive=False),
+    required=True,
+    help="Required run work mode.",
+)
 @_connection_options
 def trigger(
     project_id: str,
     timebox_seconds: int | None,
+    work_mode: str,
     api_key: str | None,
     backend_url: str,
     json_output: bool,
 ) -> None:
     """Trigger a run for a managed research project."""
     with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
-        payload = client.trigger_run(project_id, timebox_seconds=timebox_seconds)
+        payload = client.trigger_run(
+            project_id,
+            work_mode=work_mode,
+            timebox_seconds=timebox_seconds,
+        )
         _emit(payload, json_output=json_output)
 
 
@@ -332,45 +343,6 @@ def github_disconnect(api_key: str | None, backend_url: str, json_output: bool) 
     """Disconnect org-level GitHub credential."""
     with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
         _emit(client.github_org_disconnect(), json_output=json_output)
-
-
-@github_group.command(name="connect-pat")
-@click.option("--pat", required=True, prompt=True, hide_input=True, help="GitHub PAT.")
-@_connection_options
-def github_connect_pat(pat: str, api_key: str | None, backend_url: str, json_output: bool) -> None:
-    """Connect org-level GitHub PAT credential."""
-    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
-        _emit(client.github_org_pat_connect(pat=pat), json_output=json_output)
-
-
-@github_group.command(name="project-connect-pat")
-@click.argument("project_id")
-@click.option("--pat", required=True, prompt=True, hide_input=True, help="GitHub PAT.")
-@click.option("--repo", help="Optional default repo owner/name.")
-@click.option(
-    "--pr-write-enabled", is_flag=True, help="Require push permission for the selected repo."
-)
-@_connection_options
-def github_project_connect_pat(
-    project_id: str,
-    pat: str,
-    repo: str | None,
-    pr_write_enabled: bool,
-    api_key: str | None,
-    backend_url: str,
-    json_output: bool,
-) -> None:
-    """Connect project-level GitHub PAT credential."""
-    with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
-        _emit(
-            client.github_pat_connect(
-                project_id=project_id,
-                pat=pat,
-                repo=repo,
-                pr_write_enabled=pr_write_enabled,
-            ),
-            json_output=json_output,
-        )
 
 
 @github_group.command(name="link")

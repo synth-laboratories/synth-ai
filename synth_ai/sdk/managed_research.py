@@ -33,6 +33,7 @@ _FUNDING_SOURCE_ALIASES = {
     "user_connected": "user_connected",
 }
 _VALID_FUNDING_SOURCES = {"synth_managed", "customer_byok", "user_connected"}
+_VALID_WORK_MODES = {"open_ended_discovery", "directed_effort"}
 _DATA_FACTORY_SOURCE_MODE_ALIASES = {
     "mcp_local": "synth_mcp_local",
     "oneshot_mcp_local": "synth_mcp_local",
@@ -112,6 +113,17 @@ def _normalize_provider_funding_source(funding_source: str) -> str:
     normalized = _FUNDING_SOURCE_ALIASES.get(normalized, normalized)
     if normalized not in _VALID_FUNDING_SOURCES:
         raise ValueError(f"funding_source must be one of {sorted(_VALID_FUNDING_SOURCES)}")
+    return normalized
+
+
+def _normalize_work_mode(work_mode: str | None) -> str:
+    if work_mode is None:
+        raise ValueError(f"work_mode is required and must be one of {sorted(_VALID_WORK_MODES)}")
+    normalized = work_mode.strip().lower()
+    if not normalized:
+        raise ValueError(f"work_mode is required and must be one of {sorted(_VALID_WORK_MODES)}")
+    if normalized not in _VALID_WORK_MODES:
+        raise ValueError(f"work_mode must be one of {sorted(_VALID_WORK_MODES)}")
     return normalized
 
 
@@ -1075,29 +1087,6 @@ class SmrControlClient:
     def github_org_disconnect(self) -> dict[str, Any]:
         return self._request_json("DELETE", "/smr/integrations/github/org/disconnect")
 
-    def github_pat_connect(
-        self,
-        *,
-        project_id: str,
-        pat: str,
-        repo: str | None = None,
-        pr_write_enabled: bool = False,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "project_id": project_id,
-            "pat": pat,
-            "pr_write_enabled": bool(pr_write_enabled),
-        }
-        if repo and repo.strip():
-            payload["repo"] = repo.strip()
-        return self._request_json("POST", "/smr/integrations/github/pat/connect", json_body=payload)
-
-    def github_org_pat_connect(self, *, pat: str) -> dict[str, Any]:
-        payload = {"pat": pat}
-        return self._request_json(
-            "POST", "/smr/integrations/github/org/pat/connect", json_body=payload
-        )
-
     def linear_oauth_start(
         self, *, project_id: str, redirect_uri: str | None = None
     ) -> dict[str, Any]:
@@ -1568,13 +1557,14 @@ class SmrControlClient:
         self,
         project_id: str,
         *,
+        work_mode: Literal["open_ended_discovery", "directed_effort"],
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
-        """Trigger a run, optionally overriding agent model and kind for this run only.
+        """Trigger a run with an explicit work mode.
 
         Args:
             project_id: Project to trigger.
@@ -1584,6 +1574,8 @@ class SmrControlClient:
                 applied by the orchestrator at claim time.
             agent_kind: Override agent runtime for this run: ``"codex"``, ``"claude"``,
                 or ``"opencode"``.  Persisted in ``status_detail.agent_kind_override``.
+            work_mode: Required run work mode: ``"open_ended_discovery"``
+                for exploratory work or ``"directed_effort"`` for scoped execution.
             workflow: Optional workflow payload for specialized run rails (for
                 example ``{"kind": "data_factory_v1", ...}``). When omitted,
                 run behavior is unchanged.
@@ -1595,6 +1587,8 @@ class SmrControlClient:
             payload["agent_model"] = agent_model.strip()
         if agent_kind and agent_kind.strip():
             payload["agent_kind"] = agent_kind.strip().lower()
+        normalized_work_mode = _normalize_work_mode(work_mode)
+        payload["work_mode"] = normalized_work_mode
         if workflow is not None:
             payload["workflow"] = workflow
         if idempotency_key_run_create and idempotency_key_run_create.strip():
@@ -1605,6 +1599,7 @@ class SmrControlClient:
         self,
         project_id: str,
         *,
+        work_mode: Literal["open_ended_discovery", "directed_effort"],
         dataset_ref: str,
         bundle_manifest_path: str,
         template: str | None = None,
@@ -1622,7 +1617,7 @@ class SmrControlClient:
         timebox_seconds: int | None = None,
         idempotency_key_run_create: str | None = None,
     ) -> dict[str, Any]:
-        """Trigger a standardized Data Factory workflow run."""
+        """Trigger a standardized Data Factory workflow run with an explicit work mode."""
         canonical_preferred_target = _canonical_data_factory_target(preferred_target or "harbor")
         workflow_targets = (
             [_canonical_data_factory_target(target) for target in targets]
@@ -1662,6 +1657,7 @@ class SmrControlClient:
             workflow_payload["input"]["session_notes"] = session_notes
         return self.trigger_run(
             project_id,
+            work_mode=work_mode,
             timebox_seconds=timebox_seconds,
             workflow=workflow_payload,
             idempotency_key_run_create=idempotency_key_run_create,

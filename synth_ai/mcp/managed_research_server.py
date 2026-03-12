@@ -384,6 +384,14 @@ class ManagedResearchMcpServer:
                                 "'codex' (default), 'claude' (Claude Code), or 'opencode'."
                             ),
                         },
+                        "work_mode": {
+                            "type": "string",
+                            "enum": ["open_ended_discovery", "directed_effort"],
+                            "description": (
+                                "Required run work mode: 'open_ended_discovery' "
+                                "for exploratory work or 'directed_effort' for scoped execution."
+                            ),
+                        },
                         "workflow": {
                             "type": "object",
                             "description": (
@@ -480,7 +488,7 @@ class ManagedResearchMcpServer:
                             "description": "Deprecated alias for idempotency_key_run_create.",
                         },
                     },
-                    required=["project_id"],
+                    required=["project_id", "work_mode"],
                 ),
                 handler=self._tool_trigger_run,
             ),
@@ -503,6 +511,14 @@ class ManagedResearchMcpServer:
                         "bundle_manifest_path": {
                             "type": "string",
                             "description": "Path under dataset_ref to capture_bundle.json.",
+                        },
+                        "work_mode": {
+                            "type": "string",
+                            "enum": ["open_ended_discovery", "directed_effort"],
+                            "description": (
+                                "Required run work mode for the Data Factory launch: "
+                                "'open_ended_discovery' or 'directed_effort'."
+                            ),
                         },
                         "profile": {
                             "type": "string",
@@ -611,7 +627,7 @@ class ManagedResearchMcpServer:
                             "description": "Deprecated alias for idempotency_key_run_create.",
                         },
                     },
-                    required=["project_id", "dataset_ref", "bundle_manifest_path"],
+                    required=["project_id", "dataset_ref", "bundle_manifest_path", "work_mode"],
                 ),
                 handler=self._tool_trigger_data_factory,
             ),
@@ -1163,46 +1179,6 @@ class ManagedResearchMcpServer:
                 description="Disconnect org-level GitHub integration.",
                 input_schema=_tool_schema({}, required=[]),
                 handler=self._tool_github_org_disconnect,
-            ),
-            ToolDefinition(
-                name="smr_github_org_pat_connect",
-                description="Connect org-level GitHub PAT credential.",
-                input_schema=_tool_schema(
-                    {
-                        "pat": {
-                            "type": "string",
-                            "description": "GitHub PAT value.",
-                        }
-                    },
-                    required=["pat"],
-                ),
-                handler=self._tool_github_org_pat_connect,
-            ),
-            ToolDefinition(
-                name="smr_github_project_pat_connect",
-                description="Connect project-level GitHub PAT credential.",
-                input_schema=_tool_schema(
-                    {
-                        "project_id": {
-                            "type": "string",
-                            "description": "Managed research project id.",
-                        },
-                        "pat": {
-                            "type": "string",
-                            "description": "GitHub PAT value.",
-                        },
-                        "repo": {
-                            "type": "string",
-                            "description": "Optional default repo in owner/name format.",
-                        },
-                        "pr_write_enabled": {
-                            "type": "boolean",
-                            "description": "Require push permission for selected repo.",
-                        },
-                    },
-                    required=["project_id", "pat"],
-                ),
-                handler=self._tool_github_project_pat_connect,
             ),
             ToolDefinition(
                 name="smr_linear_status",
@@ -1826,6 +1802,7 @@ class ManagedResearchMcpServer:
         timebox_seconds = _optional_int(args, "timebox_seconds")
         agent_model = _optional_string(args, "agent_model")
         agent_kind = _optional_string(args, "agent_kind")
+        work_mode = _require_string(args, "work_mode")
         workflow = _optional_object(args, "workflow")
         idempotency_key_run_create = _optional_string(
             args, "idempotency_key_run_create"
@@ -1836,6 +1813,7 @@ class ManagedResearchMcpServer:
                 timebox_seconds=timebox_seconds,
                 agent_model=agent_model,
                 agent_kind=agent_kind,
+                work_mode=work_mode,
                 workflow=workflow,
                 idempotency_key_run_create=idempotency_key_run_create,
             )
@@ -1844,6 +1822,7 @@ class ManagedResearchMcpServer:
         project_id = _require_string(args, "project_id")
         dataset_ref = _require_string(args, "dataset_ref")
         bundle_manifest_path = _require_string(args, "bundle_manifest_path")
+        work_mode = _require_string(args, "work_mode")
         profile = _optional_string(args, "profile") or "founder_default"
         source_mode = _optional_string(args, "source_mode") or "synth_mcp_local"
         template = _optional_string(args, "template")
@@ -1876,6 +1855,7 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.trigger_data_factory_run(
                 project_id,
+                work_mode=work_mode,
                 dataset_ref=dataset_ref,
                 bundle_manifest_path=bundle_manifest_path,
                 template=template,
@@ -2145,24 +2125,6 @@ class ManagedResearchMcpServer:
     def _tool_github_org_disconnect(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
             return client.github_org_disconnect()
-
-    def _tool_github_org_pat_connect(self, args: JSONDict) -> Any:
-        pat = _require_string(args, "pat")
-        with self._client_from_args(args) as client:
-            return client.github_org_pat_connect(pat=pat)
-
-    def _tool_github_project_pat_connect(self, args: JSONDict) -> Any:
-        project_id = _require_string(args, "project_id")
-        pat = _require_string(args, "pat")
-        repo = _optional_string(args, "repo")
-        pr_write_enabled = _optional_bool(args, "pr_write_enabled", default=False)
-        with self._client_from_args(args) as client:
-            return client.github_pat_connect(
-                project_id=project_id,
-                pat=pat,
-                repo=repo,
-                pr_write_enabled=pr_write_enabled,
-            )
 
     def _tool_linear_status(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

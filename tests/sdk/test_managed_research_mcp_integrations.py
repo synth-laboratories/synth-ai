@@ -42,31 +42,6 @@ class _FakeClient:
         self.calls.append(("github_org_disconnect", {}))
         return {"ok": True}
 
-    def github_org_pat_connect(self, *, pat: str) -> dict[str, Any]:
-        self.calls.append(("github_org_pat_connect", {"pat": pat}))
-        return {"ok": True}
-
-    def github_pat_connect(
-        self,
-        *,
-        project_id: str,
-        pat: str,
-        repo: str | None = None,
-        pr_write_enabled: bool = False,
-    ) -> dict[str, Any]:
-        self.calls.append(
-            (
-                "github_pat_connect",
-                {
-                    "project_id": project_id,
-                    "pat": pat,
-                    "repo": repo,
-                    "pr_write_enabled": pr_write_enabled,
-                },
-            )
-        )
-        return {"ok": True}
-
     def linear_status(self, project_id: str) -> dict[str, Any]:
         self.calls.append(("linear_status", {"project_id": project_id}))
         return {"ok": True}
@@ -132,8 +107,6 @@ def test_mcp_registers_integration_lifecycle_tools() -> None:
         "smr_github_org_oauth_start",
         "smr_github_org_oauth_callback",
         "smr_github_org_disconnect",
-        "smr_github_org_pat_connect",
-        "smr_github_project_pat_connect",
         "smr_linear_status",
         "smr_linear_oauth_start",
         "smr_linear_oauth_callback",
@@ -164,18 +137,6 @@ def test_mcp_integration_handlers_delegate_to_sdk_methods() -> None:
         == {"ok": True}
     )
     assert server._tool_github_org_disconnect({}) == {"ok": True}
-    assert server._tool_github_org_pat_connect({"pat": "ghp_org_123"}) == {"ok": True}
-    assert (
-        server._tool_github_project_pat_connect(
-            {
-                "project_id": "proj_123",
-                "pat": "ghp_project_123",
-                "repo": "owner/repo",
-                "pr_write_enabled": True,
-            }
-        )
-        == {"ok": True}
-    )
     assert server._tool_linear_status({"project_id": "proj_123"}) == {"ok": True}
     assert (
         server._tool_linear_oauth_start(
@@ -213,16 +174,6 @@ def test_mcp_integration_handlers_delegate_to_sdk_methods() -> None:
             },
         ),
         ("github_org_disconnect", {}),
-        ("github_org_pat_connect", {"pat": "ghp_org_123"}),
-        (
-            "github_pat_connect",
-            {
-                "project_id": "proj_123",
-                "pat": "ghp_project_123",
-                "repo": "owner/repo",
-                "pr_write_enabled": True,
-            },
-        ),
         ("linear_status", {"project_id": "proj_123"}),
         (
             "linear_oauth_start",
