@@ -57,7 +57,11 @@ jobs:
         with:
           manylinux: auto
           command: build
-          args: --release -o dist
+          args: --release -o dist --compatibility manylinux2014
+      - name: Verify Linux abi3 wheel
+        run: |
+          ls -1 dist
+          ls dist/*.whl | grep -E 'abi3.*manylinux|manylinux.*abi3'
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-linux
@@ -76,6 +80,10 @@ jobs:
         with:
           command: build
           args: --release -o dist
+      - name: Verify macOS abi3 wheel
+        run: |
+          ls -1 dist
+          ls dist/*.whl | grep -E 'abi3.*macosx|macosx.*abi3'
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-macos

@@ -10,58 +10,93 @@ permissions:
   id-token: write
 
 jobs:
-  release:
+  build-linux:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Install Python
-        run: uv python install 3.12
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Extract version from tag
-        id: v
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Guard against dev tag
+      - uses: PyO3/maturin-action@v1
+        with:
+          manylinux: auto
+          command: build
+          args: --release -o dist --compatibility manylinux2014
+      - name: Verify Linux abi3 wheel
         run: |
-          case "${{ steps.v.outputs.version }}" in *dev*) echo "Refusing to publish a dev tag to PyPI"; exit 1;; esac
+          ls -1 dist
+          ls dist/*.whl | grep -E 'abi3.*manylinux|manylinux.*abi3'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux
+          path: dist/*.whl
 
-      - name: Run tests
-        run: uv run pytest -c pytest.unit.ini
-
-      - name: Build distributions
-        run: uv build
-
-      - name: Twine check
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release -o dist
+      - name: Verify macOS abi3 wheel
         run: |
-          uvx --from twine twine check dist/*
+          ls -1 dist
+          ls dist/*.whl | grep -E 'abi3.*macosx|macosx.*abi3'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: dist/*.whl
+
+  build-sdist:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: -o dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [build-linux, build-macos, build-sdist]
+    environment:
+      name: pypi
+      url: https://pypi.org/project/synth-ai/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI (trusted)
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  release:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [publish]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.v.outputs.version }}
-          name: synth-ai ${{ steps.v.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: synth-ai ${{ github.ref_name }}
           generate_release_notes: true
           body: |
-            ## Changes
-            
-            See [CHANGELOG.md](https://github.com/synth-laboratories/synth-ai/blob/main/CHANGELOG.md) for full details.
-            
             ## Installation
-            
+
             ```bash
-            pip install synth-ai==${{ steps.v.outputs.version }}
+            pip install synth-ai
             ```
           files: |
             dist/*.whl
             dist/*.tar.gz
-

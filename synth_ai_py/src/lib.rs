@@ -3,9 +3,9 @@ use once_cell::sync::Lazy;
 use pyo3::exceptions::{PyAttributeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{
-    PyAnyMethods, PyBool, PyByteArray, PyByteArrayMethods, PyBytes, PyBytesMethods, PyDate,
-    PyDateTime, PyDict, PyDictMethods, PyFloat, PyList, PyListMethods, PyLong, PySet, PySetMethods,
-    PyString, PyStringMethods, PyTuple, PyTupleMethods, PyType,
+    PyAnyMethods, PyBool, PyByteArray, PyByteArrayMethods, PyBytes, PyBytesMethods, PyDict,
+    PyDictMethods, PyFloat, PyList, PyListMethods, PyLong, PySet, PySetMethods, PyString,
+    PyStringMethods, PyTuple, PyTupleMethods, PyType,
 };
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::Method;
@@ -574,7 +574,7 @@ fn normalize_python_json<'py>(py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyRes
         return Ok(PyList::new_bound(py, out).to_object(py));
     }
 
-    if obj.is_instance_of::<PyDateTime>() || obj.is_instance_of::<PyDate>() {
+    if is_datetime_like(obj) {
         if let Ok(value) = obj.call_method0("isoformat") {
             return Ok(value.to_object(py));
         }
@@ -3166,6 +3166,22 @@ fn value_to_pyobject(py: Python, value: &Value) -> PyResult<PyObject> {
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+fn is_datetime_like(obj: &Bound<'_, PyAny>) -> bool {
+    let ty = obj.get_type();
+    let module = ty
+        .module()
+        .ok()
+        .and_then(|name| name.to_str().ok().map(str::to_owned));
+    if module.as_deref() != Some("datetime") {
+        return false;
+    }
+    let type_name = ty
+        .name()
+        .ok()
+        .and_then(|name| name.to_str().ok().map(str::to_owned));
+    matches!(type_name.as_deref(), Some("date") | Some("datetime"))
+}
+
 fn to_jsonable_inner(
     py: Python,
     obj: &Bound<'_, PyAny>,
@@ -3191,7 +3207,7 @@ fn to_jsonable_inner(
     }
 
     // datetime → ISO 8601 string
-    if obj.is_instance_of::<PyDateTime>() || obj.is_instance_of::<PyDate>() {
+    if is_datetime_like(obj) {
         if let Ok(iso) = obj.call_method0("isoformat") {
             return Ok(iso.to_object(py));
         }
