@@ -20,7 +20,7 @@ jobs:
         with:
           manylinux: auto
           command: build
-          args: --release -o dist --compatibility manylinux2014
+          args: --release -i python3.11 -o dist --compatibility manylinux2014
       - name: Verify Linux abi3 wheel
         run: |
           ls -1 dist
