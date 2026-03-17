@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.9.6"
+version = "0.9.7"
 description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = { text = "MIT" }
@@ -32,7 +32,6 @@ dependencies = [
     # Crafter container deps (ContinualLearningBench crafter engine)
     "Pillow>=10.0.0",
     "imageio>=2.34.0",
-    "nle",
 ]
 
 [project.scripts]
