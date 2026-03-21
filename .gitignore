@@ -51,6 +51,13 @@ target/
 synth_ai_rs/target/
 demos/**/target/
 
+# Native extension build artifacts
+*.dSYM/
+**/*.dSYM/
+synth_ai_py/*.so
+synth_ai_py/*.abi3.so
+synth_ai_py/*.dylib
+
 # DuckDB files
 *.duckdb
 *.duckdb.wal
