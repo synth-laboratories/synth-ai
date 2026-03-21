@@ -56,23 +56,19 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             artifact_name: wheels-linux-x86_64
+            runner: blacksmith-4vcpu-ubuntu-2404
           - target: aarch64-unknown-linux-gnu
             artifact_name: wheels-linux-aarch64
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up QEMU
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           manylinux: auto
           command: build
           args: --release -i python3.11 -o dist --compatibility manylinux2014
-          docker-options: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && '--platform linux/arm64' || '' }}
       - name: Verify Linux abi3 wheel
         run: |
           ls -1 dist
