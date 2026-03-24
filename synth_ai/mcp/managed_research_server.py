@@ -914,6 +914,97 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_run_actors,
             ),
             ToolDefinition(
+                name="smr_list_runtime_messages",
+                description=(
+                    "List durable runtime inbox messages for a run. "
+                    "Backed by `smr_runtime_messages`; the same queue SMR and Horizons "
+                    "runtimes read when executing a run."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "project_id": {
+                            "type": "string",
+                            "description": (
+                                "Optional project id; when set, verifies the run belongs "
+                                "to the project before listing."
+                            ),
+                        },
+                        "status": {
+                            "type": "string",
+                            "description": (
+                                "Optional filter: pending, applied, rejected, or ignored."
+                            ),
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000,
+                            "description": "Max messages (default 200).",
+                        },
+                    },
+                    required=["run_id"],
+                ),
+                handler=self._tool_list_runtime_messages,
+            ),
+            ToolDefinition(
+                name="smr_enqueue_runtime_message",
+                description=(
+                    "Append a control or guidance message to the run's durable runtime inbox. "
+                    "Modes: queue (line up for workers), steer (soft guidance), interrupt. "
+                    "Orchestrators/workers (including Horizons-backed runtimes) consume this queue."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "project_id": {
+                            "type": "string",
+                            "description": (
+                                "Optional project id; when set, verifies the run belongs "
+                                "to the project before enqueueing."
+                            ),
+                        },
+                        "mode": {
+                            "type": "string",
+                            "enum": ["queue", "steer", "interrupt"],
+                            "description": "Delivery semantics (default queue).",
+                            "default": "queue",
+                        },
+                        "topic": {
+                            "type": "string",
+                            "description": "Optional logical topic for routing or filtering.",
+                        },
+                        "causation_id": {
+                            "type": "string",
+                            "description": "Optional id linking this message to a prior event.",
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Optional sender label (defaults to authenticated user).",
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Optional recipient (e.g. actor id or role).",
+                        },
+                        "action": {
+                            "type": "string",
+                            "description": "Optional short action name for workers.",
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Primary human-readable message text.",
+                        },
+                        "payload": {
+                            "type": "object",
+                            "description": "Optional JSON object with extra fields.",
+                            "additionalProperties": True,
+                        },
+                    },
+                    required=["run_id"],
+                ),
+                handler=self._tool_enqueue_runtime_message,
+            ),
+            ToolDefinition(
                 name="smr_control_actor",
                 description="Pause or resume an orchestrator/worker actor within a run.",
                 input_schema=_tool_schema(
@@ -1994,6 +2085,46 @@ class ManagedResearchMcpServer:
         run_id = _require_string(args, "run_id")
         with self._client_from_args(args) as client:
             return client.get_run_actors(project_id, run_id)
+
+    def _tool_list_runtime_messages(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        status = _optional_string(args, "status")
+        limit = _optional_int(args, "limit") or 200
+        with self._client_from_args(args) as client:
+            return client.list_runtime_messages(
+                run_id,
+                project_id=project_id,
+                status=status,
+                limit=limit,
+            )
+
+    def _tool_enqueue_runtime_message(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        mode = _optional_string(args, "mode") or "queue"
+        if mode not in {"queue", "steer", "interrupt"}:
+            raise ValueError("'mode' must be one of: queue, steer, interrupt")
+        topic = _optional_string(args, "topic")
+        causation_id = _optional_string(args, "causation_id")
+        sender = _optional_string(args, "sender")
+        target = _optional_string(args, "target")
+        action = _optional_string(args, "action")
+        body = _optional_string(args, "body")
+        payload = _optional_object(args, "payload")
+        with self._client_from_args(args) as client:
+            return client.enqueue_runtime_message(
+                run_id,
+                project_id=project_id,
+                mode=mode,
+                topic=topic,
+                causation_id=causation_id,
+                sender=sender,
+                target=target,
+                action=action,
+                body=body,
+                payload=payload,
+            )
 
     def _tool_control_actor(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

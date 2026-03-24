@@ -1,5 +1,7 @@
 # Synth AI
 
+<!-- CI release pins: PyPI-0.9.10-orange synth-ai==0.9.10 -->
+
 [![image](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![image](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![image](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)

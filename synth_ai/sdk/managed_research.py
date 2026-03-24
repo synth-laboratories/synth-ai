@@ -1943,6 +1943,72 @@ class SmrControlClient:
             _coerce_dict(self.get_run(run_id, project_id=project_id), label="get_run")
         )
 
+    def list_runtime_messages(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        status: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """List durable runtime inbox messages for a run (operator API).
+
+        Same `smr_runtime_messages` rows consumed by SMR and Horizons runtimes.
+        """
+        if project_id:
+            self.get_run(run_id, project_id=project_id)
+        params: dict[str, Any] = {"limit": int(limit)}
+        if status is not None and str(status).strip():
+            params["status"] = str(status).strip()
+        data = self._request_json(
+            "GET",
+            f"/smr/runs/{run_id}/runtime/messages",
+            params=params,
+        )
+        return _coerce_list(data, label="list_runtime_messages")
+
+    def enqueue_runtime_message(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        mode: str = "queue",
+        topic: str | None = None,
+        causation_id: str | None = None,
+        sender: str | None = None,
+        target: str | None = None,
+        action: str | None = None,
+        body: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Append a message to the run's durable runtime inbox (operator API).
+
+        Modes: ``queue``, ``steer``, ``interrupt`` (backend-validated).
+        """
+        if project_id:
+            self.get_run(run_id, project_id=project_id)
+        json_body: dict[str, Any] = {"mode": mode}
+        if topic is not None:
+            json_body["topic"] = topic
+        if causation_id is not None:
+            json_body["causation_id"] = causation_id
+        if sender is not None:
+            json_body["sender"] = sender
+        if target is not None:
+            json_body["target"] = target
+        if action is not None:
+            json_body["action"] = action
+        if body is not None:
+            json_body["body"] = body
+        if payload is not None:
+            json_body["payload"] = payload
+        data = self._request_json(
+            "POST",
+            f"/smr/runs/{run_id}/runtime/messages",
+            json_body=json_body,
+        )
+        return _coerce_dict(data, label="enqueue_runtime_message")
+
     def pause_run(self, run_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/runs/{run_id}/pause")
 
