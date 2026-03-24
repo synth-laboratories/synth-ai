@@ -882,7 +882,11 @@ class ManagedResearchMcpServer:
             ),
             ToolDefinition(
                 name="smr_get_run_usage",
-                description="Fetch run-level usage with charged-spend totals and ledger entries.",
+                description=(
+                    "Run-level spend: ``total_cost_cents``, ``total_charged_cents`` (billed when metadata "
+                    "marks chargeable), ``quantity_by_meter_kind`` (token / compute units from ledger), "
+                    "and per-line ``entries``."
+                ),
                 input_schema=_tool_schema(
                     {
                         "run_id": {"type": "string", "description": "Run id."},
@@ -1140,7 +1144,11 @@ class ManagedResearchMcpServer:
             ),
             ToolDefinition(
                 name="smr_get_usage",
-                description="Fetch project usage metrics.",
+                description=(
+                    "Project usage: month-to-date and last-7-day **cost** (cents) with breakdowns "
+                    "(provider, funding_source, usage_category) plus **meter_quantities** "
+                    "(``quantity`` sums by ``meter_kind``, e.g. tokens)."
+                ),
                 input_schema=_tool_schema(
                     {
                         "project_id": {
@@ -1151,6 +1159,27 @@ class ManagedResearchMcpServer:
                     required=["project_id"],
                 ),
                 handler=self._tool_get_usage,
+            ),
+            ToolDefinition(
+                name="smr_get_usage_overview",
+                description=(
+                    "Single call: ``project_usage`` from smr_get_usage plus optional ``run_usage`` "
+                    "(cost, billed/charged cents, ``quantity_by_meter_kind``) when ``run_id`` is set."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {
+                            "type": "string",
+                            "description": "Optional run id to include run-level spend snapshot.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_usage_overview,
             ),
             ToolDefinition(
                 name="smr_get_project_state",
@@ -1362,7 +1391,10 @@ class ManagedResearchMcpServer:
             ),
             ToolDefinition(
                 name="smr_set_execution_preferences",
-                description="Set execution lane preferences for a project.",
+                description=(
+                    "Set **capacity lane** preferences (synth-hosted vs user-connected ChatGPT, etc.). "
+                    "For compute vendor targets (RunPod, Modal, Tinker) use smr_merge_project_execution."
+                ),
                 input_schema=_tool_schema(
                     {
                         "project_id": {
@@ -1404,6 +1436,84 @@ class ManagedResearchMcpServer:
                     required=["project_id"],
                 ),
                 handler=self._tool_get_capacity_lane_preview,
+            ),
+            ToolDefinition(
+                name="smr_merge_project_execution",
+                description=(
+                    "Shallow-merge fields into ``project.execution`` (read + PATCH). "
+                    "Use for compute/runtime config (e.g. ``runpod``, ``modal``, ``tinker`` objects) "
+                    "without clobbering unrelated execution keys."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "execution_patch": {
+                            "type": "object",
+                            "description": "Partial execution object to merge (top-level keys).",
+                            "additionalProperties": True,
+                        },
+                    },
+                    required=["project_id", "execution_patch"],
+                ),
+                handler=self._tool_merge_project_execution,
+            ),
+            ToolDefinition(
+                name="smr_set_provider_key",
+                description=(
+                    "Store a provider API token for the project (Infisical or dev fallback). "
+                    "Providers include openai, anthropic, runpod, modal, tinker. "
+                    "Use funding_source synth_managed (or synth) for Synth-metered keys."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "provider": {
+                            "type": "string",
+                            "description": "Provider id (e.g. openai, runpod, modal, tinker).",
+                        },
+                        "funding_source": {
+                            "type": "string",
+                            "description": "synth_managed / synth, customer_byok, or user_connected.",
+                        },
+                        "api_key": {
+                            "type": "string",
+                            "description": "Plaintext secret (avoid in shared logs).",
+                        },
+                        "encrypted_key_b64": {
+                            "type": "string",
+                            "description": "Optional RSA-encrypted secret from SDK crypto flow.",
+                        },
+                        "encrypt_before_send": {
+                            "type": "boolean",
+                            "description": "If true and api_key set, encrypt via backend public key before POST.",
+                            "default": False,
+                        },
+                    },
+                    required=["project_id", "provider", "funding_source"],
+                ),
+                handler=self._tool_set_provider_key,
+            ),
+            ToolDefinition(
+                name="smr_provider_key_status",
+                description="Return whether a provider+funding_source key is configured (no secret material).",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "provider": {"type": "string"},
+                        "funding_source": {"type": "string"},
+                    },
+                    required=["project_id", "provider", "funding_source"],
+                ),
+                handler=self._tool_provider_key_status,
             ),
             # --- Project lifecycle mutations ---
             ToolDefinition(
@@ -2203,6 +2313,46 @@ class ManagedResearchMcpServer:
         project_id = _require_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.get_usage(project_id)
+
+    def _tool_get_usage_overview(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _optional_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_usage_overview(project_id, run_id=run_id)
+
+    def _tool_merge_project_execution(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        execution_patch = _optional_object(args, "execution_patch")
+        if not execution_patch:
+            raise ValueError("'execution_patch' must be a non-empty JSON object")
+        with self._client_from_args(args) as client:
+            return client.merge_project_execution(project_id, execution_patch)
+
+    def _tool_set_provider_key(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        provider = _require_string(args, "provider")
+        funding_source = _require_string(args, "funding_source")
+        api_key_secret = _optional_string(args, "api_key")
+        encrypted_key_b64 = _optional_string(args, "encrypted_key_b64")
+        encrypt_before_send = _optional_bool(args, "encrypt_before_send", default=False)
+        if not api_key_secret and not encrypted_key_b64:
+            raise ValueError("Provide 'api_key' and/or 'encrypted_key_b64'")
+        with self._client_from_args(args) as client:
+            return client.set_provider_key(
+                project_id,
+                provider=provider,
+                funding_source=funding_source,
+                api_key=api_key_secret,
+                encrypted_key_b64=encrypted_key_b64,
+                encrypt_before_send=encrypt_before_send,
+            )
+
+    def _tool_provider_key_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        provider = _require_string(args, "provider")
+        funding_source = _require_string(args, "funding_source")
+        with self._client_from_args(args) as client:
+            return client.provider_key_status(project_id, provider, funding_source)
 
     def _tool_get_project_state(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

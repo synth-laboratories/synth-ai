@@ -232,6 +232,22 @@ def _parse_boolish(value: Any) -> bool | None:
     return None
 
 
+def _rollup_quantity_by_meter_kind(entries: Iterable[dict[str, Any]]) -> dict[str, float]:
+    """Sum ``quantity`` per ``meter_kind`` from spend ledger entry dicts."""
+    out: dict[str, float] = {}
+    for entry in entries:
+        mk = entry.get("meter_kind")
+        if not mk:
+            continue
+        try:
+            quantity = float(entry.get("quantity") or 0)
+        except (TypeError, ValueError):
+            quantity = 0.0
+        key = str(mk)
+        out[key] = out.get(key, 0.0) + quantity
+    return out
+
+
 def _normalize_run_usage_payload(
     data: Any,
     *,
@@ -247,8 +263,27 @@ def _normalize_run_usage_payload(
     normalized_project_id = _as_nonempty_string(payload.get("project_id")) or project_id
     total_cost_cents = payload.get("total_cost_cents")
     total_charged_cents = payload.get("total_charged_cents")
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    qty_summary = summary.get("quantity_by_meter_kind")
+    quantity_by_meter_kind: dict[str, float] | None = None
+    if isinstance(qty_summary, dict):
+        quantity_by_meter_kind = {}
+        for key, raw in qty_summary.items():
+            if key is None:
+                continue
+            try:
+                quantity_by_meter_kind[str(key)] = float(raw or 0)
+            except (TypeError, ValueError):
+                quantity_by_meter_kind[str(key)] = 0.0
+
     if normalized_project_id and total_cost_cents is not None and total_charged_cents is not None:
-        return payload
+        merged = dict(payload)
+        merged["entries"] = normalized_entries
+        if quantity_by_meter_kind is None:
+            quantity_by_meter_kind = _rollup_quantity_by_meter_kind(normalized_entries)
+        if quantity_by_meter_kind:
+            merged["quantity_by_meter_kind"] = quantity_by_meter_kind
+        return merged
 
     derived_project_id = normalized_project_id
     derived_total_cost_cents = 0
@@ -288,7 +323,10 @@ def _normalize_run_usage_payload(
                 charged_amount_cents = 0
         derived_total_charged_cents += charged_amount_cents
 
-    return {
+    if quantity_by_meter_kind is None:
+        quantity_by_meter_kind = _rollup_quantity_by_meter_kind(normalized_entries)
+
+    out: dict[str, Any] = {
         "run_id": _as_nonempty_string(payload.get("run_id")) or run_id,
         "project_id": derived_project_id,
         "total_cost_cents": int(total_cost_cents)
@@ -301,6 +339,11 @@ def _normalize_run_usage_payload(
         ),
         "entries": normalized_entries,
     }
+    if summary:
+        out["summary"] = dict(summary)
+    if quantity_by_meter_kind:
+        out["quantity_by_meter_kind"] = quantity_by_meter_kind
+    return out
 
 
 @dataclass(frozen=True)
@@ -1911,9 +1954,7 @@ class SmrControlClient:
         )
 
     def get_run_actors_typed(self, project_id: str, run_id: str) -> list[SmrActorStatus]:
-        payload = _coerce_dict(
-            self.get_run_actors(project_id, run_id), label="get_run_actors"
-        )
+        payload = _coerce_dict(self.get_run_actors(project_id, run_id), label="get_run_actors")
         actor_rows = payload.get("actors")
         if not isinstance(actor_rows, list):
             raise SmrApiError("Expected get_run_actors response to include an 'actors' list")
@@ -2528,6 +2569,28 @@ class SmrControlClient:
 
     def get_usage(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/usage")
+
+    def get_usage_overview(self, project_id: str, *, run_id: str | None = None) -> dict[str, Any]:
+        """Project usage (cost + ``meter_quantities``) plus optional per-run spend snapshot."""
+        overview: dict[str, Any] = {"project_usage": self.get_usage(project_id)}
+        rid = (run_id or "").strip()
+        if rid:
+            overview["run_usage"] = self.get_run_usage(rid, project_id=project_id)
+        return overview
+
+    def merge_project_execution(
+        self, project_id: str, execution_patch: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Shallow-merge ``execution_patch`` into ``project.execution`` (preserve other keys).
+
+        Use for compute/runtime hints (e.g. RunPod, Modal, Tinker) stored under ``execution``
+        without replacing unrelated execution fields.
+        """
+        if not isinstance(execution_patch, dict) or not execution_patch:
+            raise ValueError("execution_patch must be a non-empty JSON object")
+        project = _coerce_dict(self.get_project(project_id), label="get_project")
+        execution: dict[str, Any] = {**(project.get("execution") or {}), **execution_patch}
+        return self.patch_project(project_id, {"execution": execution})
 
     def get_project_state(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/state")

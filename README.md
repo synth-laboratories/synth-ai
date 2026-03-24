@@ -1,6 +1,6 @@
 # Synth AI
 
-<!-- CI release pins: PyPI-0.9.10-orange synth-ai==0.9.10 -->
+<!-- CI release pins: PyPI-0.9.11-orange synth-ai==0.9.11 -->
 
 [![image](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![image](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -11,6 +11,14 @@ CLI and MCP server for [Synth Managed Research](https://docs.usesynth.ai/managed
 ## MCP
 
 Hosted endpoint: `https://api.usesynth.ai/mcp`
+
+Managed Research tools include **project usage** (`smr_get_usage` with `meter_quantities`; `smr_get_usage_overview` adds optional per-run spend), **run spend** (`smr_get_run_usage`: cost, billed/charged cents, `quantity_by_meter_kind`), **provider API keys** (`smr_set_provider_key`, `smr_provider_key_status` for OpenAI/Anthropic/RunPod/Modal/Tinker, etc.), **execution JSON** (`smr_merge_project_execution` for compute/runtime blobs under `project.execution`), and lane prefs (`smr_set_execution_preferences`).
+
+Local server (requires `SYNTH_API_KEY`):
+
+```bash
+synth-ai-mcp-managed-research
+```
 
 **Codex**
 
