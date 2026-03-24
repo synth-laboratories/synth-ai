@@ -13,25 +13,23 @@ Follow the **Synth Style** guide: `specifications/tanha/references/synthstyle.md
 
 ## CRITICAL: Running The Backend Locally
 
-**Do not hand-roll the local stack.** Use the Synth-Bazel runtime manager.
+**Do not hand-roll the local stack.** Use the **synth-dev** repo (sibling checkout under `~/Documents/GitHub/`).
 
 ```bash
-cd ../synth-bazel
-./scripts/runtime.py up
-./scripts/runtime.py claim-slot alpha
-./scripts/runtime.py build rust --profile dev-fast
-./scripts/runtime.py services up alpha --profile local-only
-eval "$(./scripts/runtime.py env alpha --exports)"
+cd ../synth-dev
+./scripts/local.sh up slot1
 ```
 
-This starts shared infra and a managed local slot with the Python backend, Rust backend,
-and worker on deterministic slot ports.
+See `../synth-dev/README.md` for prerequisites (Colima, `uv`, secrets), fixed **slot port maps**, and commands (`local.sh status`, `doctor`, `down`, etc.).
 
-For GEPA/eval jobs, source local runtime env only from:
+Optional full correctness gate:
 
 ```bash
-./scripts/runtime.py env <nickname> --exports
+cd ../synth-dev
+./scripts/ci_dev_gate.sh
 ```
+
+For SDK jobs against local API, set `SYNTH_BACKEND_URL` to the slot’s backend port (for example `http://127.0.0.1:8000` for `slot1`) and use a valid `SYNTH_API_KEY` for that database (see synth-dev README and `synth_ai.core.utils.env`).
 
 ## CRITICAL: Auth Basics (Container + SynthTunnel)
 
@@ -41,7 +39,7 @@ When using the local stack with a tunneled container, there are **three differen
 - **Use:** Authenticate calls to the Synth backend (Python + Rust).
 - **Env:** `SYNTH_API_KEY` (SDK default) or `SYNTH_BACKEND_API_KEY` (explicit override in some scripts).
 - **Header:** `Authorization: Bearer <SYNTH_API_KEY>`.
-- **Applies to:** `SYNTH_BACKEND_URL` (typically `http://127.0.0.1:8080` in local dev).
+- **Applies to:** `SYNTH_BACKEND_URL` (for synth-dev `local.sh` stacks, typically `http://127.0.0.1:8000` for `slot1`; see synth-dev README for other slots).
 - **Do NOT:** Send a tunnel worker token to the backend. It will 401.
 
 ### 2) Environment API key (container auth)
@@ -57,7 +55,7 @@ When using the local stack with a tunneled container, there are **three differen
 - **Do NOT:** Use this as a backend API key. It is **only** for tunnel relay auth.
 
 ### Local stack recipe (correct auth wiring)
-1) **Backend URL**: `SYNTH_BACKEND_URL=http://127.0.0.1:8080`
+1) **Backend URL**: `SYNTH_BACKEND_URL=http://127.0.0.1:8000` (synth-dev `slot1`; adjust port per slot)
 2) **Backend auth**: `SYNTH_API_KEY=sk_*` (valid key in local DB)
 3) **Container**: run locally with `ENVIRONMENT_API_KEY` set or auto-minted
 4) **Tunnel**: create a SynthTunnel for the container
@@ -73,6 +71,10 @@ If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong 
 - Backend is the source of truth for rollout auth and must resolve credentials from org storage.
 - If you touch payload builders, request schemas, or job creation paths, preserve this rule and add
   tests that assert these fields are rejected/stripped.
+
+## SDK tests (pytest)
+
+The Python pytest suite for this package lives in the **`testing`** repo: `../testing/synth_ai_sdk/sdk/`. From this checkout, run `make test-unit` or point pytest at that directory after `uv sync --group dev`.
 
 ## Incident Log Requirement
 

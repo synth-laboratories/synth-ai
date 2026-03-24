@@ -41,7 +41,10 @@ except Exception as exc:  # pragma: no cover
     raise RuntimeError("synth_ai_py is required for optimization.builders.") from exc
 
 from synth_ai.core.config.resolver import ConfigResolver  # noqa: E402
-from synth_ai.core.utils.urls import is_synthtunnel_url  # noqa: E402
+from synth_ai.core.utils.urls import (  # noqa: E402
+    is_local_http_container_url,
+    is_synthtunnel_url,
+)
 from synth_ai.sdk.container.auth import (  # noqa: E402
     has_container_token_signing_key,
 )
@@ -286,6 +289,11 @@ def _validate_gepa_container_auth(candidate_task_url: str, is_gepa: bool) -> boo
         if is_synthtunnel_url(candidate_task_url):
             raise ValueError(
                 "GEPA SynthTunnel rollout auth requires "
+                "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
+            )
+        if not is_local_http_container_url(candidate_task_url):
+            raise ValueError(
+                "GEPA rollout auth for non-local container_url requires "
                 "SYNTH_CONTAINER_AUTH_PRIVATE_KEY or SYNTH_CONTAINER_AUTH_PRIVATE_KEYS."
             )
     return signer_configured

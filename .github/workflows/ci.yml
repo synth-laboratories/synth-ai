@@ -90,14 +90,18 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: synth-laboratories/testing
+          path: testing
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run fast unit tests
+      - name: Run SDK pytest suite
         run: |
           uv sync --group dev
-          uv run --group dev pytest tests/unit -m unit -v --maxfail=1
+          uv run --group dev pytest testing/synth_ai_sdk/sdk -v --maxfail=1
 
   type-check:
     name: Type Check

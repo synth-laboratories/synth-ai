@@ -14,11 +14,12 @@ build-debug:
 	@.venv/bin/maturin develop --uv
 	@.venv/bin/python -c "import synth_ai_py; print('OK: synth_ai_py loaded (' + str(len(dir(synth_ai_py))) + ' symbols)')"
 
+# SDK pytest suite lives in ../testing/synth_ai_sdk/sdk (see testing repo README).
 test-unit:
-	@cd ../testing && bazel test //:synth_ai_unit_tests
+	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v --maxfail=1
 
 test-integration:
-	@cd ../testing && bazel test //:synth_ai_all_tests
+	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v
 
 test: test-unit
 

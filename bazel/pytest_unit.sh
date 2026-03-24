@@ -23,4 +23,4 @@ else
 fi
 cd "${ROOT}"
 
-uv run pytest ../testing/synth-ai-tests/unit -v
+uv run pytest ../testing/synth_ai_sdk/sdk -v --maxfail=1

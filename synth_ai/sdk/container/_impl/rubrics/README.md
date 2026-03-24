@@ -243,12 +243,13 @@ JSON rubrics demonstrating strict validation:
 
 ## Testing
 
-```bash
-# Run rubric tests
-pytest tests/unit/rubrics/ -v
+Rubric validation tests live in the **`testing`** repo under `old/synth-ai-tests/unit/rubrics/`. From a sibling `synth-ai` checkout:
 
-# Test specific validator
-pytest tests/unit/rubrics/test_rubric_validation.py -v
+```bash
+cd ../synth-ai
+uv sync --group dev
+uv run --group dev pytest ../testing/old/synth-ai-tests/unit/rubrics/ -v
+uv run --group dev pytest ../testing/old/synth-ai-tests/unit/rubrics/test_rubric_validation.py -v
 ```
 
 ## Related
