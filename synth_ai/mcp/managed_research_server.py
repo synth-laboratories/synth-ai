@@ -392,6 +392,13 @@ class ManagedResearchMcpServer:
                                 "for exploratory work or 'directed_effort' for scoped execution."
                             ),
                         },
+                        "prompt": {
+                            "type": "string",
+                            "description": (
+                                "Optional per-run prompt or brief describing what this run should focus on. "
+                                "This overrides the project-level spec for this run only."
+                            ),
+                        },
                         "workflow": {
                             "type": "object",
                             "description": (
@@ -889,8 +896,8 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_run_usage,
             ),
             ToolDefinition(
-                name="smr_get_actor_status",
-                description="Fetch unified actor status (orchestrator + workers) for a project.",
+                name="smr_get_run_actors",
+                description="Fetch actor state (orchestrator + workers) for a run.",
                 input_schema=_tool_schema(
                     {
                         "project_id": {
@@ -899,12 +906,12 @@ class ManagedResearchMcpServer:
                         },
                         "run_id": {
                             "type": "string",
-                            "description": "Optional run id filter.",
+                            "description": "Run id.",
                         },
                     },
-                    required=["project_id"],
+                    required=["project_id", "run_id"],
                 ),
-                handler=self._tool_get_actor_status,
+                handler=self._tool_get_run_actors,
             ),
             ToolDefinition(
                 name="smr_control_actor",
@@ -1055,22 +1062,18 @@ class ManagedResearchMcpServer:
                 handler=self._tool_get_usage,
             ),
             ToolDefinition(
-                name="smr_get_ops_status",
-                description="Fetch ops/task status for a project.",
+                name="smr_get_project_state",
+                description="Fetch project bootstrap state and linked project resources.",
                 input_schema=_tool_schema(
                     {
                         "project_id": {
                             "type": "string",
                             "description": "Managed research project id.",
                         },
-                        "include_done_tasks": {
-                            "type": "boolean",
-                            "description": "Include completed tasks in response.",
-                        },
                     },
                     required=["project_id"],
                 ),
-                handler=self._tool_get_ops_status,
+                handler=self._tool_get_project_state,
             ),
             ToolDefinition(
                 name="smr_codex_subscription_status",
@@ -1803,6 +1806,7 @@ class ManagedResearchMcpServer:
         agent_model = _optional_string(args, "agent_model")
         agent_kind = _optional_string(args, "agent_kind")
         work_mode = _require_string(args, "work_mode")
+        prompt = _optional_string(args, "prompt")
         workflow = _optional_object(args, "workflow")
         idempotency_key_run_create = _optional_string(
             args, "idempotency_key_run_create"
@@ -1814,6 +1818,7 @@ class ManagedResearchMcpServer:
                 agent_model=agent_model,
                 agent_kind=agent_kind,
                 work_mode=work_mode,
+                prompt=prompt,
                 workflow=workflow,
                 idempotency_key_run_create=idempotency_key_run_create,
             )
@@ -1984,11 +1989,11 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_run_usage(run_id, project_id=project_id)
 
-    def _tool_get_actor_status(self, args: JSONDict) -> Any:
+    def _tool_get_run_actors(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
-        run_id = _optional_string(args, "run_id")
+        run_id = _require_string(args, "run_id")
         with self._client_from_args(args) as client:
-            return client.get_actor_status(project_id, run_id=run_id)
+            return client.get_run_actors(project_id, run_id)
 
     def _tool_control_actor(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
@@ -2068,13 +2073,10 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_usage(project_id)
 
-    def _tool_get_ops_status(self, args: JSONDict) -> Any:
+    def _tool_get_project_state(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
-        include_done_tasks = args.get("include_done_tasks")
-        if include_done_tasks is not None and not isinstance(include_done_tasks, bool):
-            raise ValueError("'include_done_tasks' must be a boolean when provided")
         with self._client_from_args(args) as client:
-            return client.get_ops_status(project_id, include_done_tasks=include_done_tasks)
+            return client.get_project_state(project_id)
 
     def _tool_codex_subscription_status(self, args: JSONDict) -> Any:
         project_id = _optional_string(args, "project_id")

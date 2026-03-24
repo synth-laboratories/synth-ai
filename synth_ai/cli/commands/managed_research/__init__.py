@@ -146,8 +146,10 @@ def actor_status(
     json_output: bool,
 ) -> None:
     """Get unified actor status for orchestrator and workers."""
+    if not run_id:
+        raise click.UsageError("--run-id is required")
     with SmrControlClient(api_key=api_key, backend_base=backend_url) as client:
-        payload = client.get_actor_status(project_id, run_id=run_id)
+        payload = client.get_run_actors(project_id, run_id)
         _emit(payload, json_output=json_output)
 
 

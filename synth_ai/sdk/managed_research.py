@@ -1115,7 +1115,7 @@ class SmrControlClient:
         )
 
     def linear_status(self, project_id: str) -> dict[str, Any]:
-        return self._request_json("GET", f"/smr/projects/{project_id}/integrations/linear/status")
+        return self._request_json("GET", f"/smr/projects/{project_id}/linear")
 
     def linear_disconnect(self, project_id: str) -> dict[str, Any]:
         return self._request_json(
@@ -1558,6 +1558,7 @@ class SmrControlClient:
         project_id: str,
         *,
         work_mode: Literal["open_ended_discovery", "directed_effort"],
+        prompt: str | None = None,
         timebox_seconds: int | None = None,
         agent_model: str | None = None,
         agent_kind: str | None = None,
@@ -1587,6 +1588,8 @@ class SmrControlClient:
             payload["agent_model"] = agent_model.strip()
         if agent_kind and agent_kind.strip():
             payload["agent_kind"] = agent_kind.strip().lower()
+        if prompt and prompt.strip():
+            payload["prompt"] = prompt.strip()
         normalized_work_mode = _normalize_work_mode(work_mode)
         payload["work_mode"] = normalized_work_mode
         if workflow is not None:
@@ -1901,23 +1904,19 @@ class SmrControlClient:
                 out.append(run)
         return out
 
-    def get_actor_status(self, project_id: str, *, run_id: str | None = None) -> dict[str, Any]:
-        params = {"run_id": run_id} if run_id else None
+    def get_run_actors(self, project_id: str, run_id: str) -> dict[str, Any]:
         return self._request_json(
             "GET",
-            f"/smr/projects/{project_id}/actors/status",
-            params=params,
+            f"/smr/projects/{project_id}/runs/{run_id}/actors",
         )
 
-    def get_actor_status_typed(
-        self, project_id: str, *, run_id: str | None = None
-    ) -> list[SmrActorStatus]:
+    def get_run_actors_typed(self, project_id: str, run_id: str) -> list[SmrActorStatus]:
         payload = _coerce_dict(
-            self.get_actor_status(project_id, run_id=run_id), label="get_actor_status"
+            self.get_run_actors(project_id, run_id), label="get_run_actors"
         )
         actor_rows = payload.get("actors")
         if not isinstance(actor_rows, list):
-            raise SmrApiError("Expected get_actor_status response to include an 'actors' list")
+            raise SmrApiError("Expected get_run_actors response to include an 'actors' list")
         return [SmrActorStatus.from_dict(row) for row in actor_rows if isinstance(row, dict)]
 
     def get_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
@@ -2464,17 +2463,8 @@ class SmrControlClient:
     def get_usage(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/usage")
 
-    def get_ops_status(
-        self, project_id: str, *, include_done_tasks: bool | None = None
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {}
-        if include_done_tasks is not None:
-            params["include_done_tasks"] = int(include_done_tasks)
-        return self._request_json(
-            "GET",
-            f"/smr/projects/{project_id}/ops_status",
-            params=params or None,
-        )
+    def get_project_state(self, project_id: str) -> dict[str, Any]:
+        return self._request_json("GET", f"/smr/projects/{project_id}/state")
 
     def get_run_logs(
         self,
@@ -2563,7 +2553,7 @@ class SmrControlClient:
 
         Storage internals (bucket, archive key) are not included.
         """
-        return self._request_json("GET", f"/smr/projects/{project_id}/workspace/git")
+        return self._request_json("GET", f"/smr/projects/{project_id}/git")
 
     def search_victoria_logs(
         self,

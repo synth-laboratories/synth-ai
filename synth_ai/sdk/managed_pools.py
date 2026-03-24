@@ -1,10 +1,6 @@
-"""Managed Pools — presigned uploads and data source registration.
+"""Managed Pools compatibility helpers.
 
-**Status:** Alpha
-
-Helpers for uploading pool data (tasks, bundles) via presigned URLs and
-registering S3 or upload-based data sources.  Plan-gated: raises
-``PlanGatingError`` when the account is not eligible.
+Deprecated wrappers retained through the published 2026-10-01 removal date.
 """
 
 from __future__ import annotations
@@ -17,11 +13,7 @@ from typing import Any, Mapping
 
 from synth_ai.core.errors import PlanGatingError
 from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import (
-    BACKEND_URL_BASE,
-    join_url,
-    normalize_backend_base,
-)
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 from synth_ai.sdk.container.auth import encrypt_for_backend
 
 __all__ = [
@@ -59,7 +51,6 @@ def _ensure_prefix(prefix: str) -> str:
     return prefix.lstrip("/")
 
 
-_PLAN_GATED_TIERS: set[str] = {"pro", "team", "enterprise"}
 _UPGRADE_URL = "https://usesynth.ai/pricing"
 
 
@@ -106,10 +97,9 @@ def _post_canonical(
 ) -> Any:
     import httpx
 
-    headers = _auth_headers(api_key)
     return httpx.post(
         join_url(base, path),
-        headers=headers,
+        headers=_auth_headers(api_key),
         json=payload,
         timeout=timeout,
     )
@@ -124,20 +114,11 @@ def create_managed_pool_upload_url(
     expires_in_seconds: int | None = None,
     timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Request a presigned upload URL for managed pool data.
-
-    Use this to upload task bundles or datasets that will be attached to a managed
-    pool. The returned payload typically includes an `upload_url` plus IDs needed
-    to create a data source.
-
-    Raises:
-        PlanGatingError: If the account is not eligible for managed pools.
-    """
+    """Request a presigned upload URL for managed pool data."""
     _warn_managed_pools_deprecated()
-    import httpx
 
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
-    api_key = _resolve_api_key(api_key)
+    resolved_api_key = _resolve_api_key(api_key)
     payload: dict[str, Any] = {}
     if filename:
         payload["filename"] = filename
@@ -146,15 +127,15 @@ def create_managed_pool_upload_url(
     if expires_in_seconds is not None:
         payload["expires_in_seconds"] = expires_in_seconds
 
-    resp = _post_canonical(
+    response = _post_canonical(
         base=base,
-        api_key=api_key,
+        api_key=resolved_api_key,
         path="/v1/pools/uploads",
         payload=payload,
         timeout=timeout,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    _raise_for_status_with_plan_check(response)
+    data = response.json()
     return data if isinstance(data, dict) else {}
 
 
@@ -165,19 +146,15 @@ def upload_managed_pool_bytes(
     content_type: str | None = None,
     timeout: float = 60.0,
 ) -> None:
-    """Upload raw bytes to a managed pool presigned URL.
-
-    This is a direct PUT to the presigned URL returned by
-    ``create_managed_pool_upload_url``.
-    """
+    """Upload raw bytes to a managed pool presigned URL."""
     _warn_managed_pools_deprecated()
     import httpx
 
     headers = {}
     if content_type:
         headers["Content-Type"] = content_type
-    resp = httpx.put(upload_url, headers=headers, content=data, timeout=timeout)
-    resp.raise_for_status()
+    response = httpx.put(upload_url, headers=headers, content=data, timeout=timeout)
+    response.raise_for_status()
 
 
 def upload_managed_pool_file(
@@ -187,15 +164,15 @@ def upload_managed_pool_file(
     content_type: str | None = None,
     timeout: float = 60.0,
 ) -> None:
-    """Upload a local file to a managed pool presigned URL.
-
-    Convenience wrapper around ``upload_managed_pool_bytes`` that reads the file
-    from disk before uploading.
-    """
+    """Upload a local file to a managed pool presigned URL."""
     _warn_managed_pools_deprecated()
     path = Path(file_path)
-    data = path.read_bytes()
-    upload_managed_pool_bytes(upload_url, data, content_type=content_type, timeout=timeout)
+    upload_managed_pool_bytes(
+        upload_url,
+        path.read_bytes(),
+        content_type=content_type,
+        timeout=timeout,
+    )
 
 
 def create_managed_pool_upload_data_source(
@@ -206,32 +183,24 @@ def create_managed_pool_upload_data_source(
     upload_key: str,
     timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Create a managed pool data source from a presigned upload.
-
-    Use the ``upload_id`` and ``upload_key`` from ``create_managed_pool_upload_url``.
-
-    Raises:
-        PlanGatingError: If the account is not eligible for managed pools.
-    """
+    """Create a managed pool data source from a presigned upload."""
     _warn_managed_pools_deprecated()
-    import httpx
 
     base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
-    api_key = _resolve_api_key(api_key)
-    payload = {
-        "type": "upload",
-        "upload_id": upload_id,
-        "upload_key": upload_key,
-    }
-    resp = _post_canonical(
+    resolved_api_key = _resolve_api_key(api_key)
+    response = _post_canonical(
         base=base,
-        api_key=api_key,
+        api_key=resolved_api_key,
         path="/v1/pools/data-sources",
-        payload=payload,
+        payload={
+            "type": "upload",
+            "upload_id": upload_id,
+            "upload_key": upload_key,
+        },
         timeout=timeout,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    _raise_for_status_with_plan_check(response)
+    data = response.json()
     return data if isinstance(data, dict) else {}
 
 
@@ -245,54 +214,53 @@ def create_managed_pool_s3_data_source(
     credentials: Mapping[str, str | None],
     timeout: float = 30.0,
 ) -> dict[str, Any]:
-    """Create a managed pool S3 data source with encrypted credentials.
-
-    Credentials are sealed using the backend public key, so plain-text secrets
-    are never sent to the managed pools API.
-
-    Raises:
-        PlanGatingError: If the account is not eligible for managed pools.
-    """
+    """Create a managed pool S3 data source with encrypted credentials."""
     _warn_managed_pools_deprecated()
     import httpx
 
-    backend_base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
-    crypto_base = _resolve_base_url(crypto_base, default=BACKEND_URL_BASE)
-    api_key = _resolve_api_key(api_key)
+    resolved_backend_base = _resolve_base_url(backend_base, default=BACKEND_URL_BASE)
+    resolved_crypto_base = _resolve_base_url(crypto_base, default=BACKEND_URL_BASE)
+    resolved_api_key = _resolve_api_key(api_key)
 
-    pub_url = join_url(crypto_base, "/api/v1/crypto/public-key")
-    pub_resp = httpx.get(pub_url, headers=_auth_headers(api_key), timeout=timeout)
-    _raise_for_status_with_plan_check(pub_resp)
-    pub_payload = pub_resp.json()
-    if not isinstance(pub_payload, dict):
+    public_key_response = httpx.get(
+        join_url(resolved_crypto_base, "/api/v1/crypto/public-key"),
+        headers=_auth_headers(resolved_api_key),
+        timeout=timeout,
+    )
+    _raise_for_status_with_plan_check(public_key_response)
+    public_key_payload = public_key_response.json()
+    if not isinstance(public_key_payload, dict):
         raise RuntimeError("backend response missing public_key")
-    public_key = pub_payload.get("public_key")
+    public_key = public_key_payload.get("public_key")
     if not isinstance(public_key, str) or not public_key:
         raise RuntimeError("backend response missing public_key")
 
-    credentials_payload = {
-        "access_key_id": credentials.get("access_key_id"),
-        "secret_access_key": credentials.get("secret_access_key"),
-        "session_token": credentials.get("session_token"),
-    }
-    ciphertext_b64 = encrypt_for_backend(public_key, json.dumps(credentials_payload))
+    ciphertext_b64 = encrypt_for_backend(
+        public_key,
+        json.dumps(
+            {
+                "access_key_id": credentials.get("access_key_id"),
+                "secret_access_key": credentials.get("secret_access_key"),
+                "session_token": credentials.get("session_token"),
+            }
+        ),
+    )
 
-    payload = {
-        "type": "s3",
-        "bucket": bucket,
-        "prefix": _ensure_prefix(prefix),
-        "credentials": {
-            "ciphertext_b64": ciphertext_b64,
-            "alg": pub_payload.get("alg"),
-        },
-    }
-    resp = _post_canonical(
-        base=backend_base,
-        api_key=api_key,
+    response = _post_canonical(
+        base=resolved_backend_base,
+        api_key=resolved_api_key,
         path="/v1/pools/data-sources",
-        payload=payload,
+        payload={
+            "type": "s3",
+            "bucket": bucket,
+            "prefix": _ensure_prefix(prefix),
+            "credentials": {
+                "ciphertext_b64": ciphertext_b64,
+                "alg": public_key_payload.get("alg"),
+            },
+        },
         timeout=timeout,
     )
-    _raise_for_status_with_plan_check(resp)
-    data = resp.json()
+    _raise_for_status_with_plan_check(response)
+    data = response.json()
     return data if isinstance(data, dict) else {}

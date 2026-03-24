@@ -26,7 +26,7 @@ _CRITICAL_MCP_TOOLS = {
     "smr_trigger_run",
     "smr_get_run",
     "smr_list_runs",
-    "smr_get_actor_status",
+    "smr_get_run_actors",
     "smr_search_project_logs",
 }
 _HTTP_STATUS_PATTERN = re.compile(r"\((\d{3})\)")

@@ -62,17 +62,44 @@ All user-facing classes are re-exported from `sdk/__init__.py`:
 
 ```python
 from synth_ai.sdk import (
+    AsyncContainerPoolsClient,
+    CANONICAL_ROLLOUT_REQUEST_KEYS,
     # Optimization
     OfflineJob,
     OnlineSession,
     
     # Container
     ContainerClient,
+    ContainerPoolsClient,
     InProcessContainer,
     
     # Other
-    PoolsClient,
     System,
     create_container,
+    validate_pool_rollout_request,
 )
+```
+
+## Container Pools
+
+Use `ContainerPoolsClient` for direct HTTP coverage of the consolidated Rhodes
+container-pool API, including:
+
+- `/v1/pools/*`
+- `/v1/rollouts/*`
+- task lifecycle and instance controls
+- runtime image and bundle binding endpoints
+- queue status and capabilities helpers
+- pool/task container facade routes
+- higher-level namespaces like `uploads`, `assemblies`, `rollouts`,
+  `agent_rollouts`, `tasks`, `harbor`, `openenv`, `horizons`, and `arbitrary`
+
+```python
+from synth_ai.sdk import ContainerPoolsClient
+
+pools = ContainerPoolsClient(api_key="sk_...")
+pools.get_capabilities()
+pools.get_urls("pool_123")
+pools.replace("pool_123", {"state": "paused"})
+pools.rollouts.summary("pool_123", "rollout_123")
 ```
