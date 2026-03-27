@@ -111,6 +111,37 @@ def _optional_object(payload: JSONDict, key: str) -> JSONDict | None:
     return value
 
 
+def _optional_string_array(payload: JSONDict, key: str) -> list[str] | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError(f"'{key}' must be an array when provided")
+    normalized: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"'{key}' must contain only non-empty strings")
+        normalized.append(item.strip())
+    return normalized
+
+
+def _with_message_for_agents(payload: Any) -> Any:
+    if not isinstance(payload, dict):
+        return payload
+    if "message_for_agents" in payload:
+        return payload
+    summary = payload.get("event_summary")
+    if isinstance(summary, str) and summary.strip():
+        return {**payload, "message_for_agents": summary.strip()}
+    project_event_id = payload.get("project_event_id")
+    if isinstance(project_event_id, str) and project_event_id.strip():
+        return {
+            **payload,
+            "message_for_agents": f"Project event {project_event_id.strip()} was recorded.",
+        }
+    return payload
+
+
 class ManagedResearchMcpServer:
     """Minimal MCP server for managed research control."""
 
@@ -1009,6 +1040,111 @@ class ManagedResearchMcpServer:
                 handler=self._tool_enqueue_runtime_message,
             ),
             ToolDefinition(
+                name="smr_list_runtime_context",
+                description=(
+                    "List durable shared runtime context visible to agents or operators on a run. "
+                    "This is the queue-backed shared project/run context agents can replay and read."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "project_id": {
+                            "type": "string",
+                            "description": (
+                                "Optional project id; when set, verifies the run belongs "
+                                "to the project before listing."
+                            ),
+                        },
+                        "channel": {
+                            "type": "string",
+                            "description": "Optional shared-context channel filter.",
+                        },
+                        "viewer_role": {
+                            "type": "string",
+                            "description": "Optional viewer role for visibility filtering.",
+                        },
+                        "viewer_target": {
+                            "type": "array",
+                            "description": "Optional viewer targets for visibility filtering.",
+                            "items": {"type": "string"},
+                        },
+                        "viewer_joined_at": {
+                            "type": "string",
+                            "description": "Optional viewer join timestamp (ISO-8601).",
+                        },
+                        "after_seq": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "description": "Only return entries with seq > after_seq.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000,
+                            "description": "Max context entries (default 200).",
+                        },
+                    },
+                    required=["run_id"],
+                ),
+                handler=self._tool_list_runtime_context,
+            ),
+            ToolDefinition(
+                name="smr_publish_runtime_context",
+                description=(
+                    "Publish durable shared runtime context into a run so orchestrators and workers "
+                    "can see project or operator updates."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "run_id": {"type": "string", "description": "Run id."},
+                        "project_id": {
+                            "type": "string",
+                            "description": (
+                                "Optional project id; when set, verifies the run belongs "
+                                "to the project before publishing."
+                            ),
+                        },
+                        "channel": {
+                            "type": "string",
+                            "description": "Shared-context channel name.",
+                        },
+                        "causation_id": {
+                            "type": "string",
+                            "description": "Optional id linking this context to a prior event.",
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Optional sender label.",
+                        },
+                        "body": {
+                            "type": "string",
+                            "description": "Primary human-readable message text.",
+                        },
+                        "payload": {
+                            "type": "object",
+                            "description": "Optional JSON object with structured context.",
+                            "additionalProperties": True,
+                        },
+                        "audience_roles": {
+                            "type": "array",
+                            "description": "Optional audience role filter.",
+                            "items": {"type": "string"},
+                        },
+                        "audience_targets": {
+                            "type": "array",
+                            "description": "Optional audience target filter.",
+                            "items": {"type": "string"},
+                        },
+                        "replayable": {
+                            "type": "boolean",
+                            "description": "Whether newly joined viewers should see the message.",
+                        },
+                    },
+                    required=["run_id", "channel"],
+                ),
+                handler=self._tool_publish_runtime_context,
+            ),
+            ToolDefinition(
                 name="smr_control_actor",
                 description="Pause or resume an orchestrator/worker actor within a run.",
                 input_schema=_tool_schema(
@@ -1601,6 +1737,582 @@ class ManagedResearchMcpServer:
                     required=["project_id", "repo"],
                 ),
                 handler=self._tool_remove_project_repo,
+            ),
+            ToolDefinition(
+                name="smr_get_project_sublinear_status",
+                description="Fetch the Sublinear integration status for a project.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        }
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_get_project_sublinear_status,
+            ),
+            ToolDefinition(
+                name="smr_provision_project_sublinear",
+                description=(
+                    "Provision or attach the synth-hosted Sublinear project for a managed research project."
+                ),
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "team_id": {
+                            "type": "string",
+                            "description": "Optional preferred Sublinear team id.",
+                        },
+                        "project_name": {
+                            "type": "string",
+                            "description": "Optional explicit Sublinear project name.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_provision_project_sublinear,
+            ),
+            ToolDefinition(
+                name="smr_list_project_events",
+                description="List project collaboration events visible to operators and agents.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional run filter."},
+                        "source": {
+                            "type": "string",
+                            "description": "Optional event source filter.",
+                        },
+                        "object_type": {
+                            "type": "string",
+                            "description": "Optional object type filter.",
+                        },
+                        "action": {"type": "string", "description": "Optional action filter."},
+                        "limit": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 500,
+                            "description": "Max events to return (default 100).",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_list_project_events,
+            ),
+            ToolDefinition(
+                name="smr_get_project_event",
+                description="Fetch a single project collaboration event.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "event_id": {"type": "string", "description": "Project event id."},
+                    },
+                    required=["project_id", "event_id"],
+                ),
+                handler=self._tool_get_project_event,
+            ),
+            ToolDefinition(
+                name="smr_post_project_message",
+                description="Post a project-scoped message and fan it out to active runs.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "body": {"type": "string", "description": "Primary message body."},
+                        "summary": {"type": "string", "description": "Optional short summary."},
+                        "payload": {
+                            "type": "object",
+                            "description": "Optional JSON payload.",
+                            "additionalProperties": True,
+                        },
+                        "run_id": {"type": "string", "description": "Optional target run id."},
+                        "branch": {"type": "string", "description": "Optional related branch."},
+                        "task_id": {"type": "string", "description": "Optional related task id."},
+                        "repo": {"type": "string", "description": "Optional related repo binding."},
+                        "source": {
+                            "type": "string",
+                            "enum": ["operator", "agent", "system"],
+                            "description": "Message source classification.",
+                        },
+                        "actor_type": {
+                            "type": "string",
+                            "enum": ["human", "agent", "system"],
+                            "description": "Actor type for the message author.",
+                        },
+                        "actor_id": {"type": "string", "description": "Optional actor identifier."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "body"],
+                ),
+                handler=self._tool_post_project_message,
+            ),
+            ToolDefinition(
+                name="smr_git_get_status",
+                description="Inspect the project-owned synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Optional branch override."},
+                        "max_commits": {"type": "integer", "minimum": 1, "maximum": 100},
+                        "max_tree_entries": {"type": "integer", "minimum": 1, "maximum": 2000},
+                        "max_unmerged_branches": {"type": "integer", "minimum": 1, "maximum": 200},
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_git_get_status,
+            ),
+            ToolDefinition(
+                name="smr_git_list_tree",
+                description="List files in the project-owned synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "ref": {"type": "string", "description": "Optional git ref."},
+                        "path_prefix": {
+                            "type": "string",
+                            "description": "Optional subtree prefix.",
+                        },
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_git_list_tree,
+            ),
+            ToolDefinition(
+                name="smr_git_read_file",
+                description="Read a file from the project-owned synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "path": {"type": "string", "description": "Workspace-relative file path."},
+                        "ref": {"type": "string", "description": "Optional git ref."},
+                    },
+                    required=["project_id", "path"],
+                ),
+                handler=self._tool_git_read_file,
+            ),
+            ToolDefinition(
+                name="smr_git_get_diff",
+                description="Return a textual diff between two git refs.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "base_ref": {"type": "string", "description": "Base git ref."},
+                        "head_ref": {"type": "string", "description": "Head git ref."},
+                        "path": {
+                            "type": "string",
+                            "description": "Optional file or subtree filter.",
+                        },
+                    },
+                    required=["project_id", "base_ref", "head_ref"],
+                ),
+                handler=self._tool_git_get_diff,
+            ),
+            ToolDefinition(
+                name="smr_git_create_branch",
+                description="Create a branch in the project-owned synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Branch name to create."},
+                        "base_branch": {"type": "string", "description": "Optional base branch."},
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "branch"],
+                ),
+                handler=self._tool_git_create_branch,
+            ),
+            ToolDefinition(
+                name="smr_git_write_files",
+                description="Write one or more files, commit, and push to the synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Target branch."},
+                        "commit_message": {"type": "string", "description": "Commit message."},
+                        "files": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {"type": "string"},
+                                    "content": {"type": "string"},
+                                    "content_base64": {"type": "string"},
+                                },
+                                "required": ["path"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "branch", "commit_message", "files"],
+                ),
+                handler=self._tool_git_write_files,
+            ),
+            ToolDefinition(
+                name="smr_git_upload_files",
+                description="Upload one or more pre-encoded files, commit, and push to the synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Target branch."},
+                        "commit_message": {"type": "string", "description": "Commit message."},
+                        "files": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {"type": "string"},
+                                    "content": {"type": "string"},
+                                    "content_base64": {"type": "string"},
+                                },
+                                "required": ["path"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "branch", "commit_message", "files"],
+                ),
+                handler=self._tool_git_upload_files,
+            ),
+            ToolDefinition(
+                name="smr_git_create_commit",
+                description="Create an empty checkpoint commit on a branch in the synth git repository.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Target branch."},
+                        "commit_message": {"type": "string", "description": "Commit message."},
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "branch", "commit_message"],
+                ),
+                handler=self._tool_git_create_commit,
+            ),
+            ToolDefinition(
+                name="smr_git_push",
+                description="Sync a branch from the synth git repository into a configured GitHub repo.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "branch": {"type": "string", "description": "Branch to push."},
+                        "repo": {
+                            "type": "string",
+                            "description": "Optional GitHub repo binding override.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "branch"],
+                ),
+                handler=self._tool_git_push,
+            ),
+            ToolDefinition(
+                name="smr_git_list_pull_requests",
+                description="List GitHub pull requests for a configured project repo binding.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "repo": {
+                            "type": "string",
+                            "description": "Optional GitHub repo binding override.",
+                        },
+                        "state": {
+                            "type": "string",
+                            "enum": ["open", "closed", "all"],
+                            "default": "open",
+                        },
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 100},
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_git_list_pull_requests,
+            ),
+            ToolDefinition(
+                name="smr_git_open_pull_request",
+                description="Open a GitHub pull request from a pushed branch.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "title": {"type": "string", "description": "Pull request title."},
+                        "head": {"type": "string", "description": "Head branch name."},
+                        "base": {"type": "string", "description": "Optional base branch."},
+                        "body": {"type": "string", "description": "Optional pull request body."},
+                        "draft": {
+                            "type": "boolean",
+                            "description": "Whether to create a draft PR.",
+                        },
+                        "repo": {
+                            "type": "string",
+                            "description": "Optional GitHub repo binding override.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "title", "head"],
+                ),
+                handler=self._tool_git_open_pull_request,
+            ),
+            ToolDefinition(
+                name="smr_git_comment_on_pull_request",
+                description="Add a comment to a GitHub pull request for a configured project repo binding.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "pr_id": {"type": "integer", "description": "Pull request number."},
+                        "body": {"type": "string", "description": "Comment body."},
+                        "repo": {
+                            "type": "string",
+                            "description": "Optional GitHub repo binding override.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "pr_id", "body"],
+                ),
+                handler=self._tool_git_comment_on_pull_request,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_list_tasks",
+                description="List project-scoped Sublinear tasks.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+                    },
+                    required=["project_id"],
+                ),
+                handler=self._tool_sublinear_list_tasks,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_get_task",
+                description="Fetch a single Sublinear task.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "task_id": {"type": "string", "description": "Sublinear task id."},
+                    },
+                    required=["project_id", "task_id"],
+                ),
+                handler=self._tool_sublinear_get_task,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_create_task",
+                description="Create a Sublinear task and emit a project event.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "title": {"type": "string", "description": "Task title."},
+                        "description": {
+                            "type": "string",
+                            "description": "Optional task description.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "branch": {"type": "string", "description": "Optional related branch."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "title"],
+                ),
+                handler=self._tool_sublinear_create_task,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_update_task",
+                description="Update a Sublinear task and emit a project event.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "task_id": {"type": "string", "description": "Sublinear task id."},
+                        "title": {"type": "string", "description": "Optional title override."},
+                        "description": {
+                            "type": "string",
+                            "description": "Optional description override.",
+                        },
+                        "state_id": {
+                            "type": "string",
+                            "description": "Optional workflow state id.",
+                        },
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "branch": {"type": "string", "description": "Optional related branch."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "task_id"],
+                ),
+                handler=self._tool_sublinear_update_task,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_list_comments",
+                description="List comments for a project-scoped Sublinear task.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "task_id": {"type": "string", "description": "Sublinear task id."},
+                    },
+                    required=["project_id", "task_id"],
+                ),
+                handler=self._tool_sublinear_list_comments,
+            ),
+            ToolDefinition(
+                name="smr_sublinear_add_comment",
+                description="Add a comment to a Sublinear task and emit a project event.",
+                input_schema=_tool_schema(
+                    {
+                        "project_id": {
+                            "type": "string",
+                            "description": "Managed research project id.",
+                        },
+                        "task_id": {"type": "string", "description": "Sublinear task id."},
+                        "body": {"type": "string", "description": "Comment body."},
+                        "run_id": {"type": "string", "description": "Optional related run id."},
+                        "branch": {"type": "string", "description": "Optional related branch."},
+                        "project_only": {
+                            "type": "boolean",
+                            "description": "Skip run fanout when true.",
+                        },
+                        "idempotency_key": {
+                            "type": "string",
+                            "description": "Optional idempotency key.",
+                        },
+                    },
+                    required=["project_id", "task_id", "body"],
+                ),
+                handler=self._tool_sublinear_add_comment,
             ),
             ToolDefinition(
                 name="smr_pause_project",
@@ -2236,6 +2948,52 @@ class ManagedResearchMcpServer:
                 payload=payload,
             )
 
+    def _tool_list_runtime_context(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        channel = _optional_string(args, "channel")
+        viewer_role = _optional_string(args, "viewer_role")
+        viewer_target = _optional_string_array(args, "viewer_target")
+        viewer_joined_at = _optional_string(args, "viewer_joined_at")
+        after_seq = _optional_int(args, "after_seq")
+        limit = _optional_int(args, "limit") or 200
+        with self._client_from_args(args) as client:
+            return client.list_runtime_context(
+                run_id,
+                project_id=project_id,
+                channel=channel,
+                viewer_role=viewer_role,
+                viewer_target=viewer_target,
+                viewer_joined_at=viewer_joined_at,
+                after_seq=after_seq,
+                limit=limit,
+            )
+
+    def _tool_publish_runtime_context(self, args: JSONDict) -> Any:
+        run_id = _require_string(args, "run_id")
+        project_id = _optional_string(args, "project_id")
+        channel = _require_string(args, "channel")
+        causation_id = _optional_string(args, "causation_id")
+        sender = _optional_string(args, "sender")
+        body = _optional_string(args, "body")
+        payload = _optional_object(args, "payload")
+        audience_roles = _optional_string_array(args, "audience_roles")
+        audience_targets = _optional_string_array(args, "audience_targets")
+        replayable = _optional_bool(args, "replayable", default=True)
+        with self._client_from_args(args) as client:
+            return client.publish_runtime_context(
+                run_id,
+                project_id=project_id,
+                channel=channel,
+                causation_id=causation_id,
+                sender=sender,
+                body=body,
+                payload=payload,
+                audience_roles=audience_roles,
+                audience_targets=audience_targets,
+                replayable=replayable,
+            )
+
     def _tool_control_actor(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")
         run_id = _require_string(args, "run_id")
@@ -2508,6 +3266,367 @@ class ManagedResearchMcpServer:
         repo = _require_string(args, "repo")
         with self._client_from_args(args) as client:
             return client.remove_project_repo(project_id, repo=repo)
+
+    def _tool_get_project_sublinear_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return client.get_project_sublinear_status(project_id)
+
+    def _tool_provision_project_sublinear(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        team_id = _optional_string(args, "team_id")
+        project_name = _optional_string(args, "project_name")
+        with self._client_from_args(args) as client:
+            return client.provision_project_sublinear(
+                project_id,
+                team_id=team_id,
+                project_name=project_name,
+            )
+
+    def _tool_list_project_events(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        run_id = _optional_string(args, "run_id")
+        source = _optional_string(args, "source")
+        object_type = _optional_string(args, "object_type")
+        action = _optional_string(args, "action")
+        limit = _optional_int(args, "limit") or 100
+        with self._client_from_args(args) as client:
+            return client.list_project_events(
+                project_id,
+                run_id=run_id,
+                source=source,
+                object_type=object_type,
+                action=action,
+                limit=limit,
+            )
+
+    def _tool_get_project_event(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        event_id = _require_string(args, "event_id")
+        with self._client_from_args(args) as client:
+            return client.get_project_event(project_id, event_id)
+
+    def _tool_post_project_message(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        body = _require_string(args, "body")
+        summary = _optional_string(args, "summary")
+        payload = _optional_object(args, "payload")
+        run_id = _optional_string(args, "run_id")
+        branch = _optional_string(args, "branch")
+        task_id = _optional_string(args, "task_id")
+        repo = _optional_string(args, "repo")
+        source = _optional_string(args, "source")
+        actor_type = _optional_string(args, "actor_type")
+        actor_id = _optional_string(args, "actor_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.post_project_message(
+                    project_id,
+                    body=body,
+                    summary=summary,
+                    payload=payload,
+                    run_id=run_id,
+                    branch=branch,
+                    task_id=task_id,
+                    repo=repo,
+                    source=source,
+                    actor_type=actor_type,
+                    actor_id=actor_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_get_status(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _optional_string(args, "branch")
+        max_commits = _optional_int(args, "max_commits") or 20
+        max_tree_entries = _optional_int(args, "max_tree_entries") or 200
+        max_unmerged_branches = _optional_int(args, "max_unmerged_branches") or 20
+        with self._client_from_args(args) as client:
+            return client.git_get_status(
+                project_id,
+                branch=branch,
+                max_commits=max_commits,
+                max_tree_entries=max_tree_entries,
+                max_unmerged_branches=max_unmerged_branches,
+            )
+
+    def _tool_git_list_tree(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        ref = _optional_string(args, "ref")
+        path_prefix = _optional_string(args, "path_prefix")
+        with self._client_from_args(args) as client:
+            return client.git_list_tree(project_id, ref=ref, path_prefix=path_prefix)
+
+    def _tool_git_read_file(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        path = _require_string(args, "path")
+        ref = _optional_string(args, "ref")
+        with self._client_from_args(args) as client:
+            return client.git_read_file(project_id, path=path, ref=ref)
+
+    def _tool_git_get_diff(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        base_ref = _require_string(args, "base_ref")
+        head_ref = _require_string(args, "head_ref")
+        path = _optional_string(args, "path")
+        with self._client_from_args(args) as client:
+            return client.git_get_diff(project_id, base_ref=base_ref, head_ref=head_ref, path=path)
+
+    def _tool_git_create_branch(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _require_string(args, "branch")
+        base_branch = _optional_string(args, "base_branch")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_create_branch(
+                    project_id,
+                    branch=branch,
+                    base_branch=base_branch,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_write_files(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _require_string(args, "branch")
+        commit_message = _require_string(args, "commit_message")
+        files = args.get("files")
+        if not isinstance(files, list) or not files:
+            raise ValueError("'files' must be a non-empty array")
+        normalized_files = [item for item in files if isinstance(item, dict)]
+        if len(normalized_files) != len(files):
+            raise ValueError("'files' must contain only objects")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_write_files(
+                    project_id,
+                    branch=branch,
+                    commit_message=commit_message,
+                    files=normalized_files,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_upload_files(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _require_string(args, "branch")
+        commit_message = _require_string(args, "commit_message")
+        files = args.get("files")
+        if not isinstance(files, list) or not files:
+            raise ValueError("'files' must be a non-empty array")
+        normalized_files = [item for item in files if isinstance(item, dict)]
+        if len(normalized_files) != len(files):
+            raise ValueError("'files' must contain only objects")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_upload_files(
+                    project_id,
+                    branch=branch,
+                    commit_message=commit_message,
+                    files=normalized_files,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_create_commit(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _require_string(args, "branch")
+        commit_message = _require_string(args, "commit_message")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_create_commit(
+                    project_id,
+                    branch=branch,
+                    commit_message=commit_message,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_push(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        branch = _require_string(args, "branch")
+        repo = _optional_string(args, "repo")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_push(
+                    project_id,
+                    branch=branch,
+                    repo=repo,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_list_pull_requests(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        repo = _optional_string(args, "repo")
+        state = _optional_string(args, "state") or "open"
+        limit = _optional_int(args, "limit") or 30
+        with self._client_from_args(args) as client:
+            return client.git_list_pull_requests(project_id, repo=repo, state=state, limit=limit)
+
+    def _tool_git_open_pull_request(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        title = _require_string(args, "title")
+        head = _require_string(args, "head")
+        base = _optional_string(args, "base")
+        body = _optional_string(args, "body")
+        draft = _optional_bool(args, "draft", default=False)
+        repo = _optional_string(args, "repo")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_open_pull_request(
+                    project_id,
+                    title=title,
+                    head=head,
+                    base=base,
+                    body=body,
+                    draft=draft,
+                    repo=repo,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_git_comment_on_pull_request(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        pr_id = _optional_int(args, "pr_id")
+        if pr_id is None:
+            raise ValueError("'pr_id' is required and must be an integer")
+        body = _require_string(args, "body")
+        repo = _optional_string(args, "repo")
+        run_id = _optional_string(args, "run_id")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.git_comment_on_pull_request(
+                    project_id,
+                    pr_id,
+                    body=body,
+                    repo=repo,
+                    run_id=run_id,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_sublinear_list_tasks(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        limit = _optional_int(args, "limit") or 50
+        with self._client_from_args(args) as client:
+            return client.sublinear_list_tasks(project_id, limit=limit)
+
+    def _tool_sublinear_get_task(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        task_id = _require_string(args, "task_id")
+        with self._client_from_args(args) as client:
+            return client.sublinear_get_task(project_id, task_id)
+
+    def _tool_sublinear_create_task(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        title = _require_string(args, "title")
+        description = _optional_string(args, "description")
+        run_id = _optional_string(args, "run_id")
+        branch = _optional_string(args, "branch")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.sublinear_create_task(
+                    project_id,
+                    title=title,
+                    description=description,
+                    run_id=run_id,
+                    branch=branch,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_sublinear_update_task(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        task_id = _require_string(args, "task_id")
+        title = _optional_string(args, "title")
+        description = _optional_string(args, "description")
+        state_id = _optional_string(args, "state_id")
+        run_id = _optional_string(args, "run_id")
+        branch = _optional_string(args, "branch")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.sublinear_update_task(
+                    project_id,
+                    task_id,
+                    title=title,
+                    description=description,
+                    state_id=state_id,
+                    run_id=run_id,
+                    branch=branch,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
+
+    def _tool_sublinear_list_comments(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        task_id = _require_string(args, "task_id")
+        with self._client_from_args(args) as client:
+            return client.sublinear_list_comments(project_id, task_id)
+
+    def _tool_sublinear_add_comment(self, args: JSONDict) -> Any:
+        project_id = _require_string(args, "project_id")
+        task_id = _require_string(args, "task_id")
+        body = _require_string(args, "body")
+        run_id = _optional_string(args, "run_id")
+        branch = _optional_string(args, "branch")
+        project_only = _optional_bool(args, "project_only", default=False)
+        idempotency_key = _optional_string(args, "idempotency_key")
+        with self._client_from_args(args) as client:
+            return _with_message_for_agents(
+                client.sublinear_add_comment(
+                    project_id,
+                    task_id,
+                    body=body,
+                    run_id=run_id,
+                    branch=branch,
+                    project_only=project_only,
+                    idempotency_key=idempotency_key,
+                )
+            )
 
     def _tool_pause_project(self, args: JSONDict) -> Any:
         project_id = _require_string(args, "project_id")

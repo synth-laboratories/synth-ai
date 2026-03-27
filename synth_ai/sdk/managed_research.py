@@ -18,6 +18,11 @@ import httpx
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk.container.auth import encrypt_for_backend
+from synth_ai.sdk.managed_research_events import SmrEventsClient
+from synth_ai.sdk.managed_research_git import SmrGitClient
+from synth_ai.sdk.managed_research_projects import SmrProjectsClient
+from synth_ai.sdk.managed_research_runtime import SmrRuntimeClient
+from synth_ai.sdk.managed_research_sublinear import SmrSublinearClient
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
 DEFAULT_TIMEOUT_SECONDS = 30.0
@@ -71,12 +76,17 @@ __all__ = [
     "SmrArtifact",
     "SmrCapabilities",
     "SmrControlClient",
+    "SmrEventsClient",
+    "SmrGitClient",
     "SmrProject",
+    "SmrProjectsClient",
     "SmrProjectStatusSnapshot",
     "SmrQuestion",
+    "SmrRuntimeClient",
     "SmrRun",
     "SmrRunEconomics",
     "SmrRunLogArchive",
+    "SmrSublinearClient",
     "first_id",
 ]
 
@@ -733,6 +743,11 @@ class SmrControlClient:
             headers=_auth_headers(resolved_api_key),
             timeout=self.timeout_seconds,
         )
+        self.projects = SmrProjectsClient(self)
+        self.runtime = SmrRuntimeClient(self)
+        self.events = SmrEventsClient(self)
+        self.git = SmrGitClient(self)
+        self.sublinear = SmrSublinearClient(self)
 
     def __enter__(self) -> SmrControlClient:
         return self
@@ -1184,6 +1199,52 @@ class SmrControlClient:
             json_body=payload,
         )
 
+    def sublinear_status(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/integrations/sublinear/status",
+            ),
+            label="sublinear_status",
+        )
+
+    def get_project_sublinear_status(self, project_id: str) -> dict[str, Any]:
+        return self.sublinear_status(project_id)
+
+    def sublinear_provision(
+        self,
+        project_id: str,
+        *,
+        team_id: str | None = None,
+        project_name: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if team_id and team_id.strip():
+            payload["team_id"] = team_id.strip()
+        if project_name and project_name.strip():
+            payload["project_name"] = project_name.strip()
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/integrations/sublinear/provision",
+                json_body=payload,
+            ),
+            label="sublinear_provision",
+        )
+
+    def provision_project_sublinear(
+        self,
+        project_id: str,
+        *,
+        team_id: str | None = None,
+        project_name: str | None = None,
+    ) -> dict[str, Any]:
+        return self.sublinear_provision(
+            project_id,
+            team_id=team_id,
+            project_name=project_name,
+        )
+
     def add_project_repo(
         self,
         project_id: str,
@@ -1199,6 +1260,530 @@ class SmrControlClient:
         """Remove a repo from project integrations.github.repos."""
         payload = {"repo": repo}
         return self._request_json("DELETE", f"/smr/projects/{project_id}/repos", json_body=payload)
+
+    def list_project_events(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        source: str | None = None,
+        object_type: str | None = None,
+        action: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if run_id and run_id.strip():
+            params["run_id"] = run_id.strip()
+        if source and source.strip():
+            params["source"] = source.strip()
+        if object_type and object_type.strip():
+            params["object_type"] = object_type.strip()
+        if action and action.strip():
+            params["action"] = action.strip()
+        data = self._request_json("GET", f"/smr/projects/{project_id}/events", params=params)
+        return _coerce_list(data, label="list_project_events")
+
+    def get_project_event(self, project_id: str, event_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/events/{event_id}"),
+            label="get_project_event",
+        )
+
+    def stream_project_events(
+        self,
+        project_id: str,
+        *,
+        since_seq: int = 0,
+        timeout: float | None = None,
+    ) -> Iterable[dict[str, Any]]:
+        request_timeout = timeout if timeout is not None else self.timeout
+        response = self._client.build_request(
+            "GET",
+            f"{self.backend_base}/smr/projects/{project_id}/events/stream",
+            params={"since_seq": int(since_seq)},
+        )
+        stream = self._client.send(response, stream=True, timeout=request_timeout)
+        try:
+            stream.raise_for_status()
+            for raw_line in stream.iter_lines():
+                line = str(raw_line or "").strip()
+                if not line or line.startswith(":") or not line.startswith("data:"):
+                    continue
+                payload = json.loads(line.removeprefix("data:").strip())
+                yield _coerce_dict(payload, label="stream_project_events")
+        finally:
+            stream.close()
+
+    def post_project_message(
+        self,
+        project_id: str,
+        *,
+        body: str,
+        summary: str | None = None,
+        payload: dict[str, Any] | None = None,
+        run_id: str | None = None,
+        branch: str | None = None,
+        task_id: str | None = None,
+        repo: str | None = None,
+        source: str | None = None,
+        actor_type: str | None = None,
+        actor_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        json_body: dict[str, Any] = {
+            "body": body,
+            "project_only": bool(project_only),
+        }
+        if summary is not None:
+            json_body["summary"] = summary
+        if payload is not None:
+            json_body["payload"] = payload
+        if run_id is not None:
+            json_body["run_id"] = run_id
+        if branch is not None:
+            json_body["branch"] = branch
+        if task_id is not None:
+            json_body["task_id"] = task_id
+        if repo is not None:
+            json_body["repo"] = repo
+        if source is not None:
+            json_body["source"] = source
+        if actor_type is not None:
+            json_body["actor_type"] = actor_type
+        if actor_id is not None:
+            json_body["actor_id"] = actor_id
+        if idempotency_key is not None:
+            json_body["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json("POST", f"/smr/projects/{project_id}/messages", json_body=json_body),
+            label="post_project_message",
+        )
+
+    def git_get_status(
+        self,
+        project_id: str,
+        *,
+        branch: str | None = None,
+        max_commits: int = 20,
+        max_tree_entries: int = 200,
+        max_unmerged_branches: int = 20,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {
+            "max_commits": int(max_commits),
+            "max_tree_entries": int(max_tree_entries),
+            "max_unmerged_branches": int(max_unmerged_branches),
+        }
+        if branch and branch.strip():
+            params["branch"] = branch.strip()
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/git/status", params=params),
+            label="git_get_status",
+        )
+
+    def git_list_tree(
+        self,
+        project_id: str,
+        *,
+        ref: str | None = None,
+        path_prefix: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {}
+        if ref and ref.strip():
+            params["ref"] = ref.strip()
+        if path_prefix and path_prefix.strip():
+            params["path_prefix"] = path_prefix.strip()
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/git/tree", params=params),
+            label="git_list_tree",
+        )
+
+    def git_read_file(
+        self,
+        project_id: str,
+        *,
+        path: str,
+        ref: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"path": path}
+        if ref and ref.strip():
+            params["ref"] = ref.strip()
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/git/file", params=params),
+            label="git_read_file",
+        )
+
+    def git_get_diff(
+        self,
+        project_id: str,
+        *,
+        base_ref: str,
+        head_ref: str,
+        path: str | None = None,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"base_ref": base_ref, "head_ref": head_ref}
+        if path and path.strip():
+            params["path"] = path.strip()
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/git/diff", params=params),
+            label="git_get_diff",
+        )
+
+    def git_create_branch(
+        self,
+        project_id: str,
+        *,
+        branch: str,
+        base_branch: str | None = None,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "branch": branch,
+            "project_only": bool(project_only),
+        }
+        if base_branch is not None:
+            payload["base_branch"] = base_branch
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/git/branches", json_body=payload
+            ),
+            label="git_create_branch",
+        )
+
+    def git_write_files(
+        self,
+        project_id: str,
+        *,
+        branch: str,
+        commit_message: str,
+        files: list[dict[str, Any]],
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "branch": branch,
+            "commit_message": commit_message,
+            "files": files,
+            "project_only": bool(project_only),
+        }
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/git/files:write", json_body=payload
+            ),
+            label="git_write_files",
+        )
+
+    def git_upload_files(
+        self,
+        project_id: str,
+        *,
+        branch: str,
+        commit_message: str,
+        paths: list[str | Path] | None = None,
+        files: list[dict[str, Any]] | None = None,
+        root_dir: str | Path | None = None,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload_files: list[dict[str, Any]]
+        if files is not None:
+            payload_files = files
+        else:
+            if not paths:
+                raise ValueError("git_upload_files requires either 'files' or 'paths'")
+            root_path = Path(root_dir).resolve() if root_dir is not None else None
+            payload_files = []
+            for raw_path in paths:
+                path = Path(raw_path).expanduser().resolve()
+                rel_path: str
+                if root_path is not None:
+                    rel_path = path.relative_to(root_path).as_posix()
+                else:
+                    rel_path = path.name
+                payload_files.append(
+                    {
+                        "path": rel_path,
+                        "content_base64": base64.b64encode(path.read_bytes()).decode("ascii"),
+                    }
+                )
+        payload: dict[str, Any] = {
+            "branch": branch,
+            "commit_message": commit_message,
+            "files": payload_files,
+            "project_only": bool(project_only),
+        }
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/git/files:upload", json_body=payload
+            ),
+            label="git_upload_files",
+        )
+
+    def git_create_commit(
+        self,
+        project_id: str,
+        *,
+        branch: str,
+        commit_message: str,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "branch": branch,
+            "commit_message": commit_message,
+            "project_only": bool(project_only),
+        }
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/git/commits", json_body=payload
+            ),
+            label="git_create_commit",
+        )
+
+    def git_push(
+        self,
+        project_id: str,
+        *,
+        branch: str,
+        repo: str | None = None,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "branch": branch,
+            "project_only": bool(project_only),
+        }
+        if repo is not None:
+            payload["repo"] = repo
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json("POST", f"/smr/projects/{project_id}/git/push", json_body=payload),
+            label="git_push",
+        )
+
+    def git_list_pull_requests(
+        self,
+        project_id: str,
+        *,
+        repo: str | None = None,
+        state: str = "open",
+        limit: int = 30,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"state": state, "limit": int(limit)}
+        if repo is not None:
+            params["repo"] = repo
+        return _coerce_dict(
+            self._request_json(
+                "GET", f"/smr/projects/{project_id}/git/pull-requests", params=params
+            ),
+            label="git_list_pull_requests",
+        )
+
+    def git_open_pull_request(
+        self,
+        project_id: str,
+        *,
+        title: str,
+        head: str,
+        base: str | None = None,
+        body: str | None = None,
+        draft: bool = False,
+        repo: str | None = None,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": title,
+            "head": head,
+            "draft": bool(draft),
+            "project_only": bool(project_only),
+        }
+        if base is not None:
+            payload["base"] = base
+        if body is not None:
+            payload["body"] = body
+        if repo is not None:
+            payload["repo"] = repo
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/git/pull-requests", json_body=payload
+            ),
+            label="git_open_pull_request",
+        )
+
+    def git_comment_on_pull_request(
+        self,
+        project_id: str,
+        pr_id: int,
+        *,
+        body: str,
+        repo: str | None = None,
+        run_id: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "body": body,
+            "project_only": bool(project_only),
+        }
+        if repo is not None:
+            payload["repo"] = repo
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/git/pull-requests/{int(pr_id)}/comments",
+                json_body=payload,
+            ),
+            label="git_comment_on_pull_request",
+        )
+
+    def sublinear_list_tasks(self, project_id: str, *, limit: int = 50) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET", f"/smr/projects/{project_id}/sublinear/tasks", params={"limit": int(limit)}
+            ),
+            label="sublinear_list_tasks",
+        )
+
+    def sublinear_get_task(self, project_id: str, task_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/sublinear/tasks/{task_id}"),
+            label="sublinear_get_task",
+        )
+
+    def sublinear_create_task(
+        self,
+        project_id: str,
+        *,
+        title: str,
+        description: str | None = None,
+        run_id: str | None = None,
+        branch: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": title,
+            "project_only": bool(project_only),
+        }
+        if description is not None:
+            payload["description"] = description
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if branch is not None:
+            payload["branch"] = branch
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST", f"/smr/projects/{project_id}/sublinear/tasks", json_body=payload
+            ),
+            label="sublinear_create_task",
+        )
+
+    def sublinear_update_task(
+        self,
+        project_id: str,
+        task_id: str,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        state_id: str | None = None,
+        run_id: str | None = None,
+        branch: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"project_only": bool(project_only)}
+        if title is not None:
+            payload["title"] = title
+        if description is not None:
+            payload["description"] = description
+        if state_id is not None:
+            payload["state_id"] = state_id
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if branch is not None:
+            payload["branch"] = branch
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/projects/{project_id}/sublinear/tasks/{task_id}",
+                json_body=payload,
+            ),
+            label="sublinear_update_task",
+        )
+
+    def sublinear_list_comments(self, project_id: str, task_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET", f"/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments"
+            ),
+            label="sublinear_list_comments",
+        )
+
+    def sublinear_add_comment(
+        self,
+        project_id: str,
+        task_id: str,
+        *,
+        body: str,
+        run_id: str | None = None,
+        branch: str | None = None,
+        project_only: bool = False,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"body": body, "project_only": bool(project_only)}
+        if run_id is not None:
+            payload["run_id"] = run_id
+        if branch is not None:
+            payload["branch"] = branch
+        if idempotency_key is not None:
+            payload["idempotency_key"] = idempotency_key
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/sublinear/tasks/{task_id}/comments",
+                json_body=payload,
+            ),
+            label="sublinear_add_comment",
+        )
 
     def get_project_status(self, project_id: str) -> dict[str, Any]:
         return self._request_json("GET", f"/smr/projects/{project_id}/status")
@@ -2049,6 +2634,85 @@ class SmrControlClient:
             json_body=json_body,
         )
         return _coerce_dict(data, label="enqueue_runtime_message")
+
+    def list_runtime_context(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        channel: str | None = None,
+        viewer_role: str | None = None,
+        viewer_target: list[str] | None = None,
+        viewer_joined_at: str | None = None,
+        after_seq: int | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        """List shared runtime context visible to a given viewer for a run."""
+        if project_id:
+            self.get_run(run_id, project_id=project_id)
+        params: dict[str, Any] = {"limit": int(limit)}
+        if channel is not None and channel.strip():
+            params["channel"] = channel.strip()
+        if viewer_role is not None and viewer_role.strip():
+            params["viewer_role"] = viewer_role.strip()
+        if viewer_target:
+            params["viewer_target"] = [
+                str(item).strip() for item in viewer_target if str(item).strip()
+            ]
+        if viewer_joined_at is not None and str(viewer_joined_at).strip():
+            params["viewer_joined_at"] = str(viewer_joined_at).strip()
+        if after_seq is not None:
+            params["after_seq"] = int(after_seq)
+        data = self._request_json(
+            "GET",
+            f"/smr/runs/{run_id}/runtime/context",
+            params=params,
+        )
+        return _coerce_list(data, label="list_runtime_context")
+
+    def publish_runtime_context(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        channel: str,
+        causation_id: str | None = None,
+        sender: str | None = None,
+        body: str | None = None,
+        payload: dict[str, Any] | None = None,
+        audience_roles: list[str] | None = None,
+        audience_targets: list[str] | None = None,
+        replayable: bool = True,
+    ) -> dict[str, Any]:
+        """Publish durable shared runtime context visible to active agents on a run."""
+        if project_id:
+            self.get_run(run_id, project_id=project_id)
+        json_body: dict[str, Any] = {
+            "channel": str(channel).strip(),
+            "replayable": bool(replayable),
+        }
+        if causation_id is not None:
+            json_body["causation_id"] = causation_id
+        if sender is not None:
+            json_body["sender"] = sender
+        if body is not None:
+            json_body["body"] = body
+        if payload is not None:
+            json_body["payload"] = payload
+        if audience_roles is not None:
+            json_body["audience_roles"] = [
+                str(item).strip() for item in audience_roles if str(item).strip()
+            ]
+        if audience_targets is not None:
+            json_body["audience_targets"] = [
+                str(item).strip() for item in audience_targets if str(item).strip()
+            ]
+        data = self._request_json(
+            "POST",
+            f"/smr/runs/{run_id}/runtime/context",
+            json_body=json_body,
+        )
+        return _coerce_dict(data, label="publish_runtime_context")
 
     def pause_run(self, run_id: str) -> dict[str, Any]:
         return self._request_json("POST", f"/smr/runs/{run_id}/pause")
