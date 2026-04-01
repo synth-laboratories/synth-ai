@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Literal
@@ -26,6 +27,9 @@ from synth_ai.sdk.managed_research_sublinear import SmrSublinearClient
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
 DEFAULT_TIMEOUT_SECONDS = 30.0
+_RETRYABLE_POLL_STATUS_CODES = {429, 502, 503, 504}
+_DEFAULT_POLL_RETRY_ATTEMPTS = 6
+_DEFAULT_POLL_RETRY_DELAY_SECONDS = 1.0
 _FUNDING_SOURCE_ALIASES = {
     "synth": "synth_managed",
     "synth_managed": "synth_managed",
@@ -116,6 +120,27 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 def _auth_headers(api_key: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+
+def _response_retry_after_seconds(response: httpx.Response) -> float:
+    header_value = (response.headers.get("retry-after") or "").strip()
+    if header_value:
+        try:
+            return max(float(header_value), 0.0)
+        except ValueError:
+            pass
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if isinstance(payload, dict):
+        raw_retry_after = payload.get("retry_after")
+        if raw_retry_after is not None:
+            try:
+                return max(float(raw_retry_after), 0.0)
+            except (TypeError, ValueError):
+                pass
+    return _DEFAULT_POLL_RETRY_DELAY_SECONDS
 
 
 def _normalize_provider_funding_source(funding_source: str) -> str:
@@ -767,18 +792,41 @@ class SmrControlClient:
         json_body: dict[str, Any] | None = None,
         allow_not_found: bool = False,
     ) -> Any:
-        response = self._client.request(method.upper(), path, params=params, json=json_body)
-        if allow_not_found and response.status_code == 404:
-            return None
-        if response.status_code >= 400:
-            snippet = response.text[:500] if response.text else ""
-            raise SmrApiError(f"{method.upper()} {path} failed ({response.status_code}): {snippet}")
-        if not response.content:
-            return {}
-        try:
-            return response.json()
-        except ValueError:
-            return {"raw": response.text}
+        normalized_method = method.upper()
+        max_attempts = (
+            _DEFAULT_POLL_RETRY_ATTEMPTS
+            if normalized_method == "GET"
+            else 1
+        )
+
+        for attempt in range(1, max_attempts + 1):
+            response = self._client.request(
+                normalized_method,
+                path,
+                params=params,
+                json=json_body,
+            )
+            if allow_not_found and response.status_code == 404:
+                return None
+            if (
+                normalized_method == "GET"
+                and response.status_code in _RETRYABLE_POLL_STATUS_CODES
+                and attempt < max_attempts
+            ):
+                time.sleep(_response_retry_after_seconds(response))
+                continue
+            if response.status_code >= 400:
+                snippet = response.text[:500] if response.text else ""
+                raise SmrApiError(
+                    f"{normalized_method} {path} failed ({response.status_code}): {snippet}"
+                )
+            if not response.content:
+                return {}
+            try:
+                return response.json()
+            except ValueError:
+                return {"raw": response.text}
+        raise SmrApiError(f"{normalized_method} {path} failed after retries")
 
     # Project lifecycle -------------------------------------------------
 
@@ -2185,6 +2233,7 @@ class SmrControlClient:
         self,
         project_id: str,
         *,
+        host_kind: str | None = None,
         work_mode: Literal["open_ended_discovery", "directed_effort"],
         prompt: str | None = None,
         timebox_seconds: int | None = None,
@@ -2192,6 +2241,7 @@ class SmrControlClient:
         agent_kind: str | None = None,
         workflow: dict[str, Any] | None = None,
         idempotency_key_run_create: str | None = None,
+        sandbox_override: dict[str, str | None] | None = None,
     ) -> dict[str, Any]:
         """Trigger a run with an explicit work mode.
 
@@ -2208,8 +2258,14 @@ class SmrControlClient:
             workflow: Optional workflow payload for specialized run rails (for
                 example ``{"kind": "data_factory_v1", ...}``). When omitted,
                 run behavior is unchanged.
+            sandbox_override: Per-run sandbox image/snapshot override for Docker
+                and Daytona hosts. ``{"image": "..."}`` overrides the container
+                image; ``{"snapshot": "..."}`` overrides the Daytona snapshot.
+                ``image`` takes precedence over ``snapshot``.
         """
         payload: dict[str, Any] = {}
+        if host_kind and host_kind.strip():
+            payload["host_kind"] = host_kind.strip().lower()
         if timebox_seconds is not None:
             payload["timebox_seconds"] = int(timebox_seconds)
         if agent_model and agent_model.strip():
@@ -2222,6 +2278,13 @@ class SmrControlClient:
         payload["work_mode"] = normalized_work_mode
         if workflow is not None:
             payload["workflow"] = workflow
+        if sandbox_override and isinstance(sandbox_override, dict):
+            sanitized = {
+                k: v for k, v in sandbox_override.items()
+                if k in ("image", "snapshot") and v and str(v).strip()
+            }
+            if sanitized:
+                payload["sandbox_override"] = sanitized
         if idempotency_key_run_create and idempotency_key_run_create.strip():
             payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
         return self._request_json("POST", f"/smr/projects/{project_id}/trigger", json_body=payload)
