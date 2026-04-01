@@ -10,6 +10,11 @@ except Exception as exc:  # pragma: no cover - rust bindings required
     raise RuntimeError("synth_ai_py is required for URL utilities.") from exc
 
 
+LOCAL_HTTP_HOSTS = frozenset(
+    {"localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal", "::1"}
+)
+
+
 def _env_or_default(key: str, default: str) -> str:
     value = os.getenv(key)
     return value if value and value.strip() else default
@@ -211,6 +216,20 @@ def _join_url_default(base_url: str, path: str) -> str:
     return f"{base}/{path}"
 
 
+def is_local_hostname(host: str | None) -> bool:
+    return str(host or "").strip().lower() in LOCAL_HTTP_HOSTS
+
+
+def is_local_backend_base_url(url: str | None) -> bool:
+    if not url:
+        return False
+    try:
+        parsed = urlparse(str(url).strip())
+    except Exception:
+        return False
+    return is_local_hostname(parsed.hostname)
+
+
 BACKEND_URL_BASE = _maybe_call(
     "backend_url_base",
     _resolve_backend_url(),
@@ -401,8 +420,7 @@ def is_local_http_container_url(url: str) -> bool:
         return False
     if parsed.scheme.lower() != "http":
         return False
-    host = (parsed.hostname or "").lower()
-    return host in {"localhost", "127.0.0.1", "::1"}
+    return is_local_hostname(parsed.hostname)
 
 
 def is_synth_managed_ngrok_url(url: str) -> bool:

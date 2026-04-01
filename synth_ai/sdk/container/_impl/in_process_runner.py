@@ -38,7 +38,7 @@ from urllib.parse import urlparse
 
 from synth_ai.core.tunnels import TunnelProvider
 from synth_ai.core.utils.dict import deep_update as _deep_update
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_local_hostname
 from synth_ai.sdk.container._impl.in_process import InProcessContainer
 from synth_ai.sdk.optimization.internal.container_api import ContainerHealth, check_container_health
 from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
@@ -108,7 +108,7 @@ def _is_local_backend_api_base(url: str) -> bool:
         host = (urlparse(url).hostname or "").strip().lower()
     except Exception:
         return False
-    return host in {"localhost", "127.0.0.1", "host.docker.internal"}
+    return is_local_hostname(host)
 
 
 def _require_env(key: str, *, friendly_name: str | None = None) -> str:

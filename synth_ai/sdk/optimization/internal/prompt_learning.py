@@ -17,6 +17,7 @@ from synth_ai.core.utils.urls import (
     BACKEND_URL_BASE,
     RUST_BACKEND_URL_BASE,
     infer_prompt_learning_container_url,
+    is_local_hostname,
     is_cloudflare_tunnel_url,
     is_free_ngrok_url,
     is_local_http_container_url,
@@ -56,9 +57,6 @@ def _require_rust() -> Any:
     if synth_ai_py is None or not hasattr(synth_ai_py, "PromptLearningJob"):
         raise RuntimeError("Rust core PromptLearningJob required; synth_ai_py is unavailable.")
     return synth_ai_py
-
-
-_LOCAL_BACKEND_HOSTS = {"localhost", "127.0.0.1", "host.docker.internal"}
 
 
 def _strip_api_suffix(base: str) -> str:
@@ -133,7 +131,7 @@ def _resolve_rust_backend_api_base(python_backend_api_base: str) -> str:
         parsed = urlparse((python_backend_api_base or "").strip())
         host = (parsed.hostname or "").strip().lower()
         port = parsed.port
-        if host in _LOCAL_BACKEND_HOSTS and isinstance(port, int) and 8000 <= port <= 8009:
+        if is_local_hostname(host) and isinstance(port, int) and 8000 <= port <= 8009:
             rust_port = port + 80  # 8000->8080, 8001->8081, ...
             new = parsed._replace(netloc=f"{host}:{rust_port}")
             return _strip_api_suffix(urlunparse(new))

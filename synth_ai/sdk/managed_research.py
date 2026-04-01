@@ -793,11 +793,7 @@ class SmrControlClient:
         allow_not_found: bool = False,
     ) -> Any:
         normalized_method = method.upper()
-        max_attempts = (
-            _DEFAULT_POLL_RETRY_ATTEMPTS
-            if normalized_method == "GET"
-            else 1
-        )
+        max_attempts = _DEFAULT_POLL_RETRY_ATTEMPTS if normalized_method == "GET" else 1
 
         for attempt in range(1, max_attempts + 1):
             response = self._client.request(
@@ -2280,7 +2276,8 @@ class SmrControlClient:
             payload["workflow"] = workflow
         if sandbox_override and isinstance(sandbox_override, dict):
             sanitized = {
-                k: v for k, v in sandbox_override.items()
+                k: v
+                for k, v in sandbox_override.items()
                 if k in ("image", "snapshot") and v and str(v).strip()
             }
             if sanitized:

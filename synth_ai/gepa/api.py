@@ -22,7 +22,10 @@ except ImportError:
     from synth_ai.core.config.expansion import (
         gepa_candidate_to_initial_candidate as gepa_candidate_to_initial_prompt,
     )
-from synth_ai.core.utils.urls import resolve_synth_backend_url
+from synth_ai.core.utils.urls import (
+    is_local_backend_base_url,
+    resolve_synth_backend_url,
+)
 from synth_ai.sdk.container import InProcessContainer
 from synth_ai.sdk.container._impl.rollout_helpers import build_rollout_response
 from synth_ai.sdk.container._impl.server import ContainerConfig, create_container
@@ -658,10 +661,7 @@ def optimize(
             tunnel_mode = env_tunnel_mode
         else:
             backend_hint = str(backend_url or "").strip().lower()
-            is_local_backend = any(
-                token in backend_hint
-                for token in ("localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal")
-            )
+            is_local_backend = is_local_backend_base_url(backend_hint)
             tunnel_mode = "local" if is_local_backend else "synthtunnel"
 
         # When using local tunnel mode, the backend may not have the ENVIRONMENT_API_KEY

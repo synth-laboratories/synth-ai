@@ -166,6 +166,7 @@ reportMissingImports = true
 reportMissingTypeStubs = false
 
 [tool.ruff]
+# Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
 line-length = 100
 target-version = "py311"
 src = ["synth_ai"]
@@ -202,10 +203,11 @@ ignore = [
 "**/__init__.py" = ["N999"]
 "**/__main__.py" = ["N999"]
 
-[tool.ty]
-# Suppress conservative warnings about possibly-missing-attribute
-# These are false positives for dict.get() calls and dynamic attributes
-rules = { "possibly-missing-attribute" = "ignore" }
+[tool.ty.src]
+include = ["synth_ai"]
+
+[tool.ty.rules]
+possibly-missing-attribute = "ignore"
 
 [dependency-groups]
 dev = [
@@ -215,6 +217,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
+    "ty>=0.0.1a5",
     "pyright>=1.1.350",
     "responses>=0.25.7",
     "httpx>=0.28.1",

@@ -35,3 +35,16 @@ claude mcp add --transport http managed-research https://api.usesynth.ai/mcp
 ## Documentation
 
 [docs.usesynth.ai/managed-research](https://docs.usesynth.ai/managed-research/quickstart)
+
+## Local development
+
+```bash
+uv sync --group dev
+uv run ruff check .
+# ty: use the same command as `.github/workflows/ci.yml` → job `type-check` (Lefthook runs it on staged files).
+uv run ty check
+```
+
+Use **`uv run`** for Python tools (not bare **`python`** / **`python3`**). **Ruff** lints `synth_ai/`; **ty** type-checks `synth_ai/` (`[tool.ty.src]` in `pyproject.toml`). A plain `ty check` may be stricter than CI; match CI when debugging PR failures.
+
+Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run **`lefthook install`** to run **`uv run ruff check`** and **`uv run ty check`** on staged `.py` files (see `lefthook.yml`).

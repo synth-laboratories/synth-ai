@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
 
-from synth_ai.core.utils.urls import is_cloudflare_tunnel_url
+from synth_ai.core.utils.urls import is_cloudflare_tunnel_url, is_local_hostname
 from synth_ai.sdk.container.auth import has_container_token_signing_key
 from synth_ai.sdk.optimization.internal.prompt_learning import PromptLearningJob
 
@@ -48,7 +48,9 @@ def _is_non_local_url(url: str) -> bool:
     except Exception:
         return True
     host = (parsed.hostname or "").lower()
-    return not (host in {"localhost", "127.0.0.1"} and (parsed.scheme or "http").lower() == "http")
+    return not (
+        is_local_hostname(host) and (parsed.scheme or "http").lower() == "http"
+    )
 
 
 @dataclass
