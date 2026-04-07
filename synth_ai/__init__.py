@@ -1,7 +1,4 @@
-"""Synth AI canonical SDK surface.
-
-# See: specs/sdk_logic.md
-"""
+"""Python-only Synth SDK surface."""
 
 from __future__ import annotations
 
@@ -11,7 +8,6 @@ from importlib.metadata import PackageNotFoundError
 from pathlib import Path
 from typing import Any
 
-# Install log filter as early as possible to suppress noisy codex_otel logs
 try:
     from synth_ai.core.utils.log_filter import install_log_filter
 
@@ -19,7 +15,6 @@ try:
 except Exception:
     pass
 
-# Version resolution
 try:
     __version__ = _metadata.version("synth-ai")
 except PackageNotFoundError:
@@ -38,78 +33,29 @@ except PackageNotFoundError:
 
 
 __all__ = [
-    "AsyncContainersClient",
     "AsyncContainerPoolsClient",
-    "AsyncNgrokTunnel",
-    "AsyncSynthTunnel",
+    "AsyncContainersClient",
     "AsyncSynthClient",
     "AsyncTunnelsClient",
-    "Client",
-    "ContainerClient",
     "ContainerPoolsClient",
     "ContainersClient",
-    "GraphsClient",
-    "InProcessContainer",
-    "JobsClient",
-    "OfflineJob",
-    "PoolTarget",
-    "NgrokTunnel",
-    "OnlineSession",
-    "SynthTunnel",
     "SynthClient",
-    "System",
     "TunnelsClient",
-    "VerifiersClient",
-    "container",
-    "graphs",
-    "inference",
-    "optimization",
-    "pools",
-    "recipes",
-    "tunnels",
-    "verifiers",
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
-    "ContainersClient": ("synth_ai.container", "ContainersClient"),
-    "AsyncContainersClient": ("synth_ai.container", "AsyncContainersClient"),
-    "ContainerPoolsClient": ("synth_ai.pools", "ContainerPoolsClient"),
-    "AsyncContainerPoolsClient": ("synth_ai.pools", "AsyncContainerPoolsClient"),
-    "TunnelsClient": ("synth_ai.tunnels", "TunnelsClient"),
-    "AsyncTunnelsClient": ("synth_ai.tunnels", "AsyncTunnelsClient"),
-    "SynthTunnel": ("synth_ai.tunnels", "SynthTunnel"),
-    "AsyncSynthTunnel": ("synth_ai.tunnels", "AsyncSynthTunnel"),
-    "NgrokTunnel": ("synth_ai.tunnels", "NgrokTunnel"),
-    "AsyncNgrokTunnel": ("synth_ai.tunnels", "AsyncNgrokTunnel"),
-    "PoolTarget": ("synth_ai.pools", "PoolTarget"),
-    "System": ("synth_ai.optimization", "System"),
-    "OfflineJob": ("synth_ai.optimization", "OfflineJob"),
-    "OnlineSession": ("synth_ai.optimization", "OnlineSession"),
-    "Client": ("synth_ai.inference", "Client"),
-    "JobsClient": ("synth_ai.inference", "JobsClient"),
-    "GraphsClient": ("synth_ai.graphs", "GraphsClient"),
-    "VerifiersClient": ("synth_ai.verifiers", "VerifiersClient"),
-    "InProcessContainer": ("synth_ai.container", "InProcessContainer"),
-    "ContainerClient": ("synth_ai.container", "ContainerClient"),
-}
-
-_NAMESPACE_MODULES = {
-    "optimization",
-    "inference",
-    "graphs",
-    "verifiers",
-    "pools",
-    "container",
-    "tunnels",
-    "recipes",
+    "ContainersClient": ("synth_ai.sdk.containers", "ContainersClient"),
+    "AsyncContainersClient": ("synth_ai.sdk.containers", "AsyncContainersClient"),
+    "ContainerPoolsClient": ("synth_ai.sdk.pools", "ContainerPoolsClient"),
+    "AsyncContainerPoolsClient": ("synth_ai.sdk.pools", "AsyncContainerPoolsClient"),
+    "TunnelsClient": ("synth_ai.sdk.tunnels", "TunnelsClient"),
+    "AsyncTunnelsClient": ("synth_ai.sdk.tunnels", "AsyncTunnelsClient"),
 }
 
 
 def __getattr__(name: str) -> Any:
-    if name in _NAMESPACE_MODULES:
-        return importlib.import_module(f"{__name__}.{name}")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

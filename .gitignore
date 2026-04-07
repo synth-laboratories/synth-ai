@@ -10,8 +10,8 @@
 **/*.pyc
 private_tests/
 
-# Nested clone of synth-laboratories/testing (e.g. CI layout); suite lives at testing/synth_ai_sdk/sdk
-testing/
+# Nested clone of synth-laboratories/testing (e.g. CI layout); ignore that vendored checkout
+testing/synth_ai_sdk/
 
 dev/
 build/
