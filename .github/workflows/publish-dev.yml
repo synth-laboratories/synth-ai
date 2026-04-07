@@ -20,17 +20,25 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Ensure jq (PyPI JSON)
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y jq
+          fi
+
       - name: Get local version
         id: local
         run: |
-          VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          VERSION=$(grep '^version = ' pyproject.toml | head -1 | sed -E 's/^version = "(.*)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Local version: $VERSION"
 
       - name: Get PyPI version
         id: pypi
         run: |
-          PYPI_VERSION=$(curl -s https://pypi.org/pypi/synth-ai/json | python -c "import sys, json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "0.0.0")
+          PYPI_VERSION=$(curl -fsSL https://pypi.org/pypi/synth-ai/json | jq -r '.info.version // empty')
+          if [ -z "$PYPI_VERSION" ]; then PYPI_VERSION="0.0.0"; fi
           echo "version=$PYPI_VERSION" >> $GITHUB_OUTPUT
           echo "PyPI version: $PYPI_VERSION"
 
@@ -47,76 +55,32 @@ jobs:
             echo "Versions match: $LOCAL - skipping publish"
           fi
 
-  build-linux:
-    needs: check-version
-    if: needs.check-version.outputs.needs_publish == 'true'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            artifact_name: wheels-linux-x86_64
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - target: aarch64-unknown-linux-gnu
-            artifact_name: wheels-linux-aarch64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          manylinux: auto
-          command: build
-          args: --release -i python3.11 -o dist --compatibility manylinux2014
-      - name: Verify Linux abi3 wheel
-        run: |
-          ls -1 dist
-          ls dist/*.whl | grep -E 'abi3.*manylinux|manylinux.*abi3'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/*.whl
-
-  build-macos:
-    needs: check-version
-    if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: --release -o dist
-      - name: Verify macOS abi3 wheel
-        run: |
-          ls -1 dist
-          ls dist/*.whl | grep -E 'abi3.*macosx|macosx.*abi3'
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-macos
-          path: dist/*.whl
-
-  build-sdist:
+  build-distributions:
     needs: check-version
     if: needs.check-version.outputs.needs_publish == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
-      - uses: PyO3/maturin-action@v1
+      - uses: actions/setup-python@v5
         with:
-          command: sdist
-          args: -o dist
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Build wheel and sdist
+        run: |
+          uv sync --group dev
+          uv run python -m build
+      - name: Verify distributions
+        run: |
+          ls -1 dist
+          ls dist/*.whl
+          ls dist/*.tar.gz
       - uses: actions/upload-artifact@v4
         with:
-          name: sdist
-          path: dist/*.tar.gz
+          name: python-distributions
+          path: dist/*
 
   publish:
-    needs: [check-version, build-linux, build-macos, build-sdist]
+    needs: [check-version, build-distributions]
     if: needs.check-version.outputs.needs_publish == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import builtins
 import os
 import time
 from enum import Enum
@@ -13,6 +15,7 @@ from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 __all__ = [
+    "AsyncContainersClient",
     "ContainerType",
     "ContainerSpec",
     "Container",
@@ -104,7 +107,7 @@ class ContainersClient:
     ) -> None:
         self._api_key = _resolve_api_key(api_key)
         self._base_url = _resolve_base_url(backend_base).rstrip("/")
-        self._prefix = f"{self._base_url}/api/v1/containers"
+        self._prefix = f"{self._base_url}/v1/containers"
 
     def _headers(self) -> dict[str, str]:
         return _headers(self._api_key)
@@ -149,7 +152,7 @@ class ContainersClient:
         self,
         *,
         timeout: float = 30.0,
-    ) -> list[Container]:
+    ) -> builtins.list[Container]:
         """List all containers for the org."""
         import httpx
 
@@ -195,3 +198,20 @@ class ContainersClient:
                 return app
             time.sleep(poll_interval)
         raise TimeoutError(f"Container {container_id} did not reach ready state within {timeout}s")
+
+
+class AsyncContainersClient:
+    """Async adapter over ``ContainersClient``."""
+
+    def __init__(self, sync_client: ContainersClient) -> None:
+        self._sync_client = sync_client
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._sync_client, name)
+        if callable(attr):
+
+            async def _wrapped(*args: Any, **kwargs: Any) -> Any:
+                return await asyncio.to_thread(attr, *args, **kwargs)
+
+            return _wrapped
+        return attr

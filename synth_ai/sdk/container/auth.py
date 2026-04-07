@@ -1,4 +1,4 @@
-"""Container auth helpers for token-signing workflows."""
+"""Container auth helpers used by live container and eval workflows."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any
 
 try:
     import synth_ai_py
-except Exception:  # pragma: no cover - optional in minimal runtime images
+except Exception:  # pragma: no cover - optional in the pure-Python runtime
     synth_ai_py = None  # type: ignore[assignment]
 
 __all__ = [
@@ -114,9 +114,9 @@ def _fetch_backend_env_key(backend_base: str, synth_api_key: str) -> str | None:
             return None
         if int(getattr(response, "status_code", 0)) >= 400:
             continue
-        with_response = _select_environment_key_from_payload(response.json())
-        if with_response:
-            return with_response
+        fetched = _select_environment_key_from_payload(response.json())
+        if fetched:
+            return fetched
     return None
 
 
@@ -162,7 +162,7 @@ def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
     if callable(fn):
         return fn(pubkey_b64, secret)
     try:
-        from nacl.public import PublicKey, SealedBox  # type: ignore[import-not-found]
+        from nacl.public import PublicKey, SealedBox
     except Exception as exc:  # pragma: no cover - optional dependency
         raise RuntimeError(
             "encrypt_for_backend requires synth_ai_py or PyNaCl (pip install pynacl)"

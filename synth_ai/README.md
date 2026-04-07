@@ -1,113 +1,101 @@
 # Synth AI Python Package
 
-Root package for Synth AI SDK, CLI, and supporting infrastructure.
+Python-only SDK surface for Synth containers, tunnels, and container pools.
 
 ## Quick Start
 
 ```python
-# SDK classes are available directly from synth_ai
 from synth_ai import (
     SynthClient,
-    InProcessContainer,
+    ContainersClient,
+    ContainerPoolsClient,
+    TunnelsClient,
 )
-
-# Data types are available from synth_ai.data
-from synth_ai.data import SessionTrace, Rubric, Criterion
 ```
 
 ## Package Structure
 
 ```
 synth_ai/
-├── data/           # Pure data types (traces, rewards, rubrics, enums)
-├── core/           # Internal infrastructure (auth, config, streaming, tunnels)
-├── sdk/            # User-facing SDK (jobs, clients, optimization)
-├── cli/            # Command-line interface
-├── __init__.py     # Package version and top-level exports
-└── __main__.py     # Entry point for `python -m synth_ai`
+├── containers.py   # Public containers client surface
+├── tunnels.py      # Public tunnels client surface
+├── pools.py        # Public container-pools and rollout surface
+├── client.py       # Thin SynthClient composition layer
+├── sdk/            # Minimal HTTP clients and pool/container contracts
+├── core/           # Shared runtime helpers and errors
+├── cli/            # CLI for containers, tunnels, and pools
+└── __init__.py     # Package version and top-level exports
 ```
 
 ## Module Hierarchy
 
-The modules follow a strict dependency hierarchy:
+The live package follows a narrow dependency hierarchy:
 
 ```
 ┌─────────┐
-│  data/  │  ← Pure data types, no internal dependencies
+│  core/  │  ← Shared runtime helpers and errors
 └────┬────┘
      │
 ┌────▼────┐
-│  core/  │  ← Internal infrastructure, imports from data/
+│  sdk/   │  ← HTTP clients and contracts for containers/pools
 └────┬────┘
      │
 ┌────▼────┐
-│  sdk/   │  ← User-facing SDK, imports from data/ and core/
+│ public  │  ← containers.py, tunnels.py, pools.py, client.py
 └────┬────┘
      │
 ┌────▼────┐
-│  cli/   │  ← CLI layer, imports from data/, core/, and sdk/
+│  cli/   │  ← Thin terminal wrapper around the live clients
 └─────────┘
 ```
 
 ### Dependency Rules
 
-| Module | Can Import From | Cannot Import From |
-|--------|-----------------|-------------------|
-| `data/` | standard library only | `core/`, `sdk/`, `cli/` |
-| `core/` | `data/` | `sdk/`, `cli/` |
-| `sdk/` | `data/`, `core/` | `cli/` |
-| `cli/` | `data/`, `core/`, `sdk/` | — |
+| Module | Purpose |
+|--------|---------|
+| `core/` | Shared runtime helpers used by the live SDK |
+| `sdk/` | Low-level container and pool clients/contracts |
+| `containers.py`, `tunnels.py`, `pools.py` | Stable public entry points |
+| `cli/` | Terminal commands for the same three domains |
 
 ## Module Purposes
-
-### `data/` - Data Layer
-Pure data types and structures. The canonical source for all user-facing data format classes.
-
-- Traces, events, LLM call records
-- Rubrics and judgements
-- Rewards and objectives
-- Domain enums
-
-**Design principle**: Use `@dataclass`, not Pydantic. No business logic.
 
 ### `core/` - Infrastructure Layer
 Internal shared utilities. Not user-facing.
 
-- Authentication and API keys
-- Configuration management
 - Logging and errors
-- Streaming infrastructure
-- Tunnel management
+- Environment helpers
+- Shared URL resolution
 
-**Design principle**: Shared infrastructure that both SDK and CLI need.
+**Design principle**: Keep only the runtime pieces needed by the live containers/tunnels/pools SDK.
 
 ### `sdk/` - SDK Layer
 User-facing programmatic API.
 
-- Front-door clients (SynthClient, AsyncSynthClient)
-- Optimization jobs (OfflineJob, OnlineSession)
-- Container for containers
+- Container and pool HTTP clients
+- Container auth helpers used by live eval flows
+- Shared request/response contracts
 
-**Design principle**: Clean, stable API for external consumption.
+**Design principle**: Small, explicit building blocks underneath the public clients.
 
 ### `cli/` - CLI Layer
 Command-line interface. Thin wrapper around SDK.
 
-- Authentication commands
-- Job management
-- Local development tools
+- Containers commands
+- Tunnels commands
+- Pools and rollout commands
 
 **Design principle**: Minimal logic; delegate to SDK.
 
 ## Top-Level Exports
 
-The package exports verifier API contracts for compatibility removed:
-
 ```python
 from synth_ai import (
     SynthClient,
     AsyncSynthClient,
-    optimization,
+    ContainersClient,
+    TunnelsClient,
+    ContainerPoolsClient,
 )
 ```
 
@@ -115,19 +103,20 @@ For most use cases, import from the specific module:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.data import SessionTrace, Rubric
+from synth_ai.sdk.containers import ContainersClient
+from synth_ai.sdk.tunnels import TunnelsClient
+from synth_ai.sdk.pools import ContainerPoolsClient
 ```
 
 ## Entry Points
 
 - `python -m synth_ai` → CLI (via `__main__.py`)
-- `synth` command → CLI (installed by package)
+- `synth-ai` command → CLI (installed by package)
 
 ## Guidelines for New Code
 
-1. **Data types** → `data/`
-2. **Internal utilities** → `core/`
-3. **User-facing APIs** → `sdk/`
+1. **Shared runtime helpers** → `core/`
+2. **HTTP clients/contracts** → `sdk/`
+3. **Stable user-facing APIs** → `containers.py`, `tunnels.py`, `pools.py`, `client.py`
 4. **CLI commands** → `cli/`
-
-When in doubt, check the README in each module for specific guidelines.
+5. **Anything outside containers/tunnels/pools** → archive under `../research/old/synth_ai` unless it is intentionally being restored

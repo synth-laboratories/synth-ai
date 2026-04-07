@@ -1,19 +1,13 @@
 # Synth AI Core
 
-Internal infrastructure and shared utilities for Synth AI. Not user-facing.
+Shared runtime helpers for the live containers, tunnels, and pools SDK.
 
 ## Structure
 
 ```
 core/
 ├── __init__.py      # Internal exports
-├── auth/            # Authentication and API key management
-├── config/          # Configuration management
 ├── errors.py        # Error types and handling
-├── logging.py       # Logging configuration
-├── streaming/       # SSE and streaming infrastructure
-├── tracing_v3/      # Trace storage, serialization, helpers
-├── tunnels/         # Tunnel management for local development
 └── utils/           # General utilities
 ```
 
@@ -21,73 +15,43 @@ core/
 
 ### DO add to `core/` if:
 
-1. **It's shared infrastructure** - Used by multiple modules (sdk, cli)
+1. **It's shared infrastructure** - Used by multiple live modules
 2. **It's internal implementation** - Not meant for direct user consumption
-3. **It's system configuration** - Environment, settings, feature flags
-4. **It's a utility** - Helpers, converters, formatters
+3. **It's runtime plumbing** - Errors, URL resolution, env helpers
+4. **It's a utility** - Helpers used by the narrowed SDK
 
 ### DO NOT add to `core/` if:
 
 1. **It's a user-facing API** - Put it in `sdk/`
-2. **It's a pure data type** - Put it in `data/`
-3. **It's CLI-specific** - Put it in `cli/`
-4. **It's a public client** - Put it in `sdk/`
+2. **It's CLI-specific** - Put it in `cli/`
+3. **It's a public client** - Put it in `sdk/` or a top-level public module
+4. **It's outside containers/tunnels/pools** - Archive it under `../research/old/synth_ai` unless it is required by live flows
 
 ## Module Descriptions
-
-### `auth/`
-API key management, token handling, and authentication utilities.
-
-### `config/`
-Configuration loading, environment variable handling, and settings management.
 
 ### `errors.py`
 Custom exception types and error handling utilities.
 
-### `logging.py`
-Logging configuration and structured logging helpers.
-
-### `streaming/`
-Server-sent events (SSE) infrastructure for job streaming and real-time updates.
-
-### `tracing_v3/`
-Trace storage, serialization, and helper functions. Note: The data structures (`SessionTrace`, `LLMCallRecord`, etc.) have moved to `data/` - this module now re-exports them for compatibility removed and contains implementation logic.
-
-### `tunnels/`
-Local development tunnel management (SynthTunnel + Synth-managed ngrok-compatible flows) for connecting local containers to Synth backend.
-
 ### `utils/`
-General-purpose utilities: hashing, encoding, file operations, etc.
+General-purpose utilities for environment lookup, URLs, JSON helpers, and secure file handling.
 
 ## Import Rules
 
-- `core/` can import from `data/`
 - `core/` should NOT import from `sdk/` or `cli/`
-- Internal modules should not be imported directly by users
+- Internal modules should not be imported directly by users unless explicitly documented
 
 ```python
-# Internal usage (within synth_ai)
-from synth_ai.core.auth import get_api_key
-from synth_ai.core.config import load_config
-
-# Users should NOT do this - use sdk/ instead
-# from synth_ai.core.streaming import StreamClient  # Avoid
+# Supported internal usage
+from synth_ai.core.errors import SynthError
+from synth_ai.core.utils.env import get_api_key
 ```
 
-## compatibility removed
-
-Some modules in `core/` re-export types that have moved to `data/` for compatibility removed:
-
-```python
-# These work but prefer importing from data/
-from synth_ai.core.tracing_v3.abstractions import SessionTrace  # Canonical
-from synth_ai.data.traces import SessionTrace  # Preferred
-```
+Legacy auth/config/streaming/tracing helpers have been archived under `../research/old/synth_ai` and are not part of the shipped package.
 
 ## Relationship to Other Modules
 
 | Module | Relationship |
 |--------|--------------|
-| `data/` | `core/` imports from `data/` for data types |
-| `sdk/` | `sdk/` imports from `core/` for infrastructure |
-| `cli/` | `cli/` imports from `core/` for infrastructure |
+| `sdk/` | `sdk/` imports from `core/` for runtime helpers |
+| `cli/` | `cli/` imports from `core/` for shared errors and env utilities |
+| `../research/old/synth_ai` | Archived legacy infra lives there for reference only |

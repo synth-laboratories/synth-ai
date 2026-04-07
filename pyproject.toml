@@ -1,43 +1,22 @@
 [project]
 name = "synth-ai"
-version = "0.9.11"
-description = "Serverless Posttraining for Agents - Core AI functionality and tracing"
+version = "0.10.0"
+description = "Python-only SDK for Synth containers, tunnels, and container pools"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
-license = { text = "MIT" }
-license-files = ["synth_ai_py/LICENSE"]
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    # Core dependencies
+    # Live SDK runtime
     "pydantic>=2.0.0",
-    "requests>=2.32.3",
     "pynacl>=1.5.0",
-    "tqdm>=4.66.4",
-    "typing_extensions>=4.0.0",
-    # AI/LLM providers (only OpenAI required - others are optional via [providers])
-    "rich>=13.9.0",
-    "openai>=1.99.0",
-    # Environment framework - basic dependencies
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
-    "numpy>=2.2.3",
-    "sqlalchemy>=2.0.42",
-    "click>=8.1.7,<8.2", # For CLI (pin to signature compatible with Typer)
-    "aiohttp>=3.8.0", # For async HTTP requests
-    "nest_asyncio>=1.6.0", # For nested event loops in sync callbacks
-    "httpx>=0.28.1", # CLI preflights and HTTP clients (pulls httpcore)
-    # Dataset loading - used by container dataset helpers
-    "datasets>=4.0.0",
-    "jsonschema>=4.23.0",
-    # Crafter container deps (ContinualLearningBench crafter engine)
-    "Pillow>=10.0.0",
-    "imageio>=2.34.0",
+    "click>=8.1.7,<8.2",
+    "httpx>=0.28.1",
 ]
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
-synth-ai-mcp-managed-research = "synth_ai.mcp.managed_research_server:main"
-synth-ai-mcp-optimization = "synth_ai.mcp.optimization_server:main"
 
 [project.optional-dependencies]
 schemas = []
@@ -49,6 +28,8 @@ providers = [
 ]
 dev = [
     "build>=1.2.2.post1",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
     "twine>=4.0.0",
     "keyring>=24.0.0",
     "pytest>=8.3.3",
@@ -56,7 +37,6 @@ dev = [
     "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
-    "pyright>=1.1.350",
     "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
     "papermill>=2.6.0",
@@ -78,35 +58,16 @@ Repository = "https://github.com/synth-laboratories/synth-ai"
 Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 
 [build-system]
-requires = ["maturin>=1.6"]
-build-backend = "maturin"
-
-[tool.maturin]
-module-name = "synth_ai_py"
-python-source = "."
-python-packages = ["synth_ai"]
-bindings = "pyo3"
-manifest-path = "synth_ai_py/Cargo.toml"
-sdist-include = [
-    "Cargo.toml",
-    "Cargo.lock",
-    "LICENSE",
-    "synth_ai_py/**",
-    "synth_ai_core/**",
-    "synth_ai_core_types/**",
-    "synth_ai_rs/**",
-]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai*"]
+include = ["synth_ai", "synth_ai.*"]
 exclude = [
     "docs*",
     "tests*",
     "scripts*",
     "private_tests*",
-    # Exclude heavy demo/test subpackages from distribution
-    "synth_ai.*agent_demos*",
-    "synth_ai.*old*",
     "synth_ai.*tests*",
     "synth_ai.*units*",
 ]
@@ -118,18 +79,16 @@ include-package-data = true
 "synth_ai" = [
     # Exclude heavy data inside agent_demos/old/tests
     "**/agent_demos/**",
-    "**/old/**",
     "**/tests/**",
     "**/units/**",
 ]
 
 [tool.setuptools.package-data]
 "synth_ai" = [
-    "config/supported_models.json",
+    "opencode/skill/*/SKILL.md",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["private_tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
@@ -157,15 +116,8 @@ precision = 2
 show_missing = true
 skip_covered = false
 
-[tool.pyright]
-include = ["synth_ai"]
-exclude = ["**/__pycache__"]
-pythonVersion = "3.11"
-typeCheckingMode = "standard"
-reportMissingImports = true
-reportMissingTypeStubs = false
-
 [tool.ruff]
+# Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
 line-length = 100
 target-version = "py311"
 src = ["synth_ai"]
@@ -202,20 +154,26 @@ ignore = [
 "**/__init__.py" = ["N999"]
 "**/__main__.py" = ["N999"]
 
-[tool.ty]
-# Suppress conservative warnings about possibly-missing-attribute
-# These are false positives for dict.get() calls and dynamic attributes
-rules = { "possibly-missing-attribute" = "ignore" }
+[tool.ty.src]
+include = ["synth_ai"]
+
+[tool.ty.rules]
+possibly-missing-attribute = "ignore"
 
 [dependency-groups]
 dev = [
+    "build>=1.2.2.post1",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.2",
+    "twine>=4.0.0",
+    "keyring>=24.0.0",
     "pytest>=8.3.3",
     "pytest-xdist>=3.6.1",
     "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
-    "pyright>=1.1.350",
+    "ty>=0.0.1a5",
     "responses>=0.25.7",
     "httpx>=0.28.1",
     "papermill>=2.6.0",

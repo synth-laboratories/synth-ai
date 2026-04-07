@@ -13,7 +13,7 @@ from pathlib import Path
 from synth_ai.core.errors import AuthenticationError
 from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 from synth_ai.core.utils.secure_files import write_private_json
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_local_backend_base_url
 
 # Backward-compatible alias for older callers.
 PROD_BASE_URL = BACKEND_URL_BASE
@@ -199,18 +199,7 @@ LOCAL_DEV_SYNTH_API_KEY = "sk_dev_00000000000000000000000000000001"
 
 
 def _is_local_backend_url(url: str | None) -> bool:
-    if not url:
-        return False
-    lowered = str(url).strip().lower()
-    return any(
-        token in lowered
-        for token in (
-            "localhost",
-            "127.0.0.1",
-            "0.0.0.0",
-            "host.docker.internal",
-        )
-    )
+    return is_local_backend_base_url(url)
 
 
 def ensure_synth_api_key(

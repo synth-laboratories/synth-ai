@@ -1,6 +1,6 @@
 # Synth AI CLI
 
-Command-line interface for Synth AI.
+Command-line interface for the live containers, tunnels, and pools SDK.
 
 ## Structure
 
@@ -9,17 +9,10 @@ cli/
 ├── __init__.py      # CLI package init
 ├── __main__.py      # Entry point for `python -m synth_ai.cli`
 ├── main.py          # Main CLI app setup
-├── bin.py           # Binary/script entry points
-├── prompts.py       # Interactive prompts and user input
-├── setup.py         # CLI setup and initialization
-├── commands/        # CLI command implementations
-│   ├── auth.py      # Authentication commands (login, logout, whoami)
-│   ├── jobs.py      # Job management commands (list, status, cancel)
-│   ├── eval.py      # Evaluation commands
-│   ├── optimize.py  # Optimization commands
-│   └── ...
-└── local/           # Local development utilities
-    └── ...
+├── containers.py    # Container CRUD and status commands
+├── pools.py         # Pool and rollout commands
+├── tunnels.py       # Managed tunnel and SynthTunnel commands
+└── README.md
 ```
 
 ## Guidelines for Additions
@@ -34,9 +27,9 @@ cli/
 ### DO NOT add to `cli/` if:
 
 1. **It's reusable business logic** - Put it in `sdk/` or `core/`
-2. **It's a data type** - Put it in `data/`
-3. **It's a client/API** - Put it in `sdk/`
-4. **It's shared infrastructure** - Put it in `core/`
+2. **It's a client/API** - Put it in `sdk/`
+3. **It's shared infrastructure** - Put it in `core/`
+4. **It's outside containers/tunnels/pools** - Archive it under `../research/old/synth_ai`
 
 ## Design Principles
 
@@ -48,14 +41,14 @@ CLI commands should be thin wrappers around `sdk/` functionality:
 # Good - CLI delegates to SDK
 @app.command()
 def run_eval(container_url: str):
-    # Delegate to SDK optimization/session surfaces here.
+    # Delegate to the live SDK surface here.
     result = run_sdk_workflow(container_url=container_url)
     print_result(result)
 
 # Bad - CLI contains business logic
 @app.command()
 def run_eval(container_url: str):
-    # Don't put evaluation logic here
+    # Don't put business logic here
     response = requests.post(container_url + "/rollout", ...)
     score = compute_score(response)
     ...
@@ -103,35 +96,31 @@ def my_command():
 ```python
 # CLI importing from SDK (correct)
 from synth_ai import SynthClient
-from synth_ai.sdk import OfflineJob
 
 # CLI importing from core (correct)
-from synth_ai.core.auth import get_api_key
+from synth_ai.core.utils.env import get_api_key
 
 # SDK importing from CLI (wrong - never do this)
-# from synth_ai.cli.prompts import ask_user  # Never
+# from synth_ai.cli.containers import list_containers  # Never
 ```
 
 ## Command Structure
 
-Commands are organized by domain:
+Commands are organized by the three live domains:
 
 ```
-synth login          # auth commands
-synth logout
-synth whoami
-
-synth jobs list      # job management
-synth jobs status <id>
-synth jobs cancel <id>
-
-synth optimize run   # optimization
+synth-ai containers list
+synth-ai containers create
+synth-ai tunnels health
+synth-ai tunnels lease
+synth-ai pools list
+synth-ai pools rollout-status <pool> <rollout>
 ```
 
 ## Relationship to Other Modules
 
 | Module | Relationship |
 |--------|--------------|
-| `data/` | `cli/` imports data types for display |
-| `core/` | `cli/` imports infrastructure (auth, config) |
-| `sdk/` | `cli/` imports and wraps SDK functionality |
+| `core/` | `cli/` imports shared env/error helpers |
+| `sdk/` | `cli/` imports and wraps the live SDK functionality |
+| `../research/old/synth_ai` | archived CLI commands live there for reference only |
