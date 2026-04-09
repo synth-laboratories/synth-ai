@@ -7,7 +7,7 @@ Strategy:
 
 Artifact evidence:
 - Config: `configs/craftax_prompt_opt_qwen35_4b_smoke_test_b.yaml`
-- Record roado: records/prompt_opt_1usd_gpt54_family/2026-04-09_smoke_test_b`
+- Record root: `records/prompt_opt_1usd_gpt54_family/2026-04-09_smoke_test_b`
 - Primary strategy: `Todo Tool`
 - Candidate label: `Smoke Test B`
 

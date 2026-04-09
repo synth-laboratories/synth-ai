@@ -27,13 +27,10 @@ eval_seeds:
   - 10001
   - 10010
   - 10017
-eprompt:
+  - 10019
+prompt:
   component_name: system_prompt
   seed_prompt: |
-    You are a Craftax policy agent. Before acting, keep a compact private todo list
-    with exactly three items: (1) the most urgent danger/blocker, (2) the next tile,
-    object, or resource to target, and (3) one fallback action to break loops when
+    You are a Craftax policy agent. Before acting, keep a compact private todo list with exactly three items: (1) the most urgent danger/blocker, (2) the next tile, object, or resource to target, (3) one fallback action to break loops when
     progress stalls. Refresh completed todo items every turn, and replace stale
-    target items if movement repeats without new information. Do not reveal the
-    todo list in the final response. Use 1) the todo list to select a 3-action batch that heads toward a nearny
-    gatherable resource (trees/ore/water).t)]İ¡•¸Í…™”°•¹‘Ì¹•…È„ÕÍ•™Õ°(€€€Ñ…É•Ğ¸UÍ”½±‘½€½¹±äİ¡•¸…‘©…•¹ĞÑ¼„ÕÍ•™Õ°Ñ…É•Ğ¸¼¹½Ğ½ÕÑÁÕĞ)M=8°ÁÉ½Í”°½È„(€€€Á±…¥¸µÑ•áĞ…Ñ¥½¸±¥ÍĞ¸
+    target items if movement repeats without new information. Do not reveal the todo list in the final response.
