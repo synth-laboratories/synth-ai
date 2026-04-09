@@ -75,20 +75,6 @@ jobs:
       - name: Run ruff check
         run: uv run ruff check
 
-  notify-docs:
-    name: Notify Docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, tests, type-check]
-    steps:
-      - name: Trigger docs SDK reference update
-        run: |
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.SYNTH_DOCS_REPO_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/synth-laboratories/docs/dispatches \
-            -d '{"event_type": "sdk-updated"}'
-
   tests:
     name: Tests
     runs-on: blacksmith-4vcpu-ubuntu-2404
