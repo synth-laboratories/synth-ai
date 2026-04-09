@@ -1,0 +1,10 @@
+{
+  "name": "Smoke Test B",
+  "track": "prompt_opt_1usd_gpt54_family",
+  "task": "craftax",
+  "base_model": "Qwen/Qwen3.5-4B",
+  "optimizer_budget_usd": 1.0,
+  "optimizer_models": ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"],
+  "created_at": "2026-04-09",
+  "implementation_status": "candidate_not_run"
+}

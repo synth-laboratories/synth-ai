@@ -1,0 +1,10 @@
+{
+  "status": "not_run",
+  "baseline": "gepa_craftax_prompt_otimization",
+  "policy_model": "Qwen/Qwen3.5-4B",
+  "request_model": "qwen3-5-bs-aruntion",
+  "optimizer_budget_usd": 1.0,
+  "primary_score": null,
+  "submission_mean_outcome_reward": null,
+  "submission_achievement_frequencies": {},
+  "residual_risk": "Candidate was prepared in configuration and not executed in this task."}
