@@ -50,6 +50,7 @@ class PoolTarget(str, Enum):
     HARBOR = "harbor"
     OPENENV = "openenv"
     HORIZONS = "horizons"
+    HORIZONS_PRIVATE = "horizons_private"
     ARBITRARY = "arbitrary"
 
 

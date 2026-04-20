@@ -7,6 +7,18 @@ from synth_ai.sdk.containers import (
     ContainerSpec,
     ContainerType,
 )
+from synth_ai.sdk.horizons_private import (
+    AsyncHorizonsPrivateClient,
+    HorizonsPrivateClient,
+)
+from synth_ai.sdk.managed_agents_anthropic import (
+    AsyncManagedAgentsAnthropicClient,
+    ManagedAgentsAnthropicClient,
+)
+from synth_ai.sdk.openai_agents_sdk import (
+    AsyncOpenAIAgentsSdkClient,
+    OpenAIAgentsSdkClient,
+)
 from synth_ai.sdk.pools import (
     CANONICAL_ROLLOUT_REQUEST_KEYS,
     AsyncContainerPoolsClient,
@@ -26,8 +38,14 @@ __all__ = [
     "ContainerSpec",
     "ContainerType",
     "ContainersClient",
+    "HorizonsPrivateClient",
+    "ManagedAgentsAnthropicClient",
     "PoolTarget",
     "TunnelProvider",
     "TunnelsClient",
     "validate_pool_rollout_request",
+    "AsyncHorizonsPrivateClient",
+    "AsyncManagedAgentsAnthropicClient",
+    "AsyncOpenAIAgentsSdkClient",
+    "OpenAIAgentsSdkClient",
 ]

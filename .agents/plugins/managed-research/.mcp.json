@@ -1,13 +1,13 @@
 {
   "mcpServers": {
-    "synth_managed_research": {
+    "managed-research": {
       "command": "uv",
       "args": [
         "run",
         "--quiet",
-        "synth-ai-mcp-managed-research"
+        "managed-research-mcp"
       ],
-      "cwd": "../../..",
+      "cwd": "../../../../managed-research",
       "env_vars": [
         "SYNTH_API_KEY",
         "SYNTH_BACKEND_URL"

@@ -91,7 +91,7 @@
   },
   "SynthModelName": {
     "SYNTH_MEDIUM": "synth-medium",
-    "SYNTH_SMALL": "synth-small"
+    "SYNTH_SMALL": "gpt-5.4-mini"
   },
   "TrainingType": {
     "GEPA": "gepa",
