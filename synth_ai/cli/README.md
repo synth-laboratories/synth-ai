@@ -1,6 +1,6 @@
-# Synth AI CLI
+# CLI Modules
 
-Command-line interface for the live containers, tunnels, and pools SDK.
+Command-line interface for the Synth AI SDK.
 
 ## Structure
 
@@ -29,7 +29,7 @@ cli/
 1. **It's reusable business logic** - Put it in `sdk/` or `core/`
 2. **It's a client/API** - Put it in `sdk/`
 3. **It's shared infrastructure** - Put it in `core/`
-4. **It's outside containers/tunnels/pools** - Archive it under `../research/old/synth_ai`
+4. **It's outside the supported CLI surface** - keep it out of the public CLI unless it is deliberately launched
 
 ## Design Principles
 
@@ -106,7 +106,7 @@ from synth_ai.core.utils.env import get_api_key
 
 ## Command Structure
 
-Commands are organized by the three live domains:
+Commands are organized by the supported live CLI domains:
 
 ```
 synth-ai containers list
@@ -123,4 +123,3 @@ synth-ai pools rollout-status <pool> <rollout>
 |--------|--------------|
 | `core/` | `cli/` imports shared env/error helpers |
 | `sdk/` | `cli/` imports and wraps the live SDK functionality |
-| `../research/old/synth_ai` | archived CLI commands live there for reference only |

@@ -7,6 +7,8 @@ import os
 import secrets
 from typing import Any
 
+from synth_ai.core.utils.env import get_api_key
+
 __all__ = [
     "_fetch_backend_env_key",
     "ensure_container_auth",
@@ -131,7 +133,7 @@ def ensure_container_auth(
         return dev_existing
 
     resolved_backend = (backend_base or os.environ.get("SYNTH_BACKEND_URL") or "").strip()
-    resolved_api_key = (synth_api_key or os.environ.get("SYNTH_API_KEY") or "").strip()
+    resolved_api_key = (synth_api_key or get_api_key(required=False) or "").strip()
     if upload and resolved_backend and resolved_api_key:
         fetched = _fetch_backend_env_key(resolved_backend, resolved_api_key)
         if fetched:

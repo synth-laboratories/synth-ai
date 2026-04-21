@@ -1,122 +1,65 @@
-# Synth AI Python Package
+# `synth_ai` Package
 
-Python-only SDK surface for Synth containers, tunnels, and container pools.
+Runtime package for the public Synth AI SDK and CLI.
 
-## Quick Start
+The public first-mile surface is intentionally small:
 
-```python
-from synth_ai import (
-    SynthClient,
-    ContainersClient,
-    ContainerPoolsClient,
-    TunnelsClient,
-)
-```
+- `SynthClient`
+- `AsyncSynthClient`
+- `client.containers`
+- `client.tunnels`
+- `client.pools`
+- `synth-ai` CLI
+
+Public docs live at https://docs.usesynth.ai/sdk/overview.
 
 ## Package Structure
 
-```
+```text
 synth_ai/
-├── containers.py   # Public containers client surface
-├── tunnels.py      # Public tunnels client surface
-├── pools.py        # Public container-pools and rollout surface
-├── client.py       # Thin SynthClient composition layer
-├── sdk/            # Minimal HTTP clients and pool/container contracts
+├── client.py       # SynthClient and AsyncSynthClient composition layer
+├── sdk/            # Public client modules and request/response contracts
 ├── core/           # Shared runtime helpers and errors
-├── cli/            # CLI for containers, tunnels, and pools
+├── cli/            # CLI commands for containers, tunnels, and pools
 └── __init__.py     # Package version and top-level exports
 ```
 
-## Module Hierarchy
+## Dependency Direction
 
-The live package follows a narrow dependency hierarchy:
-
-```
-┌─────────┐
-│  core/  │  ← Shared runtime helpers and errors
-└────┬────┘
-     │
-┌────▼────┐
-│  sdk/   │  ← HTTP clients and contracts for containers/pools
-└────┬────┘
-     │
-┌────▼────┐
-│ public  │  ← containers.py, tunnels.py, pools.py, client.py
-└────┬────┘
-     │
-┌────▼────┐
-│  cli/   │  ← Thin terminal wrapper around the live clients
-└─────────┘
+```text
+core/ -> sdk/ -> client.py -> cli/
 ```
 
-### Dependency Rules
+- `core/` owns shared runtime plumbing such as errors, environment lookup, and URL normalization.
+- `sdk/` owns HTTP clients and contracts for the supported public surfaces.
+- `client.py` composes those clients behind `SynthClient` and `AsyncSynthClient`.
+- `cli/` wraps the SDK for terminal use.
 
-| Module | Purpose |
-|--------|---------|
-| `core/` | Shared runtime helpers used by the live SDK |
-| `sdk/` | Low-level container and pool clients/contracts |
-| `containers.py`, `tunnels.py`, `pools.py` | Stable public entry points |
-| `cli/` | Terminal commands for the same three domains |
+## Supported Imports
 
-## Module Purposes
-
-### `core/` - Infrastructure Layer
-Internal shared utilities. Not user-facing.
-
-- Logging and errors
-- Environment helpers
-- Shared URL resolution
-
-**Design principle**: Keep only the runtime pieces needed by the live containers/tunnels/pools SDK.
-
-### `sdk/` - SDK Layer
-User-facing programmatic API.
-
-- Container and pool HTTP clients
-- Container auth helpers used by live eval flows
-- Shared request/response contracts
-
-**Design principle**: Small, explicit building blocks underneath the public clients.
-
-### `cli/` - CLI Layer
-Command-line interface. Thin wrapper around SDK.
-
-- Containers commands
-- Tunnels commands
-- Pools and rollout commands
-
-**Design principle**: Minimal logic; delegate to SDK.
-
-## Top-Level Exports
-
-```python
-from synth_ai import (
-    SynthClient,
-    AsyncSynthClient,
-    ContainersClient,
-    TunnelsClient,
-    ContainerPoolsClient,
-)
-```
-
-For most use cases, import from the specific module:
+Prefer the front-door client:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.sdk.containers import ContainersClient
-from synth_ai.sdk.tunnels import TunnelsClient
-from synth_ai.sdk.pools import ContainerPoolsClient
+
+client = SynthClient()
+client.containers.list()
+client.tunnels.health()
+client.pools.list()
 ```
 
-## Entry Points
+Use specific clients only when you need lower-level control:
 
-- `python -m synth_ai` → CLI (via `__main__.py`)
-- `synth-ai` command → CLI (installed by package)
+```python
+from synth_ai.sdk.containers import ContainersClient
+from synth_ai.sdk.pools import ContainerPoolsClient
+from synth_ai.sdk.tunnels import TunnelsClient
+```
 
 ## Guidelines for New Code
 
-1. **Shared runtime helpers** → `core/`
-2. **HTTP clients/contracts** → `sdk/`
-3. **Stable user-facing APIs** → `containers.py`, `tunnels.py`, `pools.py`, `client.py`
-4. **CLI commands** → `cli/`
-5. **Anything outside containers/tunnels/pools** → archive under `../research/old/synth_ai` unless it is intentionally being restored
+1. Put shared errors, URL handling, and environment helpers in `core/`.
+2. Put public HTTP clients and request/response contracts in `sdk/`.
+3. Put front-door composition in `client.py`.
+4. Put terminal commands in `cli/`.
+5. Keep unreleased or internal compatibility APIs out of public README examples and public-first docs.

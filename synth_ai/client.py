@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import os
-
+from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk import (
     AsyncContainerPoolsClient,
@@ -22,7 +21,7 @@ from synth_ai.sdk import (
 
 
 def _resolve_api_key(api_key: str | None) -> str:
-    resolved = (api_key or os.getenv("SYNTH_API_KEY") or "").strip()
+    resolved = (api_key or get_api_key(required=False) or "").strip()
     if not resolved:
         raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
     return resolved
@@ -115,9 +114,7 @@ class AsyncSynthClient:
                 timeout=self.timeout,
             )
         )
-        self.horizons_private = AsyncHorizonsPrivateClient(
-            HorizonsPrivateClient(self.pools.raw)
-        )
+        self.horizons_private = AsyncHorizonsPrivateClient(HorizonsPrivateClient(self.pools.raw))
         self.managed_agents = AsyncManagedAgentsAnthropicClient(
             ManagedAgentsAnthropicClient(
                 api_key=self.api_key,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import builtins
-import os
 import time
 from enum import Enum
 from typing import Any
@@ -72,10 +71,7 @@ def _resolve_base_url(base_url: str | None) -> str:
 def _resolve_api_key(api_key: str | None) -> str:
     if api_key and api_key.strip():
         return api_key
-    try:
-        resolved = get_api_key("SYNTH_API_KEY", required=True)
-    except Exception:
-        resolved = os.environ.get("SYNTH_API_KEY", "").strip()
+    resolved = (get_api_key("SYNTH_API_KEY", required=False) or "").strip()
     if not resolved:
         raise ValueError("api_key is required (provide or set SYNTH_API_KEY)")
     return resolved

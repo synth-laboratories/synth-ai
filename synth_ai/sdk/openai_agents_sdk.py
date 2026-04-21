@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
 
 import httpx
 
+from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
 TRANSPORT_MODE_BACKEND_BFF = "backend_bff"
@@ -40,7 +40,7 @@ class OpenAIAgentsSdkClient:
         openai_project: str | None = None,
         request_id: str | None = None,
     ) -> None:
-        self._api_key = (api_key or os.getenv("SYNTH_API_KEY") or "").strip()
+        self._api_key = (api_key or get_api_key(required=False) or "").strip()
         if not self._api_key:
             raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
         self._backend_base = normalize_backend_base(backend_base or BACKEND_URL_BASE)
@@ -419,14 +419,17 @@ class AsyncOpenAIAgentsSdkClient:
             self._sync._backend_base,
             f"{prefix}{self._sync._normalize_path(path)}",
         )
-        async with httpx.AsyncClient() as client, client.stream(
-            method.upper(),
-            url,
-            headers=self._sync._headers(headers),
-            params=params,
-            json=json_body,
-            timeout=httpx.Timeout(connect=10.0, read=None, write=30.0, pool=10.0),
-        ) as response:
+        async with (
+            httpx.AsyncClient() as client,
+            client.stream(
+                method.upper(),
+                url,
+                headers=self._sync._headers(headers),
+                params=params,
+                json=json_body,
+                timeout=httpx.Timeout(connect=10.0, read=None, write=30.0, pool=10.0),
+            ) as response,
+        ):
             response.raise_for_status()
             event_name: str | None = None
             event_id: str | None = None
@@ -435,12 +438,7 @@ class AsyncOpenAIAgentsSdkClient:
 
             def _emit() -> dict[str, Any] | None:
                 nonlocal event_name, event_id, retry_ms, data_lines
-                if (
-                    not data_lines
-                    and event_name is None
-                    and event_id is None
-                    and retry_ms is None
-                ):
+                if not data_lines and event_name is None and event_id is None and retry_ms is None:
                     return None
                 joined = "\n".join(data_lines).strip()
                 ev = event_name or "message"

@@ -10,6 +10,7 @@ from typing import Any
 
 import httpx
 
+from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
 
@@ -24,7 +25,7 @@ class ManagedAgentsAnthropicClient:
         timeout: float = 30.0,
         anthropic_version: str | None = None,
     ) -> None:
-        self._api_key = (api_key or os.getenv("SYNTH_API_KEY") or "").strip()
+        self._api_key = (api_key or get_api_key(required=False) or "").strip()
         if not self._api_key:
             raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
         self._backend_base = normalize_backend_base(backend_base or BACKEND_URL_BASE)

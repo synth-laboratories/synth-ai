@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from enum import Enum
 from typing import Any, Iterator
 
+from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
 CANONICAL_ROLLOUT_REQUEST_KEYS: frozenset[str] = frozenset(
@@ -190,7 +190,7 @@ class ContainerPoolsClient:
         base_url: str | None = None,
         timeout: float = 30.0,
     ) -> None:
-        self._api_key = (api_key or os.getenv("SYNTH_API_KEY") or "").strip()
+        self._api_key = (api_key or get_api_key(required=False) or "").strip()
         if not self._api_key:
             raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
         resolved_base = backend_base or base_url or BACKEND_URL_BASE

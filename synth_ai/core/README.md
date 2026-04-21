@@ -1,6 +1,6 @@
-# Synth AI Core
+# Core Modules
 
-Shared runtime helpers for the live containers, tunnels, and pools SDK.
+Shared runtime helpers for the Synth AI SDK.
 
 ## Structure
 
@@ -18,14 +18,14 @@ core/
 1. **It's shared infrastructure** - Used by multiple live modules
 2. **It's internal implementation** - Not meant for direct user consumption
 3. **It's runtime plumbing** - Errors, URL resolution, env helpers
-4. **It's a utility** - Helpers used by the narrowed SDK
+4. **It's a utility** - Helpers used by the narrowed live SDK
 
 ### DO NOT add to `core/` if:
 
 1. **It's a user-facing API** - Put it in `sdk/`
 2. **It's CLI-specific** - Put it in `cli/`
-3. **It's a public client** - Put it in `sdk/` or a top-level public module
-4. **It's outside containers/tunnels/pools** - Archive it under `../research/old/synth_ai` unless it is required by live flows
+3. **It's a public client** - Put it in `sdk/` or `client.py`
+4. **It's outside the public SDK runtime** - keep it out of `core/` unless it is required by supported live flows
 
 ## Module Descriptions
 
@@ -46,12 +46,9 @@ from synth_ai.core.errors import SynthError
 from synth_ai.core.utils.env import get_api_key
 ```
 
-Legacy auth/config/streaming/tracing helpers have been archived under `../research/old/synth_ai` and are not part of the shipped package.
-
 ## Relationship to Other Modules
 
 | Module | Relationship |
 |--------|--------------|
 | `sdk/` | `sdk/` imports from `core/` for runtime helpers |
 | `cli/` | `cli/` imports from `core/` for shared errors and env utilities |
-| `../research/old/synth_ai` | Archived legacy infra lives there for reference only |

@@ -1,105 +1,103 @@
-# Synth AI
+# Synth AI SDK
 
 <!-- CI release pins: PyPI-0.11.0-orange synth-ai==0.11.0 -->
 
-[![image](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![image](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
-[![image](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python-only SDK and CLI for Synth's infrastructure surfaces.
+Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted containers.
 
-For this launch cycle, keep the product split explicit:
+**Documentation:** https://docs.usesynth.ai/sdk/overview
 
-- **Managed Research** is the service/product surface.
-- **Managed Agents** is **beta infrastructure** and is often used internally as
-  verifier or backend machinery behind managed-research workflows.
-- **Container pools** and related runtime surfaces are infrastructure that
-  Managed Research builds on top of.
+## Installation
 
-The stable surface is intentionally narrow:
+```bash
+uv add synth-ai
+```
 
-- `synth_ai.sdk.containers`
-- `synth_ai.sdk.tunnels`
-- `synth_ai.sdk.pools`
-- `synth_ai.sdk.horizons_private`
-- `synth_ai.sdk.managed_agents_anthropic`
-- `synth_ai.sdk.openai_agents_sdk`
-- `synth_ai.client.SynthClient`
+Or install with pip:
 
-Legacy optimization, inference, graphs, verifiers, managed-research, and deprecated
-modules have been archived under `../research/old/synth_ai` and are no longer part of the
-supported import surface.
+```bash
+pip install synth-ai
+```
 
-Launch-era verifier authoring assets for managed-research-facing workflows live
-under `managed_agents/templates/` and `managed_agents/examples/`.
+## Authenticate
 
-## Stable API
+Set `SYNTH_API_KEY` before using the SDK or CLI:
+
+```bash
+export SYNTH_API_KEY="sk_..."
+```
+
+Pass `base_url` when you need to pin a production, local, staging, or private
+backend explicitly:
 
 ```python
 from synth_ai import SynthClient
 
-client = SynthClient(api_key="sk_...")
-client.containers.list()
-client.tunnels.list()
-client.pools.list()
-client.horizons_private.create_runtime({"name": "hp-runtime"})
-client.managed_agents.health()
-client.openai_agents_sdk.create_response(
-    {
-        "model": "gpt-4.1-mini",
-        "input": [{"role": "user", "content": "Summarize this deployment note."}],
-    }
-)
+client = SynthClient(base_url="http://127.0.0.1:8000")
 ```
 
-Canonical backend paths:
+The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
-- `/v1/containers/*`
-- `/v1/tunnels/*`
-- `/v1/pools/*`
-- `/v1/rollouts/*`
-- `/api/managed-agents/anthropic/v1/*`
-- `/api/managed-agents/openai/v1/*` (backend BFF lane)
-- `/openai/v1/*` (direct horizons-private lane)
-
-OpenAI transport mode defaults to `auto`:
-
-- try `/api/managed-agents/openai/v1/*` first
-- fallback to `/openai/v1/*` only on `404`, `405`, or `501`
-- preserve non-contract failures (auth/validation/runtime) without fallback
-
-Transport mode can be selected explicitly:
+## Quickstart
 
 ```python
 from synth_ai import SynthClient
 
-client = SynthClient(
-    api_key="sk_...",
-    base_url="http://127.0.0.1:8000",
-    openai_transport_mode="backend_bff",  # backend_bff | direct_hp | auto
-)
+client = SynthClient()
+
+print(client.containers.list())
+print(client.tunnels.health())
+print(client.pools.list())
 ```
 
-## Product surfaces
+## CLI
 
-Use this split to pick the right client quickly:
+```bash
+synth-ai --help
+synth-ai containers list
+synth-ai tunnels health
+synth-ai pools list
+```
 
-| Surface | Client | Backend path family | Use when |
-| --- | --- | --- | --- |
-| Container Pools | `client.pools` and `client.horizons_private` | `/v1/pools/*`, `/v1/rollouts/*` | You need repeatable pool/task/rollout execution and rollout artifacts/usage. |
-| Managed Agents (Anthropic view, beta infra) | `client.managed_agents` | `/api/managed-agents/anthropic/v1/*` | You need live managed-agents session APIs as infrastructure, typically behind managed-research or verifier workflows. |
-| OpenAI Agents SDK compat (phase1-core + phase1-adjacent) | `client.openai_agents_sdk` | `/api/managed-agents/openai/v1/*` with auto fallback to `/openai/v1/*` | You need OpenAI-compatible Responses/Conversations semantics without changing existing Synth auth/base-url posture. |
+## Public Surface
 
-## Local development
+Use `SynthClient` as the front door:
+
+| Surface | Client namespace | Use it for |
+| --- | --- | --- |
+| Containers | `client.containers` | Hosted container records and lifecycle operations. |
+| Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
+| Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
+| CLI | `synth-ai` | Terminal access to containers, tunnels, and pools. |
+
+Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
+want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
+reports.
+
+## Links
+
+- [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)
+- [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
+- [Tunnels](https://docs.usesynth.ai/sdk/tunnels)
+- [Pools](https://docs.usesynth.ai/sdk/pools)
+- [Containers](https://docs.usesynth.ai/sdk/containers)
+- [SDK reference](https://docs.usesynth.ai/reference/sdk)
+- [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
+
+## Local Development
+
+Use `uv run` for Python tools:
 
 ```bash
 uv sync --group dev
 uv run ruff format --check .
 uv run ruff check .
-# ty: use the same command as `.github/workflows/ci.yml` → job `type-check` (Lefthook runs it on staged files).
 uv run ty check
 ```
 
-Use **`uv run`** for Python tools (not bare **`python`** / **`python3`**). **Ruff** handles both formatting and linting for `synth_ai/`; **ty** type-checks `synth_ai/` (`[tool.ty.src]` in `pyproject.toml`). A plain `ty check` may be stricter than CI; match CI when debugging PR failures.
-
-Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run **`lefthook install`** to run **`uv run ruff format`**, **`uv run ruff check`**, and **`uv run ty check`** on staged `.py` files (see `lefthook.yml`).
+Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
+`lefthook install` to run formatting, linting, and type checks on staged Python
+files.
