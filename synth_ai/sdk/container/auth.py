@@ -7,11 +7,6 @@ import os
 import secrets
 from typing import Any
 
-try:
-    import synth_ai_py
-except Exception:  # pragma: no cover - optional in the pure-Python runtime
-    synth_ai_py = None  # type: ignore[assignment]
-
 __all__ = [
     "_fetch_backend_env_key",
     "ensure_container_auth",
@@ -143,13 +138,6 @@ def ensure_container_auth(
             os.environ["ENVIRONMENT_API_KEY"] = fetched
             return fetched
 
-    fn = getattr(synth_ai_py, "ensure_container_auth", None) if synth_ai_py else None
-    if callable(fn):
-        minted = fn(resolved_backend, resolved_api_key, upload)
-        if isinstance(minted, str) and minted.strip():
-            os.environ["ENVIRONMENT_API_KEY"] = minted.strip()
-            return minted.strip()
-
     minted = f"env_{secrets.token_urlsafe(24)}"
     os.environ["ENVIRONMENT_API_KEY"] = minted
     return minted
@@ -158,15 +146,10 @@ def ensure_container_auth(
 def encrypt_for_backend(pubkey_b64: str, secret: str | bytes) -> str:
     if isinstance(secret, bytes):
         secret = secret.decode("utf-8")
-    fn = getattr(synth_ai_py, "encrypt_for_backend", None) if synth_ai_py else None
-    if callable(fn):
-        return fn(pubkey_b64, secret)
     try:
         from nacl.public import PublicKey, SealedBox
     except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError(
-            "encrypt_for_backend requires synth_ai_py or PyNaCl (pip install pynacl)"
-        ) from exc
+        raise RuntimeError("encrypt_for_backend requires PyNaCl (pip install pynacl)") from exc
     try:
         pubkey_raw = base64.b64decode(pubkey_b64, validate=True)
     except Exception as exc:  # pragma: no cover - invalid base64

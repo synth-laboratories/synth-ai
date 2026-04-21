@@ -70,24 +70,12 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Sync dev dependencies
         run: uv sync --group dev
+      - name: Check Python-only SDK guard
+        run: python scripts/check_no_rust_sdk.py
       - name: Run ruff format check
         run: uv run ruff format --check
       - name: Run ruff check
         run: uv run ruff check
-
-  notify-docs:
-    name: Notify Docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, tests, type-check]
-    steps:
-      - name: Trigger docs SDK reference update
-        run: |
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.SYNTH_DOCS_REPO_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/synth-laboratories/docs/dispatches \
-            -d '{"event_type": "sdk-updated"}'
 
   tests:
     name: Tests
@@ -120,4 +108,3 @@ jobs:
         run: uv sync --group dev
       - name: Run ty check
         run: uv run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute --ignore invalid-assignment
-

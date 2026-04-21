@@ -2592,7 +2592,7 @@ components:
           description: Inference resolver mode. Current supported mode is ephemeral_pool.
         pool_id:
           type: string
-          description: Existing Rhodes pool identifier resolved into `/v1/pools/{pool_id}` for eval rollouts.
+          description: Existing container pool identifier resolved into `/v1/pools/{pool_id}` for eval rollouts.
         pool_ttl_seconds:
           type: integer
           format: int64
