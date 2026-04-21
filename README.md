@@ -26,7 +26,7 @@ The stable surface is intentionally narrow:
 - `synth_ai.sdk.openai_agents_sdk`
 - `synth_ai.client.SynthClient`
 
-Legacy optimization, inference, graphs, verifiers, managed-research, and Rust-backed
+Legacy optimization, inference, graphs, verifiers, managed-research, and deprecated
 modules have been archived under `../research/old/synth_ai` and are no longer part of the
 supported import surface.
 
