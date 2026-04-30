@@ -3,12 +3,12 @@
 #
 # Policy: run Python tools only via `uv run` (never bare `python` / `python3` in hooks).
 #
-# Coverage: delegated to `../synth-dev/commit_hygiene`, which currently runs
+# Coverage: delegated to `../synth-dev/local_dev/commit_hygiene`, which currently runs
 # ruff format + check and ty for staged Python files.
 
 pre-commit:
   parallel: false
   commands:
     commit-hygiene:
-      run: uv run --no-project python ../synth-dev/commit_hygiene/run.py synth_ai pre_commit {staged_files}
+      run: uv run --no-project python ../synth-dev/local_dev/commit_hygiene/run.py synth_ai pre_commit {staged_files}
       stage_fixed: true

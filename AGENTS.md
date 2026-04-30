@@ -2,6 +2,14 @@
 
 - PlanetScale now supports PostgreSQL. Treat PlanetScale as Postgres for schema, SQL, and migrations.
 
+## CRITICAL: Prod launch checklist
+
+Any `synth-ai` PyPI release tied to a launch must clear the Packages and SDK
+sections of [`../synth-dev/launch_checklist.md`](../synth-dev/launch_checklist.md) —
+fresh-venv install smoke, typed error imports, backend parity (version-contract),
+no unreleased local changes claimed in launch copy. Record published version +
+smoke output as proof.
+
 ## Coding Style
 
 Follow the **Synth Style** guide: `specifications/tanha/references/synthstyle.md` (sibling repo).
