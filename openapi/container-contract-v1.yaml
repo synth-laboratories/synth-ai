@@ -63,7 +63,7 @@ info:
     **Option A - Via CLI (requires Python):**
     ```bash
     uv tool install synth-ai
-    synth prompt-learning run \
+    synth containers run \
       --container-url https://your-managed-tunnel.usesynth.ai \
       --container-api-key your-env-key \
       --algorithm gepa
@@ -71,18 +71,12 @@ info:
 
     **Option B - Via API (no Python needed):**
     ```bash
-    curl -X POST https://api.usesynth.ai/api/v1/offline/jobs \
+    curl -X POST https://api.usesynth.ai/v1/containers \
       -H "Authorization: Bearer $SYNTH_API_KEY" \
       -H "Content-Type: application/json" \
       -d '{
-        "kind": "gepa_offline",
-        "technique": "discrete_optimization",
-        "config": {
-          "prompt_learning": {
-            "container_url": "https://your-managed-tunnel.usesynth.ai",
-            "container_worker_token": "rtw_..."
-          }
-        }
+        "container_url": "https://your-managed-tunnel.usesynth.ai",
+        "container_worker_token": "rtw_..."
       }'
     ```
 

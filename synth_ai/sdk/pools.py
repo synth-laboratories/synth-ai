@@ -449,22 +449,6 @@ class ContainerPoolsClient:
             "POST", f"/v1/pools/{pool_id}/tasks/{task_id}/container/rollout", json_body=request
         )
 
-    def prompt_learning_evaluate_pool(
-        self, pool_id: str, request: dict[str, Any]
-    ) -> dict[str, Any]:
-        return self._request(
-            "POST", f"/v1/pools/{pool_id}/container/prompt-learning/evaluate", json_body=request
-        )
-
-    def prompt_learning_evaluate_task(
-        self, pool_id: str, task_id: str, request: dict[str, Any]
-    ) -> dict[str, Any]:
-        return self._request(
-            "POST",
-            f"/v1/pools/{pool_id}/tasks/{task_id}/container/prompt-learning/evaluate",
-            json_body=request,
-        )
-
     def get_queue_status(self) -> dict[str, Any]:
         return self._request("GET", "/v1/queue/status")
 

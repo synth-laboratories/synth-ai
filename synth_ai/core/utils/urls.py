@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 LOCAL_HTTP_HOSTS = frozenset({"localhost", "127.0.0.1", "0.0.0.0", "host.docker.internal", "::1"})
@@ -270,49 +268,6 @@ def is_synthtunnel_url(url: str) -> bool:
     return any(_host_matches_pattern(hostname, pattern) for pattern in patterns)
 
 
-def extract_prompt_learning_container_url(payload: dict[str, Any]) -> str | None:
-    if not isinstance(payload, dict):
-        return None
-    prompt_learning = payload.get("prompt_learning")
-    if isinstance(prompt_learning, dict):
-        value = prompt_learning.get("container_url")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    value = payload.get("container_url")
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
-
-
-def infer_prompt_learning_container_url(
-    *,
-    overrides: dict[str, Any] | None = None,
-    config_dict: dict[str, Any] | None = None,
-    config_path: str | None = None,
-) -> str | None:
-    if isinstance(overrides, dict):
-        value = overrides.get("container_url")
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    if isinstance(config_dict, dict):
-        url = extract_prompt_learning_container_url(config_dict)
-        if url:
-            return url
-    if config_path:
-        try:
-            import tomllib
-
-            with Path(config_path).open("rb") as fh:
-                payload = tomllib.load(fh)
-            url = extract_prompt_learning_container_url(payload)
-            if url:
-                return url
-        except Exception:
-            pass
-    env_url = (os.environ.get("CONTAINER_URL") or "").strip()
-    return env_url or None
-
-
 BACKEND_URL_BASE = normalize_backend_base(_resolve_backend_url())
 BACKEND_URL_API = join_url(BACKEND_URL_BASE, "/api")
 BACKEND_URL_SYNTH_RESEARCH_BASE = join_url(BACKEND_URL_BASE, "/api/synth-research")
@@ -332,8 +287,6 @@ __all__ = [
     "backend_demo_keys_url",
     "backend_health_url",
     "backend_me_url",
-    "extract_prompt_learning_container_url",
-    "infer_prompt_learning_container_url",
     "is_cloudflare_tunnel_url",
     "is_free_ngrok_url",
     "is_local_backend_base_url",
