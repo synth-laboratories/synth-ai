@@ -2,7 +2,7 @@
   "task_id": "nanohorizon_craftax_hello_world",
   "version": "0.1",
   "benchmark": "reportbench.nanohorizon.craftax_hello_world",
-  "objective": "Run a simple NanoHorizon Craftax baseline with gpt-4.1-nano for 10 trajectories in async parallel, spend 10 total LLM calls, and report the concrete mean outcome reward.",
+  "objective": "Run a simple NanoHorizon Craftax baseline with OpenRouter model x-ai/grok-4.1-fast for the local Open Research demo path, spend the configured LLM calls, and report the concrete mean outcome reward.",
   "execution_contract": {
     "runner_script_path": "workspace/run_nanohorizon_craftax_hello_world_task.py",
     "command_template": "python3 workspace/run_nanohorizon_craftax_hello_world_task.py run --output-root {output_root}",
@@ -21,7 +21,7 @@
     }
   ],
   "required_secrets": [
-    "OPENAI_API_KEY"
+    "OPENROUTER_API_KEY"
   ],
   "state_contract": {
     "eval_summary_path": "artifacts/eval_summary.json",
@@ -47,6 +47,6 @@
     "optional_files": [
       "artifacts/verifier_review.json"
     ],
-    "primary_success_signal": "the bundle includes concrete rollout evidence for 10 requested Craftax trajectories and records the observed mean_outcome_reward"
+    "primary_success_signal": "the bundle includes concrete rollout evidence for the requested Craftax trajectories and records the observed mean_outcome_reward"
   }
 }

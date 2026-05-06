@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import subprocess
-from datetime import datetime, timezone
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,12 +28,14 @@ ARTIFACTS = {
     "result_manifest": "artifacts/result_manifest.json",
     "verifier_review": "artifacts/verifier_review.json",
     "reportbench_output": "artifacts/reportbench_output.json",
+    "leaderboard_evidence": "artifacts/open_research_leaderboard_evidence.json",
     "reproduction": "reports/reproduction.md",
 }
+LEADERBOARD_EVIDENCE_SCHEMA = "synth.open_research.leaderboard_evidence.v1"
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _looks_like_live_smr_workspace(path: Path) -> bool:
@@ -42,7 +46,7 @@ def _default_output_root() -> Path:
     cwd = Path.cwd().resolve()
     if _looks_like_live_smr_workspace(cwd):
         return cwd
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return RUNS_ROOT / stamp
 
 
@@ -70,6 +74,113 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeError(f"expected JSON object in {path}")
     return payload
+
+
+def _load_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        value = json.loads(line)
+        if isinstance(value, dict):
+            rows.append(value)
+    return rows
+
+
+def _first_gif_data_url(value: Any) -> str | None:
+    if isinstance(value, str) and value.startswith("data:image/gif;base64,"):
+        return value
+    if isinstance(value, dict):
+        for item in value.values():
+            found = _first_gif_data_url(item)
+            if found:
+                return found
+    if isinstance(value, list):
+        for item in value:
+            found = _first_gif_data_url(item)
+            if found:
+                return found
+    return None
+
+
+def _write_gif_from_data_url(path: Path, data_url: str) -> bool:
+    _, _, payload = data_url.partition(",")
+    if not payload:
+        return False
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(base64.b64decode(payload))
+    return True
+
+
+def _rollout_value(row: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in row:
+            return row[key]
+    metadata = row.get("metadata")
+    if isinstance(metadata, dict):
+        for key in keys:
+            if key in metadata:
+                return metadata[key]
+    reward_info = row.get("reward_info")
+    if isinstance(reward_info, dict):
+        for key in keys:
+            if key in reward_info:
+                return reward_info[key]
+    return None
+
+
+def _rollout_achievements(row: dict[str, Any]) -> list[str]:
+    value = _rollout_value(row, ("achievements", "unique_achievements"))
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    return []
+
+
+def _write_leaderboard_evidence(output_root: Path) -> None:
+    summary = _load_json(_artifact_path(output_root, "eval_summary"))
+    rows = _load_jsonl(_artifact_path(output_root, "rollouts"))
+    rollouts: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        media_path = f"artifacts/rollout_media/rollout_{index + 1:02d}.gif"
+        data_url = _first_gif_data_url(row)
+        media: list[dict[str, Any]] = []
+        if data_url and _write_gif_from_data_url(output_root / media_path, data_url):
+            media.append(
+                {
+                    "path": media_path,
+                    "kind": "image",
+                    "content_type": "image/gif",
+                    "label": f"Rollout {index + 1} gameplay GIF",
+                }
+            )
+        reward = _rollout_value(
+            row,
+            ("outcome_reward", "reward", "total_reward", "aggregate_reward"),
+        )
+        rollouts.append(
+            {
+                "rollout_id": str(_rollout_value(row, ("rollout_id", "id")) or f"rollout-{index + 1}"),
+                "seed": _rollout_value(row, ("seed", "task_seed")),
+                "reward": reward,
+                "outcome_reward": reward,
+                "success_status": str(row.get("status") or "observed"),
+                "achievements": _rollout_achievements(row),
+                "media": media,
+            }
+        )
+    payload = {
+        "schema": LEADERBOARD_EVIDENCE_SCHEMA,
+        "application_id": "craftax",
+        "track": "craftax",
+        "result_metric": "aggregate_reward",
+        "requested_rollouts": summary.get("requested_rollouts"),
+        "completed_rollouts": summary.get("num_rollouts") or len(rows),
+        "aggregate_reward": summary.get("mean_outcome_reward"),
+        "rollouts": rollouts,
+    }
+    _write_json(_artifact_path(output_root, "leaderboard_evidence"), payload)
 
 
 def _read_task_config() -> dict[str, Any]:
@@ -190,12 +301,12 @@ def _compute_verifier_review(output_root: Path, verifier_mode: str) -> dict[str,
     if not rollouts_exists:
         score = min(score, 0.2)
         notes.append("rollout evidence missing")
-    if int(summary.get("requested_rollouts", 0) or 0) != 10:
+    if int(summary.get("requested_rollouts", 0) or 0) < 1:
         score = min(score, 0.2)
-        notes.append("requested_rollouts did not match 10")
-    if int(summary.get("requested_rollout_concurrency", 0) or 0) != 10:
+        notes.append("requested_rollouts was not positive")
+    if int(summary.get("requested_rollout_concurrency", 0) or 0) < 1:
         score = min(score, 0.2)
-        notes.append("requested_rollout_concurrency did not match 10")
+        notes.append("requested_rollout_concurrency was not positive")
     return {
         "score": round(float(score), 6),
         "summary": "Derived from the concrete NanoHorizon Craftax hello-world artifacts.",
@@ -250,17 +361,17 @@ def run(args: argparse.Namespace) -> int:
                 {
                     "benchmark": TASK_ID,
                     "task": "craftax",
-                    "model": "gpt-4.1-nano",
-                    "requested_rollouts": 10,
-                    "requested_total_llm_calls": 10,
+                    "model": str(os.getenv("NANOHORIZON_MODEL") or "x-ai/grok-4.1-fast"),
+                    "requested_rollouts": int(os.getenv("NANOHORIZON_ROLLOUTS") or "1"),
+                    "requested_total_llm_calls": int(os.getenv("NANOHORIZON_ROLLOUTS") or "1"),
                     "requested_max_steps_per_rollout": 1,
                     "requested_llm_calls_per_rollout": 1,
-                    "requested_rollout_concurrency": 10,
+                    "requested_rollout_concurrency": int(os.getenv("NANOHORIZON_ROLLOUT_CONCURRENCY") or "1"),
                     "mean_outcome_reward": 0.0,
                     "max_outcome_reward": 0.0,
                     "mean_llm_calls_per_rollout": 0.0,
                     "num_rollouts": 0,
-                    "num_errors": 10,
+                    "num_errors": int(os.getenv("NANOHORIZON_ROLLOUTS") or "1"),
                     "runner_failure": {
                         "exit_code": int(process.returncode),
                         "stdout": process.stdout[:2000],
@@ -273,6 +384,7 @@ def run(args: argparse.Namespace) -> int:
             rollouts_path.parent.mkdir(parents=True, exist_ok=True)
             rollouts_path.write_text("", encoding="utf-8")
     _write_result_manifest(output_root, process=process)
+    _write_leaderboard_evidence(output_root)
     _write_reproduction_report(output_root)
     return int(process.returncode)
 

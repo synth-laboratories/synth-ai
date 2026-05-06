@@ -27,9 +27,9 @@ REPORT BENCH - staged task mode.
 Read the starting-data README, task contract, task.toml, verifier rubric, and
 workspace runner before starting.
 
-This task runs a minimal NanoHorizon Craftax baseline with `gpt-4.1-nano`:
-10 requested trajectories, 10 total requested LLM calls, and async parallel
-rollout concurrency of 10. The runner writes the concrete rollout evidence,
+This task runs a minimal NanoHorizon Craftax baseline with OpenRouter model
+`x-ai/grok-4.1-fast` by default: 1 requested trajectory, 1 total requested
+LLM call, and rollout concurrency of 1. The runner writes the concrete rollout evidence,
 mean reward summary, result manifest, and canonical reportbench output bundle.
 
 The task uses the local `nanohorizon` checkout via `uv run --directory ...`.
@@ -66,8 +66,8 @@ workspace root so SMR can publish them.
 """
 acceptance_criteria = [
   "The workspace root contains `artifacts/eval_summary.json`, `artifacts/rollouts.jsonl`, `artifacts/result_manifest.json`, `artifacts/reportbench_output.json`, and `reports/reproduction.md`.",
-  "`artifacts/eval_summary.json` records the concrete `mean_outcome_reward` for the 10 requested Craftax trajectories.",
-  "`artifacts/eval_summary.json` records `requested_rollouts` equal to `10`, `requested_total_llm_calls` equal to `10`, `requested_max_steps_per_rollout` equal to `1`, and `rollout_concurrency` equal to `10`.",
+  "`artifacts/eval_summary.json` records the concrete `mean_outcome_reward` for the requested Craftax trajectories.",
+  "`artifacts/eval_summary.json` records positive `requested_rollouts`, `requested_total_llm_calls`, and `rollout_concurrency`, with `requested_max_steps_per_rollout` equal to `1`.",
   "`artifacts/result_manifest.json` records `status` equal to `succeeded` when the baseline completed without runner failure."
 ]
 verification = { mode = "none", instructions = "Check that the workspace-root bundle exists and the eval summary reports the concrete mean reward for the requested NanoHorizon baseline run." }
