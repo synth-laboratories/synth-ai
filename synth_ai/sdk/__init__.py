@@ -13,6 +13,7 @@ from synth_ai.sdk.horizons_private import (
 )
 from synth_ai.sdk.managed_agents_anthropic import (
     AsyncManagedAgentsAnthropicClient,
+    ManagedAgentRun,
     ManagedAgentsAnthropicClient,
 )
 from synth_ai.sdk.openai_agents_sdk import (
@@ -40,6 +41,7 @@ __all__ = [
     "ContainersClient",
     "HorizonsPrivateClient",
     "ManagedAgentsAnthropicClient",
+    "ManagedAgentRun",
     "PoolTarget",
     "TunnelProvider",
     "TunnelsClient",

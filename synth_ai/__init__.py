@@ -44,6 +44,7 @@ __all__ = [
     "ContainersClient",
     "HorizonsPrivateClient",
     "ManagedAgentsAnthropicClient",
+    "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
     "SynthClient",
     "TunnelsClient",
@@ -66,6 +67,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ManagedAgentsAnthropicClient": (
         "synth_ai.sdk.managed_agents_anthropic",
         "ManagedAgentsAnthropicClient",
+    ),
+    "ManagedAgentRun": (
+        "synth_ai.sdk.managed_agents_anthropic",
+        "ManagedAgentRun",
     ),
     "AsyncManagedAgentsAnthropicClient": (
         "synth_ai.sdk.managed_agents_anthropic",
