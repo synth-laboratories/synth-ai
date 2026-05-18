@@ -39,6 +39,7 @@ __all__ = [
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
     "AsyncSynthClient",
+    "AsyncSynthManagedAgents",
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
@@ -47,6 +48,7 @@ __all__ = [
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
     "SynthClient",
+    "SynthManagedAgents",
     "TunnelsClient",
     "function_tool",
     "mcp_tool",
@@ -75,6 +77,14 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "AsyncManagedAgentsAnthropicClient": (
         "synth_ai.sdk.managed_agents_anthropic",
         "AsyncManagedAgentsAnthropicClient",
+    ),
+    "SynthManagedAgents": (
+        "synth_ai.sdk.managed_agents",
+        "SynthManagedAgents",
+    ),
+    "AsyncSynthManagedAgents": (
+        "synth_ai.sdk.managed_agents",
+        "AsyncSynthManagedAgents",
     ),
     "OpenAIAgentsSdkClient": (
         "synth_ai.sdk.openai_agents_sdk",

@@ -10,12 +10,14 @@ from synth_ai.sdk import (
     AsyncHorizonsPrivateClient,
     AsyncManagedAgentsAnthropicClient,
     AsyncOpenAIAgentsSdkClient,
+    AsyncSynthManagedAgents,
     AsyncTunnelsClient,
     ContainerPoolsClient,
     ContainersClient,
     HorizonsPrivateClient,
     ManagedAgentsAnthropicClient,
     OpenAIAgentsSdkClient,
+    SynthManagedAgents,
     TunnelsClient,
 )
 
@@ -67,6 +69,13 @@ class SynthClient:
             api_key=self.api_key,
             backend_base=self.base_url,
             timeout=self.timeout,
+        )
+        self.managed_agents_anthropic = SynthManagedAgents.from_transport(
+            ManagedAgentsAnthropicClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout=self.timeout,
+            )
         )
         self.openai_agents_sdk = OpenAIAgentsSdkClient(
             api_key=self.api_key,
@@ -122,6 +131,13 @@ class AsyncSynthClient:
                 timeout=self.timeout,
             )
         )
+        self.managed_agents_anthropic = AsyncSynthManagedAgents.from_transport(
+            ManagedAgentsAnthropicClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout=self.timeout,
+            )
+        )
         self.openai_agents_sdk = AsyncOpenAIAgentsSdkClient(
             OpenAIAgentsSdkClient(
                 api_key=self.api_key,
@@ -142,6 +158,7 @@ __all__ = [
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
     "AsyncSynthClient",
+    "AsyncSynthManagedAgents",
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
@@ -149,5 +166,6 @@ __all__ = [
     "ManagedAgentsAnthropicClient",
     "OpenAIAgentsSdkClient",
     "SynthClient",
+    "SynthManagedAgents",
     "TunnelsClient",
 ]

@@ -11,6 +11,7 @@ from synth_ai.sdk.horizons_private import (
     AsyncHorizonsPrivateClient,
     HorizonsPrivateClient,
 )
+from synth_ai.sdk.managed_agents import AsyncSynthManagedAgents, SynthManagedAgents
 from synth_ai.sdk.managed_agents_anthropic import (
     AsyncManagedAgentsAnthropicClient,
     ManagedAgentRun,
@@ -49,5 +50,7 @@ __all__ = [
     "AsyncHorizonsPrivateClient",
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
+    "AsyncSynthManagedAgents",
     "OpenAIAgentsSdkClient",
+    "SynthManagedAgents",
 ]

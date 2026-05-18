@@ -16,6 +16,25 @@ from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
 
+DEFAULT_ANTHROPIC_VERSION = "2023-06-01"
+DEFAULT_MANAGED_AGENTS_BETA = (
+    "managed-agents-2026-04-01,"
+    "managed-agents-2026-04-01-research-preview,"
+    "files-api-2025-04-14"
+)
+
+
+def _raise_for_status_with_body(response: httpx.Response) -> None:
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        body = response.text.strip()
+        if len(body) > 2000:
+            body = f"{body[:2000]}..."
+        message = f"{exc} Response body: {body}" if body else str(exc)
+        raise httpx.HTTPStatusError(message, request=response.request, response=response) from exc
+
+
 def _page_data(page: dict[str, Any]) -> list[dict[str, Any]]:
     raw_items = page.get("data")
     if raw_items is None:
@@ -51,7 +70,15 @@ def _is_terminal_failure_event(event: dict[str, Any]) -> bool:
 
 def _is_terminal_event(event: dict[str, Any]) -> bool:
     event_type = str(event.get("type") or "")
-    return event_type == "session.turn_released" or _is_terminal_failure_event(event)
+    if event_type == "session.turn_released" or _is_terminal_failure_event(event):
+        return True
+    if event_type == "session.status_idle":
+        stop_reason = event.get("stop_reason")
+        if not isinstance(stop_reason, dict):
+            payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+            stop_reason = payload.get("stop_reason")
+        return isinstance(stop_reason, dict) and stop_reason.get("type") == "completed"
+    return False
 
 
 def _event_error(event: dict[str, Any]) -> dict[str, Any] | None:
@@ -106,12 +133,12 @@ class ManagedAgentsAnthropicClient:
         self._backend_base = normalize_backend_base(backend_base or BACKEND_URL_BASE)
         self._timeout = timeout
         self._anthropic_version = (
-            anthropic_version or os.getenv("ANTHROPIC_VERSION") or "2023-06-01"
+            anthropic_version or os.getenv("ANTHROPIC_VERSION") or DEFAULT_ANTHROPIC_VERSION
         ).strip()
         self._anthropic_beta = (
             anthropic_beta
             or os.getenv("ANTHROPIC_BETA")
-            or "managed-agents-2026-04-01,managed-agents-2026-04-01-research-preview,files-api-2025-04-14"
+            or DEFAULT_MANAGED_AGENTS_BETA
         ).strip()
         self._prefix = path_prefix.rstrip("/")
 
@@ -123,12 +150,14 @@ class ManagedAgentsAnthropicClient:
         api_key: str | None = None,
         timeout: float = 30.0,
         anthropic_version: str | None = None,
+        anthropic_beta: str | None = None,
     ) -> ManagedAgentsAnthropicClient:
         return cls(
             api_key=api_key or "",
             backend_base=base_url,
             timeout=timeout,
-            anthropic_version=anthropic_version,
+            anthropic_version=anthropic_version or DEFAULT_ANTHROPIC_VERSION,
+            anthropic_beta=anthropic_beta or DEFAULT_MANAGED_AGENTS_BETA,
             path_prefix="/anthropic/v1",
             require_api_key=False,
         )
@@ -167,7 +196,7 @@ class ManagedAgentsAnthropicClient:
             params=params,
             timeout=self._timeout,
         )
-        response.raise_for_status()
+        _raise_for_status_with_body(response)
         if not response.content:
             return {}
         content_type = (response.headers.get("content-type") or "").lower()
@@ -190,7 +219,7 @@ class ManagedAgentsAnthropicClient:
             params=params,
             timeout=self._timeout,
         )
-        response.raise_for_status()
+        _raise_for_status_with_body(response)
         return response.content
 
     def stream(
@@ -207,7 +236,7 @@ class ManagedAgentsAnthropicClient:
             params=params,
             timeout=httpx.Timeout(connect=10.0, read=None, write=30.0, pool=10.0),
         ) as response:
-            response.raise_for_status()
+            _raise_for_status_with_body(response)
             for line in response.iter_lines():
                 if not line:
                     continue
@@ -435,6 +464,29 @@ class ManagedAgentsAnthropicClient:
                     event for event in terminal_events if _is_terminal_failure_event(event)
                 ]
                 terminal_event = (failure_events or terminal_events)[-1]
+                break
+            session_state = self.get_session(session_id)
+            last_failure = session_state.get("last_failure")
+            if isinstance(last_failure, dict) and last_failure:
+                terminal_event = {
+                    "type": "session.error",
+                    "sequence": max([int(event.get("sequence") or 0) for event in events] or [0]),
+                    "payload": {"error": last_failure},
+                    "stop_reason": session_state.get("stop_reason"),
+                }
+                break
+            stop_reason = session_state.get("stop_reason")
+            if (
+                str(session_state.get("status") or "") in {"idle", "terminated"}
+                and isinstance(stop_reason, dict)
+                and stop_reason.get("type") == "completed"
+            ):
+                terminal_event = {
+                    "type": "session.status_idle",
+                    "sequence": max([int(event.get("sequence") or 0) for event in events] or [0]),
+                    "payload": {"stop_reason": stop_reason},
+                    "stop_reason": stop_reason,
+                }
                 break
             time.sleep(poll_interval_seconds)
         else:

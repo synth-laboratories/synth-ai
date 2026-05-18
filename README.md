@@ -30,6 +30,16 @@ Set `SYNTH_API_KEY` before using the SDK or CLI:
 export SYNTH_API_KEY="sk_..."
 ```
 
+## Local Workspaces
+
+For local multi-repo development, `synth-ai` treats workspace resolution as a
+read-only overlay. `.env` and Synth home config may provide defaults and
+secrets; selecting a worktree must not rewrite those defaults.
+
+Use `SYNTH_WORKSPACE_MANIFEST` or `SYNTH_WORKSPACE_ROOT` for command-scoped
+worktree resolution. The resolver in `synth_ai.core.utils.workspace` returns
+repo paths and a scoped env mapping for subprocesses without mutating `.env`.
+
 Pass `base_url` when you need to pin a production, local, staging, or private
 backend explicitly:
 
