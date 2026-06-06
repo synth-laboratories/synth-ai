@@ -1,7 +1,7 @@
 [project]
 name = "synth-ai"
 version = "0.11.0"
-description = "Python-only SDK for Synth containers, tunnels, and container pools"
+description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -17,6 +17,7 @@ dependencies = [
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
+synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
 
 [project.optional-dependencies]
 schemas = []
@@ -51,6 +52,10 @@ all = [
 analytics = [
     "pandas>=2.2.3",
 ]
+research = [
+    # Alpha bootstrap: control-plane HTTP until ported into synth-ai.
+    "managed-research>=1.2026.051300",
+]
 
 [project.urls]
 Homepage = "https://github.com/synth-laboratories/synth-ai"
@@ -62,7 +67,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai", "synth_ai.*"]
+include = ["synth_ai", "synth_ai.*", "readme_runs", "readme_runs.*"]
 exclude = [
     "docs*",
     "tests*",
@@ -160,8 +165,12 @@ include = ["synth_ai"]
 [tool.ty.rules]
 possibly-missing-attribute = "ignore"
 
+[tool.uv.sources]
+managed-research = { path = "../managed-research", editable = true }
+
 [dependency-groups]
 dev = [
+    "managed-research",
     "build>=1.2.2.post1",
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",

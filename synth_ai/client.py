@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk import (
@@ -86,6 +88,19 @@ class SynthClient:
             openai_project=openai_project,
             request_id=openai_request_id,
         )
+        self._research_client: Any | None = None
+
+    @property
+    def research(self) -> Any:
+        if self._research_client is None:
+            from synth_ai.research.client import ResearchClient
+
+            self._research_client = ResearchClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        return self._research_client
 
 
 class AsyncSynthClient:
@@ -149,6 +164,19 @@ class AsyncSynthClient:
                 request_id=openai_request_id,
             )
         )
+        self._research_client: Any | None = None
+
+    @property
+    def research(self) -> Any:
+        if self._research_client is None:
+            from synth_ai.research.client import ResearchClient
+
+            self._research_client = ResearchClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        return self._research_client
 
 
 __all__ = [

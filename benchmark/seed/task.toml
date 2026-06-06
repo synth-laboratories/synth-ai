@@ -28,9 +28,11 @@ Read the starting-data README, task contract, task.toml, verifier rubric, and
 workspace runner before starting.
 
 This task runs a minimal NanoHorizon Craftax baseline with OpenRouter model
-`x-ai/grok-4.1-fast` by default: 1 requested trajectory, 1 total requested
-LLM call, and rollout concurrency of 1. The runner writes the concrete rollout evidence,
-mean reward summary, result manifest, and canonical reportbench output bundle.
+`x-ai/grok-4.3` by default. Launch smokes request 100 trajectories, a
+500-step cap, and rollout concurrency of 10 so the worker uses the existing
+fast NanoHorizon rollout path. The runner writes the concrete rollout evidence,
+mean reward summary, scorecard, bounded real gameplay media, result manifest,
+and canonical reportbench output bundle.
 
 The task uses the local `nanohorizon` checkout via `uv run --directory ...`.
 If needed, set `NANOHORIZON_REPO_ROOT`.
@@ -54,7 +56,7 @@ before you start.
 From the current workspace root, run the materialized staged runner and keep
 all outputs inside the active workspace:
 
-`python3 {dataset_ref}/workspace/run_nanohorizon_craftax_hello_world_task.py run --output-root .`
+`NANOHORIZON_ROLLOUTS=100 NANOHORIZON_MAX_STEPS=500 NANOHORIZON_ROLLOUT_CONCURRENCY=10 python3 {dataset_ref}/workspace/run_nanohorizon_craftax_hello_world_task.py run --output-root .`
 
 Then score the produced bundle in place:
 
@@ -63,11 +65,16 @@ Then score the produced bundle in place:
 Do not fabricate metrics or reports. Use the concrete runner outputs, and make
 sure the required reportbench submission artifacts are written into the current
 workspace root so SMR can publish them.
+
+Do not replay recorded traces or regenerate rollout media after the runner
+finishes. The runner owns the fast batched rollout path and writes representative
+real gameplay media plus per-rollout metadata for all requested rollouts.
 """
 acceptance_criteria = [
-  "The workspace root contains `artifacts/eval_summary.json`, `artifacts/rollouts.jsonl`, `artifacts/result_manifest.json`, `artifacts/reportbench_output.json`, and `reports/reproduction.md`.",
+  "The workspace root contains `artifacts/eval_summary.json`, `artifacts/rollouts.jsonl`, `artifacts/result_manifest.json`, `artifacts/reportbench_output.json`, `artifacts/craftax_scorecard.json`, `artifacts/craftax_rollout_media.json`, `artifacts/open_research_leaderboard_evidence.json`, and `reports/reproduction.md`.",
   "`artifacts/eval_summary.json` records the concrete `mean_outcome_reward` for the requested Craftax trajectories.",
-  "`artifacts/eval_summary.json` records positive `requested_rollouts`, `requested_total_llm_calls`, and `rollout_concurrency`, with `requested_max_steps_per_rollout` equal to `1`.",
+  "`artifacts/eval_summary.json` records `requested_rollouts` equal to `100`, positive `requested_total_llm_calls`, `requested_rollout_concurrency` at least `10`, and `requested_max_steps_per_rollout` equal to `500`.",
+  "`artifacts/open_research_leaderboard_evidence.json` records all requested rollout rows and at least one captured real Craftax gameplay media artifact from the runner.",
   "`artifacts/result_manifest.json` records `status` equal to `succeeded` when the baseline completed without runner failure."
 ]
 verification = { mode = "none", instructions = "Check that the workspace-root bundle exists and the eval summary reports the concrete mean reward for the requested NanoHorizon baseline run." }
