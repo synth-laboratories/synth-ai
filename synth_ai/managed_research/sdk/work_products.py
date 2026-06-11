@@ -1,0 +1,104 @@
+"""Run WorkProduct SDK namespace."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from synth_ai.managed_research.models.work_products import (
+    ManagedResearchContainerEvalPackage,
+    ManagedResearchRunWorkProduct,
+    ManagedResearchWorkProductExport,
+)
+from synth_ai.managed_research.sdk._base import _ClientNamespace
+
+
+class WorkProductsAPI(_ClientNamespace):
+    def list_for_run(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> list[ManagedResearchRunWorkProduct]:
+        return [
+            ManagedResearchRunWorkProduct.from_wire(item)
+            for item in self._client.list_run_work_products(project_id, run_id)
+        ]
+
+    def get(self, work_product_id: str) -> ManagedResearchRunWorkProduct:
+        return ManagedResearchRunWorkProduct.from_wire(
+            self._client.get_run_work_product(work_product_id)
+        )
+
+    def export(
+        self,
+        work_product_id: str,
+        *,
+        destination: Mapping[str, Any],
+        idempotency_key: str | None = None,
+    ) -> ManagedResearchWorkProductExport:
+        return ManagedResearchWorkProductExport.from_wire(
+            self._client.export_run_work_product(
+                work_product_id,
+                destination=destination,
+                idempotency_key=idempotency_key,
+            )
+        )
+
+    def get_export(self, export_id: str) -> ManagedResearchWorkProductExport:
+        return ManagedResearchWorkProductExport.from_wire(
+            self._client.get_work_product_export(export_id)
+        )
+
+    def explain_blocker(self, work_product_id: str) -> dict[str, Any]:
+        return self._client.explain_work_product_blocker(work_product_id)
+
+    def upload_container_eval_package(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        kind: str,
+        name: str,
+        version: str | None = None,
+        artifact_id: str | None = None,
+        storage_uri: str | None = None,
+        archive_size_bytes: int | None = None,
+        manifest: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ManagedResearchContainerEvalPackage:
+        return ManagedResearchContainerEvalPackage.from_wire(
+            self._client.upload_container_eval_package(
+                project_id,
+                run_id,
+                kind=kind,
+                name=name,
+                version=version,
+                artifact_id=artifact_id,
+                storage_uri=storage_uri,
+                archive_size_bytes=archive_size_bytes,
+                manifest=manifest,
+                metadata=metadata,
+            )
+        )
+
+    def list_container_eval_packages(
+        self, project_id: str, run_id: str
+    ) -> list[ManagedResearchContainerEvalPackage]:
+        return [
+            ManagedResearchContainerEvalPackage.from_wire(item)
+            for item in self._client.list_run_container_eval_packages(
+                project_id,
+                run_id,
+            )
+        ]
+
+    def validate_container_eval_package(
+        self,
+        package_id: str,
+    ) -> ManagedResearchContainerEvalPackage:
+        return ManagedResearchContainerEvalPackage.from_wire(
+            self._client.validate_container_eval_package(package_id)
+        )
+
+
+__all__ = ["WorkProductsAPI"]

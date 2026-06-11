@@ -1,6 +1,6 @@
 """Research control-plane client (README smoke / ReportBench drivers).
 
-Alpha: thin public wrapper over ``managed_research.sdk.client.SmrControlClient``.
+Alpha: thin public wrapper over ``synth_ai.managed_research.sdk.client.SmrControlClient``.
 HTTP paths remain ``/smr`` until backend ``/research`` aliases land.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from managed_research.sdk.client import SmrControlClient
+from synth_ai.managed_research.sdk.client import SmrControlClient
 
 
 class ResearchControlClient(SmrControlClient):

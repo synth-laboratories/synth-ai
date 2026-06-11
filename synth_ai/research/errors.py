@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from managed_research.errors import (
+from synth_ai.managed_research.errors import (
     SmrApiError,
     SmrConcurrentRunLimitExceededError,
     SmrInsufficientCreditsError,

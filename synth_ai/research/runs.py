@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from managed_research.sdk.client import ManagedResearchClient
-from managed_research.sdk.runs import ProjectSelector, RunHandle
+from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
 
 from synth_ai.research.models import ResearchRun, ResearchRunbookPreset, ResearchWorkProduct
 

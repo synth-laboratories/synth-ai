@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from managed_research.models.types import SmrRunnableProjectRequest
-from managed_research.sdk.client import ManagedResearchClient
+from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
+from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
 from synth_ai.research.models import ResearchCreateProjectResult, ResearchProject
 

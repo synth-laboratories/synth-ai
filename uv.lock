@@ -1195,36 +1195,6 @@ wheels = [
 ]
 
 [[package]]
-name = "managed-research"
-version = "1.2026.51306"
-source = { editable = "../managed-research" }
-dependencies = [
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "pynacl" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "build", marker = "extra == 'dev'", specifier = ">=1.2.2.post1" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "pydantic", specifier = ">=2.6.0" },
-    { name = "pynacl", specifier = ">=1.5.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.0" },
-    { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.28" },
-]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "build", specifier = ">=1.2.2.post1" },
-    { name = "pytest", specifier = ">=8.3.3" },
-    { name = "ruff", specifier = ">=0.15.0" },
-    { name = "ty", specifier = ">=0.0.28" },
-]
-
-[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2527,7 +2497,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.11.0"
+version = "0.11.1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -2566,9 +2536,6 @@ providers = [
     { name = "google-genai" },
     { name = "groq" },
 ]
-research = [
-    { name = "managed-research" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -2577,7 +2544,6 @@ dev = [
     { name = "httpx" },
     { name = "ipykernel" },
     { name = "keyring" },
-    { name = "managed-research" },
     { name = "nbstripout" },
     { name = "nest-asyncio" },
     { name = "papermill" },
@@ -2607,7 +2573,6 @@ requires-dist = [
     { name = "groq", marker = "extra == 'providers'", specifier = ">=0.30.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=24.0.0" },
-    { name = "managed-research", marker = "extra == 'research'", editable = "../managed-research" },
     { name = "nest-asyncio", marker = "extra == 'dev'", specifier = ">=1.6.0" },
     { name = "pandas", marker = "extra == 'analytics'", specifier = ">=2.2.3" },
     { name = "papermill", marker = "extra == 'dev'", specifier = ">=2.6.0" },
@@ -2631,7 +2596,6 @@ dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "keyring", specifier = ">=24.0.0" },
-    { name = "managed-research", editable = "../managed-research" },
     { name = "nbstripout", specifier = ">=0.8.2" },
     { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "papermill", specifier = ">=2.6.0" },

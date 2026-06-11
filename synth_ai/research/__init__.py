@@ -1,8 +1,6 @@
-"""Public Research API for Synth (alpha).
+"""Public Research API for Synth.
 
 Canonical entry: ``SynthClient().research``.
-
-Alpha bootstrap delegates HTTP to ``managed-research`` until push 4 ports transport.
 """
 
 from __future__ import annotations

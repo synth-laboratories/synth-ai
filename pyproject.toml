@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.11.0"
+version = "0.11.1"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -17,6 +17,8 @@ dependencies = [
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
+synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
+synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
 synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
 
 [project.optional-dependencies]
@@ -53,8 +55,7 @@ analytics = [
     "pandas>=2.2.3",
 ]
 research = [
-    # Alpha bootstrap: control-plane HTTP until ported into synth-ai.
-    "managed-research>=1.2026.051300",
+    # Compatibility extra retained so `pip install synth-ai[research]` remains valid.
 ]
 
 [project.urls]
@@ -91,6 +92,8 @@ include-package-data = true
 [tool.setuptools.package-data]
 "synth_ai" = [
     "opencode/skill/*/SKILL.md",
+    "managed_research/py.typed",
+    "managed_research/schemas/*",
 ]
 
 [tool.pytest.ini_options]
@@ -165,12 +168,8 @@ include = ["synth_ai"]
 [tool.ty.rules]
 possibly-missing-attribute = "ignore"
 
-[tool.uv.sources]
-managed-research = { path = "../managed-research", editable = true }
-
 [dependency-groups]
 dev = [
-    "managed-research",
     "build>=1.2.2.post1",
     "fastapi>=0.115.12",
     "uvicorn>=0.34.2",

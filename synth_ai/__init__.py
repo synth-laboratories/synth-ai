@@ -44,10 +44,18 @@ __all__ = [
     "ContainerPoolsClient",
     "ContainersClient",
     "HorizonsPrivateClient",
+    "ManagedResearchClient",
+    "ManagedResearchError",
+    "ManagedResearchMcpServer",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
     "ResearchClient",
+    "SmrApiError",
+    "SmrConcurrentRunLimitExceededError",
+    "SmrControlClient",
+    "SmrInsufficientCreditsError",
+    "SmrLimitExceededError",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
@@ -56,6 +64,26 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "ManagedResearchClient": (
+        "synth_ai.managed_research.sdk.client",
+        "ManagedResearchClient",
+    ),
+    "SmrControlClient": ("synth_ai.managed_research.sdk.client", "SmrControlClient"),
+    "ManagedResearchMcpServer": (
+        "synth_ai.managed_research.mcp.server",
+        "ManagedResearchMcpServer",
+    ),
+    "ManagedResearchError": ("synth_ai.managed_research.errors", "ManagedResearchError"),
+    "SmrApiError": ("synth_ai.managed_research.errors", "SmrApiError"),
+    "SmrConcurrentRunLimitExceededError": (
+        "synth_ai.managed_research.errors",
+        "SmrConcurrentRunLimitExceededError",
+    ),
+    "SmrInsufficientCreditsError": (
+        "synth_ai.managed_research.errors",
+        "SmrInsufficientCreditsError",
+    ),
+    "SmrLimitExceededError": ("synth_ai.managed_research.errors", "SmrLimitExceededError"),
     "ResearchClient": ("synth_ai.research.client", "ResearchClient"),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
