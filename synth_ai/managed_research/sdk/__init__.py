@@ -557,3 +557,12 @@ __all__ = [
     "first_id",
     "is_open_research_visual_manifest",
 ]
+
+__all__ = sorted(
+    set(__all__)
+    | {
+        name
+        for name in globals()
+        if not name.startswith("_") and name not in {"annotations"}
+    }
+)

@@ -105,6 +105,7 @@ markers = [
     "fast: marks tests as fast (≤5 seconds) - these are the default tests to run",
     "slow: marks tests as slow (>5 seconds) - requires more time/resources",
     "integration: marks tests as integration tests requiring external services",
+    "integration_local: marks tests that require a local backend service",
     "unit: marks tests as isolated unit tests",
     "public: marks tests that can run in any environment",
     "private: marks tests that may require credentials or special setup",
