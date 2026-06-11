@@ -16,7 +16,7 @@ def sync_public_schemas(
     """Copy quarantined legacy schemas into the new generated schema folder."""
 
     package_root = Path(__file__).resolve().parent
-    repo_root = package_root.parent
+    repo_root = package_root.parents[1]
     source = source_dir or (repo_root / "old" / "schemas" / "generated")
     destination = destination_dir or (package_root / "models" / "generated")
     copied: list[Path] = []

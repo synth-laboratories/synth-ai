@@ -1,18 +1,18 @@
 # Managed Research Plugin
 
 This `synth-ai` plugin is the maintained local plugin surface for the
-canonical `managed-research` MCP server.
+canonical Research MCP server shipped in `synth-ai[research]`.
 
 Preferred hosted install:
 
-- `codex mcp add managed-research --url https://api.usesynth.ai/mcp`
-- `claude mcp add --transport http managed-research https://api.usesynth.ai/mcp`
+- `codex mcp add synth-managed-research --url https://api.usesynth.ai/mcp`
+- `claude mcp add --transport http synth-managed-research https://api.usesynth.ai/mcp`
 
 Local stdio fallback:
 
-- this plugin delegates to the sibling `managed-research` checkout
-- the maintained stdio entrypoint is `managed-research-mcp`
-- the maintained package install path is `uv tool install managed-research`
+- this plugin delegates to the sibling `synth-ai` checkout
+- the maintained stdio entrypoint is `synth-ai-managed-research-mcp`
+- the maintained package install path is `pip install "synth-ai[research]"`
 
 Canonical control-plane flow:
 

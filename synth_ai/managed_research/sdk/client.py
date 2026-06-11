@@ -1389,7 +1389,7 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/entitlements/synth_ai.managed_research",
+                f"/smr/projects/{project_id}/entitlements/managed_research",
             ),
             label="get_project_entitlement",
         )
