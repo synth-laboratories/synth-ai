@@ -94,6 +94,10 @@ jobs:
         run: |
           uv sync --group dev
           uv run --group dev pytest testing/synth_ai_sdk/sdk -v --maxfail=1
+      - name: Run Managed Research contract suite
+        run: |
+          uv run --group dev pytest tests/managed_research/ -q --timeout=300
+          uv run --group dev python scripts/validate_contract.py
 
   type-check:
     name: Type Check
