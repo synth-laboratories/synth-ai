@@ -2997,6 +2997,28 @@ class ManagedResearchClient:
             label="list_active_runs",
         )
 
+    def list_jobs(
+        self,
+        *,
+        project_id: str | None = None,
+        state: str | None = None,
+        active_only: bool | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/jobs",
+                params=build_query_params(
+                    project_id=project_id,
+                    state=state,
+                    active_only=active_only,
+                    limit=limit,
+                ),
+            ),
+            label="list_jobs",
+        )
+
     def get_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
         if project_id:
             scoped = self._request_json(
