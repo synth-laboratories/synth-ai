@@ -107,6 +107,7 @@ from synth_ai.managed_research.models.smr_runbooks import (
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode, coerce_smr_work_mode
 from synth_ai.managed_research.models.types import (
     KickoffContract,
+    RequiredWorkProductSpec,
     RunArtifact,
     RunArtifactManifest,
     RunResourceBindings,
@@ -249,6 +250,40 @@ def _optional_mapping_list(
     return normalized
 
 
+def _required_work_product_payloads(
+    payload: Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None,
+    *,
+    field_name: str,
+) -> list[dict[str, object]]:
+    if payload is None:
+        return []
+    normalized: list[dict[str, object]] = []
+    for item in payload:
+        if isinstance(item, RequiredWorkProductSpec):
+            normalized.append(item.to_wire())
+            continue
+        if not isinstance(item, Mapping):
+            raise ValueError(f"{field_name} entries must be RequiredWorkProductSpec or mappings")
+        normalized.append(RequiredWorkProductSpec.from_wire(dict(item)).to_wire())
+    return normalized
+
+
+def _has_required_report(payloads: Iterable[Mapping[str, object]]) -> bool:
+    return any(str(item.get("kind") or "").strip().lower() == "report" for item in payloads)
+
+
+def _default_report_work_product_payload() -> dict[str, object]:
+    return RequiredWorkProductSpec(
+        kind="report",
+        title="Final Report",
+        description=(
+            "Human-facing report with objective, resources, method, evidence, "
+            "result, caveats, next action, and receipt IDs."
+        ),
+        required=True,
+    ).to_wire()
+
+
 def _require_smr_credential_provider(
     value: SmrCredentialProvider | str | None,
     *,
@@ -360,6 +395,7 @@ def _primary_objective_ref_payload(
 
 def _build_project_run_payload(
     *,
+    objective: str | None = None,
     host_kind: SmrHostKind | str | None = None,
     work_mode: SmrWorkMode | str | None = None,
     mode: SmrWorkMode | str | None = None,
@@ -388,6 +424,11 @@ def _build_project_run_payload(
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+    open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
+    directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
+    required_work_products: Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]]
+    | None = None,
+    require_report: bool = True,
     ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_objective_id: str | None = None,
     primary_objective_kind: str | None = None,
@@ -544,10 +585,13 @@ def _build_project_run_payload(
         payload["actor_model_overrides"] = normalized_actor_model_overrides
     if normalized_roles:
         payload["roles"] = normalized_roles
+    objective_text = str(objective or "").strip()
     normalized_initial_runtime_messages = _optional_mapping_list(
         initial_runtime_messages,
         field_name="initial_runtime_messages",
     )
+    if objective_text:
+        normalized_initial_runtime_messages.append({"body": objective_text, "mode": "queue"})
     if normalized_initial_runtime_messages:
         payload["initial_runtime_messages"] = normalized_initial_runtime_messages
     normalized_workflow = _optional_mapping(workflow, field_name="workflow")
@@ -568,6 +612,22 @@ def _build_project_run_payload(
     normalized_run_policy = coerce_smr_run_policy(run_policy, field_name="run_policy")
     if normalized_run_policy is not None:
         payload["run_policy"] = normalized_run_policy.to_dict()
+    normalized_required_work_products = _required_work_product_payloads(
+        required_work_products,
+        field_name="required_work_products",
+    )
+    if (
+        kickoff_contract is None
+        and objective_text
+        and require_report
+        and not _has_required_report(normalized_required_work_products)
+    ):
+        normalized_required_work_products.insert(0, _default_report_work_product_payload())
+    if kickoff_contract is not None and normalized_required_work_products:
+        raise ValueError(
+            "required_work_products cannot be combined with kickoff_contract; "
+            "include required_work_products inside the kickoff contract instead"
+        )
     if kickoff_contract is not None:
         if isinstance(kickoff_contract, KickoffContract):
             payload["kickoff_contract"] = kickoff_contract.to_wire()
@@ -578,6 +638,18 @@ def _build_project_run_payload(
                     field_name="kickoff_contract",
                 )
             ).to_wire()
+    elif normalized_required_work_products:
+        if not objective_text:
+            raise ValueError("objective is required when required_work_products are provided")
+        payload["kickoff_contract"] = KickoffContract(
+            schema_version=1,
+            contract_kind="staged_smr_kickoff_contract",
+            run_objective=objective_text,
+            required_work_products=[
+                RequiredWorkProductSpec.from_wire(item)
+                for item in normalized_required_work_products
+            ],
+        ).to_wire()
     if resource_bindings is not None:
         if isinstance(resource_bindings, RunResourceBindings):
             normalized_resource_bindings = resource_bindings.to_wire()
@@ -597,12 +669,41 @@ def _build_project_run_payload(
         primary_parent_ref=primary_parent_ref,
         primary_parent=primary_parent,
     )
+    normalized_open_ended_question = _optional_mapping(
+        open_ended_question,
+        field_name="open_ended_question",
+    )
+    normalized_directed_effort_outcome = _optional_mapping(
+        directed_effort_outcome,
+        field_name="directed_effort_outcome",
+    )
+    if normalized_open_ended_question and normalized_directed_effort_outcome:
+        raise ValueError("pass either open_ended_question or directed_effort_outcome, not both")
+    if (normalized_open_ended_question or normalized_directed_effort_outcome) and (
+        primary_objective_ref is not None
+        or primary_parent_ref is not None
+        or primary_parent is not None
+    ):
+        raise ValueError(
+            "open_ended_question/directed_effort_outcome cannot be combined with "
+            "primary_objective_id, primary_parent_ref, or primary_parent"
+        )
     normalized_primary_parent_ref = _optional_mapping(
         primary_objective_ref or primary_parent_ref,
         field_name="primary_parent_ref",
     )
     if normalized_primary_parent_ref:
         payload["primary_parent_ref"] = normalized_primary_parent_ref
+    elif normalized_open_ended_question:
+        payload["primary_parent"] = {
+            "kind": "open_ended_question",
+            "open_ended_question": normalized_open_ended_question,
+        }
+    elif normalized_directed_effort_outcome:
+        payload["primary_parent"] = {
+            "kind": "directed_effort_outcome",
+            "directed_effort_outcome": normalized_directed_effort_outcome,
+        }
     normalized_primary_parent = _optional_mapping(
         primary_parent,
         field_name="primary_parent",
@@ -2748,6 +2849,7 @@ class ManagedResearchClient:
         self,
         project_id: str,
         *,
+        objective: str | None = None,
         host_kind: SmrHostKind | str | None = None,
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
@@ -2779,6 +2881,13 @@ class ManagedResearchClient:
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
+        directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
+        required_work_products: Iterable[
+            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
+        ]
+        | None = None,
+        require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,
         primary_objective_kind: str | None = None,
@@ -2788,6 +2897,7 @@ class ManagedResearchClient:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         payload = _build_project_run_payload(
+            objective=objective,
             host_kind=host_kind,
             work_mode=work_mode,
             mode=mode,
@@ -2815,6 +2925,10 @@ class ManagedResearchClient:
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            open_ended_question=open_ended_question,
+            directed_effort_outcome=directed_effort_outcome,
+            required_work_products=required_work_products,
+            require_report=require_report,
             ai_cache=ai_cache,
             primary_objective_id=primary_objective_id,
             primary_objective_kind=primary_objective_kind,
@@ -2878,6 +2992,7 @@ class ManagedResearchClient:
         self,
         project_id: str,
         *,
+        objective: str | None = None,
         host_kind: SmrHostKind | str | None = None,
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
@@ -2909,6 +3024,13 @@ class ManagedResearchClient:
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
+        directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
+        required_work_products: Iterable[
+            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
+        ]
+        | None = None,
+        require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,
         primary_objective_kind: str | None = None,
@@ -2918,6 +3040,7 @@ class ManagedResearchClient:
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         payload = _build_project_run_payload(
+            objective=objective,
             host_kind=host_kind,
             work_mode=work_mode,
             mode=mode,
@@ -2945,6 +3068,10 @@ class ManagedResearchClient:
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            open_ended_question=open_ended_question,
+            directed_effort_outcome=directed_effort_outcome,
+            required_work_products=required_work_products,
+            require_report=require_report,
             ai_cache=ai_cache,
             primary_objective_id=primary_objective_id,
             primary_objective_kind=primary_objective_kind,

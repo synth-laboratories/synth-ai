@@ -1541,19 +1541,7 @@ class ManagedResearchMcpServer:
             _raise_mcp_tool_denial(exc)
 
     def _tool_start_run(self, args: JSONDict) -> Any:
-        objective = optional_string(args, "objective")
-        request_payload = dict(args)
-        if objective:
-            existing_messages = request_payload.get("initial_runtime_messages")
-            if existing_messages is None:
-                messages = []
-            elif isinstance(existing_messages, list):
-                messages = list(existing_messages)
-            else:
-                raise ValueError("'initial_runtime_messages' must be an array when provided")
-            messages.append({"body": objective, "mode": "queue"})
-            request_payload["initial_runtime_messages"] = messages
-        request = RunLaunchRequest.from_payload(request_payload)
+        request = RunLaunchRequest.from_payload(args)
         try:
             with self._client_from_args(args) as client:
                 return client.start_run(

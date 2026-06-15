@@ -85,6 +85,36 @@ def _provider_bindings_schema() -> dict[str, Any]:
     }
 
 
+def _objective_launch_properties() -> dict[str, Any]:
+    return {
+        "objective": {
+            "type": "string",
+            "description": (
+                "Optional run objective. The SDK enqueues it as kickoff text and "
+                "requires a final report unless require_report is false or a "
+                "kickoff_contract is provided."
+            ),
+        },
+        "open_ended_question": {
+            "type": "object",
+            "description": "Optional inline open-ended-question parent for this run.",
+        },
+        "directed_effort_outcome": {
+            "type": "object",
+            "description": "Optional inline directed-effort-outcome parent for this run.",
+        },
+        "required_work_products": {
+            "type": "array",
+            "description": "Optional required work products for the generated kickoff contract.",
+            "items": {"type": "object"},
+        },
+        "require_report": {
+            "type": "boolean",
+            "description": "When objective is provided, require a default final report work product.",
+        },
+    }
+
+
 def build_progress_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
@@ -138,6 +168,7 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "providers": _provider_bindings_schema(),
                     "limit": _usage_limit_schema(),
+                    **_objective_launch_properties(),
                     "worker_pool_id": {
                         "type": "string",
                         "description": "Optional worker pool override.",
