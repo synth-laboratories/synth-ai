@@ -18,10 +18,10 @@ from synth_ai.managed_research.mcp.objective_tools import (
     run_objective_scope_tool_operation_from_wire,
 )
 from synth_ai.managed_research.mcp.registry import (
-    JSONDict,
     READ_SCOPES,
-    ToolDefinition,
     WRITE_SCOPES,
+    JSONDict,
+    ToolDefinition,
     build_tool_registry,
     call_tool,
     list_tool_payload,
@@ -44,6 +44,7 @@ from synth_ai.managed_research.mcp.tools.approvals import build_approval_tools
 from synth_ai.managed_research.mcp.tools.artifacts import build_artifact_tools
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
+from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
 from synth_ai.managed_research.mcp.tools.github import build_github_tools
 from synth_ai.managed_research.mcp.tools.integrations import build_integration_tools
@@ -192,6 +193,7 @@ class ManagedResearchMcpServer:
     def _build_tools(self) -> list[ToolDefinition]:
         return [
             *build_project_tools(self),
+            *build_factory_tools(self),
             *build_workspace_input_tools(self),
             *build_github_tools(self),
             *build_export_tools(self),
@@ -699,6 +701,44 @@ class ManagedResearchMcpServer:
     def _tool_get_default_project(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
             return client.get_default_project()
+
+    def _tool_create_factory(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.factories.create(args).raw
+
+    def _tool_list_factories(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return [item.raw for item in client.factories.list()]
+
+    def _tool_get_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.get(factory_id).raw
+
+    def _tool_get_factory_status(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.status(factory_id).raw
+
+    def _tool_list_factory_efforts(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return [item.raw for item in client.factories.list_efforts(factory_id)]
+
+    def _tool_create_effort(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.efforts.create(args).raw
+
+    def _tool_get_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.get(effort_id).raw
+
+    def _tool_patch_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        patch = {key: value for key, value in args.items() if key != "effort_id"}
+        with self._client_from_args(args) as client:
+            return client.efforts.patch(effort_id, patch).raw
 
     def _tool_rename_project(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

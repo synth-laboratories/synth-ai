@@ -31,8 +31,22 @@ from synth_ai.managed_research.models import (
     CheckpointScope,
     CreateRunnableResult,
     CredentialRef,
+    Effort,
+    EffortCreateRequest,
+    EffortPatchRequest,
+    EffortStatus,
+    EffortType,
     ExperimentProgress,
     ExternalRepository,
+    Factory,
+    FactoryCreateRequest,
+    FactoryKind,
+    FactoryLifecycleState,
+    FactoryProjectSummary,
+    FactoryReportSummary,
+    FactoryRunSummary,
+    FactoryStatus,
+    FactoryWorkProductSummary,
     InlineExternalRepositoryBinding,
     KickoffContract,
     KickoffContractFile,
@@ -186,7 +200,9 @@ from synth_ai.managed_research.sdk import (
     ApprovalsAPI,
     CredentialsAPI,
     DatasetsAPI,
+    EffortsAPI,
     ExportsAPI,
+    FactoriesAPI,
     FilesAPI,
     GithubAPI,
     IntegrationsAPI,
@@ -226,6 +242,22 @@ __all__ = [
     "CheckpointCadenceSource",
     "CheckpointScope",
     "CreateRunnableResult",
+    "Effort",
+    "EffortCreateRequest",
+    "EffortPatchRequest",
+    "EffortStatus",
+    "EffortType",
+    "EffortsAPI",
+    "FactoriesAPI",
+    "Factory",
+    "FactoryCreateRequest",
+    "FactoryKind",
+    "FactoryLifecycleState",
+    "FactoryProjectSummary",
+    "FactoryReportSummary",
+    "FactoryRunSummary",
+    "FactoryStatus",
+    "FactoryWorkProductSummary",
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
@@ -483,9 +515,5 @@ __all__ = [
 
 __all__ = sorted(
     set(__all__)
-    | {
-        name
-        for name in globals()
-        if not name.startswith("_") and name not in {"annotations"}
-    }
+    | {name for name in globals() if not name.startswith("_") and name not in {"annotations"}}
 )

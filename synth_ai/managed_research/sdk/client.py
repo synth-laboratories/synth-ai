@@ -19,6 +19,9 @@ from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     Checkpoint,
+    EffortCreateRequest,
+    EffortPatchRequest,
+    FactoryCreateRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
@@ -26,6 +29,11 @@ from synth_ai.managed_research.models import (
     SmrResourceLimits,
     SmrResourceLimitSelector,
     SmrRunUsage,
+)
+from synth_ai.managed_research.models.factories import (
+    effort_create_payload,
+    effort_patch_payload,
+    factory_create_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
@@ -133,6 +141,7 @@ from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
+from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
@@ -393,6 +402,7 @@ def _build_project_run_payload(
     primary_objective_kind: str | None = None,
     primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+    effort_id: str | None = None,
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
@@ -609,6 +619,8 @@ def _build_project_run_payload(
     )
     if normalized_primary_parent:
         payload["primary_parent"] = normalized_primary_parent
+    if effort_id and effort_id.strip():
+        payload["effort_id"] = effort_id.strip()
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
     if idempotency_key and idempotency_key.strip():
@@ -725,6 +737,8 @@ class ManagedResearchClient:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     _transport: SmrHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
+    _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
+    _efforts_api: EffortsAPI | None = field(init=False, default=None, repr=False)
     _runs_api: RunsAPI | None = field(init=False, default=None, repr=False)
     _workspace_inputs_api: WorkspaceInputsAPI | None = field(init=False, default=None, repr=False)
     _progress_api: ProgressAPI | None = field(init=False, default=None, repr=False)
@@ -775,6 +789,18 @@ class ManagedResearchClient:
         if self._projects_api is None:
             self._projects_api = ProjectsAPI(self)
         return self._projects_api
+
+    @property
+    def factories(self) -> FactoriesAPI:
+        if self._factories_api is None:
+            self._factories_api = FactoriesAPI(self)
+        return self._factories_api
+
+    @property
+    def efforts(self) -> EffortsAPI:
+        if self._efforts_api is None:
+            self._efforts_api = EffortsAPI(self)
+        return self._efforts_api
 
     @property
     def runs(self) -> RunsAPI:
@@ -1176,6 +1202,76 @@ class ManagedResearchClient:
     def get_project(self, project_id: str) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json("GET", f"/smr/projects/{project_id}"), label="get_project"
+        )
+
+    def create_factory(
+        self,
+        request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/factories",
+                json_body=factory_create_payload(request),
+            ),
+            label="create_factory",
+        )
+
+    def list_factories(self) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json("GET", "/smr/factories"),
+            label="list_factories",
+        )
+
+    def get_factory(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/factories/{factory_id}"),
+            label="get_factory",
+        )
+
+    def get_factory_status(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/factories/{factory_id}/status"),
+            label="get_factory_status",
+        )
+
+    def list_efforts_for_factory(self, factory_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json("GET", f"/smr/factories/{factory_id}/efforts"),
+            label="list_efforts_for_factory",
+        )
+
+    def create_effort(
+        self,
+        request: EffortCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/efforts",
+                json_body=effort_create_payload(request),
+            ),
+            label="create_effort",
+        )
+
+    def get_effort(self, effort_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/efforts/{effort_id}"),
+            label="get_effort",
+        )
+
+    def patch_effort(
+        self,
+        effort_id: str,
+        request: EffortPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/efforts/{effort_id}",
+                json_body=effort_patch_payload(request),
+            ),
+            label="patch_effort",
         )
 
     def get_default_project(self) -> dict[str, Any]:
@@ -2784,6 +2880,7 @@ class ManagedResearchClient:
         primary_objective_kind: str | None = None,
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_id: str | None = None,
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -2820,6 +2917,7 @@ class ManagedResearchClient:
             primary_objective_kind=primary_objective_kind,
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
+            effort_id=effort_id,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )
@@ -2914,6 +3012,7 @@ class ManagedResearchClient:
         primary_objective_kind: str | None = None,
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_id: str | None = None,
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -2950,6 +3049,7 @@ class ManagedResearchClient:
             primary_objective_kind=primary_objective_kind,
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
+            effort_id=effort_id,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )

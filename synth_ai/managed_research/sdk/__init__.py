@@ -23,6 +23,22 @@ from synth_ai.managed_research.models.checkpoints import (
     CheckpointCadenceSource,
     CheckpointScope,
 )
+from synth_ai.managed_research.models.factories import (
+    Effort,
+    EffortCreateRequest,
+    EffortPatchRequest,
+    EffortStatus,
+    EffortType,
+    Factory,
+    FactoryCreateRequest,
+    FactoryKind,
+    FactoryLifecycleState,
+    FactoryProjectSummary,
+    FactoryReportSummary,
+    FactoryRunSummary,
+    FactoryStatus,
+    FactoryWorkProductSummary,
+)
 from synth_ai.managed_research.models.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,
     LOCAL_EVAL_CONTRACT_ENV_VARS,
@@ -239,6 +255,7 @@ from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
+from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
@@ -269,6 +286,22 @@ __all__ = [
     "EnvironmentPreflight",
     "EnvironmentsAPI",
     "ExportsAPI",
+    "Effort",
+    "EffortCreateRequest",
+    "EffortPatchRequest",
+    "EffortsAPI",
+    "EffortStatus",
+    "EffortType",
+    "FactoriesAPI",
+    "Factory",
+    "FactoryCreateRequest",
+    "FactoryKind",
+    "FactoryLifecycleState",
+    "FactoryProjectSummary",
+    "FactoryReportSummary",
+    "FactoryRunSummary",
+    "FactoryStatus",
+    "FactoryWorkProductSummary",
     "FilesAPI",
     "GithubAPI",
     "GitHubInstallation",
@@ -342,6 +375,22 @@ __all__ = [
     "Checkpoint",
     "CheckpointCadenceSource",
     "CheckpointScope",
+    "Effort",
+    "EffortCreateRequest",
+    "EffortPatchRequest",
+    "EffortsAPI",
+    "EffortStatus",
+    "EffortType",
+    "FactoriesAPI",
+    "Factory",
+    "FactoryCreateRequest",
+    "FactoryKind",
+    "FactoryLifecycleState",
+    "FactoryProjectSummary",
+    "FactoryReportSummary",
+    "FactoryRunSummary",
+    "FactoryStatus",
+    "FactoryWorkProductSummary",
     "ModelsAPI",
     "OutputsAPI",
     "ProgressAPI",
@@ -560,9 +609,5 @@ __all__ = [
 
 __all__ = sorted(
     set(__all__)
-    | {
-        name
-        for name in globals()
-        if not name.startswith("_") and name not in {"annotations"}
-    }
+    | {name for name in globals() if not name.startswith("_") and name not in {"annotations"}}
 )

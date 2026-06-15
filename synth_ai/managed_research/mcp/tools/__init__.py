@@ -2,6 +2,7 @@
 
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
+from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
 from synth_ai.managed_research.mcp.tools.github import build_github_tools
 from synth_ai.managed_research.mcp.tools.models import build_model_tools
@@ -17,6 +18,7 @@ from synth_ai.managed_research.mcp.tools.workspace_inputs import build_workspace
 __all__ = [
     "build_dataset_tools",
     "build_export_tools",
+    "build_factory_tools",
     "build_file_tools",
     "build_github_tools",
     "build_model_tools",

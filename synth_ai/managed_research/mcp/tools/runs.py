@@ -263,6 +263,10 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional inline run-scoped parent objective creation payload.",
                     },
+                    "effort_id": {
+                        "type": "string",
+                        "description": "Optional Factory Effort ID to link this run to.",
+                    },
                     "idempotency_key_run_create": {
                         "type": "string",
                         "description": "Optional idempotency key for the launch request.",
@@ -379,6 +383,10 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "primary_parent": {
                         "type": "object",
                         "description": "Optional inline run-scoped parent objective creation payload.",
+                    },
+                    "effort_id": {
+                        "type": "string",
+                        "description": "Optional Factory Effort ID to link this run to.",
                     },
                     "idempotency_key_run_create": {
                         "type": "string",

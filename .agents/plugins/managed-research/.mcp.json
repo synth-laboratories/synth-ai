@@ -5,9 +5,9 @@
       "args": [
         "run",
         "--quiet",
-        "managed-research-mcp"
+        "synth-ai-managed-research-mcp"
       ],
-      "cwd": "../../../../managed-research",
+      "cwd": "../../..",
       "env_vars": [
         "SYNTH_API_KEY",
         "SYNTH_BACKEND_URL"
