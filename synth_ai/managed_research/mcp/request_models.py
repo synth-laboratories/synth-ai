@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from synth_ai.managed_research.mcp.registry import JSONDict
+from synth_ai.managed_research.models.run_launch import RunLaunchRequest as SdkRunLaunchRequest
 from synth_ai.managed_research.models.run_timeline import SmrBranchMode, SmrRunBranchRequest
 from synth_ai.managed_research.models.smr_actor_models import normalize_actor_model_assignments
 from synth_ai.managed_research.models.smr_agent_harnesses import coerce_smr_agent_harness
@@ -226,8 +227,8 @@ def _validate_runbook_preset_aliases(
     runbook_preset: str | None,
     runbook_config_id: str | None,
 ) -> None:
-    if runbook_preset and runbook_config_id and runbook_preset != runbook_config_id:
-        raise ValueError("runbook_preset and runbook_config_id must match when both are provided")
+    if runbook_preset and runbook_config_id:
+        raise ValueError("runbook_preset and runbook_config_id cannot both be provided")
 
 
 def _requires_explicit_launch_axes(
@@ -442,40 +443,43 @@ class RunLaunchRequest:
         )
 
     def client_kwargs(self) -> dict[str, Any]:
-        return {
-            "host_kind": self.host_kind,
-            "work_mode": self.work_mode,
-            "intended_horizon_hours": self.intended_horizon_hours,
-            "providers": self.providers,
-            "runbook": self.runbook,
-            "runbook_preset": self.runbook_preset,
-            "runbook_config_id": self.runbook_config_id,
-            "limit": self.limit,
-            "worker_pool_id": self.worker_pool_id,
-            "timebox_seconds": self.timebox_seconds,
-            "agent_profile": self.agent_profile,
-            "agent_model": self.agent_model,
-            "agent_harness": self.agent_harness,
-            "agent_kind": self.agent_kind,
-            "agent_model_params": self.agent_model_params,
-            "actor_model_overrides": self.actor_model_overrides,
-            "initial_runtime_messages": self.initial_runtime_messages,
-            "workflow": self.workflow,
-            "sandbox_override": self.sandbox_override,
-            "environment": self.environment,
-            "local_execution": self.local_execution,
-            "execution_profile": self.execution_profile,
-            "run_policy": self.run_policy,
-            "kickoff_contract": self.kickoff_contract,
-            "resource_bindings": self.resource_bindings,
-            "ai_cache": self.ai_cache,
-            "primary_objective_id": self.primary_objective_id,
-            "primary_objective_kind": self.primary_objective_kind,
-            "primary_parent_ref": self.primary_parent_ref,
-            "primary_parent": self.primary_parent,
-            "idempotency_key_run_create": self.idempotency_key_run_create,
-            "idempotency_key": self.idempotency_key,
-        }
+        return self.sdk_request().to_client_kwargs()
+
+    def sdk_request(self) -> SdkRunLaunchRequest:
+        return SdkRunLaunchRequest(
+            host_kind=self.host_kind,
+            work_mode=self.work_mode,
+            intended_horizon_hours=self.intended_horizon_hours,
+            providers=tuple(self.providers or ()),
+            runbook=self.runbook,
+            runbook_preset=self.runbook_preset,
+            runbook_config_id=self.runbook_config_id,
+            limit=self.limit,
+            worker_pool_id=self.worker_pool_id,
+            timebox_seconds=self.timebox_seconds,
+            agent_profile=self.agent_profile,
+            agent_model=self.agent_model,
+            agent_harness=self.agent_harness,
+            agent_kind=self.agent_kind,
+            agent_model_params=self.agent_model_params,
+            actor_model_overrides=tuple(self.actor_model_overrides or ()),
+            initial_runtime_messages=tuple(self.initial_runtime_messages or ()),
+            workflow=self.workflow,
+            sandbox_override=self.sandbox_override,
+            environment=self.environment,
+            local_execution=self.local_execution,
+            execution_profile=self.execution_profile,
+            run_policy=self.run_policy,
+            kickoff_contract=self.kickoff_contract,
+            resource_bindings=self.resource_bindings,
+            ai_cache=self.ai_cache,
+            primary_objective_id=self.primary_objective_id,
+            primary_objective_kind=self.primary_objective_kind,
+            primary_parent_ref=self.primary_parent_ref,
+            primary_parent=self.primary_parent,
+            idempotency_key_run_create=self.idempotency_key_run_create,
+            idempotency_key=self.idempotency_key,
+        )
 
 
 @dataclass(frozen=True)
@@ -578,40 +582,43 @@ class OneOffRunLaunchRequest:
         )
 
     def client_kwargs(self) -> dict[str, Any]:
-        return {
-            "host_kind": self.host_kind,
-            "work_mode": self.work_mode,
-            "intended_horizon_hours": self.intended_horizon_hours,
-            "providers": self.providers,
-            "runbook": self.runbook,
-            "runbook_preset": self.runbook_preset,
-            "runbook_config_id": self.runbook_config_id,
-            "limit": self.limit,
-            "worker_pool_id": self.worker_pool_id,
-            "timebox_seconds": self.timebox_seconds,
-            "agent_profile": self.agent_profile,
-            "agent_model": self.agent_model,
-            "agent_harness": self.agent_harness,
-            "agent_kind": self.agent_kind,
-            "agent_model_params": self.agent_model_params,
-            "actor_model_overrides": self.actor_model_overrides,
-            "initial_runtime_messages": self.initial_runtime_messages,
-            "workflow": self.workflow,
-            "sandbox_override": self.sandbox_override,
-            "environment": self.environment,
-            "local_execution": self.local_execution,
-            "execution_profile": self.execution_profile,
-            "run_policy": self.run_policy,
-            "kickoff_contract": self.kickoff_contract,
-            "resource_bindings": self.resource_bindings,
-            "ai_cache": self.ai_cache,
-            "primary_objective_id": self.primary_objective_id,
-            "primary_objective_kind": self.primary_objective_kind,
-            "primary_parent_ref": self.primary_parent_ref,
-            "primary_parent": self.primary_parent,
-            "idempotency_key_run_create": self.idempotency_key_run_create,
-            "idempotency_key": self.idempotency_key,
-        }
+        return self.sdk_request().to_client_kwargs()
+
+    def sdk_request(self) -> SdkRunLaunchRequest:
+        return SdkRunLaunchRequest(
+            host_kind=self.host_kind,
+            work_mode=self.work_mode,
+            intended_horizon_hours=self.intended_horizon_hours,
+            providers=tuple(self.providers or ()),
+            runbook=self.runbook,
+            runbook_preset=self.runbook_preset,
+            runbook_config_id=self.runbook_config_id,
+            limit=self.limit,
+            worker_pool_id=self.worker_pool_id,
+            timebox_seconds=self.timebox_seconds,
+            agent_profile=self.agent_profile,
+            agent_model=self.agent_model,
+            agent_harness=self.agent_harness,
+            agent_kind=self.agent_kind,
+            agent_model_params=self.agent_model_params,
+            actor_model_overrides=tuple(self.actor_model_overrides or ()),
+            initial_runtime_messages=tuple(self.initial_runtime_messages or ()),
+            workflow=self.workflow,
+            sandbox_override=self.sandbox_override,
+            environment=self.environment,
+            local_execution=self.local_execution,
+            execution_profile=self.execution_profile,
+            run_policy=self.run_policy,
+            kickoff_contract=self.kickoff_contract,
+            resource_bindings=self.resource_bindings,
+            ai_cache=self.ai_cache,
+            primary_objective_id=self.primary_objective_id,
+            primary_objective_kind=self.primary_objective_kind,
+            primary_parent_ref=self.primary_parent_ref,
+            primary_parent=self.primary_parent,
+            idempotency_key_run_create=self.idempotency_key_run_create,
+            idempotency_key=self.idempotency_key,
+        )
 
 
 @dataclass(frozen=True)

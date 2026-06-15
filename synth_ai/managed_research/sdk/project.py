@@ -22,6 +22,13 @@ from synth_ai.managed_research.models.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
 )
+from synth_ai.managed_research.models.run_launch import (
+    Output,
+    OutputKind,
+    OutputListRequest,
+    RunLaunchRequest,
+    RunLaunchResult,
+)
 from synth_ai.managed_research.models.run_state import ManagedResearchRun
 from synth_ai.managed_research.models.types import SmrLaunchPreflight, SmrProjectSetup
 
@@ -295,6 +302,20 @@ class _BoundProjectOutputsAPI:
     def list(self) -> list[dict[str, Any]]:
         return self._client.list_project_outputs(self.project_id)
 
+    def list_outputs(
+        self,
+        *,
+        kinds: tuple[OutputKind, ...] = (),
+        limit: int | None = None,
+    ) -> list[Output]:
+        return self._client.outputs.list_outputs(
+            OutputListRequest(
+                project_id=self.project_id,
+                kinds=kinds,
+                limit=limit,
+            )
+        )
+
 
 @dataclass
 class _BoundProjectPrsAPI:
@@ -398,6 +419,9 @@ class _BoundProjectRunsAPI:
 
     def trigger(self, **kwargs: Any) -> dict[str, Any]:
         return self._client.trigger_run(self.project_id, **kwargs)
+
+    def trigger_result(self, *, request: RunLaunchRequest) -> RunLaunchResult:
+        return self._client.trigger_run_result(self.project_id, request=request)
 
     def preflight(self, **kwargs: Any) -> SmrLaunchPreflight:
         return SmrLaunchPreflight.from_wire(

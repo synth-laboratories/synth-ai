@@ -17,8 +17,14 @@ class WorkspaceInputsAPI(_ClientNamespace):
         url: str,
         *,
         default_branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> dict[str, Any]:
-        return self._client.attach_source_repo(project_id, url, default_branch=default_branch)
+        return self._client.attach_source_repo(
+            project_id,
+            url,
+            default_branch=default_branch,
+            commit_sha=commit_sha,
+        )
 
     def get(self, project_id: str) -> WorkspaceInputsState:
         return WorkspaceInputsState.from_wire(self._client.get_workspace_inputs(project_id))
