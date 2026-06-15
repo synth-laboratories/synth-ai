@@ -123,6 +123,53 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="smr_patch_factory",
+            description="Update Factory status, policies, description, or metadata.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **{
+                        key: value
+                        for key, value in _factory_mutation_properties().items()
+                        if key != "kind"
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_patch_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_pause_factory",
+            description="Pause a Research Factory so operators see it as not active.",
+            input_schema=tool_schema(
+                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                required=["factory_id"],
+            ),
+            handler=server._tool_pause_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_resume_factory",
+            description="Resume a paused or archived Research Factory.",
+            input_schema=tool_schema(
+                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                required=["factory_id"],
+            ),
+            handler=server._tool_resume_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_archive_factory",
+            description="Archive a Research Factory.",
+            input_schema=tool_schema(
+                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                required=["factory_id"],
+            ),
+            handler=server._tool_archive_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_get_factory_status",
             description=(
                 "Read the Factory status projection: projects, efforts, latest runs, "
@@ -134,6 +181,16 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 required=["factory_id"],
             ),
             handler=server._tool_get_factory_status,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_list_factory_open_decisions",
+            description="List Efforts in a Factory that need operator decisions.",
+            input_schema=tool_schema(
+                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                required=["factory_id"],
+            ),
+            handler=server._tool_list_factory_open_decisions,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
@@ -177,6 +234,101 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 required=["effort_id"],
             ),
             handler=server._tool_patch_effort,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_pause_effort",
+            description="Pause a Factory Effort.",
+            input_schema=tool_schema(
+                {"effort_id": {"type": "string", "description": "Effort ID."}},
+                required=["effort_id"],
+            ),
+            handler=server._tool_pause_effort,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_resume_effort",
+            description="Resume a paused, waiting, blocked, or review-ready Effort.",
+            input_schema=tool_schema(
+                {"effort_id": {"type": "string", "description": "Effort ID."}},
+                required=["effort_id"],
+            ),
+            handler=server._tool_resume_effort,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_mark_effort_waiting",
+            description="Mark an Effort waiting, optionally with the next wake time.",
+            input_schema=tool_schema(
+                {
+                    "effort_id": {"type": "string", "description": "Effort ID."},
+                    "next_wake_at": {
+                        "type": "string",
+                        "description": "Optional ISO-8601 next wake timestamp.",
+                    },
+                    "note": {"type": "string", "description": "Optional decision note."},
+                },
+                required=["effort_id"],
+            ),
+            handler=server._tool_mark_effort_waiting,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_mark_effort_ready_for_review",
+            description="Mark an Effort ready for operator review.",
+            input_schema=tool_schema(
+                {
+                    "effort_id": {"type": "string", "description": "Effort ID."},
+                    "note": {"type": "string", "description": "Optional decision note."},
+                },
+                required=["effort_id"],
+            ),
+            handler=server._tool_mark_effort_ready_for_review,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_resolve_effort_decision",
+            description="Resolve an Effort decision flag and optionally record the note.",
+            input_schema=tool_schema(
+                {
+                    "effort_id": {"type": "string", "description": "Effort ID."},
+                    "note": {"type": "string", "description": "Decision resolution note."},
+                },
+                required=["effort_id"],
+            ),
+            handler=server._tool_resolve_effort_decision,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_launch_effort",
+            description=(
+                "Launch a Managed Research run from an Effort. The SDK resolves the "
+                "Effort project and links the run with effort_id."
+            ),
+            input_schema=tool_schema(
+                {
+                    "effort_id": {"type": "string", "description": "Effort ID."},
+                    "objective": {
+                        "type": "string",
+                        "description": "Optional user-facing objective to queue as the initial runtime message.",
+                    },
+                    "runbook": {"type": "string", "description": "Optional runbook kind."},
+                    "runbook_preset": {
+                        "type": "string",
+                        "description": "Optional runbook preset.",
+                    },
+                    "worker_pool_id": {
+                        "type": "string",
+                        "description": "Optional worker pool ID.",
+                    },
+                    "timebox_seconds": {
+                        "type": "integer",
+                        "description": "Optional run timebox.",
+                    },
+                },
+                required=["effort_id"],
+            ),
+            handler=server._tool_launch_effort,
             required_scopes=WRITE_SCOPES,
         ),
     ]

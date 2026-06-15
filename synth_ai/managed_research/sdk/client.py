@@ -22,6 +22,7 @@ from synth_ai.managed_research.models import (
     EffortCreateRequest,
     EffortPatchRequest,
     FactoryCreateRequest,
+    FactoryPatchRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
@@ -34,6 +35,7 @@ from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_patch_payload,
     factory_create_payload,
+    factory_patch_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
@@ -1227,6 +1229,20 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", f"/smr/factories/{factory_id}"),
             label="get_factory",
+        )
+
+    def patch_factory(
+        self,
+        factory_id: str,
+        request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}",
+                json_body=factory_patch_payload(request),
+            ),
+            label="patch_factory",
         )
 
     def get_factory_status(self, factory_id: str) -> dict[str, Any]:

@@ -715,10 +715,36 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.factories.get(factory_id).raw
 
+    def _tool_patch_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        patch = {key: value for key, value in args.items() if key != "factory_id"}
+        with self._client_from_args(args) as client:
+            return client.factories.patch(factory_id, patch).raw
+
+    def _tool_pause_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.pause(factory_id).raw
+
+    def _tool_resume_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.resume(factory_id).raw
+
+    def _tool_archive_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.archive(factory_id).raw
+
     def _tool_get_factory_status(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
             return client.factories.status(factory_id).raw
+
+    def _tool_list_factory_open_decisions(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return [item.raw for item in client.factories.list_open_decisions(factory_id)]
 
     def _tool_list_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
@@ -739,6 +765,57 @@ class ManagedResearchMcpServer:
         patch = {key: value for key, value in args.items() if key != "effort_id"}
         with self._client_from_args(args) as client:
             return client.efforts.patch(effort_id, patch).raw
+
+    def _tool_pause_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.pause(effort_id).raw
+
+    def _tool_resume_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.resume(effort_id).raw
+
+    def _tool_mark_effort_waiting(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.mark_waiting(
+                effort_id,
+                next_wake_at=args.get("next_wake_at"),
+                note=args.get("note"),
+            ).raw
+
+    def _tool_mark_effort_ready_for_review(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.mark_ready_for_review(
+                effort_id,
+                note=args.get("note"),
+            ).raw
+
+    def _tool_resolve_effort_decision(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.resolve_decision(
+                effort_id,
+                note=args.get("note"),
+            ).raw
+
+    def _tool_launch_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        objective = args.get("objective")
+        launch_args = {
+            key: value
+            for key, value in args.items()
+            if key not in {"effort_id", "objective", "api_key", "backend_base"}
+        }
+        with self._client_from_args(args) as client:
+            handle = client.efforts.launch(
+                effort_id,
+                objective=str(objective) if objective is not None else None,
+                **launch_args,
+            )
+            return {"project_id": handle.project_id, "run_id": handle.run_id}
 
     def _tool_rename_project(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

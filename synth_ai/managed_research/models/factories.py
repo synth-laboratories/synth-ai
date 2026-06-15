@@ -85,15 +85,24 @@ def _optional_payload_mapping(value: Mapping[str, Any] | dict[str, Any] | None) 
     return dict(value)
 
 
+def _policy_payload(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    to_wire = getattr(value, "to_wire", None)
+    if callable(to_wire):
+        return dict(to_wire())
+    return dict(value)
+
+
 @dataclass(frozen=True)
 class FactoryCreateRequest:
     name: str
     description: str | None = None
     kind: FactoryKind | str = FactoryKind.CUSTOMER
     status: FactoryLifecycleState | str = FactoryLifecycleState.ACTIVE
-    budget_policy: dict[str, Any] = field(default_factory=dict)
-    cap_policy: dict[str, Any] = field(default_factory=dict)
-    publication_policy: dict[str, Any] = field(default_factory=dict)
+    budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
+    cap_policy: CapPolicy | dict[str, Any] = field(default_factory=dict)
+    publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_wire(self) -> dict[str, Any]:
@@ -101,13 +110,118 @@ class FactoryCreateRequest:
             "name": self.name,
             "kind": _enum_value(self.kind),
             "status": _enum_value(self.status),
-            "budget_policy": dict(self.budget_policy),
-            "cap_policy": dict(self.cap_policy),
-            "publication_policy": dict(self.publication_policy),
-            "metadata": dict(self.metadata),
+            "budget_policy": _policy_payload(self.budget_policy),
+            "cap_policy": _policy_payload(self.cap_policy),
+            "publication_policy": _policy_payload(self.publication_policy),
+            "metadata": _policy_payload(self.metadata),
         }
         if self.description is not None:
             payload["description"] = self.description
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryPatchRequest:
+    name: str | None = None
+    description: str | None = None
+    status: FactoryLifecycleState | str | None = None
+    budget_policy: BudgetPolicy | dict[str, Any] | None = None
+    cap_policy: CapPolicy | dict[str, Any] | None = None
+    publication_policy: PublicationPolicy | dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        for key, value in (
+            ("name", self.name),
+            ("description", self.description),
+        ):
+            if value is not None:
+                payload[key] = value
+        if self.status is not None:
+            payload["status"] = _enum_value(self.status)
+        for key, value in (
+            ("budget_policy", self.budget_policy),
+            ("cap_policy", self.cap_policy),
+            ("publication_policy", self.publication_policy),
+            ("metadata", self.metadata),
+        ):
+            if value is not None:
+                payload[key] = _policy_payload(value)
+        return payload
+
+
+@dataclass(frozen=True)
+class RecurrencePolicy:
+    cadence: str | None = None
+    timezone: str | None = None
+    max_active_runs: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload = dict(self.metadata)
+        for key, value in (
+            ("cadence", self.cadence),
+            ("timezone", self.timezone),
+            ("max_active_runs", self.max_active_runs),
+        ):
+            if value is not None:
+                payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class PublicationPolicy:
+    visibility: str | None = None
+    publish_reports: bool | None = None
+    publish_work_products: bool | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload = dict(self.metadata)
+        for key, value in (
+            ("visibility", self.visibility),
+            ("publish_reports", self.publish_reports),
+            ("publish_work_products", self.publish_work_products),
+        ):
+            if value is not None:
+                payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class BudgetPolicy:
+    limit: float | None = None
+    currency: str | None = None
+    period: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload = dict(self.metadata)
+        for key, value in (
+            ("limit", self.limit),
+            ("currency", self.currency),
+            ("period", self.period),
+        ):
+            if value is not None:
+                payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class CapPolicy:
+    max_active_efforts: int | None = None
+    max_active_runs: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload = dict(self.metadata)
+        for key, value in (
+            ("max_active_efforts", self.max_active_efforts),
+            ("max_active_runs", self.max_active_runs),
+        ):
+            if value is not None:
+                payload[key] = value
         return payload
 
 
@@ -165,15 +279,15 @@ class EffortCreateRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str = EffortStatus.ACTIVE
     effort_type: EffortType | str = EffortType.RESEARCH
-    recurrence_policy: dict[str, Any] = field(default_factory=dict)
+    recurrence_policy: RecurrencePolicy | dict[str, Any] = field(default_factory=dict)
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
     latest_work_product_id: str | None = None
     decision_needed: bool = False
     decision_note: str | None = None
-    budget_policy: dict[str, Any] = field(default_factory=dict)
-    publication_policy: dict[str, Any] = field(default_factory=dict)
+    budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
+    publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
     actor_notes: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -184,12 +298,12 @@ class EffortCreateRequest:
             "name": self.name,
             "status": _enum_value(self.status),
             "effort_type": _enum_value(self.effort_type),
-            "recurrence_policy": dict(self.recurrence_policy),
+            "recurrence_policy": _policy_payload(self.recurrence_policy),
             "decision_needed": self.decision_needed,
-            "budget_policy": dict(self.budget_policy),
-            "publication_policy": dict(self.publication_policy),
-            "actor_notes": dict(self.actor_notes),
-            "metadata": dict(self.metadata),
+            "budget_policy": _policy_payload(self.budget_policy),
+            "publication_policy": _policy_payload(self.publication_policy),
+            "actor_notes": _policy_payload(self.actor_notes),
+            "metadata": _policy_payload(self.metadata),
         }
         for key, value in (
             ("hypothesis_or_topic", self.hypothesis_or_topic),
@@ -215,15 +329,15 @@ class EffortPatchRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str | None = None
     effort_type: EffortType | str | None = None
-    recurrence_policy: dict[str, Any] | None = None
+    recurrence_policy: RecurrencePolicy | dict[str, Any] | None = None
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
     latest_work_product_id: str | None = None
     decision_needed: bool | None = None
     decision_note: str | None = None
-    budget_policy: dict[str, Any] | None = None
-    publication_policy: dict[str, Any] | None = None
+    budget_policy: BudgetPolicy | dict[str, Any] | None = None
+    publication_policy: PublicationPolicy | dict[str, Any] | None = None
     actor_notes: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
 
@@ -252,7 +366,7 @@ class EffortPatchRequest:
             ("metadata", self.metadata),
         ):
             if value is not None:
-                payload[key] = dict(value)
+                payload[key] = _policy_payload(value)
         if self.next_wake_at is not None:
             payload["next_wake_at"] = (
                 self.next_wake_at.isoformat()
@@ -514,6 +628,14 @@ def factory_create_payload(
     return dict(request)
 
 
+def factory_patch_payload(
+    request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryPatchRequest):
+        return request.to_wire()
+    return dict(request)
+
+
 def effort_create_payload(
     request: EffortCreateRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
@@ -546,16 +668,22 @@ __all__ = [
     "EffortPatchRequest",
     "EffortStatus",
     "EffortType",
+    "BudgetPolicy",
+    "CapPolicy",
     "Factory",
     "FactoryCreateRequest",
     "FactoryKind",
     "FactoryLifecycleState",
+    "FactoryPatchRequest",
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
     "FactoryStatus",
     "FactoryWorkProductSummary",
+    "PublicationPolicy",
+    "RecurrencePolicy",
     "effort_create_payload",
     "effort_patch_payload",
     "factory_create_payload",
+    "factory_patch_payload",
 ]
