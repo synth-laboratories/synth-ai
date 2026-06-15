@@ -236,11 +236,11 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "run_policy": run_policy_input_schema(),
                     "kickoff_contract": {
                         "type": "object",
-                        "description": "Optional staged-run kickoff contract. This becomes the authoritative staged contract persisted on the run.",
+                        "description": "Optional staged-run kickoff contract. This becomes the authoritative staged contract persisted on the run. GELO/GELOA launches must put the optimizer campaign under kickoff_contract.optimizer_campaign.",
                     },
                     "resource_bindings": {
                         "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
+                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs. Inline benchmark repositories may include split_role=visible_train or split_role=heldout for optimizer campaigns.",
                     },
                     "ai_cache": {
                         "type": "object",
@@ -353,11 +353,11 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "run_policy": run_policy_input_schema(),
                     "kickoff_contract": {
                         "type": "object",
-                        "description": "Optional staged-run kickoff contract.",
+                        "description": "Optional staged-run kickoff contract. GELO/GELOA launches must put the optimizer campaign under kickoff_contract.optimizer_campaign.",
                     },
                     "resource_bindings": {
                         "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
+                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs. Inline benchmark repositories may include split_role=visible_train or split_role=heldout for optimizer campaigns.",
                     },
                     "ai_cache": {
                         "type": "object",
@@ -676,6 +676,79 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                 required=["project_id", "run_id"],
             ),
             handler=server._tool_get_run_event_log,
+        ),
+        ToolDefinition(
+            name="smr_list_optimizer_campaign_events",
+            description=(
+                "List GELO/GELOA optimizer campaign events for an SMR run. "
+                "Use this launch-proof surface for candidate, checkpoint, frontier, "
+                "theme, verifier, consolidation, promotion, heldout, and integrity events."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_id": {"type": "string", "description": "Optimizer campaign run id."},
+                    "after_seq": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Optional public event sequence cursor.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5000,
+                        "description": "Maximum events to return.",
+                    },
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_list_optimizer_campaign_events,
+        ),
+        ToolDefinition(
+            name="smr_get_optimizer_campaign_integrity",
+            description=(
+                "Read the GELO/GELOA optimizer campaign P0 integrity watcher snapshot "
+                "for verifier coverage, split integrity, one-ruler result line, "
+                "consolidation auditability, and budget conservation."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_id": {"type": "string", "description": "Optimizer campaign run id."},
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_get_optimizer_campaign_integrity,
+        ),
+        ToolDefinition(
+            name="smr_get_optimizer_campaign_checkpoints",
+            description=(
+                "Read the GELO/GELOA optimizer campaign checkpoint manifest bundle. "
+                "Use this launch-proof surface to inspect checkpoint lifecycle state, "
+                "object refs, hashes, sizes, source candidate/frontier/theme, resume "
+                "instructions, split version, and missing manifest fields."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_id": {"type": "string", "description": "Optimizer campaign run id."},
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_get_optimizer_campaign_checkpoints,
+        ),
+        ToolDefinition(
+            name="smr_get_optimizer_campaign_proof",
+            description=(
+                "Read the GELO/GELOA launch proof packet for one optimizer campaign. "
+                "This aggregates event timeline, split artifacts, checkpoint manifests, "
+                "integrity watcher output, result-table evidence, final report/receipt, "
+                "cost usage, caveats, and claim-map readiness."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_id": {"type": "string", "description": "Optimizer campaign run id."},
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_get_optimizer_campaign_proof,
         ),
         ToolDefinition(
             name="smr_get_run_authority_readouts",

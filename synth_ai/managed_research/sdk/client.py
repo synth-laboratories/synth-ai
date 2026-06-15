@@ -186,6 +186,27 @@ def _coerce_dict_list(payload: Any, *, label: str) -> list[dict[str, Any]]:
     raise SmrApiError(f"Expected list response for {label}, received {type(payload).__name__}")
 
 
+def _coerce_ndjson_dicts(payload: dict[str, Any], *, label: str) -> list[dict[str, Any]]:
+    encoding = str(payload.get("encoding") or "").strip().lower()
+    if encoding != "utf-8":
+        raise SmrApiError(f"Expected UTF-8 NDJSON response for {label}, received {encoding!r}")
+    content = payload.get("content")
+    if not isinstance(content, str):
+        raise SmrApiError(f"Expected text NDJSON response for {label}")
+    rows: list[dict[str, Any]] = []
+    for index, line in enumerate(content.splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            row = _json.loads(line)
+        except ValueError as exc:
+            raise SmrApiError(f"Invalid NDJSON row {index} for {label}: {exc}") from exc
+        if not isinstance(row, dict):
+            raise SmrApiError(f"Expected object NDJSON row {index} for {label}")
+        rows.append(row)
+    return rows
+
+
 def _require_non_empty_string(value: str | None, *, field_name: str) -> str:
     text = str(value or "").strip()
     if not text:
@@ -4623,6 +4644,56 @@ class ManagedResearchClient:
             label="get_project_run_event_log",
         )
         return SmrRunEventLog.from_wire(payload)
+
+    def list_optimizer_campaign_events(
+        self,
+        run_id: str,
+        *,
+        after_seq: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        payload = self._request_content(
+            "GET",
+            f"/api/v1/optimizers/runs/{run_id}/smr-optimizer-events",
+            params=build_query_params(after_seq=after_seq, limit=limit),
+        )
+        return _coerce_ndjson_dicts(payload, label="list_optimizer_campaign_events")
+
+    def get_optimizer_campaign_integrity(
+        self,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/v1/optimizers/runs/{run_id}/smr-optimizer-integrity",
+            ),
+            label="get_optimizer_campaign_integrity",
+        )
+
+    def get_optimizer_campaign_checkpoints(
+        self,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/v1/optimizers/runs/{run_id}/smr-optimizer-checkpoints",
+            ),
+            label="get_optimizer_campaign_checkpoints",
+        )
+
+    def get_optimizer_campaign_proof(
+        self,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/v1/optimizers/runs/{run_id}/smr-optimizer-proof",
+            ),
+            label="get_optimizer_campaign_proof",
+        )
 
     def get_run_authority_readouts(
         self,

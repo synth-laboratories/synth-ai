@@ -1819,6 +1819,33 @@ class ManagedResearchMcpServer:
                 limit=optional_int(args, "limit"),
             )
 
+    def _tool_list_optimizer_campaign_events(self, args: JSONDict) -> Any:
+        run_id = require_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return {
+                "run_id": run_id,
+                "events": client.list_optimizer_campaign_events(
+                    run_id,
+                    after_seq=optional_int(args, "after_seq"),
+                    limit=optional_int(args, "limit"),
+                ),
+            }
+
+    def _tool_get_optimizer_campaign_integrity(self, args: JSONDict) -> Any:
+        run_id = require_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_optimizer_campaign_integrity(run_id)
+
+    def _tool_get_optimizer_campaign_checkpoints(self, args: JSONDict) -> Any:
+        run_id = require_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_optimizer_campaign_checkpoints(run_id)
+
+    def _tool_get_optimizer_campaign_proof(self, args: JSONDict) -> Any:
+        run_id = require_string(args, "run_id")
+        with self._client_from_args(args) as client:
+            return client.get_optimizer_campaign_proof(run_id)
+
     def _tool_get_run_authority_readouts(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
         project_id = optional_string(args, "project_id")

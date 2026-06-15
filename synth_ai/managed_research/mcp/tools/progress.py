@@ -194,11 +194,11 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                     "run_policy": run_policy_input_schema(),
                     "kickoff_contract": {
                         "type": "object",
-                        "description": "Optional staged-run kickoff contract.",
+                        "description": "Optional staged-run kickoff contract. GELO/GELOA launches must put the optimizer campaign under kickoff_contract.optimizer_campaign.",
                     },
                     "resource_bindings": {
                         "type": "object",
-                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
+                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs. Inline benchmark repositories may include split_role=visible_train or split_role=heldout for optimizer campaigns.",
                     },
                     "ai_cache": {
                         "type": "object",
