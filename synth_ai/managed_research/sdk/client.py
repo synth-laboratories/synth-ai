@@ -1221,9 +1221,13 @@ class ManagedResearchClient:
             label="create_factory",
         )
 
-    def list_factories(self) -> list[dict[str, Any]]:
+    def list_factories(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", "/smr/factories"),
+            self._request_json(
+                "GET",
+                "/smr/factories",
+                params=build_query_params(include_archived=include_archived),
+            ),
             label="list_factories",
         )
 

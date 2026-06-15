@@ -31,8 +31,11 @@ class FactoriesAPI(_ClientNamespace):
     ) -> Factory:
         return Factory.from_wire(self._client.create_factory(request))
 
-    def list(self) -> list[Factory]:
-        return [Factory.from_wire(item) for item in self._client.list_factories()]
+    def list(self, *, include_archived: bool = False) -> list[Factory]:
+        return [
+            Factory.from_wire(item)
+            for item in self._client.list_factories(include_archived=include_archived)
+        ]
 
     def get(self, factory_id: str) -> Factory:
         return Factory.from_wire(self._client.get_factory(factory_id))
