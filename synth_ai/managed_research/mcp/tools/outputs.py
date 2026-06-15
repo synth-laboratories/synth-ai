@@ -31,6 +31,15 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_work_product,
         ),
         ToolDefinition(
+            name="smr_get_run_work_product_content",
+            description="Fetch readable content for a report or artifact-backed WorkProduct.",
+            input_schema=tool_schema(
+                {"work_product_id": {"type": "string"}},
+                required=["work_product_id"],
+            ),
+            handler=server._tool_get_run_work_product_content,
+        ),
+        ToolDefinition(
             name="smr_export_run_work_product",
             description=(
                 "Export a downloadable/importable WorkProduct to a backend-mediated "

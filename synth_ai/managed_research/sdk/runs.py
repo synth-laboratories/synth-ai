@@ -60,6 +60,7 @@ from synth_ai.managed_research.models.smr_providers import (
 from synth_ai.managed_research.models.smr_runbooks import SmrRunbookPreset
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import RunArtifact, RunArtifactManifest
+from synth_ai.managed_research.models.work_products import ManagedResearchRunWorkProduct
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 from synth_ai.managed_research.sdk.config import DEFAULT_MISC_PROJECT_ALIAS
 
@@ -753,6 +754,35 @@ class RunHandle:
             cursor=cursor,
         )
 
+    def work_products(self) -> list[ManagedResearchRunWorkProduct]:
+        return self._client.work_products.list_for_run(self.project_id, self.run_id)
+
+    def reports(self) -> list[ManagedResearchRunWorkProduct]:
+        return [item for item in self.work_products() if item.kind == "report"]
+
+    def final_report(self) -> ManagedResearchRunWorkProduct | None:
+        reports = self.reports()
+        ready_reports = [
+            item
+            for item in reports
+            if item.status in {"ready", "published", "done"}
+            or item.readiness in {"viewable", "downloadable", "importable"}
+        ]
+        if ready_reports:
+            return ready_reports[0]
+        return reports[0] if reports else None
+
+    def report_text(self, work_product_id: str | None = None) -> str | None:
+        if work_product_id is None:
+            report = self.final_report()
+            if report is None:
+                return None
+            work_product_id = report.work_product_id
+        content = self._client.work_products.content(work_product_id, as_text=True)
+        if isinstance(content, bytes):
+            return content.decode("utf-8")
+        return content
+
     def output_file(self, name: str) -> RunArtifact | None:
         wanted = str(name or "").strip().lower()
         if not wanted:
@@ -893,6 +923,8 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.get_one_off_launch_preflight(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.get_launch_preflight(selector.project_id, **kwargs)
 
@@ -906,6 +938,8 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.trigger_one_off_run(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.trigger_run(selector.project_id, **kwargs)
 
@@ -916,6 +950,8 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.trigger_one_off_run(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.start_run(selector.project_id, **kwargs)
 
@@ -930,12 +966,13 @@ class RunsAPI(_ClientNamespace):
         objective_text = str(objective or "").strip()
         if not objective_text:
             raise ValueError("objective is required")
-        selector = _resolve_project_selector(project_id, project=project)
-        initial_runtime_messages = list(kwargs.pop("initial_runtime_messages", ()) or ())
-        initial_runtime_messages.append({"body": objective_text, "mode": "queue"})
         payload = dict(kwargs)
-        payload["initial_runtime_messages"] = initial_runtime_messages
-        wire = self._client.trigger_run(selector.project_id, **payload)
+        payload["objective"] = objective_text
+        if project_id is None and project is None:
+            wire = self._client.trigger_one_off_run(**payload)
+        else:
+            selector = _resolve_project_selector(project_id, project=project)
+            wire = self._client.trigger_run(selector.project_id, **payload)
         run = ManagedResearchRun.from_wire(wire)
         return RunHandle(self._client, run.project_id, run.run_id)
 

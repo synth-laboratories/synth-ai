@@ -29,6 +29,12 @@ class WorkProductsAPI(_ClientNamespace):
             self._client.get_run_work_product(work_product_id)
         )
 
+    def content(self, work_product_id: str, *, as_text: bool = True) -> str | bytes:
+        return self._client.get_run_work_product_content(
+            work_product_id,
+            as_text=as_text,
+        )
+
     def export(
         self,
         work_product_id: str,

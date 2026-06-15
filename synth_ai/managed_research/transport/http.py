@@ -246,6 +246,25 @@ class SmrHttpTransport:
                 response_text=response.text,
             ) from exc
 
+    def request_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> bytes:
+        try:
+            response = self.client.request(method, path, params=params)
+        except httpx.TimeoutException as exc:
+            raise SmrApiError(f"{method} {path} timed out") from exc
+        except httpx.TransportError as exc:
+            raise SmrApiError(
+                f"{method} {path} failed: network error ({type(exc).__name__})"
+            ) from exc
+        if response.is_error:
+            _raise_for_error_response(response)
+        return bytes(response.content)
+
     def stream_sse(
         self,
         path: str,

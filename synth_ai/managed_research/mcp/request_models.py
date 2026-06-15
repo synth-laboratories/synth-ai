@@ -342,11 +342,12 @@ class ProviderKeyRequest:
 
 @dataclass(frozen=True)
 class RunLaunchRequest:
-    project_id: str
+    project_id: str | None
     host_kind: str | None
     work_mode: str | None
     intended_horizon_hours: int | None
     providers: list[dict[str, Any]] | None
+    objective: str | None = None
     runbook: str | None = None
     runbook_preset: str | None = None
     runbook_config_id: str | None = None
@@ -368,6 +369,10 @@ class RunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    open_ended_question: dict[str, Any] | None = None
+    directed_effort_outcome: dict[str, Any] | None = None
+    required_work_products: list[dict[str, Any]] | None = None
+    require_report: bool = True
     ai_cache: dict[str, Any] | None = None
     primary_objective_id: str | None = None
     primary_objective_kind: str | None = None
@@ -404,11 +409,12 @@ class RunLaunchRequest:
                 providers=providers,
             )
         return cls(
-            project_id=require_string(payload, "project_id"),
+            project_id=optional_string(payload, "project_id"),
             host_kind=host_kind,
             work_mode=work_mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            objective=optional_string(payload, "objective"),
             runbook=optional_smr_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
@@ -432,6 +438,10 @@ class RunLaunchRequest:
             run_policy=optional_smr_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            open_ended_question=_optional_object(payload, "open_ended_question"),
+            directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
+            required_work_products=_optional_object_list(payload, "required_work_products"),
+            require_report=optional_bool(payload, "require_report", default=True),
             ai_cache=_optional_object(payload, "ai_cache"),
             primary_objective_id=optional_string(payload, "primary_objective_id"),
             primary_objective_kind=optional_string(payload, "primary_objective_kind"),
@@ -447,6 +457,7 @@ class RunLaunchRequest:
             "work_mode": self.work_mode,
             "intended_horizon_hours": self.intended_horizon_hours,
             "providers": self.providers,
+            "objective": self.objective,
             "runbook": self.runbook,
             "runbook_preset": self.runbook_preset,
             "runbook_config_id": self.runbook_config_id,
@@ -468,6 +479,10 @@ class RunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "open_ended_question": self.open_ended_question,
+            "directed_effort_outcome": self.directed_effort_outcome,
+            "required_work_products": self.required_work_products,
+            "require_report": self.require_report,
             "ai_cache": self.ai_cache,
             "primary_objective_id": self.primary_objective_id,
             "primary_objective_kind": self.primary_objective_kind,
@@ -484,6 +499,7 @@ class OneOffRunLaunchRequest:
     work_mode: str | None
     intended_horizon_hours: int | None
     providers: list[dict[str, Any]] | None
+    objective: str | None = None
     runbook: str | None = None
     runbook_preset: str | None = None
     runbook_config_id: str | None = None
@@ -505,6 +521,10 @@ class OneOffRunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    open_ended_question: dict[str, Any] | None = None
+    directed_effort_outcome: dict[str, Any] | None = None
+    required_work_products: list[dict[str, Any]] | None = None
+    require_report: bool = True
     ai_cache: dict[str, Any] | None = None
     primary_objective_id: str | None = None
     primary_objective_kind: str | None = None
@@ -545,6 +565,7 @@ class OneOffRunLaunchRequest:
             work_mode=work_mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            objective=optional_string(payload, "objective"),
             runbook=optional_smr_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
             runbook_config_id=runbook_config_id,
@@ -568,6 +589,10 @@ class OneOffRunLaunchRequest:
             run_policy=optional_smr_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            open_ended_question=_optional_object(payload, "open_ended_question"),
+            directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
+            required_work_products=_optional_object_list(payload, "required_work_products"),
+            require_report=optional_bool(payload, "require_report", default=True),
             ai_cache=_optional_object(payload, "ai_cache"),
             primary_objective_id=optional_string(payload, "primary_objective_id"),
             primary_objective_kind=optional_string(payload, "primary_objective_kind"),
@@ -583,6 +608,7 @@ class OneOffRunLaunchRequest:
             "work_mode": self.work_mode,
             "intended_horizon_hours": self.intended_horizon_hours,
             "providers": self.providers,
+            "objective": self.objective,
             "runbook": self.runbook,
             "runbook_preset": self.runbook_preset,
             "runbook_config_id": self.runbook_config_id,
@@ -604,6 +630,10 @@ class OneOffRunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "open_ended_question": self.open_ended_question,
+            "directed_effort_outcome": self.directed_effort_outcome,
+            "required_work_products": self.required_work_products,
+            "require_report": self.require_report,
             "ai_cache": self.ai_cache,
             "primary_objective_id": self.primary_objective_id,
             "primary_objective_kind": self.primary_objective_kind,

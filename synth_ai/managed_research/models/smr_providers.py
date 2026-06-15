@@ -14,6 +14,7 @@ class Provider(StrEnum):
     SYNTH_AI = "synth_ai"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
+    GROQ = "groq"
 
 
 class ActorResourceCapability(StrEnum):
@@ -45,6 +46,7 @@ ACTOR_RESOURCE_CAPABILITIES: dict[Provider, frozenset[ActorResourceCapability]] 
     ),
     Provider.CURSOR: frozenset({ActorResourceCapability.INFERENCE}),
     Provider.DEEPSEEK: frozenset({ActorResourceCapability.INFERENCE}),
+    Provider.GROQ: frozenset({ActorResourceCapability.INFERENCE}),
 }
 
 
@@ -146,6 +148,7 @@ DEFAULT_CONFIGS: dict[Provider, ProviderConfig] = {
     Provider.SYNTH_AI: SynthAIConfig(),
     Provider.CURSOR: SynthAIConfig(),
     Provider.DEEPSEEK: SynthAIConfig(),
+    Provider.GROQ: SynthAIConfig(),
 }
 
 
