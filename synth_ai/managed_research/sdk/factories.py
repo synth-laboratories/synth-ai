@@ -17,6 +17,9 @@ from synth_ai.managed_research.models.factories import (
     FactoryLifecycleState,
     FactoryPatchRequest,
     FactoryStatus,
+    FactoryWakeDueRequest,
+    FactoryWakeDueResult,
+    RecurrencePolicy,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -79,6 +82,29 @@ class FactoriesAPI(_ClientNamespace):
     def list_open_decisions(self, factory_id: str) -> list[Effort]:
         return list(self.status(factory_id).open_decisions)
 
+    def wake_due(
+        self,
+        factory_id: str,
+        *,
+        launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
+        limit: int = 10,
+        allow_overlap: bool = False,
+        dry_run: bool = False,
+        continue_on_error: bool = True,
+    ) -> FactoryWakeDueResult:
+        return FactoryWakeDueResult.from_wire(
+            self._client.wake_due_factory_efforts(
+                factory_id,
+                FactoryWakeDueRequest(
+                    launch_request=dict(launch_request) if launch_request else None,
+                    limit=limit,
+                    allow_overlap=allow_overlap,
+                    dry_run=dry_run,
+                    continue_on_error=continue_on_error,
+                ),
+            )
+        )
+
 
 class EffortsAPI(_ClientNamespace):
     def create(
@@ -139,6 +165,29 @@ class EffortsAPI(_ClientNamespace):
 
     def set_next_wake(self, effort_id: str, next_wake_at: datetime | str | None) -> Effort:
         return self.patch(effort_id, EffortPatchRequest(next_wake_at=next_wake_at))
+
+    def schedule(
+        self,
+        effort_id: str,
+        *,
+        next_wake_at: datetime | str,
+        recurrence_policy: RecurrencePolicy | Mapping[str, Any] | dict[str, Any] | None = None,
+        launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> Effort:
+        policy: dict[str, Any] = {}
+        if recurrence_policy is not None:
+            to_wire = getattr(recurrence_policy, "to_wire", None)
+            policy.update(dict(to_wire() if callable(to_wire) else recurrence_policy))
+        if launch_request is not None:
+            policy["launch_request"] = dict(launch_request)
+        return self.patch(
+            effort_id,
+            EffortPatchRequest(
+                status=EffortStatus.WAITING,
+                recurrence_policy=policy,
+                next_wake_at=next_wake_at,
+            ),
+        )
 
     def resolve_decision(self, effort_id: str, *, note: str | None = None) -> Effort:
         return self.patch(

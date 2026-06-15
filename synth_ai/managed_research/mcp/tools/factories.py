@@ -194,6 +194,41 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="smr_wake_due_factory_efforts",
+            description=(
+                "Evaluate due Factory Efforts and launch the due runs through the "
+                "managed run-start boundary."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "launch_request": {
+                        "type": "object",
+                        "description": "Default run launch request for due Efforts.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum due Efforts to evaluate.",
+                    },
+                    "allow_overlap": {
+                        "type": "boolean",
+                        "description": "Launch even when an Effort already has a nonterminal run.",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Return launch decisions without starting runs.",
+                    },
+                    "continue_on_error": {
+                        "type": "boolean",
+                        "description": "Continue evaluating later Efforts after a launch failure.",
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_wake_due_factory_efforts,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_list_factory_efforts",
             description="List Efforts under one Research Factory.",
             input_schema=tool_schema(
@@ -271,6 +306,33 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 required=["effort_id"],
             ),
             handler=server._tool_mark_effort_waiting,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_schedule_effort",
+            description=(
+                "Schedule an Effort wake with recurrence policy and an optional "
+                "stored launch request."
+            ),
+            input_schema=tool_schema(
+                {
+                    "effort_id": {"type": "string", "description": "Effort ID."},
+                    "next_wake_at": {
+                        "type": "string",
+                        "description": "ISO-8601 next wake timestamp.",
+                    },
+                    "recurrence_policy": {
+                        "type": "object",
+                        "description": "Optional recurrence policy for future wakes.",
+                    },
+                    "launch_request": {
+                        "type": "object",
+                        "description": "Optional run launch request stored with the Effort.",
+                    },
+                },
+                required=["effort_id", "next_wake_at"],
+            ),
+            handler=server._tool_schedule_effort,
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(

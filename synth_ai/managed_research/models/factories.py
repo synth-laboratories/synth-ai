@@ -620,6 +620,79 @@ class FactoryStatus:
         )
 
 
+@dataclass(frozen=True)
+class FactoryWakeDueRequest:
+    launch_request: dict[str, Any] | None = None
+    limit: int = 10
+    allow_overlap: bool = False
+    dry_run: bool = False
+    continue_on_error: bool = True
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "limit": self.limit,
+            "allow_overlap": self.allow_overlap,
+            "dry_run": self.dry_run,
+            "continue_on_error": self.continue_on_error,
+        }
+        if self.launch_request is not None:
+            payload["launch_request"] = dict(self.launch_request)
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryWakeDueEffort:
+    effort_id: str
+    project_id: str
+    status: str
+    reason: str | None = None
+    run_id: str | None = None
+    next_wake_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryWakeDueEffort:
+        mapping = _require_mapping(payload, label="factory wake due effort")
+        return cls(
+            effort_id=_require_string(mapping, "effort_id", label="wake.effort_id"),
+            project_id=_require_string(mapping, "project_id", label="wake.project_id"),
+            status=_require_string(mapping, "status", label="wake.status"),
+            reason=_optional_string(mapping, "reason"),
+            run_id=_optional_string(mapping, "run_id"),
+            next_wake_at=_optional_datetime(mapping, "next_wake_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryWakeDueResult:
+    factory_id: str
+    evaluated_at: datetime | None
+    dry_run: bool
+    launched: int
+    skipped: int
+    failed: int
+    efforts: tuple[FactoryWakeDueEffort, ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryWakeDueResult:
+        mapping = _require_mapping(payload, label="factory wake due result")
+        return cls(
+            factory_id=_require_string(mapping, "factory_id", label="wake.factory_id"),
+            evaluated_at=_optional_datetime(mapping, "evaluated_at"),
+            dry_run=bool(_optional_bool(mapping, "dry_run")),
+            launched=int(mapping.get("launched") or 0),
+            skipped=int(mapping.get("skipped") or 0),
+            failed=int(mapping.get("failed") or 0),
+            efforts=tuple(
+                FactoryWakeDueEffort.from_wire(item)
+                for item in list(mapping.get("efforts") or [])
+            ),
+            raw=dict(mapping),
+        )
+
+
 def factory_create_payload(
     request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
@@ -632,6 +705,14 @@ def factory_patch_payload(
     request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
     if isinstance(request, FactoryPatchRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_wake_due_payload(
+    request: FactoryWakeDueRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryWakeDueRequest):
         return request.to_wire()
     return dict(request)
 
@@ -679,6 +760,9 @@ __all__ = [
     "FactoryReportSummary",
     "FactoryRunSummary",
     "FactoryStatus",
+    "FactoryWakeDueEffort",
+    "FactoryWakeDueRequest",
+    "FactoryWakeDueResult",
     "FactoryWorkProductSummary",
     "PublicationPolicy",
     "RecurrencePolicy",
@@ -686,4 +770,5 @@ __all__ = [
     "effort_patch_payload",
     "factory_create_payload",
     "factory_patch_payload",
+    "factory_wake_due_payload",
 ]

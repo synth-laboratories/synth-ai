@@ -746,6 +746,19 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return [item.raw for item in client.factories.list_open_decisions(factory_id)]
 
+    def _tool_wake_due_factory_efforts(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        launch_request = args.get("launch_request")
+        with self._client_from_args(args) as client:
+            return client.factories.wake_due(
+                factory_id,
+                launch_request=launch_request if isinstance(launch_request, dict) else None,
+                limit=optional_int(args, "limit") or 10,
+                allow_overlap=bool(args.get("allow_overlap")),
+                dry_run=bool(args.get("dry_run")),
+                continue_on_error=bool(args.get("continue_on_error", True)),
+            ).raw
+
     def _tool_list_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
@@ -783,6 +796,21 @@ class ManagedResearchMcpServer:
                 effort_id,
                 next_wake_at=args.get("next_wake_at"),
                 note=args.get("note"),
+            ).raw
+
+    def _tool_schedule_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        next_wake_at = require_string(args, "next_wake_at")
+        recurrence_policy = args.get("recurrence_policy")
+        launch_request = args.get("launch_request")
+        with self._client_from_args(args) as client:
+            return client.efforts.schedule(
+                effort_id,
+                next_wake_at=next_wake_at,
+                recurrence_policy=(
+                    recurrence_policy if isinstance(recurrence_policy, dict) else None
+                ),
+                launch_request=launch_request if isinstance(launch_request, dict) else None,
             ).raw
 
     def _tool_mark_effort_ready_for_review(self, args: JSONDict) -> Any:

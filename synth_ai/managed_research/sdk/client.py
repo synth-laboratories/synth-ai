@@ -23,6 +23,7 @@ from synth_ai.managed_research.models import (
     EffortPatchRequest,
     FactoryCreateRequest,
     FactoryPatchRequest,
+    FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
@@ -36,6 +37,7 @@ from synth_ai.managed_research.models.factories import (
     effort_patch_payload,
     factory_create_payload,
     factory_patch_payload,
+    factory_wake_due_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
@@ -1249,6 +1251,20 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", f"/smr/factories/{factory_id}/status"),
             label="get_factory_status",
+        )
+
+    def wake_due_factory_efforts(
+        self,
+        factory_id: str,
+        request: FactoryWakeDueRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/wake-due",
+                json_body=factory_wake_due_payload(request),
+            ),
+            label="wake_due_factory_efforts",
         )
 
     def list_efforts_for_factory(self, factory_id: str) -> list[dict[str, Any]]:
