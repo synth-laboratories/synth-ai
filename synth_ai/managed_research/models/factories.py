@@ -41,6 +41,50 @@ class FactoryProjectStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class FactoryIdeaStatus(StrEnum):
+    OPEN = "open"
+    PROMOTED = "promoted"
+    PAUSED = "paused"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+
+class FactoryIdeaSource(StrEnum):
+    HUMAN = "human"
+    SERAPH = "seraph"
+    GARDENER = "gardener"
+    ARCHITECT = "architect"
+    WORKER = "worker"
+    RUN = "run"
+    EXTERNAL = "external"
+
+
+class FactoryActorRole(StrEnum):
+    SERAPH = "seraph"
+    GARDENER = "gardener"
+    ARCHITECT = "architect"
+    WORKER = "worker"
+    REVIEWER = "reviewer"
+
+
+class FactoryActorOutputKind(StrEnum):
+    SERAPH_BRIEF = "seraph_brief"
+    GARDENER_DIGEST = "gardener_digest"
+    ARCHITECT_FEED_HEALTH = "architect_feed_health"
+    FAILURE_TAXONOMY = "failure_taxonomy"
+    FINDING_REPORT = "finding_report"
+    DECISION_BRIEF = "decision_brief"
+    SUCCESS_MEASUREMENT_CARD = "success_measurement_card"
+
+
+class FactoryActorOutputStatus(StrEnum):
+    DRAFT = "draft"
+    REVIEWED = "reviewed"
+    ACCEPTED = "accepted"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
 class EffortStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
@@ -106,6 +150,16 @@ def _policy_payload(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, list):
+        return tuple(str(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(str(item) for item in value)
+    raise ValueError("value must be a list when provided")
+
+
 @dataclass(frozen=True)
 class FactoryCreateRequest:
     name: str
@@ -115,6 +169,7 @@ class FactoryCreateRequest:
     budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
     cap_policy: CapPolicy | dict[str, Any] = field(default_factory=dict)
     publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
+    authorization_policy: AuthorizationPolicy | dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_wire(self) -> dict[str, Any]:
@@ -125,6 +180,7 @@ class FactoryCreateRequest:
             "budget_policy": _policy_payload(self.budget_policy),
             "cap_policy": _policy_payload(self.cap_policy),
             "publication_policy": _policy_payload(self.publication_policy),
+            "authorization_policy": _policy_payload(self.authorization_policy),
             "metadata": _policy_payload(self.metadata),
         }
         if self.description is not None:
@@ -140,6 +196,7 @@ class FactoryPatchRequest:
     budget_policy: BudgetPolicy | dict[str, Any] | None = None
     cap_policy: CapPolicy | dict[str, Any] | None = None
     publication_policy: PublicationPolicy | dict[str, Any] | None = None
+    authorization_policy: AuthorizationPolicy | dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
 
     def to_wire(self) -> dict[str, Any]:
@@ -156,6 +213,7 @@ class FactoryPatchRequest:
             ("budget_policy", self.budget_policy),
             ("cap_policy", self.cap_policy),
             ("publication_policy", self.publication_policy),
+            ("authorization_policy", self.authorization_policy),
             ("metadata", self.metadata),
         ):
             if value is not None:
@@ -168,6 +226,10 @@ class RecurrencePolicy:
     cadence: str | None = None
     timezone: str | None = None
     max_active_runs: int | None = None
+    trigger: str | None = None
+    event_triggers: tuple[str | dict[str, Any], ...] = ()
+    event_scope: str | None = None
+    cooldown_seconds: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_wire(self) -> dict[str, Any]:
@@ -176,9 +238,17 @@ class RecurrencePolicy:
             ("cadence", self.cadence),
             ("timezone", self.timezone),
             ("max_active_runs", self.max_active_runs),
+            ("trigger", self.trigger),
+            ("event_scope", self.event_scope),
+            ("cooldown_seconds", self.cooldown_seconds),
         ):
             if value is not None:
                 payload[key] = value
+        if self.event_triggers:
+            payload["event_triggers"] = [
+                dict(item) if isinstance(item, Mapping) else str(item)
+                for item in self.event_triggers
+            ]
         return payload
 
 
@@ -198,6 +268,33 @@ class PublicationPolicy:
         ):
             if value is not None:
                 payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class AuthorizationPolicy:
+    authorized_project_ids: tuple[str, ...] = ()
+    denied_project_ids: tuple[str, ...] = ()
+    allowed_factory_project_roles: tuple[str, ...] = ()
+    enabled: bool | None = None
+    requires_audit_trail: bool | None = None
+    disclosure_rules: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload = dict(self.metadata)
+        if self.authorized_project_ids:
+            payload["authorized_project_ids"] = list(self.authorized_project_ids)
+        if self.denied_project_ids:
+            payload["denied_project_ids"] = list(self.denied_project_ids)
+        if self.allowed_factory_project_roles:
+            payload["allowed_factory_project_roles"] = list(self.allowed_factory_project_roles)
+        if self.enabled is not None:
+            payload["enabled"] = self.enabled
+        if self.requires_audit_trail is not None:
+            payload["requires_audit_trail"] = self.requires_audit_trail
+        if self.disclosure_rules:
+            payload["disclosure_rules"] = dict(self.disclosure_rules)
         return payload
 
 
@@ -248,6 +345,7 @@ class Factory:
     budget_policy: dict[str, object] = field(default_factory=dict)
     cap_policy: dict[str, object] = field(default_factory=dict)
     publication_policy: dict[str, object] = field(default_factory=dict)
+    authorization_policy: dict[str, object] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
     created_by_user_id: str | None = None
     created_at: datetime | None = None
@@ -274,6 +372,10 @@ class Factory:
             publication_policy=_optional_object_dict(
                 mapping.get("publication_policy"),
                 label="factory.publication_policy",
+            ),
+            authorization_policy=_optional_object_dict(
+                mapping.get("authorization_policy"),
+                label="factory.authorization_policy",
             ),
             metadata=_optional_object_dict(mapping.get("metadata"), label="factory.metadata"),
             created_by_user_id=_optional_string(mapping, "created_by_user_id"),
@@ -372,6 +474,7 @@ class EffortCreateRequest:
     decision_note: str | None = None
     budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
     publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
+    authorization_policy: AuthorizationPolicy | dict[str, Any] = field(default_factory=dict)
     actor_notes: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -387,6 +490,7 @@ class EffortCreateRequest:
             "decision_needed": self.decision_needed,
             "budget_policy": _policy_payload(self.budget_policy),
             "publication_policy": _policy_payload(self.publication_policy),
+            "authorization_policy": _policy_payload(self.authorization_policy),
             "actor_notes": _policy_payload(self.actor_notes),
             "metadata": _policy_payload(self.metadata),
         }
@@ -423,6 +527,7 @@ class EffortPatchRequest:
     decision_note: str | None = None
     budget_policy: BudgetPolicy | dict[str, Any] | None = None
     publication_policy: PublicationPolicy | dict[str, Any] | None = None
+    authorization_policy: AuthorizationPolicy | dict[str, Any] | None = None
     actor_notes: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
 
@@ -447,6 +552,7 @@ class EffortPatchRequest:
             ("recurrence_policy", self.recurrence_policy),
             ("budget_policy", self.budget_policy),
             ("publication_policy", self.publication_policy),
+            ("authorization_policy", self.authorization_policy),
             ("actor_notes", self.actor_notes),
             ("metadata", self.metadata),
         ):
@@ -480,6 +586,7 @@ class Effort:
     decision_note: str | None = None
     budget_policy: dict[str, object] = field(default_factory=dict)
     publication_policy: dict[str, object] = field(default_factory=dict)
+    authorization_policy: dict[str, object] = field(default_factory=dict)
     actor_notes: dict[str, object] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
     created_by_user_id: str | None = None
@@ -518,6 +625,10 @@ class Effort:
             publication_policy=_optional_object_dict(
                 mapping.get("publication_policy"),
                 label="effort.publication_policy",
+            ),
+            authorization_policy=_optional_object_dict(
+                mapping.get("authorization_policy"),
+                label="effort.authorization_policy",
             ),
             actor_notes=_optional_object_dict(
                 mapping.get("actor_notes"), label="effort.actor_notes"
@@ -697,6 +808,279 @@ class FactoryWorkspace:
 
 
 @dataclass(frozen=True)
+class FactoryIdeaCreateRequest:
+    title: str
+    body: str | None = None
+    status: FactoryIdeaStatus | str = FactoryIdeaStatus.OPEN
+    source: FactoryIdeaSource | str = FactoryIdeaSource.HUMAN
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    priority: str | None = None
+    tags: tuple[str, ...] = ()
+    promotion_target: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": self.title,
+            "status": _enum_value(self.status),
+            "source": _enum_value(self.source),
+            "tags": list(self.tags),
+            "promotion_target": _policy_payload(self.promotion_target),
+            "metadata": _policy_payload(self.metadata),
+        }
+        for key, value in (
+            ("body", self.body),
+            ("project_id", self.project_id),
+            ("effort_id", self.effort_id),
+            ("run_id", self.run_id),
+            ("priority", self.priority),
+        ):
+            if value is not None:
+                payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryIdeaPatchRequest:
+    title: str | None = None
+    body: str | None = None
+    status: FactoryIdeaStatus | str | None = None
+    source: FactoryIdeaSource | str | None = None
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    priority: str | None = None
+    tags: tuple[str, ...] | None = None
+    promotion_target: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        for key, value in (
+            ("title", self.title),
+            ("body", self.body),
+            ("project_id", self.project_id),
+            ("effort_id", self.effort_id),
+            ("run_id", self.run_id),
+            ("priority", self.priority),
+        ):
+            if value is not None:
+                payload[key] = value
+        if self.status is not None:
+            payload["status"] = _enum_value(self.status)
+        if self.source is not None:
+            payload["source"] = _enum_value(self.source)
+        if self.tags is not None:
+            payload["tags"] = list(self.tags)
+        for key, value in (
+            ("promotion_target", self.promotion_target),
+            ("metadata", self.metadata),
+        ):
+            if value is not None:
+                payload[key] = _policy_payload(value)
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryIdea:
+    idea_id: str
+    org_id: str
+    factory_id: str
+    title: str
+    status: FactoryIdeaStatus
+    source: FactoryIdeaSource
+    body: str | None = None
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    priority: str | None = None
+    tags: tuple[str, ...] = ()
+    promotion_target: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryIdea:
+        mapping = _require_mapping(payload, label="factory idea")
+        return cls(
+            idea_id=_require_string(mapping, "idea_id", label="idea.idea_id"),
+            org_id=_require_string(mapping, "org_id", label="idea.org_id"),
+            factory_id=_require_string(mapping, "factory_id", label="idea.factory_id"),
+            project_id=_optional_string(mapping, "project_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            run_id=_optional_string(mapping, "run_id"),
+            title=_require_string(mapping, "title", label="idea.title"),
+            body=_optional_string(mapping, "body"),
+            status=FactoryIdeaStatus(_require_string(mapping, "status", label="idea.status")),
+            source=FactoryIdeaSource(_require_string(mapping, "source", label="idea.source")),
+            priority=_optional_string(mapping, "priority"),
+            tags=_string_tuple(mapping.get("tags")),
+            promotion_target=_optional_object_dict(
+                mapping.get("promotion_target"),
+                label="idea.promotion_target",
+            ),
+            metadata=_optional_object_dict(mapping.get("metadata"), label="idea.metadata"),
+            created_by_user_id=_optional_string(mapping, "created_by_user_id"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            updated_at=_optional_datetime(mapping, "updated_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryActorOutputCreateRequest:
+    actor_role: FactoryActorRole | str
+    kind: FactoryActorOutputKind | str
+    title: str
+    summary: str | None = None
+    status: FactoryActorOutputStatus | str = FactoryActorOutputStatus.DRAFT
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    report_id: str | None = None
+    work_product_id: str | None = None
+    payload: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        wire: dict[str, Any] = {
+            "actor_role": _enum_value(self.actor_role),
+            "kind": _enum_value(self.kind),
+            "title": self.title,
+            "status": _enum_value(self.status),
+            "payload": _policy_payload(self.payload),
+            "metadata": _policy_payload(self.metadata),
+        }
+        for key, value in (
+            ("summary", self.summary),
+            ("project_id", self.project_id),
+            ("effort_id", self.effort_id),
+            ("run_id", self.run_id),
+            ("report_id", self.report_id),
+            ("work_product_id", self.work_product_id),
+        ):
+            if value is not None:
+                wire[key] = value
+        return wire
+
+
+@dataclass(frozen=True)
+class FactoryActorOutputPatchRequest:
+    actor_role: FactoryActorRole | str | None = None
+    kind: FactoryActorOutputKind | str | None = None
+    title: str | None = None
+    summary: str | None = None
+    status: FactoryActorOutputStatus | str | None = None
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    report_id: str | None = None
+    work_product_id: str | None = None
+    payload: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        wire: dict[str, Any] = {}
+        for key, value in (
+            ("title", self.title),
+            ("summary", self.summary),
+            ("project_id", self.project_id),
+            ("effort_id", self.effort_id),
+            ("run_id", self.run_id),
+            ("report_id", self.report_id),
+            ("work_product_id", self.work_product_id),
+        ):
+            if value is not None:
+                wire[key] = value
+        if self.actor_role is not None:
+            wire["actor_role"] = _enum_value(self.actor_role)
+        if self.kind is not None:
+            wire["kind"] = _enum_value(self.kind)
+        if self.status is not None:
+            wire["status"] = _enum_value(self.status)
+        for key, value in (
+            ("payload", self.payload),
+            ("metadata", self.metadata),
+        ):
+            if value is not None:
+                wire[key] = _policy_payload(value)
+        return wire
+
+
+@dataclass(frozen=True)
+class FactoryActorOutput:
+    actor_output_id: str
+    org_id: str
+    factory_id: str
+    actor_role: FactoryActorRole
+    kind: FactoryActorOutputKind
+    status: FactoryActorOutputStatus
+    title: str
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    report_id: str | None = None
+    work_product_id: str | None = None
+    summary: str | None = None
+    payload: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryActorOutput:
+        mapping = _require_mapping(payload, label="factory actor output")
+        return cls(
+            actor_output_id=_require_string(
+                mapping,
+                "actor_output_id",
+                label="actor_output.actor_output_id",
+            ),
+            org_id=_require_string(mapping, "org_id", label="actor_output.org_id"),
+            factory_id=_require_string(
+                mapping,
+                "factory_id",
+                label="actor_output.factory_id",
+            ),
+            project_id=_optional_string(mapping, "project_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            run_id=_optional_string(mapping, "run_id"),
+            report_id=_optional_string(mapping, "report_id"),
+            work_product_id=_optional_string(mapping, "work_product_id"),
+            actor_role=FactoryActorRole(
+                _require_string(mapping, "actor_role", label="actor_output.actor_role")
+            ),
+            kind=FactoryActorOutputKind(
+                _require_string(mapping, "kind", label="actor_output.kind")
+            ),
+            status=FactoryActorOutputStatus(
+                _require_string(mapping, "status", label="actor_output.status")
+            ),
+            title=_require_string(mapping, "title", label="actor_output.title"),
+            summary=_optional_string(mapping, "summary"),
+            payload=_optional_object_dict(
+                mapping.get("payload"),
+                label="actor_output.payload",
+            ),
+            metadata=_optional_object_dict(
+                mapping.get("metadata"),
+                label="actor_output.metadata",
+            ),
+            created_by_user_id=_optional_string(mapping, "created_by_user_id"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            updated_at=_optional_datetime(mapping, "updated_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryRunSummary:
     run_id: str
     project_id: str
@@ -797,6 +1181,8 @@ class FactoryStatus:
     linked_projects: tuple[FactoryProjectLink, ...] = ()
     workspace: FactoryWorkspace | None = None
     efforts: tuple[Effort, ...] = ()
+    ideas: tuple[FactoryIdea, ...] = ()
+    actor_outputs: tuple[FactoryActorOutput, ...] = ()
     efforts_by_status: dict[str, int] = field(default_factory=dict)
     latest_runs: tuple[FactoryRunSummary, ...] = ()
     latest_reports: tuple[FactoryReportSummary, ...] = ()
@@ -833,6 +1219,11 @@ class FactoryStatus:
                 else None
             ),
             efforts=tuple(Effort.from_wire(item) for item in list(mapping.get("efforts") or [])),
+            ideas=tuple(FactoryIdea.from_wire(item) for item in list(mapping.get("ideas") or [])),
+            actor_outputs=tuple(
+                FactoryActorOutput.from_wire(item)
+                for item in list(mapping.get("actor_outputs") or [])
+            ),
             efforts_by_status=efforts_by_status,
             latest_runs=tuple(
                 FactoryRunSummary.from_wire(item) for item in list(mapping.get("latest_runs") or [])
@@ -976,6 +1367,38 @@ def factory_wake_due_payload(
     return dict(request)
 
 
+def factory_idea_create_payload(
+    request: FactoryIdeaCreateRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryIdeaCreateRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_idea_patch_payload(
+    request: FactoryIdeaPatchRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryIdeaPatchRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_actor_output_create_payload(
+    request: FactoryActorOutputCreateRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryActorOutputCreateRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_actor_output_patch_payload(
+    request: FactoryActorOutputPatchRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryActorOutputPatchRequest):
+        return request.to_wire()
+    return dict(request)
+
+
 def effort_create_payload(
     request: EffortCreateRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
@@ -996,6 +1419,11 @@ FACTORY_KIND_VALUES = tuple(item.value for item in FactoryKind)
 FACTORY_LIFECYCLE_STATE_VALUES = tuple(item.value for item in FactoryLifecycleState)
 FACTORY_PROJECT_ROLE_VALUES = tuple(item.value for item in FactoryProjectRole)
 FACTORY_PROJECT_STATUS_VALUES = tuple(item.value for item in FactoryProjectStatus)
+FACTORY_IDEA_STATUS_VALUES = tuple(item.value for item in FactoryIdeaStatus)
+FACTORY_IDEA_SOURCE_VALUES = tuple(item.value for item in FactoryIdeaSource)
+FACTORY_ACTOR_ROLE_VALUES = tuple(item.value for item in FactoryActorRole)
+FACTORY_ACTOR_OUTPUT_KIND_VALUES = tuple(item.value for item in FactoryActorOutputKind)
+FACTORY_ACTOR_OUTPUT_STATUS_VALUES = tuple(item.value for item in FactoryActorOutputStatus)
 EFFORT_STATUS_VALUES = tuple(item.value for item in EffortStatus)
 EFFORT_TYPE_VALUES = tuple(item.value for item in EffortType)
 
@@ -1007,6 +1435,11 @@ __all__ = [
     "FACTORY_LIFECYCLE_STATE_VALUES",
     "FACTORY_PROJECT_ROLE_VALUES",
     "FACTORY_PROJECT_STATUS_VALUES",
+    "FACTORY_IDEA_STATUS_VALUES",
+    "FACTORY_IDEA_SOURCE_VALUES",
+    "FACTORY_ACTOR_ROLE_VALUES",
+    "FACTORY_ACTOR_OUTPUT_KIND_VALUES",
+    "FACTORY_ACTOR_OUTPUT_STATUS_VALUES",
     "Effort",
     "EffortCreateRequest",
     "EffortPatchRequest",
@@ -1014,8 +1447,20 @@ __all__ = [
     "EffortType",
     "BudgetPolicy",
     "CapPolicy",
+    "AuthorizationPolicy",
     "Factory",
+    "FactoryActorOutput",
+    "FactoryActorOutputCreateRequest",
+    "FactoryActorOutputKind",
+    "FactoryActorOutputPatchRequest",
+    "FactoryActorOutputStatus",
+    "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryIdea",
+    "FactoryIdeaCreateRequest",
+    "FactoryIdeaPatchRequest",
+    "FactoryIdeaSource",
+    "FactoryIdeaStatus",
     "FactoryKind",
     "FactoryLifecycleState",
     "FactoryPatchRequest",
@@ -1037,7 +1482,11 @@ __all__ = [
     "RecurrencePolicy",
     "effort_create_payload",
     "effort_patch_payload",
+    "factory_actor_output_create_payload",
+    "factory_actor_output_patch_payload",
     "factory_create_payload",
+    "factory_idea_create_payload",
+    "factory_idea_patch_payload",
     "factory_patch_payload",
     "factory_project_link_payload",
     "factory_project_patch_payload",

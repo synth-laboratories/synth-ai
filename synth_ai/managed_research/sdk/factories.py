@@ -8,13 +8,25 @@ from datetime import datetime
 from typing import Any
 
 from synth_ai.managed_research.models.factories import (
+    AuthorizationPolicy,
     Effort,
     EffortCreateRequest,
     EffortPatchRequest,
     EffortStatus,
     EffortType,
     Factory,
+    FactoryActorOutput,
+    FactoryActorOutputCreateRequest,
+    FactoryActorOutputKind,
+    FactoryActorOutputPatchRequest,
+    FactoryActorOutputStatus,
+    FactoryActorRole,
     FactoryCreateRequest,
+    FactoryIdea,
+    FactoryIdeaCreateRequest,
+    FactoryIdeaPatchRequest,
+    FactoryIdeaSource,
+    FactoryIdeaStatus,
     FactoryLifecycleState,
     FactoryPatchRequest,
     FactoryProjectLink,
@@ -29,6 +41,13 @@ from synth_ai.managed_research.models.factories import (
     RecurrencePolicy,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
+
+
+def _enum_query_value(value: object | None) -> str | None:
+    if value is None:
+        return None
+    enum_value = getattr(value, "value", None)
+    return str(enum_value if enum_value is not None else value)
 
 
 class FactoriesAPI(_ClientNamespace):
@@ -100,12 +119,41 @@ class FactoriesAPI(_ClientNamespace):
         default_launch_profile: Mapping[str, Any] | dict[str, Any] | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> FactoryProjectLink:
-        """Link the V1 singular workspace Project for a Factory."""
+        """Link or replace the canonical workspace Project for a Factory."""
 
         return self.link_project(
             factory_id,
             project_id,
             role=FactoryProjectRole.CANONICAL,
+            status=FactoryProjectStatus.ACTIVE,
+            display_name=display_name,
+            description=description,
+            workspace_policy=workspace_policy,
+            resource_bindings=resource_bindings,
+            feed_health=feed_health,
+            default_launch_profile=default_launch_profile,
+            metadata=metadata,
+        )
+
+    def link_auxiliary_project(
+        self,
+        factory_id: str,
+        project_id: str,
+        *,
+        display_name: str | None = None,
+        description: str | None = None,
+        workspace_policy: Mapping[str, Any] | dict[str, Any] | None = None,
+        resource_bindings: Mapping[str, Any] | dict[str, Any] | None = None,
+        feed_health: Mapping[str, Any] | dict[str, Any] | None = None,
+        default_launch_profile: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryProjectLink:
+        """Link an additional active Project to the Factory."""
+
+        return self.link_project(
+            factory_id,
+            project_id,
+            role=FactoryProjectRole.AUXILIARY,
             status=FactoryProjectStatus.ACTIVE,
             display_name=display_name,
             description=description,
@@ -163,7 +211,10 @@ class FactoriesAPI(_ClientNamespace):
         return self.patch_project(
             factory_id,
             project_id,
-            FactoryProjectPatchRequest(status=FactoryProjectStatus.ARCHIVED),
+            FactoryProjectPatchRequest(
+                role=FactoryProjectRole.ARCHIVED_REFERENCE,
+                status=FactoryProjectStatus.ARCHIVED,
+            ),
         )
 
     def workspace(
@@ -189,10 +240,10 @@ class FactoriesAPI(_ClientNamespace):
 
     def get_workspace_project(self, factory_id: str) -> FactoryProjectLink | None:
         workspace = self.workspace(factory_id)
-        if workspace.project is not None:
-            return workspace.project
         if workspace.canonical_project is not None:
             return workspace.canonical_project
+        if workspace.project is not None:
+            return workspace.project
         return self.canonical_project(factory_id)
 
     def archive_workspace_project(self, factory_id: str) -> FactoryProjectLink | None:
@@ -202,7 +253,10 @@ class FactoriesAPI(_ClientNamespace):
         return self.patch_project(
             factory_id,
             workspace_project.project_id,
-            FactoryProjectPatchRequest(status=FactoryProjectStatus.ARCHIVED),
+            FactoryProjectPatchRequest(
+                role=FactoryProjectRole.ARCHIVED_REFERENCE,
+                status=FactoryProjectStatus.ARCHIVED,
+            ),
         )
 
     def canonical_project(self, factory_id: str) -> FactoryProjectLink | None:
@@ -225,6 +279,255 @@ class FactoriesAPI(_ClientNamespace):
 
     def status(self, factory_id: str) -> FactoryStatus:
         return FactoryStatus.from_wire(self._client.get_factory_status(factory_id))
+
+    def create_idea(
+        self,
+        factory_id: str,
+        *,
+        title: str,
+        body: str | None = None,
+        status: FactoryIdeaStatus | str = FactoryIdeaStatus.OPEN,
+        source: FactoryIdeaSource | str = FactoryIdeaSource.HUMAN,
+        project_id: str | None = None,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        priority: str | None = None,
+        tags: tuple[str, ...] = (),
+        promotion_target: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryIdea:
+        return FactoryIdea.from_wire(
+            self._client.create_factory_idea(
+                factory_id,
+                FactoryIdeaCreateRequest(
+                    title=title,
+                    body=body,
+                    status=status,
+                    source=source,
+                    project_id=project_id,
+                    effort_id=effort_id,
+                    run_id=run_id,
+                    priority=priority,
+                    tags=tags,
+                    promotion_target=dict(promotion_target or {}),
+                    metadata=dict(metadata or {}),
+                ),
+            )
+        )
+
+    def list_ideas(
+        self,
+        factory_id: str,
+        *,
+        status: FactoryIdeaStatus | str | None = None,
+        source: FactoryIdeaSource | str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[FactoryIdea]:
+        return [
+            FactoryIdea.from_wire(item)
+            for item in self._client.list_factory_ideas(
+                factory_id,
+                status=_enum_query_value(status),
+                source=_enum_query_value(source),
+                include_archived=include_archived,
+                limit=limit,
+            )
+        ]
+
+    def get_idea(self, factory_id: str, idea_id: str) -> FactoryIdea:
+        return FactoryIdea.from_wire(self._client.get_factory_idea(factory_id, idea_id))
+
+    def patch_idea(
+        self,
+        factory_id: str,
+        idea_id: str,
+        request: FactoryIdeaPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryIdea:
+        return FactoryIdea.from_wire(self._client.patch_factory_idea(factory_id, idea_id, request))
+
+    def promote_idea(
+        self,
+        factory_id: str,
+        idea_id: str,
+        *,
+        promotion_target: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryIdea:
+        return self.patch_idea(
+            factory_id,
+            idea_id,
+            FactoryIdeaPatchRequest(
+                status=FactoryIdeaStatus.PROMOTED,
+                promotion_target=dict(promotion_target or {}),
+            ),
+        )
+
+    def pause_idea(self, factory_id: str, idea_id: str) -> FactoryIdea:
+        return self.patch_idea(
+            factory_id,
+            idea_id,
+            FactoryIdeaPatchRequest(status=FactoryIdeaStatus.PAUSED),
+        )
+
+    def archive_idea(self, factory_id: str, idea_id: str) -> FactoryIdea:
+        return self.patch_idea(
+            factory_id,
+            idea_id,
+            FactoryIdeaPatchRequest(status=FactoryIdeaStatus.ARCHIVED),
+        )
+
+    def create_actor_output(
+        self,
+        factory_id: str,
+        *,
+        actor_role: FactoryActorRole | str,
+        kind: FactoryActorOutputKind | str,
+        title: str,
+        summary: str | None = None,
+        status: FactoryActorOutputStatus | str = FactoryActorOutputStatus.DRAFT,
+        project_id: str | None = None,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        report_id: str | None = None,
+        work_product_id: str | None = None,
+        payload: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryActorOutput:
+        return FactoryActorOutput.from_wire(
+            self._client.create_factory_actor_output(
+                factory_id,
+                FactoryActorOutputCreateRequest(
+                    actor_role=actor_role,
+                    kind=kind,
+                    title=title,
+                    summary=summary,
+                    status=status,
+                    project_id=project_id,
+                    effort_id=effort_id,
+                    run_id=run_id,
+                    report_id=report_id,
+                    work_product_id=work_product_id,
+                    payload=dict(payload or {}),
+                    metadata=dict(metadata or {}),
+                ),
+            )
+        )
+
+    def list_actor_outputs(
+        self,
+        factory_id: str,
+        *,
+        actor_role: FactoryActorRole | str | None = None,
+        kind: FactoryActorOutputKind | str | None = None,
+        status: FactoryActorOutputStatus | str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[FactoryActorOutput]:
+        return [
+            FactoryActorOutput.from_wire(item)
+            for item in self._client.list_factory_actor_outputs(
+                factory_id,
+                actor_role=_enum_query_value(actor_role),
+                kind=_enum_query_value(kind),
+                status=_enum_query_value(status),
+                include_archived=include_archived,
+                limit=limit,
+            )
+        ]
+
+    def get_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+    ) -> FactoryActorOutput:
+        return FactoryActorOutput.from_wire(
+            self._client.get_factory_actor_output(factory_id, actor_output_id)
+        )
+
+    def patch_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+        request: FactoryActorOutputPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryActorOutput:
+        return FactoryActorOutput.from_wire(
+            self._client.patch_factory_actor_output(factory_id, actor_output_id, request)
+        )
+
+    def record_seraph_brief(
+        self,
+        factory_id: str,
+        *,
+        title: str,
+        summary: str | None = None,
+        project_id: str | None = None,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        payload: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryActorOutput:
+        return self.create_actor_output(
+            factory_id,
+            actor_role=FactoryActorRole.SERAPH,
+            kind=FactoryActorOutputKind.SERAPH_BRIEF,
+            title=title,
+            summary=summary,
+            project_id=project_id,
+            effort_id=effort_id,
+            run_id=run_id,
+            payload=payload,
+            metadata=metadata,
+        )
+
+    def record_gardener_digest(
+        self,
+        factory_id: str,
+        *,
+        title: str,
+        summary: str | None = None,
+        project_id: str | None = None,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        payload: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryActorOutput:
+        return self.create_actor_output(
+            factory_id,
+            actor_role=FactoryActorRole.GARDENER,
+            kind=FactoryActorOutputKind.GARDENER_DIGEST,
+            title=title,
+            summary=summary,
+            project_id=project_id,
+            effort_id=effort_id,
+            run_id=run_id,
+            payload=payload,
+            metadata=metadata,
+        )
+
+    def record_architect_feed_health(
+        self,
+        factory_id: str,
+        *,
+        title: str,
+        summary: str | None = None,
+        project_id: str | None = None,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        payload: Mapping[str, Any] | dict[str, Any] | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryActorOutput:
+        return self.create_actor_output(
+            factory_id,
+            actor_role=FactoryActorRole.ARCHITECT,
+            kind=FactoryActorOutputKind.ARCHITECT_FEED_HEALTH,
+            title=title,
+            summary=summary,
+            project_id=project_id,
+            effort_id=effort_id,
+            run_id=run_id,
+            payload=payload,
+            metadata=metadata,
+        )
 
     def watch_status(
         self,
@@ -267,6 +570,10 @@ class FactoriesAPI(_ClientNamespace):
         decision_note: str | None = None,
         budget_policy: Mapping[str, Any] | dict[str, Any] | None = None,
         publication_policy: Mapping[str, Any] | dict[str, Any] | None = None,
+        authorization_policy: AuthorizationPolicy
+        | Mapping[str, Any]
+        | dict[str, Any]
+        | None = None,
         actor_notes: Mapping[str, Any] | dict[str, Any] | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
@@ -304,6 +611,11 @@ class FactoriesAPI(_ClientNamespace):
                     decision_note=decision_note,
                     budget_policy=dict(budget_policy or {}),
                     publication_policy=dict(publication_policy or {}),
+                    authorization_policy=(
+                        authorization_policy
+                        if isinstance(authorization_policy, AuthorizationPolicy)
+                        else dict(authorization_policy or {})
+                    ),
                     actor_notes=dict(actor_notes or {}),
                     metadata=dict(metadata or {}),
                 )

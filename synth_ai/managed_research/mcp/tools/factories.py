@@ -13,6 +13,11 @@ from synth_ai.managed_research.mcp.registry import (
 from synth_ai.managed_research.models.factories import (
     EFFORT_STATUS_VALUES,
     EFFORT_TYPE_VALUES,
+    FACTORY_ACTOR_OUTPUT_KIND_VALUES,
+    FACTORY_ACTOR_OUTPUT_STATUS_VALUES,
+    FACTORY_ACTOR_ROLE_VALUES,
+    FACTORY_IDEA_SOURCE_VALUES,
+    FACTORY_IDEA_STATUS_VALUES,
     FACTORY_KIND_VALUES,
     FACTORY_LIFECYCLE_STATE_VALUES,
     FACTORY_PROJECT_ROLE_VALUES,
@@ -40,6 +45,10 @@ def _factory_mutation_properties() -> dict[str, Any]:
             "type": "object",
             "description": "Optional public/private publication policy.",
         },
+        "authorization_policy": {
+            "type": "object",
+            "description": "Optional Factory authorization and workspace scope policy.",
+        },
         "metadata": {"type": "object", "description": "Optional Factory metadata."},
     }
 
@@ -49,6 +58,10 @@ def _effort_mutation_properties() -> dict[str, Any]:
         "factory_id": {"type": "string", "description": "Factory ID."},
         "project_id": {"type": "string", "description": "Managed Research project ID."},
         "name": {"type": "string", "description": "Human-readable Effort name."},
+        "allow_implicit_project_link": {
+            "type": "boolean",
+            "description": "Allow backend to link the Project to the Factory when missing.",
+        },
         "hypothesis_or_topic": {
             "type": "string",
             "description": "Research hypothesis, topic, or operating context.",
@@ -87,6 +100,10 @@ def _effort_mutation_properties() -> dict[str, Any]:
             "type": "object",
             "description": "Optional public/private publication policy.",
         },
+        "authorization_policy": {
+            "type": "object",
+            "description": "Optional Effort authorization and workspace scope policy.",
+        },
         "actor_notes": {"type": "object", "description": "Optional role/runbook notes."},
         "metadata": {"type": "object", "description": "Optional Effort metadata."},
     }
@@ -98,7 +115,10 @@ def _factory_project_mutation_properties() -> dict[str, Any]:
         "role": {
             "type": "string",
             "enum": list(FACTORY_PROJECT_ROLE_VALUES),
-            "description": "Workspace Project role. V1 uses canonical for active workspace links.",
+            "description": (
+                "Factory Project role. Use canonical for the primary workspace, auxiliary "
+                "for additional active workspaces, and archived_reference for history."
+            ),
         },
         "status": {
             "type": "string",
@@ -133,6 +153,83 @@ def _factory_project_mutation_properties() -> dict[str, Any]:
     }
 
 
+def _factory_workspace_link_properties() -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in _factory_project_mutation_properties().items()
+        if key not in {"role", "status"}
+    }
+
+
+def _factory_idea_mutation_properties() -> dict[str, Any]:
+    return {
+        "title": {"type": "string", "description": "Short Garden idea title."},
+        "body": {
+            "type": "string",
+            "description": "Optional detail, hypothesis, evidence, or question.",
+        },
+        "status": {
+            "type": "string",
+            "enum": list(FACTORY_IDEA_STATUS_VALUES),
+            "description": "Garden idea lifecycle status.",
+        },
+        "source": {
+            "type": "string",
+            "enum": list(FACTORY_IDEA_SOURCE_VALUES),
+            "description": "Who or what contributed the idea.",
+        },
+        "project_id": {"type": "string", "description": "Optional linked Project ID."},
+        "effort_id": {"type": "string", "description": "Optional linked Effort ID."},
+        "run_id": {"type": "string", "description": "Optional linked Run ID."},
+        "priority": {"type": "string", "description": "Optional priority label."},
+        "tags": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Optional tags for retrieval and triage.",
+        },
+        "promotion_target": {
+            "type": "object",
+            "description": "Optional target to create or update when the idea is promoted.",
+        },
+        "metadata": {"type": "object", "description": "Optional idea metadata."},
+    }
+
+
+def _factory_actor_output_mutation_properties() -> dict[str, Any]:
+    return {
+        "actor_role": {
+            "type": "string",
+            "enum": list(FACTORY_ACTOR_ROLE_VALUES),
+            "description": "Research Factory actor role.",
+        },
+        "kind": {
+            "type": "string",
+            "enum": list(FACTORY_ACTOR_OUTPUT_KIND_VALUES),
+            "description": "Typed actor output kind.",
+        },
+        "title": {"type": "string", "description": "Short output title."},
+        "summary": {"type": "string", "description": "Optional concise summary."},
+        "status": {
+            "type": "string",
+            "enum": list(FACTORY_ACTOR_OUTPUT_STATUS_VALUES),
+            "description": "Actor output lifecycle status.",
+        },
+        "project_id": {"type": "string", "description": "Optional linked Project ID."},
+        "effort_id": {"type": "string", "description": "Optional linked Effort ID."},
+        "run_id": {"type": "string", "description": "Optional linked Run ID."},
+        "report_id": {"type": "string", "description": "Optional linked Report ID."},
+        "work_product_id": {
+            "type": "string",
+            "description": "Optional linked WorkProduct ID.",
+        },
+        "payload": {
+            "type": "object",
+            "description": "Structured actor output payload.",
+        },
+        "metadata": {"type": "object", "description": "Optional output metadata."},
+    }
+
+
 def build_factory_tools(server: Any) -> list[ToolDefinition]:
     effort_properties = _effort_mutation_properties()
     effort_patch_properties = {
@@ -143,6 +240,15 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
     factory_project_properties = _factory_project_mutation_properties()
     factory_project_patch_properties = {
         key: value for key, value in factory_project_properties.items() if key != "project_id"
+    }
+    workspace_link_properties = _factory_workspace_link_properties()
+    idea_properties = _factory_idea_mutation_properties()
+    idea_patch_properties = {key: value for key, value in idea_properties.items() if key != "title"}
+    actor_output_properties = _factory_actor_output_mutation_properties()
+    actor_output_patch_properties = {
+        key: value
+        for key, value in actor_output_properties.items()
+        if key not in {"actor_role", "kind", "title"}
     }
     return [
         ToolDefinition(
@@ -222,9 +328,10 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_get_factory_status",
             description=(
-                "Read the Factory status projection: singular workspace Project, Efforts, "
-                "latest Runs, reports/work products, decisions, pauses, wake metadata, "
-                "and publication/cost summaries."
+                "Read the Factory status projection: canonical/auxiliary workspace Projects, Efforts, "
+                "Garden ideas, typed actor outputs, linked Projects, latest Runs, "
+                "reports/work products, decisions, pauses, wake metadata, and "
+                "publication/cost summaries."
             ),
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
@@ -236,8 +343,8 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_link_factory_project",
             description=(
-                "Link the Factory workspace Project. V1 allows one active workspace "
-                "Project; archive the current link before linking a replacement."
+                "Link a Project to the Factory. Use canonical for the primary workspace "
+                "or auxiliary for additional active workspaces."
             ),
             input_schema=tool_schema(
                 {
@@ -250,10 +357,35 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
+            name="smr_link_factory_workspace_project",
+            description="Link or replace the Factory's primary canonical workspace Project.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **workspace_link_properties,
+                },
+                required=["factory_id", "project_id"],
+            ),
+            handler=server._tool_link_factory_workspace_project,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_link_factory_auxiliary_project",
+            description="Link an additional active auxiliary Project workspace to a Factory.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **workspace_link_properties,
+                },
+                required=["factory_id", "project_id"],
+            ),
+            handler=server._tool_link_factory_auxiliary_project,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_list_factory_projects",
             description=(
-                "List Factory workspace Project links, including archived history when requested. "
-                "Use smr_get_factory_workspace for the active V1 workspace."
+                "List Factory Project links, including canonical, auxiliary, and archived history."
             ),
             input_schema=tool_schema(
                 {
@@ -300,7 +432,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_get_factory_workspace",
-            description="Read the singular Factory workspace projection and its active Project.",
+            description="Read the Factory workspace projection across canonical and auxiliary Projects.",
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
@@ -313,6 +445,201 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_get_factory_workspace,
             required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_create_factory_idea",
+            description=(
+                "Add a Garden idea to a Research Factory. Ideas preserve optional "
+                "hypotheses, experiment leads, failures, or future topics before "
+                "they become Efforts."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **idea_properties,
+                },
+                required=["factory_id", "title"],
+            ),
+            handler=server._tool_create_factory_idea,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_list_factory_ideas",
+            description="List Garden ideas for a Research Factory.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "status": {
+                        "type": "string",
+                        "enum": list(FACTORY_IDEA_STATUS_VALUES),
+                        "description": "Optional idea status filter.",
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": list(FACTORY_IDEA_SOURCE_VALUES),
+                        "description": "Optional idea source filter.",
+                    },
+                    "include_archived": {
+                        "type": "boolean",
+                        "description": "Include archived ideas.",
+                    },
+                    "limit": {"type": "integer", "description": "Maximum ideas to return."},
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_list_factory_ideas,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_get_factory_idea",
+            description="Fetch one Garden idea by Factory and idea ID.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "idea_id": {"type": "string", "description": "Factory idea ID."},
+                },
+                required=["factory_id", "idea_id"],
+            ),
+            handler=server._tool_get_factory_idea,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_patch_factory_idea",
+            description="Update, pause, reject, promote, or archive a Garden idea.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "idea_id": {"type": "string", "description": "Factory idea ID."},
+                    **idea_patch_properties,
+                },
+                required=["factory_id", "idea_id"],
+            ),
+            handler=server._tool_patch_factory_idea,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_record_factory_actor_output",
+            description=(
+                "Record a typed Research Factory actor output such as a Seraph brief, "
+                "Gardener digest, Architect feed-health note, finding report, or "
+                "success-measurement card."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **actor_output_properties,
+                },
+                required=["factory_id", "actor_role", "kind", "title"],
+            ),
+            handler=server._tool_record_factory_actor_output,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_record_seraph_brief",
+            description="Record a Seraph brief: priority, scope, escalation, or decision guidance.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **actor_output_patch_properties,
+                    "title": {"type": "string", "description": "Short brief title."},
+                },
+                required=["factory_id", "title"],
+            ),
+            handler=server._tool_record_seraph_brief,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_record_gardener_digest",
+            description="Record a Gardener digest: preserved memory, cleanup, archival, or reusable cases.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **actor_output_patch_properties,
+                    "title": {"type": "string", "description": "Short digest title."},
+                },
+                required=["factory_id", "title"],
+            ),
+            handler=server._tool_record_gardener_digest,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_record_architect_feed_health",
+            description="Record an Architect feed-health note for connectors, resources, or evaluation feeds.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **actor_output_patch_properties,
+                    "title": {"type": "string", "description": "Short feed-health title."},
+                },
+                required=["factory_id", "title"],
+            ),
+            handler=server._tool_record_architect_feed_health,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_list_factory_actor_outputs",
+            description="List typed actor outputs for a Research Factory.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "actor_role": {
+                        "type": "string",
+                        "enum": list(FACTORY_ACTOR_ROLE_VALUES),
+                        "description": "Optional actor role filter.",
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": list(FACTORY_ACTOR_OUTPUT_KIND_VALUES),
+                        "description": "Optional output kind filter.",
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": list(FACTORY_ACTOR_OUTPUT_STATUS_VALUES),
+                        "description": "Optional output status filter.",
+                    },
+                    "include_archived": {
+                        "type": "boolean",
+                        "description": "Include archived actor outputs.",
+                    },
+                    "limit": {"type": "integer", "description": "Maximum outputs to return."},
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_list_factory_actor_outputs,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_get_factory_actor_output",
+            description="Fetch one typed actor output by Factory and output ID.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "actor_output_id": {
+                        "type": "string",
+                        "description": "Factory actor output ID.",
+                    },
+                },
+                required=["factory_id", "actor_output_id"],
+            ),
+            handler=server._tool_get_factory_actor_output,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_patch_factory_actor_output",
+            description="Update status, links, payload, or metadata for a typed actor output.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "actor_output_id": {
+                        "type": "string",
+                        "description": "Factory actor output ID.",
+                    },
+                    **actor_output_patch_properties,
+                },
+                required=["factory_id", "actor_output_id"],
+            ),
+            handler=server._tool_patch_factory_actor_output,
+            required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
             name="smr_list_factory_open_decisions",

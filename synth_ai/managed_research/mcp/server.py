@@ -118,6 +118,26 @@ def _raise_open_research_error(exc: OpenResearchError) -> None:
     ) from exc
 
 
+def _tool_body(args: JSONDict, *, exclude: set[str]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in args.items()
+        if key not in {*exclude, "api_key", "backend_base"}
+    }
+
+
+def _optional_object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
+    value = args.get(key)
+    return value if isinstance(value, dict) else None
+
+
+def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
+    value = args.get(key)
+    if not isinstance(value, list):
+        return ()
+    return tuple(str(item) for item in value)
+
+
 class RpcError(Exception):
     def __init__(self, code: int, message: str, data: Any | None = None) -> None:
         super().__init__(message)
@@ -704,7 +724,7 @@ class ManagedResearchMcpServer:
 
     def _tool_create_factory(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
-            return client.factories.create(args).raw
+            return client.factories.create(_tool_body(args, exclude=set())).raw
 
     def _tool_list_factories(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
@@ -717,9 +737,11 @@ class ManagedResearchMcpServer:
 
     def _tool_patch_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
-        patch = {key: value for key, value in args.items() if key != "factory_id"}
         with self._client_from_args(args) as client:
-            return client.factories.patch(factory_id, patch).raw
+            return client.factories.patch(
+                factory_id,
+                _tool_body(args, exclude={"factory_id"}),
+            ).raw
 
     def _tool_pause_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
@@ -741,47 +763,38 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.factories.status(factory_id).raw
 
-    def _tool_link_factory_project(self, args: JSONDict) -> Any:
+    def _link_factory_project_with_role(
+        self,
+        args: JSONDict,
+        *,
+        role: str | None = None,
+        status: str | None = None,
+    ) -> Any:
         factory_id = require_string(args, "factory_id")
         project_id = require_string(args, "project_id")
-        request = {key: value for key, value in args.items() if key != "factory_id"}
-        request["project_id"] = project_id
         with self._client_from_args(args) as client:
             return client.factories.link_project(
                 factory_id,
                 project_id,
-                role=request.get("role", "canonical"),
-                status=request.get("status", "active"),
-                display_name=(
-                    str(request["display_name"])
-                    if request.get("display_name") is not None
-                    else None
-                ),
-                description=(
-                    str(request["description"]) if request.get("description") is not None else None
-                ),
-                workspace_policy=(
-                    request["workspace_policy"]
-                    if isinstance(request.get("workspace_policy"), dict)
-                    else None
-                ),
-                resource_bindings=(
-                    request["resource_bindings"]
-                    if isinstance(request.get("resource_bindings"), dict)
-                    else None
-                ),
-                feed_health=(
-                    request["feed_health"] if isinstance(request.get("feed_health"), dict) else None
-                ),
-                default_launch_profile=(
-                    request["default_launch_profile"]
-                    if isinstance(request.get("default_launch_profile"), dict)
-                    else None
-                ),
-                metadata=(
-                    request["metadata"] if isinstance(request.get("metadata"), dict) else None
-                ),
+                role=role or str(args.get("role") or "canonical"),
+                status=status or str(args.get("status") or "active"),
+                display_name=optional_string(args, "display_name"),
+                description=optional_string(args, "description"),
+                workspace_policy=_optional_object_arg(args, "workspace_policy"),
+                resource_bindings=_optional_object_arg(args, "resource_bindings"),
+                feed_health=_optional_object_arg(args, "feed_health"),
+                default_launch_profile=_optional_object_arg(args, "default_launch_profile"),
+                metadata=_optional_object_arg(args, "metadata"),
             ).raw
+
+    def _tool_link_factory_project(self, args: JSONDict) -> Any:
+        return self._link_factory_project_with_role(args)
+
+    def _tool_link_factory_workspace_project(self, args: JSONDict) -> Any:
+        return self._link_factory_project_with_role(args, role="canonical", status="active")
+
+    def _tool_link_factory_auxiliary_project(self, args: JSONDict) -> Any:
+        return self._link_factory_project_with_role(args, role="auxiliary", status="active")
 
     def _tool_list_factory_projects(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
@@ -803,11 +816,12 @@ class ManagedResearchMcpServer:
     def _tool_patch_factory_project(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         project_id = require_string(args, "project_id")
-        patch = {
-            key: value for key, value in args.items() if key not in {"factory_id", "project_id"}
-        }
         with self._client_from_args(args) as client:
-            return client.factories.patch_project(factory_id, project_id, patch).raw
+            return client.factories.patch_project(
+                factory_id,
+                project_id,
+                _tool_body(args, exclude={"factory_id", "project_id"}),
+            ).raw
 
     def _tool_get_factory_workspace(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
@@ -815,6 +829,150 @@ class ManagedResearchMcpServer:
             return client.factories.workspace(
                 factory_id,
                 include_archived=bool(args.get("include_archived")),
+            ).raw
+
+    def _tool_create_factory_idea(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.create_idea(
+                factory_id,
+                title=require_string(args, "title"),
+                body=optional_string(args, "body"),
+                status=str(args.get("status") or "open"),
+                source=str(args.get("source") or "human"),
+                project_id=optional_string(args, "project_id"),
+                effort_id=optional_string(args, "effort_id"),
+                run_id=optional_string(args, "run_id"),
+                priority=optional_string(args, "priority"),
+                tags=_optional_string_tuple_arg(args, "tags"),
+                promotion_target=_optional_object_arg(args, "promotion_target"),
+                metadata=_optional_object_arg(args, "metadata"),
+            ).raw
+
+    def _tool_list_factory_ideas(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return [
+                item.raw
+                for item in client.factories.list_ideas(
+                    factory_id,
+                    status=optional_string(args, "status"),
+                    source=optional_string(args, "source"),
+                    include_archived=bool(args.get("include_archived")),
+                    limit=optional_int(args, "limit") or 50,
+                )
+            ]
+
+    def _tool_get_factory_idea(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        idea_id = require_string(args, "idea_id")
+        with self._client_from_args(args) as client:
+            return client.factories.get_idea(factory_id, idea_id).raw
+
+    def _tool_patch_factory_idea(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        idea_id = require_string(args, "idea_id")
+        with self._client_from_args(args) as client:
+            return client.factories.patch_idea(
+                factory_id,
+                idea_id,
+                _tool_body(args, exclude={"factory_id", "idea_id"}),
+            ).raw
+
+    def _tool_record_factory_actor_output(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.create_actor_output(
+                factory_id,
+                actor_role=require_string(args, "actor_role"),
+                kind=require_string(args, "kind"),
+                title=require_string(args, "title"),
+                summary=optional_string(args, "summary"),
+                status=str(args.get("status") or "draft"),
+                project_id=optional_string(args, "project_id"),
+                effort_id=optional_string(args, "effort_id"),
+                run_id=optional_string(args, "run_id"),
+                report_id=optional_string(args, "report_id"),
+                work_product_id=optional_string(args, "work_product_id"),
+                payload=_optional_object_arg(args, "payload"),
+                metadata=_optional_object_arg(args, "metadata"),
+            ).raw
+
+    def _record_named_factory_actor_output(
+        self,
+        args: JSONDict,
+        *,
+        actor_role: str,
+        kind: str,
+    ) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.create_actor_output(
+                factory_id,
+                actor_role=actor_role,
+                kind=kind,
+                title=require_string(args, "title"),
+                summary=optional_string(args, "summary"),
+                status=str(args.get("status") or "draft"),
+                project_id=optional_string(args, "project_id"),
+                effort_id=optional_string(args, "effort_id"),
+                run_id=optional_string(args, "run_id"),
+                report_id=optional_string(args, "report_id"),
+                work_product_id=optional_string(args, "work_product_id"),
+                payload=_optional_object_arg(args, "payload"),
+                metadata=_optional_object_arg(args, "metadata"),
+            ).raw
+
+    def _tool_record_seraph_brief(self, args: JSONDict) -> Any:
+        return self._record_named_factory_actor_output(
+            args,
+            actor_role="seraph",
+            kind="seraph_brief",
+        )
+
+    def _tool_record_gardener_digest(self, args: JSONDict) -> Any:
+        return self._record_named_factory_actor_output(
+            args,
+            actor_role="gardener",
+            kind="gardener_digest",
+        )
+
+    def _tool_record_architect_feed_health(self, args: JSONDict) -> Any:
+        return self._record_named_factory_actor_output(
+            args,
+            actor_role="architect",
+            kind="architect_feed_health",
+        )
+
+    def _tool_list_factory_actor_outputs(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return [
+                item.raw
+                for item in client.factories.list_actor_outputs(
+                    factory_id,
+                    actor_role=optional_string(args, "actor_role"),
+                    kind=optional_string(args, "kind"),
+                    status=optional_string(args, "status"),
+                    include_archived=bool(args.get("include_archived")),
+                    limit=optional_int(args, "limit") or 50,
+                )
+            ]
+
+    def _tool_get_factory_actor_output(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        actor_output_id = require_string(args, "actor_output_id")
+        with self._client_from_args(args) as client:
+            return client.factories.get_actor_output(factory_id, actor_output_id).raw
+
+    def _tool_patch_factory_actor_output(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        actor_output_id = require_string(args, "actor_output_id")
+        with self._client_from_args(args) as client:
+            return client.factories.patch_actor_output(
+                factory_id,
+                actor_output_id,
+                _tool_body(args, exclude={"factory_id", "actor_output_id"}),
             ).raw
 
     def _tool_list_factory_open_decisions(self, args: JSONDict) -> Any:
@@ -842,7 +1000,7 @@ class ManagedResearchMcpServer:
 
     def _tool_create_effort(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
-            return client.efforts.create(args).raw
+            return client.efforts.create(_tool_body(args, exclude=set())).raw
 
     def _tool_get_effort(self, args: JSONDict) -> Any:
         effort_id = require_string(args, "effort_id")
@@ -851,9 +1009,11 @@ class ManagedResearchMcpServer:
 
     def _tool_patch_effort(self, args: JSONDict) -> Any:
         effort_id = require_string(args, "effort_id")
-        patch = {key: value for key, value in args.items() if key != "effort_id"}
         with self._client_from_args(args) as client:
-            return client.efforts.patch(effort_id, patch).raw
+            return client.efforts.patch(
+                effort_id,
+                _tool_body(args, exclude={"effort_id"}),
+            ).raw
 
     def _tool_pause_effort(self, args: JSONDict) -> Any:
         effort_id = require_string(args, "effort_id")

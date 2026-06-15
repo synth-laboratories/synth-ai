@@ -21,7 +21,11 @@ from synth_ai.managed_research.models import (
     Checkpoint,
     EffortCreateRequest,
     EffortPatchRequest,
+    FactoryActorOutputCreateRequest,
+    FactoryActorOutputPatchRequest,
     FactoryCreateRequest,
+    FactoryIdeaCreateRequest,
+    FactoryIdeaPatchRequest,
     FactoryPatchRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
@@ -37,7 +41,11 @@ from synth_ai.managed_research.models import (
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_patch_payload,
+    factory_actor_output_create_payload,
+    factory_actor_output_patch_payload,
     factory_create_payload,
+    factory_idea_create_payload,
+    factory_idea_patch_payload,
     factory_patch_payload,
     factory_project_link_payload,
     factory_project_patch_payload,
@@ -1327,6 +1335,134 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", f"/smr/factories/{factory_id}/status"),
             label="get_factory_status",
+        )
+
+    def create_factory_idea(
+        self,
+        factory_id: str,
+        request: FactoryIdeaCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/ideas",
+                json_body=factory_idea_create_payload(request),
+            ),
+            label="create_factory_idea",
+        )
+
+    def list_factory_ideas(
+        self,
+        factory_id: str,
+        *,
+        status: str | None = None,
+        source: str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/ideas",
+                params=build_query_params(
+                    status=status,
+                    source=source,
+                    include_archived=include_archived,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_ideas",
+        )
+
+    def get_factory_idea(self, factory_id: str, idea_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/ideas/{idea_id}",
+            ),
+            label="get_factory_idea",
+        )
+
+    def patch_factory_idea(
+        self,
+        factory_id: str,
+        idea_id: str,
+        request: FactoryIdeaPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/ideas/{idea_id}",
+                json_body=factory_idea_patch_payload(request),
+            ),
+            label="patch_factory_idea",
+        )
+
+    def create_factory_actor_output(
+        self,
+        factory_id: str,
+        request: FactoryActorOutputCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/actor-outputs",
+                json_body=factory_actor_output_create_payload(request),
+            ),
+            label="create_factory_actor_output",
+        )
+
+    def list_factory_actor_outputs(
+        self,
+        factory_id: str,
+        *,
+        actor_role: str | None = None,
+        kind: str | None = None,
+        status: str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/actor-outputs",
+                params=build_query_params(
+                    actor_role=actor_role,
+                    kind=kind,
+                    status=status,
+                    include_archived=include_archived,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_actor_outputs",
+        )
+
+    def get_factory_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/actor-outputs/{actor_output_id}",
+            ),
+            label="get_factory_actor_output",
+        )
+
+    def patch_factory_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+        request: FactoryActorOutputPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/actor-outputs/{actor_output_id}",
+                json_body=factory_actor_output_patch_payload(request),
+            ),
+            label="patch_factory_actor_output",
         )
 
     def wake_due_factory_efforts(
