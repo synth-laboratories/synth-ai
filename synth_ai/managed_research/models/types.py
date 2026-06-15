@@ -334,6 +334,358 @@ class RequiredWorkProductSpec:
         return payload
 
 
+OPTIMIZER_CAMPAIGN_KINDS: tuple[str, ...] = ("GELO", "GELOA")
+OPTIMIZER_CAMPAIGN_SPLIT_KINDS: tuple[str, ...] = ("visible_train", "heldout")
+REQUIRED_OPTIMIZER_CAMPAIGN_OUTPUTS: tuple[str, ...] = (
+    "optimizer_trace",
+    "candidate_inventory",
+    "checkpoint_frontier_bundle",
+    "visible_result_table",
+    "heldout_comparison",
+    "final_report",
+    "receipt",
+)
+OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE: tuple[str, ...] = (
+    "created",
+    "sealed",
+    "resumable",
+    "resumed",
+    "superseded",
+    "expired",
+    "invalidated",
+)
+OPTIMIZER_CAMPAIGN_EVENT_KINDS: tuple[str, ...] = (
+    "candidate_proposed",
+    "candidate_accepted",
+    "candidate_rejected",
+    "checkpoint_created",
+    "checkpoint_resumed",
+    "checkpoint_failed",
+    "frontier_update",
+    "theme_mined",
+    "theme_retired",
+    "theme_reopened",
+    "verifier_result",
+    "consolidation_event",
+    "promotion_decision",
+    "heldout_measurement",
+    "integrity_check",
+)
+OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS: tuple[str, ...] = (
+    "verifier_coverage_ratio",
+    "split_integrity_assertion",
+    "one_ruler_result_line",
+    "consolidation_auditability",
+    "budget_conservation",
+)
+_HELDOUT_MEASUREMENT_PHASES = {
+    "measurement",
+    "heldout_measurement",
+    "final_measurement",
+    "post_search_measurement",
+}
+_FORBIDDEN_HELDOUT_VISIBILITY = {
+    "candidate_generator",
+    "optimizer_proposer",
+    "optimizer_search",
+    "proposer",
+    "search",
+    "search_workspace",
+    "worker:proposer",
+    "worker:search",
+}
+
+
+def _require_object_dict(payload: object, *, label: str) -> dict[str, object]:
+    mapping = _optional_object_dict(payload)
+    if not mapping:
+        raise ValueError(f"{label} is required")
+    return mapping
+
+
+def _optimizer_output_obligations(payload: object, *, label: str) -> list[str]:
+    values = _require_array({"value": payload}, "value", label=label)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(values):
+        if isinstance(item, Mapping):
+            raw_kind = (
+                item.get("kind") or item.get("type") or item.get("obligation") or item.get("name")
+            )
+        else:
+            raw_kind = item
+        if not isinstance(raw_kind, str) or not raw_kind.strip():
+            raise ValueError(f"{label}[{index}] must identify an obligation kind")
+        kind = raw_kind.strip().lower()
+        if kind not in seen:
+            seen.add(kind)
+            normalized.append(kind)
+    missing = [item for item in REQUIRED_OPTIMIZER_CAMPAIGN_OUTPUTS if item not in seen]
+    if missing:
+        raise ValueError(f"{label} is missing required value(s): {', '.join(missing)}")
+    return normalized
+
+
+def _required_string_list(payload: object, *, label: str) -> list[str]:
+    values = _string_list(payload, label=label)
+    if not values:
+        raise ValueError(f"{label} must include at least one value")
+    return values
+
+
+def _checked_string_list(
+    payload: object,
+    *,
+    label: str,
+    allowed: tuple[str, ...],
+    default: tuple[str, ...],
+) -> list[str]:
+    values = list(default) if payload is None else _string_list(payload, label=label)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    allowed_set = set(allowed)
+    for index, value in enumerate(values):
+        item = value.strip().lower()
+        if item not in allowed_set:
+            raise ValueError(f"{label}[{index}] must be one of {', '.join(allowed)}")
+        if item not in seen:
+            seen.add(item)
+            normalized.append(item)
+    missing = [item for item in allowed if item not in seen]
+    if missing:
+        raise ValueError(f"{label} is missing required value(s): {', '.join(missing)}")
+    return normalized
+
+
+def _resource_ref_set(values: list[str]) -> set[str]:
+    return {item.strip().lower() for item in values if item.strip()}
+
+
+@dataclass(frozen=True)
+class OptimizerCampaignSplit:
+    split_kind: str
+    split_id: str
+    resource_refs: list[str]
+    artifact_ref: str | None = None
+    version: str | None = None
+    available_from_phase: str | None = None
+    visible_to: list[str] = field(default_factory=list)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object, *, label: str, split_kind: str) -> OptimizerCampaignSplit:
+        mapping = _require_mapping(payload, label=label)
+        declared_kind = _optional_string(mapping, "split_kind") or _optional_string(mapping, "kind")
+        if declared_kind is not None and declared_kind.lower() != split_kind:
+            raise ValueError(f"{label}.split_kind must be {split_kind!r}")
+        available_from_phase = _optional_string(mapping, "available_from_phase")
+        visible_to = _string_list(mapping.get("visible_to"), label=f"{label}.visible_to")
+        if split_kind == "heldout":
+            if available_from_phase is None:
+                raise ValueError(f"{label}.available_from_phase is required")
+            if available_from_phase.lower() not in _HELDOUT_MEASUREMENT_PHASES:
+                raise ValueError(
+                    f"{label}.available_from_phase must be a heldout measurement phase"
+                )
+            forbidden = sorted(
+                item.strip().lower()
+                for item in visible_to
+                if item.strip().lower() in _FORBIDDEN_HELDOUT_VISIBILITY
+            )
+            if forbidden:
+                raise ValueError(
+                    f"{label}.visible_to exposes heldout before measurement: "
+                    + ", ".join(forbidden)
+                )
+        return cls(
+            split_kind=split_kind,
+            split_id=_require_string(mapping, "split_id", label=f"{label}.split_id"),
+            resource_refs=_required_string_list(
+                mapping.get("resource_refs") or mapping.get("resources"),
+                label=f"{label}.resource_refs",
+            ),
+            artifact_ref=(
+                _optional_string(mapping, "artifact_ref")
+                or _optional_string(mapping, "artifact_id")
+                or _optional_string(mapping, "artifact_path")
+            ),
+            version=_optional_string(mapping, "version"),
+            available_from_phase=available_from_phase,
+            visible_to=visible_to,
+            metadata=_optional_object_dict(mapping.get("metadata")),
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "split_kind": self.split_kind,
+            "split_id": self.split_id,
+            "resource_refs": list(self.resource_refs),
+        }
+        if self.artifact_ref is not None:
+            payload["artifact_ref"] = self.artifact_ref
+        if self.version is not None:
+            payload["version"] = self.version
+        if self.available_from_phase is not None:
+            payload["available_from_phase"] = self.available_from_phase
+        if self.visible_to:
+            payload["visible_to"] = list(self.visible_to)
+        if self.metadata:
+            payload["metadata"] = dict(self.metadata)
+        return payload
+
+
+@dataclass(frozen=True)
+class OptimizerCampaignContract:
+    schema_version: int
+    optimizer_kind: str
+    task_or_benchmark: str
+    baseline_candidate: dict[str, object]
+    search_space: dict[str, object]
+    visible_train_split: OptimizerCampaignSplit
+    heldout_split: OptimizerCampaignSplit
+    split_declaration: dict[str, object]
+    budget: dict[str, object]
+    allowed_models: list[str]
+    allowed_tools: list[str]
+    allowed_providers: list[str]
+    checkpoint_policy: dict[str, object]
+    container_policy: dict[str, object]
+    output_obligations: list[str]
+    checkpoint_lifecycle: list[str] = field(
+        default_factory=lambda: list(OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE)
+    )
+    event_kinds: list[str] = field(default_factory=lambda: list(OPTIMIZER_CAMPAIGN_EVENT_KINDS))
+    integrity_checks: list[str] = field(
+        default_factory=lambda: list(OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS)
+    )
+    campaign_id: str | None = None
+    one_ruler: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> OptimizerCampaignContract:
+        mapping = _require_mapping(payload, label="optimizer campaign")
+        optimizer_kind = _require_string(
+            mapping,
+            "optimizer_kind",
+            label="optimizer campaign.optimizer_kind",
+        ).upper()
+        if optimizer_kind not in OPTIMIZER_CAMPAIGN_KINDS:
+            raise ValueError("optimizer campaign.optimizer_kind must be GELO or GELOA")
+        visible_split = OptimizerCampaignSplit.from_wire(
+            mapping.get("visible_train_split") or mapping.get("visible_split"),
+            label="optimizer campaign.visible_train_split",
+            split_kind="visible_train",
+        )
+        heldout_split = OptimizerCampaignSplit.from_wire(
+            mapping.get("heldout_split"),
+            label="optimizer campaign.heldout_split",
+            split_kind="heldout",
+        )
+        overlap = sorted(
+            _resource_ref_set(visible_split.resource_refs)
+            & _resource_ref_set(heldout_split.resource_refs)
+        )
+        if overlap:
+            raise ValueError(
+                "optimizer campaign split resource_refs overlap: " + ", ".join(overlap)
+            )
+        return cls(
+            schema_version=_int_value(mapping, "schema_version"),
+            optimizer_kind=optimizer_kind,
+            task_or_benchmark=_require_string(
+                mapping,
+                "task_or_benchmark",
+                label="optimizer campaign.task_or_benchmark",
+            ),
+            baseline_candidate=_require_object_dict(
+                mapping.get("baseline_candidate"),
+                label="optimizer campaign.baseline_candidate",
+            ),
+            search_space=_require_object_dict(
+                mapping.get("search_space"),
+                label="optimizer campaign.search_space",
+            ),
+            visible_train_split=visible_split,
+            heldout_split=heldout_split,
+            split_declaration=_require_object_dict(
+                mapping.get("split_declaration"),
+                label="optimizer campaign.split_declaration",
+            ),
+            budget=_require_object_dict(mapping.get("budget"), label="optimizer campaign.budget"),
+            allowed_models=_required_string_list(
+                mapping.get("allowed_models"),
+                label="optimizer campaign.allowed_models",
+            ),
+            allowed_tools=_required_string_list(
+                mapping.get("allowed_tools"),
+                label="optimizer campaign.allowed_tools",
+            ),
+            allowed_providers=_required_string_list(
+                mapping.get("allowed_providers"),
+                label="optimizer campaign.allowed_providers",
+            ),
+            checkpoint_policy=_require_object_dict(
+                mapping.get("checkpoint_policy"),
+                label="optimizer campaign.checkpoint_policy",
+            ),
+            container_policy=_require_object_dict(
+                mapping.get("container_policy"),
+                label="optimizer campaign.container_policy",
+            ),
+            output_obligations=_optimizer_output_obligations(
+                mapping.get("output_obligations"),
+                label="optimizer campaign.output_obligations",
+            ),
+            checkpoint_lifecycle=_checked_string_list(
+                mapping.get("checkpoint_lifecycle"),
+                label="optimizer campaign.checkpoint_lifecycle",
+                allowed=OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE,
+                default=OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE,
+            ),
+            event_kinds=_checked_string_list(
+                mapping.get("event_kinds"),
+                label="optimizer campaign.event_kinds",
+                allowed=OPTIMIZER_CAMPAIGN_EVENT_KINDS,
+                default=OPTIMIZER_CAMPAIGN_EVENT_KINDS,
+            ),
+            integrity_checks=_checked_string_list(
+                mapping.get("integrity_checks"),
+                label="optimizer campaign.integrity_checks",
+                allowed=OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS,
+                default=OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS,
+            ),
+            campaign_id=_optional_string(mapping, "campaign_id"),
+            one_ruler=_optional_object_dict(mapping.get("one_ruler")),
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "schema_version": self.schema_version,
+            "optimizer_kind": self.optimizer_kind,
+            "task_or_benchmark": self.task_or_benchmark,
+            "baseline_candidate": dict(self.baseline_candidate),
+            "search_space": dict(self.search_space),
+            "visible_train_split": self.visible_train_split.to_wire(),
+            "heldout_split": self.heldout_split.to_wire(),
+            "split_declaration": dict(self.split_declaration),
+            "budget": dict(self.budget),
+            "allowed_models": list(self.allowed_models),
+            "allowed_tools": list(self.allowed_tools),
+            "allowed_providers": list(self.allowed_providers),
+            "checkpoint_policy": dict(self.checkpoint_policy),
+            "container_policy": dict(self.container_policy),
+            "output_obligations": list(self.output_obligations),
+            "checkpoint_lifecycle": list(self.checkpoint_lifecycle),
+            "event_kinds": list(self.event_kinds),
+            "integrity_checks": list(self.integrity_checks),
+        }
+        if self.campaign_id is not None:
+            payload["campaign_id"] = self.campaign_id
+        if self.one_ruler:
+            payload["one_ruler"] = dict(self.one_ruler)
+        return payload
+
+
 @dataclass(frozen=True)
 class KickoffContract:
     """Run kickoff contract mirrored from the backend SMR API.
@@ -361,6 +713,7 @@ class KickoffContract:
     model_visible_contract_files: list[KickoffContractFile] = field(default_factory=list)
     kickoff_contract_file: str | None = None
     kickoff_contract_ref: str | None = None
+    optimizer_campaign: OptimizerCampaignContract | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> KickoffContract:
@@ -402,6 +755,11 @@ class KickoffContract:
             ],
             kickoff_contract_file=_optional_string(mapping, "kickoff_contract_file"),
             kickoff_contract_ref=_optional_string(mapping, "kickoff_contract_ref"),
+            optimizer_campaign=(
+                OptimizerCampaignContract.from_wire(mapping["optimizer_campaign"])
+                if "optimizer_campaign" in mapping and mapping.get("optimizer_campaign") is not None
+                else None
+            ),
         )
 
     def to_wire(self) -> dict[str, object]:
@@ -435,6 +793,8 @@ class KickoffContract:
             payload["kickoff_contract_file"] = self.kickoff_contract_file
         if self.kickoff_contract_ref is not None:
             payload["kickoff_contract_ref"] = self.kickoff_contract_ref
+        if self.optimizer_campaign is not None:
+            payload["optimizer_campaign"] = self.optimizer_campaign.to_wire()
         return payload
 
 
@@ -909,11 +1269,17 @@ class InlineExternalRepositoryBinding:
     url: str
     default_branch: str | None = None
     role: str | None = None
+    split_role: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_wire(cls, payload: object) -> InlineExternalRepositoryBinding:
         mapping = _require_mapping(payload, label="inline external repository binding")
+        split_role = _optional_string(mapping, "split_role")
+        if split_role is not None and split_role not in OPTIMIZER_CAMPAIGN_SPLIT_KINDS:
+            raise ValueError(
+                "inline external repository binding.split_role must be visible_train or heldout"
+            )
         return cls(
             name=_require_string(
                 mapping,
@@ -927,6 +1293,7 @@ class InlineExternalRepositoryBinding:
             ),
             default_branch=_optional_string(mapping, "default_branch"),
             role=_optional_string(mapping, "role"),
+            split_role=split_role,
             metadata=_optional_object_dict(mapping.get("metadata")),
         )
 
@@ -940,6 +1307,12 @@ class InlineExternalRepositoryBinding:
             payload["default_branch"] = self.default_branch
         if self.role is not None:
             payload["role"] = self.role
+        if self.split_role is not None:
+            if self.split_role not in OPTIMIZER_CAMPAIGN_SPLIT_KINDS:
+                raise ValueError(
+                    "inline external repository split_role must be visible_train or heldout"
+                )
+            payload["split_role"] = self.split_role
         return payload
 
 
@@ -1693,6 +2066,13 @@ __all__ = [
     "LaunchPreflightBlocker",
     "MilestoneProgress",
     "OpenEndedQuestion",
+    "OptimizerCampaignContract",
+    "OptimizerCampaignSplit",
+    "OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE",
+    "OPTIMIZER_CAMPAIGN_EVENT_KINDS",
+    "OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS",
+    "OPTIMIZER_CAMPAIGN_KINDS",
+    "OPTIMIZER_CAMPAIGN_SPLIT_KINDS",
     "ParentObjectiveEvaluationState",
     "ParentObjectiveKind",
     "PrimaryParentRef",
@@ -1710,6 +2090,7 @@ __all__ = [
     "RunOutputFile",
     "RunRepositoryMount",
     "RunResourceBindings",
+    "REQUIRED_OPTIMIZER_CAMPAIGN_OUTPUTS",
     "SemanticProgressSnapshot",
     "StoredFile",
     "WorkspaceFileInput",

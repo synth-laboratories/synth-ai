@@ -533,6 +533,24 @@ class RunHandle:
             limit=limit,
         )
 
+    def optimizer_campaign_events(
+        self,
+        *,
+        after_seq: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._client.list_optimizer_campaign_events(
+            self.run_id,
+            after_seq=after_seq,
+            limit=limit,
+        )
+
+    def optimizer_campaign_integrity(self) -> dict[str, Any]:
+        return self._client.get_optimizer_campaign_integrity(self.run_id)
+
+    def optimizer_campaign_checkpoints(self) -> dict[str, Any]:
+        return self._client.get_optimizer_campaign_checkpoints(self.run_id)
+
     def authority_readouts(
         self,
         *,
@@ -1599,6 +1617,25 @@ class RunsAPI(_ClientNamespace):
             statuses=statuses,
             limit=limit,
         )
+
+    def list_optimizer_campaign_events(
+        self,
+        run_id: str,
+        *,
+        after_seq: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return self._client.list_optimizer_campaign_events(
+            run_id,
+            after_seq=after_seq,
+            limit=limit,
+        )
+
+    def get_optimizer_campaign_integrity(self, run_id: str) -> dict[str, Any]:
+        return self._client.get_optimizer_campaign_integrity(run_id)
+
+    def get_optimizer_campaign_checkpoints(self, run_id: str) -> dict[str, Any]:
+        return self._client.get_optimizer_campaign_checkpoints(run_id)
 
     def get_authority_readouts(
         self,

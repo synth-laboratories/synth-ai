@@ -225,6 +225,12 @@ from synth_ai.managed_research.models.smr_runtime_kinds import SmrRuntimeKind
 from synth_ai.managed_research.models.smr_tool_providers import SmrToolProvider
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import (
+    OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE,
+    OPTIMIZER_CAMPAIGN_EVENT_KINDS,
+    OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS,
+    OPTIMIZER_CAMPAIGN_KINDS,
+    OPTIMIZER_CAMPAIGN_SPLIT_KINDS,
+    REQUIRED_OPTIMIZER_CAMPAIGN_OUTPUTS,
     CredentialRef,
     ExperimentProgress,
     ExternalRepository,
@@ -234,6 +240,8 @@ from synth_ai.managed_research.models.types import (
     LaunchPreflight,
     LaunchPreflightBlocker,
     MilestoneProgress,
+    OptimizerCampaignContract,
+    OptimizerCampaignSplit,
     ProjectReadiness,
     ProjectSetupAuthority,
     ProjectSetupAuthorityReason,
@@ -270,6 +278,14 @@ from synth_ai.managed_research.models.work_products import (
 __all__ = [
     "KickoffContract",
     "KickoffContractFile",
+    "OptimizerCampaignContract",
+    "OptimizerCampaignSplit",
+    "OPTIMIZER_CAMPAIGN_CHECKPOINT_LIFECYCLE",
+    "OPTIMIZER_CAMPAIGN_EVENT_KINDS",
+    "OPTIMIZER_CAMPAIGN_INTEGRITY_CHECKS",
+    "OPTIMIZER_CAMPAIGN_KINDS",
+    "OPTIMIZER_CAMPAIGN_SPLIT_KINDS",
+    "REQUIRED_OPTIMIZER_CAMPAIGN_OUTPUTS",
     "RequiredWorkProductSpec",
     "CredentialRef",
     "ExternalRepository",
