@@ -142,7 +142,10 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_get_launch_preflight",
-            description=("Fetch the canonical launch preflight for a concrete run request."),
+            description=(
+                "Fetch canonical launch preflight. Omit project_id to use the "
+                "caller's default Miscellaneous project."
+            ),
             input_schema=tool_schema(
                 {
                     "project_id": {"type": "string", "description": "Managed research project id."},
@@ -261,7 +264,7 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Deprecated compatibility alias.",
                     },
                 },
-                required=["project_id"],
+                required=[],
             ),
             handler=server._tool_get_launch_preflight,
         ),

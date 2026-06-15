@@ -342,7 +342,7 @@ class ProviderKeyRequest:
 
 @dataclass(frozen=True)
 class RunLaunchRequest:
-    project_id: str
+    project_id: str | None
     host_kind: str | None
     work_mode: str | None
     intended_horizon_hours: int | None
@@ -409,7 +409,7 @@ class RunLaunchRequest:
                 providers=providers,
             )
         return cls(
-            project_id=require_string(payload, "project_id"),
+            project_id=optional_string(payload, "project_id"),
             host_kind=host_kind,
             work_mode=work_mode,
             intended_horizon_hours=intended_horizon_hours,

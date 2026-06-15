@@ -585,6 +585,11 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_run_work_product(work_product_id)
 
+    def _tool_get_run_work_product_content(self, args: JSONDict) -> Any:
+        work_product_id = require_string(args, "work_product_id")
+        with self._client_from_args(args) as client:
+            return client.get_run_work_product_content(work_product_id, as_text=True)
+
     def _tool_export_run_work_product(self, args: JSONDict) -> Any:
         work_product_id = require_string(args, "work_product_id")
         destination = args.get("destination")
@@ -1533,10 +1538,9 @@ class ManagedResearchMcpServer:
         request = RunLaunchRequest.from_payload(args)
         try:
             with self._client_from_args(args) as client:
-                return client.trigger_run(
-                    request.project_id,
-                    **request.client_kwargs(),
-                )
+                if request.project_id is None:
+                    return client.trigger_one_off_run(**request.client_kwargs())
+                return client.trigger_run(request.project_id, **request.client_kwargs())
         except SmrApiError as exc:
             _raise_mcp_tool_denial(exc)
 
@@ -1544,10 +1548,9 @@ class ManagedResearchMcpServer:
         request = RunLaunchRequest.from_payload(args)
         try:
             with self._client_from_args(args) as client:
-                return client.start_run(
-                    request.project_id,
-                    **request.client_kwargs(),
-                )
+                if request.project_id is None:
+                    return client.trigger_one_off_run(**request.client_kwargs())
+                return client.start_run(request.project_id, **request.client_kwargs())
         except SmrApiError as exc:
             _raise_mcp_tool_denial(exc)
 
@@ -1562,6 +1565,8 @@ class ManagedResearchMcpServer:
     def _tool_get_run_start_blockers(self, args: JSONDict) -> Any:
         request = RunLaunchRequest.from_payload(args)
         with self._client_from_args(args) as client:
+            if request.project_id is None:
+                return client.get_one_off_launch_preflight(**request.client_kwargs())
             if hasattr(client, "get_run_start_blockers"):
                 return client.get_run_start_blockers(
                     request.project_id,
@@ -2307,6 +2312,8 @@ class ManagedResearchMcpServer:
     def _tool_get_launch_preflight(self, args: JSONDict) -> Any:
         request = RunLaunchRequest.from_payload(args)
         with self._client_from_args(args) as client:
+            if request.project_id is None:
+                return client.get_one_off_launch_preflight(**request.client_kwargs())
             return client.get_launch_preflight(
                 request.project_id,
                 **request.client_kwargs(),

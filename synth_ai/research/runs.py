@@ -4,6 +4,20 @@ from __future__ import annotations
 
 from typing import Any, List
 
+from synth_ai.managed_research.models.canonical_usage import (
+    SmrResourceLimitProgress,
+    SmrResourceLimits,
+    SmrRunUsage,
+)
+from synth_ai.managed_research.models.run_diagnostics import (
+    SmrRunActorUsage,
+    SmrRunCostSummary,
+)
+from synth_ai.managed_research.models.run_observability import (
+    ManagedResearchRunContract,
+    RunObservabilitySnapshot,
+)
+from synth_ai.managed_research.models.types import RunArtifact, RunArtifactManifest
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
 from synth_ai.research.models import ResearchRun, ResearchRunbookPreset, ResearchWorkProduct
@@ -39,10 +53,90 @@ class ResearchRunHandle:
             raise_if_failed=raise_if_failed,
         )
 
-    def work_products(self) -> List[ResearchWorkProduct]:
-        return self._handle._client.work_products.list_for_run(
+    def contract(self) -> ManagedResearchRunContract:
+        return self._handle.contract()
+
+    def progress(
+        self,
+        *,
+        detail_level: str = "control",
+        event_limit: int = 40,
+        actor_limit: int = 25,
+        task_limit: int = 40,
+        question_limit: int = 10,
+        timeline_limit: int = 10,
+        message_limit: int = 8,
+    ) -> RunObservabilitySnapshot:
+        return self._handle._client.get_run_observability_snapshot(
             self.project_id,
             self.run_id,
+            detail_level=detail_level,
+            event_limit=event_limit,
+            actor_limit=actor_limit,
+            task_limit=task_limit,
+            question_limit=question_limit,
+            timeline_limit=timeline_limit,
+            message_limit=message_limit,
+        )
+
+    def full_progress(self) -> RunObservabilitySnapshot:
+        return self._handle._client.get_run_observability_snapshot_full(
+            self.project_id,
+            self.run_id,
+        )
+
+    def work_products(self) -> list[ResearchWorkProduct]:
+        return self._handle.work_products()
+
+    def reports(self) -> list[ResearchWorkProduct]:
+        return self._handle.reports()
+
+    def final_report(self) -> ResearchWorkProduct | None:
+        return self._handle.final_report()
+
+    def report_text(self, work_product_id: str | None = None) -> str | None:
+        return self._handle.report_text(work_product_id)
+
+    def work_product_content(
+        self,
+        work_product_id: str,
+        *,
+        as_text: bool = True,
+    ) -> str | bytes:
+        return self._handle._client.work_products.content(
+            work_product_id,
+            as_text=as_text,
+        )
+
+    def usage(self) -> SmrRunUsage:
+        return self._handle._client.get_run_usage(self.run_id)
+
+    def actor_usage(self) -> SmrRunActorUsage:
+        return self._handle.actor_usage()
+
+    def cost_summary(self) -> SmrRunCostSummary:
+        return self._handle.cost_summary()
+
+    def resource_limits(self) -> SmrResourceLimits:
+        return self._handle.resource_limits()
+
+    def progress_toward_resource_limits(self) -> SmrResourceLimitProgress:
+        return self._handle.progress_toward_resource_limits()
+
+    def artifact_manifest(self) -> RunArtifactManifest:
+        return self._handle.artifact_manifest()
+
+    def artifacts(
+        self,
+        *,
+        artifact_type: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> list[RunArtifact]:
+        return self._handle.artifacts(
+            artifact_type=artifact_type,
+            limit=limit,
+            cursor=cursor,
         )
 
     def download_workspace_archive(

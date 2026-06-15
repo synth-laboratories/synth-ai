@@ -60,6 +60,7 @@ from synth_ai.managed_research.models.smr_providers import (
 from synth_ai.managed_research.models.smr_runbooks import SmrRunbookPreset
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import RunArtifact, RunArtifactManifest
+from synth_ai.managed_research.models.work_products import ManagedResearchRunWorkProduct
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 from synth_ai.managed_research.sdk.config import DEFAULT_MISC_PROJECT_ALIAS
 
@@ -752,6 +753,35 @@ class RunHandle:
             limit=limit,
             cursor=cursor,
         )
+
+    def work_products(self) -> list[ManagedResearchRunWorkProduct]:
+        return self._client.work_products.list_for_run(self.project_id, self.run_id)
+
+    def reports(self) -> list[ManagedResearchRunWorkProduct]:
+        return [item for item in self.work_products() if item.kind == "report"]
+
+    def final_report(self) -> ManagedResearchRunWorkProduct | None:
+        reports = self.reports()
+        ready_reports = [
+            item
+            for item in reports
+            if item.status in {"ready", "published", "done"}
+            or item.readiness in {"viewable", "downloadable", "importable"}
+        ]
+        if ready_reports:
+            return ready_reports[0]
+        return reports[0] if reports else None
+
+    def report_text(self, work_product_id: str | None = None) -> str | None:
+        if work_product_id is None:
+            report = self.final_report()
+            if report is None:
+                return None
+            work_product_id = report.work_product_id
+        content = self._client.work_products.content(work_product_id, as_text=True)
+        if isinstance(content, bytes):
+            return content.decode("utf-8")
+        return content
 
     def output_file(self, name: str) -> RunArtifact | None:
         wanted = str(name or "").strip().lower()

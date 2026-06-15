@@ -123,6 +123,11 @@ from synth_ai.managed_research.models.run_observability import (
     TaskSnapshot,
 )
 from synth_ai.managed_research.models.run_state import (
+    ManagedResearchEvidenceSummary,
+    ManagedResearchLaunchContext,
+    ManagedResearchOutputObligation,
+    ManagedResearchProjectResolution,
+    ManagedResearchProjectResolutionMode,
     ManagedResearchRun,
     ManagedResearchRunLivenessPhase,
     ManagedResearchRunState,
@@ -312,6 +317,11 @@ __all__ = [
     "ManagedResearchActorControlAction",
     "ManagedResearchActorControlAck",
     "ManagedResearchRun",
+    "ManagedResearchEvidenceSummary",
+    "ManagedResearchLaunchContext",
+    "ManagedResearchOutputObligation",
+    "ManagedResearchProjectResolution",
+    "ManagedResearchProjectResolutionMode",
     "ManagedResearchRunContract",
     "ManagedResearchRunContractArtifacts",
     "ManagedResearchRunContractContainerEvalPackages",

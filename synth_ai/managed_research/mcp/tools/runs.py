@@ -142,8 +142,8 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_start_run",
             description=(
-                "Start a Managed Research run with product launch fields. Prefer "
-                "mode and intended_horizon_hours; backend runbooks remain internal."
+                "Start a Managed Research run with product launch fields. Omit "
+                "project_id to use the caller's default Miscellaneous project."
             ),
             input_schema={
                 "type": "object",
@@ -173,7 +173,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Compatibility hard timebox. Prefer intended_horizon_hours.",
                     },
                 },
-                "required": ["project_id"],
+                "required": [],
                 "additionalProperties": True,
             },
             handler=server._tool_start_run,
@@ -181,9 +181,8 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_trigger_run",
             description=(
-                "Trigger a managed research run. Follow the canonical setup -> "
-                "launch-preflight -> trigger flow, and always branch on "
-                "result.error in MCP clients."
+                "Trigger a managed research run. Omit project_id to use the "
+                "caller's default Miscellaneous project."
             ),
             input_schema=tool_schema(
                 {
@@ -300,7 +299,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Deprecated compatibility alias for idempotency_key_run_create.",
                     },
                 },
-                required=["project_id"],
+                required=[],
             ),
             handler=server._tool_trigger_run,
         ),

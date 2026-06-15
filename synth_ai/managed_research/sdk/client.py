@@ -2140,6 +2140,24 @@ class ManagedResearchClient:
             label="get_run_work_product",
         )
 
+    def get_run_work_product_content(
+        self,
+        work_product_id: str,
+        *,
+        as_text: bool = True,
+    ) -> str | bytes:
+        work_product_id = _require_non_empty_string(
+            work_product_id,
+            field_name="work_product_id",
+        )
+        content = self._transport.request_bytes(
+            "GET",
+            f"/smr/work-products/{work_product_id}/content",
+        )
+        if not as_text:
+            return content
+        return content.decode("utf-8")
+
     def export_run_work_product(
         self,
         work_product_id: str,
