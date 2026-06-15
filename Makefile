@@ -1,4 +1,4 @@
-.PHONY: build build-debug test test-unit test-integration test-fast test-slow categorize-tests coverage
+.PHONY: build build-debug test test-unit test-integration test-fast test-slow
 
 SITE_PKG := $(shell .venv/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 
@@ -14,11 +14,12 @@ build-debug:
 	@.venv/bin/maturin develop --uv
 	@.venv/bin/python -c "import synth_ai_py; print('OK: synth_ai_py loaded (' + str(len(dir(synth_ai_py))) + ' symbols)')"
 
+# SDK pytest suite lives in ../testing/synth_ai_sdk/sdk (see testing repo README).
 test-unit:
-	@./scripts/test_unit.sh
+	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v --maxfail=1
 
 test-integration:
-	@./scripts/test_integration.sh
+	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v
 
 test: test-unit
 
@@ -29,21 +30,3 @@ test-fast:
 test-slow:
 	@echo "Running slow tests (>= 5 seconds)..."
 	@pytest -m slow -v
-
-categorize-tests:
-	@echo "Categorizing tests by speed..."
-	@python scripts/categorize_tests.py --run-and-apply
-
-categorize-tests-dry-run:
-	@echo "Preview test categorization (dry run)..."
-	@python scripts/categorize_tests.py --run-and-apply --dry-run
-
-coverage:
-	@python scripts/coverage_summary.py
-
-coverage-ci:
-	@python scripts/coverage_summary.py --no-readme
-
-.PHONY: verify-trace-fixtures
-verify-trace-fixtures:
-	@python scripts/build_trace_fixtures.py --dest tests/artifacts/traces --overwrite

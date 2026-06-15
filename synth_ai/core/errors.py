@@ -120,7 +120,8 @@ class UsageLimitError(SynthError):
         api: The API that hit the limit (e.g., "inference", "verifiers", "prompt_opt")
         current: Current usage value
         limit: The limit value
-        tier: The org's tier (e.g., "free", "starter", "growth")
+        tier: The org's tier (e.g., "free", "free_beta", "pro",
+            "pro_beta", "team", "team_beta")
         retry_after_seconds: Seconds until the limit resets (if available)
         upgrade_url: URL to upgrade tier
     """
@@ -154,7 +155,7 @@ class PlanGatingError(SynthError):
 
     feature: str
     current_plan: str = "free"
-    required_plans: tuple[str, ...] = ("pro", "team")
+    required_plans: tuple[str, ...] = ("pro", "pro_beta", "team", "team_beta")
     upgrade_url: str = "https://usesynth.ai/pricing"
 
     def __str__(self) -> str:
@@ -173,7 +174,7 @@ class PaymentRequiredError(HTTPError):
     challenge: Any | None = None
     payment_required_header: str | None = None
     payment_signature_header: str = "PAYMENT-SIGNATURE"
-    fallback_payment_signature_header: str = "X-PAYMENT"
+    strict_payment_signature_header: str = "X-PAYMENT"
     payment_response_header: str = "PAYMENT-RESPONSE"
 
     @classmethod
@@ -190,7 +191,7 @@ class PaymentRequiredError(HTTPError):
         )
 
     def build_payment_response_header(self, *, payment_reference: str) -> str:
-        """Build PAYMENT-RESPONSE header value for the legacy x402 mock implementation.
+        """Build PAYMENT-RESPONSE header value for the canonical x402 mock implementation.
 
         Note: Real x402 clients should send a `PAYMENT-SIGNATURE` header, not `PAYMENT-RESPONSE`.
         """

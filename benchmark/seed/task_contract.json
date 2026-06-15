@@ -1,0 +1,52 @@
+{
+  "task_id": "nanohorizon_craftax_hello_world",
+  "version": "0.1",
+  "benchmark": "reportbench.nanohorizon.craftax_hello_world",
+  "objective": "Run a simple NanoHorizon Craftax baseline with OpenRouter model x-ai/grok-4.3 for the local Open Research demo path, spend the configured LLM calls, and report the concrete mean outcome reward.",
+  "execution_contract": {
+    "runner_script_path": "workspace/run_nanohorizon_craftax_hello_world_task.py",
+    "command_template": "python3 workspace/run_nanohorizon_craftax_hello_world_task.py run --output-root {output_root}",
+    "supports": [
+      "plan",
+      "run",
+      "score",
+      "cleanup"
+    ]
+  },
+  "required_inputs": [
+    {
+      "name": "output_root",
+      "required": false,
+      "default_behavior": "timestamped local run directory under runs/nanohorizon_craftax_hello_world/, or the current workspace root for live SMR execution"
+    }
+  ],
+  "required_secrets": [
+    "OPENROUTER_API_KEY"
+  ],
+  "state_contract": {
+    "eval_summary_path": "artifacts/eval_summary.json",
+    "rollouts_path": "artifacts/rollouts.jsonl",
+    "result_manifest_path": "artifacts/result_manifest.json",
+    "reportbench_output_path": "artifacts/reportbench_output.json",
+    "verifier_review_path": "artifacts/verifier_review.json"
+  },
+  "step_order": [
+    "run_nanohorizon_baseline",
+    "write_eval_artifacts",
+    "write_result_manifest",
+    "score_bundle"
+  ],
+  "output_contract": {
+    "required_files": [
+      "reports/reproduction.md",
+      "artifacts/eval_summary.json",
+      "artifacts/rollouts.jsonl",
+      "artifacts/result_manifest.json",
+      "artifacts/reportbench_output.json"
+    ],
+    "optional_files": [
+      "artifacts/verifier_review.json"
+    ],
+    "primary_success_signal": "the bundle includes concrete rollout evidence for the requested Craftax trajectories and records the observed mean_outcome_reward"
+  }
+}

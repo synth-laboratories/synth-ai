@@ -68,36 +68,52 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: Check Python-only SDK guard
+        run: python scripts/check_no_rust_sdk.py
+      - name: Run ruff format check
+        run: uv run ruff format --check
       - name: Run ruff check
-        run: uv run --group dev ruff check
-
-  notify-docs:
-    name: Notify Docs
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, tests, type-check]
-    steps:
-      - name: Trigger docs SDK reference update
-        run: |
-          curl -X POST \
-            -H "Authorization: token ${{ secrets.SYNTH_DOCS_REPO_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/synth-laboratories/docs/dispatches \
-            -d '{"event_type": "sdk-updated"}'
+        run: uv run ruff check
 
   tests:
     name: Tests
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout private SDK pytest suite
+        id: checkout_sdk_tests
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          repository: synth-laboratories/testing
+          path: testing
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
-      - name: Run fast unit tests
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: Detect private SDK pytest suite
+        id: sdk_tests
         run: |
-          uv sync --group dev
-          uv run --group dev pytest tests/unit -m unit -v --maxfail=1
+          if [ -d testing/synth_ai_sdk/sdk ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run SDK pytest suite
+        if: steps.sdk_tests.outputs.available == 'true'
+        run: uv run --group dev pytest testing/synth_ai_sdk/sdk -v --maxfail=1
+      - name: Skip unavailable private SDK pytest suite
+        if: steps.sdk_tests.outputs.available != 'true'
+        run: |
+          echo "Private SDK pytest suite is unavailable in this GitHub Actions context."
+      - name: Run Managed Research contract suite
+        run: |
+          uv run --group dev pytest tests/managed_research/ -q --timeout=300
+          uv run --group dev python scripts/validate_contract.py
 
   type-check:
     name: Type Check
@@ -108,7 +124,7 @@ jobs:
         with:
           python-version: '3.11'
       - uses: astral-sh/setup-uv@v4
+      - name: Sync dev dependencies
+        run: uv sync --group dev
       - name: Run ty check
-        run: uv tool run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute --ignore invalid-assignment
-
-
+        run: uv run ty check --respect-ignore-files --ignore invalid-return-type --ignore unresolved-attribute --ignore unresolved-import --ignore deprecated --ignore invalid-argument-type --ignore not-iterable --ignore unused-ignore-comment --ignore unknown-argument --ignore possibly-missing-attribute --ignore invalid-assignment

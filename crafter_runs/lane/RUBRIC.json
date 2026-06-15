@@ -1,0 +1,16 @@
+{
+  "schema_version": "reportbench.rubric.v1",
+  "proof_kind": "hillclimbsymbolicbench_crafter_code_policy_v1",
+  "required_artifacts": [
+    "artifacts/workproduct_container/manifest.json",
+    "artifacts/workproduct_container/starting_container.json",
+    "artifacts/workproduct_container/eval_summary.json",
+    "artifacts/workproduct_container/experiment_results.json",
+    "artifacts/workproduct_container/achievement_diversity.json",
+    "artifacts/workproduct_container/candidate_ledger.jsonl",
+    "artifacts/workproduct_container/directed_effort_outcomes.json",
+    "artifacts/workproduct_container/reproduction.md",
+    "artifacts/workproduct_container/best_policy/heuristic_policy.py",
+    "artifacts/reportbench_output.json"
+  ]
+}

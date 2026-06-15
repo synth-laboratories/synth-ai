@@ -1,14 +1,7 @@
-"""Synth AI Core Layer.
+"""Shared runtime helpers for the narrowed Synth SDK.
 
-This module provides internal plumbing that SDK and CLI can share:
-- Environment resolution
-- HTTP client utilities
-- Error types
-
-Dependency rules:
-- core/ can import data/
-- core/ should NOT import sdk/ or cli/
-- core/ should NOT import click (leave that to cli/)
+The live core surface is intentionally small and only exposes the pieces used by
+containers, tunnels, and pools.
 """
 
 # Error types
@@ -24,10 +17,6 @@ from synth_ai.core.errors import (
     TimeoutError,
     ValidationError,
 )
-from synth_ai.core.levers import Lever, LeverKind, ScopeKey, ScopeKind
-from synth_ai.core.sensors import Sensor, SensorFrame, SensorKind
-
-# Environment utilities
 from synth_ai.core.utils.env import get_api_key, mask_value
 from synth_ai.core.utils.urls import BACKEND_URL_BASE
 
@@ -43,14 +32,6 @@ __all__ = [
     "TimeoutError",
     "StorageError",
     "ModelNotSupportedError",
-    # Lever/Sensor primitives
-    "ScopeKind",
-    "ScopeKey",
-    "LeverKind",
-    "Lever",
-    "SensorKind",
-    "Sensor",
-    "SensorFrame",
     # Environment
     "get_api_key",
     "mask_value",

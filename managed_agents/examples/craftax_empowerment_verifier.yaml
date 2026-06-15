@@ -1,0 +1,110 @@
+verifier_id: craftax_empowerment_verifier
+title: Craftax Empowerment Verifier
+version: v1alpha1
+
+positioning:
+  product_surface: managed_research
+  managed_agents_role: >
+    Managed Agents is beta verifier/backend infrastructure here. The public
+    launch story stays centered on Managed Research and NanoResearch.
+  public_story: >
+    This example shows how a task-specific verifier layers on top of the general
+    verifier template for the NanoHorizon/Craftax launch path.
+
+task:
+  objective: >
+    Estimate the discounted continuation return from a visible Craftax trace
+    prefix and provide a short rationale.
+  judge_mode: structured_prediction
+  success_definition: >
+    The verifier returns a numeric continuation-return estimate and a concise
+    rationale without using the hidden continuation label.
+
+managed_agent_backend:
+  runtime_family: horizons_private
+  session_surface: anthropic_compatible_managed_agents
+  environment_ref: empowerment_verifier
+  context_policy: summary_plus_request
+  main_agent_impl: codex
+  subagent_impl: openenv_react
+  max_turns: 12
+
+environment_actions:
+  allowlist:
+    - write_prediction
+    - submit
+  constraints:
+    - Use write_prediction to stage the assessment.
+    - Call submit after the prediction is complete.
+    - Do not invent extra environment actions.
+
+evidence:
+  visible_inputs:
+    - name: trace_prefix
+      source: row.context
+      kind: text
+      required: true
+      notes: >
+        Concatenated prefix summary and observation text from the visible portion
+        of the Craftax trace.
+    - name: score_at_t
+      source: row.score_at_t
+      kind: scalar
+      required: false
+      notes: >
+        Instantaneous score already earned by timestep t. This is context only
+        and should not be included in the predicted continuation return.
+    - name: achievements_at_t
+      source: row.achievements_at_t
+      kind: scalar
+      required: false
+      notes: >
+        Optional list/string of achievements already unlocked by timestep t.
+    - name: verifier_metadata
+      source: row.meta
+      kind: json
+      required: false
+      notes: >
+        Metadata such as environment, gamma, split timestep, and prefix/hidden
+        step counts.
+  hidden_eval_only:
+    - name: continuation_return_mc
+      source: row.continuation_return_mc
+      kind: scalar
+      notes: >
+        Realized discounted continuation return from the hidden tail. Used only
+        for evaluation after the managed-agent run finishes.
+
+instructions:
+  system: |
+    You are a verifier for reinforcement-learning-style traces. Estimate the
+    discounted future return from timestep t+1 onward and keep the rationale
+    short and concrete.
+  task: |
+    Read the visible Craftax prefix, estimate the discounted continuation
+    return, record the assessment through the verifier environment, and submit.
+  output_guidance:
+    - Do not include already-earned score in the predicted continuation return.
+    - Use only visible evidence and the allowed environment actions.
+    - Keep the rationale brief and task-specific.
+
+result:
+  output_path: prediction
+  schema:
+    type: object
+    properties:
+      predicted_continuation_return:
+        type: number
+      brief_rationale:
+        type: string
+    required:
+      - predicted_continuation_return
+      - brief_rationale
+    additionalProperties: false
+
+managed_research_consumption:
+  intended_use:
+    - Managed Research can use this as a concrete verifier/backend config for a
+      launch-era Craftax empowerment task.
+    - Task owners can swap evidence sources or wording while keeping the same
+      general authoring shape.

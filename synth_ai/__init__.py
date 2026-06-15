@@ -1,30 +1,4 @@
-"""Synth AI - Policy optimization and evaluation platform.
-
-This package provides the public API for Synth AI. Most users should import
-directly from this module:
-
-    from synth_ai import (
-        # Optimization
-        PolicyOptimizationJob,
-        GraphOptimizationJob,
-
-        # Evaluation
-        EvalJob,
-
-        # Task Apps
-        InProcessTaskApp,
-        LocalAPIClient,
-        create_task_app,
-
-        # Clients
-        VerifierClient,
-        InferenceClient,
-    )
-
-For data types, import from synth_ai.data:
-
-    from synth_ai.data import SessionTrace, Rubric, Criterion
-"""
+"""Python-only Synth SDK surface."""
 
 from __future__ import annotations
 
@@ -32,24 +6,21 @@ import importlib
 from importlib import metadata as _metadata
 from importlib.metadata import PackageNotFoundError
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-# Install log filter as early as possible to suppress noisy codex_otel logs
 try:
     from synth_ai.core.utils.log_filter import install_log_filter
 
     install_log_filter()
 except Exception:
-    # Silently fail if log filter can't be installed
     pass
 
-# Version resolution
-try:  # Prefer the installed package metadata when available
+try:
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:  # Fallback to pyproject version for editable installs
+except PackageNotFoundError:
     try:
-        import tomllib as _toml  # Python 3.11+
-    except ModuleNotFoundError:  # pragma: no cover - legacy interpreter guard
+        import tomllib as _toml
+    except ModuleNotFoundError:  # pragma: no cover
         import tomli as _toml  # type: ignore[no-redef]
 
     try:
@@ -61,114 +32,109 @@ except PackageNotFoundError:  # Fallback to pyproject version for editable insta
         __version__ = "0.0.0.dev0"
 
 
-# Type hints for IDE support
-if TYPE_CHECKING:
-    from synth_ai.sdk.eval import EvalJob, EvalJobConfig
-    from synth_ai.sdk.graphs import GraphCompletionsClient, GraphTarget, VerifierClient
-    from synth_ai.sdk.graphs.verifier_schemas import (
-        CriterionScorePayload,
-        ReviewPayload,
-        VerifierOptions,
-        VerifierScoreRequest,
-        VerifierScoreResponse,
-        VerifierTaskApp,
-        VerifierTracePayload,
-    )
-    from synth_ai.sdk.inference import InferenceClient
-    from synth_ai.sdk.localapi import (
-        InProcessTaskApp,
-        LocalAPIClient,
-        LocalAPIConfig,
-        TaskAppConfig,
-        create_task_app,
-    )
-    from synth_ai.sdk.optimization import GraphOptimizationJob, PolicyOptimizationJob
-
-    # Legacy aliases
-    PromptLearningJob = PolicyOptimizationJob
-    GraphEvolveJob = GraphOptimizationJob
-
-
 __all__ = [
-    # Optimization (canonical names)
-    "PolicyOptimizationJob",
-    "GraphOptimizationJob",
-    # Legacy aliases
-    "PromptLearningJob",
-    "GraphEvolveJob",
-    # Evaluation
-    "EvalJob",
-    "EvalJobConfig",
-    # Task Apps
-    "InProcessTaskApp",
-    "LocalAPIClient",
-    "LocalAPIConfig",
-    "TaskAppConfig",
-    "create_task_app",
-    # Clients
-    "VerifierClient",
-    "GraphCompletionsClient",
-    "GraphTarget",
-    "InferenceClient",
-    # Verifier schemas
-    "VerifierScoreRequest",
-    "VerifierScoreResponse",
-    "VerifierOptions",
-    "VerifierTaskApp",
-    "VerifierTracePayload",
-    "ReviewPayload",
-    "CriterionScorePayload",
-    "gepa",
-    "dspy",
+    "AsyncContainerPoolsClient",
+    "AsyncContainersClient",
+    "AsyncHorizonsPrivateClient",
+    "AsyncManagedAgentsAnthropicClient",
+    "AsyncOpenAIAgentsSdkClient",
+    "AsyncSynthClient",
+    "AsyncSynthManagedAgents",
+    "AsyncTunnelsClient",
+    "ContainerPoolsClient",
+    "ContainersClient",
+    "HorizonsPrivateClient",
+    "ManagedResearchClient",
+    "ManagedResearchError",
+    "ManagedResearchMcpServer",
+    "ManagedAgentsAnthropicClient",
+    "ManagedAgentRun",
+    "OpenAIAgentsSdkClient",
+    "ResearchClient",
+    "SmrApiError",
+    "SmrConcurrentRunLimitExceededError",
+    "SmrControlClient",
+    "SmrInsufficientCreditsError",
+    "SmrLimitExceededError",
+    "SynthClient",
+    "SynthManagedAgents",
+    "TunnelsClient",
+    "function_tool",
+    "mcp_tool",
 ]
 
-# Lazy loading map: name -> (module, attribute)
 _EXPORTS: dict[str, tuple[str, str]] = {
-    # Optimization
-    "PolicyOptimizationJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
-    "GraphOptimizationJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
-    "PromptLearningJob": ("synth_ai.sdk.optimization", "PolicyOptimizationJob"),
-    "GraphEvolveJob": ("synth_ai.sdk.optimization", "GraphOptimizationJob"),
-    # Evaluation
-    "EvalJob": ("synth_ai.sdk.eval", "EvalJob"),
-    "EvalJobConfig": ("synth_ai.sdk.eval", "EvalJobConfig"),
-    # Task Apps
-    "InProcessTaskApp": ("synth_ai.sdk.localapi", "InProcessTaskApp"),
-    "LocalAPIClient": ("synth_ai.sdk.localapi", "LocalAPIClient"),
-    "LocalAPIConfig": ("synth_ai.sdk.localapi", "LocalAPIConfig"),
-    "TaskAppConfig": ("synth_ai.sdk.localapi", "TaskAppConfig"),
-    "create_task_app": ("synth_ai.sdk.localapi", "create_task_app"),
-    # Clients
-    "VerifierClient": ("synth_ai.sdk.graphs", "VerifierClient"),
-    "GraphCompletionsClient": ("synth_ai.sdk.graphs", "GraphCompletionsClient"),
-    "GraphTarget": ("synth_ai.sdk.graphs", "GraphTarget"),
-    "InferenceClient": ("synth_ai.sdk.inference", "InferenceClient"),
-    # Verifier schemas
-    "VerifierScoreRequest": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreRequest"),
-    "VerifierScoreResponse": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierScoreResponse"),
-    "VerifierOptions": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierOptions"),
-    "VerifierTaskApp": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTaskApp"),
-    "VerifierTracePayload": ("synth_ai.sdk.graphs.verifier_schemas", "VerifierTracePayload"),
-    "ReviewPayload": ("synth_ai.sdk.graphs.verifier_schemas", "ReviewPayload"),
-    "CriterionScorePayload": ("synth_ai.sdk.graphs.verifier_schemas", "CriterionScorePayload"),
+    "ManagedResearchClient": (
+        "synth_ai.managed_research.sdk.client",
+        "ManagedResearchClient",
+    ),
+    "SmrControlClient": ("synth_ai.managed_research.sdk.client", "SmrControlClient"),
+    "ManagedResearchMcpServer": (
+        "synth_ai.managed_research.mcp.server",
+        "ManagedResearchMcpServer",
+    ),
+    "ManagedResearchError": ("synth_ai.managed_research.errors", "ManagedResearchError"),
+    "SmrApiError": ("synth_ai.managed_research.errors", "SmrApiError"),
+    "SmrConcurrentRunLimitExceededError": (
+        "synth_ai.managed_research.errors",
+        "SmrConcurrentRunLimitExceededError",
+    ),
+    "SmrInsufficientCreditsError": (
+        "synth_ai.managed_research.errors",
+        "SmrInsufficientCreditsError",
+    ),
+    "SmrLimitExceededError": ("synth_ai.managed_research.errors", "SmrLimitExceededError"),
+    "ResearchClient": ("synth_ai.research.client", "ResearchClient"),
+    "SynthClient": ("synth_ai.client", "SynthClient"),
+    "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
+    "ContainersClient": ("synth_ai.sdk.containers", "ContainersClient"),
+    "AsyncContainersClient": ("synth_ai.sdk.containers", "AsyncContainersClient"),
+    "ContainerPoolsClient": ("synth_ai.sdk.pools", "ContainerPoolsClient"),
+    "AsyncContainerPoolsClient": ("synth_ai.sdk.pools", "AsyncContainerPoolsClient"),
+    "HorizonsPrivateClient": ("synth_ai.sdk.horizons_private", "HorizonsPrivateClient"),
+    "AsyncHorizonsPrivateClient": (
+        "synth_ai.sdk.horizons_private",
+        "AsyncHorizonsPrivateClient",
+    ),
+    "ManagedAgentsAnthropicClient": (
+        "synth_ai.sdk.managed_agents_anthropic",
+        "ManagedAgentsAnthropicClient",
+    ),
+    "ManagedAgentRun": (
+        "synth_ai.sdk.managed_agents_anthropic",
+        "ManagedAgentRun",
+    ),
+    "AsyncManagedAgentsAnthropicClient": (
+        "synth_ai.sdk.managed_agents_anthropic",
+        "AsyncManagedAgentsAnthropicClient",
+    ),
+    "SynthManagedAgents": (
+        "synth_ai.sdk.managed_agents",
+        "SynthManagedAgents",
+    ),
+    "AsyncSynthManagedAgents": (
+        "synth_ai.sdk.managed_agents",
+        "AsyncSynthManagedAgents",
+    ),
+    "OpenAIAgentsSdkClient": (
+        "synth_ai.sdk.openai_agents_sdk",
+        "OpenAIAgentsSdkClient",
+    ),
+    "AsyncOpenAIAgentsSdkClient": (
+        "synth_ai.sdk.openai_agents_sdk",
+        "AsyncOpenAIAgentsSdkClient",
+    ),
+    "TunnelsClient": ("synth_ai.sdk.tunnels", "TunnelsClient"),
+    "AsyncTunnelsClient": ("synth_ai.sdk.tunnels", "AsyncTunnelsClient"),
+    "function_tool": ("synth_ai.sdk.openai_tools", "function_tool"),
+    "mcp_tool": ("synth_ai.sdk.openai_tools", "mcp_tool"),
 }
 
 
 def __getattr__(name: str) -> Any:
-    """Lazy load SDK exports on first access."""
-    if name == "gepa":
-        # Provide Synth's GEPA-compat API as `from synth_ai import gepa`.
-        # Do not import the external `gepa` package (name collision on PyPI).
-        return importlib.import_module("synth_ai.gepa")
-    if name == "dspy":
-        # Provide Synth's DSPy drop-ins as `from synth_ai import dspy`.
-        return importlib.import_module("synth_ai.dspy")
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, attr_name = target
-    try:
-        module = importlib.import_module(module_name)
-        return getattr(module, attr_name)
-    except Exception as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    module = importlib.import_module(module_name)
+    return getattr(module, attr_name)

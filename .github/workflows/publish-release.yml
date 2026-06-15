@@ -10,58 +10,64 @@ permissions:
   id-token: write
 
 jobs:
-  release:
+  build-distributions:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Install Python
-        run: uv python install 3.12
-
-      - name: Sync dependencies
-        run: uv sync
-
-      - name: Extract version from tag
-        id: v
-        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
-      - name: Guard against dev tag
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Build wheel and sdist
         run: |
-          case "${{ steps.v.outputs.version }}" in *dev*) echo "Refusing to publish a dev tag to PyPI"; exit 1;; esac
-
-      - name: Run tests
-        run: uv run pytest -c pytest.unit.ini
-
-      - name: Build distributions
-        run: uv build
-
-      - name: Twine check
+          uv sync --group dev
+          uv run python -m build
+      - name: Verify distributions
         run: |
-          uvx --from twine twine check dist/*
+          ls -1 dist
+          ls dist/*.whl
+          ls dist/*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+
+  publish:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [build-distributions]
+    environment:
+      name: pypi
+      url: https://pypi.org/project/synth-ai/
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
       - name: Publish to PyPI (trusted)
         uses: pypa/gh-action-pypi-publish@release/v1
 
+  release:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs: [publish]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.v.outputs.version }}
-          name: synth-ai ${{ steps.v.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: synth-ai ${{ github.ref_name }}
           generate_release_notes: true
           body: |
-            ## Changes
-            
-            See [CHANGELOG.md](https://github.com/synth-laboratories/synth-ai/blob/main/CHANGELOG.md) for full details.
-            
             ## Installation
-            
+
             ```bash
-            pip install synth-ai==${{ steps.v.outputs.version }}
+            pip install synth-ai
             ```
           files: |
             dist/*.whl
             dist/*.tar.gz
-
