@@ -161,9 +161,7 @@ class Kickoff:
         if self.contract is None:
             if not self.task_briefs and not self.model_visible_files:
                 return None
-            raise ValueError(
-                "task_briefs and model_visible_files require a kickoff contract"
-            )
+            raise ValueError("task_briefs and model_visible_files require a kickoff contract")
 
         if isinstance(self.contract, KickoffContract):
             payload = self.contract.to_wire()
@@ -176,9 +174,7 @@ class Kickoff:
             payload["task_briefs"] = [brief.strip() for brief in self.task_briefs]
         if self.model_visible_files:
             if payload.get("model_visible_contract_files"):
-                raise ValueError(
-                    "kickoff contract already defines model_visible_contract_files"
-                )
+                raise ValueError("kickoff contract already defines model_visible_contract_files")
             payload["model_visible_contract_files"] = [
                 _coerce_kickoff_contract_file(file, label="model_visible_files").to_wire()
                 for file in self.model_visible_files
@@ -209,6 +205,10 @@ class RunLaunchRequest(CommandRequest):
     actor_model_overrides: Sequence[SmrActorModelAssignment | WireMapping] = ()
     roles: SmrRoleBindings | WireMapping | None = None
     kickoff: Kickoff | None = None
+    open_ended_question: WireMapping | None = None
+    directed_effort_outcome: WireMapping | None = None
+    required_work_products: Sequence[WireMapping] | None = None
+    require_report: bool | None = None
     initial_runtime_messages: Sequence[WireMapping] = ()
     workflow: WireMapping | None = None
     runtime_image: RuntimeImage | None = None
@@ -269,6 +269,12 @@ class RunLaunchRequest(CommandRequest):
             if self.actor_model_overrides
             else None,
             roles=self.roles,
+            open_ended_question=self.open_ended_question,
+            directed_effort_outcome=self.directed_effort_outcome,
+            required_work_products=tuple(self.required_work_products)
+            if self.required_work_products
+            else None,
+            require_report=self.require_report,
             initial_runtime_messages=tuple(self.initial_runtime_messages)
             if self.initial_runtime_messages
             else None,
@@ -657,9 +663,7 @@ class EventStreamRequest(ReadRequest):
     event_kinds: Sequence[EventKind] = ()
     last_event_id: str | None = None
     transcript_cursor: str | None = None
-    replay_policy: EventStreamReplayPolicy = (
-        EventStreamReplayPolicy.RESUME_AFTER_LAST_EVENT
-    )
+    replay_policy: EventStreamReplayPolicy = EventStreamReplayPolicy.RESUME_AFTER_LAST_EVENT
     heartbeat_timeout_seconds: int = 60
     max_replay_events: int | None = None
     actor_id: str | None = None
@@ -1182,6 +1186,8 @@ def _validate_launch_sequences(request: RunLaunchRequest) -> None:
     for index, override in enumerate(request.actor_model_overrides):
         if not isinstance(override, (SmrActorModelAssignment, Mapping)):
             raise ValueError(f"actor_model_overrides[{index}] must be an actor model assignment")
+    for index, spec in enumerate(request.required_work_products or ()):
+        _require_mapping(spec, label=f"required_work_products[{index}]")
 
 
 def _validate_launch_mappings(request: RunLaunchRequest) -> None:
@@ -1192,6 +1198,8 @@ def _validate_launch_mappings(request: RunLaunchRequest) -> None:
         "primary_parent_ref",
         "primary_parent",
         "ai_cache",
+        "open_ended_question",
+        "directed_effort_outcome",
     )
     for field_name in mapping_fields:
         value = getattr(request, field_name)
@@ -1214,6 +1222,8 @@ def _validate_launch_combinations(request: RunLaunchRequest) -> None:
         raise ValueError("work_mode and mode cannot both be provided with different values")
     if request.runbook_preset is not None and request.runbook_config_id is not None:
         raise ValueError("runbook_preset and runbook_config_id cannot both be provided")
+    if request.open_ended_question is not None and request.directed_effort_outcome is not None:
+        raise ValueError("pass either open_ended_question or directed_effort_outcome, not both")
     if request.roles is not None and any(
         value is not None
         for value in (
@@ -1248,8 +1258,7 @@ def _validate_launch_combinations(request: RunLaunchRequest) -> None:
         if missing:
             raise ValueError(
                 "Provide intended_horizon_hours, runbook_preset, runbook_config_id, "
-                "or explicit launch fields: "
-                + ", ".join(missing)
+                "or explicit launch fields: " + ", ".join(missing)
             )
 
 
@@ -1264,17 +1273,11 @@ def _requires_explicit_launch_axes(request: RunLaunchRequest) -> bool:
 def _run_launch_init_kwargs(values: Mapping[str, object]) -> dict[str, object]:
     allowed = set(RunLaunchRequest.__dataclass_fields__)
     unknown = sorted(
-        key
-        for key, value in values.items()
-        if key not in allowed and value is not None
+        key for key, value in values.items() if key not in allowed and value is not None
     )
     if unknown:
         raise ValueError("unknown RunLaunchRequest fields: " + ", ".join(unknown))
-    return {
-        key: value
-        for key, value in values.items()
-        if key in allowed and value is not None
-    }
+    return {key: value for key, value in values.items() if key in allowed and value is not None}
 
 
 def _output_kind_from_payload(payload: WireMapping) -> OutputKind:
