@@ -171,8 +171,12 @@ def _raise_for_error_response(response: httpx.Response) -> None:
                 response_text=response.text,
                 failure_class=structured.get("failure_class"),
                 remediation=structured.get("remediation"),
-                cause=structured.get("cause") if isinstance(structured.get("cause"), list) else None,
-                body=structured.get("raw_body") if isinstance(structured.get("raw_body"), dict) else None,
+                cause=structured.get("cause")
+                if isinstance(structured.get("cause"), list)
+                else None,
+                body=structured.get("raw_body")
+                if isinstance(structured.get("raw_body"), dict)
+                else None,
             )
     structured = _structured_body_fields(response)
     raise SmrApiError(

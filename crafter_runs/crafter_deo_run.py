@@ -19,14 +19,11 @@ import argparse
 import json
 import os
 import re
-import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
-
-from synth_ai.research import ResearchApiError, ResearchClient, ResearchWorkMode
 
 # Import shared slot/backend helpers from the README smoke driver.
 from readme_runs.readme_smoke import (
@@ -37,6 +34,7 @@ from readme_runs.readme_smoke import (
     build_research_client,
     resolve_readme_smoke_launch,
 )
+from synth_ai.research import ResearchApiError, ResearchClient, ResearchWorkMode
 
 LogFn = Callable[[str], None]
 
@@ -295,7 +293,7 @@ def crafter_runs_dir() -> Path:
 
 def default_output_root(*, target: str) -> Path:
     label = re.sub(r"[^A-Za-z0-9_.-]+", "_", target.strip()) or "local"
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return (crafter_runs_dir() / f"{stamp}_{label}").resolve()
 
 
@@ -340,9 +338,7 @@ def apply_config_to_bundle(bundle: dict[str, Any], config: CrafterDeoRunConfig) 
         raise RuntimeError("launch bundle missing trigger_payload.kickoff_contract")
 
     model_visible_files = [
-        item
-        for item in kickoff.get("model_visible_contract_files") or ()
-        if isinstance(item, dict)
+        item for item in kickoff.get("model_visible_contract_files") or () if isinstance(item, dict)
     ]
     kickoff["project_notes_framing"] = project_notes
     kickoff["tasks"] = kickoff_tasks
@@ -458,14 +454,17 @@ def run_crafter_deo(
     log_lines: list[str] = []
 
     def _emit(msg: str) -> None:
-        line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
+        line = f"[{datetime.now(UTC).isoformat()}] {msg}"
         log_lines.append(line)
         _log(msg)
 
-    client = (research or build_research_client(
-        api_key=launch.api_key,
-        base_url=launch.backend,
-    )).control(timeout_seconds=120.0)
+    client = (
+        research
+        or build_research_client(
+            api_key=launch.api_key,
+            base_url=launch.backend,
+        )
+    ).control(timeout_seconds=120.0)
 
     summary: dict[str, Any] = {
         "sdk": "synth-ai",
@@ -476,7 +475,7 @@ def run_crafter_deo(
         "target": launch.target,
         "backend": launch.backend,
         "host_kind": launch.host_kind.value,
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "run_config": json.loads(json.dumps(config.profile_overrides())),
     }
     summary["run_config"].update(
@@ -517,7 +516,7 @@ def run_crafter_deo(
 
     project_name = str(runnable_project_request.get("name") or "").strip() or (
         f"ReportBench Crafter DEO {launch.worker_pool_id}-"
-        f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+        f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
     )
     summary.update(
         {
@@ -551,9 +550,7 @@ def run_crafter_deo(
             project = client.create_runnable_project(runnable_project_request)
             project_id = str(field_value(project, "project_id", default="") or "").strip()
             if not project_id:
-                raise ResearchApiError(
-                    f"create_runnable_project returned no project_id: {project}"
-                )
+                raise ResearchApiError(f"create_runnable_project returned no project_id: {project}")
             summary["project_id"] = project_id
             _emit(f"project_id={project_id}")
 
@@ -676,8 +673,10 @@ def run_crafter_deo(
         summary["fatal_error"] = {"type": type(exc).__name__, "message": str(exc)}
         _emit(f"FATAL {type(exc).__name__}: {exc}")
 
-    summary["finished_at"] = datetime.now(timezone.utc).isoformat()
-    summary_path.write_text(json.dumps(summary, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    summary["finished_at"] = datetime.now(UTC).isoformat()
+    summary_path.write_text(
+        json.dumps(summary, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
     log_path.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
 
     print(f"\nsummary written to: {summary_path}")

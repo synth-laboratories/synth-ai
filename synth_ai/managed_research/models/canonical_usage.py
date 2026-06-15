@@ -173,13 +173,10 @@ class SmrRunCostTotals:
             internal_cost_cents=_int_value(mapping, "internal_cost_cents"),
             total_pico_usd=_optional_int_value(mapping, "total_pico_usd") or 0,
             charged_pico_usd=_optional_int_value(mapping, "charged_pico_usd") or 0,
-            internal_cost_pico_usd=(
-                _optional_int_value(mapping, "internal_cost_pico_usd") or 0
-            ),
+            internal_cost_pico_usd=(_optional_int_value(mapping, "internal_cost_pico_usd") or 0),
             total_usd=_optional_float_value(mapping, "total_usd") or 0.0,
             charged_usd=_optional_float_value(mapping, "charged_usd") or 0.0,
-            internal_cost_usd=_optional_float_value(mapping, "internal_cost_usd")
-            or 0.0,
+            internal_cost_usd=_optional_float_value(mapping, "internal_cost_usd") or 0.0,
         )
 
 
@@ -213,19 +210,13 @@ class SmrRunUsage:
             breakdown=_optional_object_dict(mapping.get("breakdown")),
             entries=[_object_dict(item) for item in _optional_array(mapping, "entries")],
             rows=[_object_dict(item) for item in _optional_array(mapping, "rows")],
-            total_cost_pico_usd=(
-                _optional_int_value(mapping, "total_cost_pico_usd") or 0
-            ),
-            total_charged_pico_usd=(
-                _optional_int_value(mapping, "total_charged_pico_usd") or 0
-            ),
+            total_cost_pico_usd=(_optional_int_value(mapping, "total_cost_pico_usd") or 0),
+            total_charged_pico_usd=(_optional_int_value(mapping, "total_charged_pico_usd") or 0),
             total_internal_cost_pico_usd=(
                 _optional_int_value(mapping, "total_internal_cost_pico_usd") or 0
             ),
             total_cost_usd=_optional_float_value(mapping, "total_cost_usd") or 0.0,
-            total_charged_usd=(
-                _optional_float_value(mapping, "total_charged_usd") or 0.0
-            ),
+            total_charged_usd=(_optional_float_value(mapping, "total_charged_usd") or 0.0),
             total_internal_cost_usd=(
                 _optional_float_value(mapping, "total_internal_cost_usd") or 0.0
             ),
@@ -509,10 +500,7 @@ class SmrResourceLimits:
             org_id=_optional_string(mapping, "org_id"),
             project_id=_optional_string(mapping, "project_id"),
             run_id=_optional_string(mapping, "run_id"),
-            items=[
-                SmrResourceLimit.from_wire(item)
-                for item in _optional_array(mapping, "items")
-            ],
+            items=[SmrResourceLimit.from_wire(item) for item in _optional_array(mapping, "items")],
         )
 
 
@@ -617,7 +605,7 @@ class SmrResourceLimitExtension:
             ],
             resumed=bool(mapping.get("resumed", False)),
             resume_error=(
-                dict(resume_error)
+                {str(key): value for key, value in resume_error.items()}
                 if isinstance(resume_error, Mapping)
                 else None
             ),

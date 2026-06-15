@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
-
 from synth_ai.research.models import ResearchRun, ResearchRunbookPreset, ResearchWorkProduct
 
 
@@ -40,7 +39,7 @@ class ResearchRunHandle:
             raise_if_failed=raise_if_failed,
         )
 
-    def work_products(self) -> list[ResearchWorkProduct]:
+    def work_products(self) -> List[ResearchWorkProduct]:
         return self._handle._client.work_products.list_for_run(
             self.project_id,
             self.run_id,
@@ -59,7 +58,7 @@ class ResearchRunHandle:
             timeout_seconds=timeout_seconds,
         )
 
-    def list_artifacts(self) -> list[dict[str, Any]]:
+    def list_artifacts(self) -> List[dict[str, Any]]:
         return self._handle._client.list_run_artifacts(self.project_id, self.run_id)
 
 
@@ -125,7 +124,7 @@ class ResearchRunsAPI:
         *,
         active_only: bool = False,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._session.runs.list(project_id, active_only=active_only, **kwargs)
 
     def wait(

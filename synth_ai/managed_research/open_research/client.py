@@ -192,9 +192,7 @@ class OpenResearchClient:
         normalized = (slug or "").strip()
         if not normalized:
             raise ValueError("'slug' is required")
-        payload = self._request_json(
-            "GET", f"{OPEN_RESEARCH_BASE}/projects/{normalized}"
-        )
+        payload = self._request_json("GET", f"{OPEN_RESEARCH_BASE}/projects/{normalized}")
         return ProjectDetail.model_validate(payload)
 
     def list_queues(self, *, project_slug: str | None = None) -> ListQueuesResponse:
@@ -237,9 +235,7 @@ class OpenResearchClient:
         normalized = (submission_id or "").strip()
         if not normalized:
             raise ValueError("'submission_id' is required")
-        payload = self._request_json(
-            "GET", f"{OPEN_RESEARCH_BASE}/submissions/{normalized}"
-        )
+        payload = self._request_json("GET", f"{OPEN_RESEARCH_BASE}/submissions/{normalized}")
         return SubmissionDetail.model_validate(payload)
 
     def list_experiments(
@@ -270,9 +266,7 @@ class OpenResearchClient:
         normalized = (experiment_id or "").strip()
         if not normalized:
             raise ValueError("'experiment_id' is required")
-        payload = self._request_json(
-            "GET", f"{OPEN_RESEARCH_BASE}/experiments/{normalized}"
-        )
+        payload = self._request_json("GET", f"{OPEN_RESEARCH_BASE}/experiments/{normalized}")
         return ExperimentDetail.model_validate(payload)
 
     def get_receipt(self, experiment_id: str) -> ReceiptPayload:
@@ -323,9 +317,7 @@ class OpenResearchClient:
                     handle.write(chunk)
                     bytes_written += len(chunk)
         except httpx.TimeoutException as exc:
-            raise SmrApiError(
-                f"GET {request_path} timed out after {effective_timeout}s"
-            ) from exc
+            raise SmrApiError(f"GET {request_path} timed out after {effective_timeout}s") from exc
         except httpx.TransportError as exc:
             raise SmrApiError(
                 f"GET {request_path} failed: network error ({type(exc).__name__})"

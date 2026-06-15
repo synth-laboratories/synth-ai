@@ -7,7 +7,6 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-
 ACTION_NAMES = [
     "noop",
     "move_left",
@@ -82,7 +81,9 @@ def _achievements(env: Any, info: dict[str, Any]) -> dict[str, bool]:
     return {str(key): bool(value) for key, value in _as_mapping(raw).items()}
 
 
-def _observation(env: Any, info: dict[str, Any], *, reward: float, done: bool, step: int) -> dict[str, Any]:
+def _observation(
+    env: Any, info: dict[str, Any], *, reward: float, done: bool, step: int
+) -> dict[str, Any]:
     inventory = _inventory(env, info)
     achievements = _achievements(env, info)
     player = getattr(env, "_player", None)
@@ -133,7 +134,9 @@ def _run_episode(*, policy: Any, seed: int, max_steps: int) -> dict[str, Any]:
                 _obs, reward, done, info = step_out
             info = info if isinstance(info, dict) else {}
             total_reward += float(reward or 0.0)
-            last_observation = _observation(env, info, reward=float(reward or 0.0), done=done, step=step)
+            last_observation = _observation(
+                env, info, reward=float(reward or 0.0), done=done, step=step
+            )
             if done:
                 break
     finally:
@@ -168,7 +171,9 @@ def main() -> int:
     policy_path = Path(args.policy_path).expanduser().resolve()
     policy = _load_policy(policy_path)
     seeds = _parse_seeds(args.seeds)
-    rows = [_run_episode(policy=policy, seed=seed, max_steps=max(1, args.max_steps)) for seed in seeds]
+    rows = [
+        _run_episode(policy=policy, seed=seed, max_steps=max(1, args.max_steps)) for seed in seeds
+    ]
     rewards = [float(row["reward"]) for row in rows]
     achievement_frequency: dict[str, int] = {}
     for row in rows:

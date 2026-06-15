@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, List, cast
 
 import httpx
 
@@ -269,9 +269,9 @@ class RunHandle:
         *,
         status: str | None = None,
         viewer_role: str | None = None,
-        viewer_target: str | list[str] | None = None,
+        viewer_target: str | List[str] | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_run_runtime_messages(
             self.project_id,
             self.run_id,
@@ -332,7 +332,7 @@ class RunHandle:
     def note_message(self, *, body: str, **kwargs: Any) -> dict[str, Any]:
         return self.publish_message(intent="note", body=body, **kwargs)
 
-    def manderqueue_threads(self, *, limit: int | None = None) -> list[dict[str, Any]]:
+    def manderqueue_threads(self, *, limit: int | None = None) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_threads(
             self.run_id, project_id=self.project_id, limit=limit
         )
@@ -342,7 +342,7 @@ class RunHandle:
         *,
         thread_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_messages(
             self.run_id,
             project_id=self.project_id,
@@ -355,7 +355,7 @@ class RunHandle:
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(
             self.run_id,
             project_id=self.project_id,
@@ -444,7 +444,7 @@ class RunHandle:
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[RuntimeIntentView]:
+    ) -> List[RuntimeIntentView]:
         return self._client.list_runtime_intents(
             self.run_id,
             project_id=self.project_id,
@@ -519,9 +519,9 @@ class RunHandle:
     def event_log(
         self,
         *,
-        sources: list[str] | None = None,
-        event_kinds: list[str] | None = None,
-        statuses: list[str] | None = None,
+        sources: List[str] | None = None,
+        event_kinds: List[str] | None = None,
+        statuses: List[str] | None = None,
         limit: int | None = None,
     ) -> SmrRunEventLog:
         return self._client.get_project_run_event_log(
@@ -575,7 +575,7 @@ class RunHandle:
             **kwargs,
         )
 
-    def actor_raw_traces(self, actor_key: str) -> list[dict[str, Any]]:
+    def actor_raw_traces(self, actor_key: str) -> List[dict[str, Any]]:
         return self._client.get_project_run_actor_raw_traces(
             self.project_id,
             self.run_id,
@@ -645,7 +645,7 @@ class RunHandle:
             idempotency_key=idempotency_key,
         )
 
-    def checkpoints(self) -> list[Checkpoint]:
+    def checkpoints(self) -> List[Checkpoint]:
         return self._client.list_run_checkpoints(
             self.run_id,
             project_id=self.project_id,
@@ -744,7 +744,7 @@ class RunHandle:
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[RunArtifact]:
+    ) -> List[RunArtifact]:
         return self._client.list_run_artifacts(
             self.run_id,
             project_id=self.project_id,
@@ -777,10 +777,10 @@ class RunHandle:
             path,
         )
 
-    def models(self) -> list[dict[str, Any]]:
+    def models(self) -> List[dict[str, Any]]:
         return self._client.list_run_models(self.run_id, project_id=self.project_id)
 
-    def datasets(self) -> list[dict[str, Any]]:
+    def datasets(self) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(self.run_id, project_id=self.project_id)
 
     def participants(self) -> SmrRunParticipants:
@@ -951,10 +951,10 @@ class RunsAPI(_ClientNamespace):
 
     def list(
         self, project_id: str, *, active_only: bool = False, **kwargs: Any
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_runs(project_id, active_only=active_only, **kwargs)
 
-    def list_active(self, project_id: str) -> list[dict[str, Any]]:
+    def list_active(self, project_id: str) -> List[dict[str, Any]]:
         return self._client.list_active_runs(project_id)
 
     def get(self, run_id: str, *, project_id: str | None = None) -> ManagedResearchRun:
@@ -1150,7 +1150,7 @@ class RunsAPI(_ClientNamespace):
         self,
         project_id: str,
         run_id: str,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.get_project_run_actors(project_id, run_id)
 
     def list_task_events(
@@ -1308,7 +1308,7 @@ class RunsAPI(_ClientNamespace):
 
     def list_primary_parent_milestones(
         self, run_id: str, *, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_primary_parent_milestones(run_id, limit=limit)
 
     def stop(self, run_id: str, *, project_id: str | None = None) -> ManagedResearchRunControlAck:
@@ -1427,7 +1427,7 @@ class RunsAPI(_ClientNamespace):
         project_id: str | None = None,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[RuntimeIntentView]:
+    ) -> List[RuntimeIntentView]:
         return self._client.list_runtime_intents(
             run_id,
             project_id=project_id,
@@ -1450,7 +1450,7 @@ class RunsAPI(_ClientNamespace):
 
     def list_questions(
         self, run_id: str, *, project_id: str | None = None, **kwargs: Any
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_questions(run_id, project_id=project_id, **kwargs)
 
     def respond_to_question(
@@ -1473,7 +1473,7 @@ class RunsAPI(_ClientNamespace):
     ) -> Checkpoint:
         return self._client.create_run_checkpoint(run_id, project_id=project_id, **kwargs)
 
-    def list_checkpoints(self, run_id: str, *, project_id: str | None = None) -> list[Checkpoint]:
+    def list_checkpoints(self, run_id: str, *, project_id: str | None = None) -> List[Checkpoint]:
         return self._client.list_run_checkpoints(run_id, project_id=project_id)
 
     def checkpoint(
@@ -1514,7 +1514,7 @@ class RunsAPI(_ClientNamespace):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[RunArtifact]:
+    ) -> List[RunArtifact]:
         return self._client.list_run_artifacts(
             run_id,
             project_id=project_id,
@@ -1562,7 +1562,7 @@ class RunsAPI(_ClientNamespace):
         run_id: str,
         *,
         project_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_models(run_id, project_id=project_id)
 
     def datasets(
@@ -1570,7 +1570,7 @@ class RunsAPI(_ClientNamespace):
         run_id: str,
         *,
         project_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(run_id, project_id=project_id)
 
     def restore_checkpoint(
@@ -1586,9 +1586,9 @@ class RunsAPI(_ClientNamespace):
         project_id: str,
         run_id: str,
         *,
-        sources: list[str] | None = None,
-        event_kinds: list[str] | None = None,
-        statuses: list[str] | None = None,
+        sources: List[str] | None = None,
+        event_kinds: List[str] | None = None,
+        statuses: List[str] | None = None,
         limit: int | None = None,
     ) -> SmrRunEventLog:
         return self._client.get_project_run_event_log(
@@ -1708,7 +1708,7 @@ class RunsAPI(_ClientNamespace):
         project_id: str,
         run_id: str,
         actor_key: str,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.get_project_run_actor_raw_traces(
             project_id,
             run_id,
@@ -1795,9 +1795,9 @@ class RunsAPI(_ClientNamespace):
         *,
         status: str | None = None,
         viewer_role: str | None = None,
-        viewer_target: str | list[str] | None = None,
+        viewer_target: str | List[str] | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_runtime_messages(
             run_id,
             status=status,
@@ -1833,7 +1833,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_messages(run_id, project_id=project_id, **kwargs)
 
     def list_messages(
@@ -1842,7 +1842,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_messages(run_id, project_id=project_id, **kwargs)
 
     def list_tasks(
@@ -1853,7 +1853,7 @@ class RunsAPI(_ClientNamespace):
         objective_id: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_tasks(
             project_id,
             run_id=run_id,
@@ -1927,7 +1927,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_threads(run_id, project_id=project_id, **kwargs)
 
     def list_manderqueue_interactions(
@@ -1936,7 +1936,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(run_id, project_id=project_id, **kwargs)
 
     def edit_message(

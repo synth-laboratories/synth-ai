@@ -15,11 +15,11 @@ from synth_ai.managed_research.models.smr_funding_sources import (
     SmrFundingSource,
     coerce_smr_funding_source,
 )
-from synth_ai.managed_research.models.smr_host_kinds import SmrHostKind, coerce_smr_host_kind
 from synth_ai.managed_research.models.smr_horizons import (
     SmrIntendedHorizonHours,
     coerce_intended_horizon_hours,
 )
+from synth_ai.managed_research.models.smr_host_kinds import SmrHostKind, coerce_smr_host_kind
 from synth_ai.managed_research.models.smr_providers import (
     ProviderBinding,
     UsageLimit,

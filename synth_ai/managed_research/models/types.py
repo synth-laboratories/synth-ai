@@ -888,18 +888,12 @@ class EnvironmentPreflight:
         error_payload = mapping.get("error")
         return cls(
             name=_require_string(mapping, "name", label="environment preflight.name"),
-            digest=_require_string(
-                mapping, "digest", label="environment preflight.digest"
-            ),
+            digest=_require_string(mapping, "digest", label="environment preflight.digest"),
             ok=bool(mapping.get("ok")),
-            result=_require_string(
-                mapping, "result", label="environment preflight.result"
-            ),
+            result=_require_string(mapping, "result", label="environment preflight.result"),
             details=_optional_object_dict(mapping.get("details")),
             error=(
-                _optional_object_dict(error_payload)
-                if isinstance(error_payload, Mapping)
-                else None
+                _optional_object_dict(error_payload) if isinstance(error_payload, Mapping) else None
             ),
         )
 

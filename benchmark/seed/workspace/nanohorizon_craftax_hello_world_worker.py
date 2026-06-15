@@ -86,14 +86,20 @@ def _load_inference_config() -> tuple[str, str, str]:
                 direct,
             )
         return (
-            str(os.getenv("NANOHORIZON_INFERENCE_URL") or "https://api.openai.com/v1/chat/completions"),
+            str(
+                os.getenv("NANOHORIZON_INFERENCE_URL")
+                or "https://api.openai.com/v1/chat/completions"
+            ),
             str(os.getenv("NANOHORIZON_MODEL") or DEFAULT_OPENAI_MODEL),
             direct,
         )
     openrouter_key = str(os.getenv("OPENROUTER_API_KEY") or "").strip()
     if openrouter_key:
         return (
-            str(os.getenv("NANOHORIZON_INFERENCE_URL") or "https://openrouter.ai/api/v1/chat/completions"),
+            str(
+                os.getenv("NANOHORIZON_INFERENCE_URL")
+                or "https://openrouter.ai/api/v1/chat/completions"
+            ),
             str(os.getenv("NANOHORIZON_MODEL") or DEFAULT_OPENROUTER_MODEL),
             openrouter_key,
         )
@@ -113,11 +119,16 @@ def _load_inference_config() -> tuple[str, str, str]:
             if value:
                 os.environ["OPENAI_API_KEY"] = value
                 return (
-                    str(os.getenv("NANOHORIZON_INFERENCE_URL") or "https://api.openai.com/v1/chat/completions"),
+                    str(
+                        os.getenv("NANOHORIZON_INFERENCE_URL")
+                        or "https://api.openai.com/v1/chat/completions"
+                    ),
                     str(os.getenv("NANOHORIZON_MODEL") or DEFAULT_OPENAI_MODEL),
                     value,
                 )
-    raise RuntimeError("OPENAI_API_KEY is required for the NanoHorizon Craftax hello-world baseline.")
+    raise RuntimeError(
+        "OPENAI_API_KEY is required for the NanoHorizon Craftax hello-world baseline."
+    )
 
 
 def _write_json(path: Path, payload: Any) -> None:
@@ -143,9 +154,13 @@ async def _run_eval() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     seeds = _rollout_seeds()
     max_steps = _positive_int_env("NANOHORIZON_MAX_STEPS", 500)
     rollout_concurrency = _rollout_concurrency(len(seeds))
-    env_batch_size = min(len(seeds), _positive_int_env("NANOHORIZON_ENV_BATCH_SIZE", DEFAULT_ENV_BATCH_SIZE))
+    env_batch_size = min(
+        len(seeds), _positive_int_env("NANOHORIZON_ENV_BATCH_SIZE", DEFAULT_ENV_BATCH_SIZE)
+    )
     video_capture_output_dir = str(os.getenv("NANOHORIZON_VIDEO_CAPTURE_OUTPUT_DIR") or "").strip()
-    video_capture_rollout_index = _optional_nonnegative_int_env("NANOHORIZON_VIDEO_CAPTURE_ROLLOUT_INDEX")
+    video_capture_rollout_index = _optional_nonnegative_int_env(
+        "NANOHORIZON_VIDEO_CAPTURE_ROLLOUT_INDEX"
+    )
     video_capture_fps = _positive_int_env("NANOHORIZON_VIDEO_CAPTURE_FPS", 6)
     rollouts, rollout_summary = await collect_rollouts_concurrently_with_summary(
         container_url=container_url,
@@ -189,7 +204,9 @@ async def _run_eval() -> tuple[list[dict[str, Any]], dict[str, Any]]:
             "requested_rollout_concurrency": rollout_concurrency,
             "requested_env_batch_size": env_batch_size,
             "selected_container_url": container_url,
-            "rollout_concurrency": int(rollout_summary.get("rollout_concurrency", rollout_concurrency)),
+            "rollout_concurrency": int(
+                rollout_summary.get("rollout_concurrency", rollout_concurrency)
+            ),
             "rollout_summary": rollout_summary,
         }
     )
@@ -197,7 +214,9 @@ async def _run_eval() -> tuple[list[dict[str, Any]], dict[str, Any]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the NanoHorizon Craftax hello-world baseline worker.")
+    parser = argparse.ArgumentParser(
+        description="Run the NanoHorizon Craftax hello-world baseline worker."
+    )
     parser.add_argument("--summary-output", required=True)
     parser.add_argument("--rollouts-output", required=True)
     args = parser.parse_args()

@@ -31,7 +31,7 @@ import sys
 import tarfile
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -94,7 +94,7 @@ def _reformat_log_message(msg: str) -> str:
     m = _POLL_PREFIX_RE.match(msg)
     if not m:
         return msg
-    kvs = _POLL_KV_RE.findall(msg[m.end():])
+    kvs = _POLL_KV_RE.findall(msg[m.end() :])
     kv_dict = {k: v.strip("'") for k, v in kvs}
     state = kv_dict.get("state", "unknown")
     try:
@@ -134,10 +134,11 @@ def _resolve_evals_root() -> Path:
     env_root = os.environ.get("EVALS_ROOT", "").strip()
     if env_root:
         return Path(env_root).expanduser().resolve()
-    workspace = Path(
-        os.environ.get("SYNTH_WORKSPACE_ROOT")
-        or Path(__file__).resolve().parent.parent
-    ).expanduser().resolve()
+    workspace = (
+        Path(os.environ.get("SYNTH_WORKSPACE_ROOT") or Path(__file__).resolve().parent.parent)
+        .expanduser()
+        .resolve()
+    )
     return (workspace / "evals").resolve()
 
 
@@ -147,9 +148,9 @@ def _ensure_evals_importable(evals_root: Path) -> None:
             "evals checkout not found. Set EVALS_ROOT or SYNTH_WORKSPACE_ROOT "
             f"(looked for {evals_root})."
         )
-    workspace_root = Path(
-        os.environ.get("SYNTH_WORKSPACE_ROOT") or evals_root.parent
-    ).expanduser().resolve()
+    workspace_root = (
+        Path(os.environ.get("SYNTH_WORKSPACE_ROOT") or evals_root.parent).expanduser().resolve()
+    )
     # ``reportbench`` resolves from the evals repo root; ``evals.*`` needs the parent
     # on sys.path because the checkout directory is named ``evals``.
     for path in (evals_root, workspace_root):
@@ -159,7 +160,7 @@ def _ensure_evals_importable(evals_root: Path) -> None:
 
 
 def _utcstamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def synth_ai_repo_root() -> Path:
@@ -204,8 +205,8 @@ def _parse_iso_timestamp(value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _wall_elapsed_seconds(summary: dict[str, Any]) -> float | None:
@@ -390,9 +391,7 @@ def _persist_terminal_run_evidence(
         )
 
     try:
-        summary["task_events"] = jsonish(
-            client.list_run_task_events(project_id, run_id, limit=100)
-        )
+        summary["task_events"] = jsonish(client.list_run_task_events(project_id, run_id, limit=100))
     except Exception as exc:  # noqa: BLE001
         _record_boundary_degradation(
             summary,
@@ -492,9 +491,7 @@ def _is_workspace_noise_path(path: str) -> bool:
         return True
     if normalized == ".git" or normalized.endswith("/.git"):
         return True
-    if "/.git/" in f"/{normalized}/":
-        return True
-    return False
+    return "/.git/" in f"/{normalized}/"
 
 
 def _workspace_file_delta(
@@ -671,7 +668,10 @@ def _collect_run_progress_metadata(
     run_evidence = summary.get("run_evidence")
     if isinstance(run_evidence, dict):
         cached_count = run_evidence.get("runtime_message_count")
-        if isinstance(cached_count, int) and cached_count > messages_summary["runtime_message_count"]:
+        if (
+            isinstance(cached_count, int)
+            and cached_count > messages_summary["runtime_message_count"]
+        ):
             messages_summary["runtime_message_count"] = cached_count
     progress["messages"] = messages_summary
     progress["transcript"] = _summarize_transcript(summary.get("runtime_transcript"))
@@ -779,11 +779,7 @@ def _finalize_run_progress_o11y(
                 for row in actor_table
                 if isinstance(row.get("cost_usd"), (int, float))
             )
-            emit(
-                "[o11y] actors "
-                f"count={len(actor_table)} "
-                f"billed_total=${billed_total:.4f}"
-            )
+            emit(f"[o11y] actors count={len(actor_table)} billed_total=${billed_total:.4f}")
     except Exception as exc:  # noqa: BLE001
         from reportbench.readme_smoke_harness import format_boundary_error_message
 
@@ -793,10 +789,7 @@ def _finalize_run_progress_o11y(
             operation="collect_run_progress_metadata",
             exc=exc,
         )
-        emit(
-            "[o11y] progress metadata unavailable: "
-            f"{format_boundary_error_message(payload)}"
-        )
+        emit(f"[o11y] progress metadata unavailable: {format_boundary_error_message(payload)}")
 
 
 _ACTOR_ROLE_SORT_ORDER = {"orchestrator": 0, "worker": 1, "reviewer": 2, "unknown": 9}
@@ -859,8 +852,10 @@ def _actor_ids_match(left: str, right: str) -> bool:
     right_text = str(right or "").strip().lower()
     if not left_text or not right_text:
         return False
-    return left_text == right_text or left_text.startswith(right_text) or right_text.startswith(
-        left_text
+    return (
+        left_text == right_text
+        or left_text.startswith(right_text)
+        or right_text.startswith(left_text)
     )
 
 
@@ -1087,7 +1082,9 @@ def _assemble_actor_table_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
                 "cost_usd": _actor_cost_usd(usage_row),
                 "token_total": _actor_token_total(usage_row),
                 "model": _actor_model_label(snapshot_row=snapshot_row, usage_row=usage_row),
-                "event_count": usage_row.get("event_count") if isinstance(usage_row, dict) else None,
+                "event_count": usage_row.get("event_count")
+                if isinstance(usage_row, dict)
+                else None,
                 "task_key": snapshot_row.get("task_key"),
             }
         )
@@ -1096,7 +1093,9 @@ def _assemble_actor_table_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
         actor_id = str(usage_row.get("actor_id") or "").strip()
         if not actor_id or actor_id in matched_usage_ids:
             continue
-        if any(_actor_ids_match(actor_id, str(item.get("actor_id") or "")) for item in snapshot_items):
+        if any(
+            _actor_ids_match(actor_id, str(item.get("actor_id") or "")) for item in snapshot_items
+        ):
             continue
         rows.append(
             {
@@ -1165,21 +1164,31 @@ def _format_actor_table_lines(rows: list[dict[str, Any]] | None) -> list[str]:
             "  "
             + " ".join(
                 [
-                    _format_actor_table_cell(str(row.get("role") or "-"), _ACTOR_TABLE_COLUMNS[0][1]),
+                    _format_actor_table_cell(
+                        str(row.get("role") or "-"), _ACTOR_TABLE_COLUMNS[0][1]
+                    ),
                     _format_actor_table_cell(
                         str(row.get("actor_short") or "-"),
                         _ACTOR_TABLE_COLUMNS[1][1],
                     ),
-                    _format_actor_table_cell(str(row.get("state") or "-"), _ACTOR_TABLE_COLUMNS[2][1]),
-                    _format_actor_table_cell(str(row.get("duration") or "-"), _ACTOR_TABLE_COLUMNS[3][1]),
+                    _format_actor_table_cell(
+                        str(row.get("state") or "-"), _ACTOR_TABLE_COLUMNS[2][1]
+                    ),
+                    _format_actor_table_cell(
+                        str(row.get("duration") or "-"), _ACTOR_TABLE_COLUMNS[3][1]
+                    ),
                     _format_actor_table_cell(cost_text, _ACTOR_TABLE_COLUMNS[4][1]),
                     _format_actor_table_cell(
-                        _format_token_count(row.get("token_total")
-                        if isinstance(row.get("token_total"), int)
-                        else None),
+                        _format_token_count(
+                            row.get("token_total")
+                            if isinstance(row.get("token_total"), int)
+                            else None
+                        ),
                         _ACTOR_TABLE_COLUMNS[5][1],
                     ),
-                    _format_actor_table_cell(str(row.get("model") or "-"), _ACTOR_TABLE_COLUMNS[6][1]),
+                    _format_actor_table_cell(
+                        str(row.get("model") or "-"), _ACTOR_TABLE_COLUMNS[6][1]
+                    ),
                 ]
             )
         )
@@ -1325,9 +1334,8 @@ def _build_failure_summary(summary: dict[str, Any]) -> dict[str, Any] | None:
     failure_evidence = extract_interpretable_failure_evidence(summary)
     return {
         "final_state": final_state,
-        "status_reason": digest.get("status_reason") or summary.get("final_run", {}).get(
-            "status_reason"
-        )
+        "status_reason": digest.get("status_reason")
+        or summary.get("final_run", {}).get("status_reason")
         if isinstance(summary.get("final_run"), dict)
         else None,
         "terminal_failure": terminal_failure,
@@ -1418,7 +1426,9 @@ def _write_run_metrics_json(
         "progress": summary.get("run_progress_metadata")
         if isinstance(summary.get("run_progress_metadata"), dict)
         else None,
-        "actors": summary.get("actor_table") if isinstance(summary.get("actor_table"), list) else None,
+        "actors": summary.get("actor_table")
+        if isinstance(summary.get("actor_table"), list)
+        else None,
     }
     (output_root / "run_metrics.json").write_text(
         json.dumps(metrics, indent=2, sort_keys=True, default=str) + "\n",
@@ -1647,7 +1657,10 @@ def build_research_client(
     _ = SynthClient
     if api_key is None or base_url is None:
         from synth_ai.core.utils.env import get_api_key  # noqa: PLC0415
-        from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base  # noqa: PLC0415
+        from synth_ai.core.utils.urls import (  # noqa: PLC0415
+            BACKEND_URL_BASE,
+            normalize_backend_base,
+        )
 
         api_key = api_key or get_api_key(required=True)
         base_url = normalize_backend_base(
@@ -1678,11 +1691,13 @@ def resolve_readme_smoke_launch(
             env_from_launch_target_contract,
             load_local_launch_target_contract,
         )
+        from reportbench.readme_smoke_harness import substrate_to_host_kind
         from standard.shared.core.evals_core.local_contract import (  # noqa: PLC0415
             expected_contract_path as expected_local_eval_contract_path,
+        )
+        from standard.shared.core.evals_core.local_contract import (
             load_local_eval_contract,
         )
-        from reportbench.readme_smoke_harness import substrate_to_host_kind
 
         contract, contract_path = load_local_launch_target_contract(
             slot,
@@ -1699,9 +1714,7 @@ def resolve_readme_smoke_launch(
         )
         resolved_api_key = str(contract_env.get("SYNTH_API_KEY") or "").strip()
         if not resolved_backend or not resolved_api_key:
-            raise RuntimeError(
-                f"slot {slot!r} contract missing backend_url or SYNTH_API_KEY"
-            )
+            raise RuntimeError(f"slot {slot!r} contract missing backend_url or SYNTH_API_KEY")
         worker_pool_id = str(worker_pool or contract.slot_id or contract.worker_pool_id).strip()
         if not worker_pool_id:
             raise RuntimeError("--worker-pool or slot contract worker_pool_id required")
@@ -1965,7 +1978,9 @@ def _write_reportbench_runtime_trace(
     transcript: dict[str, Any] | None,
     task_events: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    run_evidence = summary.get("run_evidence") if isinstance(summary.get("run_evidence"), dict) else {}
+    run_evidence = (
+        summary.get("run_evidence") if isinstance(summary.get("run_evidence"), dict) else {}
+    )
     final_observability = (
         run_evidence.get("final_observability_summary")
         if isinstance(run_evidence.get("final_observability_summary"), dict)
@@ -2008,9 +2023,7 @@ def _write_reportbench_runtime_trace(
                 "observability snapshot summary",
                 "runtime messages",
             ],
-            "excludes": [
-                "raw hidden chain-of-thought not exposed by backend transcript API"
-            ],
+            "excludes": ["raw hidden chain-of-thought not exposed by backend transcript API"],
         },
     }
     full_trace_path = artifacts_dir / "full_trace.json"
@@ -2031,9 +2044,7 @@ def _artifact_manifest(output_root: Path, relative_paths: list[str]) -> dict[str
             {
                 "path": relative,
                 "bytes": path.stat().st_size,
-                "content_type": "application/json"
-                if path.suffix == ".json"
-                else "text/markdown",
+                "content_type": "application/json" if path.suffix == ".json" else "text/markdown",
             }
         )
     return {
@@ -2092,18 +2103,18 @@ def _write_rubric_companion_artifacts(
     if isinstance(verifier_review, dict):
         relative_paths.insert(2, "artifacts/verifier_review.json")
     primary_score = (
-        float(verifier_score)
-        if isinstance(verifier_score, (int, float))
-        else reward_value
+        float(verifier_score) if isinstance(verifier_score, (int, float)) else reward_value
     )
     evals_summary = {
         "schema_version": "evals_summary.v1",
         "task_id": TASK_ID,
         "project_id": summary.get("project_id"),
         "run_id": summary.get("run_id"),
-        "final_state": "passed" if marker_ok and primary_score >= summary.get(
-            "codex_verifier_pass_threshold", DEFAULT_CODEX_VERIFIER_PASS_THRESHOLD
-        ) else "failed",
+        "final_state": "passed"
+        if marker_ok
+        and primary_score
+        >= summary.get("codex_verifier_pass_threshold", DEFAULT_CODEX_VERIFIER_PASS_THRESHOLD)
+        else "failed",
         "primary_score": primary_score,
     }
     (output_root / "evals_summary.json").write_text(
@@ -2298,8 +2309,8 @@ def run_readme_smoke(
     from reportbench.ai_cache_request import ai_cache_request_from_env
     from reportbench.project_config import build_staged_reportbench_launch_bundle
     from reportbench.readme_smoke_harness import (
-        TASK_ID,
         LANE_ROOT,
+        TASK_ID,
         api_error_payload,
         extract_terminal_failure,
         field_value,
@@ -2326,7 +2337,7 @@ def run_readme_smoke(
     log_lines: list[str] = []
 
     def _emit(msg: str) -> None:
-        line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
+        line = f"[{datetime.now(UTC).isoformat()}] {msg}"
         log_lines.append(line)
         _log(_reformat_log_message(msg))
 
@@ -2334,10 +2345,13 @@ def run_readme_smoke(
         bar = "─" * max(0, 42 - len(name))
         _log(f"\n── {name} {bar}")
 
-    client = (research or build_research_client(
-        api_key=launch.api_key,
-        base_url=launch.backend,
-    )).control(timeout_seconds=120.0)
+    client = (
+        research
+        or build_research_client(
+            api_key=launch.api_key,
+            base_url=launch.backend,
+        )
+    ).control(timeout_seconds=120.0)
 
     summary: dict[str, Any] = {
         "sdk": "synth-ai",
@@ -2346,7 +2360,7 @@ def run_readme_smoke(
         "target": launch.target,
         "backend": launch.backend,
         "host_kind": launch.host_kind.value,
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "lane_root": str(LANE_ROOT),
         "poll_timebox_seconds": poll_timebox_s,
         "launch_retry_timebox_seconds": launch_retry_timebox_s,
@@ -2368,9 +2382,7 @@ def run_readme_smoke(
     files = bundle.get("workspace_inputs", {}).get("files")
     if not isinstance(files, list):
         files = []
-    work_mode_raw = str(
-        (bundle.get("trigger_payload") or {}).get("work_mode") or "directed_effort"
-    )
+    work_mode_raw = str((bundle.get("trigger_payload") or {}).get("work_mode") or "directed_effort")
     work_mode = ResearchWorkMode(work_mode_raw)
     trigger_kwargs = trigger_kwargs_from_bundle(
         host_kind=launch.host_kind,
@@ -2416,8 +2428,7 @@ def run_readme_smoke(
     retention_policy = runnable_project_request.get("retention_policy")
     should_auto_archive = (
         isinstance(retention_policy, dict)
-        and str(retention_policy.get("class") or "").strip().lower()
-        == "local_ephemeral_eval"
+        and str(retention_policy.get("class") or "").strip().lower() == "local_ephemeral_eval"
         and str(retention_policy.get("auto_archive") or "true").strip().lower()
         not in {"false", "0", "no"}
     )
@@ -2447,9 +2458,7 @@ def run_readme_smoke(
             project = client.create_runnable_project(runnable_project_request)
             project_id = str(field_value(project, "project_id", default="") or "").strip()
             if not project_id:
-                raise ResearchApiError(
-                    f"create_runnable_project returned no project_id: {project}"
-                )
+                raise ResearchApiError(f"create_runnable_project returned no project_id: {project}")
             summary["project_id"] = project_id
             _emit(f"project_id={project_id}")
 
@@ -2483,8 +2492,7 @@ def run_readme_smoke(
                         raise
                     if time.monotonic() >= setup_deadline:
                         raise ResearchApiError(
-                            "upload_workspace_files blocked after "
-                            f"{setup_retry_timebox_s}s: {exc}"
+                            f"upload_workspace_files blocked after {setup_retry_timebox_s}s: {exc}"
                         ) from exc
                     delay_s = setup_retry_delay_seconds(upload_attempt)
                     _emit(f"setup backpressure upload delay_s={delay_s:.1f}")
@@ -2607,8 +2615,7 @@ def run_readme_smoke(
                     exc=exc,
                 )
                 _emit(
-                    "[o11y] terminal digest unavailable: "
-                    f"{format_boundary_error_message(payload)}"
+                    f"[o11y] terminal digest unavailable: {format_boundary_error_message(payload)}"
                 )
 
             if final_state in {"failed", "stopped", "canceled", "cancelled", "blocked"}:
@@ -2648,11 +2655,7 @@ def run_readme_smoke(
                 validation = validate_workspace_archive(archive_path)
                 summary["validation"] = validation
 
-            if (
-                run_codex_verifier
-                and archive_path.exists()
-                and archive_path.stat().st_size > 0
-            ):
+            if run_codex_verifier and archive_path.exists() and archive_path.stat().st_size > 0:
                 _section("Verification")
                 evals_root = _resolve_evals_root()
                 task_root = _readme_smoke_task_root(evals_root)
@@ -2666,9 +2669,7 @@ def run_readme_smoke(
                         f"final_state={final_state!r} is not terminal-success"
                     )
                 elif not task_root.is_dir():
-                    summary["reportbench_verifier_error"] = (
-                        f"missing task root: {task_root}"
-                    )
+                    summary["reportbench_verifier_error"] = f"missing task root: {task_root}"
                     _emit(f"codex verifier failed: missing task root {task_root}")
                 else:
                     verifier_phase_started = time.monotonic()
@@ -2752,7 +2753,7 @@ def run_readme_smoke(
         _emit(f"FATAL {type(exc).__name__}: {exc}")
         summary["fatal_error"] = api_error_payload(exc)
 
-    summary["finished_at"] = datetime.now(timezone.utc).isoformat()
+    summary["finished_at"] = datetime.now(UTC).isoformat()
     driver_elapsed_s = time.monotonic() - driver_started
 
     exit_code = readme_smoke_exit_code(summary)
@@ -2764,10 +2765,7 @@ def run_readme_smoke(
     )
     if exit_code == 0:
         if verifier:
-            _emit(
-                "score: passed "
-                f"(README marker + codex verifier score={verifier.get('score')})"
-            )
+            _emit(f"score: passed (README marker + codex verifier score={verifier.get('score')})")
         else:
             _emit("score: passed (worker README marker present in workspace archive)")
     elif summary.get("fatal_error"):
@@ -2919,8 +2917,7 @@ def main(argv: list[str] | None = None) -> int:
             "Check SYNTH_API_KEY for this slot (slot contract or synth-ai/.env)."
         ) from exc
     print(
-        f"[synth-ai research] backend={launch.backend} "
-        f"limits_keys={sorted(limits.keys())[:8]}",
+        f"[synth-ai research] backend={launch.backend} limits_keys={sorted(limits.keys())[:8]}",
         flush=True,
     )
 

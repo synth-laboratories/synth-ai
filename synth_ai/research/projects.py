@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
-
 from synth_ai.research.models import ResearchCreateProjectResult, ResearchProject
 
 
@@ -28,16 +27,14 @@ class ResearchProjectsAPI:
         self,
         request: SmrRunnableProjectRequest | Mapping[str, Any] | dict[str, Any],
     ) -> ResearchCreateProjectResult:
-        return ResearchCreateProjectResult.from_wire(
-            self._session.create_runnable_project(request)
-        )
+        return ResearchCreateProjectResult.from_wire(self._session.create_runnable_project(request))
 
     def list(
         self,
         *,
         include_archived: bool = False,
         limit: int = 100,
-    ) -> list[ResearchProject]:
+    ) -> List[ResearchProject]:
         return self._session.projects.list(
             include_archived=include_archived,
             limit=limit,

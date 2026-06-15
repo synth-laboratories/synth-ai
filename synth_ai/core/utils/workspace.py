@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import os
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
-import os
 from pathlib import Path
-import tomllib
 from typing import Any
-
 
 WORKSPACE_MANIFEST_ENV = "SYNTH_WORKSPACE_MANIFEST"
 WORKSPACE_ROOT_ENV = "SYNTH_WORKSPACE_ROOT"
@@ -82,9 +81,7 @@ def _resolve_manifest_path(
     env_manifest = _path_from_value(os.environ.get(WORKSPACE_MANIFEST_ENV))
     if env_manifest is not None:
         return env_manifest
-    root = _path_from_value(workspace_root) or _path_from_value(
-        os.environ.get(WORKSPACE_ROOT_ENV)
-    )
+    root = _path_from_value(workspace_root) or _path_from_value(os.environ.get(WORKSPACE_ROOT_ENV))
     if root is None:
         return None
     candidate = root / MANIFEST_BASENAME

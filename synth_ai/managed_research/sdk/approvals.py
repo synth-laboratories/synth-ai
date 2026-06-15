@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -18,7 +18,7 @@ class ApprovalsAPI(_ClientNamespace):
         status_filter: str | None = None,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_approvals(
             run_id,
             project_id=project_id,

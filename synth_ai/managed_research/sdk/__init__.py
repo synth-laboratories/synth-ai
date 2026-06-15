@@ -560,9 +560,5 @@ __all__ = [
 
 __all__ = sorted(
     set(__all__)
-    | {
-        name
-        for name in globals()
-        if not name.startswith("_") and name not in {"annotations"}
-    }
+    | {name for name in globals() if not name.startswith("_") and name not in {"annotations"}}
 )

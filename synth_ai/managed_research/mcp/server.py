@@ -18,10 +18,10 @@ from synth_ai.managed_research.mcp.objective_tools import (
     run_objective_scope_tool_operation_from_wire,
 )
 from synth_ai.managed_research.mcp.registry import (
-    JSONDict,
     READ_SCOPES,
-    ToolDefinition,
     WRITE_SCOPES,
+    JSONDict,
+    ToolDefinition,
     build_tool_registry,
     call_tool,
     list_tool_payload,

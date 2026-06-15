@@ -18,7 +18,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-
 HOST_WORKSPACE_ROOT = Path("/Users/joshpurtell/Documents/GitHub")
 HOST_PRIVATE_REPO_ROOT = HOST_WORKSPACE_ROOT / "synth-cookbooks-private"
 HOST_PUBLIC_COOKBOOKS_ROOT = HOST_WORKSPACE_ROOT / "synth-cookbooks-public"
@@ -171,7 +170,9 @@ def _env_spec(env_id: str) -> EnvSpec:
             max_workers=4,
             direct=True,
         )
-    raise RuntimeError(f"unknown env {env_id!r}; expected nle, craftax, crafter, dungeongrid, minigrid, montezuma, or pitfall")
+    raise RuntimeError(
+        f"unknown env {env_id!r}; expected nle, craftax, crafter, dungeongrid, minigrid, montezuma, or pitfall"
+    )
 
 
 ENV_SPECS: dict[str, EnvSpec] = {
@@ -520,7 +521,9 @@ def _selected_envs(raw_env: str) -> list[str]:
     if raw_env == "all":
         return list(ENV_SPECS)
     if raw_env not in ENV_SPECS:
-        raise RuntimeError(f"unknown env {raw_env!r}; expected all, nle, craftax, crafter, dungeongrid, minigrid, montezuma, or pitfall")
+        raise RuntimeError(
+            f"unknown env {raw_env!r}; expected all, nle, craftax, crafter, dungeongrid, minigrid, montezuma, or pitfall"
+        )
     return [raw_env]
 
 
@@ -620,7 +623,9 @@ def _run_sweep(
         if spec.env_id == "craftax":
             seeds = _parse_seed_csv(seed_csv)
             if seeds:
-                command.extend(["--seed-start", str(seeds[0]), "--seed-step", "2", "--count", str(len(seeds))])
+                command.extend(
+                    ["--seed-start", str(seeds[0]), "--seed-step", "2", "--count", str(len(seeds))]
+                )
         else:
             command.extend(["--seeds", seed_csv])
     if spec.env_id == "dungeongrid":
@@ -630,10 +635,14 @@ def _run_sweep(
 
     run_result = _run_command(command, cwd=spec.policy_path.parent)
     summary_path = output_dir / "summary.json"
-    summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else None
+    summary = (
+        json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.exists() else None
+    )
     rollout_failures = int((summary or {}).get("failed") or 0)
     rollout_completed = int((summary or {}).get("completed") or 0)
-    rollout_seed_count = int((summary or {}).get("seed_count") or rollout_completed + rollout_failures)
+    rollout_seed_count = int(
+        (summary or {}).get("seed_count") or rollout_completed + rollout_failures
+    )
     strict_rollout_failure = bool(
         strict_env
         and summary is not None
@@ -666,41 +675,85 @@ def _score_summary(env_id: str, summary: dict[str, Any]) -> float:
     mean_reward = float(reward.get("mean") or 0.0)
     median_reward = float(reward.get("median") or 0.0)
     achievements = summary.get("achievement_frequency")
-    achievement_diversity = len(achievements) if isinstance(achievements, dict) else float(summary.get("achievement_count_mean") or 0.0)
-    failure_modes = summary.get("failure_modes") if isinstance(summary.get("failure_modes"), dict) else {}
-    completed = float(summary.get("completed") or summary.get("episode_count") or summary.get("seed_count") or 1)
+    achievement_diversity = (
+        len(achievements)
+        if isinstance(achievements, dict)
+        else float(summary.get("achievement_count_mean") or 0.0)
+    )
+    failure_modes = (
+        summary.get("failure_modes") if isinstance(summary.get("failure_modes"), dict) else {}
+    )
+    completed = float(
+        summary.get("completed") or summary.get("episode_count") or summary.get("seed_count") or 1
+    )
     success_rate = float(summary.get("successes") or 0.0) / max(completed, 1.0)
     if env_id == "craftax":
         iron_rate = _achievement_rate(achievements, "make_iron_pickaxe", completed)
         diamond_rate = _achievement_rate(achievements, "collect_diamond", completed)
-        return round(mean_reward + 0.25 * median_reward + iron_rate + 2.0 * diamond_rate + 0.02 * achievement_diversity, 4)
+        return round(
+            mean_reward
+            + 0.25 * median_reward
+            + iron_rate
+            + 2.0 * diamond_rate
+            + 0.02 * achievement_diversity,
+            4,
+        )
     if env_id == "nle":
         descent_rate = _failure_rate(failure_modes, "descended_to_level_2_only", completed)
         dl3_rate = _failure_rate(failure_modes, "reached_dungeon_level_3", completed)
-        return round(mean_reward + 0.5 * descent_rate + 0.75 * dl3_rate + 0.02 * achievement_diversity, 4)
+        return round(
+            mean_reward + 0.5 * descent_rate + 0.75 * dl3_rate + 0.02 * achievement_diversity, 4
+        )
     if env_id == "crafter":
         wood_rate = _achievement_rate(achievements, "collect_wood", completed)
         table_rate = _achievement_rate(achievements, "place_table", completed)
         pickaxe_rate = _achievement_rate(achievements, "make_wood_pickaxe", completed)
         health_mean = float(summary.get("health_mean") or 0.0)
-        return round(mean_reward + 0.25 * wood_rate + 0.4 * table_rate + 0.6 * pickaxe_rate + 0.02 * achievement_diversity + 0.01 * health_mean, 4)
+        return round(
+            mean_reward
+            + 0.25 * wood_rate
+            + 0.4 * table_rate
+            + 0.6 * pickaxe_rate
+            + 0.02 * achievement_diversity
+            + 0.01 * health_mean,
+            4,
+        )
     if env_id == "dungeongrid":
         treasure = float(summary.get("treasure_mean") or 0.0)
         explored = float(summary.get("explored_tiles_mean") or 0.0)
         alive = float(summary.get("heroes_alive_mean") or 0.0)
-        return round(mean_reward + 0.75 * success_rate + 0.20 * treasure + 0.015 * explored + 0.08 * alive, 4)
+        return round(
+            mean_reward + 0.75 * success_rate + 0.20 * treasure + 0.015 * explored + 0.08 * alive, 4
+        )
     if env_id == "minigrid":
         mission_rate = _achievement_rate(achievements, "mission_complete", completed)
         goal_rate = _achievement_rate(achievements, "goal_reached", completed)
         pickup_rate = _achievement_rate(achievements, "first_object_pickup", completed)
         door_rate = _achievement_rate(achievements, "first_door_toggled", completed)
-        return round(mean_reward + 1.5 * success_rate + 0.5 * mission_rate + 0.25 * goal_rate + 0.1 * pickup_rate + 0.1 * door_rate + 0.02 * achievement_diversity, 4)
+        return round(
+            mean_reward
+            + 1.5 * success_rate
+            + 0.5 * mission_rate
+            + 0.25 * goal_rate
+            + 0.1 * pickup_rate
+            + 0.1 * door_rate
+            + 0.02 * achievement_diversity,
+            4,
+        )
     if env_id == "montezuma":
         key_rate = _achievement_rate(achievements, "first_key_collected", completed)
         door_rate = _achievement_rate(achievements, "first_door_opened", completed)
         room2_rate = _achievement_rate(achievements, "room_2_reached", completed)
         room5_rate = _achievement_rate(achievements, "room_5_reached", completed)
-        return round(mean_reward + 0.75 * key_rate + 1.0 * door_rate + 1.5 * room2_rate + 2.0 * room5_rate + 0.03 * achievement_diversity, 4)
+        return round(
+            mean_reward
+            + 0.75 * key_rate
+            + 1.0 * door_rate
+            + 1.5 * room2_rate
+            + 2.0 * room5_rate
+            + 0.03 * achievement_diversity,
+            4,
+        )
     if env_id == "pitfall":
         screen_rate = _achievement_rate(achievements, "first_screen_traversed", completed)
         treasure_rate = _achievement_rate(achievements, "first_treasure_collected", completed)
@@ -708,7 +761,17 @@ def _score_summary(env_id: str, summary: dict[str, Any]) -> float:
         pit_rate = _achievement_rate(achievements, "first_pit_jumped", completed)
         max_screen = float(summary.get("max_screen_mean") or 0.0)
         collisions = float(summary.get("collision_proxy_mean") or 0.0)
-        return round(mean_reward + 0.5 * screen_rate + 0.75 * treasure_rate + 0.25 * vine_rate + 0.25 * pit_rate + 0.03 * max_screen - 0.15 * collisions + 0.02 * achievement_diversity, 4)
+        return round(
+            mean_reward
+            + 0.5 * screen_rate
+            + 0.75 * treasure_rate
+            + 0.25 * vine_rate
+            + 0.25 * pit_rate
+            + 0.03 * max_screen
+            - 0.15 * collisions
+            + 0.02 * achievement_diversity,
+            4,
+        )
     return round(mean_reward + 0.02 * achievement_diversity, 4)
 
 
@@ -770,9 +833,7 @@ def _starting_container_manifest(
             "container_root": str(spec.policy_path.parent),
             "baseline_policy_path": str(spec.policy_path),
             "baseline_policy_present": policy_exists,
-            "baseline_policy_sha256": _sha256_file(spec.policy_path)
-            if policy_exists
-            else None,
+            "baseline_policy_sha256": _sha256_file(spec.policy_path) if policy_exists else None,
             "sweep_script_path": str(spec.sweep_script),
             "sweep_script_present": sweep_exists,
             "service_url": spec.service_url,
@@ -796,7 +857,9 @@ def _starting_container_manifest(
 
 
 def _best_score(results: list[dict[str, Any]]) -> float:
-    scored = [float(item.get("score") or 0.0) for item in results if item.get("status") == "completed"]
+    scored = [
+        float(item.get("score") or 0.0) for item in results if item.get("status") == "completed"
+    ]
     return round(statistics.mean(scored), 4) if scored else 0.0
 
 
@@ -992,7 +1055,9 @@ def run(args: argparse.Namespace) -> int:
         else None
     )
     train_seed_overrides = _seed_overrides(args.train_seeds)
-    candidate_root = Path(args.candidate_root).expanduser().resolve() if args.candidate_root else None
+    candidate_root = (
+        Path(args.candidate_root).expanduser().resolve() if args.candidate_root else None
+    )
     ledger_path = workproduct / "candidate_ledger.jsonl"
     if ledger_path.exists():
         ledger_path.unlink()
@@ -1024,8 +1089,7 @@ def run(args: argparse.Namespace) -> int:
             else:
                 service_receipts[env_id] = {
                     "mode": "not_required" if not spec.service_url else "disabled",
-                    "ready": spec.service_url is None
-                    or _service_reachable(spec.service_url),
+                    "ready": spec.service_url is None or _service_reachable(spec.service_url),
                     "url": spec.service_url,
                 }
                 service_urls[env_id] = spec.service_url
@@ -1057,7 +1121,9 @@ def run(args: argparse.Namespace) -> int:
                 output_root / "baselines" / env_id / "heuristic_policy.py",
             )
             train_csv = train_seed_overrides.get(env_id) or spec.train_seeds
-            candidate_entries = [("baseline", baseline_policy)] + _candidate_paths(candidate_root, env_id)
+            candidate_entries = [("baseline", baseline_policy)] + _candidate_paths(
+                candidate_root, env_id
+            )
             incumbent_env_score = -1.0
             baseline_env_score: float | None = None
             for candidate_id, policy_path in candidate_entries:
@@ -1092,14 +1158,16 @@ def run(args: argparse.Namespace) -> int:
                         service_url=service_urls.get(env_id),
                         offline_fixture_on_unavailable=False,
                     )
-                score_source = "heldout" if heldout_result and heldout_result.get("status") == "completed" else "train"
+                score_source = (
+                    "heldout"
+                    if heldout_result and heldout_result.get("status") == "completed"
+                    else "train"
+                )
                 effective_result = heldout_result if score_source == "heldout" else train_result
                 env_score = float((effective_result or {}).get("score") or 0.0)
                 baseline_value = None if candidate_id == "baseline" else baseline_env_score
                 score_delta = (
-                    round(env_score - baseline_value, 4)
-                    if baseline_value is not None
-                    else None
+                    round(env_score - baseline_value, 4) if baseline_value is not None else None
                 )
                 accepted = candidate_id == "baseline" or env_score >= incumbent_env_score + 0.01
                 if accepted:
@@ -1167,21 +1235,17 @@ def run(args: argparse.Namespace) -> int:
     all_records = _read_jsonl(ledger_path)
     completed_records = [record for record in all_records if record.get("status") == "completed"]
     baseline_records = [
-        record
-        for record in completed_records
-        if record.get("source_kind") == "baseline"
+        record for record in completed_records if record.get("source_kind") == "baseline"
     ]
     non_baseline_records = [
-        record
-        for record in all_records
-        if record.get("source_kind") != "baseline"
+        record for record in all_records if record.get("source_kind") != "baseline"
     ]
     completed_non_baseline_records = [
-        record
-        for record in non_baseline_records
-        if record.get("status") == "completed"
+        record for record in non_baseline_records if record.get("status") == "completed"
     ]
-    baseline_score = max((float(record.get("score") or 0.0) for record in baseline_records), default=0.0)
+    baseline_score = max(
+        (float(record.get("score") or 0.0) for record in baseline_records), default=0.0
+    )
     best_source_kind = next(
         (
             str(record.get("source_kind") or "")
@@ -1203,7 +1267,9 @@ def run(args: argparse.Namespace) -> int:
         "baseline_score": baseline_score,
         "best_score_delta": round(best_score - baseline_score, 4),
         "score_source": "heldout" if heldout_meta else "train",
-        "heldout": {"details_redacted": True, **heldout_meta} if heldout_meta else {"enabled": False},
+        "heldout": {"details_redacted": True, **heldout_meta}
+        if heldout_meta
+        else {"enabled": False},
         "records": all_records,
         "experiment_result_contract": {
             "backend_result_rows": "one aggregate row per candidate metric/split",
@@ -1229,7 +1295,11 @@ def run(args: argparse.Namespace) -> int:
         [
             {
                 "env": str(record.get("env")),
-                "summary": ((record.get("heldout") or record.get("train") or {}).get("summary") if isinstance(record.get("heldout") or record.get("train"), dict) else None),
+                "summary": (
+                    (record.get("heldout") or record.get("train") or {}).get("summary")
+                    if isinstance(record.get("heldout") or record.get("train"), dict)
+                    else None
+                ),
             }
             for record in all_records
         ]
@@ -1237,7 +1307,13 @@ def run(args: argparse.Namespace) -> int:
     _write_json(workproduct / "eval_summary.json", eval_summary)
     _write_json(workproduct / "experiment_results.json", experiment_results)
     _write_json(workproduct / "achievement_diversity.json", diversity)
-    _write_json(workproduct / "directed_effort_outcomes.json", {"schema_version": "hillclimbsymbolicbench.directed_effort_outcomes.v1", "outcomes": directed_outcomes})
+    _write_json(
+        workproduct / "directed_effort_outcomes.json",
+        {
+            "schema_version": "hillclimbsymbolicbench.directed_effort_outcomes.v1",
+            "outcomes": directed_outcomes,
+        },
+    )
     _write_reproduction(
         path=workproduct / "reproduction.md",
         envs=env_ids,
@@ -1322,7 +1398,9 @@ def _compact_eval_ref(result: dict[str, Any] | None) -> dict[str, Any] | None:
         "status": result.get("status"),
         "score": result.get("score"),
         "summary": result.get("summary"),
-        "compile_ok": (result.get("compile") or {}).get("ok") if isinstance(result.get("compile"), dict) else None,
+        "compile_ok": (result.get("compile") or {}).get("ok")
+        if isinstance(result.get("compile"), dict)
+        else None,
     }
 
 
@@ -1414,15 +1492,19 @@ def _artifact_ref_exists(output_root: Path, rel_path: str, archive_members: set[
         return True
     archive_candidates = {normalized}
     if normalized.startswith("artifacts/workproduct_container/"):
-        archive_candidates.add("workproduct_container/" + normalized.removeprefix("artifacts/workproduct_container/"))
+        archive_candidates.add(
+            "workproduct_container/" + normalized.removeprefix("artifacts/workproduct_container/")
+        )
     elif normalized.startswith("artifacts/"):
         archive_candidates.add(normalized.removeprefix("artifacts/"))
     return any(candidate in archive_members for candidate in archive_candidates)
 
 
-def _deterministic_verifier_scores(errors: list[str], weights: dict[str, float]) -> dict[str, float]:
+def _deterministic_verifier_scores(
+    errors: list[str], weights: dict[str, float]
+) -> dict[str, float]:
     score = 0.0 if errors else 1.0
-    return {criterion_id: score for criterion_id in weights}
+    return dict.fromkeys(weights, score)
 
 
 def _run_spark_verifier(
@@ -1432,8 +1514,12 @@ def _run_spark_verifier(
     report: dict[str, Any] | None,
 ) -> dict[str, Any]:
     task_cfg = _task_config()
-    reportbench_cfg = task_cfg.get("reportbench") if isinstance(task_cfg.get("reportbench"), dict) else {}
-    verifier_cfg = reportbench_cfg.get("verifier") if isinstance(reportbench_cfg.get("verifier"), dict) else {}
+    reportbench_cfg = (
+        task_cfg.get("reportbench") if isinstance(task_cfg.get("reportbench"), dict) else {}
+    )
+    verifier_cfg = (
+        reportbench_cfg.get("verifier") if isinstance(reportbench_cfg.get("verifier"), dict) else {}
+    )
     weights = _rubric_weights()
     fallback_scores = _deterministic_verifier_scores(errors, weights)
     if not bool(verifier_cfg.get("enabled")):
@@ -1448,14 +1534,18 @@ def _run_spark_verifier(
             "judge_source": "deterministic",
         }
 
-    roles_cfg = task_cfg.get("smr", {}).get("roles", {}) if isinstance(task_cfg.get("smr"), dict) else {}
+    roles_cfg = (
+        task_cfg.get("smr", {}).get("roles", {}) if isinstance(task_cfg.get("smr"), dict) else {}
+    )
     role_cfg = roles_cfg.get("verifier", {}) if isinstance(roles_cfg, dict) else {}
     judge_cfg = verifier_cfg.get("judge", {}) if isinstance(verifier_cfg.get("judge"), dict) else {}
     model = str(judge_cfg.get("model") or role_cfg.get("model") or "gpt-5.3-codex-spark")
     api_key_env = str(role_cfg.get("api_key_env") or "OPENAI_API_KEY")
     api_key = str(os.environ.get(api_key_env) or "").strip() or None
     pass_threshold = float(verifier_cfg.get("pass_threshold") or 1.0)
-    rubric_text = VERIFIER_RUBRIC_PATH.read_text(encoding="utf-8") if VERIFIER_RUBRIC_PATH.is_file() else ""
+    rubric_text = (
+        VERIFIER_RUBRIC_PATH.read_text(encoding="utf-8") if VERIFIER_RUBRIC_PATH.is_file() else ""
+    )
     system_rubric = "\n".join(
         [
             "You are the Codex Spark verifier for this ReportBench Crafter run.",
@@ -1517,7 +1607,9 @@ def _run_spark_verifier(
         return {
             "score": score,
             "errors": errors,
-            "summary": f"Codex Spark verifier score={score:.3f}" if not errors else "; ".join(errors),
+            "summary": f"Codex Spark verifier score={score:.3f}"
+            if not errors
+            else "; ".join(errors),
             "criteria": result.criteria,
             "judge_source": result.judge_source,
             "judge_notes": result.judge_notes,
@@ -1565,7 +1657,9 @@ def score(args: argparse.Namespace) -> int:
                 encoding="utf-8"
             )
         )
-        report = json.loads((output_root / "artifacts/reportbench_output.json").read_text(encoding="utf-8"))
+        report = json.loads(
+            (output_root / "artifacts/reportbench_output.json").read_text(encoding="utf-8")
+        )
         if not manifest.get("best_policy", {}).get("present"):
             errors.append("manifest best_policy.present is false")
         if int(eval_summary.get("completed_candidate_count") or 0) < 2:
@@ -1589,11 +1683,16 @@ def score(args: argparse.Namespace) -> int:
                 failure_modes = summary.get("failure_modes")
                 used_fixture = (
                     summary.get("schema_version") == "hillclimbsymbolicbench.offline_fixture.v1"
-                    or (isinstance(failure_modes, dict) and bool(failure_modes.get("offline_fixture")))
+                    or (
+                        isinstance(failure_modes, dict)
+                        and bool(failure_modes.get("offline_fixture"))
+                    )
                     or phase.get("fixture") == "offline_service_unavailable"
                 )
                 if used_fixture:
-                    errors.append(f"offline fixture used for {record.get('candidate_id', 'unknown')} {phase_name}")
+                    errors.append(
+                        f"offline fixture used for {record.get('candidate_id', 'unknown')} {phase_name}"
+                    )
         archive_members = _archive_member_names(output_root)
         result_rows = experiment_results.get("results")
         if not isinstance(result_rows, list):
@@ -1619,36 +1718,55 @@ def score(args: argparse.Namespace) -> int:
                     if isinstance(artifact_refs, dict)
                     else None
                 )
-                if not selected_per_seed or not _artifact_ref_exists(output_root, str(selected_per_seed), archive_members):
+                if not selected_per_seed or not _artifact_ref_exists(
+                    output_root, str(selected_per_seed), archive_members
+                ):
                     errors.append("experiment result missing selected per-seed artifact")
         if report.get("benchmark_family") != BENCHMARK_FAMILY:
             errors.append("reportbench_output benchmark_family mismatch")
     review = _run_spark_verifier(output_root=output_root, errors=errors, report=report)
     _write_json(output_root / "artifacts/verifier_review.json", review)
     if (output_root / "artifacts/reportbench_output.json").exists():
-        report = json.loads((output_root / "artifacts/reportbench_output.json").read_text(encoding="utf-8"))
+        report = json.loads(
+            (output_root / "artifacts/reportbench_output.json").read_text(encoding="utf-8")
+        )
         report["verifier"] = review
         _write_json(output_root / "artifacts/reportbench_output.json", report)
     pass_threshold = float(
-        _task_config()
-        .get("reportbench", {})
-        .get("verifier", {})
-        .get("pass_threshold")
-        or 1.0
+        _task_config().get("reportbench", {}).get("verifier", {}).get("pass_threshold") or 1.0
     )
     return 0 if not errors and float(review.get("score") or 0.0) >= pass_threshold else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run HillclimbSymbolicBench symbolic policy hillclimbs.")
+    parser = argparse.ArgumentParser(
+        description="Run HillclimbSymbolicBench symbolic policy hillclimbs."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--output-root", required=True)
-    run_parser.add_argument("--env", default="all", choices=["all", "nle", "craftax", "crafter", "dungeongrid", "minigrid", "montezuma", "pitfall"])
+    run_parser.add_argument(
+        "--env",
+        default="all",
+        choices=[
+            "all",
+            "nle",
+            "craftax",
+            "crafter",
+            "dungeongrid",
+            "minigrid",
+            "montezuma",
+            "pitfall",
+        ],
+    )
     run_parser.add_argument("--iterations", type=int, default=0)
     run_parser.add_argument("--candidate-root", default="")
-    run_parser.add_argument("--train-seeds", default="", help="Optional semicolon map, e.g. dungeongrid=101,103;craftax=101,103")
+    run_parser.add_argument(
+        "--train-seeds",
+        default="",
+        help="Optional semicolon map, e.g. dungeongrid=101,103;craftax=101,103",
+    )
     run_parser.add_argument("--max-steps", type=int, default=None)
     run_parser.add_argument("--max-workers", type=int, default=None)
     run_parser.add_argument("--heldout-seeds-env", default=HELDOUT_ENV)
