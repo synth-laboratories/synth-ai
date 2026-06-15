@@ -32,6 +32,15 @@ from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunTraces,
 )
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
+from synth_ai.managed_research.models.run_launch import (
+    EventStream,
+    EventStreamRequest,
+    RunLaunchRequest,
+    RunLaunchResult,
+    RunReadRequest,
+    RunRef,
+    RunSnapshot,
+)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
@@ -127,6 +136,10 @@ class RunHandle:
         return ManagedResearchRun.from_wire(
             self._client.get_project_run(self.project_id, self.run_id)
         )
+
+    @property
+    def ref(self) -> RunRef:
+        return RunRef(project_id=self.project_id, run_id=self.run_id)
 
     def public_state(self) -> ManagedResearchRun:
         return self._client.get_run_public_state(
@@ -258,12 +271,15 @@ class RunHandle:
         timeout: float | None = None,
     ):
         return self._client.runs.stream_events(
-            self.run_id,
+            self.ref,
             transcript_cursor=transcript_cursor,
             view=view,
             last_event_id=last_event_id,
             timeout=timeout,
         )
+
+    def snapshot(self, request: RunReadRequest | None = None) -> RunSnapshot:
+        return self._client.runs.get_snapshot(self.ref, request=request)
 
     def messages(
         self,
@@ -943,6 +959,16 @@ class RunsAPI(_ClientNamespace):
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.trigger_run(selector.project_id, **kwargs)
 
+    def trigger_result(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        request: RunLaunchRequest,
+    ) -> RunLaunchResult:
+        selector = _resolve_project_selector(project_id, project=project)
+        return self._client.trigger_run_result(selector.project_id, request=request)
+
     def start_run(
         self,
         project_id: str | None = None,
@@ -1113,6 +1139,33 @@ class RunsAPI(_ClientNamespace):
             timeline_limit=timeline_limit,
             message_limit=message_limit,
         )
+
+    def snapshot(self, request: RunReadRequest) -> RunSnapshot:
+        snapshot = self.get_observability_snapshot(
+            request.run_ref.project_id,
+            request.run_ref.run_id,
+            event_limit=request.event_limit or 100,
+            actor_limit=request.actor_limit or 25,
+            task_limit=request.task_limit or 50,
+            question_limit=request.question_limit or 25,
+            timeline_limit=request.timeline_limit or 10,
+            message_limit=request.message_limit or 10,
+        )
+        return RunSnapshot.from_observability(
+            run_ref=request.run_ref,
+            snapshot=snapshot,
+        )
+
+    def get_snapshot(
+        self,
+        run_ref: RunRef,
+        *,
+        request: RunReadRequest | None = None,
+    ) -> RunSnapshot:
+        effective_request = request or RunReadRequest(run_ref=run_ref)
+        if effective_request.run_ref != run_ref:
+            raise ValueError("request.run_ref must match run_ref")
+        return self.snapshot(effective_request)
 
     def get_observability_snapshot_control(
         self,
@@ -2032,7 +2085,7 @@ class RunsAPI(_ClientNamespace):
 
     def stream_events(
         self,
-        run_id: str,
+        run_id: str | RunRef | EventStreamRequest,
         *,
         transcript_cursor: str | None = None,
         view: str = "operator",
@@ -2044,6 +2097,18 @@ class RunsAPI(_ClientNamespace):
         Yields typed ``RunRuntimeStreamEvent`` instances. Transcript payloads are
         already projected by backend policy for the requested view.
         """
+        if isinstance(run_id, EventStreamRequest):
+            return self.stream(run_id, view=view, timeout=timeout)
+        if isinstance(run_id, RunRef):
+            return self.stream(
+                EventStreamRequest(
+                    run_ref=run_id,
+                    transcript_cursor=transcript_cursor,
+                    last_event_id=last_event_id,
+                ),
+                view=view,
+                timeout=timeout,
+            )
         return self._client.stream_run_events(
             run_id,
             transcript_cursor=transcript_cursor,
@@ -2051,6 +2116,24 @@ class RunsAPI(_ClientNamespace):
             last_event_id=last_event_id,
             timeout=timeout,
         )
+
+    def stream(
+        self,
+        request: EventStreamRequest,
+        *,
+        view: str = "operator",
+        timeout: float | None = None,
+    ) -> EventStream:
+        """Return a context-managed typed event stream for a run."""
+
+        events = self._client.stream_run_events(
+            request.run_ref.run_id,
+            transcript_cursor=request.transcript_cursor,
+            view=view,
+            last_event_id=request.last_event_id,
+            timeout=timeout or float(request.heartbeat_timeout_seconds),
+        )
+        return EventStream(events, request=request)
 
     def stream_transcript(
         self,

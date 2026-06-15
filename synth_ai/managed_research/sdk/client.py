@@ -42,6 +42,7 @@ from synth_ai.managed_research.models.run_diagnostics import (
 )
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
+from synth_ai.managed_research.models.run_launch import RunLaunchRequest, RunLaunchResult
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
@@ -702,6 +703,23 @@ def _build_project_run_payload(
     if idempotency_key and idempotency_key.strip():
         payload["idempotency_key"] = idempotency_key.strip()
     return payload
+
+
+def _build_project_run_payload_from_request(
+    *,
+    request: RunLaunchRequest | None,
+    values: Mapping[str, object],
+) -> dict[str, Any]:
+    explicit = {
+        key: value
+        for key, value in values.items()
+        if key not in {"self", "project_id", "request"} and value is not None
+    }
+    if request is not None:
+        if any(value != () for value in explicit.values()):
+            raise ValueError("request cannot be combined with launch keyword arguments")
+        return _build_project_run_payload(**request.to_client_kwargs())
+    return _build_project_run_payload(**explicit)
 
 
 def _guess_content_type(path: str) -> str:
@@ -1608,10 +1626,13 @@ class ManagedResearchClient:
         url: str,
         *,
         default_branch: str | None = None,
+        commit_sha: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {"url": str(url).strip()}
         if default_branch and default_branch.strip():
             payload["default_branch"] = default_branch.strip()
+        if commit_sha and commit_sha.strip():
+            payload["commit_sha"] = commit_sha.strip()
         return _coerce_dict(
             self._request_json(
                 "PUT",
@@ -3088,6 +3109,17 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("POST", f"/smr/projects/{project_id}/trigger", json_body=payload),
             label="trigger_run",
+        )
+
+    def trigger_run_result(
+        self,
+        project_id: str,
+        *,
+        request: RunLaunchRequest,
+    ) -> RunLaunchResult:
+        return RunLaunchResult.from_wire(
+            project_id=project_id,
+            payload=self.trigger_run(project_id, request=request),
         )
 
     def start_run(self, project_id: str, **kwargs: Any) -> dict[str, Any]:

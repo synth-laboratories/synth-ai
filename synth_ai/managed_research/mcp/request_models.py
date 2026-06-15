@@ -226,8 +226,8 @@ def _validate_runbook_preset_aliases(
     runbook_preset: str | None,
     runbook_config_id: str | None,
 ) -> None:
-    if runbook_preset and runbook_config_id and runbook_preset != runbook_config_id:
-        raise ValueError("runbook_preset and runbook_config_id must match when both are provided")
+    if runbook_preset and runbook_config_id:
+        raise ValueError("runbook_preset and runbook_config_id cannot both be provided")
 
 
 def _requires_explicit_launch_axes(
