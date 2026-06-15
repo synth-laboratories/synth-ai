@@ -23,6 +23,8 @@ from synth_ai.managed_research.models import (
     EffortPatchRequest,
     FactoryCreateRequest,
     FactoryPatchRequest,
+    FactoryProjectLinkRequest,
+    FactoryProjectPatchRequest,
     FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
@@ -37,6 +39,8 @@ from synth_ai.managed_research.models.factories import (
     effort_patch_payload,
     factory_create_payload,
     factory_patch_payload,
+    factory_project_link_payload,
+    factory_project_patch_payload,
     factory_wake_due_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
@@ -1249,6 +1253,74 @@ class ManagedResearchClient:
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
+        )
+
+    def link_factory_project(
+        self,
+        factory_id: str,
+        request: FactoryProjectLinkRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/projects",
+                json_body=factory_project_link_payload(request),
+            ),
+            label="link_factory_project",
+        )
+
+    def list_factory_projects(
+        self,
+        factory_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/projects",
+                params=build_query_params(include_archived=include_archived),
+            ),
+            label="list_factory_projects",
+        )
+
+    def get_factory_project(self, factory_id: str, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/projects/{project_id}",
+            ),
+            label="get_factory_project",
+        )
+
+    def patch_factory_project(
+        self,
+        factory_id: str,
+        project_id: str,
+        request: FactoryProjectPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/projects/{project_id}",
+                json_body=factory_project_patch_payload(request),
+            ),
+            label="patch_factory_project",
+        )
+
+    def get_factory_workspace(
+        self,
+        factory_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/workspace",
+                params=build_query_params(include_archived=include_archived),
+            ),
+            label="get_factory_workspace",
         )
 
     def get_factory_status(self, factory_id: str) -> dict[str, Any]:

@@ -29,6 +29,18 @@ class FactoryLifecycleState(StrEnum):
     ARCHIVED = "archived"
 
 
+class FactoryProjectRole(StrEnum):
+    CANONICAL = "canonical"
+    AUXILIARY = "auxiliary"
+    ARCHIVED_REFERENCE = "archived_reference"
+
+
+class FactoryProjectStatus(StrEnum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    ARCHIVED = "archived"
+
+
 class EffortStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
@@ -272,10 +284,82 @@ class Factory:
 
 
 @dataclass(frozen=True)
+class FactoryProjectLinkRequest:
+    project_id: str
+    role: FactoryProjectRole | str = FactoryProjectRole.CANONICAL
+    status: FactoryProjectStatus | str = FactoryProjectStatus.ACTIVE
+    display_name: str | None = None
+    description: str | None = None
+    workspace_policy: dict[str, Any] = field(default_factory=dict)
+    resource_bindings: dict[str, Any] = field(default_factory=dict)
+    feed_health: dict[str, Any] = field(default_factory=dict)
+    default_launch_profile: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "project_id": self.project_id,
+            "role": _enum_value(self.role),
+            "status": _enum_value(self.status),
+            "workspace_policy": _policy_payload(self.workspace_policy),
+            "resource_bindings": _policy_payload(self.resource_bindings),
+            "feed_health": _policy_payload(self.feed_health),
+            "default_launch_profile": _policy_payload(self.default_launch_profile),
+            "metadata": _policy_payload(self.metadata),
+        }
+        for key, value in (
+            ("display_name", self.display_name),
+            ("description", self.description),
+        ):
+            if value is not None:
+                payload[key] = value
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryProjectPatchRequest:
+    role: FactoryProjectRole | str | None = None
+    status: FactoryProjectStatus | str | None = None
+    display_name: str | None = None
+    description: str | None = None
+    workspace_policy: dict[str, Any] | None = None
+    resource_bindings: dict[str, Any] | None = None
+    feed_health: dict[str, Any] | None = None
+    default_launch_profile: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        for key, value in (
+            ("role", self.role),
+            ("status", self.status),
+        ):
+            if value is not None:
+                payload[key] = _enum_value(value)
+        for key, value in (
+            ("display_name", self.display_name),
+            ("description", self.description),
+        ):
+            if value is not None:
+                payload[key] = value
+        for key, value in (
+            ("workspace_policy", self.workspace_policy),
+            ("resource_bindings", self.resource_bindings),
+            ("feed_health", self.feed_health),
+            ("default_launch_profile", self.default_launch_profile),
+            ("metadata", self.metadata),
+        ):
+            if value is not None:
+                payload[key] = _policy_payload(value)
+        return payload
+
+
+@dataclass(frozen=True)
 class EffortCreateRequest:
     factory_id: str
     project_id: str
     name: str
+    allow_implicit_project_link: bool = True
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str = EffortStatus.ACTIVE
     effort_type: EffortType | str = EffortType.RESEARCH
@@ -296,6 +380,7 @@ class EffortCreateRequest:
             "factory_id": self.factory_id,
             "project_id": self.project_id,
             "name": self.name,
+            "allow_implicit_project_link": self.allow_implicit_project_link,
             "status": _enum_value(self.status),
             "effort_type": _enum_value(self.effort_type),
             "recurrence_policy": _policy_payload(self.recurrence_policy),
@@ -464,6 +549,154 @@ class FactoryProjectSummary:
 
 
 @dataclass(frozen=True)
+class FactoryProjectLink:
+    factory_project_id: str
+    org_id: str
+    factory_id: str
+    project_id: str
+    role: FactoryProjectRole
+    status: FactoryProjectStatus
+    display_name: str | None = None
+    description: str | None = None
+    workspace_policy: dict[str, object] = field(default_factory=dict)
+    resource_bindings: dict[str, object] = field(default_factory=dict)
+    feed_health: dict[str, object] = field(default_factory=dict)
+    default_launch_profile: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    project: FactoryProjectSummary | None = None
+    effort_count: int = 0
+    latest_run_id: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryProjectLink:
+        mapping = _require_mapping(payload, label="factory project link")
+        project_payload = mapping.get("project")
+        return cls(
+            factory_project_id=_require_string(
+                mapping,
+                "factory_project_id",
+                label="factory_project.factory_project_id",
+            ),
+            org_id=_require_string(mapping, "org_id", label="factory_project.org_id"),
+            factory_id=_require_string(
+                mapping,
+                "factory_id",
+                label="factory_project.factory_id",
+            ),
+            project_id=_require_string(
+                mapping,
+                "project_id",
+                label="factory_project.project_id",
+            ),
+            role=FactoryProjectRole(_require_string(mapping, "role", label="factory_project.role")),
+            status=FactoryProjectStatus(
+                _require_string(mapping, "status", label="factory_project.status")
+            ),
+            display_name=_optional_string(mapping, "display_name"),
+            description=_optional_string(mapping, "description"),
+            workspace_policy=_optional_object_dict(
+                mapping.get("workspace_policy"),
+                label="factory_project.workspace_policy",
+            ),
+            resource_bindings=_optional_object_dict(
+                mapping.get("resource_bindings"),
+                label="factory_project.resource_bindings",
+            ),
+            feed_health=_optional_object_dict(
+                mapping.get("feed_health"),
+                label="factory_project.feed_health",
+            ),
+            default_launch_profile=_optional_object_dict(
+                mapping.get("default_launch_profile"),
+                label="factory_project.default_launch_profile",
+            ),
+            metadata=_optional_object_dict(
+                mapping.get("metadata"),
+                label="factory_project.metadata",
+            ),
+            created_by_user_id=_optional_string(mapping, "created_by_user_id"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            updated_at=_optional_datetime(mapping, "updated_at"),
+            project=(
+                FactoryProjectSummary.from_wire(project_payload)
+                if project_payload is not None
+                else None
+            ),
+            effort_count=int(mapping.get("effort_count") or 0),
+            latest_run_id=_optional_string(mapping, "latest_run_id"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryWorkspace:
+    factory_id: str
+    project: FactoryProjectLink | None = None
+    canonical_project: FactoryProjectLink | None = None
+    projects: tuple[FactoryProjectLink, ...] = ()
+    workspace_policy: dict[str, object] = field(default_factory=dict)
+    resource_bindings: dict[str, object] = field(default_factory=dict)
+    feed_health: dict[str, object] = field(default_factory=dict)
+    default_launch_profile: dict[str, object] = field(default_factory=dict)
+    resource_bindings_by_project: dict[str, object] = field(default_factory=dict)
+    feeds: dict[str, object] = field(default_factory=dict)
+    default_launch_profiles: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryWorkspace:
+        mapping = _require_mapping(payload, label="factory workspace")
+        project_payload = mapping.get("project")
+        canonical_project_payload = mapping.get("canonical_project")
+        return cls(
+            factory_id=_require_string(mapping, "factory_id", label="workspace.factory_id"),
+            project=(
+                FactoryProjectLink.from_wire(project_payload)
+                if project_payload is not None
+                else None
+            ),
+            canonical_project=(
+                FactoryProjectLink.from_wire(canonical_project_payload)
+                if canonical_project_payload is not None
+                else None
+            ),
+            projects=tuple(
+                FactoryProjectLink.from_wire(item) for item in list(mapping.get("projects") or [])
+            ),
+            workspace_policy=_optional_object_dict(
+                mapping.get("workspace_policy"),
+                label="workspace.workspace_policy",
+            ),
+            resource_bindings=_optional_object_dict(
+                mapping.get("resource_bindings"),
+                label="workspace.resource_bindings",
+            ),
+            feed_health=_optional_object_dict(
+                mapping.get("feed_health"),
+                label="workspace.feed_health",
+            ),
+            default_launch_profile=_optional_object_dict(
+                mapping.get("default_launch_profile"),
+                label="workspace.default_launch_profile",
+            ),
+            resource_bindings_by_project=_optional_object_dict(
+                mapping.get("resource_bindings_by_project"),
+                label="workspace.resource_bindings_by_project",
+            ),
+            feeds=_optional_object_dict(mapping.get("feeds"), label="workspace.feeds"),
+            default_launch_profiles=_optional_object_dict(
+                mapping.get("default_launch_profiles"),
+                label="workspace.default_launch_profiles",
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryRunSummary:
     run_id: str
     project_id: str
@@ -561,6 +794,8 @@ class FactoryWorkProductSummary:
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
+    linked_projects: tuple[FactoryProjectLink, ...] = ()
+    workspace: FactoryWorkspace | None = None
     efforts: tuple[Effort, ...] = ()
     efforts_by_status: dict[str, int] = field(default_factory=dict)
     latest_runs: tuple[FactoryRunSummary, ...] = ()
@@ -587,6 +822,15 @@ class FactoryStatus:
             projects=tuple(
                 FactoryProjectSummary.from_wire(item)
                 for item in list(mapping.get("projects") or [])
+            ),
+            linked_projects=tuple(
+                FactoryProjectLink.from_wire(item)
+                for item in list(mapping.get("linked_projects") or [])
+            ),
+            workspace=(
+                FactoryWorkspace.from_wire(mapping.get("workspace"))
+                if mapping.get("workspace") is not None
+                else None
             ),
             efforts=tuple(Effort.from_wire(item) for item in list(mapping.get("efforts") or [])),
             efforts_by_status=efforts_by_status,
@@ -686,8 +930,7 @@ class FactoryWakeDueResult:
             skipped=int(mapping.get("skipped") or 0),
             failed=int(mapping.get("failed") or 0),
             efforts=tuple(
-                FactoryWakeDueEffort.from_wire(item)
-                for item in list(mapping.get("efforts") or [])
+                FactoryWakeDueEffort.from_wire(item) for item in list(mapping.get("efforts") or [])
             ),
             raw=dict(mapping),
         )
@@ -705,6 +948,22 @@ def factory_patch_payload(
     request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
     if isinstance(request, FactoryPatchRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_project_link_payload(
+    request: FactoryProjectLinkRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryProjectLinkRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_project_patch_payload(
+    request: FactoryProjectPatchRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryProjectPatchRequest):
         return request.to_wire()
     return dict(request)
 
@@ -735,6 +994,8 @@ def effort_patch_payload(
 
 FACTORY_KIND_VALUES = tuple(item.value for item in FactoryKind)
 FACTORY_LIFECYCLE_STATE_VALUES = tuple(item.value for item in FactoryLifecycleState)
+FACTORY_PROJECT_ROLE_VALUES = tuple(item.value for item in FactoryProjectRole)
+FACTORY_PROJECT_STATUS_VALUES = tuple(item.value for item in FactoryProjectStatus)
 EFFORT_STATUS_VALUES = tuple(item.value for item in EffortStatus)
 EFFORT_TYPE_VALUES = tuple(item.value for item in EffortType)
 
@@ -744,6 +1005,8 @@ __all__ = [
     "EFFORT_TYPE_VALUES",
     "FACTORY_KIND_VALUES",
     "FACTORY_LIFECYCLE_STATE_VALUES",
+    "FACTORY_PROJECT_ROLE_VALUES",
+    "FACTORY_PROJECT_STATUS_VALUES",
     "Effort",
     "EffortCreateRequest",
     "EffortPatchRequest",
@@ -756,6 +1019,11 @@ __all__ = [
     "FactoryKind",
     "FactoryLifecycleState",
     "FactoryPatchRequest",
+    "FactoryProjectLink",
+    "FactoryProjectLinkRequest",
+    "FactoryProjectPatchRequest",
+    "FactoryProjectRole",
+    "FactoryProjectStatus",
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
@@ -763,6 +1031,7 @@ __all__ = [
     "FactoryWakeDueEffort",
     "FactoryWakeDueRequest",
     "FactoryWakeDueResult",
+    "FactoryWorkspace",
     "FactoryWorkProductSummary",
     "PublicationPolicy",
     "RecurrencePolicy",
@@ -770,5 +1039,7 @@ __all__ = [
     "effort_patch_payload",
     "factory_create_payload",
     "factory_patch_payload",
+    "factory_project_link_payload",
+    "factory_project_patch_payload",
     "factory_wake_due_payload",
 ]

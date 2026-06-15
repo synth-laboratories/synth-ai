@@ -15,6 +15,8 @@ from synth_ai.managed_research.models.factories import (
     EFFORT_TYPE_VALUES,
     FACTORY_KIND_VALUES,
     FACTORY_LIFECYCLE_STATE_VALUES,
+    FACTORY_PROJECT_ROLE_VALUES,
+    FACTORY_PROJECT_STATUS_VALUES,
 )
 
 
@@ -90,6 +92,47 @@ def _effort_mutation_properties() -> dict[str, Any]:
     }
 
 
+def _factory_project_mutation_properties() -> dict[str, Any]:
+    return {
+        "project_id": {"type": "string", "description": "Managed Research project ID."},
+        "role": {
+            "type": "string",
+            "enum": list(FACTORY_PROJECT_ROLE_VALUES),
+            "description": "Workspace Project role. V1 uses canonical for active workspace links.",
+        },
+        "status": {
+            "type": "string",
+            "enum": list(FACTORY_PROJECT_STATUS_VALUES),
+            "description": "Factory workspace Project link status.",
+        },
+        "display_name": {
+            "type": "string",
+            "description": "Optional Factory-local Project display name.",
+        },
+        "description": {
+            "type": "string",
+            "description": "Optional Factory-local Project description.",
+        },
+        "workspace_policy": {
+            "type": "object",
+            "description": "Workspace policy for this Project under the Factory.",
+        },
+        "resource_bindings": {
+            "type": "object",
+            "description": "Long-lived workspace resource bindings.",
+        },
+        "feed_health": {
+            "type": "object",
+            "description": "Feed and ingestion health metadata.",
+        },
+        "default_launch_profile": {
+            "type": "object",
+            "description": "Default launch profile layered into due Effort launches.",
+        },
+        "metadata": {"type": "object", "description": "Optional link metadata."},
+    }
+
+
 def build_factory_tools(server: Any) -> list[ToolDefinition]:
     effort_properties = _effort_mutation_properties()
     effort_patch_properties = {
@@ -97,10 +140,17 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         for key, value in effort_properties.items()
         if key not in {"factory_id", "project_id"}
     }
+    factory_project_properties = _factory_project_mutation_properties()
+    factory_project_patch_properties = {
+        key: value for key, value in factory_project_properties.items() if key != "project_id"
+    }
     return [
         ToolDefinition(
             name="smr_create_factory",
-            description="Create a Research Factory for the authenticated organization.",
+            description=(
+                "Create a persistent Research Factory: an R&D organization/workspace "
+                "for proving hypotheses, building prototypes, and improving applied AI systems."
+            ),
             input_schema=tool_schema(_factory_mutation_properties(), required=["name"]),
             handler=server._tool_create_factory,
             required_scopes=WRITE_SCOPES,
@@ -114,7 +164,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_get_factory",
-            description="Fetch one Research Factory by ID.",
+            description="Fetch one persistent Research Factory workspace by ID.",
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
                 required=["factory_id"],
@@ -172,15 +222,96 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_get_factory_status",
             description=(
-                "Read the Factory status projection: projects, efforts, latest runs, "
-                "latest reports/work products, decisions, pauses, wake metadata, and "
-                "publication/cost summaries."
+                "Read the Factory status projection: singular workspace Project, Efforts, "
+                "latest Runs, reports/work products, decisions, pauses, wake metadata, "
+                "and publication/cost summaries."
             ),
             input_schema=tool_schema(
                 {"factory_id": {"type": "string", "description": "Factory ID."}},
                 required=["factory_id"],
             ),
             handler=server._tool_get_factory_status,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_link_factory_project",
+            description=(
+                "Link the Factory workspace Project. V1 allows one active workspace "
+                "Project; archive the current link before linking a replacement."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    **factory_project_properties,
+                },
+                required=["factory_id", "project_id"],
+            ),
+            handler=server._tool_link_factory_project,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_list_factory_projects",
+            description=(
+                "List Factory workspace Project links, including archived history when requested. "
+                "Use smr_get_factory_workspace for the active V1 workspace."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "include_archived": {
+                        "type": "boolean",
+                        "description": "Include archived Factory Project links.",
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_list_factory_projects,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_get_factory_project",
+            description="Fetch one Factory workspace Project link by Factory and Project ID.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "project_id": {"type": "string", "description": "Managed Research project ID."},
+                },
+                required=["factory_id", "project_id"],
+            ),
+            handler=server._tool_get_factory_project,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_patch_factory_project",
+            description=(
+                "Update a Factory workspace Project link status, workspace policy, "
+                "resource bindings, or launch defaults. Archive before replacement."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "project_id": {"type": "string", "description": "Managed Research project ID."},
+                    **factory_project_patch_properties,
+                },
+                required=["factory_id", "project_id"],
+            ),
+            handler=server._tool_patch_factory_project,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_get_factory_workspace",
+            description="Read the singular Factory workspace projection and its active Project.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "include_archived": {
+                        "type": "boolean",
+                        "description": "Include archived Factory Project links.",
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=server._tool_get_factory_workspace,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
@@ -196,8 +327,8 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_wake_due_factory_efforts",
             description=(
-                "Evaluate due Factory Efforts and launch the due runs through the "
-                "managed run-start boundary."
+                "Evaluate due persistent Factory Efforts and launch cloud research "
+                "engineering Runs through the managed run-start boundary."
             ),
             input_schema=tool_schema(
                 {
@@ -240,7 +371,11 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_create_effort",
-            description="Create an Effort under a Research Factory and project.",
+            description=(
+                "Create a persistent R&D Effort under a Research Factory. The Effort "
+                "tracks a hypothesis, experiment, or topic across time and must use "
+                "the Factory workspace Project once one exists."
+            ),
             input_schema=tool_schema(
                 effort_properties,
                 required=["factory_id", "project_id", "name"],
@@ -364,8 +499,8 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_launch_effort",
             description=(
-                "Launch a Managed Research run from an Effort. The SDK resolves the "
-                "Effort project and links the run with effort_id."
+                "Launch a cloud research engineering Run from a persistent Effort. "
+                "The SDK resolves the Effort Project and links the Run with effort_id."
             ),
             input_schema=tool_schema(
                 {
