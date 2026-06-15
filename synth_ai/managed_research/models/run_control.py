@@ -221,10 +221,25 @@ class ManagedResearchRunControlAck:
     @classmethod
     def from_wire(cls, payload: object) -> ManagedResearchRunControlAck:
         mapping = _require_mapping(payload, label="run control ack")
+        run_payload = dict(mapping)
+        if _optional_string(run_payload, "public_state") is None:
+            public_state = (
+                _optional_string(run_payload, "durable_state")
+                or _optional_string(run_payload, "terminal_state")
+                or _optional_string(run_payload, "requested_state")
+            )
+            if public_state is not None:
+                run_payload["public_state"] = public_state
         return cls(
-            run=ManagedResearchRun.from_wire(mapping),
-            control_intent_id=_optional_string(mapping, "control_intent_id"),
-            control_intent_ack_at=_optional_datetime(mapping, "control_intent_ack_at"),
+            run=ManagedResearchRun.from_wire(run_payload),
+            control_intent_id=(
+                _optional_string(mapping, "control_intent_id")
+                or _optional_string(mapping, "control_message_id")
+            ),
+            control_intent_ack_at=(
+                _optional_datetime(mapping, "control_intent_ack_at")
+                or _optional_datetime(mapping, "accepted_at")
+            ),
             enqueue_status=(
                 ManagedResearchRunControlEnqueueStatus(value)
                 if (value := _optional_string(mapping, "enqueue_status")) is not None
