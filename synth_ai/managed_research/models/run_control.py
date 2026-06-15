@@ -202,6 +202,23 @@ def _actor_control_actor_type(
         ) from exc
 
 
+def _run_payload_from_control_ack(mapping: Mapping[str, object]) -> Mapping[str, object]:
+    nested_run = mapping.get("run")
+    if isinstance(nested_run, Mapping):
+        return nested_run
+    if mapping.get("public_state") is not None:
+        return mapping
+    public_state = (
+        _optional_string(mapping, "terminal_state")
+        or _optional_string(mapping, "durable_state")
+        or _optional_string(mapping, "requested_state")
+        or "unknown"
+    )
+    run_payload = dict(mapping)
+    run_payload["public_state"] = public_state
+    return run_payload
+
+
 @dataclass(frozen=True)
 class ManagedResearchRunControlAck:
     """Result of a pause/resume/stop call.
@@ -222,8 +239,11 @@ class ManagedResearchRunControlAck:
     def from_wire(cls, payload: object) -> ManagedResearchRunControlAck:
         mapping = _require_mapping(payload, label="run control ack")
         return cls(
-            run=ManagedResearchRun.from_wire(mapping),
-            control_intent_id=_optional_string(mapping, "control_intent_id"),
+            run=ManagedResearchRun.from_wire(_run_payload_from_control_ack(mapping)),
+            control_intent_id=(
+                _optional_string(mapping, "control_intent_id")
+                or _optional_string(mapping, "control_message_id")
+            ),
             control_intent_ack_at=_optional_datetime(mapping, "control_intent_ack_at"),
             enqueue_status=(
                 ManagedResearchRunControlEnqueueStatus(value)

@@ -409,7 +409,6 @@ class KickoffContract:
             "schema_version": self.schema_version,
             "contract_kind": self.contract_kind,
             "run_objective": self.run_objective,
-            "dispatch_requirements": dict(self.dispatch_requirements),
             "tasks": [dict(item) for item in self.tasks],
             "task_briefs": list(self.task_briefs),
             "required_work_products": [item.to_wire() for item in self.required_work_products],
@@ -417,6 +416,8 @@ class KickoffContract:
                 item.to_wire() for item in self.model_visible_contract_files
             ],
         }
+        if self.dispatch_requirements:
+            payload["dispatch_requirements"] = dict(self.dispatch_requirements)
         if self.scenario is not None:
             payload["scenario"] = self.scenario
         if self.task_id is not None:

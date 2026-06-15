@@ -445,7 +445,6 @@ def _build_project_run_payload(
         intended_horizon_hours,
         field_name="intended_horizon_hours",
     )
-    uses_backend_profile = bool(preset_id or config_id or normalized_horizon is not None)
     payload: dict[str, Any] = {}
     if preset_id:
         payload["runbook_preset"] = preset_id
@@ -459,10 +458,6 @@ def _build_project_run_payload(
     normalized_host_kind = coerce_smr_host_kind(host_kind, field_name="host_kind")
     if normalized_host_kind is not None:
         payload["host_kind"] = normalized_host_kind.value
-    elif not uses_backend_profile:
-        raise ValueError(
-            "host_kind is required unless runbook_preset or intended_horizon_hours is provided"
-        )
 
     if work_mode is not None and mode is not None:
         normalized_work_mode = coerce_smr_work_mode(work_mode, field_name="work_mode")
@@ -476,10 +471,6 @@ def _build_project_run_payload(
         )
     if normalized_work_mode is not None:
         payload["work_mode"] = normalized_work_mode.value
-    elif not uses_backend_profile:
-        raise ValueError(
-            "work_mode is required unless runbook_preset or intended_horizon_hours is provided"
-        )
 
     provider_values = list(providers) if providers is not None else None
     if provider_values is not None:
@@ -490,10 +481,6 @@ def _build_project_run_payload(
                 field_name="providers",
             )
         ]
-    elif not uses_backend_profile:
-        raise ValueError(
-            "providers is required unless runbook_preset or intended_horizon_hours is provided"
-        )
 
     normalized_limit = coerce_usage_limit(limit, field_name="limit")
     if normalized_limit is not None:

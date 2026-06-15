@@ -452,6 +452,7 @@ class ManagedResearchRun:
     limit: UsageLimit | None = None
     roles: SmrRoleBindings | None = None
     kickoff_contract: dict[str, object] = field(default_factory=dict)
+    primary_parent: dict[str, object] | None = None
     launch_context: ManagedResearchLaunchContext | None = None
     output_obligations: tuple[ManagedResearchOutputObligation, ...] = field(default_factory=tuple)
     evidence_summary: ManagedResearchEvidenceSummary = field(
@@ -547,6 +548,11 @@ class ManagedResearchRun:
             kickoff_contract=_optional_object_dict(
                 mapping.get("kickoff_contract"),
                 label="run.kickoff_contract",
+            ),
+            primary_parent=(
+                dict(_require_mapping(mapping.get("primary_parent"), label="run.primary_parent"))
+                if mapping.get("primary_parent") is not None
+                else None
             ),
             launch_context=ManagedResearchLaunchContext.from_wire(
                 mapping.get("launch_context"),
