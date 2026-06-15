@@ -53,6 +53,136 @@ from synth_ai.research.errors import (
 
 LogFn = Callable[[str], None]
 
+# Canonical README smoke orchestrator playbook (from evals lane; guidance-only kickoff).
+_README_SMOKE_PROJECT_NOTES_TEMPLATE = """
+REPORT BENCH — README smoke.
+
+Guidance-only kickoff: `kickoff.tasks` is empty. You MUST use `plan_tasks` to create work.
+
+The purpose of this lane is not model quality. It is to verify that SMR can plan,
+dispatch, execute, and finish a trivial worker task quickly.
+
+Plan exactly one repo task for the worker host. Do not split authoring, verification,
+and push into separate tasks. Do not create an extra verifier or reviewer task for this
+lane.
+
+That single repo task must:
+1. replace the bootstrap root README.md in the workspace repo with worker-authored content,
+2. commit and push that minimal repo change to `main` via the `workspace_push` tool,
+3. publish the requested report WorkProduct through `publish_report_work_product`,
+4. call `set_task_state` with terminal state `done` in the same worker turn after
+   the WorkProduct publish succeeds.
+
+Committed-repo contract for this lane:
+- Plan exactly one repo task.
+- The committed repo tree must contain this worker-authored file:
+  - `README.md`
+- The bootstrap `starting-data/...` namespace may remain from project seeding.
+- System/bootstrap-owned model-visible files may appear and MUST NOT be counted as
+  unexpected worker output (`.smr-bootstrap`, `TASK_README.md`, `task.toml`,
+  `task_contract.json`, `kickoff_contract.json`, workspace runners).
+
+WorkProduct contract for this lane:
+- Publish a report WorkProduct titled `README Smoke`.
+- The report text should summarize the README replacement, include the proof marker,
+  and explain why this run is only a path/health smoke rather than a model-quality
+  benchmark.
+
+Planner turn rule:
+- After `plan_tasks` accepts exactly one repo task, call `set_run_state` with
+  `state = "executing"` and end the orchestrator turn.
+- Do not poll or list run events in that same turn to prove the task row exists.
+
+Execution-routing requirement for every planned repo task:
+- Every task you create with `plan_tasks` MUST include
+  `task_dispatch={{"execution_owner":"worker_host","worker_pool":"{worker_pool_id}","target_kind":"repo","task_affinity_key":"reportbench-readme-smoke"}}`
+- The only valid execution owner is exactly `"worker_host"`.
+""".strip()
+
+_README_SMOKE_WORKER_BRIEF = """
+Task brief 1 (template for `plan_tasks` — copy into `input.instructions`):
+- task_key: write_readme_and_bundle
+- kind: repo_task
+- require_workspace_push_on_done: true
+- task_dispatch.execution_owner: worker_host
+- task_dispatch.worker_pool: {worker_pool_id}
+- task_dispatch.target_kind: repo
+- task_dispatch.task_affinity_key: reportbench-readme-smoke
+
+Instructions:
+Create a tiny README smoke output as quickly as possible.
+
+Do exactly this:
+1. Replace the bootstrap README.md at the repo root with this exact content:
+
+   # SMR Worker README Smoke Bundle
+
+   SMR_WORKER_AUTHORED_README_PROOF: readme_smoke_worker_v2
+
+   This repository contains a minimal worker-authored README for the SMR
+   reportbench smoke lane.
+
+   This run validates the SMR path for planning, dispatch, worker execution,
+   workspace push, report WorkProduct publication, review, and terminal task
+   state. It is a path/health smoke, not a model-quality benchmark.
+
+   Do not add any extra sentences to README.md. In particular, do not describe,
+   quote, or summarize the original bootstrap README text.
+2. Use `workspace_push` with:
+   - `commit_message = "Add worker-authored README smoke bundle"`
+   - `push_branch = "main"`
+   This tool performs the commit and authenticated push. Do not run raw
+   `git commit` or raw `git push`.
+3. After the push succeeds, publish the required report WorkProduct with
+   `publish_report_work_product`:
+   - `title = "README Smoke"`
+   - `report_text` must summarize the README replacement, include the exact
+     proof marker, and explain why this run is only a path/health smoke rather
+     than a model-quality benchmark
+   - include this task's `task_id` when the tool arguments allow it
+   Do not treat writing a report file as enough; the backend WorkProduct row must
+   become ready/viewable before completion.
+4. After the WorkProduct publish succeeds, call `set_task_state` for this task with state `done`.
+   Do not end the turn before calling `set_task_state`.
+
+Do not install packages. Do not run long commands. This is a speed/path validation task.
+Do not create or commit any extra worker-authored repo files beyond `README.md`.
+
+Acceptance criteria:
+- Exactly one repo task is planned for the run
+- README.md includes the exact worker proof marker line
+- README.md contains only the requested worker-authored smoke content
+- A ready/viewable report WorkProduct titled README Smoke is published
+- No unexpected worker-authored files are committed to the workspace repo
+- The README change is committed and pushed
+""".strip()
+
+
+@dataclass(frozen=True)
+class ReadmeSmokeRunConfig:
+    """Optional overrides for README smoke guidance-only kickoff."""
+
+    extra_orchestrator_notes: str = ""
+    extra_worker_notes: str = ""
+
+    def project_notes_framing(self, *, worker_pool_id: str) -> str:
+        notes = _README_SMOKE_PROJECT_NOTES_TEMPLATE.format(worker_pool_id=worker_pool_id)
+        extra = self.extra_orchestrator_notes.strip()
+        if extra:
+            notes = f"{notes}\n\n{extra}"
+        return notes
+
+    def worker_planning_briefs(self, *, worker_pool_id: str) -> list[str]:
+        brief = _README_SMOKE_WORKER_BRIEF.format(worker_pool_id=worker_pool_id)
+        extra = self.extra_worker_notes.strip()
+        if extra:
+            brief = f"{brief}\n\n{extra}"
+        return [brief.strip()]
+
+
+DEFAULT_README_SMOKE_CONFIG = ReadmeSmokeRunConfig()
+
+
 _POLL_PREFIX_RE = re.compile(r"^\[poll\](?P<still> still)? ")
 _POLL_KV_RE = re.compile(r"(\w+)=('[^']*'|\S+)")
 _POLL_NOISE_KEYS = frozenset({"last_progress_at", "next_poll_s", "stale_for_s"})
@@ -526,12 +656,24 @@ def _workspace_file_delta(
 def _fetch_project_git_status(
     client: ResearchControlClient,
     project_id: str,
+    *,
+    branch: str | None = None,
+    max_tree_entries: int = 200,
+    max_commits: int = 20,
+    max_unmerged_branches: int = 20,
 ) -> dict[str, Any] | None:
     try:
+        params: dict[str, Any] = {
+            "max_tree_entries": max_tree_entries,
+            "max_commits": max_commits,
+            "max_unmerged_branches": max_unmerged_branches,
+        }
+        if branch:
+            params["branch"] = branch
         payload = client._request_json(  # noqa: SLF001
             "GET",
             f"/smr/projects/{project_id}/git/status",
-            params={"max_tree_entries": 200, "max_commits": 20},
+            params=params,
         )
         return payload if isinstance(payload, dict) else None
     except Exception:
@@ -2290,6 +2432,7 @@ def run_readme_smoke(
     *,
     launch: ReadmeSmokeLaunch,
     output_root: Path,
+    config: ReadmeSmokeRunConfig = DEFAULT_README_SMOKE_CONFIG,
     research: ResearchClient | None = None,
     agent_harness: str | None = None,
     agent_model: str | None = None,
@@ -2326,6 +2469,8 @@ def run_readme_smoke(
         validate_workspace_archive,
         write_eval_summary_outputs,
     )
+
+    from readme_runs.kickoff_guidance import apply_guidance_only_kickoff, kickoff_guidance_summary
 
     _log = log or (lambda message: print(message, flush=True))
     driver_started = time.monotonic()
@@ -2378,6 +2523,12 @@ def run_readme_smoke(
         worker_pool_id=launch.worker_pool_id,
     )
     worker_pool_id = str(bundle.get("worker_pool_id") or launch.worker_pool_id).strip()
+    kickoff = apply_guidance_only_kickoff(
+        bundle,
+        project_notes=config.project_notes_framing(worker_pool_id=worker_pool_id),
+        task_briefs=config.worker_planning_briefs(worker_pool_id=worker_pool_id),
+    )
+    summary.update(kickoff_guidance_summary(kickoff))
     runnable_project_request = dict(bundle.get("runnable_project_request") or {})
     files = bundle.get("workspace_inputs", {}).get("files")
     if not isinstance(files, list):

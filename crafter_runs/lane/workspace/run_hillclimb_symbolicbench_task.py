@@ -527,10 +527,42 @@ def _selected_envs(raw_env: str) -> list[str]:
     return [raw_env]
 
 
-def _candidate_paths(candidate_root: Path | None, env_id: str) -> list[tuple[str, Path]]:
+def _parse_candidate_id_filter(raw: str) -> tuple[str, ...]:
+    candidate_ids = tuple(part.strip() for part in str(raw or "").split(",") if part.strip())
+    invalid = [
+        candidate_id
+        for candidate_id in candidate_ids
+        if candidate_id in {".", ".."}
+        or "/" in candidate_id
+        or "\\" in candidate_id
+        or Path(candidate_id).name != candidate_id
+    ]
+    if invalid:
+        raise RuntimeError(f"invalid candidate id filter: {', '.join(invalid)}")
+    return candidate_ids
+
+
+def _candidate_paths(
+    candidate_root: Path | None,
+    env_id: str,
+    *,
+    candidate_ids: tuple[str, ...] = (),
+) -> list[tuple[str, Path]]:
     if candidate_root is None:
         return []
     env_root = candidate_root / env_id
+    if candidate_ids:
+        candidates: list[tuple[str, Path]] = []
+        missing: list[str] = []
+        for candidate_id in candidate_ids:
+            policy_path = env_root / candidate_id / "heuristic_policy.py"
+            if policy_path.is_file():
+                candidates.append((candidate_id, policy_path))
+            else:
+                missing.append(str(policy_path))
+        if missing:
+            raise RuntimeError("assigned candidate policy missing: " + ", ".join(missing))
+        return candidates
     if not env_root.exists():
         return []
     candidates: list[tuple[str, Path]] = []
@@ -1021,8 +1053,154 @@ def _write_reproduction(
                 "",
                 "```bash",
                 f"python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root /tmp/hillclimb-symbolicbench --env {envs[0]} --iterations 0",
-                "python3 workspace/run_hillclimb_symbolicbench_task.py score --output-root /tmp/hillclimb-symbolicbench",
                 "```",
+                "",
+                "The SMR DEO worker loop publishes from artifacts/workproduct_container/eval_summary.json.",
+                "Run the score subcommand only as a separate verifier gate after report artifacts are complete.",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _best_non_baseline_record(eval_summary: dict[str, Any]) -> dict[str, Any] | None:
+    best_candidate_id = str(eval_summary.get("best_candidate_id") or "")
+    records = eval_summary.get("records")
+    if not isinstance(records, list):
+        return None
+    for record in records:
+        if (
+            isinstance(record, dict)
+            and record.get("source_kind") != "baseline"
+            and str(record.get("candidate_id") or "") == best_candidate_id
+        ):
+            return record
+    for record in records:
+        if isinstance(record, dict) and record.get("source_kind") != "baseline":
+            return record
+    return None
+
+
+def _achievement_frequency(record: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(record, dict):
+        return {}
+    train = record.get("train")
+    if not isinstance(train, dict):
+        return {}
+    summary = train.get("summary")
+    if not isinstance(summary, dict):
+        return {}
+    frequency = summary.get("achievement_frequency")
+    return frequency if isinstance(frequency, dict) else {}
+
+
+def _record_achievement_frequency(record: dict[str, Any]) -> dict[str, Any]:
+    return _achievement_frequency(record)
+
+
+def _candidate_progression_lines(eval_summary: dict[str, Any]) -> list[str]:
+    records = eval_summary.get("records")
+    if not isinstance(records, list):
+        return ["- No candidate records found."]
+    lines = [
+        "| Candidate | Kind | Status | Score | Delta | Path |",
+        "| --- | --- | --- | ---: | ---: | --- |",
+    ]
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        lines.append(
+            "| {candidate} | {kind} | {status} | {score} | {delta} | {path} |".format(
+                candidate=record.get("candidate_id") or "",
+                kind=record.get("source_kind") or "",
+                status=record.get("status") or "",
+                score=record.get("score"),
+                delta=record.get("score_delta"),
+                path=record.get("candidate_policy_path") or "",
+            )
+        )
+    return lines
+
+
+def _achievement_progression_lines(eval_summary: dict[str, Any]) -> list[str]:
+    records = [record for record in eval_summary.get("records", []) if isinstance(record, dict)]
+    if not records:
+        return ["- No achievement records found."]
+    achievements = sorted(
+        {name for record in records for name in _record_achievement_frequency(record)}
+    )
+    if not achievements:
+        return ["- No achievement frequencies recorded."]
+    candidate_ids = [str(record.get("candidate_id") or "") for record in records]
+    lines = [
+        "| Achievement | " + " | ".join(candidate_ids) + " |",
+        "| --- | " + " | ".join("---:" for _ in candidate_ids) + " |",
+    ]
+    for achievement in achievements:
+        cells = [
+            str(_record_achievement_frequency(record).get(achievement, 0)) for record in records
+        ]
+        lines.append("| " + achievement + " | " + " | ".join(cells) + " |")
+    return lines
+
+
+def _write_final_report(
+    *,
+    path: Path,
+    eval_summary: dict[str, Any],
+    seed_count: int,
+) -> None:
+    best_record = _best_non_baseline_record(eval_summary)
+    candidate_path = (
+        str(best_record.get("candidate_policy_path") or "") if isinstance(best_record, dict) else ""
+    )
+    candidate_id = (
+        str(best_record.get("candidate_id") or "")
+        if isinstance(best_record, dict)
+        else str(eval_summary.get("best_candidate_id") or "")
+    )
+    candidate_score = (
+        best_record.get("score")
+        if isinstance(best_record, dict)
+        else eval_summary.get("best_score")
+    )
+    candidate_delta = (
+        best_record.get("score_delta")
+        if isinstance(best_record, dict)
+        else eval_summary.get("best_score_delta")
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            [
+                "# Crafter Candidate Evidence Report",
+                "",
+                "## Summary",
+                f"- Best candidate: {eval_summary.get('best_candidate_id')}",
+                f"- Reported candidate: {candidate_id}",
+                f"- Candidate path: {candidate_path or 'unavailable'}",
+                f"- Baseline score: {eval_summary.get('baseline_score')}",
+                f"- Candidate score: {candidate_score}",
+                f"- Score delta: {candidate_delta}",
+                f"- Seed count: {seed_count}",
+                f"- Score source: {eval_summary.get('score_source')}",
+                "",
+                "## Candidate Progression",
+                *_candidate_progression_lines(eval_summary),
+                "",
+                "## Per-Achievement Frequencies",
+                *_achievement_progression_lines(eval_summary),
+                "",
+                "## Artifact Paths",
+                "- eval_summary: artifacts/workproduct_container/eval_summary.json",
+                "- experiment_results: artifacts/workproduct_container/experiment_results.json",
+                "- candidate_ledger: artifacts/workproduct_container/candidate_ledger.jsonl",
+                "- achievement_diversity: artifacts/workproduct_container/achievement_diversity.json",
+                "- reproduction: artifacts/workproduct_container/reproduction.md",
+                "- workproduct_archive: artifacts/workproduct_container.tar.gz",
+                "",
+                "Publish this file with publish_report_work_product before set_task_state(done).",
                 "",
             ]
         ),
@@ -1058,6 +1236,7 @@ def run(args: argparse.Namespace) -> int:
     candidate_root = (
         Path(args.candidate_root).expanduser().resolve() if args.candidate_root else None
     )
+    candidate_id_filter = _parse_candidate_id_filter(args.candidate_id)
     ledger_path = workproduct / "candidate_ledger.jsonl"
     if ledger_path.exists():
         ledger_path.unlink()
@@ -1122,7 +1301,9 @@ def run(args: argparse.Namespace) -> int:
             )
             train_csv = train_seed_overrides.get(env_id) or spec.train_seeds
             candidate_entries = [("baseline", baseline_policy)] + _candidate_paths(
-                candidate_root, env_id
+                candidate_root,
+                env_id,
+                candidate_ids=candidate_id_filter,
             )
             incumbent_env_score = -1.0
             baseline_env_score: float | None = None
@@ -1321,6 +1502,14 @@ def run(args: argparse.Namespace) -> int:
         best_candidate_id=best_candidate_id,
         best_score=best_score,
         heldout_meta=heldout_meta,
+    )
+    report_seed_count = len(
+        _parse_seed_csv(train_seed_overrides.get(env_ids[0]) or ENV_SPECS[env_ids[0]].train_seeds)
+    )
+    _write_final_report(
+        path=output_root / "reports" / "final_report.md",
+        eval_summary=eval_summary,
+        seed_count=report_seed_count,
     )
     tar_path = workproduct.parent / "workproduct_container.tar.gz"
     manifest = {
@@ -1643,6 +1832,7 @@ def score(args: argparse.Namespace) -> int:
         output_root / "artifacts/workproduct_container/achievement_diversity.json",
         output_root / "artifacts/workproduct_container/directed_effort_outcomes.json",
         output_root / "artifacts/workproduct_container/reproduction.md",
+        output_root / "reports/final_report.md",
         output_root / "artifacts/reportbench_output.json",
     ]
     for path in required:
@@ -1762,6 +1952,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("--iterations", type=int, default=0)
     run_parser.add_argument("--candidate-root", default="")
+    run_parser.add_argument(
+        "--candidate-id",
+        default="",
+        help=(
+            "Optional comma-separated candidate id filter under --candidate-root. "
+            "Use this in parallel SMR workers so each worker evaluates only its assigned candidate."
+        ),
+    )
     run_parser.add_argument(
         "--train-seeds",
         default="",

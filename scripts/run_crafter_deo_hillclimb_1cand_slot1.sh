@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Crafter code-policy DEO hillclimb (1 candidate) on slot1 via crafter_runs/crafter_deo_run.py
+# Crafter code-policy DEO hillclimb (1 candidate, guidance-only kickoff) on slot1
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
