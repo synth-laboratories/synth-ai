@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterator, Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, List, cast
 
 from synth_ai.managed_research.models.factories import (
     AuthorizationPolicy,
@@ -50,6 +50,14 @@ def _enum_query_value(value: object | None) -> str | None:
     return str(enum_value if enum_value is not None else value)
 
 
+def _wire_mapping_payload(value: object, *, field_name: str) -> dict[str, Any]:
+    to_wire = getattr(value, "to_wire", None)
+    wire_value = to_wire() if callable(to_wire) else value
+    if not isinstance(wire_value, Mapping):
+        raise TypeError(f"{field_name} must be a mapping or support to_wire()")
+    return dict(cast(Mapping[str, Any], wire_value))
+
+
 class FactoriesAPI(_ClientNamespace):
     def create(
         self,
@@ -57,7 +65,7 @@ class FactoriesAPI(_ClientNamespace):
     ) -> Factory:
         return Factory.from_wire(self._client.create_factory(request))
 
-    def list(self, *, include_archived: bool = False) -> list[Factory]:
+    def list(self, *, include_archived: bool = False) -> List[Factory]:
         return [
             Factory.from_wire(item)
             for item in self._client.list_factories(include_archived=include_archived)
@@ -169,7 +177,7 @@ class FactoriesAPI(_ClientNamespace):
         factory_id: str,
         *,
         include_archived: bool = False,
-    ) -> list[FactoryProjectLink]:
+    ) -> List[FactoryProjectLink]:
         return [
             FactoryProjectLink.from_wire(item)
             for item in self._client.list_factory_projects(
@@ -323,7 +331,7 @@ class FactoriesAPI(_ClientNamespace):
         source: FactoryIdeaSource | str | None = None,
         include_archived: bool = False,
         limit: int = 50,
-    ) -> list[FactoryIdea]:
+    ) -> List[FactoryIdea]:
         return [
             FactoryIdea.from_wire(item)
             for item in self._client.list_factory_ideas(
@@ -422,7 +430,7 @@ class FactoriesAPI(_ClientNamespace):
         status: FactoryActorOutputStatus | str | None = None,
         include_archived: bool = False,
         limit: int = 50,
-    ) -> list[FactoryActorOutput]:
+    ) -> List[FactoryActorOutput]:
         return [
             FactoryActorOutput.from_wire(item)
             for item in self._client.list_factory_actor_outputs(
@@ -547,7 +555,7 @@ class FactoriesAPI(_ClientNamespace):
                 return
             time.sleep(max(poll_interval, 0.1))
 
-    def list_efforts(self, factory_id: str) -> list[Effort]:
+    def list_efforts(self, factory_id: str) -> List[Effort]:
         return [
             Effort.from_wire(item) for item in self._client.list_efforts_for_factory(factory_id)
         ]
@@ -589,8 +597,12 @@ class FactoriesAPI(_ClientNamespace):
 
         policy_payload: dict[str, Any] = {}
         if recurrence_policy is not None:
-            to_wire = getattr(recurrence_policy, "to_wire", None)
-            policy_payload.update(dict(to_wire() if callable(to_wire) else recurrence_policy))
+            policy_payload.update(
+                _wire_mapping_payload(
+                    recurrence_policy,
+                    field_name="recurrence_policy",
+                )
+            )
 
         return Effort.from_wire(
             self._client.create_effort(
@@ -622,7 +634,7 @@ class FactoriesAPI(_ClientNamespace):
             )
         )
 
-    def list_open_decisions(self, factory_id: str) -> list[Effort]:
+    def list_open_decisions(self, factory_id: str) -> List[Effort]:
         return list(self.status(factory_id).open_decisions)
 
     def wake_due(
@@ -719,8 +731,12 @@ class EffortsAPI(_ClientNamespace):
     ) -> Effort:
         policy: dict[str, Any] = {}
         if recurrence_policy is not None:
-            to_wire = getattr(recurrence_policy, "to_wire", None)
-            policy.update(dict(to_wire() if callable(to_wire) else recurrence_policy))
+            policy.update(
+                _wire_mapping_payload(
+                    recurrence_policy,
+                    field_name="recurrence_policy",
+                )
+            )
         if launch_request is not None:
             policy["launch_request"] = dict(launch_request)
         return self.patch(
