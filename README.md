@@ -78,6 +78,7 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
+| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, evidence, MCP (`synth-ai[research]`). |
 | Containers | `client.containers` | Hosted container records and lifecycle operations. |
 | Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
 | Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
