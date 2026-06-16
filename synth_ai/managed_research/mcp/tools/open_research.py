@@ -25,9 +25,7 @@ def _metric_target_schema() -> dict[str, Any]:
         "properties": {
             "name": {
                 "type": "string",
-                "description": (
-                    "Metric identifier, e.g. ``craftax.reward.mean``."
-                ),
+                "description": ("Metric identifier, e.g. ``craftax.reward.mean``."),
             },
             "operator": {
                 "type": "string",
@@ -132,9 +130,7 @@ def build_open_research_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "queue_id": {
                         "type": "string",
-                        "description": (
-                            "Target queue id, e.g. ``q_oed_1h_craftax``."
-                        ),
+                        "description": ("Target queue id, e.g. ``q_oed_1h_craftax``."),
                     },
                     "prompt": {
                         "type": "string",

@@ -31,7 +31,7 @@ import sys
 import tarfile
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -52,6 +52,136 @@ from synth_ai.research.errors import (
 )
 
 LogFn = Callable[[str], None]
+
+# Canonical README smoke orchestrator playbook (from evals lane; guidance-only kickoff).
+_README_SMOKE_PROJECT_NOTES_TEMPLATE = """
+REPORT BENCH — README smoke.
+
+Guidance-only kickoff: `kickoff.tasks` is empty. You MUST use `plan_tasks` to create work.
+
+The purpose of this lane is not model quality. It is to verify that SMR can plan,
+dispatch, execute, and finish a trivial worker task quickly.
+
+Plan exactly one repo task for the worker host. Do not split authoring, verification,
+and push into separate tasks. Do not create an extra verifier or reviewer task for this
+lane.
+
+That single repo task must:
+1. replace the bootstrap root README.md in the workspace repo with worker-authored content,
+2. commit and push that minimal repo change to `main` via the `workspace_push` tool,
+3. publish the requested report WorkProduct through `publish_report_work_product`,
+4. call `set_task_state` with terminal state `done` in the same worker turn after
+   the WorkProduct publish succeeds.
+
+Committed-repo contract for this lane:
+- Plan exactly one repo task.
+- The committed repo tree must contain this worker-authored file:
+  - `README.md`
+- The bootstrap `starting-data/...` namespace may remain from project seeding.
+- System/bootstrap-owned model-visible files may appear and MUST NOT be counted as
+  unexpected worker output (`.smr-bootstrap`, `TASK_README.md`, `task.toml`,
+  `task_contract.json`, `kickoff_contract.json`, workspace runners).
+
+WorkProduct contract for this lane:
+- Publish a report WorkProduct titled `README Smoke`.
+- The report text should summarize the README replacement, include the proof marker,
+  and explain why this run is only a path/health smoke rather than a model-quality
+  benchmark.
+
+Planner turn rule:
+- After `plan_tasks` accepts exactly one repo task, call `set_run_state` with
+  `state = "executing"` and end the orchestrator turn.
+- Do not poll or list run events in that same turn to prove the task row exists.
+
+Execution-routing requirement for every planned repo task:
+- Every task you create with `plan_tasks` MUST include
+  `task_dispatch={{"execution_owner":"worker_host","worker_pool":"{worker_pool_id}","target_kind":"repo","task_affinity_key":"reportbench-readme-smoke"}}`
+- The only valid execution owner is exactly `"worker_host"`.
+""".strip()
+
+_README_SMOKE_WORKER_BRIEF = """
+Task brief 1 (template for `plan_tasks` — copy into `input.instructions`):
+- task_key: write_readme_and_bundle
+- kind: repo_task
+- require_workspace_push_on_done: true
+- task_dispatch.execution_owner: worker_host
+- task_dispatch.worker_pool: {worker_pool_id}
+- task_dispatch.target_kind: repo
+- task_dispatch.task_affinity_key: reportbench-readme-smoke
+
+Instructions:
+Create a tiny README smoke output as quickly as possible.
+
+Do exactly this:
+1. Replace the bootstrap README.md at the repo root with this exact content:
+
+   # SMR Worker README Smoke Bundle
+
+   SMR_WORKER_AUTHORED_README_PROOF: readme_smoke_worker_v2
+
+   This repository contains a minimal worker-authored README for the SMR
+   reportbench smoke lane.
+
+   This run validates the SMR path for planning, dispatch, worker execution,
+   workspace push, report WorkProduct publication, review, and terminal task
+   state. It is a path/health smoke, not a model-quality benchmark.
+
+   Do not add any extra sentences to README.md. In particular, do not describe,
+   quote, or summarize the original bootstrap README text.
+2. Use `workspace_push` with:
+   - `commit_message = "Add worker-authored README smoke bundle"`
+   - `push_branch = "main"`
+   This tool performs the commit and authenticated push. Do not run raw
+   `git commit` or raw `git push`.
+3. After the push succeeds, publish the required report WorkProduct with
+   `publish_report_work_product`:
+   - `title = "README Smoke"`
+   - `report_text` must summarize the README replacement, include the exact
+     proof marker, and explain why this run is only a path/health smoke rather
+     than a model-quality benchmark
+   - include this task's `task_id` when the tool arguments allow it
+   Do not treat writing a report file as enough; the backend WorkProduct row must
+   become ready/viewable before completion.
+4. After the WorkProduct publish succeeds, call `set_task_state` for this task with state `done`.
+   Do not end the turn before calling `set_task_state`.
+
+Do not install packages. Do not run long commands. This is a speed/path validation task.
+Do not create or commit any extra worker-authored repo files beyond `README.md`.
+
+Acceptance criteria:
+- Exactly one repo task is planned for the run
+- README.md includes the exact worker proof marker line
+- README.md contains only the requested worker-authored smoke content
+- A ready/viewable report WorkProduct titled README Smoke is published
+- No unexpected worker-authored files are committed to the workspace repo
+- The README change is committed and pushed
+""".strip()
+
+
+@dataclass(frozen=True)
+class ReadmeSmokeRunConfig:
+    """Optional overrides for README smoke guidance-only kickoff."""
+
+    extra_orchestrator_notes: str = ""
+    extra_worker_notes: str = ""
+
+    def project_notes_framing(self, *, worker_pool_id: str) -> str:
+        notes = _README_SMOKE_PROJECT_NOTES_TEMPLATE.format(worker_pool_id=worker_pool_id)
+        extra = self.extra_orchestrator_notes.strip()
+        if extra:
+            notes = f"{notes}\n\n{extra}"
+        return notes
+
+    def worker_planning_briefs(self, *, worker_pool_id: str) -> list[str]:
+        brief = _README_SMOKE_WORKER_BRIEF.format(worker_pool_id=worker_pool_id)
+        extra = self.extra_worker_notes.strip()
+        if extra:
+            brief = f"{brief}\n\n{extra}"
+        return [brief.strip()]
+
+
+DEFAULT_README_SMOKE_CONFIG = ReadmeSmokeRunConfig()
+
 
 _POLL_PREFIX_RE = re.compile(r"^\[poll\](?P<still> still)? ")
 _POLL_KV_RE = re.compile(r"(\w+)=('[^']*'|\S+)")
@@ -94,7 +224,7 @@ def _reformat_log_message(msg: str) -> str:
     m = _POLL_PREFIX_RE.match(msg)
     if not m:
         return msg
-    kvs = _POLL_KV_RE.findall(msg[m.end():])
+    kvs = _POLL_KV_RE.findall(msg[m.end() :])
     kv_dict = {k: v.strip("'") for k, v in kvs}
     state = kv_dict.get("state", "unknown")
     try:
@@ -134,10 +264,11 @@ def _resolve_evals_root() -> Path:
     env_root = os.environ.get("EVALS_ROOT", "").strip()
     if env_root:
         return Path(env_root).expanduser().resolve()
-    workspace = Path(
-        os.environ.get("SYNTH_WORKSPACE_ROOT")
-        or Path(__file__).resolve().parent.parent
-    ).expanduser().resolve()
+    workspace = (
+        Path(os.environ.get("SYNTH_WORKSPACE_ROOT") or Path(__file__).resolve().parent.parent)
+        .expanduser()
+        .resolve()
+    )
     return (workspace / "evals").resolve()
 
 
@@ -147,9 +278,9 @@ def _ensure_evals_importable(evals_root: Path) -> None:
             "evals checkout not found. Set EVALS_ROOT or SYNTH_WORKSPACE_ROOT "
             f"(looked for {evals_root})."
         )
-    workspace_root = Path(
-        os.environ.get("SYNTH_WORKSPACE_ROOT") or evals_root.parent
-    ).expanduser().resolve()
+    workspace_root = (
+        Path(os.environ.get("SYNTH_WORKSPACE_ROOT") or evals_root.parent).expanduser().resolve()
+    )
     # ``reportbench`` resolves from the evals repo root; ``evals.*`` needs the parent
     # on sys.path because the checkout directory is named ``evals``.
     for path in (evals_root, workspace_root):
@@ -159,7 +290,7 @@ def _ensure_evals_importable(evals_root: Path) -> None:
 
 
 def _utcstamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def synth_ai_repo_root() -> Path:
@@ -204,8 +335,8 @@ def _parse_iso_timestamp(value: Any) -> datetime | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        return parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _wall_elapsed_seconds(summary: dict[str, Any]) -> float | None:
@@ -390,9 +521,7 @@ def _persist_terminal_run_evidence(
         )
 
     try:
-        summary["task_events"] = jsonish(
-            client.list_run_task_events(project_id, run_id, limit=100)
-        )
+        summary["task_events"] = jsonish(client.list_run_task_events(project_id, run_id, limit=100))
     except Exception as exc:  # noqa: BLE001
         _record_boundary_degradation(
             summary,
@@ -492,9 +621,7 @@ def _is_workspace_noise_path(path: str) -> bool:
         return True
     if normalized == ".git" or normalized.endswith("/.git"):
         return True
-    if "/.git/" in f"/{normalized}/":
-        return True
-    return False
+    return "/.git/" in f"/{normalized}/"
 
 
 def _workspace_file_delta(
@@ -529,12 +656,24 @@ def _workspace_file_delta(
 def _fetch_project_git_status(
     client: ResearchControlClient,
     project_id: str,
+    *,
+    branch: str | None = None,
+    max_tree_entries: int = 200,
+    max_commits: int = 20,
+    max_unmerged_branches: int = 20,
 ) -> dict[str, Any] | None:
     try:
+        params: dict[str, Any] = {
+            "max_tree_entries": max_tree_entries,
+            "max_commits": max_commits,
+            "max_unmerged_branches": max_unmerged_branches,
+        }
+        if branch:
+            params["branch"] = branch
         payload = client._request_json(  # noqa: SLF001
             "GET",
             f"/smr/projects/{project_id}/git/status",
-            params={"max_tree_entries": 200, "max_commits": 20},
+            params=params,
         )
         return payload if isinstance(payload, dict) else None
     except Exception:
@@ -671,7 +810,10 @@ def _collect_run_progress_metadata(
     run_evidence = summary.get("run_evidence")
     if isinstance(run_evidence, dict):
         cached_count = run_evidence.get("runtime_message_count")
-        if isinstance(cached_count, int) and cached_count > messages_summary["runtime_message_count"]:
+        if (
+            isinstance(cached_count, int)
+            and cached_count > messages_summary["runtime_message_count"]
+        ):
             messages_summary["runtime_message_count"] = cached_count
     progress["messages"] = messages_summary
     progress["transcript"] = _summarize_transcript(summary.get("runtime_transcript"))
@@ -779,11 +921,7 @@ def _finalize_run_progress_o11y(
                 for row in actor_table
                 if isinstance(row.get("cost_usd"), (int, float))
             )
-            emit(
-                "[o11y] actors "
-                f"count={len(actor_table)} "
-                f"billed_total=${billed_total:.4f}"
-            )
+            emit(f"[o11y] actors count={len(actor_table)} billed_total=${billed_total:.4f}")
     except Exception as exc:  # noqa: BLE001
         from reportbench.readme_smoke_harness import format_boundary_error_message
 
@@ -793,10 +931,7 @@ def _finalize_run_progress_o11y(
             operation="collect_run_progress_metadata",
             exc=exc,
         )
-        emit(
-            "[o11y] progress metadata unavailable: "
-            f"{format_boundary_error_message(payload)}"
-        )
+        emit(f"[o11y] progress metadata unavailable: {format_boundary_error_message(payload)}")
 
 
 _ACTOR_ROLE_SORT_ORDER = {"orchestrator": 0, "worker": 1, "reviewer": 2, "unknown": 9}
@@ -859,8 +994,10 @@ def _actor_ids_match(left: str, right: str) -> bool:
     right_text = str(right or "").strip().lower()
     if not left_text or not right_text:
         return False
-    return left_text == right_text or left_text.startswith(right_text) or right_text.startswith(
-        left_text
+    return (
+        left_text == right_text
+        or left_text.startswith(right_text)
+        or right_text.startswith(left_text)
     )
 
 
@@ -1087,7 +1224,9 @@ def _assemble_actor_table_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
                 "cost_usd": _actor_cost_usd(usage_row),
                 "token_total": _actor_token_total(usage_row),
                 "model": _actor_model_label(snapshot_row=snapshot_row, usage_row=usage_row),
-                "event_count": usage_row.get("event_count") if isinstance(usage_row, dict) else None,
+                "event_count": usage_row.get("event_count")
+                if isinstance(usage_row, dict)
+                else None,
                 "task_key": snapshot_row.get("task_key"),
             }
         )
@@ -1096,7 +1235,9 @@ def _assemble_actor_table_rows(summary: dict[str, Any]) -> list[dict[str, Any]]:
         actor_id = str(usage_row.get("actor_id") or "").strip()
         if not actor_id or actor_id in matched_usage_ids:
             continue
-        if any(_actor_ids_match(actor_id, str(item.get("actor_id") or "")) for item in snapshot_items):
+        if any(
+            _actor_ids_match(actor_id, str(item.get("actor_id") or "")) for item in snapshot_items
+        ):
             continue
         rows.append(
             {
@@ -1165,21 +1306,31 @@ def _format_actor_table_lines(rows: list[dict[str, Any]] | None) -> list[str]:
             "  "
             + " ".join(
                 [
-                    _format_actor_table_cell(str(row.get("role") or "-"), _ACTOR_TABLE_COLUMNS[0][1]),
+                    _format_actor_table_cell(
+                        str(row.get("role") or "-"), _ACTOR_TABLE_COLUMNS[0][1]
+                    ),
                     _format_actor_table_cell(
                         str(row.get("actor_short") or "-"),
                         _ACTOR_TABLE_COLUMNS[1][1],
                     ),
-                    _format_actor_table_cell(str(row.get("state") or "-"), _ACTOR_TABLE_COLUMNS[2][1]),
-                    _format_actor_table_cell(str(row.get("duration") or "-"), _ACTOR_TABLE_COLUMNS[3][1]),
+                    _format_actor_table_cell(
+                        str(row.get("state") or "-"), _ACTOR_TABLE_COLUMNS[2][1]
+                    ),
+                    _format_actor_table_cell(
+                        str(row.get("duration") or "-"), _ACTOR_TABLE_COLUMNS[3][1]
+                    ),
                     _format_actor_table_cell(cost_text, _ACTOR_TABLE_COLUMNS[4][1]),
                     _format_actor_table_cell(
-                        _format_token_count(row.get("token_total")
-                        if isinstance(row.get("token_total"), int)
-                        else None),
+                        _format_token_count(
+                            row.get("token_total")
+                            if isinstance(row.get("token_total"), int)
+                            else None
+                        ),
                         _ACTOR_TABLE_COLUMNS[5][1],
                     ),
-                    _format_actor_table_cell(str(row.get("model") or "-"), _ACTOR_TABLE_COLUMNS[6][1]),
+                    _format_actor_table_cell(
+                        str(row.get("model") or "-"), _ACTOR_TABLE_COLUMNS[6][1]
+                    ),
                 ]
             )
         )
@@ -1325,9 +1476,8 @@ def _build_failure_summary(summary: dict[str, Any]) -> dict[str, Any] | None:
     failure_evidence = extract_interpretable_failure_evidence(summary)
     return {
         "final_state": final_state,
-        "status_reason": digest.get("status_reason") or summary.get("final_run", {}).get(
-            "status_reason"
-        )
+        "status_reason": digest.get("status_reason")
+        or summary.get("final_run", {}).get("status_reason")
         if isinstance(summary.get("final_run"), dict)
         else None,
         "terminal_failure": terminal_failure,
@@ -1418,7 +1568,9 @@ def _write_run_metrics_json(
         "progress": summary.get("run_progress_metadata")
         if isinstance(summary.get("run_progress_metadata"), dict)
         else None,
-        "actors": summary.get("actor_table") if isinstance(summary.get("actor_table"), list) else None,
+        "actors": summary.get("actor_table")
+        if isinstance(summary.get("actor_table"), list)
+        else None,
     }
     (output_root / "run_metrics.json").write_text(
         json.dumps(metrics, indent=2, sort_keys=True, default=str) + "\n",
@@ -1647,7 +1799,10 @@ def build_research_client(
     _ = SynthClient
     if api_key is None or base_url is None:
         from synth_ai.core.utils.env import get_api_key  # noqa: PLC0415
-        from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base  # noqa: PLC0415
+        from synth_ai.core.utils.urls import (  # noqa: PLC0415
+            BACKEND_URL_BASE,
+            normalize_backend_base,
+        )
 
         api_key = api_key or get_api_key(required=True)
         base_url = normalize_backend_base(
@@ -1678,11 +1833,13 @@ def resolve_readme_smoke_launch(
             env_from_launch_target_contract,
             load_local_launch_target_contract,
         )
+        from reportbench.readme_smoke_harness import substrate_to_host_kind
         from standard.shared.core.evals_core.local_contract import (  # noqa: PLC0415
             expected_contract_path as expected_local_eval_contract_path,
+        )
+        from standard.shared.core.evals_core.local_contract import (
             load_local_eval_contract,
         )
-        from reportbench.readme_smoke_harness import substrate_to_host_kind
 
         contract, contract_path = load_local_launch_target_contract(
             slot,
@@ -1699,9 +1856,7 @@ def resolve_readme_smoke_launch(
         )
         resolved_api_key = str(contract_env.get("SYNTH_API_KEY") or "").strip()
         if not resolved_backend or not resolved_api_key:
-            raise RuntimeError(
-                f"slot {slot!r} contract missing backend_url or SYNTH_API_KEY"
-            )
+            raise RuntimeError(f"slot {slot!r} contract missing backend_url or SYNTH_API_KEY")
         worker_pool_id = str(worker_pool or contract.slot_id or contract.worker_pool_id).strip()
         if not worker_pool_id:
             raise RuntimeError("--worker-pool or slot contract worker_pool_id required")
@@ -1965,7 +2120,9 @@ def _write_reportbench_runtime_trace(
     transcript: dict[str, Any] | None,
     task_events: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    run_evidence = summary.get("run_evidence") if isinstance(summary.get("run_evidence"), dict) else {}
+    run_evidence = (
+        summary.get("run_evidence") if isinstance(summary.get("run_evidence"), dict) else {}
+    )
     final_observability = (
         run_evidence.get("final_observability_summary")
         if isinstance(run_evidence.get("final_observability_summary"), dict)
@@ -2008,9 +2165,7 @@ def _write_reportbench_runtime_trace(
                 "observability snapshot summary",
                 "runtime messages",
             ],
-            "excludes": [
-                "raw hidden chain-of-thought not exposed by backend transcript API"
-            ],
+            "excludes": ["raw hidden chain-of-thought not exposed by backend transcript API"],
         },
     }
     full_trace_path = artifacts_dir / "full_trace.json"
@@ -2031,9 +2186,7 @@ def _artifact_manifest(output_root: Path, relative_paths: list[str]) -> dict[str
             {
                 "path": relative,
                 "bytes": path.stat().st_size,
-                "content_type": "application/json"
-                if path.suffix == ".json"
-                else "text/markdown",
+                "content_type": "application/json" if path.suffix == ".json" else "text/markdown",
             }
         )
     return {
@@ -2092,18 +2245,18 @@ def _write_rubric_companion_artifacts(
     if isinstance(verifier_review, dict):
         relative_paths.insert(2, "artifacts/verifier_review.json")
     primary_score = (
-        float(verifier_score)
-        if isinstance(verifier_score, (int, float))
-        else reward_value
+        float(verifier_score) if isinstance(verifier_score, (int, float)) else reward_value
     )
     evals_summary = {
         "schema_version": "evals_summary.v1",
         "task_id": TASK_ID,
         "project_id": summary.get("project_id"),
         "run_id": summary.get("run_id"),
-        "final_state": "passed" if marker_ok and primary_score >= summary.get(
-            "codex_verifier_pass_threshold", DEFAULT_CODEX_VERIFIER_PASS_THRESHOLD
-        ) else "failed",
+        "final_state": "passed"
+        if marker_ok
+        and primary_score
+        >= summary.get("codex_verifier_pass_threshold", DEFAULT_CODEX_VERIFIER_PASS_THRESHOLD)
+        else "failed",
         "primary_score": primary_score,
     }
     (output_root / "evals_summary.json").write_text(
@@ -2279,6 +2432,7 @@ def run_readme_smoke(
     *,
     launch: ReadmeSmokeLaunch,
     output_root: Path,
+    config: ReadmeSmokeRunConfig = DEFAULT_README_SMOKE_CONFIG,
     research: ResearchClient | None = None,
     agent_harness: str | None = None,
     agent_model: str | None = None,
@@ -2298,8 +2452,8 @@ def run_readme_smoke(
     from reportbench.ai_cache_request import ai_cache_request_from_env
     from reportbench.project_config import build_staged_reportbench_launch_bundle
     from reportbench.readme_smoke_harness import (
-        TASK_ID,
         LANE_ROOT,
+        TASK_ID,
         api_error_payload,
         extract_terminal_failure,
         field_value,
@@ -2316,6 +2470,8 @@ def run_readme_smoke(
         write_eval_summary_outputs,
     )
 
+    from readme_runs.kickoff_guidance import apply_guidance_only_kickoff, kickoff_guidance_summary
+
     _log = log or (lambda message: print(message, flush=True))
     driver_started = time.monotonic()
     output_root = output_root.expanduser().resolve()
@@ -2326,7 +2482,7 @@ def run_readme_smoke(
     log_lines: list[str] = []
 
     def _emit(msg: str) -> None:
-        line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}"
+        line = f"[{datetime.now(UTC).isoformat()}] {msg}"
         log_lines.append(line)
         _log(_reformat_log_message(msg))
 
@@ -2334,10 +2490,13 @@ def run_readme_smoke(
         bar = "─" * max(0, 42 - len(name))
         _log(f"\n── {name} {bar}")
 
-    client = (research or build_research_client(
-        api_key=launch.api_key,
-        base_url=launch.backend,
-    )).control(timeout_seconds=120.0)
+    client = (
+        research
+        or build_research_client(
+            api_key=launch.api_key,
+            base_url=launch.backend,
+        )
+    ).control(timeout_seconds=120.0)
 
     summary: dict[str, Any] = {
         "sdk": "synth-ai",
@@ -2346,7 +2505,7 @@ def run_readme_smoke(
         "target": launch.target,
         "backend": launch.backend,
         "host_kind": launch.host_kind.value,
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "lane_root": str(LANE_ROOT),
         "poll_timebox_seconds": poll_timebox_s,
         "launch_retry_timebox_seconds": launch_retry_timebox_s,
@@ -2364,13 +2523,17 @@ def run_readme_smoke(
         worker_pool_id=launch.worker_pool_id,
     )
     worker_pool_id = str(bundle.get("worker_pool_id") or launch.worker_pool_id).strip()
+    kickoff = apply_guidance_only_kickoff(
+        bundle,
+        project_notes=config.project_notes_framing(worker_pool_id=worker_pool_id),
+        task_briefs=config.worker_planning_briefs(worker_pool_id=worker_pool_id),
+    )
+    summary.update(kickoff_guidance_summary(kickoff))
     runnable_project_request = dict(bundle.get("runnable_project_request") or {})
     files = bundle.get("workspace_inputs", {}).get("files")
     if not isinstance(files, list):
         files = []
-    work_mode_raw = str(
-        (bundle.get("trigger_payload") or {}).get("work_mode") or "directed_effort"
-    )
+    work_mode_raw = str((bundle.get("trigger_payload") or {}).get("work_mode") or "directed_effort")
     work_mode = ResearchWorkMode(work_mode_raw)
     trigger_kwargs = trigger_kwargs_from_bundle(
         host_kind=launch.host_kind,
@@ -2416,8 +2579,7 @@ def run_readme_smoke(
     retention_policy = runnable_project_request.get("retention_policy")
     should_auto_archive = (
         isinstance(retention_policy, dict)
-        and str(retention_policy.get("class") or "").strip().lower()
-        == "local_ephemeral_eval"
+        and str(retention_policy.get("class") or "").strip().lower() == "local_ephemeral_eval"
         and str(retention_policy.get("auto_archive") or "true").strip().lower()
         not in {"false", "0", "no"}
     )
@@ -2447,9 +2609,7 @@ def run_readme_smoke(
             project = client.create_runnable_project(runnable_project_request)
             project_id = str(field_value(project, "project_id", default="") or "").strip()
             if not project_id:
-                raise ResearchApiError(
-                    f"create_runnable_project returned no project_id: {project}"
-                )
+                raise ResearchApiError(f"create_runnable_project returned no project_id: {project}")
             summary["project_id"] = project_id
             _emit(f"project_id={project_id}")
 
@@ -2483,8 +2643,7 @@ def run_readme_smoke(
                         raise
                     if time.monotonic() >= setup_deadline:
                         raise ResearchApiError(
-                            "upload_workspace_files blocked after "
-                            f"{setup_retry_timebox_s}s: {exc}"
+                            f"upload_workspace_files blocked after {setup_retry_timebox_s}s: {exc}"
                         ) from exc
                     delay_s = setup_retry_delay_seconds(upload_attempt)
                     _emit(f"setup backpressure upload delay_s={delay_s:.1f}")
@@ -2607,8 +2766,7 @@ def run_readme_smoke(
                     exc=exc,
                 )
                 _emit(
-                    "[o11y] terminal digest unavailable: "
-                    f"{format_boundary_error_message(payload)}"
+                    f"[o11y] terminal digest unavailable: {format_boundary_error_message(payload)}"
                 )
 
             if final_state in {"failed", "stopped", "canceled", "cancelled", "blocked"}:
@@ -2648,11 +2806,7 @@ def run_readme_smoke(
                 validation = validate_workspace_archive(archive_path)
                 summary["validation"] = validation
 
-            if (
-                run_codex_verifier
-                and archive_path.exists()
-                and archive_path.stat().st_size > 0
-            ):
+            if run_codex_verifier and archive_path.exists() and archive_path.stat().st_size > 0:
                 _section("Verification")
                 evals_root = _resolve_evals_root()
                 task_root = _readme_smoke_task_root(evals_root)
@@ -2666,9 +2820,7 @@ def run_readme_smoke(
                         f"final_state={final_state!r} is not terminal-success"
                     )
                 elif not task_root.is_dir():
-                    summary["reportbench_verifier_error"] = (
-                        f"missing task root: {task_root}"
-                    )
+                    summary["reportbench_verifier_error"] = f"missing task root: {task_root}"
                     _emit(f"codex verifier failed: missing task root {task_root}")
                 else:
                     verifier_phase_started = time.monotonic()
@@ -2752,7 +2904,7 @@ def run_readme_smoke(
         _emit(f"FATAL {type(exc).__name__}: {exc}")
         summary["fatal_error"] = api_error_payload(exc)
 
-    summary["finished_at"] = datetime.now(timezone.utc).isoformat()
+    summary["finished_at"] = datetime.now(UTC).isoformat()
     driver_elapsed_s = time.monotonic() - driver_started
 
     exit_code = readme_smoke_exit_code(summary)
@@ -2764,10 +2916,7 @@ def run_readme_smoke(
     )
     if exit_code == 0:
         if verifier:
-            _emit(
-                "score: passed "
-                f"(README marker + codex verifier score={verifier.get('score')})"
-            )
+            _emit(f"score: passed (README marker + codex verifier score={verifier.get('score')})")
         else:
             _emit("score: passed (worker README marker present in workspace archive)")
     elif summary.get("fatal_error"):
@@ -2919,8 +3068,7 @@ def main(argv: list[str] | None = None) -> int:
             "Check SYNTH_API_KEY for this slot (slot contract or synth-ai/.env)."
         ) from exc
     print(
-        f"[synth-ai research] backend={launch.backend} "
-        f"limits_keys={sorted(limits.keys())[:8]}",
+        f"[synth-ai research] backend={launch.backend} limits_keys={sorted(limits.keys())[:8]}",
         flush=True,
     )
 

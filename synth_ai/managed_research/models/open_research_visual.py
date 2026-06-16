@@ -72,10 +72,10 @@ class OpenResearchVisualManifest:
             entrypoint_path=_optional_string(payload.get("entrypoint_path")),
             preview_image_path=_optional_string(payload.get("preview_image_path")),
             claims=claims,
-            grader_inputs=dict(payload.get("grader_inputs", {}))  # type: ignore[arg-type]
+            grader_inputs={str(key): value for key, value in payload["grader_inputs"].items()}
             if isinstance(payload.get("grader_inputs"), Mapping)
             else {},
-            render=dict(payload.get("render", {}))  # type: ignore[arg-type]
+            render={str(key): value for key, value in payload["render"].items()}
             if isinstance(payload.get("render"), Mapping)
             else {},
         )

@@ -8,7 +8,7 @@ import json
 import mimetypes
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 from synth_ai.sdk.managed_agents_anthropic import ManagedAgentsAnthropicClient
 
@@ -67,7 +67,9 @@ class _AgentsResource(_Resource):
         return self._transport.get_agent(agent_id)
 
     def update(self, agent_id: str, **body: Any) -> dict[str, Any]:
-        return self._transport.update_agent(agent_id, _merge_body(body.pop("extra_body", None), body))
+        return self._transport.update_agent(
+            agent_id, _merge_body(body.pop("extra_body", None), body)
+        )
 
     def list(self, **params: Any) -> dict[str, Any]:
         return self._transport.list_agents(**_clean_body(params))
@@ -154,13 +156,17 @@ class _SessionEventsResource(_Resource):
     def list(self, session_id: str, **params: Any) -> dict[str, Any]:
         return self._transport.list_session_events(session_id, **_clean_body(params))
 
-    def send(self, session_id: str, *, events: list[dict[str, Any]] | None = None, **body: Any) -> dict[str, Any]:
+    def send(
+        self, session_id: str, *, events: List[dict[str, Any]] | None = None, **body: Any
+    ) -> dict[str, Any]:
         payload = _merge_body(body.pop("extra_body", None), body)
         if events is not None:
             payload["events"] = events
         return self._transport.post_session_events(session_id, payload)
 
-    def create(self, session_id: str, *, events: list[dict[str, Any]] | None = None, **body: Any) -> dict[str, Any]:
+    def create(
+        self, session_id: str, *, events: List[dict[str, Any]] | None = None, **body: Any
+    ) -> dict[str, Any]:
         return self.send(session_id, events=events, **body)
 
     def stream(self, session_id: str, **params: Any) -> Iterator[dict[str, Any]]:
@@ -280,7 +286,9 @@ class _SkillsResource(_Resource):
         self.versions = _SkillVersionsResource(transport)
 
     def create(self, **body: Any) -> dict[str, Any]:
-        return self._transport.request("POST", "/skills", json_body=_merge_body(body.pop("extra_body", None), body))
+        return self._transport.request(
+            "POST", "/skills", json_body=_merge_body(body.pop("extra_body", None), body)
+        )
 
     def retrieve(self, skill_id: str, **_: Any) -> dict[str, Any]:
         return self._transport.request("GET", f"/skills/{skill_id}")
@@ -323,7 +331,9 @@ class _VaultsResource(_Resource):
         self.credentials = _VaultCredentialsResource(transport)
 
     def create(self, **body: Any) -> dict[str, Any]:
-        return self._transport.request("POST", "/vaults", json_body=_merge_body(body.pop("extra_body", None), body))
+        return self._transport.request(
+            "POST", "/vaults", json_body=_merge_body(body.pop("extra_body", None), body)
+        )
 
     def retrieve(self, vault_id: str, **_: Any) -> dict[str, Any]:
         return self._transport.request("GET", f"/vaults/{vault_id}")
@@ -395,7 +405,9 @@ class _MemoryStoresResource(_Resource):
         self.memory_versions = _MemoryVersionsResource(transport)
 
     def create(self, **body: Any) -> dict[str, Any]:
-        return self._transport.request("POST", "/memory_stores", json_body=_merge_body(body.pop("extra_body", None), body))
+        return self._transport.request(
+            "POST", "/memory_stores", json_body=_merge_body(body.pop("extra_body", None), body)
+        )
 
     def retrieve(self, memory_store_id: str, **_: Any) -> dict[str, Any]:
         return self._transport.request("GET", f"/memory_stores/{memory_store_id}")
@@ -414,7 +426,9 @@ class _MemoryStoresResource(_Resource):
         return self._transport.request("DELETE", f"/memory_stores/{memory_store_id}")
 
     def archive(self, memory_store_id: str, **_: Any) -> dict[str, Any]:
-        return self._transport.request("POST", f"/memory_stores/{memory_store_id}/archive", json_body={})
+        return self._transport.request(
+            "POST", f"/memory_stores/{memory_store_id}/archive", json_body={}
+        )
 
 
 class _MemoriesResource(_Resource):
@@ -443,7 +457,9 @@ class _MemoriesResource(_Resource):
         )
 
     def delete(self, memory_store_id: str, memory_id: str, **_: Any) -> dict[str, Any]:
-        return self._transport.request("DELETE", f"/memory_stores/{memory_store_id}/items/{memory_id}")
+        return self._transport.request(
+            "DELETE", f"/memory_stores/{memory_store_id}/items/{memory_id}"
+        )
 
 
 class _MemoryVersionsResource(_Resource):
@@ -472,7 +488,9 @@ class _WebhooksResource(_Resource):
         self._webhook_key = webhook_key
 
     def create(self, **body: Any) -> dict[str, Any]:
-        return self._transport.request("POST", "/webhooks", json_body=_merge_body(body.pop("extra_body", None), body))
+        return self._transport.request(
+            "POST", "/webhooks", json_body=_merge_body(body.pop("extra_body", None), body)
+        )
 
     def retrieve(self, webhook_id: str, **_: Any) -> dict[str, Any]:
         return self._transport.request("GET", f"/webhooks/{webhook_id}")
@@ -497,7 +515,9 @@ class _WebhooksResource(_Resource):
             json_body=_merge_body(body.pop("extra_body", None), body),
         )
 
-    def unwrap(self, payload: str, *, headers: dict[str, str], key: str | bytes | None = None) -> dict[str, Any]:
+    def unwrap(
+        self, payload: str, *, headers: dict[str, str], key: str | bytes | None = None
+    ) -> dict[str, Any]:
         try:
             from standardwebhooks import Webhook
         except ImportError as exc:
@@ -587,7 +607,7 @@ class SynthManagedAgents:
     def run_until_done(self, **kwargs: Any) -> Any:
         return self._transport.run_until_done(**kwargs)
 
-    def download_session_files(self, **kwargs: Any) -> list[dict[str, str]]:
+    def download_session_files(self, **kwargs: Any) -> List[dict[str, str]]:
         return self._transport.download_session_files(**kwargs)
 
 
@@ -689,13 +709,17 @@ class _AsyncSessionEventsResource(_AsyncResource):
     async def list(self, session_id: str, **params: Any) -> dict[str, Any]:
         return await self._call("list", session_id, **params)
 
-    async def send(self, session_id: str, *, events: list[dict[str, Any]] | None = None, **body: Any) -> dict[str, Any]:
+    async def send(
+        self, session_id: str, *, events: List[dict[str, Any]] | None = None, **body: Any
+    ) -> dict[str, Any]:
         return await self._call("send", session_id, events=events, **body)
 
-    async def create(self, session_id: str, *, events: list[dict[str, Any]] | None = None, **body: Any) -> dict[str, Any]:
+    async def create(
+        self, session_id: str, *, events: List[dict[str, Any]] | None = None, **body: Any
+    ) -> dict[str, Any]:
         return await self._call("create", session_id, events=events, **body)
 
-    async def stream(self, session_id: str, **params: Any) -> list[dict[str, Any]]:
+    async def stream(self, session_id: str, **params: Any) -> List[dict[str, Any]]:
         return await asyncio.to_thread(lambda: list(self._sync.stream(session_id, **params)))
 
 
@@ -735,8 +759,10 @@ class _AsyncSessionThreadEventsResource(_AsyncResource):
     async def list(self, session_id: str, thread_id: str, **params: Any) -> dict[str, Any]:
         return await self._call("list", session_id, thread_id, **params)
 
-    async def stream(self, session_id: str, thread_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await asyncio.to_thread(lambda: list(self._sync.stream(session_id, thread_id, **params)))
+    async def stream(self, session_id: str, thread_id: str, **params: Any) -> List[dict[str, Any]]:
+        return await asyncio.to_thread(
+            lambda: list(self._sync.stream(session_id, thread_id, **params))
+        )
 
 
 class _AsyncFilesResource(_AsyncResource):
@@ -879,7 +905,7 @@ class AsyncSynthManagedAgents:
     async def run_until_done(self, **kwargs: Any) -> Any:
         return await asyncio.to_thread(self._sync.run_until_done, **kwargs)
 
-    async def download_session_files(self, **kwargs: Any) -> list[dict[str, str]]:
+    async def download_session_files(self, **kwargs: Any) -> List[dict[str, str]]:
         return await asyncio.to_thread(self._sync.download_session_files, **kwargs)
 
 

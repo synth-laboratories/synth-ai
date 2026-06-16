@@ -15,12 +15,9 @@ import httpx
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
-
 DEFAULT_ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MANAGED_AGENTS_BETA = (
-    "managed-agents-2026-04-01,"
-    "managed-agents-2026-04-01-research-preview,"
-    "files-api-2025-04-14"
+    "managed-agents-2026-04-01,managed-agents-2026-04-01-research-preview,files-api-2025-04-14"
 )
 
 
@@ -91,8 +88,7 @@ def _event_error(event: dict[str, Any]) -> dict[str, Any] | None:
     error = {
         key: value
         for key, value in payload.items()
-        if key in {"failure_type", "failure_reason", "last_failure"}
-        and value not in {None, ""}
+        if key in {"failure_type", "failure_reason", "last_failure"} and value not in {None, ""}
     }
     if "message" not in error:
         error["message"] = str(event.get("type") or "session failed")
@@ -136,9 +132,7 @@ class ManagedAgentsAnthropicClient:
             anthropic_version or os.getenv("ANTHROPIC_VERSION") or DEFAULT_ANTHROPIC_VERSION
         ).strip()
         self._anthropic_beta = (
-            anthropic_beta
-            or os.getenv("ANTHROPIC_BETA")
-            or DEFAULT_MANAGED_AGENTS_BETA
+            anthropic_beta or os.getenv("ANTHROPIC_BETA") or DEFAULT_MANAGED_AGENTS_BETA
         ).strip()
         self._prefix = path_prefix.rstrip("/")
 
@@ -444,9 +438,7 @@ class ManagedAgentsAnthropicClient:
             },
         )
         posted_events = _page_data(post_response)
-        first_sequence = min(
-            [int(event.get("sequence") or 0) for event in posted_events] or [1]
-        )
+        first_sequence = min([int(event.get("sequence") or 0) for event in posted_events] or [1])
         deadline = time.time() + timeout_seconds
         terminal_event: dict[str, Any] | None = None
         events: list[dict[str, Any]] = []

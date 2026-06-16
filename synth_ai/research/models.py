@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from synth_ai.managed_research.models.project import (
     CreateRunnableResult as ResearchCreateProjectResult,
+)
+from synth_ai.managed_research.models.project import (
     ManagedResearchProject as ResearchProject,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchRun

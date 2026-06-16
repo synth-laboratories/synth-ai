@@ -28,7 +28,7 @@ def _optional_mapping(payload: object, *, field_name: str) -> dict[str, Any] | N
         return None
     if not isinstance(payload, Mapping):
         raise ValueError(f"{field_name} must be a mapping when provided")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 def _coerce_worker_subtype(

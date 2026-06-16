@@ -87,7 +87,7 @@ def _optional_mapping(payload: object, *, label: str) -> dict[str, object]:
         return {}
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} must be an object")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 def _coerce_cadence_source(value: str | None) -> CheckpointCadenceSource | None:

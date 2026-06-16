@@ -42,13 +42,17 @@ class SmrApiError(RuntimeError):
             parts.append(f"failure_class={self.failure_class}")
         if self.cause_chain:
             top = self.cause_chain[0]
-            parts.append(
-                f"cause[0]={top.get('type')}({top.get('module')}): {top.get('message')!r}"
-            )
+            parts.append(f"cause[0]={top.get('type')}({top.get('module')}): {top.get('message')!r}")
             if len(self.cause_chain) > 1:
                 parts.append(f"cause_chain_depth={len(self.cause_chain)}")
-        for key in ("missing_object_name", "missing_object_kind",
-                    "constraint_name", "constraint_kind", "table", "column"):
+        for key in (
+            "missing_object_name",
+            "missing_object_kind",
+            "constraint_name",
+            "constraint_kind",
+            "table",
+            "column",
+        ):
             value = self.body.get(key)
             if value:
                 parts.append(f"{key}={value}")
@@ -57,11 +61,11 @@ class SmrApiError(RuntimeError):
         return " | ".join(parts)
 
 
-class UnsupportedProvider(ValueError):
+class UnsupportedProvider(ValueError):  # noqa: N818 - public compatibility name
     """Raised when an SDK helper only supports one provider for v1."""
 
 
-class FeatureGated(SmrApiError):
+class FeatureGated(SmrApiError):  # noqa: N818 - public compatibility name
     """Raised when a requested capability is behind a backend feature gate."""
 
     def __init__(

@@ -411,10 +411,13 @@ def _run_baseline(output_root: Path) -> subprocess.CompletedProcess[str]:
         str(rollouts_path),
     ]
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
-    with stdout_path.open("w", encoding="utf-8") as stdout_file, stderr_path.open(
-        "w",
-        encoding="utf-8",
-    ) as stderr_file:
+    with (
+        stdout_path.open("w", encoding="utf-8") as stdout_file,
+        stderr_path.open(
+            "w",
+            encoding="utf-8",
+        ) as stderr_file,
+    ):
         process = subprocess.run(
             cmd,
             cwd=str(output_root),
@@ -431,7 +434,9 @@ def _run_baseline(output_root: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _write_result_manifest(output_root: Path, *, process: subprocess.CompletedProcess[str]) -> dict[str, Any]:
+def _write_result_manifest(
+    output_root: Path, *, process: subprocess.CompletedProcess[str]
+) -> dict[str, Any]:
     summary = _load_json(_artifact_path(output_root, "eval_summary"))
     requested_rollouts = int(summary.get("requested_rollouts") or 0)
     completed_rollouts = int(summary.get("num_rollouts") or 0)
@@ -520,12 +525,21 @@ def _compute_verifier_review(output_root: Path, verifier_mode: str) -> dict[str,
         "score": round(float(score), 6),
         "summary": "Derived from the concrete NanoHorizon Craftax hello-world artifacts.",
         "criteria": [
-            {"id": "artifact_completeness", "score": 1.0 if report_exists and rollouts_exists else 0.0, "weight": 0.30},
-            {"id": "reward_grounding", "score": 1.0 if "mean_outcome_reward" in summary else 0.0, "weight": 0.30},
+            {
+                "id": "artifact_completeness",
+                "score": 1.0 if report_exists and rollouts_exists else 0.0,
+                "weight": 0.30,
+            },
+            {
+                "id": "reward_grounding",
+                "score": 1.0 if "mean_outcome_reward" in summary else 0.0,
+                "weight": 0.30,
+            },
             {"id": "rollout_evidence", "score": 1.0 if rollouts_exists else 0.0, "weight": 0.20},
             {"id": "report_grounding", "score": 1.0 if report_exists else 0.0, "weight": 0.20},
         ],
-        "notes": notes or ["bundle is grounded in the concrete rollout summary and rollout records"],
+        "notes": notes
+        or ["bundle is grounded in the concrete rollout summary and rollout records"],
         "verifier_mode": verifier_mode,
     }
 
@@ -552,7 +566,11 @@ def _build_reportbench_output(output_root: Path, verifier_mode: str) -> dict[str
         "report_path": ARTIFACTS["reproduction"],
         "rollouts_path": ARTIFACTS["rollouts"],
         "result_manifest_path": ARTIFACTS["result_manifest"],
-        "task_title": ((task_cfg.get("task") or {}).get("title") if isinstance(task_cfg.get("task"), dict) else None),
+        "task_title": (
+            (task_cfg.get("task") or {}).get("title")
+            if isinstance(task_cfg.get("task"), dict)
+            else None
+        ),
         "verifier_mode": verifier_mode,
         "completed_at": _utc_now(),
     }
@@ -573,9 +591,13 @@ def run(args: argparse.Namespace) -> int:
                     "model": str(os.getenv("NANOHORIZON_MODEL") or DEFAULT_POLICY_MODEL),
                     "requested_rollouts": int(os.getenv("NANOHORIZON_ROLLOUTS") or "1"),
                     "requested_total_llm_calls": int(os.getenv("NANOHORIZON_ROLLOUTS") or "1"),
-                    "requested_max_steps_per_rollout": int(os.getenv("NANOHORIZON_MAX_STEPS") or "500"),
+                    "requested_max_steps_per_rollout": int(
+                        os.getenv("NANOHORIZON_MAX_STEPS") or "500"
+                    ),
                     "requested_llm_calls_per_rollout": 1,
-                    "requested_rollout_concurrency": int(os.getenv("NANOHORIZON_ROLLOUT_CONCURRENCY") or "10"),
+                    "requested_rollout_concurrency": int(
+                        os.getenv("NANOHORIZON_ROLLOUT_CONCURRENCY") or "10"
+                    ),
                     "requested_env_batch_size": int(os.getenv("NANOHORIZON_ENV_BATCH_SIZE") or "5"),
                     "mean_outcome_reward": 0.0,
                     "max_outcome_reward": 0.0,
@@ -618,7 +640,9 @@ def score(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the NanoHorizon Craftax hello-world reportbench task.")
+    parser = argparse.ArgumentParser(
+        description="Run the NanoHorizon Craftax hello-world reportbench task."
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run_parser = subparsers.add_parser("run")

@@ -15,8 +15,10 @@ JsonObject: TypeAlias = Mapping[str, object]
 
 class SmrRunbookKind(StrEnum):
     LITE = "lite"
+    STANDARD = "standard"
     HEAVY = "heavy"
     OVERNIGHT = "overnight"
+    CONTINUOUS = "continuous"
 
 
 SMR_RUNBOOK_KIND_VALUES: tuple[str, ...] = tuple(kind.value for kind in SmrRunbookKind)
@@ -36,10 +38,14 @@ def coerce_smr_runbook_kind(
         return None
     if normalized == "runbook_lite":
         normalized = SmrRunbookKind.LITE.value
+    if normalized == "runbook_standard":
+        normalized = SmrRunbookKind.STANDARD.value
     if normalized == "runbook_heavy":
         normalized = SmrRunbookKind.HEAVY.value
     if normalized == "runbook_overnight":
         normalized = SmrRunbookKind.OVERNIGHT.value
+    if normalized == "runbook_continuous":
+        normalized = SmrRunbookKind.CONTINUOUS.value
     try:
         return SmrRunbookKind(normalized)
     except ValueError as exc:

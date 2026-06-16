@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -16,7 +16,7 @@ def _guess_content_type(path: Path) -> str:
 
 
 class DatasetsAPI(_ClientNamespace):
-    def list(self, project_id: str) -> list[dict[str, Any]]:
+    def list(self, project_id: str) -> List[dict[str, Any]]:
         return self._client.list_project_datasets(project_id)
 
     def upload(

@@ -12,7 +12,7 @@ title = "Crafter Code Policy DEO Hillclimb"
 kind = "smr_reportbench"
 version = "0.1"
 runner = "workspace/run_hillclimb_symbolicbench_task.py"
-default_command = "python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root {output_root} --env crafter --iterations 0 --train-seeds crafter=101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191 --strict-env"
+default_command = "python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root {output_root} --env crafter --iterations 0 --candidate-root candidates --candidate-id attempt_1 --train-seeds crafter=101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191 --strict-env"
 score_command = "python3 workspace/run_hillclimb_symbolicbench_task.py score --output-root {output_root}"
 report_path = "artifacts/workproduct_container/reproduction.md"
 contract_path = "task_contract.json"
@@ -124,7 +124,7 @@ required = true
 kind = "reportbench_suite"
 args.task_root = "reportbench/lanes/crafter_code_policy_deo_hillclimb_1cand"
 args.task_id = "crafter_code_policy_deo_hillclimb_1cand"
-args.command = "python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root {output_root} --env crafter --iterations 0 --train-seeds crafter=101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191 --strict-env"
+args.command = "python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root {output_root} --env crafter --iterations 0 --candidate-root candidates --candidate-id attempt_1 --train-seeds crafter=101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191 --strict-env"
 
 [metadata]
 source_lane = "reportbench/lanes/crafter_code_policy_deo_hillclimb"
@@ -150,7 +150,7 @@ environment_kind = "harbor"
 [smr.objective]
 mode = "orchestrator_authored"
 kind = "directed_effort_outcome"
-sdk_precreate = true
+sdk_precreate = false
 title = "Improve Crafter symbolic code policy"
 description = "Run a signed-in directed-effort Crafter code-policy hillclimb and publish inspectable objective progress."
 scope = "Crafter branch of HillClimbSymbolicBench: complete replacement heuristic_policy.py candidates, deterministic scoring, no policy-time LLM or network calls."
@@ -160,8 +160,8 @@ required_milestone_count = 4
 required_progress_claim_count = 1
 required_closeout_work_product = true
 success_criteria = [
-  "Baseline aggregate reward and achievement frequencies are recorded across exactly 20 train seeds.",
-  "At least one non-baseline candidate compiles and is evaluated across exactly 20 train seeds.",
+  "Baseline aggregate reward and achievement frequencies are recorded across the configured train seeds.",
+  "At least one non-baseline candidate compiles and is evaluated across the configured train seeds.",
   "The best non-baseline candidate improves over the baseline.",
   "Score delta and accepted/rejected status are recorded for every candidate.",
   "Each candidate attempt is registered as an SMR experiment with at least one attached experiment result row.",
@@ -189,86 +189,17 @@ suggested_milestones = [
 name = "ReportBench Crafter Code Policy DEO {nick}-{timestamp}"
 timezone = "UTC"
 notes = """
-REPORT BENCH - Crafter code-policy DEO.
+REPORT BENCH - Crafter code-policy DEO (parallel worker race).
 
-This signed-in SDK lane validates the Managed Research objectives launch for
-directed-effort outcomes on the Crafter branch. The orchestrator must create
-the directed-effort objective and milestones, assign Crafter policy work, claim
-progress, and publish a WorkProduct with score evidence and reproduction notes.
+Guidance-only kickoff: see staged kickoff `project_notes_framing` and `task_briefs`.
+The orchestrator must create the directed-effort parent objective, milestones, and
+progress claims, then `plan_tasks` (no pre-seeded kickoff tasks). Orchestrator owns
+review and final WorkProduct closeout.
 """
 
 [smr.research]
 scenario = "reportbench-{task_id}-crafter-code-policy-deo"
 repo_url = ""
-
-[[smr.research.tasks]]
-task_key = "hillclimb_crafter_code_policy_deo"
-kind = "repo_task"
-required_work_products = [
-  { kind = "report", subtype = "code_result", title = "Crafter code-policy DEO result", required = true, description = "Publish the runnable Crafter policy result, score evidence, and reproduction notes." },
-]
-instructions = """
-Improve a pure symbolic Crafter code policy in directed-effort mode.
-
-Read the staged task files under `{dataset_ref}/` first:
-`{dataset_ref}/TASK_README.md`, `{dataset_ref}/TASK_INSTRUCTIONS.md`,
-`{dataset_ref}/STARTING_CONTAINER.md`, `{dataset_ref}/CRAFTER_POLICY_CONTEXT.md`,
-and `{dataset_ref}/task_contract.json`.
-
-The runnable task bundle is materialized in two places by the sandbox:
-`{dataset_ref}/...` for provenance and the repo-root paths used by the
-commands below. Before running, assert the root files exist:
-`workspace/run_hillclimb_symbolicbench_task.py`,
-`containers/crafter/heuristic_policy.py`,
-`containers/crafter/run_heuristic_sweep.py`, and `task_contract.json`.
-
-This is FAST-MODE validation. Your job: produce EXACTLY ONE non-baseline
-candidate that improves over the baseline, then STOP. Do not create a
-second candidate. Do not create a candidate ladder. Do not iterate. As
-soon as your first candidate compiles, runs across the train seeds, and
-beats the baseline score, declare success and publish the workproduct.
-If the first candidate compiles but does NOT beat the baseline, revise
-it in place (same directory, same candidate_id) rather than creating a
-second candidate directory.
-
-Use exactly these 20 train seeds for Crafter unless the task contract
-is updated:
-101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191.
-
-Create the ONE non-baseline candidate under
-`candidates/crafter/attempt_1/heuristic_policy.py`. Only publish success
-when `eval_summary.json` shows at least 2 completed records (baseline +
-one non-baseline), at least 1 completed non-baseline candidate record,
-and a best score above the baseline.
-
-Register the ONE non-baseline candidate as a first-class SMR experiment
-through the runtime MCP tools. The proposed experiment must include
-`baseline_snapshot`, `candidate_snapshot`, `protocol_snapshot`, and
-`artifact_refs`: candidate code digest/path/entrypoint go in
-`candidate_snapshot` and `artifact_refs`; metric name `symbolic_policy_score`,
-`metric_direction=higher_is_better`, split, 20-seed train `seed_set`,
-sample_size, scorer, and acceptance threshold go in `protocol_snapshot`.
-After scoring, attach one aggregate experiment result row with value,
-baseline_value, delta, sample_size=20, split_name=`train`, evidence_grade,
-truth_status, caveats, and summary/per-seed artifact references. Do not
-create one backend result row per seed; per-seed data belongs in
-`artifacts/workproduct_container/experiment_results.json` and the
-referenced `experiment_results/*/*/*/results.json` artifacts. Inspect
-the registered experiment/result row before final closeout.
-
-Run:
-python3 workspace/run_hillclimb_symbolicbench_task.py run --output-root . --env crafter --iterations 0 --train-seeds crafter=101,103,105,107,109,111,113,127,131,137,139,149,151,157,163,167,173,179,181,191 --strict-env
-python3 workspace/run_hillclimb_symbolicbench_task.py score --output-root .
-"""
-acceptance_criteria = [
-  "A directed-effort outcome is created by the orchestrator.",
-  "At least four milestones are created or progress events are recorded.",
-  "The worker emits a workproduct bundle and reportbench_output.json.",
-  "Crafter scoring evidence reports reward and achievement frequencies.",
-  "At least one non-baseline candidate policy is evaluated and preserved in the workproduct.",
-  "SMR experiment rows and aggregate result rows exist for each non-baseline candidate attempt, with candidate_snapshot/protocol_snapshot/result_summary populated.",
-  "A code WorkProduct with reproduction notes is published.",
-]
 
 [smr.pools]
 worker_pool_id = "{nick}"
@@ -324,6 +255,11 @@ content_type = "text/markdown"
 [[smr.workspace_inputs.files]]
 local = "workspace/run_hillclimb_symbolicbench_task.py"
 path = "workspace/run_hillclimb_symbolicbench_task.py"
+content_type = "text/plain"
+
+[[smr.workspace_inputs.files]]
+local = "workspace/crafter_proof_policy.py"
+path = "workspace/crafter_proof_policy.py"
 content_type = "text/plain"
 
 [[smr.workspace_inputs.files]]

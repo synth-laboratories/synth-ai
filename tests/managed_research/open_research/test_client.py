@@ -13,7 +13,8 @@ from synth_ai.managed_research.open_research import (
 )
 from synth_ai.managed_research.open_research.client import OPEN_RESEARCH_BASE
 from synth_ai.managed_research.open_research.models import MetricTarget
-from tests.open_research.conftest import (
+
+from .conftest import (
     RecordedRequest,
     ScriptedResponse,
     patch_client_transport,

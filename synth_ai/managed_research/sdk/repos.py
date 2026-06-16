@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, List
 from urllib.parse import urlparse
 
 from synth_ai.managed_research.errors import UnsupportedProvider
@@ -29,7 +29,7 @@ def _github_repo_name(url: str) -> str:
 
 
 class ReposAPI(_ClientNamespace):
-    def list(self, project_id: str) -> list[Repository]:
+    def list(self, project_id: str) -> List[Repository]:
         return [
             Repository.from_wire(item)
             for item in self._client.list_project_external_repositories(project_id)
@@ -68,7 +68,7 @@ class ReposAPI(_ClientNamespace):
     def detach_binding(self, project_id: str, *, github_repo: str) -> dict[str, Any]:
         return self._client.detach_project_repo(project_id, repo=github_repo)
 
-    def list_bindings(self, project_id: str) -> list[dict[str, Any]]:
+    def list_bindings(self, project_id: str) -> List[dict[str, Any]]:
         return self._client.list_project_repo_bindings(project_id)
 
 

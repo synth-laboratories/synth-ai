@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer, RpcError
 from synth_ai.managed_research.open_research.client import OpenResearchClient
-from tests.open_research.conftest import (
+
+from .conftest import (
     RecordedRequest,
     ScriptedResponse,
     patch_client_transport,

@@ -388,8 +388,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_attach_project_experiment_container_run",
             description=(
-                "Attach a concrete container/taskset/scorer execution receipt to "
-                "an SMR experiment."
+                "Attach a concrete container/taskset/scorer execution receipt to an SMR experiment."
             ),
             input_schema=tool_schema(
                 {

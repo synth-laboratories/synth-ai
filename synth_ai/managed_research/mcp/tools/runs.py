@@ -107,13 +107,43 @@ def _horizon_launch_properties() -> dict[str, Any]:
     }
 
 
+def _objective_launch_properties() -> dict[str, Any]:
+    return {
+        "objective": {
+            "type": "string",
+            "description": (
+                "Optional run objective. The SDK enqueues it as kickoff text and "
+                "requires a final report unless require_report is false or a "
+                "kickoff_contract is provided."
+            ),
+        },
+        "open_ended_question": {
+            "type": "object",
+            "description": "Optional inline open-ended-question parent for this run.",
+        },
+        "directed_effort_outcome": {
+            "type": "object",
+            "description": "Optional inline directed-effort-outcome parent for this run.",
+        },
+        "required_work_products": {
+            "type": "array",
+            "description": "Optional required work products for the generated kickoff contract.",
+            "items": {"type": "object"},
+        },
+        "require_report": {
+            "type": "boolean",
+            "description": "When objective is provided, require a default final report work product.",
+        },
+    }
+
+
 def build_run_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
             name="smr_start_run",
             description=(
-                "Start a Managed Research run with product launch fields. Prefer "
-                "mode and intended_horizon_hours; backend runbooks remain internal."
+                "Start a Managed Research run with product launch fields. Omit "
+                "project_id to use the caller's default Miscellaneous project."
             ),
             input_schema={
                 "type": "object",
@@ -125,10 +155,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "enum": list(SMR_WORK_MODE_VALUES),
                         "description": "Compatibility alias for mode.",
                     },
-                    "objective": {
-                        "type": "string",
-                        "description": "Optional kickoff objective text; sent as an initial queued message.",
-                    },
+                    **_objective_launch_properties(),
                     "initial_runtime_messages": {
                         "type": "array",
                         "description": "Optional kickoff runtime messages to enqueue durably before the run starts.",
@@ -146,7 +173,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Compatibility hard timebox. Prefer intended_horizon_hours.",
                     },
                 },
-                "required": ["project_id"],
+                "required": [],
                 "additionalProperties": True,
             },
             handler=server._tool_start_run,
@@ -154,9 +181,8 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_trigger_run",
             description=(
-                "Trigger a managed research run. Follow the canonical setup -> "
-                "launch-preflight -> trigger flow, and always branch on "
-                "result.error in MCP clients."
+                "Trigger a managed research run. Omit project_id to use the "
+                "caller's default Miscellaneous project."
             ),
             input_schema=tool_schema(
                 {
@@ -174,6 +200,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     **_horizon_launch_properties(),
                     "providers": _provider_bindings_schema(),
                     "limit": _usage_limit_schema(),
+                    **_objective_launch_properties(),
                     "worker_pool_id": {
                         "type": "string",
                         "description": "Optional worker pool override.",
@@ -276,7 +303,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Deprecated compatibility alias for idempotency_key_run_create.",
                     },
                 },
-                required=["project_id"],
+                required=[],
             ),
             handler=server._tool_trigger_run,
         ),
@@ -301,6 +328,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     **_horizon_launch_properties(),
                     "providers": _provider_bindings_schema(),
                     "limit": _usage_limit_schema(),
+                    **_objective_launch_properties(),
                     "worker_pool_id": {
                         "type": "string",
                         "description": "Optional worker pool override.",

@@ -171,8 +171,12 @@ def _raise_for_error_response(response: httpx.Response) -> None:
                 response_text=response.text,
                 failure_class=structured.get("failure_class"),
                 remediation=structured.get("remediation"),
-                cause=structured.get("cause") if isinstance(structured.get("cause"), list) else None,
-                body=structured.get("raw_body") if isinstance(structured.get("raw_body"), dict) else None,
+                cause=structured.get("cause")
+                if isinstance(structured.get("cause"), list)
+                else None,
+                body=structured.get("raw_body")
+                if isinstance(structured.get("raw_body"), dict)
+                else None,
             )
     structured = _structured_body_fields(response)
     raise SmrApiError(
@@ -241,6 +245,25 @@ class SmrHttpTransport:
                 status_code=response.status_code,
                 response_text=response.text,
             ) from exc
+
+    def request_bytes(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+    ) -> bytes:
+        try:
+            response = self.client.request(method, path, params=params)
+        except httpx.TimeoutException as exc:
+            raise SmrApiError(f"{method} {path} timed out") from exc
+        except httpx.TransportError as exc:
+            raise SmrApiError(
+                f"{method} {path} failed: network error ({type(exc).__name__})"
+            ) from exc
+        if response.is_error:
+            _raise_for_error_response(response)
+        return bytes(response.content)
 
     def stream_sse(
         self,

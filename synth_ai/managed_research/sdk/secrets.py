@@ -6,7 +6,7 @@ This is a naming alias over the existing credential-ref resource surface.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.models.types import Secret
 from synth_ai.managed_research.sdk._base import _ClientNamespace
@@ -18,7 +18,7 @@ class SecretsAPI(_ClientNamespace):
         project_id: str,
         *,
         kind: str | None = None,
-    ) -> list[Secret]:
+    ) -> List[Secret]:
         return [
             Secret.from_wire(item)
             for item in self._client.list_project_credential_refs(project_id, kind=kind)

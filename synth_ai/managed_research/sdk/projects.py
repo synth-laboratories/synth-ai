@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementSnapshot,
@@ -38,7 +38,7 @@ class ProjectsAPI(_ClientNamespace):
 
     def list(
         self, *, include_archived: bool = False, limit: int = 100
-    ) -> list[ManagedResearchProject]:
+    ) -> List[ManagedResearchProject]:
         return [
             ManagedResearchProject.from_wire(item)
             for item in self._client.list_projects(
@@ -230,7 +230,7 @@ class ProjectsAPI(_ClientNamespace):
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_changesets(
             project_id,
             status=status,
@@ -377,7 +377,7 @@ class ProjectsAPI(_ClientNamespace):
 
     def list_open_ended_questions(
         self, project_id: str, *, run_id: str | None = None, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_open_ended_questions(project_id, run_id=run_id, limit=limit)
 
     def list_objectives(
@@ -387,7 +387,7 @@ class ProjectsAPI(_ClientNamespace):
         kind: str | None = None,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_objectives(
             project_id,
             kind=kind,
@@ -466,7 +466,7 @@ class ProjectsAPI(_ClientNamespace):
 
     def list_directed_effort_outcomes(
         self, project_id: str, *, run_id: str | None = None, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_directed_effort_outcomes(project_id, run_id=run_id, limit=limit)
 
     def create_directed_effort_outcome(
@@ -495,7 +495,7 @@ class ProjectsAPI(_ClientNamespace):
         parent_kind: str | None = None,
         parent_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_milestones(
             project_id,
             run_id=run_id,
@@ -540,7 +540,7 @@ class ProjectsAPI(_ClientNamespace):
         *,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_experiments(
             project_id,
             run_id=run_id,
@@ -575,7 +575,7 @@ class ProjectsAPI(_ClientNamespace):
         experiment_id: str,
         *,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_experiment_runs(
             project_id,
             experiment_id,
@@ -600,7 +600,7 @@ class ProjectsAPI(_ClientNamespace):
         experiment_id: str,
         *,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_experiment_container_runs(
             project_id,
             experiment_id,
@@ -630,7 +630,7 @@ class ProjectsAPI(_ClientNamespace):
         comparison_cohort_key: str | None = None,
         truth_status: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_experiment_results(
             project_id,
             experiment_id=experiment_id,
@@ -648,7 +648,7 @@ class ProjectsAPI(_ClientNamespace):
         experiment_id: str,
         *,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_experiment_results_for_experiment(
             project_id,
             experiment_id,
@@ -676,7 +676,7 @@ class ProjectsAPI(_ClientNamespace):
         taskset_seed: int | None = None,
         comparison_cohort_key: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.rank_project_experiment_results(
             project_id,
             metric=metric,

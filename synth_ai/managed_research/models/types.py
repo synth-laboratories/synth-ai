@@ -356,6 +356,7 @@ class KickoffContract:
     project_notes_framing: str | None = None
     dispatch_requirements: dict[str, object] = field(default_factory=dict)
     tasks: list[dict[str, object]] = field(default_factory=list)
+    plan_task_payloads: list[dict[str, object]] = field(default_factory=list)
     task_briefs: list[str] = field(default_factory=list)
     required_work_products: list[RequiredWorkProductSpec] = field(default_factory=list)
     model_visible_contract_files: list[KickoffContractFile] = field(default_factory=list)
@@ -367,6 +368,7 @@ class KickoffContract:
         mapping = _require_mapping(payload, label="kickoff contract")
         _reject_legacy_file_contract_fields(mapping)
         task_payload = _optional_array(mapping, "tasks")
+        plan_task_payload = _optional_array(mapping, "plan_task_payloads")
         file_payload = _optional_array(mapping, "model_visible_contract_files")
         required_work_products_payload = _optional_array(mapping, "required_work_products")
         return cls(
@@ -390,6 +392,7 @@ class KickoffContract:
             project_notes_framing=_optional_string(mapping, "project_notes_framing"),
             dispatch_requirements=_optional_object_dict(mapping.get("dispatch_requirements")),
             tasks=[_optional_object_dict(item) for item in task_payload],
+            plan_task_payloads=[_optional_object_dict(item) for item in plan_task_payload],
             task_briefs=_string_list(
                 mapping.get("task_briefs"),
                 label="kickoff contract.task_briefs",
@@ -409,14 +412,16 @@ class KickoffContract:
             "schema_version": self.schema_version,
             "contract_kind": self.contract_kind,
             "run_objective": self.run_objective,
-            "dispatch_requirements": dict(self.dispatch_requirements),
             "tasks": [dict(item) for item in self.tasks],
+            "plan_task_payloads": [dict(item) for item in self.plan_task_payloads],
             "task_briefs": list(self.task_briefs),
             "required_work_products": [item.to_wire() for item in self.required_work_products],
             "model_visible_contract_files": [
                 item.to_wire() for item in self.model_visible_contract_files
             ],
         }
+        if self.dispatch_requirements:
+            payload["dispatch_requirements"] = dict(self.dispatch_requirements)
         if self.scenario is not None:
             payload["scenario"] = self.scenario
         if self.task_id is not None:

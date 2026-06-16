@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, List, cast
 
 import httpx
 
@@ -32,6 +32,15 @@ from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunTraces,
 )
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
+from synth_ai.managed_research.models.run_launch import (
+    EventStream,
+    EventStreamRequest,
+    RunLaunchRequest,
+    RunLaunchResult,
+    RunReadRequest,
+    RunRef,
+    RunSnapshot,
+)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
@@ -60,6 +69,7 @@ from synth_ai.managed_research.models.smr_providers import (
 from synth_ai.managed_research.models.smr_runbooks import SmrRunbookPreset
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import RunArtifact, RunArtifactManifest
+from synth_ai.managed_research.models.work_products import ManagedResearchRunWorkProduct
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 from synth_ai.managed_research.sdk.config import DEFAULT_MISC_PROJECT_ALIAS
 
@@ -126,6 +136,10 @@ class RunHandle:
         return ManagedResearchRun.from_wire(
             self._client.get_project_run(self.project_id, self.run_id)
         )
+
+    @property
+    def ref(self) -> RunRef:
+        return RunRef(project_id=self.project_id, run_id=self.run_id)
 
     def public_state(self) -> ManagedResearchRun:
         return self._client.get_run_public_state(
@@ -257,21 +271,24 @@ class RunHandle:
         timeout: float | None = None,
     ):
         return self._client.runs.stream_events(
-            self.run_id,
+            self.ref,
             transcript_cursor=transcript_cursor,
             view=view,
             last_event_id=last_event_id,
             timeout=timeout,
         )
 
+    def snapshot(self, request: RunReadRequest | None = None) -> RunSnapshot:
+        return self._client.runs.get_snapshot(self.ref, request=request)
+
     def messages(
         self,
         *,
         status: str | None = None,
         viewer_role: str | None = None,
-        viewer_target: str | list[str] | None = None,
+        viewer_target: str | List[str] | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_run_runtime_messages(
             self.project_id,
             self.run_id,
@@ -332,7 +349,7 @@ class RunHandle:
     def note_message(self, *, body: str, **kwargs: Any) -> dict[str, Any]:
         return self.publish_message(intent="note", body=body, **kwargs)
 
-    def manderqueue_threads(self, *, limit: int | None = None) -> list[dict[str, Any]]:
+    def manderqueue_threads(self, *, limit: int | None = None) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_threads(
             self.run_id, project_id=self.project_id, limit=limit
         )
@@ -342,7 +359,7 @@ class RunHandle:
         *,
         thread_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_messages(
             self.run_id,
             project_id=self.project_id,
@@ -355,7 +372,7 @@ class RunHandle:
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(
             self.run_id,
             project_id=self.project_id,
@@ -444,7 +461,7 @@ class RunHandle:
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[RuntimeIntentView]:
+    ) -> List[RuntimeIntentView]:
         return self._client.list_runtime_intents(
             self.run_id,
             project_id=self.project_id,
@@ -519,9 +536,9 @@ class RunHandle:
     def event_log(
         self,
         *,
-        sources: list[str] | None = None,
-        event_kinds: list[str] | None = None,
-        statuses: list[str] | None = None,
+        sources: List[str] | None = None,
+        event_kinds: List[str] | None = None,
+        statuses: List[str] | None = None,
         limit: int | None = None,
     ) -> SmrRunEventLog:
         return self._client.get_project_run_event_log(
@@ -575,7 +592,7 @@ class RunHandle:
             **kwargs,
         )
 
-    def actor_raw_traces(self, actor_key: str) -> list[dict[str, Any]]:
+    def actor_raw_traces(self, actor_key: str) -> List[dict[str, Any]]:
         return self._client.get_project_run_actor_raw_traces(
             self.project_id,
             self.run_id,
@@ -645,7 +662,7 @@ class RunHandle:
             idempotency_key=idempotency_key,
         )
 
-    def checkpoints(self) -> list[Checkpoint]:
+    def checkpoints(self) -> List[Checkpoint]:
         return self._client.list_run_checkpoints(
             self.run_id,
             project_id=self.project_id,
@@ -744,7 +761,7 @@ class RunHandle:
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[RunArtifact]:
+    ) -> List[RunArtifact]:
         return self._client.list_run_artifacts(
             self.run_id,
             project_id=self.project_id,
@@ -752,6 +769,35 @@ class RunHandle:
             limit=limit,
             cursor=cursor,
         )
+
+    def work_products(self) -> list[ManagedResearchRunWorkProduct]:
+        return self._client.work_products.list_for_run(self.project_id, self.run_id)
+
+    def reports(self) -> list[ManagedResearchRunWorkProduct]:
+        return [item for item in self.work_products() if item.kind == "report"]
+
+    def final_report(self) -> ManagedResearchRunWorkProduct | None:
+        reports = self.reports()
+        ready_reports = [
+            item
+            for item in reports
+            if item.status in {"ready", "published", "done"}
+            or item.readiness in {"viewable", "downloadable", "importable"}
+        ]
+        if ready_reports:
+            return ready_reports[0]
+        return reports[0] if reports else None
+
+    def report_text(self, work_product_id: str | None = None) -> str | None:
+        if work_product_id is None:
+            report = self.final_report()
+            if report is None:
+                return None
+            work_product_id = report.work_product_id
+        content = self._client.work_products.content(work_product_id, as_text=True)
+        if isinstance(content, bytes):
+            return content.decode("utf-8")
+        return content
 
     def output_file(self, name: str) -> RunArtifact | None:
         wanted = str(name or "").strip().lower()
@@ -777,10 +823,10 @@ class RunHandle:
             path,
         )
 
-    def models(self) -> list[dict[str, Any]]:
+    def models(self) -> List[dict[str, Any]]:
         return self._client.list_run_models(self.run_id, project_id=self.project_id)
 
-    def datasets(self) -> list[dict[str, Any]]:
+    def datasets(self) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(self.run_id, project_id=self.project_id)
 
     def participants(self) -> SmrRunParticipants:
@@ -893,6 +939,8 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.get_one_off_launch_preflight(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.get_launch_preflight(selector.project_id, **kwargs)
 
@@ -906,8 +954,20 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.trigger_one_off_run(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.trigger_run(selector.project_id, **kwargs)
+
+    def trigger_result(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        request: RunLaunchRequest,
+    ) -> RunLaunchResult:
+        selector = _resolve_project_selector(project_id, project=project)
+        return self._client.trigger_run_result(selector.project_id, request=request)
 
     def start_run(
         self,
@@ -916,6 +976,8 @@ class RunsAPI(_ClientNamespace):
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        if project_id is None and project is None:
+            return self._client.trigger_one_off_run(**kwargs)
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.start_run(selector.project_id, **kwargs)
 
@@ -930,12 +992,13 @@ class RunsAPI(_ClientNamespace):
         objective_text = str(objective or "").strip()
         if not objective_text:
             raise ValueError("objective is required")
-        selector = _resolve_project_selector(project_id, project=project)
-        initial_runtime_messages = list(kwargs.pop("initial_runtime_messages", ()) or ())
-        initial_runtime_messages.append({"body": objective_text, "mode": "queue"})
         payload = dict(kwargs)
-        payload["initial_runtime_messages"] = initial_runtime_messages
-        wire = self._client.trigger_run(selector.project_id, **payload)
+        payload["objective"] = objective_text
+        if project_id is None and project is None:
+            wire = self._client.trigger_one_off_run(**payload)
+        else:
+            selector = _resolve_project_selector(project_id, project=project)
+            wire = self._client.trigger_run(selector.project_id, **payload)
         run = ManagedResearchRun.from_wire(wire)
         return RunHandle(self._client, run.project_id, run.run_id)
 
@@ -951,10 +1014,10 @@ class RunsAPI(_ClientNamespace):
 
     def list(
         self, project_id: str, *, active_only: bool = False, **kwargs: Any
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_runs(project_id, active_only=active_only, **kwargs)
 
-    def list_active(self, project_id: str) -> list[dict[str, Any]]:
+    def list_active(self, project_id: str) -> List[dict[str, Any]]:
         return self._client.list_active_runs(project_id)
 
     def get(self, run_id: str, *, project_id: str | None = None) -> ManagedResearchRun:
@@ -1077,6 +1140,33 @@ class RunsAPI(_ClientNamespace):
             message_limit=message_limit,
         )
 
+    def snapshot(self, request: RunReadRequest) -> RunSnapshot:
+        snapshot = self.get_observability_snapshot(
+            request.run_ref.project_id,
+            request.run_ref.run_id,
+            event_limit=request.event_limit or 100,
+            actor_limit=request.actor_limit or 25,
+            task_limit=request.task_limit or 50,
+            question_limit=request.question_limit or 25,
+            timeline_limit=request.timeline_limit or 10,
+            message_limit=request.message_limit or 10,
+        )
+        return RunSnapshot.from_observability(
+            run_ref=request.run_ref,
+            snapshot=snapshot,
+        )
+
+    def get_snapshot(
+        self,
+        run_ref: RunRef,
+        *,
+        request: RunReadRequest | None = None,
+    ) -> RunSnapshot:
+        effective_request = request or RunReadRequest(run_ref=run_ref)
+        if effective_request.run_ref != run_ref:
+            raise ValueError("request.run_ref must match run_ref")
+        return self.snapshot(effective_request)
+
     def get_observability_snapshot_control(
         self,
         project_id: str,
@@ -1150,7 +1240,7 @@ class RunsAPI(_ClientNamespace):
         self,
         project_id: str,
         run_id: str,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.get_project_run_actors(project_id, run_id)
 
     def list_task_events(
@@ -1308,7 +1398,7 @@ class RunsAPI(_ClientNamespace):
 
     def list_primary_parent_milestones(
         self, run_id: str, *, limit: int | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_primary_parent_milestones(run_id, limit=limit)
 
     def stop(self, run_id: str, *, project_id: str | None = None) -> ManagedResearchRunControlAck:
@@ -1427,7 +1517,7 @@ class RunsAPI(_ClientNamespace):
         project_id: str | None = None,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[RuntimeIntentView]:
+    ) -> List[RuntimeIntentView]:
         return self._client.list_runtime_intents(
             run_id,
             project_id=project_id,
@@ -1450,7 +1540,7 @@ class RunsAPI(_ClientNamespace):
 
     def list_questions(
         self, run_id: str, *, project_id: str | None = None, **kwargs: Any
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_questions(run_id, project_id=project_id, **kwargs)
 
     def respond_to_question(
@@ -1473,7 +1563,7 @@ class RunsAPI(_ClientNamespace):
     ) -> Checkpoint:
         return self._client.create_run_checkpoint(run_id, project_id=project_id, **kwargs)
 
-    def list_checkpoints(self, run_id: str, *, project_id: str | None = None) -> list[Checkpoint]:
+    def list_checkpoints(self, run_id: str, *, project_id: str | None = None) -> List[Checkpoint]:
         return self._client.list_run_checkpoints(run_id, project_id=project_id)
 
     def checkpoint(
@@ -1514,7 +1604,7 @@ class RunsAPI(_ClientNamespace):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[RunArtifact]:
+    ) -> List[RunArtifact]:
         return self._client.list_run_artifacts(
             run_id,
             project_id=project_id,
@@ -1562,7 +1652,7 @@ class RunsAPI(_ClientNamespace):
         run_id: str,
         *,
         project_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_models(run_id, project_id=project_id)
 
     def datasets(
@@ -1570,7 +1660,7 @@ class RunsAPI(_ClientNamespace):
         run_id: str,
         *,
         project_id: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(run_id, project_id=project_id)
 
     def restore_checkpoint(
@@ -1586,9 +1676,9 @@ class RunsAPI(_ClientNamespace):
         project_id: str,
         run_id: str,
         *,
-        sources: list[str] | None = None,
-        event_kinds: list[str] | None = None,
-        statuses: list[str] | None = None,
+        sources: List[str] | None = None,
+        event_kinds: List[str] | None = None,
+        statuses: List[str] | None = None,
         limit: int | None = None,
     ) -> SmrRunEventLog:
         return self._client.get_project_run_event_log(
@@ -1708,7 +1798,7 @@ class RunsAPI(_ClientNamespace):
         project_id: str,
         run_id: str,
         actor_key: str,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.get_project_run_actor_raw_traces(
             project_id,
             run_id,
@@ -1795,9 +1885,9 @@ class RunsAPI(_ClientNamespace):
         *,
         status: str | None = None,
         viewer_role: str | None = None,
-        viewer_target: str | list[str] | None = None,
+        viewer_target: str | List[str] | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_runtime_messages(
             run_id,
             status=status,
@@ -1833,7 +1923,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_messages(run_id, project_id=project_id, **kwargs)
 
     def list_messages(
@@ -1842,7 +1932,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_messages(run_id, project_id=project_id, **kwargs)
 
     def list_tasks(
@@ -1853,7 +1943,7 @@ class RunsAPI(_ClientNamespace):
         objective_id: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_tasks(
             project_id,
             run_id=run_id,
@@ -1927,7 +2017,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_threads(run_id, project_id=project_id, **kwargs)
 
     def list_manderqueue_interactions(
@@ -1936,7 +2026,7 @@ class RunsAPI(_ClientNamespace):
         *,
         project_id: str,
         **kwargs: Any,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(run_id, project_id=project_id, **kwargs)
 
     def edit_message(
@@ -1995,7 +2085,7 @@ class RunsAPI(_ClientNamespace):
 
     def stream_events(
         self,
-        run_id: str,
+        run_id: str | RunRef | EventStreamRequest,
         *,
         transcript_cursor: str | None = None,
         view: str = "operator",
@@ -2007,6 +2097,18 @@ class RunsAPI(_ClientNamespace):
         Yields typed ``RunRuntimeStreamEvent`` instances. Transcript payloads are
         already projected by backend policy for the requested view.
         """
+        if isinstance(run_id, EventStreamRequest):
+            return self.stream(run_id, view=view, timeout=timeout)
+        if isinstance(run_id, RunRef):
+            return self.stream(
+                EventStreamRequest(
+                    run_ref=run_id,
+                    transcript_cursor=transcript_cursor,
+                    last_event_id=last_event_id,
+                ),
+                view=view,
+                timeout=timeout,
+            )
         return self._client.stream_run_events(
             run_id,
             transcript_cursor=transcript_cursor,
@@ -2014,6 +2116,24 @@ class RunsAPI(_ClientNamespace):
             last_event_id=last_event_id,
             timeout=timeout,
         )
+
+    def stream(
+        self,
+        request: EventStreamRequest,
+        *,
+        view: str = "operator",
+        timeout: float | None = None,
+    ) -> EventStream:
+        """Return a context-managed typed event stream for a run."""
+
+        events = self._client.stream_run_events(
+            request.run_ref.run_id,
+            transcript_cursor=request.transcript_cursor,
+            view=view,
+            last_event_id=request.last_event_id,
+            timeout=timeout or float(request.heartbeat_timeout_seconds),
+        )
+        return EventStream(events, request=request)
 
     def stream_transcript(
         self,

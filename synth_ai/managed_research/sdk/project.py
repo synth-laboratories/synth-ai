@@ -7,7 +7,7 @@ import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.models.canonical_usage import (
     SmrProjectUsage,
@@ -21,6 +21,13 @@ from synth_ai.managed_research.models.project_workspace import ProjectWorkspaceP
 from synth_ai.managed_research.models.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
+)
+from synth_ai.managed_research.models.run_launch import (
+    Output,
+    OutputKind,
+    OutputListRequest,
+    RunLaunchRequest,
+    RunLaunchResult,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun
 from synth_ai.managed_research.models.types import (
@@ -42,7 +49,7 @@ class _BoundProjectReposAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_repo_bindings(self.project_id)
 
     def attach(
@@ -66,7 +73,7 @@ class _BoundProjectExternalRepositoriesAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_external_repositories(self.project_id)
 
     def create(
@@ -116,7 +123,7 @@ class _BoundProjectFilesAPI:
         *,
         visibility: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_files(
             self.project_id,
             visibility=visibility,
@@ -299,7 +306,7 @@ class _BoundProjectDatasetsAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_datasets(self.project_id)
 
     def upload(
@@ -378,7 +385,7 @@ class _BoundProjectCredentialsAPI:
         self,
         *,
         kind: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_credential_refs(
             self.project_id,
             kind=kind,
@@ -428,8 +435,22 @@ class _BoundProjectOutputsAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_outputs(self.project_id)
+
+    def list_outputs(
+        self,
+        *,
+        kinds: tuple[OutputKind, ...] = (),
+        limit: int | None = None,
+    ) -> List[Output]:
+        return self._client.outputs.list_outputs(
+            OutputListRequest(
+                project_id=self.project_id,
+                kinds=kinds,
+                limit=limit,
+            )
+        )
 
 
 @dataclass
@@ -437,7 +458,7 @@ class _BoundProjectPrsAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_prs(self.project_id)
 
     def get(self, pr_id: str) -> dict[str, Any]:
@@ -492,7 +513,7 @@ class _BoundProjectModelsAPI:
     _client: Any
     project_id: str
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         return self._client.list_project_models(self.project_id)
 
     def get(self, model_id: str) -> dict[str, Any]:
@@ -535,6 +556,9 @@ class _BoundProjectRunsAPI:
     def trigger(self, **kwargs: Any) -> dict[str, Any]:
         return self._client.trigger_run(self.project_id, **kwargs)
 
+    def trigger_result(self, *, request: RunLaunchRequest) -> RunLaunchResult:
+        return self._client.trigger_run_result(self.project_id, request=request)
+
     def preflight(self, **kwargs: Any) -> SmrLaunchPreflight:
         return SmrLaunchPreflight.from_wire(
             self._client.get_launch_preflight(self.project_id, **kwargs)
@@ -543,14 +567,14 @@ class _BoundProjectRunsAPI:
     def launch_preflight(self, **kwargs: Any) -> SmrLaunchPreflight:
         return self.preflight(**kwargs)
 
-    def list(self, *, active_only: bool = False, **kwargs: Any) -> list[dict[str, Any]]:
+    def list(self, *, active_only: bool = False, **kwargs: Any) -> List[dict[str, Any]]:
         return self._client.list_runs(
             self.project_id,
             active_only=active_only,
             **kwargs,
         )
 
-    def list_active(self) -> list[dict[str, Any]]:
+    def list_active(self) -> List[dict[str, Any]]:
         return self._client.list_active_runs(self.project_id)
 
     def get(self, run_id: str) -> ManagedResearchRun:
@@ -634,7 +658,7 @@ class _BoundProjectObjectivesAPI:
         kind: str | None = None,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_objectives(
             self.project_id,
             kind=kind,
@@ -707,7 +731,7 @@ class _BoundProjectObjectivesAPI:
         *,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_objective_tasks(
             self.project_id,
             objective_id,
@@ -721,7 +745,7 @@ class _BoundProjectObjectivesAPI:
         *,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_objective_claims(
             self.project_id,
             objective_id,
@@ -770,7 +794,7 @@ class _BoundProjectMilestonesAPI:
         parent_kind: str | None = None,
         parent_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_milestones(
             self.project_id,
             run_id=run_id,
@@ -818,7 +842,7 @@ class _BoundProjectChangeSetsAPI:
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._client.list_project_changesets(
             self.project_id,
             status=status,

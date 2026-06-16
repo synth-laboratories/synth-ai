@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 ACTION_NAMES = [
     "noop",
     "move_left",

@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.11.0-orange synth-ai==0.11.0 -->
+<!-- CI release pins: PyPI-0.11.1-orange synth-ai==0.11.1 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -111,3 +111,5 @@ uv run ty check
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
 `lefthook install` to run formatting, linting, and type checks on staged Python
 files.
+
+[SMR Handoff X thread](https://github.com/usesynth/smr-handoff/blob/main/marketing/smr-handoff-x-thread.md) — hand agent tasks to [Managed Research](https://usesynth.ai/smr) from Cursor, Codex, or Claude Code ([repo](https://github.com/usesynth/smr-handoff)).

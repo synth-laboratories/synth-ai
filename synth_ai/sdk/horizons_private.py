@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, List
 
 from synth_ai.sdk.pools import ContainerPoolsClient, PoolTarget
 
@@ -107,8 +107,8 @@ class AsyncHorizonsPrivateClient:
 
     async def events(
         self, pool_id: str, rollout_id: str, *, cursor: str | None = None
-    ) -> list[dict[str, Any]]:
-        def _collect() -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
+        def _collect() -> List[dict[str, Any]]:
             return list(self._sync.events(pool_id, rollout_id, cursor=cursor))
 
         return await asyncio.to_thread(_collect)
