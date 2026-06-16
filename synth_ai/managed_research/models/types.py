@@ -710,6 +710,145 @@ class ResourceUploadResult:
 
 
 @dataclass(frozen=True)
+class ProjectCodeSource:
+    project_id: str
+    kind: str
+    status: str
+    default_branch: str
+    upload_id: str
+    internal_repo_ref: dict[str, object] = field(default_factory=dict)
+    head_commit_sha: str | None = None
+    validation_summary: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ProjectCodeSource:
+        mapping = _require_mapping(payload, label="project code source")
+        return cls(
+            project_id=_require_string(
+                mapping, "project_id", label="project code source.project_id"
+            ),
+            kind=_require_string(mapping, "kind", label="project code source.kind"),
+            status=_require_string(mapping, "status", label="project code source.status"),
+            default_branch=_require_string(
+                mapping,
+                "default_branch",
+                label="project code source.default_branch",
+            ),
+            upload_id=_require_string(mapping, "upload_id", label="project code source.upload_id"),
+            internal_repo_ref=_optional_object_dict(mapping.get("internal_repo_ref")),
+            head_commit_sha=_optional_string(mapping, "head_commit_sha"),
+            validation_summary=_optional_object_dict(mapping.get("validation_summary")),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+        )
+
+
+@dataclass(frozen=True)
+class ProjectDataPoolObject:
+    object_id: str
+    file_id: str
+    path: str
+    role: str
+    content_hash: str | None = None
+    size_bytes: int | None = None
+    media_type: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ProjectDataPoolObject:
+        mapping = _require_mapping(payload, label="project data pool object")
+        return cls(
+            object_id=_require_string(
+                mapping,
+                "object_id",
+                label="project data pool object.object_id",
+            ),
+            file_id=_require_string(mapping, "file_id", label="project data pool object.file_id"),
+            path=_require_string(mapping, "path", label="project data pool object.path"),
+            role=_require_string(mapping, "role", label="project data pool object.role"),
+            content_hash=_optional_string(mapping, "content_hash"),
+            size_bytes=_optional_int(mapping, "size_bytes"),
+            media_type=_optional_string(mapping, "media_type"),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+        )
+
+
+@dataclass(frozen=True)
+class ProjectDataPoolUploadResult:
+    project_id: str
+    pool_id: str
+    name: str
+    status: str
+    manifest_id: str
+    object_prefix: str
+    file_count: int | None = None
+    bytes_uploaded: int | None = None
+    access_policy: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    objects: list[ProjectDataPoolObject] = field(default_factory=list)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ProjectDataPoolUploadResult:
+        mapping = _require_mapping(payload, label="project data pool upload result")
+        object_payload = _optional_array(mapping, "objects")
+        return cls(
+            project_id=_require_string(
+                mapping,
+                "project_id",
+                label="project data pool upload result.project_id",
+            ),
+            pool_id=_require_string(
+                mapping, "pool_id", label="project data pool upload result.pool_id"
+            ),
+            name=_require_string(mapping, "name", label="project data pool upload result.name"),
+            status=_require_string(
+                mapping, "status", label="project data pool upload result.status"
+            ),
+            manifest_id=_require_string(
+                mapping,
+                "manifest_id",
+                label="project data pool upload result.manifest_id",
+            ),
+            object_prefix=_require_string(
+                mapping,
+                "object_prefix",
+                label="project data pool upload result.object_prefix",
+            ),
+            file_count=_optional_int(mapping, "file_count"),
+            bytes_uploaded=_optional_int(mapping, "bytes_uploaded"),
+            access_policy=_optional_object_dict(mapping.get("access_policy")),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+            objects=[ProjectDataPoolObject.from_wire(item) for item in object_payload],
+        )
+
+
+@dataclass(frozen=True)
+class ProjectLaunchProfile:
+    project_id: str
+    status: str
+    launch_profile: dict[str, object] = field(default_factory=dict)
+    launch_request: dict[str, object] = field(default_factory=dict)
+    workspace_profile: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ProjectLaunchProfile:
+        mapping = _require_mapping(payload, label="project launch profile")
+        return cls(
+            project_id=_require_string(
+                mapping,
+                "project_id",
+                label="project launch profile.project_id",
+            ),
+            status=_require_string(mapping, "status", label="project launch profile.status"),
+            launch_profile=_optional_object_dict(mapping.get("launch_profile")),
+            launch_request=_optional_object_dict(mapping.get("launch_request")),
+            workspace_profile=_optional_object_dict(mapping.get("workspace_profile")),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+        )
+
+
+@dataclass(frozen=True)
 class ExternalRepository:
     repository_id: str
     org_id: str
@@ -888,18 +1027,12 @@ class EnvironmentPreflight:
         error_payload = mapping.get("error")
         return cls(
             name=_require_string(mapping, "name", label="environment preflight.name"),
-            digest=_require_string(
-                mapping, "digest", label="environment preflight.digest"
-            ),
+            digest=_require_string(mapping, "digest", label="environment preflight.digest"),
             ok=bool(mapping.get("ok")),
-            result=_require_string(
-                mapping, "result", label="environment preflight.result"
-            ),
+            result=_require_string(mapping, "result", label="environment preflight.result"),
             details=_optional_object_dict(mapping.get("details")),
             error=(
-                _optional_object_dict(error_payload)
-                if isinstance(error_payload, Mapping)
-                else None
+                _optional_object_dict(error_payload) if isinstance(error_payload, Mapping) else None
             ),
         )
 
@@ -1706,6 +1839,10 @@ __all__ = [
     "ProjectSetupAuthorityReason",
     "ProjectSetupAuthorityStatus",
     "ProviderKeyStatus",
+    "ProjectCodeSource",
+    "ProjectDataPoolObject",
+    "ProjectDataPoolUploadResult",
+    "ProjectLaunchProfile",
     "RecommendedAction",
     "ResourceUploadResult",
     "RunArtifact",

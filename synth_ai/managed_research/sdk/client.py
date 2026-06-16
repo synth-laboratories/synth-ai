@@ -744,6 +744,32 @@ def _source_bundle_file_entry(
     return payload
 
 
+def _code_bundle_upload_payload(
+    bundle_path: str | os.PathLike[str],
+    *,
+    filename: str | None = None,
+    content_type: str | None = None,
+    source_kind: str = "uploaded_bundle",
+    commit_message: str | None = None,
+    default_branch: str = "main",
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    resolved = Path(bundle_path)
+    raw_bytes = resolved.read_bytes()
+    payload: dict[str, Any] = {
+        "filename": str(filename or resolved.name),
+        "content": base64.b64encode(raw_bytes).decode("ascii"),
+        "encoding": "base64",
+        "content_type": content_type or _guess_content_type(resolved.name),
+        "source_kind": source_kind,
+        "default_branch": default_branch,
+        "metadata": dict(metadata or {}),
+    }
+    if commit_message:
+        payload["commit_message"] = commit_message
+    return payload
+
+
 @dataclass
 class ManagedResearchClient:
     """Managed Research client implementation."""
@@ -1988,6 +2014,160 @@ class ManagedResearchClient:
                     metadata=metadata,
                 )
             ],
+        )
+
+    def get_project_code_source(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/workspace/code-source"),
+            label="get_project_code_source",
+        )
+
+    def upload_project_code_bundle(
+        self,
+        project_id: str,
+        bundle_path: str | os.PathLike[str],
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        source_kind: str = "uploaded_bundle",
+        commit_message: str | None = None,
+        default_branch: str = "main",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/code-bundle:upload",
+                json_body=_code_bundle_upload_payload(
+                    bundle_path,
+                    filename=filename,
+                    content_type=content_type,
+                    source_kind=source_kind,
+                    commit_message=commit_message,
+                    default_branch=default_branch,
+                    metadata=metadata,
+                ),
+            ),
+            label="upload_project_code_bundle",
+        )
+
+    def connect_project_git_source(
+        self,
+        project_id: str,
+        *,
+        provider: str | None = None,
+        repo_url: str | None = None,
+        branch: str | None = None,
+        auth_ref: str | None = None,
+        sync_policy: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/code-source:connect-git",
+                json_body={
+                    "provider": provider,
+                    "repo_url": repo_url,
+                    "branch": branch,
+                    "auth_ref": auth_ref,
+                    "sync_policy": dict(sync_policy or {}),
+                },
+            ),
+            label="connect_project_git_source",
+        )
+
+    def get_project_launch_profile(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/workspace/launch-profile",
+            ),
+            label="get_project_launch_profile",
+        )
+
+    def patch_project_launch_profile(
+        self,
+        project_id: str,
+        launch_profile: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/projects/{project_id}/workspace/launch-profile",
+                json_body={
+                    "launch_profile": dict(launch_profile),
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="patch_project_launch_profile",
+        )
+
+    def upload_project_data_pool_files(
+        self,
+        project_id: str,
+        files: Iterable[Mapping[str, Any]],
+        *,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        access_policy: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_files = [_normalize_resource_uploaded_file(entry) for entry in files]
+        if not normalized_files:
+            raise ValueError("upload_project_data_pool_files requires at least one file")
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/data-pools/files:upload",
+                json_body={
+                    "pool_id": pool_id,
+                    "pool_name": pool_name,
+                    "role": role,
+                    "files": normalized_files,
+                    "access_policy": dict(access_policy or {}),
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="upload_project_data_pool_files",
+        )
+
+    def upload_project_data_pool_file(
+        self,
+        project_id: str,
+        path: str | os.PathLike[str],
+        *,
+        name: str | None = None,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        visibility: str = "project",
+        metadata: Mapping[str, Any] | None = None,
+        access_policy: Mapping[str, Any] | None = None,
+        pool_metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        resolved = Path(path)
+        raw_bytes = resolved.read_bytes()
+        return self.upload_project_data_pool_files(
+            project_id,
+            [
+                {
+                    "path": name or resolved.name,
+                    "content": base64.b64encode(raw_bytes).decode("ascii"),
+                    "content_type": _guess_content_type(resolved.name),
+                    "encoding": "base64",
+                    "visibility": visibility,
+                    "kind": role,
+                    "metadata": dict(metadata or {}),
+                }
+            ],
+            pool_id=pool_id,
+            pool_name=pool_name,
+            role=role,
+            access_policy=access_policy,
+            metadata=pool_metadata,
         )
 
     def get_project_file(self, project_id: str, file_id: str) -> dict[str, Any]:

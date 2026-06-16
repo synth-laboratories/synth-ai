@@ -1283,6 +1283,7 @@ class FactoryWakeDueEffort:
     reason: str | None = None
     run_id: str | None = None
     next_wake_at: datetime | None = None
+    launch_preview: dict[str, object] = field(default_factory=dict)
     raw: dict[str, object] = field(default_factory=dict)
 
     @classmethod
@@ -1295,6 +1296,10 @@ class FactoryWakeDueEffort:
             reason=_optional_string(mapping, "reason"),
             run_id=_optional_string(mapping, "run_id"),
             next_wake_at=_optional_datetime(mapping, "next_wake_at"),
+            launch_preview=_optional_object_dict(
+                mapping.get("launch_preview"),
+                label="wake.launch_preview",
+            ),
             raw=dict(mapping),
         )
 
