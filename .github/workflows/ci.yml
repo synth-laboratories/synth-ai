@@ -1,4 +1,4 @@
-# CI workflow for pull requests and pushes to main branches.
+# CI workflow for pull requests, release-candidate pushes, and manual checks.
 # Runs lint, type check, tests, and validation checks in parallel.
 # Keep jobs in alphabetical order.
 
@@ -6,8 +6,9 @@ name: CI
 
 on:
   push:
-    branches: [main, nightly]
+    branches: [main, nightly, dev]
   pull_request:
+  workflow_dispatch:
 
 # Cancel in-progress runs on same branch/PR
 concurrency:
