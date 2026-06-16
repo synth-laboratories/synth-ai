@@ -65,7 +65,7 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "smr_credential_providers.py",
         "SmrCredentialProvider",
         "provider",
-        ("openai", "openrouter", "tinker"),
+        ("openai", "groq", "openrouter", "tinker"),
     ),
     (
         "smr_inference_providers.py",
