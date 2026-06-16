@@ -177,7 +177,7 @@ class ProjectsAPI(_ClientNamespace):
     def upload_data_pool_files(
         self,
         project_id: str,
-        files: list[Mapping[str, Any]],
+        files: List[Mapping[str, Any]],
         *,
         pool_id: str = "default",
         pool_name: str = "Default data pool",
