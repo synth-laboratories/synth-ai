@@ -268,9 +268,7 @@ class RuntimeImage:
         image_id = _coerce_actor_image_id(image_id_raw) if image_id_raw else None
         recipe_payload = payload.get("recipe")
         recipe = (
-            ImageRecipe.from_wire(recipe_payload)
-            if isinstance(recipe_payload, Mapping)
-            else None
+            ImageRecipe.from_wire(recipe_payload) if isinstance(recipe_payload, Mapping) else None
         )
         return cls(
             kind=kind,

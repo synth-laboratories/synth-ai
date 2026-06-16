@@ -392,9 +392,7 @@ class KickoffContract:
             project_notes_framing=_optional_string(mapping, "project_notes_framing"),
             dispatch_requirements=_optional_object_dict(mapping.get("dispatch_requirements")),
             tasks=[_optional_object_dict(item) for item in task_payload],
-            plan_task_payloads=[
-                _optional_object_dict(item) for item in plan_task_payload
-            ],
+            plan_task_payloads=[_optional_object_dict(item) for item in plan_task_payload],
             task_briefs=_string_list(
                 mapping.get("task_briefs"),
                 label="kickoff contract.task_briefs",
