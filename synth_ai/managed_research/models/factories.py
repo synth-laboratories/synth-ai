@@ -749,6 +749,8 @@ class FactoryWorkspace:
     project: FactoryProjectLink | None = None
     canonical_project: FactoryProjectLink | None = None
     projects: tuple[FactoryProjectLink, ...] = ()
+    workspace_context: dict[str, object] = field(default_factory=dict)
+    workspace_readiness: dict[str, object] = field(default_factory=dict)
     workspace_policy: dict[str, object] = field(default_factory=dict)
     resource_bindings: dict[str, object] = field(default_factory=dict)
     feed_health: dict[str, object] = field(default_factory=dict)
@@ -777,6 +779,14 @@ class FactoryWorkspace:
             ),
             projects=tuple(
                 FactoryProjectLink.from_wire(item) for item in list(mapping.get("projects") or [])
+            ),
+            workspace_context=_optional_object_dict(
+                mapping.get("workspace_context"),
+                label="workspace.workspace_context",
+            ),
+            workspace_readiness=_optional_object_dict(
+                mapping.get("workspace_readiness"),
+                label="workspace.workspace_readiness",
             ),
             workspace_policy=_optional_object_dict(
                 mapping.get("workspace_policy"),
