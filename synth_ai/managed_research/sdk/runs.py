@@ -164,13 +164,41 @@ class RunHandle:
                 contract = self.contract()
             except httpx.TransportError as exc:
                 raise SmrApiError(f"Network error while polling run {self.run_id}: {exc}") from exc
-            if contract.terminal:
-                if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
+            terminal_outcome = getattr(contract, "terminal_outcome", None)
+            terminal_state = contract.terminal or terminal_outcome is not None
+            failed_terminal = contract.public_state.value in {"failed", "blocked"} or (
+                getattr(terminal_outcome, "value", None) in {"failed", "blocked"}
+            )
+            if terminal_state:
+                if raise_if_failed and failed_terminal:
                     msg = self.explain_blocker() or (
-                        f"run {self.run_id} ended in state {contract.public_state.value}"
+                        f"run {self.run_id} ended in state "
+                        f"{getattr(terminal_outcome, 'value', None) or contract.public_state.value}"
                     )
                     raise SmrApiError(msg, status_code=None)
                 return self.get()
+            run = self.get()
+            run_public_state = getattr(getattr(run, "public_state", None), "value", None)
+            run_terminal_outcome = getattr(run, "terminal_outcome", None)
+            run_terminal_state = run_terminal_outcome is not None or run_public_state in {
+                "completed",
+                "failed",
+                "stopped",
+                "canceled",
+                "cancelled",
+                "blocked",
+            }
+            run_failed_terminal = run_public_state in {"failed", "blocked"} or (
+                getattr(run_terminal_outcome, "value", None) in {"failed", "blocked"}
+            )
+            if run_terminal_state:
+                if raise_if_failed and run_failed_terminal:
+                    msg = self.explain_blocker() or (
+                        f"run {self.run_id} ended in state "
+                        f"{getattr(run_terminal_outcome, 'value', None) or run_public_state}"
+                    )
+                    raise SmrApiError(msg, status_code=None)
+                return run
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError(f"run {self.run_id} did not complete within {timeout}s")
             time.sleep(poll_interval)

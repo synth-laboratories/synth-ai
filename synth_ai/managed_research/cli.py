@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
@@ -156,8 +156,12 @@ def _cmd_effort(args: argparse.Namespace) -> int:
                 effort_type=args.type,
                 recurrence_policy=_every_minutes(args.every_minutes),
                 budget_policy=_json_object(args.budget_policy, field="budget_policy"),
-                publication_policy=_json_object(args.publication_policy, field="publication_policy"),
-                authorization_policy=_json_object(args.authorization_policy, field="authorization_policy"),
+                publication_policy=_json_object(
+                    args.publication_policy, field="publication_policy"
+                ),
+                authorization_policy=_json_object(
+                    args.authorization_policy, field="authorization_policy"
+                ),
                 actor_notes=_json_object(args.actor_notes, field="actor_notes"),
                 metadata=_json_object(args.metadata, field="metadata"),
             )
