@@ -10,6 +10,19 @@ fresh-venv install smoke, typed error imports, backend parity (version-contract)
 no unreleased local changes claimed in launch copy. Record published version +
 smoke output as proof.
 
+## CRITICAL: Managed Research SDK ownership
+
+`synth-ai` is the canonical home for Managed Research SDK/client, MCP server,
+models, transport, schemas, and public `SynthClient().research` interfaces.
+The standalone `managed-research` package is a compatibility shim only during
+the retirement window.
+
+- Keep backend as the contract authority; do not invent SDK behavior that bypasses
+  backend routes, hosted MCP, or the control-plane facade.
+- Preserve legacy import and CLI compatibility through shim modules when moving
+  public surfaces into `synth-ai`.
+- Customer-facing examples should prefer `from synth_ai import SynthClient`.
+
 ## Coding Style
 
 Follow the **Synth Style** guide: `specifications/tanha/references/synthstyle.md` (sibling repo).

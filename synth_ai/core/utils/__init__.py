@@ -29,6 +29,7 @@ from synth_ai.core.utils.urls import (
     normalize_base_url,
     normalize_inference_base,
 )
+from synth_ai.core.utils.workspace import WorkspaceResolution, resolve_workspace
 
 __all__ = [
     # dict
@@ -60,4 +61,7 @@ __all__ = [
     "normalize_base_url",
     "normalize_backend_base",
     "normalize_inference_base",
+    # workspace
+    "WorkspaceResolution",
+    "resolve_workspace",
 ]

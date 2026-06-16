@@ -2497,7 +2497,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.11.0"
+version = "0.11.2"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -2587,7 +2587,7 @@ requires-dist = [
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = ">=0.34.2" },
 ]
-provides-extras = ["schemas", "providers", "dev", "all", "analytics"]
+provides-extras = ["schemas", "providers", "dev", "all", "analytics", "research"]
 
 [package.metadata.requires-dev]
 dev = [

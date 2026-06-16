@@ -46,6 +46,18 @@ greptile.json
 **/artifacts/
 **/results/
 **/runs/
+# README smoke: keep layout docs; ignore per-run artifact dirs under synth-ai/readme_runs/runs/
+!readme_runs/runs/
+!readme_runs/runs/README.md
+!readme_runs/runs/.gitkeep
+!readme_runs/runs/index.jsonl
+readme_runs/runs/*/
+!readme_runs/runs/latest
+# Crafter DEO runs: keep layout docs; ignore per-run artifact dirs under crafter_runs/runs/
+!crafter_runs/runs/
+!crafter_runs/runs/README.md
+!crafter_runs/runs/.gitkeep
+crafter_runs/runs/*/
 **/backend_traces/
 **/generated_images/
 

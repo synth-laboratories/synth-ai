@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.11.0-orange synth-ai==0.11.0 -->
+<!-- CI release pins: PyPI-0.11.2-orange synth-ai==0.11.2 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -29,6 +29,16 @@ Set `SYNTH_API_KEY` before using the SDK or CLI:
 ```bash
 export SYNTH_API_KEY="sk_..."
 ```
+
+## Local Workspaces
+
+For local multi-repo development, `synth-ai` treats workspace resolution as a
+read-only overlay. `.env` and Synth home config may provide defaults and
+secrets; selecting a worktree must not rewrite those defaults.
+
+Use `SYNTH_WORKSPACE_MANIFEST` or `SYNTH_WORKSPACE_ROOT` for command-scoped
+worktree resolution. The resolver in `synth_ai.core.utils.workspace` returns
+repo paths and a scoped env mapping for subprocesses without mutating `.env`.
 
 Pass `base_url` when you need to pin a production, local, staging, or private
 backend explicitly:
@@ -68,6 +78,7 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
+| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, evidence, MCP (`synth-ai[research]`). |
 | Containers | `client.containers` | Hosted container records and lifecycle operations. |
 | Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
 | Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
@@ -101,3 +112,5 @@ uv run ty check
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
 `lefthook install` to run formatting, linting, and type checks on staged Python
 files.
+
+[SMR Handoff X thread](https://github.com/usesynth/smr-handoff/blob/main/marketing/smr-handoff-x-thread.md) — hand agent tasks to [Managed Research](https://usesynth.ai/smr) from Cursor, Codex, or Claude Code ([repo](https://github.com/usesynth/smr-handoff)).

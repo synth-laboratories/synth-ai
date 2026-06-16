@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk import (
@@ -10,12 +12,14 @@ from synth_ai.sdk import (
     AsyncHorizonsPrivateClient,
     AsyncManagedAgentsAnthropicClient,
     AsyncOpenAIAgentsSdkClient,
+    AsyncSynthManagedAgents,
     AsyncTunnelsClient,
     ContainerPoolsClient,
     ContainersClient,
     HorizonsPrivateClient,
     ManagedAgentsAnthropicClient,
     OpenAIAgentsSdkClient,
+    SynthManagedAgents,
     TunnelsClient,
 )
 
@@ -68,6 +72,13 @@ class SynthClient:
             backend_base=self.base_url,
             timeout=self.timeout,
         )
+        self.managed_agents_anthropic = SynthManagedAgents.from_transport(
+            ManagedAgentsAnthropicClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout=self.timeout,
+            )
+        )
         self.openai_agents_sdk = OpenAIAgentsSdkClient(
             api_key=self.api_key,
             backend_base=self.base_url,
@@ -77,6 +88,19 @@ class SynthClient:
             openai_project=openai_project,
             request_id=openai_request_id,
         )
+        self._research_client: Any | None = None
+
+    @property
+    def research(self) -> Any:
+        if self._research_client is None:
+            from synth_ai.research.client import ResearchClient
+
+            self._research_client = ResearchClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        return self._research_client
 
 
 class AsyncSynthClient:
@@ -122,6 +146,13 @@ class AsyncSynthClient:
                 timeout=self.timeout,
             )
         )
+        self.managed_agents_anthropic = AsyncSynthManagedAgents.from_transport(
+            ManagedAgentsAnthropicClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout=self.timeout,
+            )
+        )
         self.openai_agents_sdk = AsyncOpenAIAgentsSdkClient(
             OpenAIAgentsSdkClient(
                 api_key=self.api_key,
@@ -133,6 +164,19 @@ class AsyncSynthClient:
                 request_id=openai_request_id,
             )
         )
+        self._research_client: Any | None = None
+
+    @property
+    def research(self) -> Any:
+        if self._research_client is None:
+            from synth_ai.research.client import ResearchClient
+
+            self._research_client = ResearchClient(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        return self._research_client
 
 
 __all__ = [
@@ -142,6 +186,7 @@ __all__ = [
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
     "AsyncSynthClient",
+    "AsyncSynthManagedAgents",
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
@@ -149,5 +194,6 @@ __all__ = [
     "ManagedAgentsAnthropicClient",
     "OpenAIAgentsSdkClient",
     "SynthClient",
+    "SynthManagedAgents",
     "TunnelsClient",
 ]
