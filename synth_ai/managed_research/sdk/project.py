@@ -11,10 +11,6 @@ from typing import Any, List
 
 from synth_ai.managed_research.models.canonical_usage import (
     SmrProjectUsage,
-    SmrResourceLimitExtension,
-    SmrResourceLimitProgress,
-    SmrResourceLimits,
-    SmrResourceLimitSelector,
 )
 from synth_ai.managed_research.models.project import ManagedResearchProject
 from synth_ai.managed_research.models.project_workspace import ProjectWorkspaceProjection
@@ -1115,40 +1111,6 @@ class ManagedResearchProjectClient:
 
     def usage(self) -> SmrProjectUsage:
         return self._client.get_project_usage(self.project_id)
-
-    def resource_limits(self) -> SmrResourceLimits:
-        return self._client.get_project_resource_limits(self.project_id)
-
-    def progress_toward_resource_limits(self) -> SmrResourceLimitProgress:
-        return self._client.get_project_progress_toward_resource_limits(self.project_id)
-
-    def extend_resource_limit(
-        self,
-        *,
-        limit_value: float | None = None,
-        additional_value: float | None = None,
-        reason: str | None = None,
-        selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
-        resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
-        idempotency_key: str | None = None,
-    ) -> SmrResourceLimitExtension:
-        return self._client.extend_project_resource_limit(
-            self.project_id,
-            limit_value=limit_value,
-            additional_value=additional_value,
-            reason=reason,
-            selector=selector,
-            resource_limit_id=resource_limit_id,
-            metric=metric,
-            unit=unit,
-            resolve_blockers=resolve_blockers,
-            resume=resume,
-            idempotency_key=idempotency_key,
-        )
 
     def get_schedule(self) -> dict[str, Any]:
         return self.get().schedule

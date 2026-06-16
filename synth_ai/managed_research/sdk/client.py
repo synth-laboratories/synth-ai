@@ -30,7 +30,6 @@ from synth_ai.managed_research.models import (
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryWakeDueRequest,
-    SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -986,7 +985,6 @@ class ManagedResearchClient:
             self._files_api = FilesAPI(self)
         return self._files_api
 
-
     @property
     def exports(self) -> ExportsAPI:
         if self._exports_api is None:
@@ -1063,7 +1061,6 @@ class ManagedResearchClient:
         if self._logs_api is None:
             self._logs_api = LogsAPI(self)
         return self._logs_api
-
 
     def project(self, project_id: str) -> ManagedResearchProjectClient:
         return ManagedResearchProjectClient(
@@ -1189,47 +1186,6 @@ class ManagedResearchClient:
 
     def get_project_usage(self, project_id: str) -> SmrProjectUsage:
         return self.usage.get_project_usage(project_id)
-
-    def get_project_resource_limits(self, project_id: str) -> SmrResourceLimits:
-        return self.usage.get_project_resource_limits(project_id)
-
-    def get_project_progress_toward_resource_limits(
-        self,
-        project_id: str,
-    ) -> SmrResourceLimitProgress:
-        return self.usage.get_project_progress_toward_resource_limits(project_id)
-
-    def extend_project_resource_limit(
-        self,
-        project_id: str,
-        *,
-        limit_value: float | None = None,
-        additional_value: float | None = None,
-        reason: str | None = None,
-        selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
-        resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
-        idempotency_key: str | None = None,
-    ) -> SmrResourceLimitExtension:
-        return self.usage.extend_project_resource_limit(
-            project_id,
-            limit_value=limit_value,
-            additional_value=additional_value,
-            reason=reason,
-            selector=selector,
-            resource_limit_id=resource_limit_id,
-            metric=metric,
-            unit=unit,
-            resolve_blockers=resolve_blockers,
-            resume=resume,
-            idempotency_key=idempotency_key,
-        )
-
-    def get_project_economics(self, project_id: str) -> SmrProjectEconomics:
-        return self.usage.get_project_economics(project_id)
 
     def _request_json(
         self,
@@ -3266,13 +3222,6 @@ class ManagedResearchClient:
             label="get_provider_key_status",
         )
 
-
-
-
-
-
-
-
     def get_launch_preflight(
         self,
         project_id: str,
@@ -4851,31 +4800,6 @@ class ManagedResearchClient:
             label="get_run_cost_summary",
         )
         return SmrRunCostSummary.from_wire(payload)
-
-    def report_tinker_training_usage(
-        self,
-        run_id: str,
-        *,
-        actual_cost_usd: float | None = None,
-        estimated_cost_usd: float | None = None,
-        model: str | None = None,
-        task_id: str | None = None,
-        idempotency_key: str | None = None,
-        provider_result_id: str | None = None,
-        request_id: str | None = None,
-        metadata: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self.run_cost.report_tinker_training_usage(
-            run_id,
-            actual_cost_usd=actual_cost_usd,
-            estimated_cost_usd=estimated_cost_usd,
-            model=model,
-            task_id=task_id,
-            idempotency_key=idempotency_key,
-            provider_result_id=provider_result_id,
-            request_id=request_id,
-            metadata=metadata,
-        )
 
     def branch_run_from_checkpoint(
         self,

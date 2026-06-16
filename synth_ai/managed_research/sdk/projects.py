@@ -7,12 +7,7 @@ from typing import Any, List
 
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementSnapshot,
-    SmrProjectEconomics,
     SmrProjectUsage,
-    SmrResourceLimitExtension,
-    SmrResourceLimitProgress,
-    SmrResourceLimits,
-    SmrResourceLimitSelector,
 )
 from synth_ai.managed_research.models.project import CreateRunnableResult, ManagedResearchProject
 from synth_ai.managed_research.models.project_workspace import ProjectWorkspaceProjection
@@ -268,47 +263,6 @@ class ProjectsAPI(_ClientNamespace):
 
     def get_usage(self, project_id: str) -> SmrProjectUsage:
         return self._client.get_project_usage(project_id)
-
-    def get_resource_limits(self, project_id: str) -> SmrResourceLimits:
-        return self._client.get_project_resource_limits(project_id)
-
-    def get_progress_toward_resource_limits(
-        self,
-        project_id: str,
-    ) -> SmrResourceLimitProgress:
-        return self._client.get_project_progress_toward_resource_limits(project_id)
-
-    def extend_resource_limit(
-        self,
-        project_id: str,
-        *,
-        limit_value: float | None = None,
-        additional_value: float | None = None,
-        reason: str | None = None,
-        selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
-        resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
-        idempotency_key: str | None = None,
-    ) -> SmrResourceLimitExtension:
-        return self._client.extend_project_resource_limit(
-            project_id,
-            limit_value=limit_value,
-            additional_value=additional_value,
-            reason=reason,
-            selector=selector,
-            resource_limit_id=resource_limit_id,
-            metric=metric,
-            unit=unit,
-            resolve_blockers=resolve_blockers,
-            resume=resume,
-            idempotency_key=idempotency_key,
-        )
-
-    def get_economics(self, project_id: str) -> SmrProjectEconomics:
-        return self._client.get_project_economics(project_id)
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self._client.get_billing_entitlements()

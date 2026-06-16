@@ -181,29 +181,6 @@ def build_trained_model_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_get_run_cost_summary,
         ),
-        ToolDefinition(
-            name="smr_report_tinker_training_usage",
-            description=(
-                "Record Tinker training-job usage for a run. Use this when the "
-                "training code did not use the TinkerBudgetSession wrapper or "
-                "when the trained-model response is missing train_cost_usd."
-            ),
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string"},
-                    "actual_cost_usd": {"type": "number"},
-                    "estimated_cost_usd": {"type": "number"},
-                    "model": {"type": "string"},
-                    "task_id": {"type": "string"},
-                    "idempotency_key": {"type": "string"},
-                    "provider_result_id": {"type": "string"},
-                    "request_id": {"type": "string"},
-                    "metadata": {"type": "object"},
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_report_tinker_training_usage,
-        ),
     ]
 
 
