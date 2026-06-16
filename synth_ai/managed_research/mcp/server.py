@@ -483,10 +483,6 @@ class ManagedResearchMcpServer:
                 checks["project_status"] = client.get_project_status(project_id)
         return {"ok": True, "checks": checks}
 
-
-
-
-
     def _tool_setup_exports_list_targets(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
             return client.list_export_targets()
@@ -1415,8 +1411,10 @@ class ManagedResearchMcpServer:
 
     def _tool_request_resource_limit_extension(self, args: JSONDict) -> Any:
         scope = require_string(args, "scope").strip().lower()
-        if scope not in {"run", "project"}:
-            raise ValueError("scope must be 'run' or 'project'")
+        if scope != "run":
+            raise ValueError(
+                "scope must be 'run' (project-scope resource-limit extension is no longer supported)"
+            )
         limit_value = self._optional_float_arg(args, "limit_value")
         additional_value = self._optional_float_arg(args, "additional_value")
         resolve_blockers = optional_bool(args, "resolve_blockers", default=True)
@@ -1431,47 +1429,23 @@ class ManagedResearchMcpServer:
             "idempotency_key": optional_string(args, "idempotency_key"),
         }
         with self._client_from_args(args) as client:
-            if scope == "project":
-                result = client.extend_project_resource_limit(
-                    require_string(args, "project_id"),
+            run_id = require_string(args, "run_id")
+            project_id = optional_string(args, "project_id")
+            result = (
+                client.extend_project_run_resource_limit(
+                    project_id,
+                    run_id,
                     **kwargs,
                 )
-            else:
-                run_id = require_string(args, "run_id")
-                project_id = optional_string(args, "project_id")
-                result = (
-                    client.extend_project_run_resource_limit(
-                        project_id,
-                        run_id,
-                        **kwargs,
-                    )
-                    if project_id
-                    else client.extend_run_resource_limit(run_id, **kwargs)
-                )
+                if project_id
+                else client.extend_run_resource_limit(run_id, **kwargs)
+            )
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_get_project_usage(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             result = client.get_project_usage(project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_project_resource_limits(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_project_resource_limits(project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_project_progress_toward_resource_limits(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_project_progress_toward_resource_limits(project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_project_economics(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_project_economics(project_id)
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_get_project_git(self, args: JSONDict) -> Any:
@@ -1644,24 +1618,6 @@ class ManagedResearchMcpServer:
         run_id = require_string(args, "run_id")
         with self._client_from_args(args) as client:
             return client.run_cost.summary(run_id)
-
-    def _tool_report_tinker_training_usage(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        metadata = args.get("metadata")
-        if metadata is not None and not isinstance(metadata, dict):
-            raise ValueError("metadata must be an object")
-        with self._client_from_args(args) as client:
-            return client.run_cost.report_tinker_training_usage(
-                run_id,
-                actual_cost_usd=self._optional_float_arg(args, "actual_cost_usd"),
-                estimated_cost_usd=self._optional_float_arg(args, "estimated_cost_usd"),
-                model=optional_string(args, "model"),
-                task_id=optional_string(args, "task_id"),
-                idempotency_key=optional_string(args, "idempotency_key"),
-                provider_result_id=optional_string(args, "provider_result_id"),
-                request_id=optional_string(args, "request_id"),
-                metadata=metadata or {},
-            )
 
     def _tool_list_project_files(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

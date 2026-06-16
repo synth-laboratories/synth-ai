@@ -130,48 +130,6 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_get_project_usage,
         ),
-        ToolDefinition(
-            name="smr_get_project_resource_limits",
-            description="Fetch configured resource limits for a project.",
-            input_schema=tool_schema(
-                {
-                    "project_id": {
-                        "type": "string",
-                        "description": "Project id.",
-                    },
-                },
-                required=["project_id"],
-            ),
-            handler=server._tool_get_project_resource_limits,
-        ),
-        ToolDefinition(
-            name="smr_get_project_progress_toward_resource_limits",
-            description="Fetch current project progress toward resource limits, active blockers, and extension posture.",
-            input_schema=tool_schema(
-                {
-                    "project_id": {
-                        "type": "string",
-                        "description": "Project id.",
-                    },
-                },
-                required=["project_id"],
-            ),
-            handler=server._tool_get_project_progress_toward_resource_limits,
-        ),
-        ToolDefinition(
-            name="smr_get_project_economics",
-            description="Fetch canonical project economics: usage, entitlements, and overlay posture.",
-            input_schema=tool_schema(
-                {
-                    "project_id": {
-                        "type": "string",
-                        "description": "Project id.",
-                    },
-                },
-                required=["project_id"],
-            ),
-            handler=server._tool_get_project_economics,
-        ),
     ]
 
 

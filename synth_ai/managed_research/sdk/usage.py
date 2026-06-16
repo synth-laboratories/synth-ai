@@ -8,7 +8,6 @@ from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     OrgLimits,
-    SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -232,69 +231,6 @@ class UsageAPI(_ClientNamespace):
         return SmrProjectUsage.from_wire(
             _raise_on_error_payload(
                 self._client._request_json("GET", f"/smr/projects/{project_id}/usage")
-            )
-        )
-
-    def get_project_resource_limits(self, project_id: str) -> SmrResourceLimits:
-        return SmrResourceLimits.from_wire(
-            _raise_on_error_payload(
-                self._client._request_json("GET", f"/smr/projects/{project_id}/resource-limits")
-            )
-        )
-
-    def get_project_progress_toward_resource_limits(
-        self,
-        project_id: str,
-    ) -> SmrResourceLimitProgress:
-        return SmrResourceLimitProgress.from_wire(
-            _raise_on_error_payload(
-                self._client._request_json(
-                    "GET",
-                    f"/smr/projects/{project_id}/progress-toward-resource-limits",
-                )
-            )
-        )
-
-    def extend_project_resource_limit(
-        self,
-        project_id: str,
-        *,
-        limit_value: float | None = None,
-        additional_value: float | None = None,
-        reason: str | None = None,
-        selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
-        resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
-        resolve_blockers: bool = True,
-        resume: bool = True,
-        idempotency_key: str | None = None,
-    ) -> SmrResourceLimitExtension:
-        return SmrResourceLimitExtension.from_wire(
-            _raise_on_error_payload(
-                self._client._request_json(
-                    "POST",
-                    f"/smr/projects/{project_id}/resource-limit-extensions",
-                    json_body=_limit_extension_payload(
-                        limit_value=limit_value,
-                        additional_value=additional_value,
-                        reason=reason,
-                        selector=selector,
-                        resource_limit_id=resource_limit_id,
-                        metric=metric,
-                        unit=unit,
-                        resolve_blockers=resolve_blockers,
-                        resume=resume,
-                        idempotency_key=idempotency_key,
-                    ),
-                )
-            )
-        )
-
-    def get_project_economics(self, project_id: str) -> SmrProjectEconomics:
-        return SmrProjectEconomics.from_wire(
-            _raise_on_error_payload(
-                self._client._request_json("GET", f"/smr/projects/{project_id}/economics")
             )
         )
 
