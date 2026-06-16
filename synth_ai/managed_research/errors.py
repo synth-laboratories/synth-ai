@@ -205,7 +205,12 @@ class SmrStructuredDenialError(SmrApiError):
         response_text: str | None = None,
         detail: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(message, status_code=status_code, response_text=response_text)
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            body=detail,
+        )
         self.detail = dict(detail) if detail else {}
 
 
