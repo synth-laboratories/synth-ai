@@ -10,12 +10,8 @@ from typing import Any, cast
 from synth_ai.managed_research.auth import get_api_key
 from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.mcp.objective_tools import (
-    CompatObjectiveToolOperation,
     ObjectiveToolOperation,
-    RunObjectiveScopeToolOperation,
-    compat_objective_tool_operation_from_wire,
     objective_tool_operation_from_wire,
-    run_objective_scope_tool_operation_from_wire,
 )
 from synth_ai.managed_research.mcp.registry import (
     READ_SCOPES,
@@ -207,6 +203,17 @@ class ManagedResearchMcpServer:
         return ManagedResearchClient(
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
+        )
+
+    @staticmethod
+    def _removed_backend_contract(surface: str) -> None:
+        raise SmrApiError(
+            f"{surface} is not available in the current Managed Research backend contract.",
+            failure_class="unsupported_backend_contract",
+            remediation=(
+                "Use the runtime-managed run, workspace, objective-event, work-graph, "
+                "trace, and work-product surfaces that remain in the public contract."
+            ),
         )
 
     def _build_tools(self) -> list[ToolDefinition]:
@@ -1091,126 +1098,37 @@ class ManagedResearchMcpServer:
             return client.get_project_workspace(project_id)
 
     def _tool_list_project_experiments(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        run_id = optional_string(args, "run_id")
-        limit = optional_int(args, "limit")
-        with self._client_from_args(args) as client:
-            return client.projects.list_experiments(
-                project_id,
-                run_id=run_id,
-                limit=limit,
-            )
+        self._removed_backend_contract("Project experiment list")
 
     def _tool_create_project_experiment(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        payload = {key: value for key, value in args.items() if key != "project_id"}
-        with self._client_from_args(args) as client:
-            return client.projects.create_experiment(project_id, payload)
+        self._removed_backend_contract("Project experiment creation")
 
     def _tool_get_project_experiment(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        with self._client_from_args(args) as client:
-            return client.projects.get_experiment(project_id, experiment_id)
+        self._removed_backend_contract("Project experiment read")
 
     def _tool_patch_project_experiment(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        payload = args.get("payload")
-        if not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object")
-        with self._client_from_args(args) as client:
-            return client.projects.patch_experiment(
-                project_id,
-                experiment_id,
-                payload,
-            )
+        self._removed_backend_contract("Project experiment patch")
 
     def _tool_link_project_experiment_run(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        payload = {
-            key: value for key, value in args.items() if key not in {"project_id", "experiment_id"}
-        }
-        with self._client_from_args(args) as client:
-            return client.projects.link_experiment_run(
-                project_id,
-                experiment_id,
-                payload,
-            )
+        self._removed_backend_contract("Project experiment run link")
 
     def _tool_list_project_experiment_runs(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        with self._client_from_args(args) as client:
-            return client.projects.list_experiment_runs(
-                project_id,
-                experiment_id,
-                limit=optional_int(args, "limit"),
-            )
+        self._removed_backend_contract("Project experiment run list")
 
     def _tool_attach_project_experiment_container_run(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        payload = {
-            key: value for key, value in args.items() if key not in {"project_id", "experiment_id"}
-        }
-        with self._client_from_args(args) as client:
-            return client.projects.attach_experiment_container_run(
-                project_id,
-                experiment_id,
-                payload,
-            )
+        self._removed_backend_contract("Project experiment container-run attachment")
 
     def _tool_list_project_experiment_container_runs(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        with self._client_from_args(args) as client:
-            return client.projects.list_experiment_container_runs(
-                project_id,
-                experiment_id,
-                limit=optional_int(args, "limit"),
-            )
+        self._removed_backend_contract("Project experiment container-run list")
 
     def _tool_attach_project_experiment_result(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        experiment_id = require_string(args, "experiment_id")
-        payload = {
-            key: value for key, value in args.items() if key not in {"project_id", "experiment_id"}
-        }
-        with self._client_from_args(args) as client:
-            return client.projects.attach_experiment_result(
-                project_id,
-                experiment_id,
-                payload,
-            )
+        self._removed_backend_contract("Project experiment result attachment")
 
     def _tool_list_project_experiment_results(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            return client.projects.list_experiment_results(
-                project_id,
-                experiment_id=optional_string(args, "experiment_id"),
-                metric=optional_string(args, "metric"),
-                taskset_id=optional_string(args, "taskset_id"),
-                taskset_seed=optional_int(args, "taskset_seed"),
-                comparison_cohort_key=optional_string(args, "comparison_cohort_key"),
-                truth_status=optional_string(args, "truth_status"),
-                limit=optional_int(args, "limit"),
-            )
+        self._removed_backend_contract("Project experiment result list")
 
     def _tool_rank_project_experiment_results(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        metric = require_string(args, "metric")
-        with self._client_from_args(args) as client:
-            return client.projects.rank_experiment_results(
-                project_id,
-                metric=metric,
-                taskset_id=optional_string(args, "taskset_id"),
-                taskset_seed=optional_int(args, "taskset_seed"),
-                comparison_cohort_key=optional_string(args, "comparison_cohort_key"),
-                limit=optional_int(args, "limit"),
-            )
+        self._removed_backend_contract("Project experiment result ranking")
 
     def _tool_list_project_changesets(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -1946,22 +1864,10 @@ class ManagedResearchMcpServer:
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_get_run_primary_parent(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        with self._client_from_args(args) as client:
-            return client.get_run_primary_parent(run_id)
+        self._removed_backend_contract("Run primary-parent read")
 
     def _tool_run_objective_scopes(self, args: JSONDict) -> Any:
-        operation = run_objective_scope_tool_operation_from_wire(require_string(args, "operation"))
-        run_id = require_string(args, "run_id")
-        payload = args.get("payload")
-        if payload is not None and not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object when provided")
-        with self._client_from_args(args) as client:
-            if operation is RunObjectiveScopeToolOperation.LIST:
-                return client.list_run_objective_scopes(run_id)
-            if operation is RunObjectiveScopeToolOperation.REGISTER:
-                return client.register_run_objective_scope(run_id, payload or {})
-        raise ValueError(f"Unsupported run objective-scope operation: {operation.value}")
+        self._removed_backend_contract("Run objective-scope management")
 
     def _tool_stop_run(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
@@ -2638,43 +2544,12 @@ class ManagedResearchMcpServer:
             )
 
     def _tool_open_ended_questions(self, args: JSONDict) -> Any:
-        operation = compat_objective_tool_operation_from_wire(require_string(args, "operation"))
-        project_id = require_string(args, "project_id")
-        objective_id = optional_string(args, "objective_id")
-        payload = args.get("payload")
-        if payload is not None and not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object when provided")
-        with self._client_from_args(args) as client:
-            if operation is CompatObjectiveToolOperation.LIST:
-                return client.list_open_ended_questions(
-                    project_id, run_id=optional_string(args, "run_id")
-                )
-            if operation is CompatObjectiveToolOperation.CREATE:
-                return client.create_open_ended_question(project_id, payload or {})
-            if operation is CompatObjectiveToolOperation.GET:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for get")
-                return client.get_open_ended_question(project_id, objective_id)
-            if operation is CompatObjectiveToolOperation.PATCH:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for patch")
-                return client.patch_open_ended_question(project_id, objective_id, payload or {})
-            if operation is CompatObjectiveToolOperation.TRANSITION:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for transition")
-                return client.transition_open_ended_question(
-                    project_id, objective_id, payload or {}
-                )
-        raise ValueError(f"Unsupported open-ended-question operation: {operation.value}")
+        self._removed_backend_contract("Project open-ended-question management")
 
     def _tool_objectives(self, args: JSONDict) -> Any:
         operation = objective_tool_operation_from_wire(require_string(args, "operation"))
         project_id = require_string(args, "project_id")
-        objective_id = optional_string(args, "objective_id")
         kind = optional_string(args, "kind")
-        payload = args.get("payload")
-        if payload is not None and not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object when provided")
         with self._client_from_args(args) as client:
             if operation is ObjectiveToolOperation.LIST:
                 return client.list_objectives(
@@ -2682,128 +2557,16 @@ class ManagedResearchMcpServer:
                     kind=kind,
                     run_id=optional_string(args, "run_id"),
                 )
-            if operation is ObjectiveToolOperation.CREATE:
-                return client.create_objective(project_id, payload or {})
-            if objective_id is None:
-                raise ValueError("'objective_id' is required for this operation")
-            if operation is ObjectiveToolOperation.GET:
-                return client.get_objective(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.PATCH:
-                return client.patch_objective(
-                    project_id,
-                    objective_id,
-                    payload or {},
-                    kind=kind,
-                )
-            if operation is ObjectiveToolOperation.PAUSE:
-                return client.pause_objective(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.RESUME:
-                return client.resume_objective(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.WITHDRAW:
-                return client.withdraw_objective(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.PROGRESS:
-                return client.get_objective_progress(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.TASKS:
-                return client.list_objective_tasks(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.CLAIMS:
-                return client.list_objective_claims(project_id, objective_id, kind=kind)
-            if operation is ObjectiveToolOperation.CLAIM:
-                return client.create_objective_claim(
-                    project_id,
-                    objective_id,
-                    payload or {},
-                    kind=kind,
-                )
-            if operation is ObjectiveToolOperation.REQUEST_REVIEW:
-                return client.request_objective_review(
-                    project_id,
-                    objective_id,
-                    payload or {},
-                    kind=kind,
-                )
-        raise ValueError(f"Unsupported objective operation: {operation.value}")
+        self._removed_backend_contract(f"Project objective operation '{operation.value}'")
 
     def _tool_get_objective_status(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        objective_id = require_string(args, "objective_id")
-        with self._client_from_args(args) as client:
-            return client.projects.get_objective_status(
-                project_id,
-                objective_id,
-                kind=optional_string(args, "kind"),
-                task_limit=optional_int(args, "task_limit"),
-                claim_limit=optional_int(args, "claim_limit"),
-                event_limit=optional_int(args, "event_limit"),
-                milestone_limit=optional_int(args, "milestone_limit"),
-            )
+        self._removed_backend_contract("Objective status bundle")
 
     def _tool_milestones(self, args: JSONDict) -> Any:
-        operation = require_string(args, "operation").strip().lower()
-        if operation not in {"list", "create", "get", "patch", "transition"}:
-            raise ValueError("'operation' must be one of: list, create, get, patch, transition")
-        project_id = require_string(args, "project_id")
-        milestone_id = optional_string(args, "milestone_id")
-        payload = args.get("payload")
-        if payload is not None and not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object when provided")
-        with self._client_from_args(args) as client:
-            if operation == "list":
-                return client.projects.list_milestones(
-                    project_id,
-                    run_id=optional_string(args, "run_id"),
-                    parent_kind=optional_string(args, "parent_kind"),
-                    parent_id=optional_string(args, "parent_id"),
-                    limit=optional_int(args, "limit"),
-                )
-            if operation == "create":
-                return client.projects.create_milestone(project_id, payload or {})
-            if milestone_id is None:
-                raise ValueError("'milestone_id' is required for this operation")
-            if operation == "get":
-                return client.projects.get_milestone(project_id, milestone_id)
-            if operation == "patch":
-                return client.projects.patch_milestone(
-                    project_id,
-                    milestone_id,
-                    payload or {},
-                )
-            if operation == "transition":
-                return client.projects.transition_milestone(
-                    project_id,
-                    milestone_id,
-                    payload or {},
-                )
-        raise ValueError(f"Unsupported milestone operation: {operation}")
+        self._removed_backend_contract("Project milestone management")
 
     def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:
-        operation = compat_objective_tool_operation_from_wire(require_string(args, "operation"))
-        project_id = require_string(args, "project_id")
-        objective_id = optional_string(args, "objective_id")
-        payload = args.get("payload")
-        if payload is not None and not isinstance(payload, dict):
-            raise ValueError("'payload' must be an object when provided")
-        with self._client_from_args(args) as client:
-            if operation is CompatObjectiveToolOperation.LIST:
-                return client.list_directed_effort_outcomes(
-                    project_id, run_id=optional_string(args, "run_id")
-                )
-            if operation is CompatObjectiveToolOperation.CREATE:
-                return client.create_directed_effort_outcome(project_id, payload or {})
-            if operation is CompatObjectiveToolOperation.GET:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for get")
-                return client.get_directed_effort_outcome(project_id, objective_id)
-            if operation is CompatObjectiveToolOperation.PATCH:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for patch")
-                return client.patch_directed_effort_outcome(project_id, objective_id, payload or {})
-            if operation is CompatObjectiveToolOperation.TRANSITION:
-                if objective_id is None:
-                    raise ValueError("'objective_id' is required for transition")
-                return client.transition_directed_effort_outcome(
-                    project_id, objective_id, payload or {}
-                )
-        raise ValueError(f"Unsupported directed-effort-outcome operation: {operation.value}")
+        self._removed_backend_contract("Project directed-effort-outcome management")
 
     # ---- Open Research tool helpers ----------------------------------
 

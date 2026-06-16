@@ -3867,76 +3867,6 @@ class ManagedResearchClient:
             label="list_objectives",
         )
 
-    def get_objective_status(
-        self,
-        project_id: str,
-        objective_id: str,
-        *,
-        kind: str | None = None,
-        task_limit: int | None = None,
-        claim_limit: int | None = None,
-        event_limit: int | None = 50,
-        milestone_limit: int | None = None,
-    ) -> dict[str, Any]:
-        objective = self.get_objective(project_id, objective_id, kind=kind)
-        objective_kind = (
-            str(kind or objective.get("objective_kind") or objective.get("kind") or "").strip()
-            or None
-        )
-        progress = self.get_objective_progress(
-            project_id,
-            objective_id,
-            kind=objective_kind,
-        )
-        tasks = self.list_objective_tasks(
-            project_id,
-            objective_id,
-            kind=objective_kind,
-            limit=task_limit,
-        )
-        claims = self.list_objective_claims(
-            project_id,
-            objective_id,
-            kind=objective_kind,
-            limit=claim_limit,
-        )
-        milestones = self.list_project_milestones(
-            project_id,
-            parent_kind=objective_kind,
-            parent_id=objective_id,
-            limit=milestone_limit,
-        )
-        events = self.get_objective_events(
-            project_id,
-            objective_id,
-            kind=objective_kind,
-            limit=event_limit,
-        )
-        latest_review = None
-        for claim in claims:
-            claim_kind = str(claim.get("claim_kind") or claim.get("kind") or "").strip()
-            if "review" in claim_kind:
-                latest_review = claim
-                break
-        blockers = [
-            item
-            for item in [*tasks, *milestones]
-            if str(item.get("status") or item.get("state") or "").strip().lower()
-            in {"blocked", "failed"}
-        ]
-        return {
-            "objective": objective,
-            "progress": progress,
-            "related_tasks": tasks,
-            "related_milestones": milestones,
-            "claims": claims,
-            "latest_review": latest_review,
-            "blockers": blockers,
-            "recent_events": events.get("events", []),
-            "events": events,
-            "run_scopes": objective.get("run_scopes") or objective.get("runs") or [],
-        }
-
     def list_tasks(
         self,
         project_id: str,
@@ -3947,11 +3877,11 @@ class ManagedResearchClient:
         limit: int | None = None,
     ) -> list[dict[str, Any]]:
         if objective_id:
-            return self.list_objective_tasks(
-                project_id,
-                objective_id,
-                kind=kind,
-                limit=limit,
+            raise SmrApiError(
+                "Objective-scoped task listing is not available in the current "
+                "Managed Research backend contract; use run-scoped tasks or "
+                "run objective events instead.",
+                failure_class="unsupported_backend_contract",
             )
         if not run_id:
             raise ValueError("run_id or objective_id is required")

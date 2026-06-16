@@ -1393,14 +1393,6 @@ class RunsAPI(_ClientNamespace):
         snapshot = self.get_observability_snapshot(project_id, run_id)
         return snapshot.public_state.value
 
-    def get_primary_parent(self, run_id: str) -> dict[str, Any]:
-        return self._client.get_run_primary_parent(run_id)
-
-    def list_primary_parent_milestones(
-        self, run_id: str, *, limit: int | None = None
-    ) -> List[dict[str, Any]]:
-        return self._client.list_run_primary_parent_milestones(run_id, limit=limit)
-
     def stop(self, run_id: str, *, project_id: str | None = None) -> ManagedResearchRunControlAck:
         return ManagedResearchRunControlAck.from_wire(
             self._client.stop_run(run_id, project_id=project_id)

@@ -24,6 +24,11 @@ from synth_ai.managed_research.models.smr_host_kinds import SMR_HOST_KIND_VALUES
 from synth_ai.managed_research.models.smr_providers import PROVIDER_VALUES
 from synth_ai.managed_research.models.smr_work_modes import SMR_WORK_MODE_VALUES
 
+_REMOVED_RUN_TOOL_NAMES = {
+    "smr_get_run_primary_parent",
+    "smr_run_objective_scopes",
+}
+
 
 def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
     return {
@@ -138,7 +143,7 @@ def _objective_launch_properties() -> dict[str, Any]:
 
 
 def build_run_tools(server: Any) -> list[ToolDefinition]:
-    return [
+    tools = [
         ToolDefinition(
             name="smr_start_run",
             description=(
@@ -1574,6 +1579,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_restore_run_checkpoint,
         ),
     ]
+    return [tool for tool in tools if tool.name not in _REMOVED_RUN_TOOL_NAMES]
 
 
 __all__ = ["build_run_tools"]

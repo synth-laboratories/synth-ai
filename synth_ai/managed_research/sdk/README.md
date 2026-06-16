@@ -41,8 +41,9 @@ Current typed namespace returns:
   - `WorkspaceUploadResult`
 
 Noun-first inspection belongs on the run/project namespaces and direct client
-reads such as `get_run(...)`, `list_run_questions(...)`,
-`get_run_primary_parent(...)`, and the OEQ/DEO/milestone/experiment list reads.
+reads such as `get_run(...)`, `get_project_workspace(...)`,
+`list_objectives(...)`, `list_run_objective_events(...)`,
+`get_run_work_graph(...)`, and `list_run_questions(...)`.
 
 Wire-shaped helpers remain on `SmrControlClient` where MCP and lower-level callers need backend-shaped payloads.
 

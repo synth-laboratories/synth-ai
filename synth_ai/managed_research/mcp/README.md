@@ -44,8 +44,9 @@ Canonical launch flow:
 - `smr_get_launch_preflight`
 - `smr_trigger_run`
 - `smr_get_run`
-- noun reads such as `smr_list_run_questions`, `smr_get_run_primary_parent`,
-  `smr_open_ended_questions`, and `smr_directed_effort_outcomes`
+- noun reads such as `smr_get_project_workspace`, `smr_objectives` with
+  `operation=list`, `smr_list_run_objective_events`, `smr_list_run_questions`,
+  `smr_get_run_work_graph`, and `smr_get_run_traces`
 
 Legacy readiness/blocker aliases are intentionally removed from the maintained surface.
 

@@ -23,6 +23,24 @@ from synth_ai.managed_research.models.smr_environment_kinds import (
 from synth_ai.managed_research.models.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
 from synth_ai.managed_research.models.smr_runtime_kinds import SMR_RUNTIME_KIND_VALUES
 
+_REMOVED_PROJECT_TOOL_NAMES = {
+    "smr_list_project_experiments",
+    "smr_create_project_experiment",
+    "smr_get_project_experiment",
+    "smr_patch_project_experiment",
+    "smr_link_project_experiment_run",
+    "smr_list_project_experiment_runs",
+    "smr_attach_project_experiment_container_run",
+    "smr_list_project_experiment_container_runs",
+    "smr_attach_project_experiment_result",
+    "smr_list_project_experiment_results",
+    "smr_rank_project_experiment_results",
+    "smr_open_ended_questions",
+    "smr_get_objective_status",
+    "smr_milestones",
+    "smr_directed_effort_outcomes",
+}
+
 
 def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
     return {
@@ -53,7 +71,7 @@ def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
 
 
 def build_project_tools(server: Any) -> list[ToolDefinition]:
-    return [
+    tools = [
         ToolDefinition(
             name="smr_health_check",
             description="Return a connectivity and setup report for the managed-research MCP server.",
@@ -955,21 +973,14 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_objectives",
-            description=(
-                "List, create, fetch, patch, pause, resume, withdraw, claim "
-                "progress, request review, or inspect tasks/progress for project objectives."
-            ),
+            description="List runtime-managed project objectives exposed by the backend contract.",
             input_schema=tool_schema(
                 {
                     "operation": {
                         "type": "string",
-                        "enum": [operation.value for operation in ObjectiveToolOperation],
+                        "enum": [ObjectiveToolOperation.LIST.value],
                     },
                     "project_id": {"type": "string", "description": "Managed research project id."},
-                    "objective_id": {
-                        "type": "string",
-                        "description": "Objective id for item operations.",
-                    },
                     "kind": {
                         "type": "string",
                         "enum": ["open_ended_question", "directed_effort_outcome"],
@@ -978,10 +989,6 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     "run_id": {
                         "type": "string",
                         "description": "Optional run filter when listing.",
-                    },
-                    "payload": {
-                        "type": "object",
-                        "description": "Create, patch, claim, or review payload.",
                     },
                 },
                 required=["operation", "project_id"],
@@ -1075,6 +1082,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_directed_effort_outcomes,
         ),
     ]
+    return [tool for tool in tools if tool.name not in _REMOVED_PROJECT_TOOL_NAMES]
 
 
 __all__ = ["build_project_tools"]
