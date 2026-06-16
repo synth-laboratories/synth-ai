@@ -244,7 +244,10 @@ class ManagedResearchRunControlAck:
                 _optional_string(mapping, "control_intent_id")
                 or _optional_string(mapping, "control_message_id")
             ),
-            control_intent_ack_at=_optional_datetime(mapping, "control_intent_ack_at"),
+            control_intent_ack_at=(
+                _optional_datetime(mapping, "control_intent_ack_at")
+                or _optional_datetime(mapping, "accepted_at")
+            ),
             enqueue_status=(
                 ManagedResearchRunControlEnqueueStatus(value)
                 if (value := _optional_string(mapping, "enqueue_status")) is not None

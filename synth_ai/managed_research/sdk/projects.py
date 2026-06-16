@@ -17,6 +17,9 @@ from synth_ai.managed_research.models.canonical_usage import (
 from synth_ai.managed_research.models.project import CreateRunnableResult, ManagedResearchProject
 from synth_ai.managed_research.models.project_workspace import ProjectWorkspaceProjection
 from synth_ai.managed_research.models.types import (
+    ProjectCodeSource,
+    ProjectDataPoolUploadResult,
+    ProjectLaunchProfile,
     ProviderKeyStatus,
     SmrLaunchPreflight,
     SmrProjectSetup,
@@ -105,6 +108,121 @@ class ProjectsAPI(_ClientNamespace):
 
     def get_workspace(self, project_id: str) -> ProjectWorkspaceProjection:
         return ProjectWorkspaceProjection.from_wire(self._client.get_project_workspace(project_id))
+
+    def get_code_source(self, project_id: str) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(self._client.get_project_code_source(project_id))
+
+    def upload_code_bundle(
+        self,
+        project_id: str,
+        bundle_path: str,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        commit_message: str | None = None,
+        default_branch: str = "main",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(
+            self._client.upload_project_code_bundle(
+                project_id,
+                bundle_path,
+                filename=filename,
+                content_type=content_type,
+                commit_message=commit_message,
+                default_branch=default_branch,
+                metadata=metadata,
+            )
+        )
+
+    def connect_git_source(
+        self,
+        project_id: str,
+        *,
+        provider: str | None = None,
+        repo_url: str | None = None,
+        branch: str | None = None,
+        auth_ref: str | None = None,
+        sync_policy: Mapping[str, Any] | None = None,
+    ) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(
+            self._client.connect_project_git_source(
+                project_id,
+                provider=provider,
+                repo_url=repo_url,
+                branch=branch,
+                auth_ref=auth_ref,
+                sync_policy=sync_policy,
+            )
+        )
+
+    def get_launch_profile(self, project_id: str) -> ProjectLaunchProfile:
+        return ProjectLaunchProfile.from_wire(self._client.get_project_launch_profile(project_id))
+
+    def patch_launch_profile(
+        self,
+        project_id: str,
+        launch_profile: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectLaunchProfile:
+        return ProjectLaunchProfile.from_wire(
+            self._client.patch_project_launch_profile(
+                project_id,
+                launch_profile,
+                metadata=metadata,
+            )
+        )
+
+    def upload_data_pool_files(
+        self,
+        project_id: str,
+        files: list[Mapping[str, Any]],
+        *,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        access_policy: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectDataPoolUploadResult:
+        return ProjectDataPoolUploadResult.from_wire(
+            self._client.upload_project_data_pool_files(
+                project_id,
+                files,
+                pool_id=pool_id,
+                pool_name=pool_name,
+                role=role,
+                access_policy=access_policy,
+                metadata=metadata,
+            )
+        )
+
+    def upload_data_pool_file(
+        self,
+        project_id: str,
+        path: str,
+        *,
+        name: str | None = None,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        metadata: Mapping[str, Any] | None = None,
+        access_policy: Mapping[str, Any] | None = None,
+        pool_metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectDataPoolUploadResult:
+        return ProjectDataPoolUploadResult.from_wire(
+            self._client.upload_project_data_pool_file(
+                project_id,
+                path,
+                name=name,
+                pool_id=pool_id,
+                pool_name=pool_name,
+                role=role,
+                metadata=metadata,
+                access_policy=access_policy,
+                pool_metadata=pool_metadata,
+            )
+        )
 
     def list_changesets(
         self,

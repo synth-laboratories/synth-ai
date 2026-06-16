@@ -19,6 +19,17 @@ from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     Checkpoint,
+    EffortCreateRequest,
+    EffortPatchRequest,
+    FactoryActorOutputCreateRequest,
+    FactoryActorOutputPatchRequest,
+    FactoryCreateRequest,
+    FactoryIdeaCreateRequest,
+    FactoryIdeaPatchRequest,
+    FactoryPatchRequest,
+    FactoryProjectLinkRequest,
+    FactoryProjectPatchRequest,
+    FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
@@ -26,6 +37,19 @@ from synth_ai.managed_research.models import (
     SmrResourceLimits,
     SmrResourceLimitSelector,
     SmrRunUsage,
+)
+from synth_ai.managed_research.models.factories import (
+    effort_create_payload,
+    effort_patch_payload,
+    factory_actor_output_create_payload,
+    factory_actor_output_patch_payload,
+    factory_create_payload,
+    factory_idea_create_payload,
+    factory_idea_patch_payload,
+    factory_patch_payload,
+    factory_project_link_payload,
+    factory_project_patch_payload,
+    factory_wake_due_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
@@ -135,6 +159,7 @@ from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
+from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
@@ -435,6 +460,7 @@ def _build_project_run_payload(
     primary_objective_kind: str | None = None,
     primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+    effort_id: str | None = None,
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
@@ -698,6 +724,8 @@ def _build_project_run_payload(
     )
     if normalized_primary_parent:
         payload["primary_parent"] = normalized_primary_parent
+    if effort_id and effort_id.strip():
+        payload["effort_id"] = effort_id.strip()
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
     if idempotency_key and idempotency_key.strip():
@@ -822,6 +850,32 @@ def _source_bundle_file_entry(
     return payload
 
 
+def _code_bundle_upload_payload(
+    bundle_path: str | os.PathLike[str],
+    *,
+    filename: str | None = None,
+    content_type: str | None = None,
+    source_kind: str = "uploaded_bundle",
+    commit_message: str | None = None,
+    default_branch: str = "main",
+    metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    resolved = Path(bundle_path)
+    raw_bytes = resolved.read_bytes()
+    payload: dict[str, Any] = {
+        "filename": str(filename or resolved.name),
+        "content": base64.b64encode(raw_bytes).decode("ascii"),
+        "encoding": "base64",
+        "content_type": content_type or _guess_content_type(resolved.name),
+        "source_kind": source_kind,
+        "default_branch": default_branch,
+        "metadata": dict(metadata or {}),
+    }
+    if commit_message:
+        payload["commit_message"] = commit_message
+    return payload
+
+
 @dataclass
 class ManagedResearchClient:
     """Managed Research client implementation."""
@@ -831,6 +885,8 @@ class ManagedResearchClient:
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     _transport: SmrHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
+    _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
+    _efforts_api: EffortsAPI | None = field(init=False, default=None, repr=False)
     _runs_api: RunsAPI | None = field(init=False, default=None, repr=False)
     _workspace_inputs_api: WorkspaceInputsAPI | None = field(init=False, default=None, repr=False)
     _progress_api: ProgressAPI | None = field(init=False, default=None, repr=False)
@@ -881,6 +937,18 @@ class ManagedResearchClient:
         if self._projects_api is None:
             self._projects_api = ProjectsAPI(self)
         return self._projects_api
+
+    @property
+    def factories(self) -> FactoriesAPI:
+        if self._factories_api is None:
+            self._factories_api = FactoriesAPI(self)
+        return self._factories_api
+
+    @property
+    def efforts(self) -> EffortsAPI:
+        if self._efforts_api is None:
+            self._efforts_api = EffortsAPI(self)
+        return self._efforts_api
 
     @property
     def runs(self) -> RunsAPI:
@@ -1282,6 +1350,304 @@ class ManagedResearchClient:
     def get_project(self, project_id: str) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json("GET", f"/smr/projects/{project_id}"), label="get_project"
+        )
+
+    def create_factory(
+        self,
+        request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/factories",
+                json_body=factory_create_payload(request),
+            ),
+            label="create_factory",
+        )
+
+    def list_factories(self, *, include_archived: bool = False) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/factories",
+                params=build_query_params(include_archived=include_archived),
+            ),
+            label="list_factories",
+        )
+
+    def get_factory(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/factories/{factory_id}"),
+            label="get_factory",
+        )
+
+    def patch_factory(
+        self,
+        factory_id: str,
+        request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}",
+                json_body=factory_patch_payload(request),
+            ),
+            label="patch_factory",
+        )
+
+    def link_factory_project(
+        self,
+        factory_id: str,
+        request: FactoryProjectLinkRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/projects",
+                json_body=factory_project_link_payload(request),
+            ),
+            label="link_factory_project",
+        )
+
+    def list_factory_projects(
+        self,
+        factory_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/projects",
+                params=build_query_params(include_archived=include_archived),
+            ),
+            label="list_factory_projects",
+        )
+
+    def get_factory_project(self, factory_id: str, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/projects/{project_id}",
+            ),
+            label="get_factory_project",
+        )
+
+    def patch_factory_project(
+        self,
+        factory_id: str,
+        project_id: str,
+        request: FactoryProjectPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/projects/{project_id}",
+                json_body=factory_project_patch_payload(request),
+            ),
+            label="patch_factory_project",
+        )
+
+    def get_factory_workspace(
+        self,
+        factory_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/workspace",
+                params=build_query_params(include_archived=include_archived),
+            ),
+            label="get_factory_workspace",
+        )
+
+    def get_factory_status(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/factories/{factory_id}/status"),
+            label="get_factory_status",
+        )
+
+    def create_factory_idea(
+        self,
+        factory_id: str,
+        request: FactoryIdeaCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/ideas",
+                json_body=factory_idea_create_payload(request),
+            ),
+            label="create_factory_idea",
+        )
+
+    def list_factory_ideas(
+        self,
+        factory_id: str,
+        *,
+        status: str | None = None,
+        source: str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/ideas",
+                params=build_query_params(
+                    status=status,
+                    source=source,
+                    include_archived=include_archived,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_ideas",
+        )
+
+    def get_factory_idea(self, factory_id: str, idea_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/ideas/{idea_id}",
+            ),
+            label="get_factory_idea",
+        )
+
+    def patch_factory_idea(
+        self,
+        factory_id: str,
+        idea_id: str,
+        request: FactoryIdeaPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/ideas/{idea_id}",
+                json_body=factory_idea_patch_payload(request),
+            ),
+            label="patch_factory_idea",
+        )
+
+    def create_factory_actor_output(
+        self,
+        factory_id: str,
+        request: FactoryActorOutputCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/actor-outputs",
+                json_body=factory_actor_output_create_payload(request),
+            ),
+            label="create_factory_actor_output",
+        )
+
+    def list_factory_actor_outputs(
+        self,
+        factory_id: str,
+        *,
+        actor_role: str | None = None,
+        kind: str | None = None,
+        status: str | None = None,
+        include_archived: bool = False,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/actor-outputs",
+                params=build_query_params(
+                    actor_role=actor_role,
+                    kind=kind,
+                    status=status,
+                    include_archived=include_archived,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_actor_outputs",
+        )
+
+    def get_factory_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/actor-outputs/{actor_output_id}",
+            ),
+            label="get_factory_actor_output",
+        )
+
+    def patch_factory_actor_output(
+        self,
+        factory_id: str,
+        actor_output_id: str,
+        request: FactoryActorOutputPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}/actor-outputs/{actor_output_id}",
+                json_body=factory_actor_output_patch_payload(request),
+            ),
+            label="patch_factory_actor_output",
+        )
+
+    def wake_due_factory_efforts(
+        self,
+        factory_id: str,
+        request: FactoryWakeDueRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/wake-due",
+                json_body=factory_wake_due_payload(request),
+            ),
+            label="wake_due_factory_efforts",
+        )
+
+    def list_efforts_for_factory(self, factory_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json("GET", f"/smr/factories/{factory_id}/efforts"),
+            label="list_efforts_for_factory",
+        )
+
+    def create_effort(
+        self,
+        request: EffortCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/efforts",
+                json_body=effort_create_payload(request),
+            ),
+            label="create_effort",
+        )
+
+    def get_effort(self, effort_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/efforts/{effort_id}"),
+            label="get_effort",
+        )
+
+    def patch_effort(
+        self,
+        effort_id: str,
+        request: EffortPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/efforts/{effort_id}",
+                json_body=effort_patch_payload(request),
+            ),
+            label="patch_effort",
         )
 
     def get_default_project(self) -> dict[str, Any]:
@@ -1757,6 +2123,160 @@ class ManagedResearchClient:
                     metadata=metadata,
                 )
             ],
+        )
+
+    def get_project_code_source(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/workspace/code-source"),
+            label="get_project_code_source",
+        )
+
+    def upload_project_code_bundle(
+        self,
+        project_id: str,
+        bundle_path: str | os.PathLike[str],
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        source_kind: str = "uploaded_bundle",
+        commit_message: str | None = None,
+        default_branch: str = "main",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/code-bundle:upload",
+                json_body=_code_bundle_upload_payload(
+                    bundle_path,
+                    filename=filename,
+                    content_type=content_type,
+                    source_kind=source_kind,
+                    commit_message=commit_message,
+                    default_branch=default_branch,
+                    metadata=metadata,
+                ),
+            ),
+            label="upload_project_code_bundle",
+        )
+
+    def connect_project_git_source(
+        self,
+        project_id: str,
+        *,
+        provider: str | None = None,
+        repo_url: str | None = None,
+        branch: str | None = None,
+        auth_ref: str | None = None,
+        sync_policy: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/code-source:connect-git",
+                json_body={
+                    "provider": provider,
+                    "repo_url": repo_url,
+                    "branch": branch,
+                    "auth_ref": auth_ref,
+                    "sync_policy": dict(sync_policy or {}),
+                },
+            ),
+            label="connect_project_git_source",
+        )
+
+    def get_project_launch_profile(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/workspace/launch-profile",
+            ),
+            label="get_project_launch_profile",
+        )
+
+    def patch_project_launch_profile(
+        self,
+        project_id: str,
+        launch_profile: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/projects/{project_id}/workspace/launch-profile",
+                json_body={
+                    "launch_profile": dict(launch_profile),
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="patch_project_launch_profile",
+        )
+
+    def upload_project_data_pool_files(
+        self,
+        project_id: str,
+        files: Iterable[Mapping[str, Any]],
+        *,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        access_policy: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_files = [_normalize_resource_uploaded_file(entry) for entry in files]
+        if not normalized_files:
+            raise ValueError("upload_project_data_pool_files requires at least one file")
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/data-pools/files:upload",
+                json_body={
+                    "pool_id": pool_id,
+                    "pool_name": pool_name,
+                    "role": role,
+                    "files": normalized_files,
+                    "access_policy": dict(access_policy or {}),
+                    "metadata": dict(metadata or {}),
+                },
+            ),
+            label="upload_project_data_pool_files",
+        )
+
+    def upload_project_data_pool_file(
+        self,
+        project_id: str,
+        path: str | os.PathLike[str],
+        *,
+        name: str | None = None,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        visibility: str = "project",
+        metadata: Mapping[str, Any] | None = None,
+        access_policy: Mapping[str, Any] | None = None,
+        pool_metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        resolved = Path(path)
+        raw_bytes = resolved.read_bytes()
+        return self.upload_project_data_pool_files(
+            project_id,
+            [
+                {
+                    "path": name or resolved.name,
+                    "content": base64.b64encode(raw_bytes).decode("ascii"),
+                    "content_type": _guess_content_type(resolved.name),
+                    "encoding": "base64",
+                    "visibility": visibility,
+                    "kind": role,
+                    "metadata": dict(metadata or {}),
+                }
+            ],
+            pool_id=pool_id,
+            pool_name=pool_name,
+            role=role,
+            access_policy=access_policy,
+            metadata=pool_metadata,
         )
 
     def get_project_file(self, project_id: str, file_id: str) -> dict[str, Any]:
@@ -2919,6 +3439,7 @@ class ManagedResearchClient:
         primary_objective_kind: str | None = None,
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_id: str | None = None,
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -2960,6 +3481,7 @@ class ManagedResearchClient:
             primary_objective_kind=primary_objective_kind,
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
+            effort_id=effort_id,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )
@@ -3062,6 +3584,7 @@ class ManagedResearchClient:
         primary_objective_kind: str | None = None,
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
+        effort_id: str | None = None,
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -3103,6 +3626,7 @@ class ManagedResearchClient:
             primary_objective_kind=primary_objective_kind,
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
+            effort_id=effort_id,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )

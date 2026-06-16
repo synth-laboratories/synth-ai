@@ -378,6 +378,7 @@ class RunLaunchRequest:
     primary_objective_kind: str | None = None
     primary_parent_ref: dict[str, Any] | None = None
     primary_parent: dict[str, Any] | None = None
+    effort_id: str | None = None
     idempotency_key_run_create: str | None = None
     idempotency_key: str | None = None
 
@@ -447,6 +448,7 @@ class RunLaunchRequest:
             primary_objective_kind=optional_string(payload, "primary_objective_kind"),
             primary_parent_ref=_optional_object(payload, "primary_parent_ref"),
             primary_parent=_optional_object(payload, "primary_parent"),
+            effort_id=optional_string(payload, "effort_id"),
             idempotency_key_run_create=optional_string(payload, "idempotency_key_run_create"),
             idempotency_key=optional_string(payload, "idempotency_key"),
         )
@@ -488,6 +490,7 @@ class RunLaunchRequest:
             "primary_objective_kind": self.primary_objective_kind,
             "primary_parent_ref": self.primary_parent_ref,
             "primary_parent": self.primary_parent,
+            "effort_id": self.effort_id,
             "idempotency_key_run_create": self.idempotency_key_run_create,
             "idempotency_key": self.idempotency_key,
         }
@@ -530,6 +533,7 @@ class OneOffRunLaunchRequest:
     primary_objective_kind: str | None = None
     primary_parent_ref: dict[str, Any] | None = None
     primary_parent: dict[str, Any] | None = None
+    effort_id: str | None = None
     idempotency_key_run_create: str | None = None
     idempotency_key: str | None = None
 
@@ -598,6 +602,7 @@ class OneOffRunLaunchRequest:
             primary_objective_kind=optional_string(payload, "primary_objective_kind"),
             primary_parent_ref=_optional_object(payload, "primary_parent_ref"),
             primary_parent=_optional_object(payload, "primary_parent"),
+            effort_id=optional_string(payload, "effort_id"),
             idempotency_key_run_create=optional_string(payload, "idempotency_key_run_create"),
             idempotency_key=optional_string(payload, "idempotency_key"),
         )
@@ -639,6 +644,7 @@ class OneOffRunLaunchRequest:
             "primary_objective_kind": self.primary_objective_kind,
             "primary_parent_ref": self.primary_parent_ref,
             "primary_parent": self.primary_parent,
+            "effort_id": self.effort_id,
             "idempotency_key_run_create": self.idempotency_key_run_create,
             "idempotency_key": self.idempotency_key,
         }

@@ -428,6 +428,7 @@ class ManagedResearchRun:
     run_id: str
     project_id: str
     public_state: RunState
+    effort_id: str | None = None
     runbook: str | None = None
     project_alias: str | None = None
     project_kind: str | None = None
@@ -492,6 +493,7 @@ class ManagedResearchRun:
         return cls(
             run_id=_require_string(mapping, "run_id", label="run.run_id"),
             project_id=project_id,
+            effort_id=_optional_string(mapping, "effort_id"),
             runbook=_optional_string(mapping, "runbook"),
             project_alias=project_alias,
             project_kind=project_kind,

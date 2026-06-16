@@ -30,7 +30,13 @@ from synth_ai.managed_research.models.run_launch import (
     RunLaunchResult,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun
-from synth_ai.managed_research.models.types import SmrLaunchPreflight, SmrProjectSetup
+from synth_ai.managed_research.models.types import (
+    ProjectCodeSource,
+    ProjectDataPoolUploadResult,
+    ProjectLaunchProfile,
+    SmrLaunchPreflight,
+    SmrProjectSetup,
+)
 
 
 def _guess_content_type(path: Path) -> str:
@@ -163,6 +169,136 @@ class _BoundProjectFilesAPI:
 
     def content(self, file_id: str) -> dict[str, Any]:
         return self._client.get_project_file_content(self.project_id, file_id)
+
+
+@dataclass
+class _BoundProjectCodeSourceAPI:
+    _client: Any
+    project_id: str
+
+    def get(self) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(self._client.get_project_code_source(self.project_id))
+
+    def upload_bundle(
+        self,
+        path: str | Path,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        commit_message: str | None = None,
+        default_branch: str = "main",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(
+            self._client.upload_project_code_bundle(
+                self.project_id,
+                path,
+                filename=filename,
+                content_type=content_type,
+                commit_message=commit_message,
+                default_branch=default_branch,
+                metadata=metadata,
+            )
+        )
+
+    def connect_git(
+        self,
+        *,
+        provider: str | None = None,
+        repo_url: str | None = None,
+        branch: str | None = None,
+        auth_ref: str | None = None,
+        sync_policy: Mapping[str, Any] | None = None,
+    ) -> ProjectCodeSource:
+        return ProjectCodeSource.from_wire(
+            self._client.connect_project_git_source(
+                self.project_id,
+                provider=provider,
+                repo_url=repo_url,
+                branch=branch,
+                auth_ref=auth_ref,
+                sync_policy=sync_policy,
+            )
+        )
+
+
+@dataclass
+class _BoundProjectDataPoolsAPI:
+    _client: Any
+    project_id: str
+
+    def upload_files(
+        self,
+        files: list[Mapping[str, Any]],
+        *,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        access_policy: Mapping[str, Any] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectDataPoolUploadResult:
+        return ProjectDataPoolUploadResult.from_wire(
+            self._client.upload_project_data_pool_files(
+                self.project_id,
+                files,
+                pool_id=pool_id,
+                pool_name=pool_name,
+                role=role,
+                access_policy=access_policy,
+                metadata=metadata,
+            )
+        )
+
+    def upload(
+        self,
+        path: str | Path,
+        *,
+        name: str | None = None,
+        pool_id: str = "default",
+        pool_name: str = "Default data pool",
+        role: str = "dataset",
+        metadata: Mapping[str, Any] | None = None,
+        access_policy: Mapping[str, Any] | None = None,
+        pool_metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectDataPoolUploadResult:
+        return ProjectDataPoolUploadResult.from_wire(
+            self._client.upload_project_data_pool_file(
+                self.project_id,
+                path,
+                name=name,
+                pool_id=pool_id,
+                pool_name=pool_name,
+                role=role,
+                metadata=metadata,
+                access_policy=access_policy,
+                pool_metadata=pool_metadata,
+            )
+        )
+
+
+@dataclass
+class _BoundProjectLaunchProfileAPI:
+    _client: Any
+    project_id: str
+
+    def get(self) -> ProjectLaunchProfile:
+        return ProjectLaunchProfile.from_wire(
+            self._client.get_project_launch_profile(self.project_id)
+        )
+
+    def patch(
+        self,
+        launch_profile: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectLaunchProfile:
+        return ProjectLaunchProfile.from_wire(
+            self._client.patch_project_launch_profile(
+                self.project_id,
+                launch_profile,
+                metadata=metadata,
+            )
+        )
 
 
 @dataclass
@@ -742,6 +878,21 @@ class ManagedResearchProjectClient:
         repr=False,
     )
     _files_api: _BoundProjectFilesAPI | None = field(init=False, default=None, repr=False)
+    _code_source_api: _BoundProjectCodeSourceAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
+    _data_pools_api: _BoundProjectDataPoolsAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
+    _launch_profile_api: _BoundProjectLaunchProfileAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _datasets_api: _BoundProjectDatasetsAPI | None = field(
         init=False,
         default=None,
@@ -818,6 +969,27 @@ class ManagedResearchProjectClient:
         if self._files_api is None:
             self._files_api = _BoundProjectFilesAPI(self._client, self.project_id)
         return self._files_api
+
+    @property
+    def code_source(self) -> _BoundProjectCodeSourceAPI:
+        if self._code_source_api is None:
+            self._code_source_api = _BoundProjectCodeSourceAPI(self._client, self.project_id)
+        return self._code_source_api
+
+    @property
+    def data_pools(self) -> _BoundProjectDataPoolsAPI:
+        if self._data_pools_api is None:
+            self._data_pools_api = _BoundProjectDataPoolsAPI(self._client, self.project_id)
+        return self._data_pools_api
+
+    @property
+    def launch_profile(self) -> _BoundProjectLaunchProfileAPI:
+        if self._launch_profile_api is None:
+            self._launch_profile_api = _BoundProjectLaunchProfileAPI(
+                self._client,
+                self.project_id,
+            )
+        return self._launch_profile_api
 
     @property
     def datasets(self) -> _BoundProjectDatasetsAPI:
@@ -907,6 +1079,39 @@ class ManagedResearchProjectClient:
         return ProjectWorkspaceProjection.from_wire(
             self._client.get_project_workspace(self.project_id)
         )
+
+    def get_code_source(self) -> ProjectCodeSource:
+        return self.code_source.get()
+
+    def upload_code_bundle(
+        self,
+        path: str | Path,
+        *,
+        filename: str | None = None,
+        content_type: str | None = None,
+        commit_message: str | None = None,
+        default_branch: str = "main",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectCodeSource:
+        return self.code_source.upload_bundle(
+            path,
+            filename=filename,
+            content_type=content_type,
+            commit_message=commit_message,
+            default_branch=default_branch,
+            metadata=metadata,
+        )
+
+    def get_launch_profile(self) -> ProjectLaunchProfile:
+        return self.launch_profile.get()
+
+    def patch_launch_profile(
+        self,
+        launch_profile: Mapping[str, Any],
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> ProjectLaunchProfile:
+        return self.launch_profile.patch(launch_profile, metadata=metadata)
 
     def usage(self) -> SmrProjectUsage:
         return self._client.get_project_usage(self.project_id)
