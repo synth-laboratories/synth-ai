@@ -53,7 +53,6 @@ from synth_ai.managed_research.models.factories import (
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
-    LocalPublicationReadiness,
 )
 from synth_ai.managed_research.models.run_control import ManagedResearchRunControlError
 from synth_ai.managed_research.models.run_diagnostics import (
@@ -161,8 +160,6 @@ from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
-from synth_ai.managed_research.sdk.github import GithubAPI
-from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -893,7 +890,6 @@ class ManagedResearchClient:
     _setup_api: SetupAPI | None = field(init=False, default=None, repr=False)
     _approvals_api: ApprovalsAPI | None = field(init=False, default=None, repr=False)
     _files_api: FilesAPI | None = field(init=False, default=None, repr=False)
-    _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _exports_api: ExportsAPI | None = field(init=False, default=None, repr=False)
     _outputs_api: OutputsAPI | None = field(init=False, default=None, repr=False)
     _prs_api: PrsAPI | None = field(init=False, default=None, repr=False)
@@ -906,7 +902,6 @@ class ManagedResearchClient:
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
-    _integrations_api: IntegrationsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
@@ -991,11 +986,6 @@ class ManagedResearchClient:
             self._files_api = FilesAPI(self)
         return self._files_api
 
-    @property
-    def github(self) -> GithubAPI:
-        if self._github_api is None:
-            self._github_api = GithubAPI(self)
-        return self._github_api
 
     @property
     def exports(self) -> ExportsAPI:
@@ -1074,11 +1064,6 @@ class ManagedResearchClient:
             self._logs_api = LogsAPI(self)
         return self._logs_api
 
-    @property
-    def integrations(self) -> IntegrationsAPI:
-        if self._integrations_api is None:
-            self._integrations_api = IntegrationsAPI(self)
-        return self._integrations_api
 
     def project(self, project_id: str) -> ManagedResearchProjectClient:
         return ManagedResearchProjectClient(
@@ -3281,115 +3266,12 @@ class ManagedResearchClient:
             label="get_provider_key_status",
         )
 
-    def register_local_github_credential(
-        self,
-        project_id: str,
-        *,
-        repo: str,
-        access_token: str,
-        pr_write_enabled: bool = True,
-    ) -> dict[str, Any]:
-        repo_value = _require_non_empty_string(repo, field_name="repo")
-        token_value = _require_non_empty_string(access_token, field_name="access_token")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/integrations/github/local-dev-token/link",
-                json_body={
-                    "repo": repo_value,
-                    "pr_write_enabled": bool(pr_write_enabled),
-                    "access_token": token_value,
-                },
-            ),
-            label="register_local_github_credential",
-        )
 
-    def register_local_github_repo_credential(
-        self,
-        *,
-        repo: str,
-        access_token: str,
-        pr_write_enabled: bool = True,
-    ) -> dict[str, Any]:
-        repo_value = _require_non_empty_string(repo, field_name="repo")
-        token_value = _require_non_empty_string(access_token, field_name="access_token")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                "/smr/integrations/github/local-dev/register",
-                json_body={
-                    "repo": repo_value,
-                    "pr_write_enabled": bool(pr_write_enabled),
-                    "access_token": token_value,
-                },
-            ),
-            label="register_local_github_repo_credential",
-        )
 
-    def get_github_status(self) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json("GET", "/smr/github/status"),
-            label="get_github_status",
-        )
 
-    def start_github_oauth(
-        self,
-        *,
-        redirect_uri: str | None = None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        if redirect_uri is not None:
-            payload["redirect_uri"] = redirect_uri
-        return _coerce_dict(
-            self._request_json("POST", "/smr/github/oauth/start", json_body=payload),
-            label="start_github_oauth",
-        )
 
-    def list_github_repos(
-        self,
-        *,
-        page: int | None = None,
-        per_page: int | None = None,
-    ) -> list[dict[str, Any]]:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                "/smr/github/repos",
-                params=build_query_params(page=page, per_page=per_page),
-            ),
-            label="list_github_repos",
-        )
-        return _coerce_dict_list(payload.get("repos") or [], label="list_github_repos.repos")
 
-    def disconnect_github(self) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json("POST", "/smr/github/disconnect"),
-            label="disconnect_github",
-        )
 
-    def get_local_publication_readiness(
-        self,
-        project_id: str,
-        *,
-        repo: str | None = None,
-        pr_write_enabled: bool = True,
-    ) -> LocalPublicationReadiness:
-        params = build_query_params(
-            repo=str(repo or "").strip() or None,
-            pr_write_enabled=bool(pr_write_enabled),
-        )
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/integrations/github/local-publication-readiness",
-                params=params,
-            ),
-            label="get_local_publication_readiness",
-        )
-        try:
-            return LocalPublicationReadiness.from_wire(payload)
-        except ValueError as exc:
-            raise SmrApiError(f"Invalid local publication readiness payload: {exc}") from exc
 
     def get_launch_preflight(
         self,
