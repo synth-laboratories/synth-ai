@@ -1389,6 +1389,12 @@ class ManagedResearchMcpServer:
             result = client.get_project_usage(project_id)
             return asdict(result) if is_dataclass(result) else result
 
+    def _tool_get_project_economics(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            result = client.get_project_economics(project_id)
+            return asdict(result) if is_dataclass(result) else result
+
     def _tool_get_project_git(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:

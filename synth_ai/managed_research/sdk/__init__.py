@@ -361,6 +361,8 @@ __all__ = [
     "PublicationPolicy",
     "RecurrencePolicy",
     "FilesAPI",
+    "GithubAPI",
+    "IntegrationsAPI",
     "GitHubInstallation",
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",

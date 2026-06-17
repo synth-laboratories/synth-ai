@@ -130,6 +130,20 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_get_project_usage,
         ),
+        ToolDefinition(
+            name="smr_get_project_economics",
+            description="Fetch canonical project economics: usage, entitlements, and overlay posture.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Project id.",
+                    },
+                },
+                required=["project_id"],
+            ),
+            handler=server._tool_get_project_economics,
+        ),
     ]
 
 

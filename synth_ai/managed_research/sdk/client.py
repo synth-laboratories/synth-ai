@@ -30,6 +30,7 @@ from synth_ai.managed_research.models import (
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryWakeDueRequest,
+    SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -1243,6 +1244,9 @@ class ManagedResearchClient:
 
     def get_project_usage(self, project_id: str) -> SmrProjectUsage:
         return self.usage.get_project_usage(project_id)
+
+    def get_project_economics(self, project_id: str) -> SmrProjectEconomics:
+        return self.usage.get_project_economics(project_id)
 
     def _request_json(
         self,

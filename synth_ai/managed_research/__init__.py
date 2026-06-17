@@ -360,6 +360,8 @@ __all__ = [
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
+    "GithubAPI",
+    "IntegrationsAPI",
     "ExportsAPI",
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
