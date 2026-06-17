@@ -1,7 +1,7 @@
 [project]
 name = "synth-ai"
 version = "0.11.2"
-description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
+description = "Synth SDK for Managed Research, Research Factory, and GEPA/GELO optimizer workflows"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
 license-files = ["LICENSE"]
