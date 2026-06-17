@@ -276,6 +276,8 @@ from synth_ai.managed_research.sdk import (
     ExportsAPI,
     FactoriesAPI,
     FilesAPI,
+    GithubAPI,
+    IntegrationsAPI,
     LogsAPI,
     ManagedResearchClient,
     ManagedResearchProjectClient,
