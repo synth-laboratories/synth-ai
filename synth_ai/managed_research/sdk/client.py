@@ -159,6 +159,8 @@ from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
+from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -893,6 +895,8 @@ class ManagedResearchClient:
     _outputs_api: OutputsAPI | None = field(init=False, default=None, repr=False)
     _prs_api: PrsAPI | None = field(init=False, default=None, repr=False)
     _readiness_api: ReadinessAPI | None = field(init=False, default=None, repr=False)
+    _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
+    _integrations_api: IntegrationsAPI | None = field(init=False, default=None, repr=False)
     _repos_api: ReposAPI | None = field(init=False, default=None, repr=False)
     _datasets_api: DatasetsAPI | None = field(init=False, default=None, repr=False)
     _models_api: ModelsAPI | None = field(init=False, default=None, repr=False)
@@ -1008,6 +1012,18 @@ class ManagedResearchClient:
         if self._readiness_api is None:
             self._readiness_api = ReadinessAPI(self)
         return self._readiness_api
+
+    @property
+    def github(self) -> GithubAPI:
+        if self._github_api is None:
+            self._github_api = GithubAPI(self)
+        return self._github_api
+
+    @property
+    def integrations(self) -> IntegrationsAPI:
+        if self._integrations_api is None:
+            self._integrations_api = IntegrationsAPI(self)
+        return self._integrations_api
 
     @property
     def repos(self) -> ReposAPI:
@@ -1224,6 +1240,47 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", "/api/v1/version"),
             label="get_backend_version",
+        )
+
+    def get_github_status(self) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", "/smr/github/status"),
+            label="get_github_status",
+        )
+
+    def start_github_oauth(
+        self,
+        *,
+        redirect_uri: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if redirect_uri is not None:
+            payload["redirect_uri"] = redirect_uri
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/github/oauth/start",
+                json_body=payload,
+            ),
+            label="start_github_oauth",
+        )
+
+    def list_github_repos(
+        self,
+        *,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params = build_query_params(page=page, per_page=per_page)
+        return _coerce_dict_list(
+            self._request_json("GET", "/smr/github/repos", params=params),
+            label="list_github_repos",
+        )
+
+    def disconnect_github(self) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("POST", "/smr/github/disconnect"),
+            label="disconnect_github",
         )
 
     def _request_content(

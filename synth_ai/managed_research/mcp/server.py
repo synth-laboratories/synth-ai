@@ -518,6 +518,27 @@ class ManagedResearchMcpServer:
                 }
             )
 
+    def _tool_setup_github_status(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.get_github_status()
+
+    def _tool_setup_github_start_oauth(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.start_github_oauth(
+                redirect_uri=optional_string(args, "redirect_uri"),
+            )
+
+    def _tool_setup_github_list_repos(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.list_github_repos(
+                page=optional_int(args, "page"),
+                per_page=optional_int(args, "per_page"),
+            )
+
+    def _tool_setup_github_disconnect(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.disconnect_github()
+
     def _tool_work_repos_list(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
@@ -1166,6 +1187,10 @@ class ManagedResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.get_project_entitlement(project_id)
+
+    def _tool_get_project_economics(self, args: JSONDict) -> Any:
+        require_string(args, "project_id")
+        self._removed_backend_contract("Project economics")
 
     def _tool_get_project_setup(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
