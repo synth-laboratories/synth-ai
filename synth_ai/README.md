@@ -1,17 +1,24 @@
 # `synth_ai` Package
 
-Runtime package for the public Synth AI SDK and CLI.
+Runtime package for the public Synth AI SDK, Managed Research client, Research
+Factory client surface, MCP server, and CLI.
 
-The public first-mile surface is intentionally small:
+The public first-mile surface is intentionally small and product-led:
 
 - `SynthClient`
 - `AsyncSynthClient`
+- `client.research`
+- `synth-ai-managed-research-mcp`
+- `synth-ai` CLI
+
+Advanced infrastructure namespaces are still available when a workflow needs
+direct access to hosted infrastructure records:
+
 - `client.containers`
 - `client.tunnels`
 - `client.pools`
-- `synth-ai` CLI
 
-Public docs live at https://docs.usesynth.ai/sdk/overview.
+Public docs live at https://docs.usesynth.ai/managed-research/intro.
 
 ## Package Structure
 
@@ -19,6 +26,7 @@ Public docs live at https://docs.usesynth.ai/sdk/overview.
 synth_ai/
 ├── client.py       # SynthClient and AsyncSynthClient composition layer
 ├── sdk/            # Public client modules and request/response contracts
+├── managed_research/ # Managed Research SDK, models, schemas, and MCP server
 ├── core/           # Shared runtime helpers and errors
 ├── cli/            # CLI commands for containers, tunnels, and pools
 └── __init__.py     # Package version and top-level exports
@@ -43,12 +51,16 @@ Prefer the front-door client:
 from synth_ai import SynthClient
 
 client = SynthClient()
-client.containers.list()
-client.tunnels.health()
-client.pools.list()
+research = client.research
+run = research.runs.start(
+    "Inspect this repository and leave a reviewable report.",
+    work_mode="directed_effort",
+    providers=[{"provider": "openrouter"}],
+    runbook="lite",
+)
 ```
 
-Use specific clients only when you need lower-level control:
+Use lower-level clients only when you need direct infrastructure control:
 
 ```python
 from synth_ai.sdk.containers import ContainersClient

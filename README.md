@@ -6,11 +6,11 @@
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Synth Managed Research, Research Factory, GEPA/GELO
-optimizer workflows, and the lower-level infrastructure surfaces those products
-use.
+Python SDK and CLI for Synth Managed Research, Research Factory, and GEPA/GELO
+optimizer workflows. Lower-level infrastructure namespaces remain available for
+advanced workflows that need them.
 
-**Documentation:** https://docs.usesynth.ai/sdk/overview
+**Documentation:** https://docs.usesynth.ai/managed-research/intro
 
 ## Installation
 
@@ -86,9 +86,7 @@ Use `SynthClient` as the front door:
 | Managed Research | `client.research` | Hosted research workers, repo runs, evidence, checkpoints, MCP, usage, and reports. |
 | Research Factory | `client.research` | Programmatic multi-run research campaigns on the same control plane. |
 | Hosted Optimizers | `synth-optimizers` + `synth-ai` auth | GEPA and GELO hosted optimizer workflows. |
-| Containers | `client.containers` | Lower-level hosted container records and lifecycle operations. |
-| Tunnels | `client.tunnels` | Lower-level managed tunnel records, leases, health, and rotation. |
-| Pools | `client.pools` | Lower-level container pools, tasks, rollouts, artifacts, usage, and events. |
+| Advanced infrastructure | `client.containers`, `client.tunnels`, `client.pools` | Lower-level records, leases, rollouts, artifacts, usage, and events used by advanced integrations. |
 
 For agent clients, connect to the hosted Managed Research MCP server:
 
@@ -104,9 +102,6 @@ codex mcp add synth-managed-research --url https://api.usesynth.ai/mcp
 - [Research Factory](https://docs.usesynth.ai/managed-research/research-factory)
 - [Hosted Optimizers](https://docs.usesynth.ai/sdk/hosted-optimizers)
 - [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
-- [Tunnels](https://docs.usesynth.ai/sdk/tunnels)
-- [Pools](https://docs.usesynth.ai/sdk/pools)
-- [Containers](https://docs.usesynth.ai/sdk/containers)
 - [SDK reference](https://docs.usesynth.ai/reference/sdk)
 - [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
 

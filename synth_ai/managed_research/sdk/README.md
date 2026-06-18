@@ -1,11 +1,11 @@
 # SDK
 
-This subtree owns the Python control-plane client and the typed namespace wrappers built on top of it.
+This subtree owns the Python Managed Research control-plane client and the typed
+namespace wrappers built on top of it.
 
-Surface note: this SDK targets the authenticated private-beta Managed Research
-API. Managed Research beta access is an account/org entitlement enforced by the
-backend through entitlement checks and launch preflight rather than by a
-separate SDK client fork.
+Surface note: this SDK targets the authenticated Managed Research API. Access is
+an account/org entitlement enforced by the backend through entitlement checks
+and launch preflight rather than by a separate SDK client fork.
 
 Ownership:
 - `client.py` owns transport-facing request building and raw backend interaction
@@ -18,7 +18,7 @@ Guidelines:
 - when a backend route has a stable response concept, return a typed model from the namespace API when practical
 
 Current typed namespace returns:
-- [`project.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/project.py)
+- [`project.py`](project.py)
   - bound project setup via `client.project(id).setup.get()` and
     `client.project(id).setup.prepare()`
   - bound project launch preflight via `client.project(id).runs.preflight(...)`
@@ -29,14 +29,14 @@ Current typed namespace returns:
   - review-gated project ChangeSets via `client.project(id).changesets.*`
   - project-run actor controls via `client.project(id).runs.pause_actor(...)`,
     `resume_actor(...)`, and `interrupt_actor(...)`
-- [`progress.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/progress.py)
+- [`progress.py`](progress.py)
   - `ProjectSetupAuthority` via `get_project_setup_authority(...)`
   - `LaunchPreflight` via `get_launch_preflight(...)`
-- [`runs.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/runs.py)
+- [`runs.py`](runs.py)
   - `ManagedResearchRun` via `get(run_id, project_id=...)`
   - `SmrLogicalTimeline` via `get_logical_timeline(project_id, run_id)`
   - `SmrRunBranchResponse` via `branch_from_checkpoint(...)`
-- [`workspace_inputs.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/sdk/workspace_inputs.py)
+- [`workspace_inputs.py`](workspace_inputs.py)
   - `WorkspaceInputsState`
   - `WorkspaceUploadResult`
 
@@ -56,9 +56,9 @@ Noun-first namespaces now mirror the customer surface:
 Contract posture:
 
 - backend route and schema shape stay authoritative through
-  `/Users/joshpurtell/Documents/GitHub/backend/smr_openapi.yaml`
-- backend-to-SDK drift is checked with
-  `/Users/joshpurtell/Documents/GitHub/backend/scripts/validate_smr_openapi.py`
+  `backend/smr_openapi.yaml`
+- backend-to-SDK drift is checked with the backend
+  `scripts/validate_smr_openapi.py` contract validator
 - older names may remain as wrappers, but new noun behavior belongs only on the
   flat namespaces above
 

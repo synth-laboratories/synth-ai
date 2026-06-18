@@ -1,12 +1,12 @@
 # MCP
 
-This package owns the canonical MCP surface for `managed-research`.
+This package owns the canonical Managed Research MCP surface inside
+`synth-ai`.
 
-Surface note: MCP tools call the authenticated private-beta Managed Research
-API. When tool or schema descriptions say public, they mean the stable API
-contract. Managed Research beta access is an account/org entitlement enforced by
-the backend through entitlement checks and launch preflight, not by narrowing
-the MCP tool list.
+Surface note: MCP tools call the authenticated Managed Research API. When tool
+or schema descriptions say public, they mean the stable API contract. Managed
+Research access is an account/org entitlement enforced by the backend through
+entitlement checks and launch preflight, not by narrowing the MCP tool list.
 
 What belongs here:
 - tool registration, schemas, and scope metadata
