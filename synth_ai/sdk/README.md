@@ -1,6 +1,8 @@
-# SDK Modules
+# Lower-Level SDK Modules
 
-Public HTTP clients and contracts for the Synth AI infrastructure SDK.
+HTTP clients and contracts for lower-level Synth infrastructure surfaces used by
+the product SDK. User-facing examples should start with Managed Research and
+Research Factory through `SynthClient().research`.
 
 Prefer the top-level client in user-facing examples:
 
@@ -8,12 +10,11 @@ Prefer the top-level client in user-facing examples:
 from synth_ai import SynthClient
 
 client = SynthClient()
-client.containers.list()
-client.tunnels.health()
-client.pools.list()
+research = client.research
 ```
 
-Use module-level clients when implementing or testing a specific surface:
+Use module-level infrastructure clients when implementing or testing a specific
+advanced surface:
 
 ```python
 from synth_ai.sdk.containers import ContainersClient
@@ -22,7 +23,7 @@ from synth_ai.sdk.pools import ContainerPoolsClient
 from synth_ai.sdk.tunnels import TunnelsClient
 ```
 
-## Supported Public Surfaces
+## Supported Advanced Surfaces
 
 - hosted containers
 - managed tunnels and tunnel leases
@@ -36,11 +37,12 @@ from synth_ai.sdk.tunnels import TunnelsClient
 - `/v1/pools/*`
 - `/v1/rollouts/*`
 - `/api/managed-agents/anthropic/v1/*`
-- `/anthropic/v1/*` for direct local Horizons Private usage
 
 ## Ownership Rules
 
 - Keep transport details in SDK modules.
 - Keep shared error and environment helpers in `core/`.
 - Keep front-door composition in `client.py`.
-- Keep public examples focused on `SynthClient`, tunnels, pools, and containers.
+- Keep public examples focused on `SynthClient`, Managed Research, Research
+  Factory, and documented optimizer workflows. Infrastructure examples belong
+  only where those lower-level surfaces are deliberately documented.

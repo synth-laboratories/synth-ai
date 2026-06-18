@@ -8,6 +8,7 @@ from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     OrgLimits,
+    SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -231,6 +232,13 @@ class UsageAPI(_ClientNamespace):
         return SmrProjectUsage.from_wire(
             _raise_on_error_payload(
                 self._client._request_json("GET", f"/smr/projects/{project_id}/usage")
+            )
+        )
+
+    def get_project_economics(self, project_id: str) -> SmrProjectEconomics:
+        return SmrProjectEconomics.from_wire(
+            _raise_on_error_payload(
+                self._client._request_json("GET", f"/smr/projects/{project_id}/economics")
             )
         )
 

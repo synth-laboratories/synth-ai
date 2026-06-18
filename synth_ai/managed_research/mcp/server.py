@@ -42,6 +42,7 @@ from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
+from synth_ai.managed_research.mcp.tools.github import build_github_tools
 from synth_ai.managed_research.mcp.tools.integrations import build_integration_tools
 from synth_ai.managed_research.mcp.tools.logs import build_log_tools
 from synth_ai.managed_research.mcp.tools.models import build_model_tools
@@ -221,6 +222,7 @@ class ManagedResearchMcpServer:
             *build_project_tools(self),
             *build_factory_tools(self),
             *build_workspace_input_tools(self),
+            *build_github_tools(self),
             *build_export_tools(self),
             *build_repo_tools(self),
             *build_dataset_tools(self),
@@ -489,6 +491,27 @@ class ManagedResearchMcpServer:
             if project_id:
                 checks["project_status"] = client.get_project_status(project_id)
         return {"ok": True, "checks": checks}
+
+    def _tool_setup_github_status(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.get_github_status()
+
+    def _tool_setup_github_start_oauth(self, args: JSONDict) -> Any:
+        redirect_uri = optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.start_github_oauth(redirect_uri=redirect_uri)
+
+    def _tool_setup_github_list_repos(self, args: JSONDict) -> Any:
+        page = optional_int(args, "page")
+        per_page = optional_int(args, "per_page")
+        with self._client_from_args(args) as client:
+            return {
+                "repos": client.list_github_repos(page=page, per_page=per_page),
+            }
+
+    def _tool_setup_github_disconnect(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return client.disconnect_github()
 
     def _tool_setup_exports_list_targets(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
@@ -1364,6 +1387,12 @@ class ManagedResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             result = client.get_project_usage(project_id)
+            return asdict(result) if is_dataclass(result) else result
+
+    def _tool_get_project_economics(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            result = client.get_project_economics(project_id)
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_get_project_git(self, args: JSONDict) -> Any:

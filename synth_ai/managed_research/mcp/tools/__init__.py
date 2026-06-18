@@ -4,6 +4,7 @@ from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
+from synth_ai.managed_research.mcp.tools.github import build_github_tools
 from synth_ai.managed_research.mcp.tools.models import build_model_tools
 from synth_ai.managed_research.mcp.tools.outputs import build_output_tools
 from synth_ai.managed_research.mcp.tools.progress import build_progress_tools
@@ -19,6 +20,7 @@ __all__ = [
     "build_export_tools",
     "build_factory_tools",
     "build_file_tools",
+    "build_github_tools",
     "build_model_tools",
     "build_output_tools",
     "build_progress_tools",

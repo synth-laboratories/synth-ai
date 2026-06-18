@@ -1,25 +1,27 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.11.2-orange synth-ai==0.11.2 -->
+<!-- CI release pins: PyPI-0.11.3-orange synth-ai==0.11.3 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted containers.
+Python SDK and CLI for Synth Managed Research, Research Factory, and GEPA/GELO
+optimizer workflows. Lower-level infrastructure namespaces remain available for
+advanced workflows that need them.
 
-**Documentation:** https://docs.usesynth.ai/sdk/overview
+**Documentation:** https://docs.usesynth.ai/managed-research/intro
 
 ## Installation
 
 ```bash
-uv add synth-ai
+uv add "synth-ai[research]"
 ```
 
 Or install with pip:
 
 ```bash
-pip install synth-ai
+pip install "synth-ai[research]"
 ```
 
 ## Authenticate
@@ -57,19 +59,22 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 from synth_ai import SynthClient
 
 client = SynthClient()
+research = client.research
 
-print(client.containers.list())
-print(client.tunnels.health())
-print(client.pools.list())
+run = research.runs.start(
+    "Inspect this repository and leave a reviewable report.",
+    work_mode="directed_effort",
+    providers=[{"provider": "openrouter"}],
+    runbook="lite",
+)
+
+print(run.run_id)
 ```
 
 ## CLI
 
 ```bash
 synth-ai --help
-synth-ai containers list
-synth-ai tunnels health
-synth-ai pools list
 ```
 
 ## Public Surface
@@ -78,23 +83,25 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
-| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, evidence, MCP (`synth-ai[research]`). |
-| Containers | `client.containers` | Hosted container records and lifecycle operations. |
-| Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
-| Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
-| CLI | `synth-ai` | Terminal access to containers, tunnels, and pools. |
+| Managed Research | `client.research` | Hosted research workers, repo runs, evidence, checkpoints, MCP, usage, and reports. |
+| Research Factory | `client.research` | Programmatic multi-run research campaigns on the same control plane. |
+| Hosted Optimizers | `synth-optimizers` + `synth-ai` auth | GEPA and GELO hosted optimizer workflows. |
+| Advanced infrastructure | `client.containers`, `client.tunnels`, `client.pools` | Lower-level records, leases, rollouts, artifacts, usage, and events used by advanced integrations. |
 
-Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
-want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
-reports.
+For agent clients, connect to the hosted Managed Research MCP server:
+
+```bash
+codex mcp add synth-managed-research --url https://api.usesynth.ai/mcp
+```
 
 ## Links
 
 - [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)
+- [Managed Research](https://docs.usesynth.ai/managed-research/intro)
+- [Managed Research MCP quickstart](https://docs.usesynth.ai/managed-research/mcp-quickstart)
+- [Research Factory](https://docs.usesynth.ai/managed-research/research-factory)
+- [Hosted Optimizers](https://docs.usesynth.ai/sdk/hosted-optimizers)
 - [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
-- [Tunnels](https://docs.usesynth.ai/sdk/tunnels)
-- [Pools](https://docs.usesynth.ai/sdk/pools)
-- [Containers](https://docs.usesynth.ai/sdk/containers)
 - [SDK reference](https://docs.usesynth.ai/reference/sdk)
 - [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
 
@@ -112,5 +119,3 @@ uv run ty check
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
 `lefthook install` to run formatting, linting, and type checks on staged Python
 files.
-
-[SMR Handoff X thread](https://github.com/usesynth/smr-handoff/blob/main/marketing/smr-handoff-x-thread.md) — hand agent tasks to [Managed Research](https://usesynth.ai/smr) from Cursor, Codex, or Claude Code ([repo](https://github.com/usesynth/smr-handoff)).

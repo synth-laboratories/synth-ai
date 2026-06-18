@@ -17,14 +17,14 @@ Current guidance:
 - serialize to plain dicts only at the final transport edge
 - prefer explicit dataclasses/enums over open-ended `dict[str, Any]` for primary concepts
 
-New run-control models live in [`run_timeline.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/models/run_timeline.py):
+New run-control models live in [`run_timeline.py`](run_timeline.py):
 - `SmrLogicalTimeline`
 - `SmrLogicalTimelineNode`
 - `SmrBranchMode`
 - `SmrRunBranchRequest`
 - `SmrRunBranchResponse`
 
-High-signal typed response models currently live in [`types.py`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/models/types.py):
+High-signal typed response models currently live in [`types.py`](types.py):
 - `ProjectSetupAuthority`
 - `LaunchPreflight`
 - `RunProgress`
@@ -32,4 +32,5 @@ High-signal typed response models currently live in [`types.py`](/Users/joshpurt
 - `WorkspaceInputsState`
 - `WorkspaceUploadResult`
 
-Generated compatibility exports remain under [`generated/v1`](/Users/joshpurtell/Documents/GitHub/managed-research/managed_research/models/generated/v1/__init__.py).
+Generated compatibility exports remain under
+[`generated/v1`](generated/v1/__init__.py).

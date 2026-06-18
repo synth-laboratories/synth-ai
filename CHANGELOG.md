@@ -2,6 +2,19 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.3 — 2026-06-18
+
+### Changed
+
+- Package README and metadata now lead with Managed Research, Research Factory,
+  and GEPA/GELO optimizer workflows instead of lower-level infrastructure
+  nouns.
+- Public package docs now keep `synth-ai[research]` as the canonical install
+  path and describe the standalone `managed-research` package as legacy
+  compatibility only.
+- Managed Research SDK/MCP package docs now point at in-package files instead
+  of retired standalone checkout paths.
+
 ## 0.11.2 — 2026-06-16
 
 ### Added
