@@ -116,6 +116,15 @@ def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | No
     raise ValueError(f"{key} must be null, a datetime, or an ISO-8601 string")
 
 
+def _optional_float(payload: Mapping[str, object], key: str) -> float | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError(f"{key} must be a number when provided")
+    return float(value)
+
+
 def _optional_enum(enum_type: type[StrEnum], value: object, *, field_name: str) -> StrEnum | None:
     if value is None:
         return None
@@ -168,6 +177,7 @@ class FactoryCreateRequest:
     status: FactoryLifecycleState | str = FactoryLifecycleState.ACTIVE
     budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
     cap_policy: CapPolicy | dict[str, Any] = field(default_factory=dict)
+    homeostasis_policy: dict[str, Any] = field(default_factory=dict)
     publication_policy: PublicationPolicy | dict[str, Any] = field(default_factory=dict)
     authorization_policy: AuthorizationPolicy | dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -179,6 +189,7 @@ class FactoryCreateRequest:
             "status": _enum_value(self.status),
             "budget_policy": _policy_payload(self.budget_policy),
             "cap_policy": _policy_payload(self.cap_policy),
+            "homeostasis_policy": _policy_payload(self.homeostasis_policy),
             "publication_policy": _policy_payload(self.publication_policy),
             "authorization_policy": _policy_payload(self.authorization_policy),
             "metadata": _policy_payload(self.metadata),
@@ -195,6 +206,7 @@ class FactoryPatchRequest:
     status: FactoryLifecycleState | str | None = None
     budget_policy: BudgetPolicy | dict[str, Any] | None = None
     cap_policy: CapPolicy | dict[str, Any] | None = None
+    homeostasis_policy: dict[str, Any] | None = None
     publication_policy: PublicationPolicy | dict[str, Any] | None = None
     authorization_policy: AuthorizationPolicy | dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
@@ -212,6 +224,7 @@ class FactoryPatchRequest:
         for key, value in (
             ("budget_policy", self.budget_policy),
             ("cap_policy", self.cap_policy),
+            ("homeostasis_policy", self.homeostasis_policy),
             ("publication_policy", self.publication_policy),
             ("authorization_policy", self.authorization_policy),
             ("metadata", self.metadata),
@@ -344,6 +357,7 @@ class Factory:
     description: str | None = None
     budget_policy: dict[str, object] = field(default_factory=dict)
     cap_policy: dict[str, object] = field(default_factory=dict)
+    homeostasis_policy: dict[str, object] = field(default_factory=dict)
     publication_policy: dict[str, object] = field(default_factory=dict)
     authorization_policy: dict[str, object] = field(default_factory=dict)
     metadata: dict[str, object] = field(default_factory=dict)
@@ -369,6 +383,10 @@ class Factory:
                 label="factory.budget_policy",
             ),
             cap_policy=_optional_object_dict(mapping.get("cap_policy"), label="factory.cap_policy"),
+            homeostasis_policy=_optional_object_dict(
+                mapping.get("homeostasis_policy"),
+                label="factory.homeostasis_policy",
+            ),
             publication_policy=_optional_object_dict(
                 mapping.get("publication_policy"),
                 label="factory.publication_policy",
@@ -1185,6 +1203,47 @@ class FactoryWorkProductSummary:
 
 
 @dataclass(frozen=True)
+class FactoryHealth:
+    schema_version: str
+    status: str
+    health_score: float | None = None
+    threshold: float | None = None
+    evaluated_at: datetime | None = None
+    policy: dict[str, object] = field(default_factory=dict)
+    vitals: dict[str, object] = field(default_factory=dict)
+    triggers: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryHealth:
+        mapping = _require_mapping(payload, label="factory health")
+        return cls(
+            schema_version=_require_string(
+                mapping,
+                "schema_version",
+                label="factory_health.schema_version",
+            ),
+            status=_require_string(mapping, "status", label="factory_health.status"),
+            health_score=_optional_float(mapping, "health_score"),
+            threshold=_optional_float(mapping, "threshold"),
+            evaluated_at=_optional_datetime(mapping, "evaluated_at"),
+            policy=_optional_object_dict(
+                mapping.get("policy"),
+                label="factory_health.policy",
+            ),
+            vitals=_optional_object_dict(
+                mapping.get("vitals"),
+                label="factory_health.vitals",
+            ),
+            triggers=_optional_object_dict(
+                mapping.get("triggers"),
+                label="factory_health.triggers",
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1202,6 +1261,7 @@ class FactoryStatus:
     next_wake_at: datetime | None = None
     publication_states: dict[str, object] = field(default_factory=dict)
     costs_limits: dict[str, object] = field(default_factory=dict)
+    factory_health: FactoryHealth | None = None
     raw: dict[str, object] = field(default_factory=dict)
 
     @classmethod
@@ -1260,6 +1320,11 @@ class FactoryStatus:
             costs_limits=_optional_object_dict(
                 mapping.get("costs_limits"),
                 label="factory status costs_limits",
+            ),
+            factory_health=(
+                FactoryHealth.from_wire(mapping.get("factory_health"))
+                if mapping.get("factory_health") is not None
+                else None
             ),
             raw=dict(mapping),
         )
@@ -1471,6 +1536,7 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryHealth",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
