@@ -2,6 +2,13 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.3 — 2026-06-22
+
+### Changed
+
+- Prepared a distinct launch package version for the current Managed Research MCP surface so PyPI can ship the 222-tool launch worktree instead of the stale 0.11.2 wheel.
+- Included the project economics and GitHub setup MCP tools in the release target: `smr_get_project_economics`, `smr_setup_github_status`, `smr_setup_github_start_oauth`, `smr_setup_github_list_repos`, and `smr_setup_github_disconnect`.
+
 ## 0.11.2 — 2026-06-16
 
 ### Added
