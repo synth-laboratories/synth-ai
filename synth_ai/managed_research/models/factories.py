@@ -1203,6 +1203,45 @@ class FactoryWorkProductSummary:
 
 
 @dataclass(frozen=True)
+class FactoryMaintenanceAction:
+    vital: str
+    action: str
+    owner: str | None = None
+    status: str | None = None
+    reason: str | None = None
+    band: dict[str, object] = field(default_factory=dict)
+    observed: dict[str, object] = field(default_factory=dict)
+    wake: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryMaintenanceAction:
+        mapping = _require_mapping(payload, label="factory maintenance action")
+        return cls(
+            vital=_require_string(mapping, "vital", label="factory_action.vital"),
+            action=_require_string(mapping, "action", label="factory_action.action"),
+            owner=_optional_string(mapping, "owner"),
+            status=_optional_string(mapping, "status"),
+            reason=_optional_string(mapping, "reason"),
+            band=_optional_object_dict(
+                mapping.get("band"),
+                label="factory_action.band",
+            ),
+            observed=_optional_object_dict(
+                mapping.get("observed"),
+                label="factory_action.observed",
+            ),
+            wake=_optional_string(mapping, "wake"),
+            metadata=_optional_object_dict(
+                mapping.get("metadata"),
+                label="factory_action.metadata",
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryHealth:
     schema_version: str
     status: str
@@ -1212,6 +1251,7 @@ class FactoryHealth:
     policy: dict[str, object] = field(default_factory=dict)
     vitals: dict[str, object] = field(default_factory=dict)
     triggers: dict[str, object] = field(default_factory=dict)
+    recommended_actions: tuple[FactoryMaintenanceAction, ...] = ()
     raw: dict[str, object] = field(default_factory=dict)
 
     @classmethod
@@ -1238,6 +1278,10 @@ class FactoryHealth:
             triggers=_optional_object_dict(
                 mapping.get("triggers"),
                 label="factory_health.triggers",
+            ),
+            recommended_actions=tuple(
+                FactoryMaintenanceAction.from_wire(item)
+                for item in list(mapping.get("recommended_actions") or [])
             ),
             raw=dict(mapping),
         )
@@ -1537,6 +1581,7 @@ __all__ = [
     "FactoryActorRole",
     "FactoryCreateRequest",
     "FactoryHealth",
+    "FactoryMaintenanceAction",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
