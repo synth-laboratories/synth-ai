@@ -48,14 +48,14 @@ def _mapping(value: object, *, field: str) -> dict[str, Any]:
         return {}
     if not isinstance(value, Mapping):
         raise ValueError(f"{field} must be a JSON object")
-    return dict(value)
+    return {str(key): item for key, item in value.items()}
 
 
 def _required_mapping(parent: Mapping[str, Any], key: str) -> dict[str, Any]:
     value = parent.get(key)
     if not isinstance(value, Mapping):
         raise ValueError(f"{key} must be a JSON object")
-    return dict(value)
+    return {str(item_key): item_value for item_key, item_value in value.items()}
 
 
 def _required_string(parent: Mapping[str, Any], key: str) -> str:
@@ -137,7 +137,7 @@ def _effort_plans(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
     for index, item in enumerate(efforts):
         if not isinstance(item, Mapping):
             raise ValueError(f"efforts[{index}] must be a JSON object")
-        result.append(dict(item))
+        result.append({str(item_key): item_value for item_key, item_value in item.items()})
     return result
 
 
