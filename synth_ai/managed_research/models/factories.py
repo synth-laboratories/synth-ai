@@ -1205,6 +1205,7 @@ class FactoryWorkProductSummary:
 @dataclass(frozen=True)
 class FactoryMaintenanceAction:
     vital: str
+    action_key: str
     action: str
     owner: str | None = None
     status: str | None = None
@@ -1218,10 +1219,17 @@ class FactoryMaintenanceAction:
     @classmethod
     def from_wire(cls, payload: object) -> FactoryMaintenanceAction:
         mapping = _require_mapping(payload, label="factory maintenance action")
+        vital = _require_string(mapping, "vital", label="factory_action.vital")
+        action = _require_string(mapping, "action", label="factory_action.action")
+        owner = _optional_string(mapping, "owner")
+        action_key = _optional_string(mapping, "action_key")
+        if action_key is None:
+            action_key = f"{vital}:{owner or 'unowned'}:{action}"
         return cls(
-            vital=_require_string(mapping, "vital", label="factory_action.vital"),
-            action=_require_string(mapping, "action", label="factory_action.action"),
-            owner=_optional_string(mapping, "owner"),
+            vital=vital,
+            action_key=action_key,
+            action=action,
+            owner=owner,
             status=_optional_string(mapping, "status"),
             reason=_optional_string(mapping, "reason"),
             band=_optional_object_dict(
