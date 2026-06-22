@@ -6,6 +6,8 @@ CLI-specific errors remain in cli/ modules; these are for SDK/core use.
 
 from __future__ import annotations
 
+import base64
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,6 +53,34 @@ class HTTPError(SynthError):
         return base
 
 
+def _extract_x402_payload(detail: Any, body_snippet: str | None) -> tuple[Any | None, str | None]:
+    if isinstance(detail, dict):
+        x402_value = detail.get("x402")
+        if isinstance(x402_value, dict):
+            payment_required = x402_value.get("payment_required")
+            if payment_required is None:
+                payment_required = x402_value.get("challenge")
+            return payment_required, x402_value.get("payment_required_header")
+    if not body_snippet:
+        return None, None
+    try:
+        payload = json.loads(body_snippet)
+    except Exception:
+        return None, None
+    if not isinstance(payload, dict):
+        return None, None
+    detail_payload = payload.get("detail")
+    if not isinstance(detail_payload, dict):
+        return None, None
+    x402_value = detail_payload.get("x402")
+    if not isinstance(x402_value, dict):
+        return None, None
+    payment_required = x402_value.get("payment_required")
+    if payment_required is None:
+        payment_required = x402_value.get("challenge")
+    return payment_required, x402_value.get("payment_required_header")
+
+
 class JobError(SynthError):
     """Raised when a job operation fails."""
 
@@ -90,7 +120,8 @@ class UsageLimitError(SynthError):
         api: The API that hit the limit (e.g., "inference", "verifiers", "prompt_opt")
         current: Current usage value
         limit: The limit value
-        tier: The org's tier (e.g., "free", "starter", "growth")
+        tier: The org's tier (e.g., "free", "free_beta", "pro",
+            "pro_beta", "team", "team_beta")
         retry_after_seconds: Seconds until the limit resets (if available)
         upgrade_url: URL to upgrade tier
     """
@@ -124,7 +155,7 @@ class PlanGatingError(SynthError):
 
     feature: str
     current_plan: str = "free"
-    required_plans: tuple[str, ...] = ("pro", "team")
+    required_plans: tuple[str, ...] = ("pro", "pro_beta", "team", "team_beta")
     upgrade_url: str = "https://usesynth.ai/pricing"
 
     def __str__(self) -> str:
@@ -134,6 +165,42 @@ class PlanGatingError(SynthError):
             f"Your current plan is '{self.current_plan}'. "
             f"Upgrade at {self.upgrade_url}"
         )
+
+
+@dataclass
+class PaymentRequiredError(HTTPError):
+    """Raised when an endpoint requires x402 payment before retry."""
+
+    challenge: Any | None = None
+    payment_required_header: str | None = None
+    payment_signature_header: str = "PAYMENT-SIGNATURE"
+    strict_payment_signature_header: str = "X-PAYMENT"
+    payment_response_header: str = "PAYMENT-RESPONSE"
+
+    @classmethod
+    def from_http_error(cls, error: HTTPError) -> PaymentRequiredError:
+        challenge, header_value = _extract_x402_payload(error.detail, error.body_snippet)
+        return cls(
+            status=error.status,
+            url=error.url,
+            message=error.message,
+            body_snippet=error.body_snippet,
+            detail=error.detail,
+            challenge=challenge,
+            payment_required_header=header_value,
+        )
+
+    def build_payment_response_header(self, *, payment_reference: str) -> str:
+        """Build PAYMENT-RESPONSE header value for the canonical x402 mock implementation.
+
+        Note: Real x402 clients should send a `PAYMENT-SIGNATURE` header, not `PAYMENT-RESPONSE`.
+        """
+        payload = {
+            "challenge": self.challenge,
+            "payment_reference": payment_reference,
+        }
+        raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
 __all__ = [
@@ -148,4 +215,5 @@ __all__ = [
     "ModelNotSupportedError",
     "UsageLimitError",
     "PlanGatingError",
+    "PaymentRequiredError",
 ]

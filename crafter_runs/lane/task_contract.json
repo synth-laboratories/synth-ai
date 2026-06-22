@@ -1,0 +1,29 @@
+{
+  "schema_version": "reportbench.crafter_code_policy_deo_hillclimb.v1",
+  "task_id": "reportbench/crafter_code_policy_deo_hillclimb",
+  "benchmark": "runbench.hillclimbsymbolicbench",
+  "objective_kind": "directed_effort_outcome",
+  "source_lane": "reportbench/lanes/crafter_code_policy_deo_hillclimb",
+  "acceptance": {
+    "minimum_completed_records": 2,
+    "minimum_completed_non_baseline_candidates": 1,
+    "require_best_source_kind": "candidate",
+    "minimum_best_score_delta": 0.01
+  },
+  "candidate_source_policy": "workspace/crafter_proof_policy.py",
+  "candidate_root": "candidates",
+  "candidate_id_contract": "assigned_by_task_brief",
+  "required_artifacts": [
+    "artifacts/workproduct_container/best_policy/heuristic_policy.py",
+    "artifacts/workproduct_container/starting_container.json",
+    "artifacts/workproduct_container/candidate_ledger.jsonl",
+    "artifacts/workproduct_container/eval_summary.json",
+    "artifacts/workproduct_container/experiment_results.json",
+    "artifacts/workproduct_container/achievement_diversity.json",
+    "artifacts/workproduct_container/directed_effort_outcomes.json",
+    "artifacts/workproduct_container/reproduction.md",
+    "artifacts/workproduct_container/manifest.json",
+    "artifacts/reportbench_output.json",
+    "artifacts/verifier_review.json"
+  ]
+}

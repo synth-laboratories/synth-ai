@@ -1,0 +1,2893 @@
+openapi: 3.1.0
+info:
+  title: Synth API (Canonical SDK Surface)
+  version: 1.0.0
+  x-sdk-package-version: 0.9.7
+  description: |
+    Canonical HTTP contract for synth-ai SDK namespaces, including OpenAI-compatible
+    chat completions for inference.
+servers:
+  - url: https://api.usesynth.ai
+    description: Synth production
+security:
+  - bearerAuth: []
+paths:
+  /api/inference/v1/chat/completions:
+    post:
+      tags: [Inference]
+      summary: OpenAI-compatible chat completions via Synth routing
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
+      operationId: createChatCompletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenAIChatCompletionRequest'
+      responses:
+        '200':
+          description: Chat completion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpenAIChatCompletionResponse'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /v2/online/sessions/{session_id}/events:
+    get:
+      tags: [Optimization]
+      summary: List or stream online session events
+      operationId: streamOnlineSessionEventsV2
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: 'JSON polling by default, SSE when `Accept: text/event-stream`'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+            text/event-stream:
+              schema:
+                type: string
+
+  /v2/runtime/compatibility:
+    get:
+      tags: [Optimization]
+      summary: Get runtime route compatibility map
+      operationId: getRuntimeRouteCompatibility
+      responses:
+        '200':
+          description: Runtime route compatibility contract
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectResponse'
+        '4XX':
+          $ref: '#/components/responses/Error'
+        '5XX':
+          $ref: '#/components/responses/Error'
+
+  /v2/runtime/systems/{system_id}/queue/trials:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue trials
+      operationId: listRuntimeQueueTrials
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create runtime queue trial
+      operationId: createRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/contract:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue contract
+      operationId: getRuntimeQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue contract
+      operationId: patchRuntimeQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/trials/{trial_id}:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue trial
+      operationId: getRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue trial
+      operationId: patchRuntimeQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue rollouts
+      operationId: listRuntimeQueueRollouts
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Enqueue runtime rollout request
+      operationId: enqueueRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/lease:
+    post:
+      tags: [Optimization]
+      summary: Lease next runtime rollout request
+      operationId: leaseRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/expire-leases:
+    post:
+      tags: [Optimization]
+      summary: Expire stale runtime rollout leases
+      operationId: expireRuntimeQueueRolloutLeases
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/systems/{system_id}/queue/rollouts/{rollout_id}:
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue rollout state
+      operationId: patchRuntimeQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SystemId'
+        - $ref: '#/components/parameters/RolloutId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/trials:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue trials by session alias
+      operationId: listRuntimeSessionQueueTrials
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Create runtime queue trial by session alias
+      operationId: createRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/contract:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue contract by session alias
+      operationId: getRuntimeSessionQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue contract by session alias
+      operationId: patchRuntimeSessionQueueContract
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/trials/{trial_id}:
+    get:
+      tags: [Optimization]
+      summary: Get runtime queue trial by session alias
+      operationId: getRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue trial by session alias
+      operationId: patchRuntimeSessionQueueTrial
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: trial_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts:
+    get:
+      tags: [Optimization]
+      summary: List runtime queue rollouts by session alias
+      operationId: listRuntimeSessionQueueRollouts
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Optimization]
+      summary: Enqueue runtime rollout request by session alias
+      operationId: enqueueRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/lease:
+    post:
+      tags: [Optimization]
+      summary: Lease next runtime rollout by session alias
+      operationId: leaseRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/expire-leases:
+    post:
+      tags: [Optimization]
+      summary: Expire runtime rollout leases by session alias
+      operationId: expireRuntimeSessionQueueRolloutLeases
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/sessions/{session_id}/queue/rollouts/{rollout_id}:
+    patch:
+      tags: [Optimization]
+      summary: Patch runtime queue rollout by session alias
+      operationId: patchRuntimeSessionQueueRollout
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/RolloutId'
+        - name: actor
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [runtime, proposer, operator]
+        - name: algorithm
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [gepa, mipro]
+        - $ref: '#/components/parameters/ExpectedStateRevision'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/dump:
+    post:
+      tags: [Optimization]
+      summary: Dump runtime container rollout checkpoint
+      operationId: runtimeContainerRolloutCheckpointDump
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+        - $ref: '#/components/parameters/RolloutId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/runtime/containers/{container_id}/rollouts/{rollout_id}/checkpoint/restore:
+    post:
+      tags: [Optimization]
+      summary: Restore runtime container rollout checkpoint
+      operationId: runtimeContainerRolloutCheckpointRestore
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+        - $ref: '#/components/parameters/RolloutId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectResponse'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Query optimizer events (Victoria-backed)
+      operationId: listOptimizerEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Query optimizer events (Victoria-backed)
+      operationId: listOptimizerEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Query failure events (Victoria-backed)
+      operationId: listFailureEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Query failure events (Victoria-backed)
+      operationId: listFailureEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Admin query optimizer events (Victoria-backed)
+      operationId: listAdminOptimizerEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/optimizer/events:
+    get:
+      tags: [Optimization]
+      summary: Admin query optimizer events (Victoria-backed)
+      operationId: listAdminOptimizerEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Admin query failure events (Victoria-backed)
+      operationId: listAdminFailureEventsV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/failures/query:
+    get:
+      tags: [Optimization]
+      summary: Admin query failure events (Victoria-backed)
+      operationId: listAdminFailureEventsV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/OrgIdQuery'
+        - $ref: '#/components/parameters/SystemIdQuery'
+        - $ref: '#/components/parameters/JobIdQuery'
+        - $ref: '#/components/parameters/RunIdQuery'
+        - $ref: '#/components/parameters/RolloutIdQuery'
+        - $ref: '#/components/parameters/CandidateIdQuery'
+        - $ref: '#/components/parameters/SeedQuery'
+        - $ref: '#/components/parameters/ActorIdQuery'
+        - $ref: '#/components/parameters/StageIdQuery'
+        - $ref: '#/components/parameters/TraceIdQuery'
+        - $ref: '#/components/parameters/EventIdQuery'
+        - $ref: '#/components/parameters/CausationIdQuery'
+        - $ref: '#/components/parameters/CorrelationIdQuery'
+        - $ref: '#/components/parameters/AlgorithmQuery'
+        - $ref: '#/components/parameters/EventTypeQuery'
+        - $ref: '#/components/parameters/StatusQuery'
+        - $ref: '#/components/parameters/SourceQuery'
+        - $ref: '#/components/parameters/EventFamilyQuery'
+        - $ref: '#/components/parameters/StreamIdQuery'
+        - $ref: '#/components/parameters/TrialIdQuery'
+        - $ref: '#/components/parameters/RuntimeTickIdQuery'
+        - $ref: '#/components/parameters/ProposalSessionIdQuery'
+        - $ref: '#/components/parameters/SourceSessionIdQuery'
+        - $ref: '#/components/parameters/SequenceQuery'
+        - $ref: '#/components/parameters/SourceSequenceQuery'
+        - $ref: '#/components/parameters/PayloadRedactedQuery'
+        - $ref: '#/components/parameters/ReasonCodeQuery'
+        - $ref: '#/components/parameters/ErrorTypeQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/admin/victoria-logs/query:
+    get:
+      tags: [Optimization]
+      summary: Admin raw Victoria logs query
+      operationId: listAdminVictoriaLogsQueryV1
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/RedactQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v2/admin/victoria-logs/query:
+    get:
+      tags: [Optimization]
+      summary: Admin raw Victoria logs query
+      operationId: listAdminVictoriaLogsQueryV2
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/RawLogSqlQuery'
+        - $ref: '#/components/parameters/StartTimeQuery'
+        - $ref: '#/components/parameters/EndTimeQuery'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/RedactQuery'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /api/graphs/completions:
+    post:
+      tags: [Graphs]
+      summary: Execute graph completion (policy/verifier/RLM)
+      x-research-track: research/feb28_2026
+      x-surface-note: "Ownership moved to research track (2026-02-28). Route remains live for compatibility."
+      operationId: createGraphCompletion
+      parameters:
+        - name: stream
+          in: query
+          required: false
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphCompletionRequest'
+      responses:
+        '200':
+          description: Graph completion output
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GraphCompletionResponse'
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/containers:
+    get:
+      tags: [Containers]
+      summary: List hosted containers
+      operationId: listContainers
+      responses:
+        '200':
+          description: Container list
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Container'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Container'
+    post:
+      tags: [Containers]
+      summary: Create hosted container
+      operationId: createContainer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContainerCreateRequest'
+      responses:
+        '200':
+          description: Hosted container
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Container'
+
+  /v1/containers/{container_id}:
+    get:
+      tags: [Containers]
+      summary: Get hosted container
+      operationId: getContainer
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+      responses:
+        '200':
+          description: Hosted container
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Container'
+    delete:
+      tags: [Containers]
+      summary: Delete hosted container
+      operationId: deleteContainer
+      parameters:
+        - $ref: '#/components/parameters/ContainerId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/uploads:
+    post:
+      tags: [Pools]
+      summary: Create pool upload
+      operationId: createPoolUpload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/uploads/{upload_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool upload
+      operationId: getPoolUpload
+      parameters:
+        - $ref: '#/components/parameters/UploadId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources:
+    get:
+      tags: [Pools]
+      summary: List pool data sources
+      operationId: listPoolDataSources
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool data source
+      operationId: createPoolDataSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources/{data_source_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool data source
+      operationId: getPoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Pools]
+      summary: Update pool data source
+      operationId: updatePoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/data-sources/{data_source_id}/refresh:
+    post:
+      tags: [Pools]
+      summary: Refresh pool data source
+      operationId: refreshPoolDataSource
+      parameters:
+        - $ref: '#/components/parameters/DataSourceId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies:
+    get:
+      tags: [Pools]
+      summary: List pool assemblies
+      operationId: listPoolAssemblies
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool assembly
+      operationId: createPoolAssembly
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolAssemblyCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies/{assembly_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool assembly
+      operationId: getPoolAssembly
+      parameters:
+        - $ref: '#/components/parameters/AssemblyId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/assemblies/{assembly_id}/events:
+    get:
+      tags: [Pools]
+      summary: Stream pool assembly events (SSE)
+      operationId: streamPoolAssemblyEvents
+      parameters:
+        - $ref: '#/components/parameters/AssemblyId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/pools:
+    get:
+      tags: [Pools]
+      summary: List pools
+      operationId: listPools
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool
+      operationId: createPool
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool
+      operationId: getPool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    patch:
+      tags: [Pools]
+      summary: Update pool
+      operationId: updatePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    delete:
+      tags: [Pools]
+      summary: Delete pool
+      operationId: deletePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/assemblies:
+    post:
+      tags: [Pools]
+      summary: Reassemble pool
+      operationId: reassemblePool
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts:
+    get:
+      tags: [Pools]
+      summary: List pool rollouts
+      operationId: listPoolRollouts
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool rollout
+      operationId: createPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolRolloutCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}:
+    get:
+      tags: [Pools]
+      summary: Get pool rollout
+      operationId: getPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/cancel:
+    post:
+      tags: [Pools]
+      summary: Cancel pool rollout
+      operationId: cancelPoolRollout
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/artifacts:
+    get:
+      tags: [Pools]
+      summary: List pool rollout artifacts
+      operationId: listPoolRolloutArtifacts
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/usage:
+    get:
+      tags: [Pools]
+      summary: Get pool rollout usage
+      operationId: getPoolRolloutUsage
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/rollouts/{rollout_id}/events:
+    get:
+      tags: [Pools]
+      summary: Stream pool rollout events (SSE)
+      operationId: streamPoolRolloutEvents
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/RolloutId'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /v1/pools/{pool_id}/tasks:
+    get:
+      tags: [Pools]
+      summary: List pool tasks
+      operationId: listPoolTasks
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    post:
+      tags: [Pools]
+      summary: Create pool task
+      operationId: createPoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/tasks/{task_id}:
+    put:
+      tags: [Pools]
+      summary: Update pool task
+      operationId: updatePoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+    delete:
+      tags: [Pools]
+      summary: Delete pool task
+      operationId: deletePoolTask
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/pools/{pool_id}/metrics:
+    get:
+      tags: [Pools]
+      summary: Get pool metrics
+      operationId: getPoolMetrics
+      parameters:
+        - $ref: '#/components/parameters/PoolId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts:
+    post:
+      tags: [Rollouts]
+      summary: Create global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: createAgentRollout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PoolRolloutCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}:
+    get:
+      tags: [Rollouts]
+      summary: Get global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: getAgentRollout
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/artifacts:
+    get:
+      tags: [Rollouts]
+      summary: List global rollout artifacts
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: listAgentRolloutArtifacts
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/cancel:
+    post:
+      tags: [Rollouts]
+      summary: Cancel global sandbox-agent rollout
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: cancelAgentRollout
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/support_bundle:
+    get:
+      tags: [Rollouts]
+      summary: Get rollout support bundle metadata
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: getAgentRolloutSupportBundle
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+  /v1/rollouts/{rollout_id}/artifacts/{path}:
+    get:
+      tags: [Rollouts]
+      summary: Download a rollout artifact path
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: fetchAgentRolloutArtifact
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /v1/rollouts/{rollout_id}/artifacts.zip:
+    get:
+      tags: [Rollouts]
+      summary: Download rollout artifacts zip
+      x-research-track: research/feb28_2026
+      x-surface-note: "Moved to research/internal track (2026-02-28). Prefer pool-scoped rollouts."
+      operationId: downloadAgentRolloutArtifactsZip
+      parameters:
+        - $ref: '#/components/parameters/RolloutId'
+      responses:
+        '200':
+          description: Zip bytes
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /api/v1/synthtunnel/leases:
+    post:
+      tags: [Tunnels]
+      summary: Create SynthTunnel lease
+      x-internal: true
+      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
+      operationId: createSynthTunnelLease
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SynthTunnelLeaseCreateRequest'
+      responses:
+        '200':
+          description: SynthTunnel lease payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SynthTunnelLease'
+
+  /api/v1/synthtunnel/leases/{lease_id}:
+    delete:
+      tags: [Tunnels]
+      summary: Close SynthTunnel lease
+      x-internal: true
+      x-surface-note: "Internal tunnel control-plane. Use SDK tunnel abstractions instead of calling directly."
+      operationId: closeSynthTunnelLease
+      parameters:
+        - $ref: '#/components/parameters/LeaseId'
+      responses:
+        '200':
+          $ref: '#/components/responses/ObjectResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: APIKey
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    OrgIdQuery:
+      name: org_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SystemIdQuery:
+      name: system_id
+      in: query
+      required: false
+      schema:
+        type: string
+    JobIdQuery:
+      name: job_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RunIdQuery:
+      name: run_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RolloutIdQuery:
+      name: rollout_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CandidateIdQuery:
+      name: candidate_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SeedQuery:
+      name: seed
+      in: query
+      required: false
+      schema:
+        type: string
+    ActorIdQuery:
+      name: actor_id
+      in: query
+      required: false
+      schema:
+        type: string
+    StageIdQuery:
+      name: stage_id
+      in: query
+      required: false
+      schema:
+        type: string
+    TraceIdQuery:
+      name: trace_id
+      in: query
+      required: false
+      schema:
+        type: string
+    EventIdQuery:
+      name: event_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CausationIdQuery:
+      name: causation_id
+      in: query
+      required: false
+      schema:
+        type: string
+    CorrelationIdQuery:
+      name: correlation_id
+      in: query
+      required: false
+      schema:
+        type: string
+    AlgorithmQuery:
+      name: algorithm
+      in: query
+      required: false
+      schema:
+        type: string
+    EventTypeQuery:
+      name: event_type
+      in: query
+      required: false
+      schema:
+        type: string
+    StatusQuery:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceQuery:
+      name: source
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [proposer, runtime, rollout, container, checkpoint, system]
+    EventFamilyQuery:
+      name: event_family
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [candidate, trial, rollout, runtime, checkpoint, proposer, container, system]
+    StreamIdQuery:
+      name: stream_id
+      in: query
+      required: false
+      schema:
+        type: string
+    TrialIdQuery:
+      name: trial_id
+      in: query
+      required: false
+      schema:
+        type: string
+    RuntimeTickIdQuery:
+      name: runtime_tick_id
+      in: query
+      required: false
+      schema:
+        type: string
+    ProposalSessionIdQuery:
+      name: proposal_session_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceSessionIdQuery:
+      name: source_session_id
+      in: query
+      required: false
+      schema:
+        type: string
+    SequenceQuery:
+      name: sequence
+      in: query
+      required: false
+      schema:
+        type: string
+    SourceSequenceQuery:
+      name: source_sequence
+      in: query
+      required: false
+      schema:
+        type: string
+    PayloadRedactedQuery:
+      name: payload_redacted
+      in: query
+      required: false
+      schema:
+        type: boolean
+    ReasonCodeQuery:
+      name: reason_code
+      in: query
+      required: false
+      schema:
+        type: string
+    ErrorTypeQuery:
+      name: error_type
+      in: query
+      required: false
+      schema:
+        type: string
+    StartTimeQuery:
+      name: start
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+    EndTimeQuery:
+      name: end
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+    RawLogSqlQuery:
+      name: q
+      in: query
+      required: false
+      schema:
+        type: string
+    RedactQuery:
+      name: redact
+      in: query
+      required: false
+      schema:
+        type: boolean
+    ExpectedStateRevision:
+      name: expected_state_revision
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+    SystemId:
+      name: system_id
+      in: path
+      required: true
+      schema:
+        type: string
+    SessionId:
+      name: session_id
+      in: path
+      required: true
+      schema:
+        type: string
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ContainerId:
+      name: container_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UploadId:
+      name: upload_id
+      in: path
+      required: true
+      schema:
+        type: string
+    DataSourceId:
+      name: data_source_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AssemblyId:
+      name: assembly_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PoolId:
+      name: pool_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RolloutId:
+      name: rollout_id
+      in: path
+      required: true
+      schema:
+        type: string
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+    LeaseId:
+      name: lease_id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    ObjectResponse:
+      description: Generic object response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OpenAIChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpenAIChatMessage'
+        temperature:
+          type: number
+        max_tokens:
+          type: integer
+        top_p:
+          type: number
+        stop:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        stream:
+          type: boolean
+        thinking_budget:
+          type: integer
+      additionalProperties: true
+
+    OpenAIChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+        content:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: object
+                additionalProperties: true
+        name:
+          type: string
+        tool_call_id:
+          type: string
+      additionalProperties: true
+
+    OpenAIChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        object:
+          type: string
+        created:
+          type: integer
+        model:
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OptimizationSystemCreateRequest:
+      type: object
+      required: [name, technique]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        technique:
+          type: string
+          enum: [discrete_optimization, model_optimization]
+        reuse:
+          type: boolean
+        metadata:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OptimizationSystem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        technique:
+          type: string
+      additionalProperties: true
+
+    OfflineJobCreateRequest:
+      type: object
+      required: [kind, system, config_mode, config]
+      properties:
+        technique:
+          type: string
+          enum: [discrete_optimization]
+        kind:
+          type: string
+          enum: [gepa_offline, mipro_offline, eval]
+        system:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            reuse:
+              type: boolean
+          additionalProperties: true
+        config_mode:
+          type: string
+          enum: [DEFAULT, FULL]
+        config:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        auto_start:
+          type: boolean
+        inference_mode:
+          $ref: '#/components/schemas/EvalInferenceMode'
+      additionalProperties: true
+
+    OfflineJob:
+      type: object
+      properties:
+        job_id:
+          type: string
+        state:
+          type: string
+        kind:
+          type: string
+        system:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    EvalInferenceMode:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: Inference resolver mode. Current supported mode is ephemeral_pool.
+        pool_id:
+          type: string
+          description: Existing container pool identifier resolved into `/v1/pools/{pool_id}` for eval rollouts.
+        pool_ttl_seconds:
+          type: integer
+          format: int64
+          minimum: 1
+        auto_cleanup:
+          type: boolean
+        runtime_type:
+          type: string
+        template_name:
+          type: string
+        data_source_id:
+          type: string
+        dockerfile_upload_path:
+          type: string
+        environment_type:
+          type: string
+      additionalProperties: true
+
+    OnlineSessionCreateRequest:
+      type: object
+      required: [kind, system, config_mode, config]
+      properties:
+        technique:
+          type: string
+          enum: [discrete_optimization]
+        kind:
+          type: string
+          enum: [gepa_online, mipro_online]
+        system:
+          type: object
+          additionalProperties: true
+        config_mode:
+          type: string
+          enum: [DEFAULT, FULL]
+        config:
+          type: object
+          additionalProperties: true
+        long_horizon_mode:
+          $ref: '#/components/schemas/LongHorizonModeConfig'
+        multi_agent_mode:
+          $ref: '#/components/schemas/MultiAgentModeConfig'
+        horizon_generalization:
+          $ref: '#/components/schemas/HorizonGeneralizationConfig'
+        base_case_gating:
+          $ref: '#/components/schemas/BaseCaseGatingConfig'
+        paired_eval:
+          $ref: '#/components/schemas/PairedEvalConfig'
+        waypoint_planner:
+          $ref: '#/components/schemas/WaypointPlannerConfig'
+        counterfactual_credit:
+          $ref: '#/components/schemas/CounterfactualCreditConfig'
+        metadata:
+          type: object
+          additionalProperties: true
+        auto_start:
+          type: boolean
+      additionalProperties: true
+
+    OnlineSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+        state:
+          type: string
+        kind:
+          type: string
+        system:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    OnlineRewardRequest:
+      type: object
+      required: [reward_info]
+      properties:
+        reward_info:
+          type: object
+          properties:
+            outcome_reward:
+              type: number
+          additionalProperties: true
+        trace_correlation_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        long_horizon:
+          $ref: '#/components/schemas/LongHorizonTelemetry'
+        multi_agent:
+          $ref: '#/components/schemas/MultiAgentTelemetry'
+      additionalProperties: true
+
+    LongHorizonModeConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        window_steps:
+          type: integer
+          minimum: 1
+        planner_required:
+          type: boolean
+      additionalProperties: true
+
+    MultiAgentModeConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        method:
+          type: string
+          enum: [independent, independent_plus_coma, independent_plus_coma_plus_qmix]
+        team_mixer:
+          type: string
+          enum: [none, monotonic_qmix]
+      additionalProperties: true
+
+    HorizonDistanceBin:
+      type: object
+      required: [lo, hi]
+      properties:
+        lo:
+          type: integer
+        hi:
+          type: integer
+      additionalProperties: false
+
+    HorizonGeneralizationConfig:
+      type: object
+      properties:
+        bins:
+          type: array
+          items:
+            $ref: '#/components/schemas/HorizonDistanceBin'
+        tau_success:
+          type: number
+        tau_eta:
+          type: number
+        eps:
+          type: number
+      additionalProperties: true
+
+    BaseCaseGatingConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        slice_key:
+          type: string
+        near_horizon_max:
+          type: integer
+        tau_base:
+          type: number
+        n_min:
+          type: integer
+      additionalProperties: true
+
+    PairedEvalConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [direct_vs_waypoint]
+        max_paired_budget:
+          type: integer
+      additionalProperties: true
+
+    WaypointPlannerConfig:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [distance_model, symbolic, hybrid]
+        max_waypoints:
+          type: integer
+        per_stage_budget:
+          type: integer
+        fallback:
+          type: string
+          enum: [direct, fail]
+      additionalProperties: true
+
+    CounterfactualCreditConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        lambda:
+          type: number
+        lag_max:
+          type: integer
+        min_evidence_threshold:
+          type: number
+      additionalProperties: true
+
+    LongHorizonTelemetry:
+      type: object
+      properties:
+        eta:
+          type: number
+        reach:
+          type: number
+        pi_gap:
+          type: number
+        base_coverage_ok:
+          type: boolean
+        planner_mode:
+          type: string
+        planner_used:
+          type: boolean
+        planner_fallback_used:
+          type: boolean
+        planner_confidence:
+          type: number
+        planner_stage_distances:
+          type: array
+          items:
+            type: number
+        failure_code:
+          type: string
+        long_horizon_failure_codes:
+          type: array
+          items:
+            type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        subgoals:
+          type: array
+          items:
+            type: string
+        achievement_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAchievementEntity'
+        subgoal_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonSubgoalEntity'
+        agent_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAgentEntity'
+        counterfactual_credit:
+          $ref: '#/components/schemas/CounterfactualCreditTelemetry'
+      additionalProperties: true
+
+    MultiAgentTelemetry:
+      type: object
+      properties:
+        team_return:
+          type: number
+        coordination_gain:
+          type: number
+        team_pi_gap:
+          type: number
+        local_advantage:
+          type: object
+          additionalProperties:
+            type: number
+        counterfactual_advantage:
+          type: object
+          additionalProperties:
+            type: number
+        coordination_failure_codes:
+          type: object
+          additionalProperties:
+            type: integer
+        agent_entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/LongHorizonAgentEntity'
+      additionalProperties: true
+
+    LongHorizonAchievementEntity:
+      type: object
+      properties:
+        achievement_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        global_success_rate:
+          type: number
+        unlock_rate_by_seed_slice:
+          type: object
+          additionalProperties:
+            type: number
+        prereq_achievement_ids:
+          type: array
+          items:
+            type: string
+        learned:
+          type: boolean
+        user_defined:
+          type: boolean
+      additionalProperties: true
+
+    LongHorizonSubgoalEntity:
+      type: object
+      properties:
+        subgoal_id:
+          type: string
+        id:
+          type: string
+        text:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        completion_confidence:
+          type: number
+        completion_rate:
+          type: number
+        seed:
+          type: integer
+        stage_idx:
+          type: integer
+        achievement_refs:
+          type: array
+          items:
+            type: string
+        learned:
+          type: boolean
+        user_defined:
+          type: boolean
+      additionalProperties: true
+
+    LongHorizonAgentEntity:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        eta:
+          type: number
+        reach:
+          type: number
+        pi_gap:
+          type: number
+        failure_codes:
+          type: array
+          items:
+            type: string
+      additionalProperties: true
+
+    CounterfactualCreditEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        from:
+          type: string
+        target:
+          type: string
+        to:
+          type: string
+        lag:
+          type: integer
+        weight:
+          type: number
+        edge_weight:
+          type: number
+        evidence:
+          type: number
+        evidence_strength:
+          type: number
+        delta_reward:
+          type: number
+        credit:
+          type: number
+      additionalProperties: true
+
+    CounterfactualCreditTelemetry:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        edge_count:
+          type: integer
+        dropped_edges:
+          type: integer
+        total_credit:
+          type: number
+        positive_credit:
+          type: number
+        negative_credit:
+          type: number
+        top_contributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterfactualCreditEdge'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/CounterfactualCreditEdge'
+      additionalProperties: true
+
+    StatePatchRequest:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [paused, running, cancelled]
+      additionalProperties: true
+
+    GraphCompletionRequest:
+      type: object
+      required: [job_id, input]
+      properties:
+        job_id:
+          type: string
+        input:
+          type: object
+          additionalProperties: true
+        model:
+          type: string
+        prompt_snapshot_id:
+          type: string
+        stream:
+          type: boolean
+      additionalProperties: true
+
+    GraphCompletionResponse:
+      type: object
+      properties:
+        output:
+          type: object
+          additionalProperties: true
+        usage:
+          type: object
+          additionalProperties: true
+        cache_status:
+          type: string
+        latency_ms:
+          type: number
+      additionalProperties: true
+
+    GraphListResponse:
+      type: object
+      properties:
+        graphs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+      additionalProperties: true
+
+    InferenceJobCreateRequest:
+      type: object
+      required: [environment_type, upload]
+      properties:
+        environment_type:
+          type: string
+        upload:
+          type: object
+          required: [bytes_base64]
+          properties:
+            bytes_base64:
+              type: string
+            filename:
+              type: string
+            content_type:
+              type: string
+            archive_type:
+              type: string
+          additionalProperties: true
+        harbor:
+          type: object
+          additionalProperties: true
+        browser:
+          type: object
+          additionalProperties: true
+        policy:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        container_overrides:
+          type: object
+          additionalProperties: true
+        artifact:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    InferenceJob:
+      type: object
+      properties:
+        job_id:
+          type: string
+        state:
+          type: string
+        artifacts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+      additionalProperties: true
+
+    ContainerCreateRequest:
+      type: object
+      required: [name, task_type, definition]
+      properties:
+        name:
+          type: string
+        task_type:
+          type: string
+          enum: [harbor_code, harbor_browser, archipelago, openenv]
+        definition:
+          type: object
+          additionalProperties: true
+        environment_config:
+          type: object
+          additionalProperties: true
+        internal_url:
+          type: string
+      additionalProperties: true
+
+    Container:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        task_type:
+          type: string
+        status:
+          type: string
+        internal_url:
+          type: [string, 'null']
+      additionalProperties: true
+
+    PoolCreateRequest:
+      type: object
+      properties:
+        assembly_id:
+          type: string
+      additionalProperties: true
+
+    PoolAssemblyCreateRequest:
+      type: object
+      required: [data_source_id, runtime_type]
+      properties:
+        data_source_id:
+          type: string
+        runtime_type:
+          type: string
+          enum: [custom_container, managed_template]
+        template_name:
+          type: string
+        exclusion_patterns:
+          type: array
+          items:
+            type: string
+        agent_model:
+          type: string
+      additionalProperties: true
+
+    PoolRolloutCreateRequest:
+      type: object
+      properties:
+        trace_correlation_id:
+          type: string
+        inference_url:
+          type: string
+        policy:
+          type: object
+          additionalProperties: true
+        policy_config:
+          type: object
+          additionalProperties: true
+        env:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        safety:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        params:
+          type: object
+          additionalProperties: true
+        seed:
+          type: integer
+      additionalProperties: false
+
+    SynthTunnelLeaseCreateRequest:
+      type: object
+      required: [client_instance_id, local_target, requested_ttl_seconds]
+      properties:
+        client_instance_id:
+          type: string
+        local_target:
+          type: object
+          required: [host, port]
+          properties:
+            host:
+              type: string
+            port:
+              type: integer
+          additionalProperties: true
+        requested_ttl_seconds:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+        capabilities:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+
+    SynthTunnelLease:
+      type: object
+      properties:
+        lease_id:
+          type: string
+        route_token:
+          type: string
+        public_base_url:
+          type: string
+        public_url:
+          type: string
+        worker_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        agent_connect:
+          type: object
+          additionalProperties: true
+        limits:
+          type: object
+          additionalProperties: true
+        heartbeat:
+          type: object
+          additionalProperties: true
+      additionalProperties: true

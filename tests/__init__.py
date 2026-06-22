@@ -1,1 +1,0 @@
-# Synth AI Tests
