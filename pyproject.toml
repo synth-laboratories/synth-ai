@@ -21,6 +21,7 @@ synth-ai-managed-research = "synth_ai.managed_research.cli:main"
 synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
 synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
 synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
+synth-ai-research-factory-standup = "synth_ai.managed_research.factory_standup:main"
 
 [project.optional-dependencies]
 schemas = []
