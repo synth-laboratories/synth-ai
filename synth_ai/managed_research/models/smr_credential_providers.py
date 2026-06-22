@@ -6,6 +6,7 @@ from enum import StrEnum
 
 
 class SmrCredentialProvider(StrEnum):
+    DEEPSEEK = "deepseek"
     OPENAI = "openai"
     OPENROUTER = "openrouter"
     TINKER = "tinker"

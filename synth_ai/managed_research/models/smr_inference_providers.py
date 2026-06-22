@@ -6,6 +6,7 @@ from enum import StrEnum
 
 
 class SmrInferenceProvider(StrEnum):
+    DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
     GROQ = "groq"

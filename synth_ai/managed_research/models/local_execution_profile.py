@@ -21,7 +21,9 @@ SOURCE_BINDING_KIND_LOCAL_PRODUCT_SOURCE = "local_product_source"
 LOCAL_LAUNCH_TARGET_HOST_KIND = {
     "local-native": "docker",
     "local-docker": "docker",
+    "local-dockerized": "docker",
     "daytona": "daytona",
+    "local-daytonaized": "daytona",
 }
 LOCAL_EVAL_CONTRACT_ENV_VARS = (
     "SYNTH_DEV_LOCAL_EVAL_CONTRACT_PATH",
