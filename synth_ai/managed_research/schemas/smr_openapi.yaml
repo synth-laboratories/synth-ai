@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__routes_balance__UsageSummaryResponse'
+                $ref: '#/components/schemas/UsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -497,7 +497,7 @@ paths:
 
         - org_id: Organization identifier
 
-        - tier: Current tier (free, free_beta, pro, pro_beta, team, team_beta, enterprise)
+        - tier: Current tier (free, free_beta, standard, standard_beta, max, max_beta)
 
         - period: Start dates for daily and monthly periods
 
@@ -541,7 +541,7 @@ paths:
 
         Returns the default limits for each tier
 
-        (free, free_beta, pro, pro_beta, team, team_beta, enterprise).
+        (free, free_beta, standard, standard_beta, max, max_beta).
 
         These are the base limits before any per-org overrides are applied.
 
@@ -564,8 +564,8 @@ paths:
       - usage
       summary: Get Tier Limit
       description: "Get default rate limits for a specific tier.\n\nArgs:\n    tier:\
-        \ Tier name (free, free_beta, pro, pro_beta, team, team_beta, enterprise)\n\
-        \nReturns default limits for the specified tier."
+        \ Tier name (free, free_beta, standard, standard_beta, max, max_beta)\n\n\
+        Returns default limits for the specified tier."
       operationId: get_tier_limit_api_v1_usage_tiers__tier__get
       parameters:
       - name: tier
@@ -726,7 +726,7 @@ paths:
       summary: Create Checkout Session
       description: "Create a checkout session for plan upgrade.\n\nRedirects to Stripe\
         \ checkout via Autumn for payment.\n\nArgs:\n    plan_type: Plan to upgrade\
-        \ to (pro, team)\n    success_url: URL to redirect after successful payment\n\
+        \ to (standard, max)\n    success_url: URL to redirect after successful payment\n\
         \    cancel_url: URL to redirect if payment is cancelled"
       operationId: create_checkout_session_api_v1_subscription_checkout_post
       requestBody:
@@ -4520,6 +4520,176 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/billing/catalog:
+    get:
+      tags:
+      - smr
+      - billing
+      summary: Get Billing Catalog
+      operationId: get_billing_catalog_smr_billing_catalog_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingCatalogResponse'
+  /smr/billing/plan:
+    get:
+      tags:
+      - smr
+      - billing
+      summary: Get Billing Plan Snapshot
+      operationId: get_billing_plan_snapshot_smr_billing_plan_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingPlanSnapshotResponse'
+  /smr/billing/runs/{run_id}/drawdown:
+    get:
+      tags:
+      - smr
+      - billing
+      summary: Get Run Billing Drawdown
+      operationId: get_run_billing_drawdown_smr_billing_runs__run_id__drawdown_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingDrawdownResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/billing/runs/preflight:
+    post:
+      tags:
+      - smr
+      - billing
+      summary: Preflight Run Billing
+      operationId: preflight_run_billing_smr_billing_runs_preflight_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrBillingPreflightRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingPreflightResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/billing/factory-efforts/{factory_effort_id}/drawdown:
+    get:
+      tags:
+      - smr
+      - billing
+      summary: Get Factory Effort Billing Drawdown
+      operationId: get_factory_effort_billing_drawdown_smr_billing_factory_efforts__factory_effort_id__drawdown_get
+      parameters:
+      - name: factory_effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Factory Effort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingDrawdownResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/billing/factory-efforts/{factory_effort_id}/preflight:
+    post:
+      tags:
+      - smr
+      - billing
+      summary: Preflight Factory Effort Billing
+      operationId: preflight_factory_effort_billing_smr_billing_factory_efforts__factory_effort_id__preflight_post
+      parameters:
+      - name: factory_effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Factory Effort Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryEffortBillingPreflightRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrBillingPreflightResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/billing/admin/grants:
+    post:
+      tags:
+      - smr
+      - billing
+      summary: Create Manual Billing Grant
+      operationId: create_manual_billing_grant_smr_billing_admin_grants_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrManualBillingGrantRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrManualBillingGrantResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/factories:
     post:
       tags:
@@ -6005,6 +6175,99 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/github/status:
+    get:
+      tags:
+      - smr
+      summary: Github Org Status
+      operationId: github_org_status_smr_github_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Github Org Status Smr Github Status Get
+  /smr/github/oauth/start:
+    post:
+      tags:
+      - smr
+      summary: Github Org Oauth Start
+      operationId: github_org_oauth_start_smr_github_oauth_start_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrGithubOrgOauthStartRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrOauthStartResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/github/repos:
+    get:
+      tags:
+      - smr
+      summary: Github Org List Repos
+      operationId: github_org_list_repos_smr_github_repos_get
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          title: Page
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 30
+          title: Per Page
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response Github Org List Repos Smr Github Repos Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/github/disconnect:
+    post:
+      tags:
+      - smr
+      summary: Github Org Disconnect
+      operationId: github_org_disconnect_smr_github_disconnect_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Github Org Disconnect Smr Github Disconnect Post
   /smr/projects/{project_id}/models:
     get:
       tags:
@@ -11455,7 +11718,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LimitResponse'
+                  $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
                 title: Response List Limits Smr Projects  Project Id   Scope   Scope
                   Id  Limits Get
         '422':
@@ -11501,7 +11764,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -11545,7 +11808,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -11587,14 +11850,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -19578,7 +19841,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get
       responses:
         '200':
           description: Successful Response
@@ -19589,7 +19852,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post__post__1
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19601,7 +19864,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get
       responses:
         '200':
           description: Successful Response
@@ -19612,7 +19875,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post__post__1
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19636,7 +19899,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get
       responses:
         '200':
           description: Successful Response
@@ -19647,7 +19910,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post__post__1
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19659,7 +19922,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get
       responses:
         '200':
           description: Successful Response
@@ -19670,7 +19933,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post__post__1
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19694,7 +19957,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get
       responses:
         '200':
           description: Successful Response
@@ -19705,7 +19968,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post__post__1
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19717,7 +19980,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get
       responses:
         '200':
           description: Successful Response
@@ -19728,7 +19991,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post__post__1
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19752,7 +20015,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get
       responses:
         '200':
           description: Successful Response
@@ -19763,7 +20026,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post__post__1
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19894,7 +20157,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get
       responses:
         '200':
           description: Successful Response
@@ -19905,7 +20168,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__post__1
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19916,7 +20179,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__delete__2
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__delete__2
       responses:
         '200':
           description: Successful Response
@@ -19928,7 +20191,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get
       responses:
         '200':
           description: Successful Response
@@ -19939,7 +20202,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post__post__1
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -19996,131 +20259,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    post:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__get__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     options:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__options__2
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__patch__3
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    put:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__put__4
+      operationId: synthtunnel_gateway_s__route_token___path__options
       parameters:
       - name: route_token
         in: path
@@ -20150,7 +20293,127 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__delete__5
+      operationId: synthtunnel_gateway_s__route_token___path__options__delete__1
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__options__get__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__options__put__3
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__options__post__4
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__options__patch__5
       parameters:
       - name: route_token
         in: path
@@ -20414,7 +20677,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                  $ref: '#/components/schemas/LimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -20448,7 +20711,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -20481,14 +20744,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -20553,7 +20816,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -24642,7 +24905,8 @@ components:
       properties:
         plan_type:
           $ref: '#/components/schemas/PlanType'
-          description: Plan to upgrade to (pro, team)
+          description: Plan to upgrade to. Use standard or max; legacy pro/team inputs
+            are accepted.
         success_url:
           type: string
           title: Success Url
@@ -25205,6 +25469,7 @@ components:
       - managed_research
       - managed_research_private_alpha
       - smr_spend
+      - smr_credit_wallet
       - smr_active_projects
       - smr_open_ended_discovery
       - smr_heavy_preset
@@ -26394,63 +26659,75 @@ components:
       title: LimitDimension
     LimitResponse:
       properties:
-        scope_kind:
+        limit_id:
           type: string
-          title: Scope Kind
-        scope_id:
+          format: uuid
+          title: Limit Id
+        session_id:
           type: string
-          title: Scope Id
-        dimension:
+          title: Session Id
+        limit_type:
           type: string
-          title: Dimension
-        cap_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Cap Amount
-        used_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          title: Used Amount
-          default: 0
-        remaining_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Remaining Amount
-        fraction_used:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Fraction Used
-        unit:
+          title: Limit Type
+        metric_type:
           type: string
-          title: Unit
-        policy:
-          additionalProperties: true
-          type: object
-          title: Policy
-        last_used_writer:
+          title: Metric Type
+        limit_value:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
+        warning_threshold:
           anyOf:
           - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Last Used Writer
-        updated_at:
+          title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
           anyOf:
           - type: string
             format: date-time
           - type: 'null'
-          title: Updated At
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
       type: object
       required:
-      - scope_kind
-      - scope_id
-      - dimension
-      - unit
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
       title: LimitResponse
+      description: Response model for a limit.
     ListKeysResponse:
       properties:
         keys:
@@ -27414,7 +27691,9 @@ components:
           title: Algorithm
         event_name:
           type: string
-          const: run_submit
+          enum:
+          - run_submit
+          - run_complete
           title: Event Name
           default: run_submit
         client_surface:
@@ -27436,6 +27715,27 @@ components:
             maxLength: 80
           - type: 'null'
           title: Package Version
+        status:
+          anyOf:
+          - type: string
+            maxLength: 40
+          - type: 'null'
+          title: Status
+        uplift:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Uplift
+        internal:
+          type: boolean
+          title: Internal
+          default: false
+        install_id:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Install Id
       type: object
       required:
       - algorithm
@@ -27570,8 +27870,8 @@ components:
       type: string
       enum:
       - free
-      - pro
-      - team
+      - standard
+      - max
       - demo
       title: PlanType
       description: Subscription plan types.
@@ -29333,7 +29633,7 @@ components:
           title: Updated At
         limits:
           items:
-            $ref: '#/components/schemas/LimitResponse'
+            $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
           type: array
           title: Limits
       type: object
@@ -30680,6 +30980,12 @@ components:
           title: Participant Authority
       type: object
       title: SmrAgentModelsResponse
+    SmrAllowanceWindowKind:
+      type: string
+      enum:
+      - five_hour
+      - weekly
+      title: SmrAllowanceWindowKind
     SmrApprovalDecisionRequest:
       properties:
         comment:
@@ -30959,6 +31265,411 @@ components:
         Existing run/task response fields stay stable; this surface exposes the
 
         typed backing truth and projection boundaries for operators and evals.'
+    SmrBillingAllowanceWindowResponse:
+      properties:
+        model_class:
+          type: string
+          title: Model Class
+        window_kind:
+          type: string
+          title: Window Kind
+        cap_microcents:
+          type: integer
+          title: Cap Microcents
+        consumed_microcents:
+          type: integer
+          title: Consumed Microcents
+        remaining_microcents:
+          type: integer
+          title: Remaining Microcents
+        window_started_at:
+          type: string
+          format: date-time
+          title: Window Started At
+        resets_at:
+          type: string
+          format: date-time
+          title: Resets At
+        source:
+          type: string
+          title: Source
+        reset_anchor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reset Anchor Id
+      type: object
+      required:
+      - model_class
+      - window_kind
+      - cap_microcents
+      - consumed_microcents
+      - remaining_microcents
+      - window_started_at
+      - resets_at
+      - source
+      title: SmrBillingAllowanceWindowResponse
+    SmrBillingCatalogAllowanceResponse:
+      properties:
+        model_class:
+          type: string
+          title: Model Class
+        five_hour_microcents:
+          type: integer
+          title: Five Hour Microcents
+        weekly_microcents:
+          type: integer
+          title: Weekly Microcents
+      type: object
+      required:
+      - model_class
+      - five_hour_microcents
+      - weekly_microcents
+      title: SmrBillingCatalogAllowanceResponse
+    SmrBillingCatalogPlanResponse:
+      properties:
+        plan_tier:
+          type: string
+          title: Plan Tier
+        display_name:
+          type: string
+          title: Display Name
+        monthly_price_microcents:
+          type: integer
+          title: Monthly Price Microcents
+        allowances:
+          items:
+            $ref: '#/components/schemas/SmrBillingCatalogAllowanceResponse'
+          type: array
+          title: Allowances
+      type: object
+      required:
+      - plan_tier
+      - display_name
+      - monthly_price_microcents
+      title: SmrBillingCatalogPlanResponse
+    SmrBillingCatalogResponse:
+      properties:
+        billing_mode:
+          type: string
+          title: Billing Mode
+        reset_policy:
+          type: string
+          title: Reset Policy
+        debit_pool_order:
+          items:
+            type: string
+          type: array
+          title: Debit Pool Order
+        plans:
+          items:
+            $ref: '#/components/schemas/SmrBillingCatalogPlanResponse'
+          type: array
+          title: Plans
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      type: object
+      required:
+      - billing_mode
+      - reset_policy
+      - generated_at
+      title: SmrBillingCatalogResponse
+    SmrBillingDebitPoolSummaryResponse:
+      properties:
+        debit_pool:
+          type: string
+          title: Debit Pool
+        debit_count:
+          type: integer
+          title: Debit Count
+        customer_debit_microcents:
+          type: integer
+          title: Customer Debit Microcents
+      type: object
+      required:
+      - debit_pool
+      - debit_count
+      - customer_debit_microcents
+      title: SmrBillingDebitPoolSummaryResponse
+    SmrBillingDebitResponse:
+      properties:
+        billing_debit_id:
+          type: string
+          title: Billing Debit Id
+        surface:
+          type: string
+          title: Surface
+        model_class:
+          type: string
+          title: Model Class
+        debit_pool:
+          type: string
+          title: Debit Pool
+        customer_debit_microcents:
+          type: integer
+          title: Customer Debit Microcents
+        provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider
+        model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Model
+        meter_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Meter Kind
+        cost_lane:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cost Lane
+        usage_fact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Usage Fact Id
+        wallet_ledger_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Ledger Id
+        breach_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Breach Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - billing_debit_id
+      - surface
+      - model_class
+      - debit_pool
+      - customer_debit_microcents
+      - created_at
+      title: SmrBillingDebitResponse
+    SmrBillingDrawdownResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        factory_effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Effort Id
+        surface:
+          type: string
+          title: Surface
+        billing_plan:
+          $ref: '#/components/schemas/SmrBillingPlanSnapshotResponse'
+        debits:
+          items:
+            $ref: '#/components/schemas/SmrBillingDebitResponse'
+          type: array
+          title: Debits
+        debit_pool_summaries:
+          items:
+            $ref: '#/components/schemas/SmrBillingDebitPoolSummaryResponse'
+          type: array
+          title: Debit Pool Summaries
+        total_customer_debit_microcents:
+          type: integer
+          title: Total Customer Debit Microcents
+        blocked:
+          type: boolean
+          title: Blocked
+          default: false
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+      type: object
+      required:
+      - org_id
+      - surface
+      - billing_plan
+      - total_customer_debit_microcents
+      title: SmrBillingDrawdownResponse
+    SmrBillingGrantKind:
+      type: string
+      enum:
+      - weekly_anchor
+      - promo
+      - banked
+      - make_good
+      - admin_override
+      title: SmrBillingGrantKind
+    SmrBillingPlanSnapshotResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        plan_tier:
+          type: string
+          title: Plan Tier
+        legacy_plan:
+          type: string
+          title: Legacy Plan
+        billing_mode:
+          type: string
+          title: Billing Mode
+        allowance_windows:
+          items:
+            $ref: '#/components/schemas/SmrBillingAllowanceWindowResponse'
+          type: array
+          title: Allowance Windows
+        wallet:
+          $ref: '#/components/schemas/SmrBillingWalletResponse'
+        blocked:
+          type: boolean
+          title: Blocked
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      type: object
+      required:
+      - org_id
+      - plan_tier
+      - legacy_plan
+      - billing_mode
+      - wallet
+      - blocked
+      - generated_at
+      title: SmrBillingPlanSnapshotResponse
+    SmrBillingPreflightRequest:
+      properties:
+        model_class:
+          $ref: '#/components/schemas/SmrModelClass'
+        estimated_customer_debit_microcents:
+          type: integer
+          minimum: 0.0
+          title: Estimated Customer Debit Microcents
+          default: 0
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      additionalProperties: false
+      type: object
+      required:
+      - model_class
+      title: SmrBillingPreflightRequest
+    SmrBillingPreflightResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        surface:
+          type: string
+          title: Surface
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        factory_effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Effort Id
+        model_class:
+          type: string
+          title: Model Class
+        estimated_customer_debit_microcents:
+          type: integer
+          title: Estimated Customer Debit Microcents
+        allowed:
+          type: boolean
+          title: Allowed
+        blocked_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocked Reason
+        debit_pool_order:
+          items:
+            type: string
+          type: array
+          title: Debit Pool Order
+        selected_debit_pool:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Selected Debit Pool
+        available_microcents:
+          type: integer
+          title: Available Microcents
+        allowance_windows:
+          items:
+            $ref: '#/components/schemas/SmrBillingAllowanceWindowResponse'
+          type: array
+          title: Allowance Windows
+        wallet_balance_microcents:
+          type: integer
+          title: Wallet Balance Microcents
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      type: object
+      required:
+      - org_id
+      - surface
+      - model_class
+      - estimated_customer_debit_microcents
+      - allowed
+      - available_microcents
+      - wallet_balance_microcents
+      - generated_at
+      title: SmrBillingPreflightResponse
+    SmrBillingWalletResponse:
+      properties:
+        balance_microcents:
+          type: integer
+          title: Balance Microcents
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - balance_microcents
+      title: SmrBillingWalletResponse
     SmrBranchMode:
       type: string
       enum:
@@ -31093,6 +31804,7 @@ components:
     SmrCredentialProvider:
       type: string
       enum:
+      - deepseek
       - openai
       - openrouter
       - groq
@@ -32530,6 +33242,10 @@ components:
           additionalProperties: true
           type: object
           title: Cap Policy
+        homeostasis_policy:
+          additionalProperties: true
+          type: object
+          title: Homeostasis Policy
         publication_policy:
           additionalProperties: true
           type: object
@@ -32547,6 +33263,73 @@ components:
       required:
       - name
       title: SmrFactoryCreateRequest
+    SmrFactoryEffortBillingPreflightRequest:
+      properties:
+        model_class:
+          $ref: '#/components/schemas/SmrModelClass'
+        estimated_customer_debit_microcents:
+          type: integer
+          minimum: 0.0
+          title: Estimated Customer Debit Microcents
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - model_class
+      title: SmrFactoryEffortBillingPreflightRequest
+    SmrFactoryHealthResponse:
+      properties:
+        schema_version:
+          type: string
+          const: factory_health.v1
+          title: Schema Version
+          default: factory_health.v1
+        evaluated_at:
+          type: string
+          format: date-time
+          title: Evaluated At
+        status:
+          type: string
+          enum:
+          - healthy
+          - degraded
+          - unknown
+          title: Status
+        health_score:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Health Score
+          default: 0.0
+        threshold:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Threshold
+          default: 0.95
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        vitals:
+          additionalProperties:
+            $ref: '#/components/schemas/SmrFactoryVitalResponse'
+          type: object
+          title: Vitals
+        triggers:
+          additionalProperties: true
+          type: object
+          title: Triggers
+        recommended_actions:
+          items:
+            $ref: '#/components/schemas/SmrFactoryMaintenanceActionResponse'
+          type: array
+          title: Recommended Actions
+      type: object
+      required:
+      - evaluated_at
+      - status
+      title: SmrFactoryHealthResponse
     SmrFactoryIdeaCreateRequest:
       properties:
         title:
@@ -32799,6 +33582,58 @@ components:
       - created_at
       - updated_at
       title: SmrFactoryIdeaResponse
+    SmrFactoryMaintenanceActionResponse:
+      properties:
+        vital:
+          type: string
+          title: Vital
+        action_key:
+          type: string
+          title: Action Key
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        action:
+          type: string
+          title: Action
+        status:
+          type: string
+          enum:
+          - recommended
+          - cooldown
+          - queued
+          title: Status
+          default: recommended
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        band:
+          additionalProperties: true
+          type: object
+          title: Band
+        observed:
+          additionalProperties: true
+          type: object
+          title: Observed
+        wake:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wake
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - vital
+      - action_key
+      - action
+      title: SmrFactoryMaintenanceActionResponse
     SmrFactoryPatchRequest:
       properties:
         name:
@@ -32835,6 +33670,12 @@ components:
             type: object
           - type: 'null'
           title: Cap Policy
+        homeostasis_policy:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Homeostasis Policy
         publication_policy:
           anyOf:
           - additionalProperties: true
@@ -33171,6 +34012,10 @@ components:
           additionalProperties: true
           type: object
           title: Cap Policy
+        homeostasis_policy:
+          additionalProperties: true
+          type: object
+          title: Homeostasis Policy
         publication_policy:
           additionalProperties: true
           type: object
@@ -33327,10 +34172,58 @@ components:
           additionalProperties: true
           type: object
           title: Costs Limits
+        factory_health:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryHealthResponse'
+          - type: 'null'
       type: object
       required:
       - factory
       title: SmrFactoryStatusResponse
+    SmrFactoryVitalResponse:
+      properties:
+        name:
+          type: string
+          title: Name
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Action
+        status:
+          type: string
+          enum:
+          - in_band
+          - out_of_band
+          - unknown
+          title: Status
+        in_band:
+          type: boolean
+          title: In Band
+          default: false
+        band:
+          additionalProperties: true
+          type: object
+          title: Band
+        observed:
+          additionalProperties: true
+          type: object
+          title: Observed
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - name
+      - status
+      title: SmrFactoryVitalResponse
     SmrFactoryWakeDueEffortResponse:
       properties:
         effort_id:
@@ -33862,6 +34755,15 @@ components:
       - branch
       - commit_message
       title: SmrGitWriteFilesRequest
+    SmrGithubOrgOauthStartRequest:
+      properties:
+        redirect_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Redirect Uri
+      type: object
+      title: SmrGithubOrgOauthStartRequest
     SmrHarnessResponse:
       properties:
         project_id:
@@ -33936,9 +34838,11 @@ components:
     SmrInferenceProvider:
       type: string
       enum:
+      - deepseek
       - openai
       - google
       - groq
+      - openrouter
       title: SmrInferenceProvider
     SmrInitialRuntimeMessageRequest:
       properties:
@@ -34396,6 +35300,15 @@ components:
         credit_amount_cents:
           type: integer
           title: Credit Amount Cents
+        campaign_credit_ceiling_cents:
+          type: integer
+          title: Campaign Credit Ceiling Cents
+        campaign_credit_granted_cents:
+          type: integer
+          title: Campaign Credit Granted Cents
+        campaign_credit_remaining_cents:
+          type: integer
+          title: Campaign Credit Remaining Cents
         credit_expires_at:
           type: string
           title: Credit Expires At
@@ -34418,6 +35331,12 @@ components:
             type: string
           type: array
           title: Standard Model Ids
+        autumn_product_id:
+          type: string
+          title: Autumn Product Id
+        autumn_feature_id:
+          type: string
+          title: Autumn Feature Id
       type: object
       required:
       - ok
@@ -34427,12 +35346,17 @@ components:
       - grant_active
       - already_claimed
       - credit_amount_cents
+      - campaign_credit_ceiling_cents
+      - campaign_credit_granted_cents
+      - campaign_credit_remaining_cents
       - credit_expires_at
       - window_start_at
       - window_close_at
       - concurrency_limit
       - allowed_runbooks
       - standard_model_ids
+      - autumn_product_id
+      - autumn_feature_id
       title: SmrLaunchPromoStatusResponse
     SmrLinearOauthCallbackRequest:
       properties:
@@ -34749,6 +35673,110 @@ components:
       - generated_at
       - run_state
       title: SmrLogicalTimelineResponse
+    SmrManualBillingGrantRequest:
+      properties:
+        target_org_id:
+          type: string
+          title: Target Org Id
+        grant_kind:
+          $ref: '#/components/schemas/SmrBillingGrantKind'
+        reason:
+          type: string
+          minLength: 1
+          title: Reason
+        scope:
+          type: string
+          title: Scope
+          default: org
+        model_class:
+          anyOf:
+          - $ref: '#/components/schemas/SmrModelClass'
+          - type: 'null'
+        window_kind:
+          anyOf:
+          - $ref: '#/components/schemas/SmrAllowanceWindowKind'
+          - type: 'null'
+        amount_microcents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Amount Microcents
+        resets_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resets At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+        campaign_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Campaign Id
+        wallet_credit_microcents:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Wallet Credit Microcents
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - target_org_id
+      - grant_kind
+      - reason
+      title: SmrManualBillingGrantRequest
+    SmrManualBillingGrantResponse:
+      properties:
+        target_org_id:
+          type: string
+          title: Target Org Id
+        reset_grant_id:
+          type: string
+          title: Reset Grant Id
+        wallet_ledger_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Wallet Ledger Id
+        grant_kind:
+          type: string
+          title: Grant Kind
+        wallet_credit_microcents:
+          type: integer
+          title: Wallet Credit Microcents
+        created_by:
+          type: string
+          title: Created By
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - target_org_id
+      - reset_grant_id
+      - grant_kind
+      - wallet_credit_microcents
+      - created_by
+      - created_at
+      title: SmrManualBillingGrantResponse
+    SmrModelClass:
+      type: string
+      enum:
+      - premium
+      - value
+      title: SmrModelClass
     SmrOauthStartResponse:
       properties:
         authorize_url:
@@ -46718,30 +47746,20 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        limit_value:
+        cap_amount:
           anyOf:
           - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: integer
           - type: 'null'
-          title: Limit Value
-        warning_threshold:
+          title: Cap Amount
+        policy:
           anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - additionalProperties: true
+            type: object
           - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
+          title: Policy
       type: object
       title: UpdateLimitRequest
-      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -46840,6 +47858,36 @@ components:
       - internal_cost_usd
       - event_count
       title: UsageBreakdownValueResponse
+    UsageByFactoryResponse:
+      properties:
+        factory_id:
+          type: string
+          title: Factory Id
+        factory_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Name
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        charged_cost_usd:
+          type: number
+          title: Charged Cost Usd
+        internal_cost_usd:
+          type: number
+          title: Internal Cost Usd
+        event_count:
+          type: integer
+          title: Event Count
+      type: object
+      required:
+      - factory_id
+      - total_cost_usd
+      - charged_cost_usd
+      - internal_cost_usd
+      - event_count
+      title: UsageByFactoryResponse
     UsageByProjectResponse:
       properties:
         project_id:
@@ -47187,7 +48235,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/UsageSummaryResponse'
+          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -47400,82 +48448,24 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        total_nominal_usd:
-          type: number
-          title: Total Nominal Usd
-        total_cost_usd:
-          type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+        org_id:
+          type: string
+          title: Org Id
+        current_month:
+          additionalProperties: true
           type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
           type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
+          title: Last 30 Days
       type: object
       required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
+      - org_id
+      - current_month
+      - last_30_days
       title: UsageSummaryResponse
+      description: Response model for usage summary.
     UsageType:
       type: string
       enum:
@@ -47983,95 +48973,165 @@ components:
       - gpu_events_count
       - total_gpu_seconds
       title: UsageSummaryResponse
-    app__api__v1__managed_research__limits__UpdateLimitRequest:
+    app__api__v1__managed_research__limits__LimitResponse:
       properties:
+        scope_kind:
+          type: string
+          title: Scope Kind
+        scope_id:
+          type: string
+          title: Scope Id
+        dimension:
+          type: string
+          title: Dimension
         cap_amount:
           anyOf:
           - type: number
           - type: integer
           - type: 'null'
           title: Cap Amount
-        policy:
+        used_amount:
           anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Policy
-      type: object
-      title: UpdateLimitRequest
-    app__api__v1__routes_balance__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        current_month:
-          additionalProperties: true
-          type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
-          type: object
-          title: Last 30 Days
-      type: object
-      required:
-      - org_id
-      - current_month
-      - last_30_days
-      title: UsageSummaryResponse
-      description: Response model for usage summary.
-    app__core__session_usage__models__LimitResponse:
-      properties:
-        limit_id:
-          type: string
-          format: uuid
-          title: Limit Id
-        session_id:
-          type: string
-          title: Session Id
-        limit_type:
-          type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
-        limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
-        warning_threshold:
+          - type: number
+          - type: integer
+          title: Used Amount
+          default: 0
+        remaining_amount:
           anyOf:
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        window_seconds:
-          anyOf:
+          - type: number
           - type: integer
           - type: 'null'
-          title: Window Seconds
-        exceeded_at:
+          title: Remaining Amount
+        fraction_used:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fraction Used
+        unit:
+          type: string
+          title: Unit
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        last_used_writer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used Writer
+        updated_at:
           anyOf:
           - type: string
             format: date-time
           - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
+          title: Updated At
+      type: object
+      required:
+      - scope_kind
+      - scope_id
+      - dimension
+      - unit
+      title: LimitResponse
+    app__api__v1__routes_usage_overview__UsageSummaryResponse:
+      properties:
+        total_nominal_usd:
+          type: number
+          title: Total Nominal Usd
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
+      type: object
+      required:
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
+      title: UsageSummaryResponse
+    app__core__session_usage__models__UpdateLimitRequest:
+      properties:
+        limit_value:
           anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
           - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Exceeded Reason
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
+          title: Limit Value
+        warning_threshold:
+          anyOf:
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
         expires_at:
           anyOf:
           - type: string
@@ -48079,17 +49139,8 @@ components:
           - type: 'null'
           title: Expires At
       type: object
-      required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
-      title: LimitResponse
-      description: Response model for a limit.
+      title: UpdateLimitRequest
+      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http
