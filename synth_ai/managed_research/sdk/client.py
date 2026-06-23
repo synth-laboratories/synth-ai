@@ -37,6 +37,14 @@ from synth_ai.managed_research.models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
+from synth_ai.managed_research.models.billing import (
+    SmrBillingCatalog,
+    SmrBillingDrawdown,
+    SmrBillingPlanSnapshot,
+    SmrBillingPreflight,
+    SmrBillingPreflightRequest,
+    SmrFactoryEffortBillingPreflightRequest,
+)
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_patch_payload,
@@ -137,6 +145,7 @@ from synth_ai.managed_research.models.types import (
     SmrRunnableProjectRequest,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -906,6 +915,7 @@ class ManagedResearchClient:
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
+    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
@@ -1091,6 +1101,12 @@ class ManagedResearchClient:
         return self._usage_api
 
     @property
+    def billing(self) -> BillingAPI:
+        if self._billing_api is None:
+            self._billing_api = BillingAPI(self)
+        return self._billing_api
+
+    @property
     def trained_models(self) -> TrainedModelsAPI:
         if self._trained_models_api is None:
             self._trained_models_api = TrainedModelsAPI(self)
@@ -1110,6 +1126,53 @@ class ManagedResearchClient:
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self.usage.get_billing_entitlements()
+
+    def get_billing_catalog(self) -> SmrBillingCatalog:
+        return self.billing.catalog()
+
+    def get_billing_plan(self) -> SmrBillingPlanSnapshot:
+        return self.billing.plan()
+
+    def get_run_billing_drawdown(self, run_id: str) -> SmrBillingDrawdown:
+        return self.billing.run_drawdown(run_id)
+
+    def get_factory_effort_billing_drawdown(
+        self,
+        factory_effort_id: str,
+    ) -> SmrBillingDrawdown:
+        return self.billing.factory_effort_drawdown(factory_effort_id)
+
+    def preflight_run_billing(
+        self,
+        request: SmrBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+        *,
+        model_class: str = "premium",
+        estimated_customer_debit_microcents: int = 0,
+        project_id: str | None = None,
+    ) -> SmrBillingPreflight:
+        return self.billing.preflight_run(
+            request,
+            model_class=model_class,
+            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
+            project_id=project_id,
+        )
+
+    def preflight_factory_effort_billing(
+        self,
+        factory_effort_id: str,
+        request: (
+            SmrFactoryEffortBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
+        *,
+        model_class: str = "premium",
+        estimated_customer_debit_microcents: int = 0,
+    ) -> SmrBillingPreflight:
+        return self.billing.preflight_factory_effort(
+            factory_effort_id,
+            request,
+            model_class=model_class,
+            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
+        )
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return self.usage.get_run_usage(run_id)
