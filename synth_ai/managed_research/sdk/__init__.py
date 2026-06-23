@@ -40,6 +40,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryActorOutputStatus,
     FactoryActorRole,
     FactoryCreateRequest,
+    FactoryHealth,
     FactoryIdea,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
@@ -47,6 +48,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryIdeaStatus,
     FactoryKind,
     FactoryLifecycleState,
+    FactoryMaintenanceAction,
     FactoryPatchRequest,
     FactoryProjectLink,
     FactoryProjectLinkRequest,
@@ -289,6 +291,8 @@ from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
+from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -334,6 +338,8 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryHealth",
+    "FactoryMaintenanceAction",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
@@ -360,6 +366,8 @@ __all__ = [
     "RecurrencePolicy",
     "FilesAPI",
     "GitHubInstallation",
+    "GithubAPI",
+    "IntegrationsAPI",
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
     "OPENAI_TRANSPORT_MODE_DIRECT_HP",
@@ -452,6 +460,8 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryHealth",
+    "FactoryMaintenanceAction",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",

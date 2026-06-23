@@ -635,6 +635,15 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_entitlement,
         ),
         ToolDefinition(
+            name="smr_get_project_economics",
+            description="Fetch public managed-research economics for a project when supported.",
+            input_schema=tool_schema(
+                {"project_id": {"type": "string", "description": "Managed research project id."}},
+                required=["project_id"],
+            ),
+            handler=server._tool_get_project_economics,
+        ),
+        ToolDefinition(
             name="smr_get_project_notes",
             description="Fetch the durable notebook text for a managed research project.",
             input_schema=tool_schema(

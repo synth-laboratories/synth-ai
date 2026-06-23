@@ -11,7 +11,46 @@ permissions:
   id-token: write
 
 jobs:
+  check-version:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      needs_publish: ${{ steps.check.outputs.needs_publish }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract release version
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
+
+      - name: Check PyPI version
+        id: pypi
+        run: |
+          PYPI_VERSION="$(curl -fsSL https://pypi.org/pypi/synth-ai/json | python -c 'import json, sys; print((json.load(sys.stdin).get("info") or {}).get("version") or "")')"
+          if [ -z "$PYPI_VERSION" ]; then
+            PYPI_VERSION="0.0.0"
+          fi
+          echo "version=$PYPI_VERSION" >> "$GITHUB_OUTPUT"
+          echo "PyPI version: $PYPI_VERSION"
+
+      - name: Decide whether PyPI publish is needed
+        id: check
+        run: |
+          RELEASE="${{ steps.version.outputs.version }}"
+          PYPI="${{ steps.pypi.outputs.version }}"
+          if [ "$RELEASE" = "$PYPI" ]; then
+            echo "needs_publish=false" >> "$GITHUB_OUTPUT"
+            echo "Release $RELEASE is already on PyPI; skipping upload."
+          else
+            echo "needs_publish=true" >> "$GITHUB_OUTPUT"
+            echo "Release $RELEASE is not on PyPI latest ($PYPI); uploading."
+          fi
+
   build-distributions:
+    needs: [check-version]
+    if: needs.check-version.outputs.needs_publish == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +74,8 @@ jobs:
 
   pypi-publish:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [build-distributions]
+    needs: [check-version, build-distributions]
+    if: needs.check-version.outputs.needs_publish == 'true'
     environment:
       name: pypi
       url: https://pypi.org/project/synth-ai/

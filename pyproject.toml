@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.11.2"
+version = "0.11.3"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -20,6 +20,7 @@ synth-ai = "synth_ai.cli:cli"
 synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
 synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
 synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
+synth-ai-research-factory-standup = "synth_ai.managed_research.factory_standup:main"
 
 [project.optional-dependencies]
 schemas = []
