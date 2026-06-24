@@ -2,6 +2,20 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.5 — 2026-06-24
+
+### Added
+
+- **`client.billing`** namespace — typed SMR Codex-style billing SDK:
+  - `get_catalog()`, `get_plan()`, `get_run_drawdown(run_id)`, `preflight_run(...)`,
+    factory-effort drawdown/preflight, and admin grant helpers matching
+    `GET /smr/billing/plan`, `/smr/billing/catalog`, run drawdown, and preflight routes.
+
+### Notes
+
+- Ships the billing SDK already merged on `dev`; no Factory surface changes.
+- Pair with backend billing routes on the same deploy train.
+
 ## 0.11.4 — 2026-06-24
 
 ### Added
