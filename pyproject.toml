@@ -27,7 +27,6 @@ schemas = []
 providers = [
     # Optional LLM providers (lazy-loaded when used)
     "anthropic>=0.42.0",
-    "groq>=0.30.0",
     "google-genai>=1.26.0",
 ]
 dev = [
@@ -49,7 +48,6 @@ dev = [
 all = [
     # Include providers
     "anthropic>=0.42.0",
-    "groq>=0.30.0",
     "google-genai>=1.26.0",
 ]
 analytics = [

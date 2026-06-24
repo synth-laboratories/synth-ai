@@ -134,13 +134,13 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "smr_credential_providers.py",
         "SmrCredentialProvider",
         "provider",
-        ("deepseek", "openai", "groq", "openrouter", "tinker"),
+        ("deepseek", "openai", "openrouter", "xai", "tinker"),
     ),
     (
         "smr_inference_providers.py",
         "SmrInferenceProvider",
         "inference_provider",
-        ("deepseek", "openai", "google", "groq", "openrouter"),
+        ("deepseek", "openai", "google", "openrouter", "xai"),
     ),
     (
         "smr_tool_providers.py",

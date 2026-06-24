@@ -9,8 +9,8 @@ class SmrInferenceProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
-    GROQ = "groq"
     OPENROUTER = "openrouter"
+    XAI = "xai"
 
 
 SMR_INFERENCE_PROVIDER_VALUES: tuple[str, ...] = tuple(

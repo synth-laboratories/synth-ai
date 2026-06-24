@@ -50,19 +50,7 @@
       "public": true
     },
     {
-      "id": "x-ai/grok-4.1-fast",
-      "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
-    },
-    {
       "id": "x-ai/grok-4.3",
-      "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
-    },
-    {
-      "id": "x-ai/grok-4.20-beta",
       "display_group": "additional_first_launch",
       "launch_lane": "",
       "public": true
