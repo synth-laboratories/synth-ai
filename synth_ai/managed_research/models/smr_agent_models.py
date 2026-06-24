@@ -15,7 +15,6 @@ class SmrAgentModel(StrEnum):
     GPT_5_5 = "gpt-5.5"
     GPT_5_4_MINI = "gpt-5.4-mini"
     GPT_5_4_NANO = "gpt-5.4-nano"
-    GPT_OSS_120B = "gpt-oss-120b"
     ANTHROPIC_CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6"
     ANTHROPIC_CLAUDE_HAIKU_4_5_20251001 = "anthropic/claude-haiku-4-5-20251001"
     X_AI_GROK_4_1_FAST = "x-ai/grok-4.1-fast"

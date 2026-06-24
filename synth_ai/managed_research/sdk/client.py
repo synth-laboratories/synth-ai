@@ -176,6 +176,7 @@ from synth_ai.managed_research.sdk.outputs import OutputsAPI
 from synth_ai.managed_research.sdk.progress import ProgressAPI
 from synth_ai.managed_research.sdk.project import ManagedResearchProjectClient
 from synth_ai.managed_research.sdk.projects import ProjectsAPI
+from synth_ai.managed_research.sdk.promotions import PromotionsAPI
 from synth_ai.managed_research.sdk.prs import PrsAPI
 from synth_ai.managed_research.sdk.readiness import ReadinessAPI
 from synth_ai.managed_research.sdk.repos import ReposAPI
@@ -916,6 +917,7 @@ class ManagedResearchClient:
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
     _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
+    _promotions_api: PromotionsAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
@@ -1105,6 +1107,12 @@ class ManagedResearchClient:
         if self._billing_api is None:
             self._billing_api = BillingAPI(self)
         return self._billing_api
+
+    @property
+    def promotions(self) -> PromotionsAPI:
+        if self._promotions_api is None:
+            self._promotions_api = PromotionsAPI(self)
+        return self._promotions_api
 
     @property
     def trained_models(self) -> TrainedModelsAPI:

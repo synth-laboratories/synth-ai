@@ -63,7 +63,6 @@ SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
     SmrAgentModel.GPT_5_4_MINI.value,
     SmrAgentModel.GPT_5_4.value,
     SmrAgentModel.GPT_5_4_NANO.value,
-    SmrAgentModel.GPT_OSS_120B.value,
     SmrAgentModel.ANTHROPIC_CLAUDE_SONNET_4_6.value,
     SmrAgentModel.ANTHROPIC_CLAUDE_HAIKU_4_5_20251001.value,
     SmrAgentModel.X_AI_GROK_4_1_FAST.value,

@@ -313,6 +313,7 @@ from synth_ai.managed_research.sdk.outputs import OutputsAPI
 from synth_ai.managed_research.sdk.progress import ProgressAPI
 from synth_ai.managed_research.sdk.project import ManagedResearchProjectClient
 from synth_ai.managed_research.sdk.projects import ProjectsAPI
+from synth_ai.managed_research.sdk.promotions import PromotionsAPI
 from synth_ai.managed_research.sdk.prs import PrsAPI
 from synth_ai.managed_research.sdk.readiness import ReadinessAPI
 from synth_ai.managed_research.sdk.repos import ReposAPI
@@ -641,6 +642,7 @@ __all__ = [
 
 __all__ = [
     "BillingAPI",
+    "PromotionsAPI",
     "ManagedResearchClient",
     "ManagedResearchProjectClient",
     "ProjectsAPI",

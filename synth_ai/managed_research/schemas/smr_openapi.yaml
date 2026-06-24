@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageSummaryResponse'
+                $ref: '#/components/schemas/app__api__v1__routes_balance__UsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -2146,17 +2146,82 @@ paths:
       summary: Submit Optimizer Run
       operationId: submit_optimizer_run_api_v1_optimizers_runs_post
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/OptimizerRunSubmitRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - optimizers
+      summary: List Optimizer Runs
+      operationId: list_optimizer_runs_api_v1_optimizers_runs_get
+      parameters:
+      - name: algorithm
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - gepa
+            - go-ex
+            type: string
+          - type: 'null'
+          title: Algorithm
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: include_terminal
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+          title: Include Terminal
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OptimizerRunListItemResponse'
+                title: Response List Optimizer Runs Api V1 Optimizers Runs Get
         '422':
           description: Validation Error
           content:
@@ -2397,6 +2462,165 @@ paths:
           minimum: 1
           default: 500
           title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimizers/runs/{run_id}/smr-optimizer-events/stream:
+    get:
+      tags:
+      - optimizers
+      summary: Stream Optimizer Smr Optimizer Events
+      operationId: stream_optimizer_smr_optimizer_events_api_v1_optimizers_runs__run_id__smr_optimizer_events_stream_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Seq
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 500
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimizers/runs/{run_id}/smr-optimizer-events:
+    get:
+      tags:
+      - optimizers
+      summary: Get Optimizer Smr Optimizer Events
+      operationId: get_optimizer_smr_optimizer_events_api_v1_optimizers_runs__run_id__smr_optimizer_events_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: after_seq
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: After Seq
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 500
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimizers/runs/{run_id}/smr-optimizer-integrity:
+    get:
+      tags:
+      - optimizers
+      summary: Get Optimizer Smr Optimizer Integrity
+      operationId: get_optimizer_smr_optimizer_integrity_api_v1_optimizers_runs__run_id__smr_optimizer_integrity_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimizers/runs/{run_id}/smr-optimizer-checkpoints:
+    get:
+      tags:
+      - optimizers
+      summary: Get Optimizer Smr Optimizer Checkpoints
+      operationId: get_optimizer_smr_optimizer_checkpoints_api_v1_optimizers_runs__run_id__smr_optimizer_checkpoints_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/optimizers/runs/{run_id}/smr-optimizer-proof:
+    get:
+      tags:
+      - optimizers
+      summary: Get Optimizer Smr Optimizer Proof
+      operationId: get_optimizer_smr_optimizer_proof_api_v1_optimizers_runs__run_id__smr_optimizer_proof_get
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
       responses:
         '200':
           description: Successful Response
@@ -5453,6 +5677,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrFactoryStatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/messages:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Post Factory Message
+      operationId: post_factory_message_smr_factories__factory_id__messages_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrProjectMessageCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrProjectMessageResponse'
         '422':
           description: Validation Error
           content:
@@ -10284,8 +10541,11 @@ paths:
     get:
       tags:
       - smr
-      summary: Get Project Run Objective Events
-      operationId: get_project_run_objective_events_smr_projects__project_id__runs__run_id__objective_events_get
+      - objectives
+      summary: List Project Run Objective Events
+      description: List run-scoped objective and progress events for watchers and
+        agents.
+      operationId: list_project_run_objective_events_smr_projects__project_id__runs__run_id__objective_events_get
       parameters:
       - name: project_id
         in: path
@@ -10304,9 +10564,9 @@ paths:
         required: false
         schema:
           type: integer
-          maximum: 1000
+          maximum: 500
           minimum: 1
-          default: 500
+          default: 200
           title: Limit
       responses:
         '200':
@@ -11611,6 +11871,22 @@ paths:
         schema:
           type: string
           title: Project Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
       - name: limit
         in: query
         required: false
@@ -11684,6 +11960,441 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/objectives/{objective_id}/progress:
+    get:
+      tags:
+      - smr
+      - objectives
+      summary: Get Project Objective Progress
+      description: Return progress claims snapshot for one project objective.
+      operationId: get_project_objective_progress_smr_projects__project_id__objectives__objective_id__progress_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrObjectiveProgressSnapshot'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/objectives/{objective_id}/status:
+    get:
+      tags:
+      - smr
+      - objectives
+      summary: Get Project Objective Status
+      description: Return the objective bundle agents need before updating milestones
+        or progress.
+      operationId: get_project_objective_status_smr_projects__project_id__objectives__objective_id__status_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      - name: task_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Task Limit
+      - name: claim_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Claim Limit
+      - name: event_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Event Limit
+      - name: milestone_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Milestone Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectiveStatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/objectives/{objective_id}/claims:
+    post:
+      tags:
+      - smr
+      - objectives
+      summary: Create Project Objective Progress Claim
+      description: Create an objective progress claim, optionally linked to a run
+        task.
+      operationId: create_project_objective_progress_claim_smr_projects__project_id__objectives__objective_id__claims_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrObjectiveProgressClaimCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrObjectiveProgressClaim'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - objectives
+      summary: List Project Objective Progress Claims
+      description: List progress claims for an objective.
+      operationId: list_project_objective_progress_claims_smr_projects__project_id__objectives__objective_id__claims_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: objective_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Objective Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrObjectiveProgressClaim'
+                title: Response List Project Objective Progress Claims Smr Projects  Project
+                  Id  Objectives  Objective Id  Claims Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/milestones:
+    get:
+      tags:
+      - smr
+      - objectives
+      summary: List Project Milestones
+      description: List objective-scoped milestones for a project or run.
+      operationId: list_project_milestones_smr_projects__project_id__milestones_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+      - name: parent_kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Kind
+      - name: parent_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrMilestoneResponse'
+                title: Response List Project Milestones Smr Projects  Project Id  Milestones
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - smr
+      - objectives
+      summary: Create Project Milestone
+      description: Create an objective-scoped milestone.
+      operationId: create_project_milestone_smr_projects__project_id__milestones_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrMilestoneCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/milestones/{milestone_id}:
+    get:
+      tags:
+      - smr
+      - objectives
+      summary: Get Project Milestone
+      description: Fetch a milestone.
+      operationId: get_project_milestone_smr_projects__project_id__milestones__milestone_id__get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: milestone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Milestone Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - smr
+      - objectives
+      summary: Patch Project Milestone
+      description: Patch mutable milestone fields with revision protection.
+      operationId: patch_project_milestone_smr_projects__project_id__milestones__milestone_id__patch
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: milestone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Milestone Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrMilestonePatchRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/milestones/{milestone_id}/transition:
+    post:
+      tags:
+      - smr
+      - objectives
+      summary: Transition Project Milestone
+      description: Transition milestone lifecycle state with revision protection.
+      operationId: transition_project_milestone_smr_projects__project_id__milestones__milestone_id__transition_post
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: milestone_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Milestone Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrMilestoneTransitionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrMilestoneResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/{scope}/{scope_id}/limits:
     get:
       tags:
@@ -11718,7 +12429,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                  $ref: '#/components/schemas/LimitResponse'
                 title: Response List Limits Smr Projects  Project Id   Scope   Scope
                   Id  Limits Get
         '422':
@@ -11764,7 +12475,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -11808,7 +12519,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -11850,14 +12561,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -15787,6 +16498,141 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrLaunchPromoStatusResponse'
+  /smr/promotions:
+    get:
+      tags:
+      - smr
+      - promotions
+      summary: List Public Promotions
+      operationId: list_public_promotions_smr_promotions_get
+      parameters:
+      - name: include_scheduled
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Scheduled
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionPublicCatalogResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/promotions/mine:
+    get:
+      tags:
+      - smr
+      - promotions
+      summary: List My Promotions
+      operationId: list_my_promotions_smr_promotions_mine_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionMineResponseModel'
+  /smr/promotions/{campaign_id}/claim:
+    post:
+      tags:
+      - smr
+      - promotions
+      summary: Claim Promotion
+      operationId: claim_promotion_smr_promotions__campaign_id__claim_post
+      parameters:
+      - name: campaign_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Campaign Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrOrgPromotionViewResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/promotions/admin/campaigns:
+    get:
+      tags:
+      - smr
+      - promotions
+      summary: List Admin Promotion Campaigns
+      operationId: list_admin_promotion_campaigns_smr_promotions_admin_campaigns_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionPublicCatalogResponse'
+    post:
+      tags:
+      - smr
+      - promotions
+      summary: Upsert Admin Promotion Campaign
+      operationId: upsert_admin_promotion_campaign_smr_promotions_admin_campaigns_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPromotionUpsertRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionCampaignPublicResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/promotions/admin/campaigns/{campaign_id}/retire:
+    post:
+      tags:
+      - smr
+      - promotions
+      summary: Retire Admin Promotion Campaign
+      operationId: retire_admin_promotion_campaign_smr_promotions_admin_campaigns__campaign_id__retire_post
+      parameters:
+      - name: campaign_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Campaign Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionRetireResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/metered-inference/actors/{actor_id}/v1/chat/completions:
     post:
       tags:
@@ -20074,7 +20920,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete
       responses:
         '200':
           description: Successful Response
@@ -20085,7 +20931,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get__delete__1
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete__delete__1
       responses:
         '200':
           description: Successful Response
@@ -20157,7 +21003,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete
       responses:
         '200':
           description: Successful Response
@@ -20168,7 +21014,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__post__1
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete__post__1
       responses:
         '200':
           description: Successful Response
@@ -20179,7 +21025,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__delete__2
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete__delete__2
       responses:
         '200':
           description: Successful Response
@@ -20214,7 +21060,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete
       responses:
         '200':
           description: Successful Response
@@ -20225,7 +21071,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get__delete__1
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete__delete__1
       responses:
         '200':
           description: Successful Response
@@ -20259,101 +21105,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    options:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     delete:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options__delete__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options__get__2
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    put:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options__put__3
+      operationId: synthtunnel_gateway_s__route_token___path__delete
       parameters:
       - name: route_token
         in: path
@@ -20383,7 +21139,37 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options__post__4
+      operationId: synthtunnel_gateway_s__route_token___path__delete__post__1
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    options:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__delete__options__2
       parameters:
       - name: route_token
         in: path
@@ -20413,7 +21199,67 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__options__patch__5
+      operationId: synthtunnel_gateway_s__route_token___path__delete__patch__3
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__delete__get__4
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__delete__put__5
       parameters:
       - name: route_token
         in: path
@@ -20677,7 +21523,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LimitResponse'
+                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -20711,7 +21557,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -20744,14 +21590,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -20816,7 +21662,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -21172,7 +22018,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
+                $ref: '#/components/schemas/UsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -26659,75 +27505,63 @@ components:
       title: LimitDimension
     LimitResponse:
       properties:
-        limit_id:
+        scope_kind:
           type: string
-          format: uuid
-          title: Limit Id
-        session_id:
+          title: Scope Kind
+        scope_id:
           type: string
-          title: Session Id
-        limit_type:
+          title: Scope Id
+        dimension:
           type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
-        limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
-        warning_threshold:
+          title: Dimension
+        cap_amount:
           anyOf:
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        window_seconds:
-          anyOf:
+          - type: number
           - type: integer
           - type: 'null'
-          title: Window Seconds
-        exceeded_at:
+          title: Cap Amount
+        used_amount:
           anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
+          - type: number
+          - type: integer
+          title: Used Amount
+          default: 0
+        remaining_amount:
           anyOf:
-          - type: string
+          - type: number
+          - type: integer
           - type: 'null'
-          title: Exceeded Reason
-        created_at:
+          title: Remaining Amount
+        fraction_used:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fraction Used
+        unit:
           type: string
-          format: date-time
-          title: Created At
-        expires_at:
+          title: Unit
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        last_used_writer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used Writer
+        updated_at:
           anyOf:
           - type: string
             format: date-time
           - type: 'null'
-          title: Expires At
+          title: Updated At
       type: object
       required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
+      - scope_kind
+      - scope_id
+      - dimension
+      - unit
       title: LimitResponse
-      description: Response model for a limit.
     ListKeysResponse:
       properties:
         keys:
@@ -27129,6 +27963,27 @@ components:
       - review
       - system
       title: MessageKind
+    MilestoneKind:
+      type: string
+      enum:
+      - subquestion
+      - suboutcome
+      title: MilestoneKind
+    MilestoneLifecycleState:
+      type: string
+      enum:
+      - planned
+      - ready
+      - active
+      - validation_pending
+      - validating
+      - accepted
+      - blocked
+      - failed
+      - stopped
+      title: MilestoneLifecycleState
+      description: Milestone lifecycle states with explicit validation as a completion
+        gate.
     MintDemoKeyRequest:
       properties:
         ttl_hours:
@@ -27191,6 +28046,58 @@ components:
       required:
       - revision
       title: ObjectivePatchRequest
+    ObjectiveProgressClaimKind:
+      type: string
+      enum:
+      - progress
+      - achievement
+      title: ObjectiveProgressClaimKind
+    ObjectiveProgressClaimStatus:
+      type: string
+      enum:
+      - pending
+      - review_pending
+      - accepted
+      - rejected
+      title: ObjectiveProgressClaimStatus
+    ObjectiveStatusResponse:
+      properties:
+        objective:
+          $ref: '#/components/schemas/RunObjectiveResponse'
+        progress:
+          $ref: '#/components/schemas/SmrObjectiveProgressSnapshot'
+        milestones:
+          items:
+            $ref: '#/components/schemas/SmrMilestoneResponse'
+          type: array
+          title: Milestones
+        claims:
+          items:
+            $ref: '#/components/schemas/SmrObjectiveProgressClaim'
+          type: array
+          title: Claims
+        tasks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Tasks
+        related_runs:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Related Runs
+        recent_events:
+          items:
+            $ref: '#/components/schemas/SmrRunObjectiveEventResponse'
+          type: array
+          title: Recent Events
+      type: object
+      required:
+      - objective
+      - progress
+      title: ObjectiveStatusResponse
     OptimizerBillingReceiptRequest:
       properties:
         org_id:
@@ -27612,6 +28519,83 @@ components:
       required:
       - org_id
       title: OptimizerInternalSynthTunnelRefreshRequest
+    OptimizerRunListItemResponse:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+        org_id:
+          type: string
+          title: Org Id
+        user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        algorithm:
+          type: string
+          title: Algorithm
+        status:
+          type: string
+          title: Status
+        finalize_state:
+          type: string
+          title: Finalize State
+        backend_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backend Run Id
+        cancellation_requested:
+          type: boolean
+          title: Cancellation Requested
+        storage_mode:
+          type: string
+          title: Storage Mode
+        cursor_seq:
+          type: integer
+          title: Cursor Seq
+        submitted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Submitted At
+        terminal_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Terminal At
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+        error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error
+      type: object
+      required:
+      - run_id
+      - org_id
+      - algorithm
+      - status
+      - finalize_state
+      - cancellation_requested
+      - storage_mode
+      - cursor_seq
+      title: OptimizerRunListItemResponse
     OptimizerRunSubmitRequest:
       properties:
         algorithm:
@@ -29168,6 +30152,9 @@ components:
       - cursor
       - deepseek
       - groq
+      - modal
+      - openai_chatgpt
+      - baseten
       title: Provider
     ProviderBinding:
       properties:
@@ -29186,6 +30173,73 @@ components:
       required:
       - provider
       title: ProviderBinding
+    ProviderPolicy:
+      properties:
+        default:
+          anyOf:
+          - $ref: '#/components/schemas/ProviderRoutingPolicy'
+          - type: 'null'
+        agent_inference:
+          anyOf:
+          - $ref: '#/components/schemas/ProviderRoutingPolicy'
+          - type: 'null'
+        experiment_inference:
+          anyOf:
+          - $ref: '#/components/schemas/ProviderRoutingPolicy'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      title: ProviderPolicy
+    ProviderRoutingPolicy:
+      properties:
+        allowed_providers:
+          items:
+            type: string
+          type: array
+          title: Allowed Providers
+        denied_providers:
+          items:
+            type: string
+          type: array
+          title: Denied Providers
+        preferred_providers:
+          items:
+            type: string
+          type: array
+          title: Preferred Providers
+        allowed_models:
+          items:
+            type: string
+          type: array
+          title: Allowed Models
+        denied_models:
+          items:
+            type: string
+          type: array
+          title: Denied Models
+        preferred_models:
+          items:
+            type: string
+          type: array
+          title: Preferred Models
+        require_zdr:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Require Zdr
+        allowed_domiciles:
+          items:
+            type: string
+          type: array
+          title: Allowed Domiciles
+        allowed_regions:
+          items:
+            type: string
+          type: array
+          title: Allowed Regions
+      additionalProperties: false
+      type: object
+      title: ProviderRoutingPolicy
     ProviderUsed:
       type: string
       enum:
@@ -29633,7 +30687,7 @@ components:
           title: Updated At
         limits:
           items:
-            $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+            $ref: '#/components/schemas/LimitResponse'
           type: array
           title: Limits
       type: object
@@ -30227,6 +31281,34 @@ components:
           - type: 'null'
           title: Agent Model Params
           description: Optional actor-scoped model params override.
+        agent_harness:
+          anyOf:
+          - type: string
+            enum:
+            - codex
+            - cursor
+            - opencode_sdk
+          - type: 'null'
+          title: Agent Harness
+          description: Optional actor-scoped harness override.
+        agent_kind:
+          anyOf:
+          - type: string
+            enum:
+            - codex
+            - cursor
+            - opencode_sdk
+          - type: 'null'
+          title: Agent Kind
+          description: Compatibility alias for agent_harness.
+        provider:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Provider
+          description: 'Optional actor-scoped provider requirement. Use {''provider_id'':
+            ''deepseek''} to require an approved profile for that provider.'
       additionalProperties: false
       type: object
       required:
@@ -30859,23 +31941,28 @@ components:
     SmrAgentModel:
       type: string
       enum:
+      - gpt-5-codex
       - gpt-5.3-codex
       - gpt-5.3-codex-spark
       - gpt-5.4
       - gpt-5.5
       - gpt-5.4-mini
-      - gpt-5.4-nano
-      - gpt-oss-120b
+      - nemotron-super
+      - cursor/composer-2.5
+      - cursor/gpt-5
+      - cursor/sonnet-4
       - anthropic/claude-sonnet-4-6
       - anthropic/claude-haiku-4-5-20251001
       - x-ai/grok-4.1-fast
       - x-ai/grok-4.3
       - x-ai/grok-4.20-beta
       - moonshotai/kimi-k2.6
-      - arcee-ai/trinity-large-thinking
-      - arcee-ai/trinity-large-thinking:free
-      - deepseek/deepseek-v4-flash
-      - deepseek/deepseek-v4-pro
+      - baseten/zai-org/GLM-5.2
+      - modal/zai-org/GLM-5.2-FP8
+      - deepseek/deepseek-v4-flash-direct
+      - deepseek/deepseek-v4-pro-direct
+      - deepseek/deepseek-chat
+      - deepseek/deepseek-reasoner
       title: SmrAgentModel
     SmrAgentModelCatalogEntry:
       properties:
@@ -34164,6 +35251,18 @@ components:
             format: date-time
           - type: 'null'
           title: Next Wake At
+        runtime:
+          additionalProperties: true
+          type: object
+          title: Runtime
+        proof_readiness:
+          additionalProperties: true
+          type: object
+          title: Proof Readiness
+        public_visuals:
+          additionalProperties: true
+          type: object
+          title: Public Visuals
         publication_states:
           additionalProperties: true
           type: object
@@ -34908,6 +36007,17 @@ components:
           type: string
           title: Role
           default: dependency
+        split_role:
+          anyOf:
+          - type: string
+            enum:
+            - visible_train
+            - heldout
+          - type: 'null'
+          title: Split Role
+          description: Optimizer campaign split classification for benchmark resources.
+            Use visible_train for proposer/search-visible resources and heldout for
+            resources withheld until measurement.
         metadata:
           additionalProperties: true
           type: object
@@ -35771,6 +36881,321 @@ components:
       - created_by
       - created_at
       title: SmrManualBillingGrantResponse
+    SmrMilestoneCreateRequest:
+      properties:
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        parent_kind:
+          $ref: '#/components/schemas/ParentObjectiveKind'
+        parent_id:
+          type: string
+          title: Parent Id
+        milestone_kind:
+          $ref: '#/components/schemas/MilestoneKind'
+        title:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Title
+        objective:
+          type: string
+          maxLength: 10000
+          minLength: 1
+          title: Objective
+        state:
+          $ref: '#/components/schemas/MilestoneLifecycleState'
+          default: planned
+        validation_status:
+          anyOf:
+          - $ref: '#/components/schemas/ValidationWaveLifecycleState'
+          - type: 'null'
+        validation_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Summary
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          title: Acceptance Criteria
+        evidence_artifact_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Artifact Ids
+        evidence_entry_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Entry Ids
+        position:
+          type: integer
+          maximum: 100000.0
+          minimum: 0.0
+          title: Position
+          default: 0
+        proposal_correlation_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Proposal Correlation Id
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: Idempotency Key
+        source_role:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Source Role
+          default: human
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - parent_kind
+      - parent_id
+      - milestone_kind
+      - title
+      - objective
+      title: SmrMilestoneCreateRequest
+    SmrMilestonePatchRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1.0
+          title: Expected Revision
+        parent_kind:
+          anyOf:
+          - $ref: '#/components/schemas/ParentObjectiveKind'
+          - type: 'null'
+        parent_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Id
+        milestone_kind:
+          anyOf:
+          - $ref: '#/components/schemas/MilestoneKind'
+          - type: 'null'
+        title:
+          anyOf:
+          - type: string
+            maxLength: 500
+            minLength: 1
+          - type: 'null'
+          title: Title
+        objective:
+          anyOf:
+          - type: string
+            maxLength: 10000
+            minLength: 1
+          - type: 'null'
+          title: Objective
+        validation_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Summary
+        acceptance_criteria:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Acceptance Criteria
+        evidence_artifact_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Evidence Artifact Ids
+        evidence_entry_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Evidence Entry Ids
+        position:
+          anyOf:
+          - type: integer
+            maximum: 100000.0
+            minimum: 0.0
+          - type: 'null'
+          title: Position
+        metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+        source_role:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Source Role
+          default: human
+      type: object
+      required:
+      - expected_revision
+      title: SmrMilestonePatchRequest
+    SmrMilestoneResponse:
+      properties:
+        milestone_id:
+          type: string
+          title: Milestone Id
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        parent_kind:
+          $ref: '#/components/schemas/ParentObjectiveKind'
+        parent_id:
+          type: string
+          title: Parent Id
+        milestone_kind:
+          $ref: '#/components/schemas/MilestoneKind'
+        title:
+          type: string
+          title: Title
+        objective:
+          type: string
+          title: Objective
+        state:
+          $ref: '#/components/schemas/MilestoneLifecycleState'
+        validation_status:
+          anyOf:
+          - $ref: '#/components/schemas/ValidationWaveLifecycleState'
+          - type: 'null'
+        validation_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Summary
+        acceptance_criteria:
+          items:
+            type: string
+          type: array
+          title: Acceptance Criteria
+        evidence_artifact_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Artifact Ids
+        evidence_entry_ids:
+          items:
+            type: string
+          type: array
+          title: Evidence Entry Ids
+        position:
+          type: integer
+          title: Position
+        proposal_correlation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Proposal Correlation Id
+        revision:
+          type: integer
+          title: Revision
+        created_by_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created By Role
+        updated_by_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated By Role
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - milestone_id
+      - org_id
+      - project_id
+      - parent_kind
+      - parent_id
+      - milestone_kind
+      - title
+      - objective
+      - state
+      - position
+      - revision
+      - created_at
+      - updated_at
+      title: SmrMilestoneResponse
+    SmrMilestoneTransitionRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1.0
+          title: Expected Revision
+        state:
+          $ref: '#/components/schemas/MilestoneLifecycleState'
+        validation_status:
+          anyOf:
+          - $ref: '#/components/schemas/ValidationWaveLifecycleState'
+          - type: 'null'
+        validation_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Summary
+        evidence_artifact_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Evidence Artifact Ids
+        evidence_entry_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Evidence Entry Ids
+        source_role:
+          type: string
+          maxLength: 32
+          minLength: 1
+          title: Source Role
+          default: human
+      type: object
+      required:
+      - expected_revision
+      - state
+      title: SmrMilestoneTransitionRequest
     SmrModelClass:
       type: string
       enum:
@@ -35790,6 +37215,174 @@ components:
       - authorize_url
       - state
       title: SmrOauthStartResponse
+    SmrObjectiveProgressClaim:
+      properties:
+        claim_id:
+          type: string
+          title: Claim Id
+        objective_id:
+          type: string
+          title: Objective Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        summary:
+          type: string
+          title: Summary
+        claim_kind:
+          $ref: '#/components/schemas/ObjectiveProgressClaimKind'
+          default: progress
+        percent_complete:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Percent Complete
+        status:
+          $ref: '#/components/schemas/ObjectiveProgressClaimStatus'
+          default: pending
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        expected_remaining_work:
+          items:
+            type: string
+          type: array
+          title: Expected Remaining Work
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - claim_id
+      - objective_id
+      - summary
+      - created_at
+      title: SmrObjectiveProgressClaim
+    SmrObjectiveProgressClaimCreateRequest:
+      properties:
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        title:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Title
+        summary:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Summary
+        claim_kind:
+          $ref: '#/components/schemas/ObjectiveProgressClaimKind'
+          default: progress
+        percent_complete:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Percent Complete
+        status:
+          $ref: '#/components/schemas/ObjectiveProgressClaimStatus'
+          default: pending
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        expected_remaining_work:
+          items:
+            type: string
+          type: array
+          title: Expected Remaining Work
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - summary
+      title: SmrObjectiveProgressClaimCreateRequest
+    SmrObjectiveProgressSnapshot:
+      properties:
+        latest_summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Summary
+        progress_count:
+          type: integer
+          title: Progress Count
+          default: 0
+        achievement_count:
+          type: integer
+          title: Achievement Count
+          default: 0
+        percent_complete:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Percent Complete
+        expected_remaining_work:
+          items:
+            type: string
+          type: array
+          title: Expected Remaining Work
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
+      type: object
+      title: SmrObjectiveProgressSnapshot
     SmrOnboardingCompleteStepRequest:
       properties:
         step:
@@ -35933,6 +37526,39 @@ components:
           title: Content
       type: object
       title: SmrOrgKnowledgeSetRequest
+    SmrOrgPromotionViewResponse:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        display_name:
+          type: string
+          title: Display Name
+        claim_window_open:
+          type: boolean
+          title: Claim Window Open
+        eligible_to_claim:
+          type: boolean
+          title: Eligible To Claim
+        eligibility_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Eligibility Reason
+        grant:
+          anyOf:
+          - $ref: '#/components/schemas/SmrPromotionGrantViewResponse'
+          - type: 'null'
+        benefits:
+          $ref: '#/components/schemas/SmrPromotionBenefitSummaryResponse'
+      type: object
+      required:
+      - campaign_id
+      - display_name
+      - claim_window_open
+      - eligible_to_claim
+      - benefits
+      title: SmrOrgPromotionViewResponse
     SmrParticipantAuthorityEntry:
       properties:
         participant_kind:
@@ -37857,8 +39483,8 @@ components:
           - $ref: '#/components/schemas/SmrAgentModel'
           - type: 'null'
           description: Override one shared agent model for this run. Shared top-level
-            values are 'arcee-ai/trinity-large-thinking', 'arcee-ai/trinity-large-thinking:free',
-            'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-pro', 'gpt-5.4', 'gpt-5.4-mini',
+            values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash-direct',
+            'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5',
             'x-ai/grok-4.20-beta', 'x-ai/grok-4.3'. Use actor_model_overrides for
             actor-specific model selection.
         agent_harness:
@@ -37892,9 +39518,12 @@ components:
           description: 'Override agent model params for this run (for example {''reasoning_effort'':
             ''medium''}).'
         actor_model_overrides:
-          items:
-            $ref: '#/components/schemas/SmrActorModelSelectionRequest'
-          type: array
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/SmrActorModelSelectionRequest'
+            type: array
+          - additionalProperties: true
+            type: object
           title: Actor Model Overrides
           description: Deprecated compatibility input for actor-scoped model overrides
             keyed by actor_type and actor_subtype. Prefer roles for new integrations.
@@ -37920,7 +39549,15 @@ components:
           type: array
           title: Providers
           description: Run-scoped provider bindings. Supported public providers are
-            openrouter, groq, tinker, synth_ai, cursor, and deepseek.
+            openrouter, groq, tinker, synth_ai, cursor, deepseek, baseten, and openai_chatgpt.
+        provider_policy:
+          anyOf:
+          - $ref: '#/components/schemas/ProviderPolicy'
+          - type: 'null'
+          description: Declarative provider routing preferences. Use agent_inference
+            for agent actor traffic and experiment_inference for benchmark/eval model
+            traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten,
+            Gemini, and Grok-family providers.
         limit:
           anyOf:
           - $ref: '#/components/schemas/UsageLimit'
@@ -38059,6 +39696,197 @@ components:
           title: Migration Only Fields
       type: object
       title: SmrProjectionInputResponse
+    SmrPromotionBenefitSummaryResponse:
+      properties:
+        credit_grant_cents:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Credit Grant Cents
+        allowed_runbooks:
+          items:
+            type: string
+          type: array
+          title: Allowed Runbooks
+        allowed_models:
+          items:
+            type: string
+          type: array
+          title: Allowed Models
+        effective_plan:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effective Plan
+      type: object
+      title: SmrPromotionBenefitSummaryResponse
+    SmrPromotionCampaignPublicResponse:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        display_name:
+          type: string
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        status:
+          type: string
+          title: Status
+        claim_window_start_at:
+          type: string
+          title: Claim Window Start At
+        claim_window_end_at:
+          type: string
+          title: Claim Window End At
+        grant_ttl_days:
+          type: integer
+          title: Grant Ttl Days
+        benefits_summary:
+          $ref: '#/components/schemas/SmrPromotionBenefitSummaryResponse'
+      type: object
+      required:
+      - campaign_id
+      - display_name
+      - status
+      - claim_window_start_at
+      - claim_window_end_at
+      - grant_ttl_days
+      - benefits_summary
+      title: SmrPromotionCampaignPublicResponse
+    SmrPromotionGrantViewResponse:
+      properties:
+        grant_id:
+          type: string
+          title: Grant Id
+        status:
+          type: string
+          title: Status
+        claimed_at:
+          type: string
+          title: Claimed At
+        expires_at:
+          type: string
+          title: Expires At
+        effective_plan:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effective Plan
+        credit_amount_cents:
+          type: integer
+          title: Credit Amount Cents
+      type: object
+      required:
+      - grant_id
+      - status
+      - claimed_at
+      - expires_at
+      - credit_amount_cents
+      title: SmrPromotionGrantViewResponse
+    SmrPromotionMineResponseModel:
+      properties:
+        campaigns:
+          items:
+            $ref: '#/components/schemas/SmrOrgPromotionViewResponse'
+          type: array
+          title: Campaigns
+      type: object
+      required:
+      - campaigns
+      title: SmrPromotionMineResponseModel
+    SmrPromotionPublicCatalogResponse:
+      properties:
+        campaigns:
+          items:
+            $ref: '#/components/schemas/SmrPromotionCampaignPublicResponse'
+          type: array
+          title: Campaigns
+        as_of:
+          type: string
+          title: As Of
+      type: object
+      required:
+      - campaigns
+      - as_of
+      title: SmrPromotionPublicCatalogResponse
+    SmrPromotionRetireResponse:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        status:
+          type: string
+          title: Status
+        claim_window_end_at:
+          type: string
+          title: Claim Window End At
+        retired_at:
+          type: string
+          title: Retired At
+      type: object
+      required:
+      - campaign_id
+      - status
+      - claim_window_end_at
+      - retired_at
+      title: SmrPromotionRetireResponse
+    SmrPromotionUpsertRequest:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        display_name:
+          type: string
+          title: Display Name
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        status:
+          type: string
+          title: Status
+          default: active
+        claim_window_start_at:
+          type: string
+          title: Claim Window Start At
+        claim_window_end_at:
+          type: string
+          title: Claim Window End At
+        grant_ttl_days:
+          type: integer
+          title: Grant Ttl Days
+          default: 7
+        campaign_credit_ceiling_cents:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Campaign Credit Ceiling Cents
+        concurrency_limit:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Concurrency Limit
+        eligibility_kind:
+          type: string
+          title: Eligibility Kind
+          default: signup_in_window
+        autumn_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Autumn Product Id
+      type: object
+      required:
+      - campaign_id
+      - display_name
+      - claim_window_start_at
+      - claim_window_end_at
+      title: SmrPromotionUpsertRequest
     SmrProviderKeySetRequest:
       properties:
         provider:
@@ -39107,6 +40935,13 @@ components:
           - type: 'null'
           title: Agent Kind
           description: Compatibility alias for agent_harness.
+        provider:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Provider
+          description: Optional role-level provider requirement.
       additionalProperties: false
       type: object
       required:
@@ -47746,20 +49581,30 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        cap_amount:
+        limit_value:
           anyOf:
           - type: number
-          - type: integer
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Cap Amount
-        policy:
+          title: Limit Value
+        warning_threshold:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Policy
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
       type: object
       title: UpdateLimitRequest
+      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -48451,21 +50296,30 @@ components:
         org_id:
           type: string
           title: Org Id
-        current_month:
-          additionalProperties: true
-          type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
-          type: object
-          title: Last 30 Days
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
+          type: number
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
+          type: number
+          title: Total Gpu Seconds
       type: object
       required:
       - org_id
-      - current_month
-      - last_30_days
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
       title: UsageSummaryResponse
-      description: Response model for usage summary.
     UsageType:
       type: string
       enum:
@@ -48596,6 +50450,18 @@ components:
       - msg
       - type
       title: ValidationError
+    ValidationWaveLifecycleState:
+      type: string
+      enum:
+      - planned
+      - ready
+      - in_progress
+      - passed
+      - revision_required
+      - failed
+      - cancelled
+      title: ValidationWaveLifecycleState
+      description: Validation-wave lifecycle with explicit success and reopen outcomes.
     VllmLoraCreateRequest:
       properties:
         lora_id:
@@ -48944,94 +50810,42 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__admin__UsageSummaryResponse:
+    app__api__v1__managed_research__limits__UpdateLimitRequest:
       properties:
-        org_id:
-          type: string
-          title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
-      type: object
-      required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
-      title: UsageSummaryResponse
-    app__api__v1__managed_research__limits__LimitResponse:
-      properties:
-        scope_kind:
-          type: string
-          title: Scope Kind
-        scope_id:
-          type: string
-          title: Scope Id
-        dimension:
-          type: string
-          title: Dimension
         cap_amount:
           anyOf:
           - type: number
           - type: integer
           - type: 'null'
           title: Cap Amount
-        used_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          title: Used Amount
-          default: 0
-        remaining_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Remaining Amount
-        fraction_used:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Fraction Used
-        unit:
-          type: string
-          title: Unit
         policy:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Policy
+      type: object
+      title: UpdateLimitRequest
+    app__api__v1__routes_balance__UsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        current_month:
           additionalProperties: true
           type: object
-          title: Policy
-        last_used_writer:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Last Used Writer
-        updated_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Updated At
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
+          type: object
+          title: Last 30 Days
       type: object
       required:
-      - scope_kind
-      - scope_id
-      - dimension
-      - unit
-      title: LimitResponse
+      - org_id
+      - current_month
+      - last_30_days
+      title: UsageSummaryResponse
+      description: Response model for usage summary.
     app__api__v1__routes_usage_overview__UsageSummaryResponse:
       properties:
         total_nominal_usd:
@@ -49115,23 +50929,59 @@ components:
       - total_charged_usd
       - total_internal_cost_usd
       title: UsageSummaryResponse
-    app__core__session_usage__models__UpdateLimitRequest:
+    app__core__session_usage__models__LimitResponse:
       properties:
+        limit_id:
+          type: string
+          format: uuid
+          title: Limit Id
+        session_id:
+          type: string
+          title: Session Id
+        limit_type:
+          type: string
+          title: Limit Type
+        metric_type:
+          type: string
+          title: Metric Type
         limit_value:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
         warning_threshold:
           anyOf:
-          - type: number
           - type: string
             pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
           title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
         expires_at:
           anyOf:
           - type: string
@@ -49139,8 +50989,17 @@ components:
           - type: 'null'
           title: Expires At
       type: object
-      title: UpdateLimitRequest
-      description: Request to update a limit.
+      required:
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
+      title: LimitResponse
+      description: Response model for a limit.
   securitySchemes:
     HTTPBearer:
       type: http
