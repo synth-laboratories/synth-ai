@@ -1188,10 +1188,6 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.get_project_entitlement(project_id)
 
-    def _tool_get_project_economics(self, args: JSONDict) -> Any:
-        require_string(args, "project_id")
-        self._removed_backend_contract("Project economics")
-
     def _tool_get_project_setup(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:

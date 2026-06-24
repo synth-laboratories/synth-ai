@@ -1,5 +1,19 @@
 """Public typed models for the rewritten SDK surface."""
 
+from synth_ai.managed_research.models.billing import (
+    SmrBillingAllowanceWindow,
+    SmrBillingCatalog,
+    SmrBillingCatalogAllowance,
+    SmrBillingCatalogPlan,
+    SmrBillingDebit,
+    SmrBillingDebitPoolSummary,
+    SmrBillingDrawdown,
+    SmrBillingPlanSnapshot,
+    SmrBillingPreflight,
+    SmrBillingPreflightRequest,
+    SmrBillingWallet,
+    SmrFactoryEffortBillingPreflightRequest,
+)
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementAsset,
     BillingEntitlementProfile,
@@ -506,6 +520,18 @@ __all__ = [
     "BillingEntitlementAsset",
     "BillingEntitlementProfile",
     "BillingEntitlementSnapshot",
+    "SmrBillingAllowanceWindow",
+    "SmrBillingCatalog",
+    "SmrBillingCatalogAllowance",
+    "SmrBillingCatalogPlan",
+    "SmrBillingDebit",
+    "SmrBillingDebitPoolSummary",
+    "SmrBillingDrawdown",
+    "SmrBillingPlanSnapshot",
+    "SmrBillingPreflight",
+    "SmrBillingPreflightRequest",
+    "SmrBillingWallet",
+    "SmrFactoryEffortBillingPreflightRequest",
     "OrgLimitItem",
     "OrgLimits",
     "OrgResourceUsage",

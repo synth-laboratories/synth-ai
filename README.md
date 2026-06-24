@@ -88,6 +88,27 @@ Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
 want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
 reports.
 
+## Managed Research Billing
+
+Standalone SMR and Managed Factory draw from the same org-level allowance and
+flex-credit wallet. Free, Standard ($20/month), and Max ($200/month) expose
+premium and value usage windows with reset times, then use explicit flex credits
+after included usage is exhausted. Premium models consume allowance faster;
+value models stretch the same allowance further. Promo, make-good, banked, and
+override grants are manual audit events rather than automatic resets.
+
+The canonical backend surfaces are `GET /smr/billing/catalog`,
+`GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
+`GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
+SDK, use `control.billing.catalog()`, `control.billing.plan()`,
+`control.billing.run_drawdown(run_id)`,
+`control.billing.factory_effort_drawdown(effort_id)`, and the matching
+`preflight_*` helpers. The top-level aliases `control.get_billing_catalog()`,
+`control.get_billing_plan()`, `control.get_run_billing_drawdown(run_id)`, and
+`control.get_factory_effort_billing_drawdown(effort_id)` call the same billing
+namespace. Do not infer allowance from legacy Autumn balances or local spend
+summaries.
+
 ## Links
 
 - [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)

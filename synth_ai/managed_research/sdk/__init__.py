@@ -1,5 +1,18 @@
 """SDK exports for the rewritten Managed Research package."""
 
+from synth_ai.managed_research.models.billing import (
+    SmrBillingAllowanceWindow,
+    SmrBillingCatalog,
+    SmrBillingCatalogAllowance,
+    SmrBillingCatalogPlan,
+    SmrBillingDebit,
+    SmrBillingDebitPoolSummary,
+    SmrBillingDrawdown,
+    SmrBillingPlanSnapshot,
+    SmrBillingPreflight,
+    SmrBillingPreflightRequest,
+    SmrBillingWallet,
+)
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementAsset,
     BillingEntitlementProfile,
@@ -275,6 +288,7 @@ from synth_ai.managed_research.models.work_products import (
     ManagedResearchWorkProductExport,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.client import (
     ACTIVE_RUN_STATES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -626,6 +640,7 @@ __all__ = [
 ]
 
 __all__ = [
+    "BillingAPI",
     "ManagedResearchClient",
     "ManagedResearchProjectClient",
     "ProjectsAPI",
@@ -673,6 +688,17 @@ __all__ = [
     "Provider",
     "ProviderBinding",
     "UsageLimit",
+    "SmrBillingAllowanceWindow",
+    "SmrBillingCatalog",
+    "SmrBillingCatalogAllowance",
+    "SmrBillingCatalogPlan",
+    "SmrBillingDebit",
+    "SmrBillingDebitPoolSummary",
+    "SmrBillingDrawdown",
+    "SmrBillingPlanSnapshot",
+    "SmrBillingPreflight",
+    "SmrBillingPreflightRequest",
+    "SmrBillingWallet",
     "SmrResourceLimit",
     "SmrResourceLimitBlocker",
     "SmrResourceLimitExtension",
