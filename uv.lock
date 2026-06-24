@@ -825,23 +825,6 @@ wheels = [
 ]
 
 [[package]]
-name = "groq"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-    { name = "distro" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "sniffio" },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/12/f4099a141677fcd2ed79dcc1fcec431e60c52e0e90c9c5d935f0ffaf8c0e/groq-1.0.0.tar.gz", hash = "sha256:66cb7bb729e6eb644daac7ce8efe945e99e4eb33657f733ee6f13059ef0c25a9", size = 146068, upload-time = "2025-12-17T23:34:23.115Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4a/88/3175759d2ef30406ea721f4d837bfa1ba4339fde3b81ba8c5640a96ed231/groq-1.0.0-py3-none-any.whl", hash = "sha256:6e22bf92ffad988f01d2d4df7729add66b8fd5dbfb2154b5bbf3af245b72c731", size = 138292, upload-time = "2025-12-17T23:34:21.957Z" },
-]
-
-[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2497,7 +2480,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.11.6"
+version = "0.11.7"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -2510,7 +2493,6 @@ dependencies = [
 all = [
     { name = "anthropic" },
     { name = "google-genai" },
-    { name = "groq" },
 ]
 analytics = [
     { name = "pandas" },
@@ -2534,7 +2516,6 @@ dev = [
 providers = [
     { name = "anthropic" },
     { name = "google-genai" },
-    { name = "groq" },
 ]
 
 [package.dev-dependencies]
@@ -2569,8 +2550,6 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.115.12" },
     { name = "google-genai", marker = "extra == 'all'", specifier = ">=1.26.0" },
     { name = "google-genai", marker = "extra == 'providers'", specifier = ">=1.26.0" },
-    { name = "groq", marker = "extra == 'all'", specifier = ">=0.30.0" },
-    { name = "groq", marker = "extra == 'providers'", specifier = ">=0.30.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "keyring", marker = "extra == 'dev'", specifier = ">=24.0.0" },
     { name = "nest-asyncio", marker = "extra == 'dev'", specifier = ">=1.6.0" },

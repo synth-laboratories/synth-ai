@@ -303,7 +303,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "agent_model": {
                         "type": "string",
                         "enum": list(SMR_AGENT_MODEL_VALUES),
-                        "description": "Optional run-level agent model override using a backend catalog model id such as gpt-5.4-mini or x-ai/grok-4.3."
+                        "description": "Optional run-level agent model override using a backend catalog model id such as gpt-5.4-mini, x-ai/grok-4.3, or x-ai/grok-build."
                         + _HOSTED_LOCAL_ONLY_NOTE,
                     },
                     "agent_harness": {

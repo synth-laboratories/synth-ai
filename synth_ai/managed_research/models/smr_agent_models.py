@@ -18,6 +18,7 @@ class SmrAgentModel(StrEnum):
     ANTHROPIC_CLAUDE_SONNET_4_6 = "anthropic/claude-sonnet-4-6"
     ANTHROPIC_CLAUDE_HAIKU_4_5_20251001 = "anthropic/claude-haiku-4-5-20251001"
     X_AI_GROK_4_3 = "x-ai/grok-4.3"
+    X_AI_GROK_BUILD = "x-ai/grok-build"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
     BASETEN_ZAI_ORG_GLM_5_2 = "baseten/zai-org/GLM-5.2"
 

@@ -12455,7 +12455,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LimitResponse'
+                  $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
                 title: Response List Limits Smr Projects  Project Id   Scope   Scope
                   Id  Limits Get
         '422':
@@ -12501,7 +12501,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -12545,7 +12545,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -12587,14 +12587,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -20946,7 +20946,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete
       responses:
         '200':
           description: Successful Response
@@ -20957,7 +20957,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get__delete__1
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete__delete__1
       responses:
         '200':
           description: Successful Response
@@ -21086,7 +21086,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete
       responses:
         '200':
           description: Successful Response
@@ -21097,7 +21097,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get__delete__1
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete__delete__1
       responses:
         '200':
           description: Successful Response
@@ -21131,101 +21131,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__post__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     patch:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__patch__2
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__delete__3
+      operationId: synthtunnel_gateway_s__route_token___path__patch
       parameters:
       - name: route_token
         in: path
@@ -21255,7 +21165,67 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__put__4
+      operationId: synthtunnel_gateway_s__route_token___path__patch__put__1
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__patch__get__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__patch__post__3
       parameters:
       - name: route_token
         in: path
@@ -21285,7 +21255,37 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__options__5
+      operationId: synthtunnel_gateway_s__route_token___path__patch__options__4
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__patch__delete__5
       parameters:
       - name: route_token
         in: path
@@ -21549,7 +21549,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                  $ref: '#/components/schemas/LimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -21583,7 +21583,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -21616,14 +21616,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -21688,7 +21688,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -22044,7 +22044,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
+                $ref: '#/components/schemas/UsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -27524,63 +27524,75 @@ components:
       title: LimitDimension
     LimitResponse:
       properties:
-        scope_kind:
+        limit_id:
           type: string
-          title: Scope Kind
-        scope_id:
+          format: uuid
+          title: Limit Id
+        session_id:
           type: string
-          title: Scope Id
-        dimension:
+          title: Session Id
+        limit_type:
           type: string
-          title: Dimension
-        cap_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Cap Amount
-        used_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          title: Used Amount
-          default: 0
-        remaining_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Remaining Amount
-        fraction_used:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Fraction Used
-        unit:
+          title: Limit Type
+        metric_type:
           type: string
-          title: Unit
-        policy:
-          additionalProperties: true
-          type: object
-          title: Policy
-        last_used_writer:
+          title: Metric Type
+        limit_value:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
+        warning_threshold:
           anyOf:
           - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Last Used Writer
-        updated_at:
+          title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
           anyOf:
           - type: string
             format: date-time
           - type: 'null'
-          title: Updated At
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
       type: object
       required:
-      - scope_kind
-      - scope_id
-      - dimension
-      - unit
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
       title: LimitResponse
+      description: Response model for a limit.
     ListKeysResponse:
       properties:
         keys:
@@ -30713,7 +30725,7 @@ components:
           title: Updated At
         limits:
           items:
-            $ref: '#/components/schemas/LimitResponse'
+            $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
           type: array
           title: Limits
       type: object
@@ -31979,6 +31991,7 @@ components:
       - cursor/gpt-5
       - cursor/sonnet-4
       - x-ai/grok-4.3
+      - x-ai/grok-build
       - moonshotai/kimi-k2.6
       - baseten/zai-org/GLM-5.2
       - modal/zai-org/GLM-5.2-FP8
@@ -39552,8 +39565,8 @@ components:
           description: Override one shared agent model for this run. Shared top-level
             values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct',
             'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4-mini',
-            'gpt-5.5', 'x-ai/grok-4.3'. Use actor_model_overrides for actor-specific
-            model selection.
+            'gpt-5.5', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides
+            for actor-specific model selection.
         agent_harness:
           anyOf:
           - type: string
@@ -49703,30 +49716,20 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        limit_value:
+        cap_amount:
           anyOf:
           - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: integer
           - type: 'null'
-          title: Limit Value
-        warning_threshold:
+          title: Cap Amount
+        policy:
           anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - additionalProperties: true
+            type: object
           - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
+          title: Policy
       type: object
       title: UpdateLimitRequest
-      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -50202,7 +50205,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/UsageSummaryResponse'
+          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -50415,86 +50418,32 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        total_nominal_usd:
+        org_id:
+          type: string
+          title: Org Id
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
           type: number
-          title: Total Nominal Usd
-        total_cost_usd:
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
           type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_factory:
-          items:
-            $ref: '#/components/schemas/UsageByFactoryResponse'
-          type: array
-          title: By Factory
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
+          title: Total Gpu Seconds
       type: object
       required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
       title: UsageSummaryResponse
     UsageType:
       type: string
@@ -50986,51 +50935,65 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__admin__UsageSummaryResponse:
+    app__api__v1__managed_research__limits__LimitResponse:
       properties:
-        org_id:
+        scope_kind:
           type: string
-          title: Org Id
-        date_range:
+          title: Scope Kind
+        scope_id:
           type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
-      type: object
-      required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
-      title: UsageSummaryResponse
-    app__api__v1__managed_research__limits__UpdateLimitRequest:
-      properties:
+          title: Scope Id
+        dimension:
+          type: string
+          title: Dimension
         cap_amount:
           anyOf:
           - type: number
           - type: integer
           - type: 'null'
           title: Cap Amount
-        policy:
+        used_amount:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: number
+          - type: integer
+          title: Used Amount
+          default: 0
+        remaining_amount:
+          anyOf:
+          - type: number
+          - type: integer
           - type: 'null'
+          title: Remaining Amount
+        fraction_used:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fraction Used
+        unit:
+          type: string
+          title: Unit
+        policy:
+          additionalProperties: true
+          type: object
           title: Policy
+        last_used_writer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used Writer
+        updated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Updated At
       type: object
-      title: UpdateLimitRequest
+      required:
+      - scope_kind
+      - scope_id
+      - dimension
+      - unit
+      title: LimitResponse
     app__api__v1__routes_balance__UsageSummaryResponse:
       properties:
         org_id:
@@ -51051,59 +51014,106 @@ components:
       - last_30_days
       title: UsageSummaryResponse
       description: Response model for usage summary.
-    app__core__session_usage__models__LimitResponse:
+    app__api__v1__routes_usage_overview__UsageSummaryResponse:
       properties:
-        limit_id:
-          type: string
-          format: uuid
-          title: Limit Id
-        session_id:
-          type: string
-          title: Session Id
-        limit_type:
-          type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
+        total_nominal_usd:
+          type: number
+          title: Total Nominal Usd
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
+      type: object
+      required:
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
+      title: UsageSummaryResponse
+    app__core__session_usage__models__UpdateLimitRequest:
+      properties:
         limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
           title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
         warning_threshold:
           anyOf:
+          - type: number
           - type: string
             pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
           title: Warning Threshold
-        window_seconds:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Window Seconds
-        exceeded_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Exceeded Reason
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
         expires_at:
           anyOf:
           - type: string
@@ -51111,17 +51121,8 @@ components:
           - type: 'null'
           title: Expires At
       type: object
-      required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
-      title: LimitResponse
-      description: Response model for a limit.
+      title: UpdateLimitRequest
+      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http

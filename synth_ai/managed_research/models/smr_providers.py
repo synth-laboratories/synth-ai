@@ -205,6 +205,8 @@ DEFAULT_CONFIGS: dict[Provider, ProviderConfig] = {
     Provider.SYNTH_AI: SynthAIConfig(),
     Provider.CURSOR: SynthAIConfig(),
     Provider.DEEPSEEK: SynthAIConfig(),
+    Provider.XAI: SynthAIConfig(),
+    Provider.MODAL: SynthAIConfig(),
     Provider.OPENAI_CHATGPT: OpenAIChatGPTConfig(),
     Provider.BASETEN: SynthAIConfig(),
 }

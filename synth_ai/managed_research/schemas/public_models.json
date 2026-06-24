@@ -56,6 +56,12 @@
       "public": true
     },
     {
+      "id": "x-ai/grok-build",
+      "display_group": "additional_first_launch",
+      "launch_lane": "",
+      "public": true
+    },
+    {
       "id": "moonshotai/kimi-k2.6",
       "display_group": "additional_first_launch",
       "launch_lane": "",
