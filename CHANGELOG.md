@@ -2,6 +2,12 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.7 — 2026-06-24
+
+### Changed
+
+- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the single public Grok model. The retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
+
 ## 0.11.6 — 2026-06-24
 
 ### Added
