@@ -133,6 +133,16 @@ from synth_ai.managed_research.models.project_workspace import (
     ProjectWorkspaceRun,
     ProjectWorkspaceSummary,
 )
+from synth_ai.managed_research.models.promotions import (
+    SmrOrgPromotionView,
+    SmrPromotionBenefitSummary,
+    SmrPromotionCampaignPublic,
+    SmrPromotionGrantView,
+    SmrPromotionMineResponse,
+    SmrPromotionPublicCatalog,
+    SmrPromotionRetireResult,
+    SmrPromotionUpsertRequest,
+)
 from synth_ai.managed_research.models.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
@@ -520,6 +530,14 @@ __all__ = [
     "BillingEntitlementAsset",
     "BillingEntitlementProfile",
     "BillingEntitlementSnapshot",
+    "SmrPromotionBenefitSummary",
+    "SmrPromotionCampaignPublic",
+    "SmrPromotionGrantView",
+    "SmrPromotionMineResponse",
+    "SmrPromotionPublicCatalog",
+    "SmrPromotionRetireResult",
+    "SmrPromotionUpsertRequest",
+    "SmrOrgPromotionView",
     "SmrBillingAllowanceWindow",
     "SmrBillingCatalog",
     "SmrBillingCatalogAllowance",

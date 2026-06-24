@@ -2,6 +2,21 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.6 — 2026-06-24
+
+### Added
+
+- **`client.promotions`** namespace — typed SMR promotion registry SDK:
+  - `list_public()`, `mine()`, `claim(campaign_id)` for `GET /smr/promotions`,
+    `GET /smr/promotions/mine`, and `POST /smr/promotions/{campaign_id}/claim`.
+  - Admin helpers: `list_admin_campaigns()`, `upsert_admin_campaign(...)`,
+    `retire_admin_campaign(campaign_id)`.
+
+### Notes
+
+- Pair with backend promotions registry routes (Phases 0–3) on the same deploy train.
+- OpenAPI contract synced from backend `smr_openapi.yaml`.
+
 ## 0.11.5 — 2026-06-24
 
 ### Added
