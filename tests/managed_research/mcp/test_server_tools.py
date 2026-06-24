@@ -20,7 +20,6 @@ def test_rewritten_mcp_server_exposes_canonical_launch_and_workspace_tools() -> 
         "smr_get_capabilities",
         "smr_get_billing_entitlements",
         "smr_get_project_entitlement",
-        "smr_get_project_economics",
         "smr_get_project_git",
         "smr_get_project_notes",
         "smr_get_project_setup",
