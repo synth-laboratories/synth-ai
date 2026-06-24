@@ -10,6 +10,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from synth_ai.managed_research.models.smr_actor_policy_data import (
+    SMR_ACTOR_MODEL_POLICY,
+    SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
+)
 from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel, coerce_smr_agent_model
 
 
@@ -58,64 +62,6 @@ SMR_ACTOR_SUBTYPE_VALUES_BY_TYPE: dict[str, tuple[str, ...]] = {
     SmrActorType.REVIEWER.value: SMR_REVIEWER_SUBTYPE_VALUES,
     SmrActorType.WORKER.value: SMR_WORKER_SUBTYPE_VALUES,
 }
-
-SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
-    SmrAgentModel.GPT_5_4_MINI.value,
-    SmrAgentModel.GPT_5_4.value,
-    SmrAgentModel.GPT_5_4_NANO.value,
-    SmrAgentModel.ANTHROPIC_CLAUDE_SONNET_4_6.value,
-    SmrAgentModel.ANTHROPIC_CLAUDE_HAIKU_4_5_20251001.value,
-    SmrAgentModel.X_AI_GROK_4_3.value,
-    SmrAgentModel.MOONSHOTAI_KIMI_K2_6.value,
-    SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2.value,
-)
-
-SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
-    {
-        "actor_type": SmrActorType.ORCHESTRATOR.value,
-        "actor_subtype": SmrOrchestratorSubtype.MAIN.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.MAIN.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.TASK_COMPLETION.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.RUN_COMPLETION.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.SAFETY.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.OBJECTIVE.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.WORKER.value,
-        "actor_subtype": SmrWorkerSubtype.ENGINEER.value,
-        "permitted_models": [
-            SmrAgentModel.GPT_5_3_CODEX.value,
-            SmrAgentModel.GPT_5_3_CODEX_SPARK.value,
-            *SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
-        ],
-    },
-    {
-        "actor_type": SmrActorType.WORKER.value,
-        "actor_subtype": SmrWorkerSubtype.RESEARCHER.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-)
 
 
 @dataclass(frozen=True, slots=True)
