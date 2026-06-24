@@ -2,6 +2,21 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.11.4 — 2026-06-24
+
+### Added
+
+- **`SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2`** (`baseten/zai-org/GLM-5.2`) — GLM 5.2 via Baseten, added to the public agent-model enum and the shared actor model allowlist.
+- Run-policy **`groq`** credential provider and **`openrouter`** inference provider accepted client-side (BYOK / run-policy coercion no longer rejects them).
+
+### Changed
+
+- **Public model catalog sunset** (backend `smr_supported_models.json`): Trinity Large Thinking (`arcee-ai/trinity-large-thinking` and `:free`), `gpt-oss-120b`, `gpt-5.4-nano`, `deepseek/deepseek-v4-flash`, and `deepseek/deepseek-v4-pro` are no longer public and are dropped from `GET /smr/agent-models`. These ids remain importable from `SmrAgentModel` (no breaking enum removal) but fail backend preflight; use `gpt-5.4-mini`, `gpt-5.4`, or GLM 5.2 (entitlement-dependent). DeepSeek×Codex bench profiles remain available internally via `profile_id`.
+
+### Fixed
+
+- Removed the dead **`smr_get_project_economics`** MCP tool. **Errata:** the 0.11.3 notes listed `smr_get_project_economics` as an included tool, but its handler returned a removed-contract error (no backend route). Use **`smr_get_project_usage`** / **`smr_get_run_usage`** / billing entitlements instead (per the 0.11.2 migration table).
+
 ## 0.11.3 — 2026-06-22
 
 ### Changed
