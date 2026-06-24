@@ -6,7 +6,8 @@ from enum import StrEnum
 
 
 class SmrResourceProvider(StrEnum):
-    RUNPOD = "runpod"
+    # RunPod removed from the customer surface; future self-hosted compute
+    # re-enters as the first-party `synth` provider lane, not a RunPod vendor id.
     MODAL = "modal"
 
 

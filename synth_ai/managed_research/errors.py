@@ -28,6 +28,7 @@ class SmrApiError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.response_text = response_text
+        self.request_context: str | None = None
         self.failure_class = failure_class
         self.remediation = remediation
         self.cause_chain = list(cause) if cause else []
@@ -35,6 +36,9 @@ class SmrApiError(RuntimeError):
 
     def __str__(self) -> str:  # noqa: D401 - simple stringer
         base = super().__str__()
+        request_context = self.request_context
+        if request_context and request_context not in base:
+            base = f"{request_context}: {base}"
         if not (self.failure_class or self.remediation or self.cause_chain):
             return base
         parts: list[str] = [base]
@@ -99,6 +103,29 @@ class SmrLimitExceededError(SmrApiError):
         detail: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message, status_code=status_code, response_text=response_text)
+        self.detail = dict(detail) if detail else {}
+
+
+class SmrHostedModelOverridesError(SmrApiError):
+    """Raised client-side when a hosted launch carries actor model overrides.
+
+    On hosted launches (no ``local_execution``) the platform resolves actor
+    harness/model/profile, so ``agent_model`` and related override kwargs are not
+    permitted. This mirrors the backend 422 ``model_overrides_not_supported_on_hosted``
+    gate and fails fast before any HTTP request. Local launches keep full control.
+    """
+
+    error_code = "model_overrides_not_supported_on_hosted"
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        rejected_fields: list[str] | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message, failure_class=self.error_code)
+        self.rejected_fields = list(rejected_fields) if rejected_fields else []
         self.detail = dict(detail) if detail else {}
 
 
