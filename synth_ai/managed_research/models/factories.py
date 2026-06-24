@@ -1389,7 +1389,6 @@ class FactoryStatus:
                 mapping.get("proof_readiness"),
                 label="factory status proof_readiness",
             ),
-            ),
             public_visuals=_optional_object_dict(
                 mapping.get("public_visuals"),
                 label="factory status public_visuals",

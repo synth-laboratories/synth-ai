@@ -523,7 +523,6 @@ class ManagedResearchMcpServer:
             return client.get_github_status()
 
     def _tool_setup_github_start_oauth(self, args: JSONDict) -> Any:
-<<<<<<< HEAD
         with self._client_from_args(args) as client:
             return client.start_github_oauth(
                 redirect_uri=optional_string(args, "redirect_uri"),
@@ -535,17 +534,6 @@ class ManagedResearchMcpServer:
                 page=optional_int(args, "page"),
                 per_page=optional_int(args, "per_page"),
             )
-=======
-        redirect_uri = optional_string(args, "redirect_uri")
-        with self._client_from_args(args) as client:
-            return client.start_github_oauth(redirect_uri=redirect_uri)
-
-    def _tool_setup_github_list_repos(self, args: JSONDict) -> Any:
-        page = optional_int(args, "page")
-        per_page = optional_int(args, "per_page")
-        with self._client_from_args(args) as client:
-            return client.list_github_repos(page=page, per_page=per_page)
->>>>>>> 1b643128 (feat(managed_research): complete SDK namespace + github/economics surface; reconcile hosted guard)
 
     def _tool_setup_github_disconnect(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
