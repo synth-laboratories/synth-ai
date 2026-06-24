@@ -642,6 +642,7 @@ __all__ = [
 
 __all__ = [
     "BillingAPI",
+    "PromotionsAPI",
     "ManagedResearchClient",
     "ManagedResearchProjectClient",
     "ProjectsAPI",
