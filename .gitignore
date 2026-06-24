@@ -281,9 +281,3 @@ greptile.json
 
 # Coding agents workspace
 coding_agents/synth_ai_rs/target/
-
-# Bazel output directories (symlinks)
-/bazel-bin
-/bazel-out
-/bazel-synth-ai
-/bazel-testlogs
