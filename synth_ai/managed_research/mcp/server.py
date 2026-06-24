@@ -523,6 +523,7 @@ class ManagedResearchMcpServer:
             return client.get_github_status()
 
     def _tool_setup_github_start_oauth(self, args: JSONDict) -> Any:
+<<<<<<< HEAD
         with self._client_from_args(args) as client:
             return client.start_github_oauth(
                 redirect_uri=optional_string(args, "redirect_uri"),
@@ -534,6 +535,17 @@ class ManagedResearchMcpServer:
                 page=optional_int(args, "page"),
                 per_page=optional_int(args, "per_page"),
             )
+=======
+        redirect_uri = optional_string(args, "redirect_uri")
+        with self._client_from_args(args) as client:
+            return client.start_github_oauth(redirect_uri=redirect_uri)
+
+    def _tool_setup_github_list_repos(self, args: JSONDict) -> Any:
+        page = optional_int(args, "page")
+        per_page = optional_int(args, "per_page")
+        with self._client_from_args(args) as client:
+            return client.list_github_repos(page=page, per_page=per_page)
+>>>>>>> 1b643128 (feat(managed_research): complete SDK namespace + github/economics surface; reconcile hosted guard)
 
     def _tool_setup_github_disconnect(self, args: JSONDict) -> Any:
         with self._client_from_args(args) as client:
@@ -1362,7 +1374,10 @@ class ManagedResearchMcpServer:
             "limit_value": limit_value,
             "additional_value": additional_value,
             "reason": optional_string(args, "reason"),
+            "selector": _optional_object_arg(args, "selector"),
             "resource_limit_id": optional_string(args, "resource_limit_id"),
+            "metric": optional_string(args, "metric"),
+            "unit": optional_string(args, "unit"),
             "resolve_blockers": resolve_blockers,
             "resume": resume,
             "idempotency_key": optional_string(args, "idempotency_key"),
@@ -1385,6 +1400,12 @@ class ManagedResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             result = client.get_project_usage(project_id)
+            return asdict(result) if is_dataclass(result) else result
+
+    def _tool_get_project_economics(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            result = client.get_project_economics(project_id)
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_get_project_git(self, args: JSONDict) -> Any:
@@ -1419,6 +1440,26 @@ class ManagedResearchMcpServer:
                     timeout_seconds=timeout_seconds,
                 )
             return client.download_workspace_archive(project_id, output_path)
+
+    def _tool_download_code(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        run_id = optional_string(args, "run_id")
+        output_path = require_string(args, "output_path")
+        timeout_raw = optional_int(args, "timeout_seconds")
+        timeout_seconds = float(timeout_raw) if timeout_raw is not None else None
+        with self._client_from_args(args) as client:
+            if timeout_seconds is not None:
+                return client.download_code_archive(
+                    project_id,
+                    output_path,
+                    run_id=run_id,
+                    timeout_seconds=timeout_seconds,
+                )
+            return client.download_code_archive(
+                project_id,
+                output_path,
+                run_id=run_id,
+            )
 
     def _tool_attach_source_repo(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2577,14 +2618,79 @@ class ManagedResearchMcpServer:
                     project_id,
                     kind=kind,
                     run_id=optional_string(args, "run_id"),
+                    limit=optional_int(args, "limit"),
+                )
+            if operation is ObjectiveToolOperation.PROGRESS:
+                return client.get_objective_progress(
+                    project_id,
+                    require_string(args, "objective_id"),
+                    kind=kind,
+                )
+            if operation is ObjectiveToolOperation.CLAIMS:
+                return client.list_objective_progress_claims(
+                    project_id,
+                    require_string(args, "objective_id"),
+                    kind=kind,
+                    limit=optional_int(args, "limit"),
+                )
+            if operation is ObjectiveToolOperation.CLAIM:
+                payload = _optional_object_arg(args, "payload") or {}
+                return client.create_objective_progress_claim(
+                    project_id,
+                    require_string(args, "objective_id"),
+                    payload=payload,
+                    kind=kind,
                 )
         self._removed_backend_contract(f"Project objective operation '{operation.value}'")
 
     def _tool_get_objective_status(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Objective status bundle")
+        with self._client_from_args(args) as client:
+            return client.get_objective_status(
+                require_string(args, "project_id"),
+                require_string(args, "objective_id"),
+                kind=optional_string(args, "kind"),
+                task_limit=optional_int(args, "task_limit"),
+                claim_limit=optional_int(args, "claim_limit"),
+                event_limit=optional_int(args, "event_limit"),
+                milestone_limit=optional_int(args, "milestone_limit"),
+            )
 
     def _tool_milestones(self, args: JSONDict) -> Any:
-        self._removed_backend_contract("Project milestone management")
+        operation = require_string(args, "operation").strip().lower()
+        project_id = require_string(args, "project_id")
+        payload = _optional_object_arg(args, "payload") or {}
+        with self._client_from_args(args) as client:
+            if operation == "list":
+                return client.list_milestones(
+                    project_id,
+                    run_id=optional_string(args, "run_id"),
+                    parent_kind=optional_string(args, "parent_kind"),
+                    parent_id=optional_string(args, "parent_id"),
+                    limit=optional_int(args, "limit"),
+                )
+            if operation == "create":
+                return client.create_milestone(project_id, payload=payload)
+            if operation == "get":
+                return client.get_milestone(
+                    project_id,
+                    require_string(args, "milestone_id"),
+                )
+            if operation == "patch":
+                return client.patch_milestone(
+                    project_id,
+                    require_string(args, "milestone_id"),
+                    payload=payload,
+                )
+            if operation == "transition":
+                return client.transition_milestone(
+                    project_id,
+                    require_string(args, "milestone_id"),
+                    payload=payload,
+                )
+        raise ValueError(
+            "smr_milestones.operation must be one of: "
+            "list, create, get, patch, transition"
+        )
 
     def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:
         self._removed_backend_contract("Project directed-effort-outcome management")

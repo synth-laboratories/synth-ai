@@ -1,22 +1,10 @@
 """SDK exports for the rewritten Managed Research package."""
 
-from synth_ai.managed_research.models.billing import (
-    SmrBillingAllowanceWindow,
-    SmrBillingCatalog,
-    SmrBillingCatalogAllowance,
-    SmrBillingCatalogPlan,
-    SmrBillingDebit,
-    SmrBillingDebitPoolSummary,
-    SmrBillingDrawdown,
-    SmrBillingPlanSnapshot,
-    SmrBillingPreflight,
-    SmrBillingPreflightRequest,
-    SmrBillingWallet,
-)
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementAsset,
     BillingEntitlementProfile,
     BillingEntitlementSnapshot,
+    SmrLimitQuantity,
     SmrProjectEconomics,
     SmrProjectEntitlementOverlay,
     SmrProjectUsage,
@@ -53,7 +41,6 @@ from synth_ai.managed_research.models.factories import (
     FactoryActorOutputStatus,
     FactoryActorRole,
     FactoryCreateRequest,
-    FactoryHealth,
     FactoryIdea,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
@@ -61,7 +48,6 @@ from synth_ai.managed_research.models.factories import (
     FactoryIdeaStatus,
     FactoryKind,
     FactoryLifecycleState,
-    FactoryMaintenanceAction,
     FactoryPatchRequest,
     FactoryProjectLink,
     FactoryProjectLinkRequest,
@@ -238,6 +224,7 @@ from synth_ai.managed_research.models.smr_providers import (
 from synth_ai.managed_research.models.smr_resource_kinds import SmrResourceKind
 from synth_ai.managed_research.models.smr_roles import (
     RoleBinding,
+    RoleProviderRequirement,
     SmrRoleBindings,
     WorkerRolePalette,
 )
@@ -288,7 +275,6 @@ from synth_ai.managed_research.models.work_products import (
     ManagedResearchWorkProductExport,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
-from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.client import (
     ACTIVE_RUN_STATES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -313,7 +299,6 @@ from synth_ai.managed_research.sdk.outputs import OutputsAPI
 from synth_ai.managed_research.sdk.progress import ProgressAPI
 from synth_ai.managed_research.sdk.project import ManagedResearchProjectClient
 from synth_ai.managed_research.sdk.projects import ProjectsAPI
-from synth_ai.managed_research.sdk.promotions import PromotionsAPI
 from synth_ai.managed_research.sdk.prs import PrsAPI
 from synth_ai.managed_research.sdk.readiness import ReadinessAPI
 from synth_ai.managed_research.sdk.repos import ReposAPI
@@ -353,8 +338,6 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
-    "FactoryHealth",
-    "FactoryMaintenanceAction",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
@@ -381,8 +364,6 @@ __all__ = [
     "RecurrencePolicy",
     "FilesAPI",
     "GitHubInstallation",
-    "GithubAPI",
-    "IntegrationsAPI",
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
     "OPENAI_TRANSPORT_MODE_DIRECT_HP",
@@ -475,8 +456,6 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
-    "FactoryHealth",
-    "FactoryMaintenanceAction",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
@@ -549,6 +528,7 @@ __all__ = [
     "SmrActorSubtype",
     "SmrActorType",
     "RoleBinding",
+    "RoleProviderRequirement",
     "SmrCredentialProvider",
     "SmrEnvironmentKind",
     "SmrFundingSource",
@@ -557,6 +537,7 @@ __all__ = [
     "SmrLaunchPreflight",
     "SmrLaunchPreflightBlocker",
     "SmrOrchestratorSubtype",
+    "SmrLimitQuantity",
     "SmrProjectEconomics",
     "SmrProjectEntitlementOverlay",
     "SmrProjectSetup",
@@ -641,8 +622,6 @@ __all__ = [
 ]
 
 __all__ = [
-    "BillingAPI",
-    "PromotionsAPI",
     "ManagedResearchClient",
     "ManagedResearchProjectClient",
     "ProjectsAPI",
@@ -690,17 +669,7 @@ __all__ = [
     "Provider",
     "ProviderBinding",
     "UsageLimit",
-    "SmrBillingAllowanceWindow",
-    "SmrBillingCatalog",
-    "SmrBillingCatalogAllowance",
-    "SmrBillingCatalogPlan",
-    "SmrBillingDebit",
-    "SmrBillingDebitPoolSummary",
-    "SmrBillingDrawdown",
-    "SmrBillingPlanSnapshot",
-    "SmrBillingPreflight",
-    "SmrBillingPreflightRequest",
-    "SmrBillingWallet",
+    "SmrLimitQuantity",
     "SmrResourceLimit",
     "SmrResourceLimitBlocker",
     "SmrResourceLimitExtension",
@@ -721,6 +690,7 @@ __all__ = [
     "SmrAgentHarness",
     "SmrAgentModel",
     "RoleBinding",
+    "RoleProviderRequirement",
     "SmrRoleBindings",
     "WorkerRolePalette",
     "Checkpoint",

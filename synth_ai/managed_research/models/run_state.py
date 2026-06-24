@@ -35,6 +35,7 @@ class RunState(StrEnum):
     PAUSED = "paused"
     FINALIZING = "finalizing"
     DONE = "done"
+    PARTIAL = "partial"
     FAILED = "failed"
     STOPPED = "stopped"
     CANCELED = "canceled"

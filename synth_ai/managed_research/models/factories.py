@@ -1311,9 +1311,12 @@ class FactoryStatus:
     open_decisions: tuple[Effort, ...] = ()
     paused_or_waiting: tuple[Effort, ...] = ()
     next_wake_at: datetime | None = None
+    runtime: dict[str, object] = field(default_factory=dict)
     publication_states: dict[str, object] = field(default_factory=dict)
     costs_limits: dict[str, object] = field(default_factory=dict)
     factory_health: FactoryHealth | None = None
+    proof_readiness: dict[str, object] = field(default_factory=dict)
+    public_visuals: dict[str, object] = field(default_factory=dict)
     raw: dict[str, object] = field(default_factory=dict)
 
     @classmethod
@@ -1365,6 +1368,10 @@ class FactoryStatus:
                 Effort.from_wire(item) for item in list(mapping.get("paused_or_waiting") or [])
             ),
             next_wake_at=_optional_datetime(mapping, "next_wake_at"),
+            runtime=_optional_object_dict(
+                mapping.get("runtime"),
+                label="factory status runtime",
+            ),
             publication_states=_optional_object_dict(
                 mapping.get("publication_states"),
                 label="factory status publication_states",
@@ -1377,6 +1384,15 @@ class FactoryStatus:
                 FactoryHealth.from_wire(mapping.get("factory_health"))
                 if mapping.get("factory_health") is not None
                 else None
+            ),
+            proof_readiness=_optional_object_dict(
+                mapping.get("proof_readiness"),
+                label="factory status proof_readiness",
+            ),
+            ),
+            public_visuals=_optional_object_dict(
+                mapping.get("public_visuals"),
+                label="factory status public_visuals",
             ),
             raw=dict(mapping),
         )

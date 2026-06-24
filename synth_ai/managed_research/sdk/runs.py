@@ -43,8 +43,15 @@ from synth_ai.managed_research.models.run_launch import (
 )
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
+    MessageQueueInteraction,
+    MessageQueueMessage,
+    MessageQueueThread,
     RunObservabilitySnapshot,
     RunObservationCursor,
+    RunTickingStatus,
+    RunTickingUpdate,
+    RunTickMode,
+    TaskSummary,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun
 from synth_ai.managed_research.models.run_timeline import (
@@ -246,6 +253,37 @@ class RunHandle:
             self.run_id,
         ).actors.counts_by_state
 
+    def tasks(
+        self,
+        *,
+        kind: str | None = None,
+        limit: int | None = None,
+    ) -> List[TaskSummary]:
+        return self._client.list_task_summaries(
+            self.project_id,
+            run_id=self.run_id,
+            kind=kind,
+            limit=limit,
+        )
+
+    def ticking(self) -> RunTickingStatus:
+        return self._client.get_run_ticking(self.run_id, project_id=self.project_id)
+
+    def set_ticking(
+        self,
+        update: RunTickingUpdate | None = None,
+        *,
+        tick_mode: RunTickMode | str | None = None,
+        reason: str | None = None,
+    ) -> RunTickingStatus:
+        return self._client.set_run_ticking(
+            self.run_id,
+            update,
+            project_id=self.project_id,
+            tick_mode=tick_mode,
+            reason=reason,
+        )
+
     def transcript(
         self,
         *,
@@ -329,6 +367,13 @@ class RunHandle:
             causation_id=causation_id,
         )
 
+    def publish_message_queue_message(self, **kwargs: Any) -> dict[str, Any]:
+        return self._client.publish_message_queue_message(
+            self.run_id,
+            project_id=self.project_id,
+            **kwargs,
+        )
+
     def queue_message(self, *, body: str, **kwargs: Any) -> dict[str, Any]:
         return self.publish_message(intent="queue", body=body, **kwargs)
 
@@ -354,6 +399,13 @@ class RunHandle:
             self.run_id, project_id=self.project_id, limit=limit
         )
 
+    def message_queue_threads(self, *, limit: int | None = None) -> List[MessageQueueThread]:
+        return self._client.list_message_queue_threads(
+            self.run_id,
+            project_id=self.project_id,
+            limit=limit,
+        )
+
     def manderqueue_messages(
         self,
         *,
@@ -367,6 +419,19 @@ class RunHandle:
             limit=limit,
         )
 
+    def message_queue_messages(
+        self,
+        *,
+        thread_id: str | None = None,
+        limit: int | None = None,
+    ) -> List[MessageQueueMessage]:
+        return self._client.list_message_queue_messages(
+            self.run_id,
+            project_id=self.project_id,
+            thread_id=thread_id,
+            limit=limit,
+        )
+
     def manderqueue_interactions(
         self,
         *,
@@ -374,6 +439,19 @@ class RunHandle:
         limit: int | None = None,
     ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(
+            self.run_id,
+            project_id=self.project_id,
+            status=status,
+            limit=limit,
+        )
+
+    def message_queue_interactions(
+        self,
+        *,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> List[MessageQueueInteraction]:
+        return self._client.list_message_queue_interactions(
             self.run_id,
             project_id=self.project_id,
             status=status,
@@ -395,6 +473,21 @@ class RunHandle:
             payload=payload,
         )
 
+    def respond_to_message_queue_interaction(
+        self,
+        interaction_id: str,
+        *,
+        body: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._client.respond_to_message_queue_interaction(
+            self.run_id,
+            interaction_id,
+            project_id=self.project_id,
+            body=body,
+            payload=payload,
+        )
+
     def edit_manderqueue_message(
         self,
         message_id: str,
@@ -403,6 +496,21 @@ class RunHandle:
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._client.edit_manderqueue_message(
+            self.run_id,
+            message_id,
+            project_id=self.project_id,
+            body=body,
+            payload=payload,
+        )
+
+    def edit_message_queue_message(
+        self,
+        message_id: str,
+        *,
+        body: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._client.edit_message_queue_message(
             self.run_id,
             message_id,
             project_id=self.project_id,
@@ -427,6 +535,13 @@ class RunHandle:
 
     def retract_manderqueue_message(self, message_id: str) -> dict[str, Any]:
         return self._client.retract_manderqueue_message(
+            self.run_id,
+            message_id,
+            project_id=self.project_id,
+        )
+
+    def retract_message_queue_message(self, message_id: str) -> dict[str, Any]:
+        return self._client.retract_message_queue_message(
             self.run_id,
             message_id,
             project_id=self.project_id,
@@ -525,6 +640,9 @@ class RunHandle:
             limit=limit,
             cursor=cursor,
         )
+
+    def progress(self) -> dict[str, Any]:
+        return self._client.get_run_progress(self.project_id, self.run_id)
 
     def work_graph(self, *, limit: int | None = None) -> dict[str, Any]:
         return self._client.get_run_work_graph(
@@ -818,6 +936,13 @@ class RunHandle:
 
     def download(self, path: str) -> dict[str, Any]:
         return self._client.download_run_workspace_archive(
+            self.project_id,
+            self.run_id,
+            path,
+        )
+
+    def download_code(self, path: str) -> dict[str, Any]:
+        return self._client.download_run_code_archive(
             self.project_id,
             self.run_id,
             path,
@@ -1213,6 +1338,31 @@ class RunsAPI(_ClientNamespace):
             message_limit=message_limit,
         )
 
+    def get_ticking(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> RunTickingStatus:
+        return self._client.get_run_ticking(run_id, project_id=project_id)
+
+    def set_ticking(
+        self,
+        run_id: str,
+        update: RunTickingUpdate | None = None,
+        *,
+        project_id: str | None = None,
+        tick_mode: RunTickMode | str | None = None,
+        reason: str | None = None,
+    ) -> RunTickingStatus:
+        return self._client.set_run_ticking(
+            run_id,
+            update,
+            project_id=project_id,
+            tick_mode=tick_mode,
+            reason=reason,
+        )
+
     def get_execution(
         self,
         project_id: str,
@@ -1272,6 +1422,13 @@ class RunsAPI(_ClientNamespace):
             limit=limit,
             cursor=cursor,
         )
+
+    def get_progress(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return self._client.get_run_progress(project_id, run_id)
 
     def get_work_graph(
         self,
@@ -1639,6 +1796,14 @@ class RunsAPI(_ClientNamespace):
     ) -> dict[str, Any]:
         return self._client.download_run_workspace_archive(project_id, run_id, path)
 
+    def download_code(
+        self,
+        project_id: str,
+        run_id: str,
+        path: str,
+    ) -> dict[str, Any]:
+        return self._client.download_run_code_archive(project_id, run_id, path)
+
     def models(
         self,
         run_id: str,
@@ -1900,6 +2065,19 @@ class RunsAPI(_ClientNamespace):
     ) -> dict[str, Any]:
         return self._client.publish_manderqueue_message(run_id, project_id=project_id, **kwargs)
 
+    def publish_message_queue_message(
+        self,
+        run_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._client.publish_message_queue_message(
+            run_id,
+            project_id=project_id,
+            **kwargs,
+        )
+
     def send_message(
         self,
         run_id: str,
@@ -1917,6 +2095,19 @@ class RunsAPI(_ClientNamespace):
         **kwargs: Any,
     ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_messages(run_id, project_id=project_id, **kwargs)
+
+    def list_message_queue_messages(
+        self,
+        run_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> List[MessageQueueMessage]:
+        return self._client.list_message_queue_messages(
+            run_id,
+            project_id=project_id,
+            **kwargs,
+        )
 
     def list_messages(
         self,
@@ -1937,6 +2128,23 @@ class RunsAPI(_ClientNamespace):
         limit: int | None = None,
     ) -> List[dict[str, Any]]:
         return self._client.list_tasks(
+            project_id,
+            run_id=run_id,
+            objective_id=objective_id,
+            kind=kind,
+            limit=limit,
+        )
+
+    def list_task_summaries(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        objective_id: str | None = None,
+        kind: str | None = None,
+        limit: int | None = None,
+    ) -> List[TaskSummary]:
+        return self._client.list_task_summaries(
             project_id,
             run_id=run_id,
             objective_id=objective_id,
@@ -2012,6 +2220,19 @@ class RunsAPI(_ClientNamespace):
     ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_threads(run_id, project_id=project_id, **kwargs)
 
+    def list_message_queue_threads(
+        self,
+        run_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> List[MessageQueueThread]:
+        return self._client.list_message_queue_threads(
+            run_id,
+            project_id=project_id,
+            **kwargs,
+        )
+
     def list_manderqueue_interactions(
         self,
         run_id: str,
@@ -2020,6 +2241,62 @@ class RunsAPI(_ClientNamespace):
         **kwargs: Any,
     ) -> List[dict[str, Any]]:
         return self._client.list_manderqueue_interactions(run_id, project_id=project_id, **kwargs)
+
+    def list_message_queue_interactions(
+        self,
+        run_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> List[MessageQueueInteraction]:
+        return self._client.list_message_queue_interactions(
+            run_id,
+            project_id=project_id,
+            **kwargs,
+        )
+
+    def respond_to_message_queue_interaction(
+        self,
+        run_id: str,
+        interaction_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._client.respond_to_message_queue_interaction(
+            run_id,
+            interaction_id,
+            project_id=project_id,
+            **kwargs,
+        )
+
+    def edit_message_queue_message(
+        self,
+        run_id: str,
+        message_id: str,
+        *,
+        project_id: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._client.edit_message_queue_message(
+            run_id,
+            message_id,
+            project_id=project_id,
+            **kwargs,
+        )
+
+    def retract_message_queue_message(
+        self,
+        run_id: str,
+        message_id: str,
+        *,
+        project_id: str,
+    ) -> dict[str, Any]:
+        return self._client.retract_message_queue_message(
+            run_id,
+            message_id,
+            project_id=project_id,
+        )
 
     def edit_message(
         self,

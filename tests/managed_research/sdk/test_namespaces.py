@@ -102,7 +102,7 @@ def test_projects_namespace_fetches_agent_model_catalog(monkeypatch) -> None:
         "version": 1,
         "models": [
             {
-                "id": "x-ai/grok-4.1-fast",
+                "id": "x-ai/grok-4.3",
                 "provider": "openrouter",
                 "harnesses": ["opencode_sdk"],
                 "usage_required": True,

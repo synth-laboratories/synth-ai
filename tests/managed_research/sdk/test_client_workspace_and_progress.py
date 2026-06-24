@@ -421,7 +421,7 @@ def test_run_start_blockers_uses_trigger_compatible_payload(monkeypatch) -> None
         worker_pool_id="pool_123",
         timebox_seconds=1800,
         agent_profile="ap_worker",
-        agent_model="gpt-5.4",
+        agent_model="gpt-5.5",
         agent_kind="codex",
         agent_model_params={"reasoning_effort": "high"},
         initial_runtime_messages=[
@@ -451,7 +451,7 @@ def test_run_start_blockers_uses_trigger_compatible_payload(monkeypatch) -> None
         "worker_pool_id": "pool_123",
         "timebox_seconds": 1800,
         "agent_profile": "ap_worker",
-        "agent_model": "gpt-5.4",
+        "agent_model": "gpt-5.5",
         "agent_harness": "codex",
         "agent_model_params": {"reasoning_effort": "high"},
         "initial_runtime_messages": [
@@ -492,7 +492,7 @@ def test_trigger_run_uses_project_trigger_payload(monkeypatch) -> None:
         worker_pool_id="pool_123",
         timebox_seconds=1800,
         agent_profile="ap_worker",
-        agent_model="gpt-5.4",
+        agent_model="gpt-5.5",
         agent_kind="codex",
         agent_model_params={"reasoning_effort": "high"},
         initial_runtime_messages=[
@@ -513,7 +513,7 @@ def test_trigger_run_uses_project_trigger_payload(monkeypatch) -> None:
         "worker_pool_id": "pool_123",
         "timebox_seconds": 1800,
         "agent_profile": "ap_worker",
-        "agent_model": "gpt-5.4",
+        "agent_model": "gpt-5.5",
         "agent_harness": "codex",
         "agent_model_params": {"reasoning_effort": "high"},
         "initial_runtime_messages": [

@@ -7,6 +7,13 @@ API. Managed Research beta access is an account/org entitlement enforced by the
 backend through entitlement checks and launch preflight rather than by a
 separate SDK client fork.
 
+**Hosted inference (prod):** Synth defaults to **Zero Data Retention (ZDR)** on
+all provider routes, **Western-domiciled** inference (**US at launch**; Canada
+and EU later), and **`(provider, model)`** pricing. Orgs may opt out of ZDR when
+using models that do not support it. **Local testing and evals** may use routes
+not allowed in prod (e.g. direct DeepSeek API). See the root
+[`README.md`](../../../../README.md) § Hosted inference policy.
+
 Ownership:
 - `client.py` owns transport-facing request building and raw backend interaction
 - namespace modules such as `progress.py`, `runs.py`, and `workspace_inputs.py` own higher-level typed return surfaces
@@ -81,3 +88,40 @@ seeded_branch = client.runs.branch_from_checkpoint(
     message="Retry this from the checkpoint, but explain the regression first.",
 )
 ```
+
+Four-model launch picker:
+
+```python
+from synth_ai import SynthClient
+from synth_ai.managed_research import (
+    RoleBinding,
+    SmrAgentModel,
+    SmrRoleBindings,
+    WorkerRolePalette,
+)
+
+client = SynthClient()
+
+models = client.research.projects.get_agent_models()
+available = {model["id"]: model for model in models["models"]}
+
+selection = SmrAgentModel.GPT_5_4_MINI
+params = {"reasoning_effort": "medium"}
+
+run = client.research.runs.start(
+    project_id="proj_123",
+    agent_model=selection,
+    agent_model_params=params,
+    roles=SmrRoleBindings(
+        orchestrator=RoleBinding(model=selection, params=params),
+        reviewer=RoleBinding(model=selection, params=params),
+        worker=WorkerRolePalette(
+            default=RoleBinding(model=selection, params=params),
+        ),
+    ),
+)
+```
+
+The launch UI exposes the backend-owned public subset:
+`baseten/zai-org/GLM-5.2`, `gpt-5.4-mini` with medium or high reasoning, and
+`gpt-5.5` with low reasoning when the backend catalog reports that effort.

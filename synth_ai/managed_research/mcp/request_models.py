@@ -23,6 +23,7 @@ from synth_ai.managed_research.models.smr_providers import (
 )
 from synth_ai.managed_research.models.smr_run_policy import coerce_smr_run_policy
 from synth_ai.managed_research.models.smr_runbooks import coerce_smr_runbook_kind
+from synth_ai.managed_research.models.smr_roles import coerce_smr_role_bindings
 from synth_ai.managed_research.models.smr_work_modes import coerce_smr_work_mode
 from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
 
@@ -187,6 +188,14 @@ def optional_actor_model_assignments(payload: JSONDict, key: str) -> list[dict[s
     if not normalized:
         return None
     return [item.as_payload() for item in normalized]
+
+
+def optional_role_bindings(payload: JSONDict, key: str) -> dict[str, Any] | None:
+    value = payload.get(key)
+    normalized = coerce_smr_role_bindings(value, field_name=key)
+    if normalized is None:
+        return None
+    return normalized.to_wire()
 
 
 def reject_legacy_prompt_arg(payload: JSONDict) -> None:
@@ -360,6 +369,7 @@ class RunLaunchRequest:
     agent_kind: str | None = None
     agent_model_params: dict[str, Any] | None = None
     actor_model_overrides: list[dict[str, Any]] | None = None
+    roles: dict[str, Any] | None = None
     initial_runtime_messages: list[dict[str, Any]] | None = None
     workflow: dict[str, Any] | None = None
     sandbox_override: dict[str, Any] | None = None
@@ -430,6 +440,7 @@ class RunLaunchRequest:
             actor_model_overrides=optional_actor_model_assignments(
                 payload, "actor_model_overrides"
             ),
+            roles=optional_role_bindings(payload, "roles"),
             initial_runtime_messages=_optional_object_list(payload, "initial_runtime_messages"),
             workflow=_optional_object(payload, "workflow"),
             sandbox_override=_optional_object(payload, "sandbox_override"),
@@ -472,6 +483,7 @@ class RunLaunchRequest:
             "agent_kind": self.agent_kind,
             "agent_model_params": self.agent_model_params,
             "actor_model_overrides": self.actor_model_overrides,
+            "roles": self.roles,
             "initial_runtime_messages": self.initial_runtime_messages,
             "workflow": self.workflow,
             "sandbox_override": self.sandbox_override,
@@ -515,6 +527,7 @@ class OneOffRunLaunchRequest:
     agent_kind: str | None = None
     agent_model_params: dict[str, Any] | None = None
     actor_model_overrides: list[dict[str, Any]] | None = None
+    roles: dict[str, Any] | None = None
     initial_runtime_messages: list[dict[str, Any]] | None = None
     workflow: dict[str, Any] | None = None
     sandbox_override: dict[str, Any] | None = None
@@ -584,6 +597,7 @@ class OneOffRunLaunchRequest:
             actor_model_overrides=optional_actor_model_assignments(
                 payload, "actor_model_overrides"
             ),
+            roles=optional_role_bindings(payload, "roles"),
             initial_runtime_messages=_optional_object_list(payload, "initial_runtime_messages"),
             workflow=_optional_object(payload, "workflow"),
             sandbox_override=_optional_object(payload, "sandbox_override"),
@@ -626,6 +640,7 @@ class OneOffRunLaunchRequest:
             "agent_kind": self.agent_kind,
             "agent_model_params": self.agent_model_params,
             "actor_model_overrides": self.actor_model_overrides,
+            "roles": self.roles,
             "initial_runtime_messages": self.initial_runtime_messages,
             "workflow": self.workflow,
             "sandbox_override": self.sandbox_override,

@@ -70,6 +70,8 @@ class SmrActorModelAssignment:
     actor_subtype: SmrActorSubtype
     agent_model: SmrAgentModel
     agent_model_params: dict[str, Any] | None = None
+    agent_harness: str | None = None
+    provider: dict[str, Any] | None = None
 
     def as_payload(self) -> dict[str, Any]:
         payload = {
@@ -79,6 +81,11 @@ class SmrActorModelAssignment:
         }
         if self.agent_model_params:
             payload["agent_model_params"] = dict(self.agent_model_params)
+        if self.agent_harness:
+            payload["agent_harness"] = self.agent_harness
+            payload["agent_kind"] = self.agent_harness
+        if self.provider:
+            payload["provider"] = dict(self.provider)
         return payload
 
 
@@ -179,11 +186,28 @@ def coerce_smr_actor_model_assignment(
         params = value.get("agent_model_params")
         if params is not None and not isinstance(params, Mapping):
             raise ValueError(f"{field_name}.agent_model_params must be an object when provided")
+        agent_harness = (
+            str(value.get("agent_harness") or value.get("agent_kind") or "").strip()
+            or None
+        )
+        provider_raw = value.get("provider")
+        if provider_raw is None:
+            provider_id = str(value.get("provider_id") or "").strip()
+            provider = {"provider_id": provider_id} if provider_id else None
+        elif isinstance(provider_raw, str):
+            provider_id = provider_raw.strip()
+            provider = {"provider_id": provider_id} if provider_id else None
+        elif isinstance(provider_raw, Mapping):
+            provider = {str(key): item for key, item in provider_raw.items()}
+        else:
+            raise ValueError(f"{field_name}.provider must be an object or string when provided")
         assignment = SmrActorModelAssignment(
             actor_type=actor_type,
             actor_subtype=actor_subtype,
             agent_model=agent_model,
             agent_model_params=dict(params) if isinstance(params, Mapping) else None,
+            agent_harness=agent_harness,
+            provider=provider,
         )
     permitted = _permitted_models_for_actor(assignment.actor_type, assignment.actor_subtype)
     if assignment.agent_model.value not in permitted:

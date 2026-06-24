@@ -48,6 +48,20 @@ def _coerce_dict(value: Any, *, field_name: str) -> dict[str, Any]:
     return {str(key): item for key, item in value.items()}
 
 
+def _coerce_int_dict(value: Any, *, field_name: str) -> dict[str, int]:
+    return {
+        str(key): int(item or 0)
+        for key, item in _coerce_dict(value, field_name=field_name).items()
+    }
+
+
+def _coerce_nested_int_dict(value: Any, *, field_name: str) -> dict[str, dict[str, int]]:
+    out: dict[str, dict[str, int]] = {}
+    for key, item in _coerce_dict(value, field_name=field_name).items():
+        out[str(key)] = _coerce_int_dict(item, field_name=f"{field_name}.{key}")
+    return out
+
+
 @dataclass(frozen=True, slots=True)
 class SmrRunTraceItem:
     trace_id: str
@@ -338,7 +352,9 @@ class SmrActorUsageSummary:
     by_source_type: dict[str, int] = field(default_factory=dict)
     by_source_subtype: dict[str, int] = field(default_factory=dict)
     by_model: dict[str, int] = field(default_factory=dict)
+    event_count_by_model: dict[str, int] = field(default_factory=dict)
     token_usage: dict[str, int] = field(default_factory=dict)
+    token_usage_by_model: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "actor_id", _require_text(self.actor_id, field_name="actor_id"))
@@ -384,18 +400,28 @@ class SmrActorUsageSummary:
         object.__setattr__(
             self,
             "by_model",
-            {
-                str(k): int(v or 0)
-                for k, v in _coerce_dict(self.by_model, field_name="by_model").items()
-            },
+            _coerce_int_dict(self.by_model, field_name="by_model"),
+        )
+        object.__setattr__(
+            self,
+            "event_count_by_model",
+            _coerce_int_dict(
+                self.event_count_by_model,
+                field_name="event_count_by_model",
+            ),
         )
         object.__setattr__(
             self,
             "token_usage",
-            {
-                str(k): int(v or 0)
-                for k, v in _coerce_dict(self.token_usage, field_name="token_usage").items()
-            },
+            _coerce_int_dict(self.token_usage, field_name="token_usage"),
+        )
+        object.__setattr__(
+            self,
+            "token_usage_by_model",
+            _coerce_nested_int_dict(
+                self.token_usage_by_model,
+                field_name="token_usage_by_model",
+            ),
         )
 
     @classmethod
@@ -425,7 +451,15 @@ class SmrActorUsageSummary:
                 payload.get("by_source_subtype"), field_name="by_source_subtype"
             ),
             by_model=_coerce_dict(payload.get("by_model"), field_name="by_model"),
+            event_count_by_model=_coerce_dict(
+                payload.get("event_count_by_model"),
+                field_name="event_count_by_model",
+            ),
             token_usage=_coerce_dict(payload.get("token_usage"), field_name="token_usage"),
+            token_usage_by_model=_coerce_dict(
+                payload.get("token_usage_by_model"),
+                field_name="token_usage_by_model",
+            ),
         )
 
 

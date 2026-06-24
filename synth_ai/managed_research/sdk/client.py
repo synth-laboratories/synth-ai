@@ -34,20 +34,13 @@ from synth_ai.managed_research.models import (
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryWakeDueRequest,
+    SmrProjectEconomics,
     SmrProjectUsage,
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
     SmrResourceLimits,
     SmrResourceLimitSelector,
     SmrRunUsage,
-)
-from synth_ai.managed_research.models.billing import (
-    SmrBillingCatalog,
-    SmrBillingDrawdown,
-    SmrBillingPlanSnapshot,
-    SmrBillingPreflight,
-    SmrBillingPreflightRequest,
-    SmrFactoryEffortBillingPreflightRequest,
 )
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
@@ -137,7 +130,6 @@ from synth_ai.managed_research.models.smr_providers import (
     coerce_provider_bindings,
     coerce_provider_policy,
     coerce_usage_limit,
-    default_provider_policy,
 )
 from synth_ai.managed_research.models.smr_roles import (
     SmrRoleBindings,
@@ -159,7 +151,6 @@ from synth_ai.managed_research.models.types import (
     SmrRunnableProjectRequest,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
-from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -183,14 +174,12 @@ from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
-from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
 from synth_ai.managed_research.sdk.progress import ProgressAPI
 from synth_ai.managed_research.sdk.project import ManagedResearchProjectClient
 from synth_ai.managed_research.sdk.projects import ProjectsAPI
-from synth_ai.managed_research.sdk.promotions import PromotionsAPI
 from synth_ai.managed_research.sdk.prs import PrsAPI
 from synth_ai.managed_research.sdk.readiness import ReadinessAPI
 from synth_ai.managed_research.sdk.repos import ReposAPI
@@ -463,9 +452,9 @@ _HOSTED_LOCAL_ONLY_HOST_KINDS = frozenset({"docker", "local"})
 
 
 def _hosted_launch_surface_enforced() -> bool:
-    """SDK fast-fail is on by default; ``...=off`` disables (transition escape hatch)."""
+    """SDK fast-fail is opt-in; ``...=on`` enables it (backend remains the authority)."""
 
-    return str(os.getenv(_SMR_LAUNCH_SURFACE_ENFORCEMENT_ENV) or "").strip().lower() != "off"
+    return str(os.getenv(_SMR_LAUNCH_SURFACE_ENFORCEMENT_ENV) or "").strip().lower() == "on"
 
 
 def assert_hosted_launch_surface(
@@ -626,14 +615,15 @@ def _build_project_run_payload(
                 field_name="providers",
             )
         ]
-    normalized_provider_policy = coerce_provider_policy(
-        provider_policy if provider_policy is not None else default_provider_policy(),
-        field_name="provider_policy",
-    )
-    if normalized_provider_policy is not None:
-        provider_policy_payload = normalized_provider_policy.to_dict()
-        if provider_policy_payload:
-            payload["provider_policy"] = provider_policy_payload
+    if provider_policy is not None:
+        normalized_provider_policy = coerce_provider_policy(
+            provider_policy,
+            field_name="provider_policy",
+        )
+        if normalized_provider_policy is not None:
+            provider_policy_payload = normalized_provider_policy.to_dict()
+            if provider_policy_payload:
+                payload["provider_policy"] = provider_policy_payload
 
     normalized_limit = coerce_usage_limit(limit, field_name="limit")
     if normalized_limit is not None:
@@ -1023,19 +1013,16 @@ class ManagedResearchClient:
     _outputs_api: OutputsAPI | None = field(init=False, default=None, repr=False)
     _prs_api: PrsAPI | None = field(init=False, default=None, repr=False)
     _readiness_api: ReadinessAPI | None = field(init=False, default=None, repr=False)
-    _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
-    _integrations_api: IntegrationsAPI | None = field(init=False, default=None, repr=False)
     _repos_api: ReposAPI | None = field(init=False, default=None, repr=False)
     _datasets_api: DatasetsAPI | None = field(init=False, default=None, repr=False)
     _models_api: ModelsAPI | None = field(init=False, default=None, repr=False)
     _repositories_api: RepositoriesAPI | None = field(init=False, default=None, repr=False)
     _credentials_api: CredentialsAPI | None = field(init=False, default=None, repr=False)
+    _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
-    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
-    _promotions_api: PromotionsAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
@@ -1144,18 +1131,6 @@ class ManagedResearchClient:
         return self._readiness_api
 
     @property
-    def github(self) -> GithubAPI:
-        if self._github_api is None:
-            self._github_api = GithubAPI(self)
-        return self._github_api
-
-    @property
-    def integrations(self) -> IntegrationsAPI:
-        if self._integrations_api is None:
-            self._integrations_api = IntegrationsAPI(self)
-        return self._integrations_api
-
-    @property
     def repos(self) -> ReposAPI:
         if self._repos_api is None:
             self._repos_api = ReposAPI(self)
@@ -1191,6 +1166,12 @@ class ManagedResearchClient:
         return self._credentials_api
 
     @property
+    def github(self) -> GithubAPI:
+        if self._github_api is None:
+            self._github_api = GithubAPI(self)
+        return self._github_api
+
+    @property
     def secrets(self) -> SecretsAPI:
         if self._secrets_api is None:
             self._secrets_api = SecretsAPI(self)
@@ -1221,18 +1202,6 @@ class ManagedResearchClient:
         return self._usage_api
 
     @property
-    def billing(self) -> BillingAPI:
-        if self._billing_api is None:
-            self._billing_api = BillingAPI(self)
-        return self._billing_api
-
-    @property
-    def promotions(self) -> PromotionsAPI:
-        if self._promotions_api is None:
-            self._promotions_api = PromotionsAPI(self)
-        return self._promotions_api
-
-    @property
     def trained_models(self) -> TrainedModelsAPI:
         if self._trained_models_api is None:
             self._trained_models_api = TrainedModelsAPI(self)
@@ -1252,53 +1221,6 @@ class ManagedResearchClient:
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self.usage.get_billing_entitlements()
-
-    def get_billing_catalog(self) -> SmrBillingCatalog:
-        return self.billing.catalog()
-
-    def get_billing_plan(self) -> SmrBillingPlanSnapshot:
-        return self.billing.plan()
-
-    def get_run_billing_drawdown(self, run_id: str) -> SmrBillingDrawdown:
-        return self.billing.run_drawdown(run_id)
-
-    def get_factory_effort_billing_drawdown(
-        self,
-        factory_effort_id: str,
-    ) -> SmrBillingDrawdown:
-        return self.billing.factory_effort_drawdown(factory_effort_id)
-
-    def preflight_run_billing(
-        self,
-        request: SmrBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None = None,
-        *,
-        model_class: str = "premium",
-        estimated_customer_debit_microcents: int = 0,
-        project_id: str | None = None,
-    ) -> SmrBillingPreflight:
-        return self.billing.preflight_run(
-            request,
-            model_class=model_class,
-            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
-            project_id=project_id,
-        )
-
-    def preflight_factory_effort_billing(
-        self,
-        factory_effort_id: str,
-        request: (
-            SmrFactoryEffortBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None
-        ) = None,
-        *,
-        model_class: str = "premium",
-        estimated_customer_debit_microcents: int = 0,
-    ) -> SmrBillingPreflight:
-        return self.billing.preflight_factory_effort(
-            factory_effort_id,
-            request,
-            model_class=model_class,
-            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
-        )
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return self.usage.get_run_usage(run_id)
@@ -1392,6 +1314,52 @@ class ManagedResearchClient:
     def get_project_usage(self, project_id: str) -> SmrProjectUsage:
         return self.usage.get_project_usage(project_id)
 
+    def get_project_economics(self, project_id: str) -> SmrProjectEconomics:
+        return SmrProjectEconomics.from_wire(
+            self._request_json("GET", f"/smr/projects/{project_id}/economics")
+        )
+
+    def get_github_status(self) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", "/smr/github/status"),
+            label="get_github_status",
+        )
+
+    def start_github_oauth(self, *, redirect_uri: str | None = None) -> dict[str, Any]:
+        json_body: dict[str, Any] = {}
+        if redirect_uri is not None:
+            json_body["redirect_uri"] = redirect_uri
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/github/oauth/start",
+                json_body=json_body or None,
+            ),
+            label="start_github_oauth",
+        )
+
+    def list_github_repos(
+        self,
+        *,
+        page: int | None = None,
+        per_page: int | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {}
+        if page is not None:
+            params["page"] = page
+        if per_page is not None:
+            params["per_page"] = per_page
+        return _coerce_dict_list(
+            self._request_json("GET", "/smr/github/repos", params=params or None),
+            label="list_github_repos",
+        )
+
+    def disconnect_github(self) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("POST", "/smr/github/disconnect"),
+            label="disconnect_github",
+        )
+
     def _request_json(
         self,
         method: str,
@@ -1434,47 +1402,6 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", "/api/v1/version"),
             label="get_backend_version",
-        )
-
-    def get_github_status(self) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json("GET", "/smr/github/status"),
-            label="get_github_status",
-        )
-
-    def start_github_oauth(
-        self,
-        *,
-        redirect_uri: str | None = None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {}
-        if redirect_uri is not None:
-            payload["redirect_uri"] = redirect_uri
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                "/smr/github/oauth/start",
-                json_body=payload,
-            ),
-            label="start_github_oauth",
-        )
-
-    def list_github_repos(
-        self,
-        *,
-        page: int | None = None,
-        per_page: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params = build_query_params(page=page, per_page=per_page)
-        return _coerce_dict_list(
-            self._request_json("GET", "/smr/github/repos", params=params),
-            label="list_github_repos",
-        )
-
-    def disconnect_github(self) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json("POST", "/smr/github/disconnect"),
-            label="disconnect_github",
         )
 
     def _request_content(
