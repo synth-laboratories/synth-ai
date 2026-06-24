@@ -70,6 +70,7 @@ SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
     SmrAgentModel.X_AI_GROK_4_3.value,
     SmrAgentModel.X_AI_GROK_4_20_BETA.value,
     SmrAgentModel.MOONSHOTAI_KIMI_K2_6.value,
+    SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2.value,
 )
 
 SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (

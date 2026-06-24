@@ -22,6 +22,7 @@ class SmrAgentModel(StrEnum):
     X_AI_GROK_4_3 = "x-ai/grok-4.3"
     X_AI_GROK_4_20_BETA = "x-ai/grok-4.20-beta"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
+    BASETEN_ZAI_ORG_GLM_5_2 = "baseten/zai-org/GLM-5.2"
 
 
 SMR_AGENT_MODEL_VALUES: tuple[str, ...] = tuple(model.value for model in SmrAgentModel)
