@@ -48,6 +48,11 @@ def _default_backend_manifest_path() -> Path:
     return workspace_root / "backend" / "config" / "smr_supported_models.json"
 
 
+def _default_backend_public_models_path() -> Path:
+    workspace_root = Path(__file__).resolve().parents[3]
+    return workspace_root / "backend" / "config" / "smr_public_models.json"
+
+
 def _default_backend_actor_policy_path() -> Path:
     workspace_root = Path(__file__).resolve().parents[3]
     return workspace_root / "backend" / "config" / "smr_actor_model_policy.json"
@@ -240,9 +245,9 @@ def sync_smr_agent_models(
     source_manifest: Path | None = None,
     destination_file: Path | None = None,
 ) -> Path:
-    """Generate the public Managed Research model enum from the backend agent-model catalog."""
+    """Generate the public Managed Research model enum from the backend public-model export."""
 
-    source = source_manifest or _default_backend_manifest_path()
+    source = source_manifest or _default_backend_public_models_path()
     destination = destination_file or (
         Path(__file__).resolve().parent / "models" / "smr_agent_models.py"
     )
@@ -264,7 +269,7 @@ def sync_smr_agent_models(
     lines = [
         '"""Generated public Managed Research agent model enum.',
         "",
-        "Source of truth: backend/config/smr_supported_models.json",
+        "Source of truth: backend/config/smr_public_models.json",
         '"""',
         "",
         "from __future__ import annotations",
@@ -385,33 +390,23 @@ def sync_smr_public_models_snapshot(
     source_manifest: Path | None = None,
     destination_file: Path | None = None,
 ) -> Path:
-    """Generate the vendored public-model snapshot from the backend catalog."""
+    """Sync the vendored public-model snapshot from the backend public-model export."""
 
-    source = source_manifest or _default_backend_manifest_path()
+    source = source_manifest or _default_backend_public_models_path()
     destination = destination_file or (
         Path(__file__).resolve().parent / "schemas" / "public_models.json"
     )
     raw = json.loads(source.read_text(encoding="utf-8"))
     models = raw.get("models")
     if not isinstance(models, list) or not models:
-        raise ValueError("Managed Research supported model manifest must contain models")
-    public_models = []
+        raise ValueError("Managed Research public model export must contain models")
     for item in models:
-        if not isinstance(item, dict) or not bool(item.get("public", True)):
-            continue
-        model_id = str(item.get("id") or "").strip()
-        if not model_id:
-            raise ValueError("Managed Research public model manifest entries require non-empty ids")
-        public_models.append(
-            {
-                "id": model_id,
-                "display_group": str(item.get("display_group") or "additional_first_launch"),
-                "launch_lane": str(item.get("auth_route") or "").strip(),
-                "public": True,
-            }
-        )
+        if not isinstance(item, dict):
+            raise ValueError("Managed Research public model export entries must be objects")
+        if not str(item.get("id") or "").strip():
+            raise ValueError("Managed Research public model export entries require non-empty ids")
     destination.write_text(
-        json.dumps({"version": 1, "models": public_models}, indent=2) + "\n",
+        json.dumps(raw, indent=2) + "\n",
         encoding="utf-8",
     )
     return destination
