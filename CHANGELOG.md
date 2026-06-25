@@ -2,6 +2,24 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Added
+
+- **`SynthClient().research.tag`** — Synth Tag beta session API for delegated Managed Research work:
+  - `create_session(...)` starts a Tag session and bound SMR run.
+  - `get_session(session_id)` returns coarse status and terminal receipt.
+  - `send_message(session_id, ...)` steers the same active run without starting a new run.
+  - `get_default_scope()` returns the default organization Tag scope.
+- **Tag SDK models**: `TagSession`, `TagSessionCreateRequest`, `TagMessageRequest`, `TagSessionReceipt`, and `TagScope`.
+- **MCP tools**: `tag_create_session`, `tag_get_session`, and `tag_send_message`.
+- **Example**: `examples/tag_delegate_smoke.py` for delegate, steer, and receipt smoke checks.
+
+### Notes
+
+- Pair with backend `/api/tag/v1` routes and the `tag_steward` runbook on the same release train.
+- Final PyPI version is selected at release time after prod Tag smoke evidence is captured.
+
 ## 0.11.7 — 2026-06-25
 
 ### Added

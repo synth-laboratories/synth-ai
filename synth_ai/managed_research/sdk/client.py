@@ -187,6 +187,7 @@ from synth_ai.managed_research.sdk.repositories import RepositoriesAPI
 from synth_ai.managed_research.sdk.runs import RunsAPI
 from synth_ai.managed_research.sdk.secrets import SecretsAPI
 from synth_ai.managed_research.sdk.setup import SetupAPI
+from synth_ai.managed_research.sdk.tag import TagAPI
 from synth_ai.managed_research.sdk.trained_models import TrainedModelsAPI
 from synth_ai.managed_research.sdk.transport import build_http_transport
 from synth_ai.managed_research.sdk.usage import UsageAPI
@@ -1025,6 +1026,7 @@ class ManagedResearchClient:
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
+    _tag_api: TagAPI | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         resolved_api_key = _resolve_api_key(self.api_key)
@@ -1217,6 +1219,51 @@ class ManagedResearchClient:
         if self._run_cost_api is None:
             self._run_cost_api = RunCostAPI(self)
         return self._run_cost_api
+
+    @property
+    def tag(self) -> TagAPI:
+        if self._tag_api is None:
+            self._tag_api = TagAPI(self)
+        return self._tag_api
+
+    def create_tag_session(self, request: Mapping[str, Any] | dict[str, Any]) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/api/tag/v1/sessions",
+                json_body=dict(request),
+            ),
+            label="create_tag_session",
+        )
+
+    def get_tag_session(self, session_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}",
+            ),
+            label="get_tag_session",
+        )
+
+    def send_tag_message(
+        self,
+        session_id: str,
+        request: Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/messages",
+                json_body=dict(request),
+            ),
+            label="send_tag_message",
+        )
+
+    def get_default_tag_scope(self) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", "/api/tag/v1/scopes/default"),
+            label="get_default_tag_scope",
+        )
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self.usage.get_billing_entitlements()

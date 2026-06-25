@@ -54,6 +54,7 @@ from synth_ai.managed_research.mcp.tools.readiness import build_readiness_tools
 from synth_ai.managed_research.mcp.tools.repos import build_repo_tools
 from synth_ai.managed_research.mcp.tools.resources import build_resource_tools
 from synth_ai.managed_research.mcp.tools.runs import build_run_tools
+from synth_ai.managed_research.mcp.tools.tag import build_tag_tools
 from synth_ai.managed_research.mcp.tools.trained_models import build_trained_model_tools
 from synth_ai.managed_research.mcp.tools.usage import build_usage_tools
 from synth_ai.managed_research.mcp.tools.workspace_inputs import build_workspace_input_tools
@@ -232,6 +233,7 @@ class ManagedResearchMcpServer:
             *build_readiness_tools(self),
             *build_resource_tools(self),
             *build_run_tools(self),
+            *build_tag_tools(self),
             *build_progress_tools(self),
             *build_log_tools(self),
             *build_approval_tools(self),

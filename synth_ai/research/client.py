@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Any, Self
 
+from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.managed_research.sdk.tag import TagAPI
 from synth_ai.research.control import ResearchControlClient
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunsAPI
@@ -28,8 +30,10 @@ class ResearchClient:
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
         self._session: ResearchControlClient | None = None
+        self._managed_session: ManagedResearchClient | None = None
         self._projects: ResearchProjectsAPI | None = None
         self._runs: ResearchRunsAPI | None = None
+        self._tag: TagAPI | None = None
 
     def _impl(self) -> ResearchControlClient:
         if self._session is None:
@@ -39,6 +43,15 @@ class ResearchClient:
                 timeout_seconds=self.timeout_seconds,
             )
         return self._session
+
+    def _managed_impl(self) -> ManagedResearchClient:
+        if self._managed_session is None:
+            self._managed_session = ManagedResearchClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout_seconds=self.timeout_seconds,
+            )
+        return self._managed_session
 
     @property
     def projects(self) -> ResearchProjectsAPI:
@@ -51,6 +64,12 @@ class ResearchClient:
         if self._runs is None:
             self._runs = ResearchRunsAPI(self._impl())
         return self._runs
+
+    @property
+    def tag(self) -> TagAPI:
+        if self._tag is None:
+            self._tag = self._managed_impl().tag
+        return self._tag
 
     def get_limits(self) -> dict[str, Any]:
         return self._impl().get_limits()
@@ -69,8 +88,12 @@ class ResearchClient:
         if self._session is not None:
             self._session.close()
             self._session = None
+        if self._managed_session is not None:
+            self._managed_session.close()
+            self._managed_session = None
         self._projects = None
         self._runs = None
+        self._tag = None
 
     def __enter__(self) -> Self:
         self._impl().__enter__()
