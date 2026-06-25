@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterator
 from typing import Any, List
+from synth_ai.sdk.pagination import SyncPage
 from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimitProgress,
     SmrResourceLimits,
@@ -419,6 +420,10 @@ class ResearchRunsAPI:
     ) -> List[dict[str, Any]]:
         return self._session.runs.list(project_id, active_only=active_only, **kwargs)
 
+    def list_active(self, project_id: str, **kwargs: Any) -> List[dict[str, Any]]:
+        """Return active runs for a project (eval-compat name)."""
+        return self.list(project_id, active_only=True, **kwargs)
+
     def wait(
         self,
         project_id: str | None = None,
@@ -541,6 +546,33 @@ class ResearchRunsAPI:
             limit=limit,
             cursor=cursor,
         )
+
+    def logs_page(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> SyncPage[dict[str, Any]]:
+        from synth_ai.sdk.pagination import page_from_wire
+
+        payload = self.logs(project_id, run_id, limit=limit, cursor=cursor)
+        raw_items, next_cursor, has_more = page_from_wire(payload)
+        if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
+            raw_items = payload["entries"]
+        elif isinstance(payload, dict) and isinstance(payload.get("logs"), list):
+            raw_items = payload["logs"]
+        normalized = [item for item in raw_items if isinstance(item, dict)]
+        return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
+
+    def execution(
+        self,
+        project_id: str,
+        run_id: str,
+        **kwargs: Any,
+    ) -> Any:
+        return self._session.get_run_execution(project_id, run_id, **kwargs)
 
     def orchestrator(
         self,

@@ -269,6 +269,43 @@ class ResearchRunTranscriptAPI(_RunReadoutBound):
             view=view,
         )
 
+    def get_page(
+        self,
+        *,
+        cursor: str | None = None,
+        limit: int = 200,
+        participant_session_id: str | None = None,
+        view: str | None = None,
+    ) -> "SyncPage[dict[str, Any]]":
+        from synth_ai.sdk.pagination import SyncPage
+
+        payload = self.get(
+            cursor=cursor,
+            limit=limit,
+            participant_session_id=participant_session_id,
+            view=view,
+        )
+        events = payload.get("events") if isinstance(payload, dict) else None
+        normalized = [item for item in events if isinstance(item, dict)] if isinstance(events, list) else []
+        next_cursor = (
+            str(payload.get("next_cursor") or "").strip() or None
+            if isinstance(payload, dict)
+            else None
+        )
+        return SyncPage(
+            items=normalized,
+            next_cursor=next_cursor,
+            has_more=bool(next_cursor),
+        )
+
+
+class ResearchRunMilestonesAPI(_RunReadoutBound):
+    def list_primary_parent(self) -> list[dict[str, Any]]:
+        return self._handle._client.list_run_primary_parent_milestones(
+            self._handle.run_id,
+            project_id=self._handle.project_id,
+        )
+
 
 class ResearchRunWorkProductsContentAPI(_RunReadoutBound):
     def get(
@@ -496,6 +533,7 @@ class ResearchRunReadoutsMixin:
     _evidence_api: ResearchRunEvidenceAPI | None = None
     _authority_api: ResearchRunAuthorityAPI | None = None
     _execution_api: ResearchRunExecutionAPI | None = None
+    _milestones_api: ResearchRunMilestonesAPI | None = None
     _ticking_api: ResearchRunTickingAPI | None = None
 
     @property
@@ -619,6 +657,12 @@ class ResearchRunReadoutsMixin:
         return self._execution_api
 
     @property
+    def milestones(self) -> ResearchRunMilestonesAPI:
+        if self._milestones_api is None:
+            self._milestones_api = ResearchRunMilestonesAPI(self)  # type: ignore[arg-type]
+        return self._milestones_api
+
+    @property
     def ticking(self) -> ResearchRunTickingAPI:
         if self._ticking_api is None:
             self._ticking_api = ResearchRunTickingAPI(self)  # type: ignore[arg-type]
@@ -646,5 +690,6 @@ __all__ = [
     "ResearchRunArtifactsAPI",
     "ResearchRunResultsAPI",
     "ResearchRunLogsAPI",
+    "ResearchRunMilestonesAPI",
     "ResearchRunOrchestratorAPI",
 ]

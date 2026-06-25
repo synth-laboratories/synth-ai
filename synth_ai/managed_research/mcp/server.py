@@ -184,7 +184,13 @@ class ManagedResearchMcpServer:
         self._tools = build_tool_registry(self._build_tools())
 
     def available_tool_names(self) -> list[str]:
-        return sorted(self._tools.keys())
+        names = sorted(self._tools.keys())
+        research_names = [name for name in names if name.startswith("research_")]
+        smr_names = [name for name in names if name.startswith("smr_")]
+        other_names = [
+            name for name in names if not name.startswith(("research_", "smr_"))
+        ]
+        return research_names + other_names + smr_names
 
     def tool_definitions(self) -> list[ToolDefinition]:
         return list(self._tools.values())

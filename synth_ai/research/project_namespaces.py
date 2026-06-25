@@ -81,6 +81,22 @@ class ResearchProjectsWorkspaceAPI:
     def inputs(self, project_id: str) -> WorkspaceInputsState:
         return self._session.workspace_inputs.get(project_id)
 
+    def upload_url(self, project_id: str) -> dict[str, Any]:
+        return self._session.get_workspace_upload_url(project_id)
+
+    def confirm_push(
+        self,
+        project_id: str,
+        *,
+        commit_sha: str,
+        archive_key: str,
+    ) -> dict[str, Any]:
+        return self._session.workspace_confirm_push(
+            project_id,
+            commit_sha=commit_sha,
+            archive_key=archive_key,
+        )
+
 
 class ResearchProjectsReposAPI:
     def __init__(self, session: ManagedResearchClient) -> None:

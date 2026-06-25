@@ -2322,6 +2322,34 @@ class ManagedResearchClient:
             merged["chunks_uploaded"] = int(merged["chunks_uploaded"]) + 1
         return merged
 
+    def get_workspace_upload_url(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/upload-url",
+            ),
+            label="get_workspace_upload_url",
+        )
+
+    def workspace_confirm_push(
+        self,
+        project_id: str,
+        *,
+        commit_sha: str,
+        archive_key: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/confirm-push",
+                json_body={
+                    "commit_sha": str(commit_sha or "").strip(),
+                    "archive_key": str(archive_key or "").strip(),
+                },
+            ),
+            label="workspace_confirm_push",
+        )
+
     def upload_workspace_directory(
         self,
         project_id: str,
@@ -4168,6 +4196,25 @@ class ManagedResearchClient:
             ),
             label="get_run_progress",
         )
+
+    def list_run_primary_parent_milestones(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Eval-compat shim: milestones embedded in run progress payload."""
+        resolved_project_id = str(project_id or "").strip()
+        if not resolved_project_id:
+            run_payload = self.get_run(run_id)
+            resolved_project_id = str(run_payload.get("project_id") or "").strip()
+        if not resolved_project_id:
+            raise ValueError(f"run_id {run_id!r} missing project_id")
+        progress = self.get_run_progress(resolved_project_id, run_id)
+        milestones = progress.get("primary_parent_milestones")
+        if isinstance(milestones, list):
+            return [item for item in milestones if isinstance(item, dict)]
+        return []
 
     def get_run_results(
         self,

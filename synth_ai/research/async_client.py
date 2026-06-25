@@ -37,6 +37,10 @@ class AsyncResearchClient:
         self._client = client
 
     @property
+    def session(self) -> _AsyncNamespaceProxy:
+        return _AsyncNamespaceProxy(self._client.session)
+
+    @property
     def factories(self) -> _AsyncNamespaceProxy:
         return _AsyncNamespaceProxy(self._client.factories)
 
