@@ -95,7 +95,7 @@ If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong 
 
 ## SDK tests (pytest)
 
-The Python pytest suite for this package lives in the **`testing`** repo: `../testing/synth_ai_sdk/sdk/`. From this checkout, run `make test-unit` or point pytest at that directory after `uv sync --group dev`.
+All pytest coverage lives in sibling repos — **`../testing`** (SDK/backend integration) and **`../evals`** (eval harnesses). From this checkout, run `make test-unit` after `uv sync --group dev` and a `../testing` clone.
 
 ## Incident Log Requirement
 

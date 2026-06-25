@@ -30,16 +30,8 @@ providers = [
 ]
 dev = [
     "build>=1.2.2.post1",
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
     "twine>=4.0.0",
     "keyring>=24.0.0",
-    "pytest>=8.3.3",
-    "pytest-xdist>=3.6.1",
-    "pytest-timeout>=2.3.1",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.1.0",
-    "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
@@ -94,35 +86,6 @@ include-package-data = true
     "managed_research/schemas/*",
 ]
 
-[tool.pytest.ini_options]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-asyncio_mode = "auto"
-markers = [
-    "fast: marks tests as fast (≤5 seconds) - these are the default tests to run",
-    "slow: marks tests as slow (>5 seconds) - requires more time/resources",
-    "integration: marks tests as integration tests requiring external services",
-    "integration_local: marks tests that require a local backend service",
-    "unit: marks tests as isolated unit tests",
-    "public: marks tests that can run in any environment",
-    "private: marks tests that may require credentials or special setup",
-]
-# Add timeout for long-running tests
-timeout = 300
-# Show test durations (slowest N tests)
-addopts = "--durations=10"
-
-[tool.coverage.run]
-source = ["synth_ai"]
-omit = ["*/tests/*", "*/test_*"]
-data_file = "coverage/.coverage"
-
-[tool.coverage.report]
-precision = 2
-show_missing = true
-skip_covered = false
-
 [tool.ruff]
 # Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
 line-length = 100
@@ -170,15 +133,12 @@ possibly-missing-attribute = "ignore"
 [dependency-groups]
 dev = [
     "build>=1.2.2.post1",
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
     "twine>=4.0.0",
     "keyring>=24.0.0",
     "pytest>=8.3.3",
     "pytest-xdist>=3.6.1",
     "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
     "ty>=0.0.1a5",
     "responses>=0.25.7",

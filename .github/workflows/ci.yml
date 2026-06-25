@@ -96,27 +96,21 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - name: Sync dev dependencies
         run: uv sync --group dev
-      - name: Detect private SDK pytest suite
+      - name: Detect SDK pytest suite
         id: sdk_tests
         run: |
-          if [ -d testing/synth_ai_sdk/sdk ]; then
+          if [ -d testing/backend/unit/synth_ai_sdk ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Run SDK pytest suite
         if: steps.sdk_tests.outputs.available == 'true'
-        run: uv run --group dev pytest testing/synth_ai_sdk/sdk -v --maxfail=1
+        run: uv run --group dev pytest testing/backend/unit/synth_ai_sdk -m unit -v --maxfail=1
       - name: Skip unavailable private SDK pytest suite
         if: steps.sdk_tests.outputs.available != 'true'
         run: |
           echo "Private SDK pytest suite is unavailable in this GitHub Actions context."
-      - name: Run in-repo SDK fake-backend suite
-        run: uv run --group dev pytest tests/sdk/ -q --maxfail=1
-      - name: Run Managed Research contract suite
-        run: |
-          uv run --group dev pytest tests/managed_research/ -q --timeout=300
-          uv run --group dev python scripts/validate_contract.py
 
   type-check:
     name: Type Check
