@@ -21,9 +21,9 @@ from synth_ai.managed_research.models.smr_providers import (
     coerce_provider_bindings,
     coerce_usage_limit,
 )
+from synth_ai.managed_research.models.smr_roles import coerce_smr_role_bindings
 from synth_ai.managed_research.models.smr_run_policy import coerce_smr_run_policy
 from synth_ai.managed_research.models.smr_runbooks import coerce_smr_runbook_kind
-from synth_ai.managed_research.models.smr_roles import coerce_smr_role_bindings
 from synth_ai.managed_research.models.smr_work_modes import coerce_smr_work_mode
 from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
 

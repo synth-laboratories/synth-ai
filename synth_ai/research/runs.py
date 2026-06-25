@@ -124,7 +124,7 @@ class ResearchRunHandle(RunHandle):
         question_limit: int = 10,
         timeline_limit: int = 10,
         message_limit: int = 8,
-    ) -> RunObservabilitySnapshot:
+    ) -> Any:
         return self._client.get_run_observability_snapshot(
             self.project_id,
             self.run_id,
