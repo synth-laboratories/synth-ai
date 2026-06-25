@@ -2,11 +2,19 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
-## 0.11.7 — 2026-06-24
+## 0.11.7 — 2026-06-25
+
+### Added
+
+- **`SmrAgentModel.X_AI_GROK_BUILD`** (`x-ai/grok-build`) — typed SDK/MCP support for hosted SMR runs on xAI Grok Build via direct **xAI** routing (`codex_xai_grok_build` platform profile). Pairs with backend catalog row `grok-build-0.1` and metered xAI proxy.
 
 ### Changed
 
-- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the single public Grok model. The retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
+- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the supported public Grok 4.x model. Retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
+
+### Fixed
+
+- **xAI chat compatibility (backend + contract):** upstream xAI requests no longer send OpenAI-style penalty fields that caused streaming disconnects or hidden provider errors on Grok paths.
 
 ## 0.11.6 — 2026-06-24
 
