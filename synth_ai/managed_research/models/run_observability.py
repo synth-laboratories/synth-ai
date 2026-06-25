@@ -119,6 +119,30 @@ def _optional_string_int_map(payload: object, *, label: str) -> dict[str, int]:
     return normalized
 
 
+def _optional_string_list(payload: object, *, label: str) -> list[str]:
+    if payload is None:
+        return []
+    if not isinstance(payload, list):
+        raise ValueError(f"{label} must be an array when provided")
+    normalized: list[str] = []
+    for index, value in enumerate(payload):
+        if not isinstance(value, str):
+            raise ValueError(f"{label}[{index}] must be a string")
+        normalized.append(value)
+    return normalized
+
+
+def _optional_mapping_field(payload: object, *, label: str) -> dict[str, object] | None:
+    if payload is None:
+        return None
+    return dict(_require_mapping(payload, label=label))
+
+
+class RunTickMode(StrEnum):
+    AUTO = "auto"
+    MANUAL = "manual"
+
+
 class CandidatePublicationOutcome(StrEnum):
     RUNNING = "running"
     PR_PUBLISHED = "pr_published"
@@ -439,6 +463,74 @@ class TaskCollectionSnapshot:
 
 
 @dataclass(frozen=True)
+class TaskSummary:
+    task_id: str
+    task_key: str
+    kind: str
+    public_task_state: str
+    task_state: str | None = None
+    target_kind: str | None = None
+    task_affinity_key: str | None = None
+    input_keys: list[str] = field(default_factory=list)
+    instructions_present: bool = False
+    acceptance_criteria_count: int = 0
+    agent: str | None = None
+    model: str | None = None
+    worker_profile_id: str | None = None
+    orchestrator_profile_id: str | None = None
+    title: str | None = None
+    url: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> TaskSummary:
+        mapping = _require_mapping(payload, label="task summary")
+        state = mapping.get("state")
+        state_text = ""
+        if isinstance(state, Mapping):
+            state_text = (
+                _optional_string(state, "name")
+                or _optional_string(state, "type")
+                or _optional_string(state, "id")
+                or ""
+            )
+        return cls(
+            task_id=(
+                _optional_string(mapping, "task_id")
+                or _require_string(mapping, "id", label="task_summary.id")
+            ),
+            task_key=(
+                _optional_string(mapping, "task_key")
+                or _optional_string(mapping, "identifier")
+                or _require_string(mapping, "id", label="task_summary.id")
+            ),
+            kind=_optional_string(mapping, "kind")
+            or _optional_string(mapping, "target_kind")
+            or "task",
+            public_task_state=(
+                _optional_string(mapping, "public_task_state")
+                or _optional_string(mapping, "task_state")
+                or _optional_string(mapping, "status")
+                or state_text
+                or "unknown"
+            ),
+            task_state=_optional_string(mapping, "task_state"),
+            target_kind=_optional_string(mapping, "target_kind"),
+            task_affinity_key=_optional_string(mapping, "task_affinity_key"),
+            input_keys=_optional_string_list(mapping.get("input_keys"), label="input_keys"),
+            instructions_present=bool(_optional_bool(mapping, "instructions_present") or False),
+            acceptance_criteria_count=(_optional_int(mapping, "acceptance_criteria_count") or 0),
+            agent=_optional_string(mapping, "agent"),
+            model=_optional_string(mapping, "model"),
+            worker_profile_id=_optional_string(mapping, "worker_profile_id"),
+            orchestrator_profile_id=_optional_string(mapping, "orchestrator_profile_id"),
+            title=_optional_string(mapping, "title"),
+            url=_optional_string(mapping, "url"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class RuntimeMessageView:
     message_id: str
     created_at: str
@@ -463,6 +555,84 @@ class RuntimeMessageView:
             action=_optional_string(mapping, "action"),
             body=_optional_string(mapping, "body"),
             status=_optional_string(mapping, "status"),
+        )
+
+
+@dataclass(frozen=True)
+class MessageQueueMessage:
+    message_id: str | None = None
+    thread_id: str | None = None
+    parent_message_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    status: str | None = None
+    intent: str | None = None
+    message_kind: str | None = None
+    body: str | None = None
+    payload: dict[str, object] | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> MessageQueueMessage:
+        mapping = _require_mapping(payload, label="message queue message")
+        return cls(
+            message_id=_optional_string(mapping, "message_id"),
+            thread_id=_optional_string(mapping, "thread_id"),
+            parent_message_id=_optional_string(mapping, "parent_message_id"),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+            status=_optional_string(mapping, "status"),
+            intent=_optional_string(mapping, "intent"),
+            message_kind=_optional_string(mapping, "message_kind"),
+            body=_optional_string(mapping, "body"),
+            payload=_optional_mapping_field(mapping.get("payload"), label="message.payload"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class MessageQueueThread:
+    thread_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    status: str | None = None
+    message_count: int | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> MessageQueueThread:
+        mapping = _require_mapping(payload, label="message queue thread")
+        return cls(
+            thread_id=_optional_string(mapping, "thread_id"),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+            status=_optional_string(mapping, "status"),
+            message_count=_optional_int(mapping, "message_count"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class MessageQueueInteraction:
+    interaction_id: str | None = None
+    message_id: str | None = None
+    thread_id: str | None = None
+    status: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> MessageQueueInteraction:
+        mapping = _require_mapping(payload, label="message queue interaction")
+        return cls(
+            interaction_id=_optional_string(mapping, "interaction_id"),
+            message_id=_optional_string(mapping, "message_id"),
+            thread_id=_optional_string(mapping, "thread_id"),
+            status=_optional_string(mapping, "status"),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+            raw=dict(mapping),
         )
 
 
@@ -553,6 +723,104 @@ class RuntimeObservability:
                 for item in _optional_dict_list(mapping.get("events"), label="runtime.events")
             ],
         )
+
+
+@dataclass(frozen=True)
+class RunManualTickRequest:
+    request_id: str
+    run_id: str
+    project_id: str
+    status: str
+    reason: str | None = None
+    lease_owner: str | None = None
+    lease_started_at: str | None = None
+    lease_expires_at: str | None = None
+    last_progress_at: str | None = None
+    runtime_tick_count: int = 0
+    actor_step_count: int = 0
+    completion_reason: str | None = None
+    failure_reason: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    consumed_at: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> RunManualTickRequest:
+        mapping = _require_mapping(payload, label="manual tick request")
+        return cls(
+            request_id=_require_string(mapping, "request_id", label="manual_tick.request_id"),
+            run_id=_require_string(mapping, "run_id", label="manual_tick.run_id"),
+            project_id=_require_string(mapping, "project_id", label="manual_tick.project_id"),
+            status=_require_string(mapping, "status", label="manual_tick.status"),
+            reason=_optional_string(mapping, "reason"),
+            lease_owner=_optional_string(mapping, "lease_owner"),
+            lease_started_at=_optional_string(mapping, "lease_started_at"),
+            lease_expires_at=_optional_string(mapping, "lease_expires_at"),
+            last_progress_at=_optional_string(mapping, "last_progress_at"),
+            runtime_tick_count=_optional_int(mapping, "runtime_tick_count") or 0,
+            actor_step_count=_optional_int(mapping, "actor_step_count") or 0,
+            completion_reason=_optional_string(mapping, "completion_reason"),
+            failure_reason=_optional_string(mapping, "failure_reason"),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+            consumed_at=_optional_string(mapping, "consumed_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class RunTickingStatus:
+    project_id: str
+    run_id: str
+    tick_mode: RunTickMode
+    manual_tick_pending_count: int = 0
+    active_manual_tick: RunManualTickRequest | None = None
+    last_manual_tick: RunManualTickRequest | None = None
+    last_tick_at: str | None = None
+    last_tick_reason: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> RunTickingStatus:
+        mapping = _require_mapping(payload, label="run ticking status")
+        active_manual_tick = mapping.get("active_manual_tick")
+        last_manual_tick = mapping.get("last_manual_tick")
+        return cls(
+            project_id=_require_string(mapping, "project_id", label="ticking.project_id"),
+            run_id=_require_string(mapping, "run_id", label="ticking.run_id"),
+            tick_mode=RunTickMode(_require_string(mapping, "tick_mode", label="ticking.tick_mode")),
+            manual_tick_pending_count=(_optional_int(mapping, "manual_tick_pending_count") or 0),
+            active_manual_tick=(
+                RunManualTickRequest.from_wire(active_manual_tick)
+                if active_manual_tick is not None
+                else None
+            ),
+            last_manual_tick=(
+                RunManualTickRequest.from_wire(last_manual_tick)
+                if last_manual_tick is not None
+                else None
+            ),
+            last_tick_at=_optional_string(mapping, "last_tick_at"),
+            last_tick_reason=_optional_string(mapping, "last_tick_reason"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class RunTickingUpdate:
+    tick_mode: RunTickMode | str
+    reason: str | None = None
+
+    def to_wire(self) -> dict[str, object]:
+        mode = self.tick_mode.value if isinstance(self.tick_mode, RunTickMode) else self.tick_mode
+        normalized_mode = str(mode or "").strip()
+        if not normalized_mode:
+            raise ValueError("tick_mode is required")
+        payload: dict[str, object] = {"tick_mode": normalized_mode}
+        if self.reason and self.reason.strip():
+            payload["reason"] = self.reason.strip()
+        return payload
 
 
 @dataclass(frozen=True)
@@ -1211,6 +1479,9 @@ __all__ = [
     "ActorSnapshot",
     "CandidatePublicationOutcome",
     "CandidatePublicationView",
+    "MessageQueueInteraction",
+    "MessageQueueMessage",
+    "MessageQueueThread",
     "ManagedResearchRun",
     "ManagedResearchRunLivenessPhase",
     "ManagedResearchRunContract",
@@ -1239,10 +1510,15 @@ __all__ = [
     "RunLifecycleView",
     "RunObservationCursor",
     "RunObservabilitySnapshot",
+    "RunManualTickRequest",
+    "RunTickingStatus",
+    "RunTickingUpdate",
+    "RunTickMode",
     "RuntimeDeliveryView",
     "RuntimeEventView",
     "RuntimeMessageView",
     "RuntimeObservability",
     "TaskCollectionSnapshot",
     "TaskSnapshot",
+    "TaskSummary",
 ]

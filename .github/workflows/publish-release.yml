@@ -1,3 +1,8 @@
+# PyPI publishing happens via publish-dev.yml on push to main (version bump in
+# pyproject.toml → merge to main → trusted-publisher publish). That is the only
+# workflow registered as a PyPI trusted publisher for this project. This Release
+# workflow now only cuts a GitHub Release with the built artifacts on tag push;
+# it does NOT attempt a (previously always-failing, unregistered) trusted publish.
 name: Release
 
 on:
@@ -7,7 +12,6 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
   build-distributions:
@@ -32,24 +36,9 @@ jobs:
           name: python-distributions
           path: dist/*
 
-  publish:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [build-distributions]
-    environment:
-      name: pypi
-      url: https://pypi.org/project/synth-ai/
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Publish to PyPI (trusted)
-        uses: pypa/gh-action-pypi-publish@release/v1
-
   release:
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [publish]
+    needs: [build-distributions]
     steps:
       - uses: actions/download-artifact@v4
         with:

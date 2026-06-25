@@ -187,6 +187,9 @@ class SmrRunUsage:
     cost: SmrRunCostTotals
     totals: dict[str, int]
     tokens: dict[str, object]
+    by_provider: dict[str, object]
+    by_model: dict[str, object]
+    by_actor: dict[str, object]
     breakdown: dict[str, object]
     entries: list[dict[str, object]]
     rows: list[dict[str, object]]
@@ -207,6 +210,9 @@ class SmrRunUsage:
             cost=SmrRunCostTotals.from_wire(mapping.get("cost")),
             totals={str(key): int(value) for key, value in totals_mapping.items()},
             tokens=_optional_object_dict(mapping.get("tokens")),
+            by_provider=_optional_object_dict(mapping.get("by_provider")),
+            by_model=_optional_object_dict(mapping.get("by_model")),
+            by_actor=_optional_object_dict(mapping.get("by_actor")),
             breakdown=_optional_object_dict(mapping.get("breakdown")),
             entries=[_object_dict(item) for item in _optional_array(mapping, "entries")],
             rows=[_object_dict(item) for item in _optional_array(mapping, "rows")],
@@ -312,6 +318,24 @@ class SmrResourceLimitSelector:
 
 
 @dataclass(frozen=True)
+class SmrLimitQuantity:
+    kind: str
+    unit: str
+    value: int
+
+    @classmethod
+    def from_wire(cls, payload: object) -> SmrLimitQuantity | None:
+        if payload is None:
+            return None
+        mapping = _require_mapping(payload, label="limit quantity")
+        return cls(
+            kind=_require_string(mapping, "kind", label="limit quantity.kind"),
+            unit=_require_string(mapping, "unit", label="limit quantity.unit"),
+            value=_int_value(mapping, "value"),
+        )
+
+
+@dataclass(frozen=True)
 class SmrResourceLimit:
     resource_limit_id: str
     scope: str
@@ -321,6 +345,7 @@ class SmrResourceLimit:
     selector: SmrResourceLimitSelector
     metric: str
     limit_value: float | None
+    limit_quantity: SmrLimitQuantity | None
     unit: str
     blocks_at_limit: bool
     warning_threshold_percent: float | None
@@ -342,6 +367,7 @@ class SmrResourceLimit:
             selector=SmrResourceLimitSelector.from_wire(mapping.get("selector")),
             metric=_require_string(mapping, "metric", label="resource limit.metric"),
             limit_value=_optional_float_value(mapping, "limit_value"),
+            limit_quantity=SmrLimitQuantity.from_wire(mapping.get("limit_quantity")),
             unit=_require_string(mapping, "unit", label="resource limit.unit"),
             blocks_at_limit=bool(mapping.get("blocks_at_limit", True)),
             warning_threshold_percent=_optional_float_value(
@@ -413,11 +439,19 @@ class SmrResourceLimitProgressItem:
     limit_value: float | None
     current_value: float | None
     remaining_value: float | None
+    limit_quantity: SmrLimitQuantity | None
+    current_quantity: SmrLimitQuantity | None
+    remaining_quantity: SmrLimitQuantity | None
     used_percent: float | None
     unit: str
     state: str
     blocking: bool
     blocks_at_limit: bool
+    last_action: str | None
+    last_action_outcome: str | None
+    last_action_reason: str | None
+    last_action_error: str | None
+    last_pause_gate_id: str | None
     warning_threshold_percent: float | None
     source: str
 
@@ -447,6 +481,9 @@ class SmrResourceLimitProgressItem:
             limit_value=_optional_float_value(mapping, "limit_value"),
             current_value=_optional_float_value(mapping, "current_value"),
             remaining_value=_optional_float_value(mapping, "remaining_value"),
+            limit_quantity=SmrLimitQuantity.from_wire(mapping.get("limit_quantity")),
+            current_quantity=SmrLimitQuantity.from_wire(mapping.get("current_quantity")),
+            remaining_quantity=SmrLimitQuantity.from_wire(mapping.get("remaining_quantity")),
             used_percent=_optional_float_value(mapping, "used_percent"),
             unit=_require_string(mapping, "unit", label="resource limit progress item.unit"),
             state=_require_string(
@@ -456,6 +493,11 @@ class SmrResourceLimitProgressItem:
             ),
             blocking=bool(mapping.get("blocking", False)),
             blocks_at_limit=bool(mapping.get("blocks_at_limit", True)),
+            last_action=_optional_string(mapping, "last_action"),
+            last_action_outcome=_optional_string(mapping, "last_action_outcome"),
+            last_action_reason=_optional_string(mapping, "last_action_reason"),
+            last_action_error=_optional_string(mapping, "last_action_error"),
+            last_pause_gate_id=_optional_string(mapping, "last_pause_gate_id"),
             warning_threshold_percent=_optional_float_value(
                 mapping,
                 "warning_threshold_percent",
@@ -477,6 +519,7 @@ class SmrResourceLimitProgressItem:
             selector=self.selector,
             metric=self.metric,
             limit_value=self.limit_value,
+            limit_quantity=self.limit_quantity,
             unit=self.unit,
             blocks_at_limit=self.blocks_at_limit,
             warning_threshold_percent=self.warning_threshold_percent,
@@ -552,8 +595,12 @@ class SmrResourceLimitExtension:
     unit: str
     source: str
     resolved_blocker_ids: list[str]
+    resume_requested: bool
+    resume_attempted: bool
     resumed: bool
     resume_error: dict[str, object] | None
+    pause_gate_released: bool
+    released_pause_gate_id: str | None
     progress: SmrResourceLimitProgress | None
 
     @classmethod
@@ -603,11 +650,18 @@ class SmrResourceLimitExtension:
             resolved_blocker_ids=[
                 str(item) for item in _optional_array(mapping, "resolved_blocker_ids")
             ],
+            resume_requested=bool(mapping.get("resume_requested", False)),
+            resume_attempted=bool(mapping.get("resume_attempted", False)),
             resumed=bool(mapping.get("resumed", False)),
             resume_error=(
                 {str(key): value for key, value in resume_error.items()}
                 if isinstance(resume_error, Mapping)
                 else None
+            ),
+            pause_gate_released=bool(mapping.get("pause_gate_released", False)),
+            released_pause_gate_id=_optional_string(
+                mapping,
+                "released_pause_gate_id",
             ),
             progress=(
                 SmrResourceLimitProgress.from_wire(progress_payload)
@@ -712,6 +766,7 @@ __all__ = [
     "OrgLimitItem",
     "OrgLimits",
     "OrgResourceUsage",
+    "SmrLimitQuantity",
     "SmrProjectEconomics",
     "SmrProjectEntitlementOverlay",
     "SmrProjectUsage",

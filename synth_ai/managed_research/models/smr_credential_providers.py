@@ -8,8 +8,8 @@ from enum import StrEnum
 class SmrCredentialProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
-    GROQ = "groq"
     OPENROUTER = "openrouter"
+    XAI = "xai"
     TINKER = "tinker"
 
 

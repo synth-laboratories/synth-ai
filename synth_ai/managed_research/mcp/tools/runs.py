@@ -29,11 +29,18 @@ _REMOVED_RUN_TOOL_NAMES = {
     "smr_run_objective_scopes",
 }
 
+# Actor model overrides are local-only. Hosted launches resolve actor profiles on
+# the platform and reject these fields with 422 model_overrides_not_supported_on_hosted.
+_HOSTED_LOCAL_ONLY_NOTE = (
+    " Local-only: requires local_execution; rejected on hosted launches "
+    "(model_overrides_not_supported_on_hosted)."
+)
+
 
 def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
     return {
         "type": "array",
-        "description": field_label,
+        "description": field_label + _HOSTED_LOCAL_ONLY_NOTE,
         "items": {
             "type": "object",
             "properties": {
@@ -52,9 +59,87 @@ def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
                 "agent_model_params": {
                     "type": "object",
                 },
+                "agent_harness": {
+                    "type": "string",
+                    "enum": list(SMR_AGENT_KIND_VALUES),
+                },
+                "agent_kind": {
+                    "type": "string",
+                    "enum": list(SMR_AGENT_KIND_VALUES),
+                },
+                "provider": {
+                    "type": "object",
+                    "properties": {
+                        "provider_id": {"type": "string", "enum": list(PROVIDER_VALUES)},
+                        "provider_required": {"type": "boolean"},
+                        "provider_model_id": {"type": "string"},
+                        "route_alias": {"type": "string"},
+                    },
+                },
             },
             "required": ["actor_type", "actor_subtype", "agent_model"],
         },
+    }
+
+
+def _role_provider_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "provider_id": {"type": "string", "enum": list(PROVIDER_VALUES)},
+            "provider": {"type": "string", "enum": list(PROVIDER_VALUES)},
+            "provider_required": {"type": "boolean"},
+            "provider_model_id": {"type": "string"},
+            "route_alias": {"type": "string"},
+        },
+    }
+
+
+def _role_binding_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "model": {"type": "string", "enum": list(SMR_AGENT_MODEL_VALUES)},
+            "params": {"type": "object"},
+            "agent_harness": {"type": "string", "enum": list(SMR_AGENT_KIND_VALUES)},
+            "agent_kind": {"type": "string", "enum": list(SMR_AGENT_KIND_VALUES)},
+            "provider": _role_provider_schema(),
+        },
+        "required": ["model"],
+    }
+
+
+def _role_bindings_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "description": (
+            "Explicit role launch policy. Prefer actor_model_overrides for partial "
+            "backend-default-preserving overrides." + _HOSTED_LOCAL_ONLY_NOTE
+        ),
+        "properties": {
+            "orchestrator": _role_binding_schema(),
+            "reviewer": _role_binding_schema(),
+            "worker": {
+                "type": "object",
+                "properties": {
+                    "permitted_models": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": list(SMR_AGENT_MODEL_VALUES)},
+                    },
+                    "default_model": {
+                        "type": "string",
+                        "enum": list(SMR_AGENT_MODEL_VALUES),
+                    },
+                    "default_params": {"type": "object"},
+                    "subtypes": {
+                        "type": "object",
+                        "additionalProperties": _role_binding_schema(),
+                    },
+                },
+                "required": ["permitted_models", "default_model"],
+            },
+        },
+        "required": ["orchestrator", "reviewer", "worker"],
     }
 
 
@@ -218,7 +303,8 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "agent_model": {
                         "type": "string",
                         "enum": list(SMR_AGENT_MODEL_VALUES),
-                        "description": "Optional run-level agent model override using a backend catalog model id such as gpt-5.4, gpt-5.4-nano, or gpt-oss-120b.",
+                        "description": "Optional run-level agent model override using a backend catalog model id such as gpt-5.4-mini, x-ai/grok-4.3, or x-ai/grok-build."
+                        + _HOSTED_LOCAL_ONLY_NOTE,
                     },
                     "agent_harness": {
                         "type": "string",
@@ -243,6 +329,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                             "and actor_subtype."
                         )
                     ),
+                    "roles": _role_bindings_schema(),
                     "initial_runtime_messages": {
                         "type": "array",
                         "description": "Optional kickoff runtime messages to enqueue durably before the run starts. Use this instead of the removed prompt field.",
@@ -346,7 +433,8 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "agent_model": {
                         "type": "string",
                         "enum": list(SMR_AGENT_MODEL_VALUES),
-                        "description": "Optional run-level agent model override.",
+                        "description": "Optional run-level agent model override."
+                        + _HOSTED_LOCAL_ONLY_NOTE,
                     },
                     "agent_harness": {
                         "type": "string",
@@ -365,6 +453,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "actor_model_overrides": _actor_model_assignment_schema(
                         field_label="Optional actor-scoped model overrides."
                     ),
+                    "roles": _role_bindings_schema(),
                     "initial_runtime_messages": {
                         "type": "array",
                         "description": "Optional kickoff runtime messages to enqueue durably before the run starts.",

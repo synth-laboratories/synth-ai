@@ -59,18 +59,20 @@ def _limit_extension_payload(
     reason: str | None,
     selector: SmrResourceLimitSelector | Mapping[str, object] | None,
     resource_limit_id: str | None,
-    metric: str,
-    unit: str,
+    metric: str | None,
+    unit: str | None,
     resolve_blockers: bool,
     resume: bool,
     idempotency_key: str | None,
 ) -> dict[str, object]:
     payload: dict[str, object] = {
-        "metric": metric,
-        "unit": unit,
         "resolve_blockers": bool(resolve_blockers),
         "resume": bool(resume),
     }
+    if metric is not None:
+        payload["metric"] = metric
+    if unit is not None:
+        payload["unit"] = unit
     selector_payload = _selector_to_wire(selector)
     if selector_payload is not None:
         payload["selector"] = selector_payload
@@ -135,8 +137,8 @@ class UsageAPI(_ClientNamespace):
         reason: str | None = None,
         selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
         resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
+        metric: str | None = None,
+        unit: str | None = None,
         resolve_blockers: bool = True,
         resume: bool = True,
         idempotency_key: str | None = None,
@@ -200,8 +202,8 @@ class UsageAPI(_ClientNamespace):
         reason: str | None = None,
         selector: SmrResourceLimitSelector | Mapping[str, object] | None = None,
         resource_limit_id: str | None = None,
-        metric: str = "spend_usd",
-        unit: str = "usd",
+        metric: str | None = None,
+        unit: str | None = None,
         resolve_blockers: bool = True,
         resume: bool = True,
         idempotency_key: str | None = None,

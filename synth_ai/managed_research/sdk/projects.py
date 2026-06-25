@@ -367,5 +367,33 @@ class ProjectsAPI(_ClientNamespace):
             )
         return self._client.download_workspace_archive(project_id, output_path)
 
+    def download_code_archive(
+        self,
+        project_id: str,
+        output_path: str,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
+        if timeout_seconds is not None:
+            return self._client.download_project_code_archive(
+                project_id,
+                output_path,
+                timeout_seconds=timeout_seconds,
+            )
+        return self._client.download_project_code_archive(project_id, output_path)
+
+    def download_code(
+        self,
+        project_id: str,
+        output_path: str,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> dict[str, Any]:
+        return self.download_code_archive(
+            project_id,
+            output_path,
+            timeout_seconds=timeout_seconds,
+        )
+
 
 __all__ = ["ProjectsAPI"]

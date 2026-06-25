@@ -48,6 +48,63 @@ def _default_backend_manifest_path() -> Path:
     return workspace_root / "backend" / "config" / "smr_supported_models.json"
 
 
+def _default_backend_actor_policy_path() -> Path:
+    workspace_root = Path(__file__).resolve().parents[3]
+    return workspace_root / "backend" / "config" / "smr_actor_model_policy.json"
+
+
+def _shared_top_level_model_ids(policies: list[dict[str, object]]) -> tuple[str, ...]:
+    """Mirror backend/packages/smr/config/actor_model_policy.py intersection logic."""
+
+    public_sets: list[set[str]] = []
+    for item in policies:
+        if not isinstance(item, dict) or not bool(item.get("public", True)):
+            continue
+        models = item.get("permitted_models")
+        if not isinstance(models, list) or not models:
+            continue
+        normalized = {str(model_id).strip() for model_id in models if str(model_id).strip()}
+        if normalized:
+            public_sets.append(normalized)
+    if not public_sets:
+        return ()
+    return tuple(sorted(set.intersection(*public_sets)))
+
+
+def _normalize_actor_policy_entries(
+    policies: list[dict[str, object]],
+) -> tuple[dict[str, object], ...]:
+    entries: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for item in policies:
+        if not isinstance(item, dict):
+            raise ValueError("Each actor model policy entry must be an object")
+        actor_type = str(item.get("actor_type") or "").strip()
+        actor_subtype = str(item.get("actor_subtype") or "").strip()
+        if not actor_type or not actor_subtype:
+            raise ValueError("Actor model policy entries require actor_type and actor_subtype")
+        key = f"{actor_type}:{actor_subtype}"
+        if key in seen:
+            raise ValueError(f"Duplicate actor model policy entry '{key}'")
+        seen.add(key)
+        models = item.get("permitted_models")
+        if not isinstance(models, list) or not models:
+            raise ValueError(f"Actor model policy entry '{key}' must define permitted_models")
+        permitted_models = list(
+            dict.fromkeys(str(model_id).strip() for model_id in models if str(model_id).strip())
+        )
+        if not permitted_models:
+            raise ValueError(f"Actor model policy entry '{key}' must define permitted_models")
+        entries.append(
+            {
+                "actor_type": actor_type,
+                "actor_subtype": actor_subtype,
+                "permitted_models": permitted_models,
+            }
+        )
+    return tuple(entries)
+
+
 _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     (
         "smr_agent_kinds.py",
@@ -65,13 +122,13 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "smr_credential_providers.py",
         "SmrCredentialProvider",
         "provider",
-        ("openai", "groq", "openrouter", "tinker"),
+        ("deepseek", "openai", "openrouter", "xai", "tinker"),
     ),
     (
         "smr_inference_providers.py",
         "SmrInferenceProvider",
         "inference_provider",
-        ("openai", "google", "groq"),
+        ("deepseek", "openai", "google", "openrouter", "xai"),
     ),
     (
         "smr_tool_providers.py",
@@ -89,7 +146,7 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "smr_resource_providers.py",
         "SmrResourceProvider",
         "resource_provider",
-        ("runpod", "modal"),
+        ("modal",),
     ),
     (
         "smr_resource_kinds.py",
@@ -255,6 +312,74 @@ def sync_smr_agent_models(
     return destination
 
 
+def sync_smr_actor_model_policy(
+    *,
+    source_manifest: Path | None = None,
+    destination_file: Path | None = None,
+) -> Path:
+    """Generate actor policy constants from backend/config/smr_actor_model_policy.json."""
+
+    source = source_manifest or _default_backend_actor_policy_path()
+    destination = destination_file or (
+        Path(__file__).resolve().parent / "models" / "smr_actor_policy_data.py"
+    )
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    policies = raw.get("policies")
+    if not isinstance(policies, list) or not policies:
+        raise ValueError(
+            "Managed Research actor model policy manifest must contain a non-empty policies list"
+        )
+
+    policy_entries = _normalize_actor_policy_entries(policies)
+    shared_top_level = _shared_top_level_model_ids(policies)
+
+    lines = [
+        '"""Generated Managed Research actor model policy constants.',
+        "",
+        "Source of truth: backend/config/smr_actor_model_policy.json",
+        "",
+        "Regenerate: python -m synth_ai.managed_research.schema_sync",
+        '"""',
+        "",
+        "from __future__ import annotations",
+        "",
+        "from typing import Any",
+        "",
+        "",
+        "SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (",
+    ]
+    for model_id in shared_top_level:
+        lines.append(f'    "{model_id}",')
+    lines.extend(
+        [
+            ")",
+            "",
+            "",
+            "SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (",
+        ]
+    )
+    for entry in policy_entries:
+        lines.append("    {")
+        lines.append(f'        "actor_type": "{entry["actor_type"]}",')
+        lines.append(f'        "actor_subtype": "{entry["actor_subtype"]}",')
+        lines.append('        "permitted_models": [')
+        for model_id in entry["permitted_models"]:
+            lines.append(f'            "{model_id}",')
+        lines.append("        ],")
+        lines.append("    },")
+    lines.extend(
+        [
+            ")",
+            "",
+            "",
+            '__all__ = ["SMR_ACTOR_MODEL_POLICY", "SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES"]',
+            "",
+        ]
+    )
+    destination.write_text("\n".join(lines), encoding="utf-8")
+    return destination
+
+
 def sync_smr_public_models_snapshot(
     *,
     source_manifest: Path | None = None,
@@ -297,18 +422,21 @@ def main() -> None:
     copied = sync_public_schemas()
     static_enums = sync_smr_layered_enums()
     generated = sync_smr_agent_models()
+    actor_policy = sync_smr_actor_model_policy()
     public_models = sync_smr_public_models_snapshot()
     for path in copied:
         print(path)
     for path in static_enums:
         print(path)
     print(generated)
+    print(actor_policy)
     print(public_models)
 
 
 __all__ = [
     "main",
     "sync_public_schemas",
+    "sync_smr_actor_model_policy",
     "sync_smr_agent_models",
     "sync_smr_layered_enums",
     "sync_smr_public_models_snapshot",

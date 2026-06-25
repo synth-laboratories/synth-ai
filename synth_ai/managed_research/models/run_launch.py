@@ -28,7 +28,13 @@ from synth_ai.managed_research.models.smr_agent_kinds import SmrAgentKind
 from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel
 from synth_ai.managed_research.models.smr_horizons import SmrIntendedHorizonHours
 from synth_ai.managed_research.models.smr_host_kinds import SmrHostKind
-from synth_ai.managed_research.models.smr_providers import ProviderBinding, UsageLimit
+from synth_ai.managed_research.models.smr_providers import (
+    ProviderBinding,
+    ProviderPolicy,
+    UsageLimit,
+    coerce_provider_policy,
+    default_provider_policy,
+)
 from synth_ai.managed_research.models.smr_roles import SmrRoleBindings
 from synth_ai.managed_research.models.smr_run_policy import SmrRunPolicy
 from synth_ai.managed_research.models.smr_runbooks import SmrRunbookKind
@@ -189,6 +195,9 @@ class RunLaunchRequest(CommandRequest):
     mode: SmrWorkMode | str | None = None
     intended_horizon_hours: SmrIntendedHorizonHours | int | None = None
     providers: Sequence[ProviderBinding | str | WireMapping] = ()
+    provider_policy: ProviderPolicy | WireMapping | None = field(
+        default_factory=default_provider_policy
+    )
     limit: UsageLimit | WireMapping | None = None
     worker_pool_id: str | None = None
     runbook: SmrRunbookKind | str | None = None
@@ -252,6 +261,7 @@ class RunLaunchRequest(CommandRequest):
             mode=self.mode,
             intended_horizon_hours=self.intended_horizon_hours,
             providers=tuple(self.providers) if self.providers else None,
+            provider_policy=self._provider_policy_payload(),
             limit=self.limit,
             worker_pool_id=self.worker_pool_id,
             runbook=self.runbook,
@@ -316,6 +326,16 @@ class RunLaunchRequest(CommandRequest):
         from synth_ai.managed_research.sdk.client import _build_project_run_payload
 
         return _build_project_run_payload(**self.to_client_kwargs())
+
+    def _provider_policy_payload(self) -> WirePayload | None:
+        policy = coerce_provider_policy(
+            self.provider_policy,
+            field_name="provider_policy",
+        )
+        if policy is None:
+            return None
+        payload = policy.to_dict()
+        return payload or None
 
     @classmethod
     def from_client_kwargs(cls, values: Mapping[str, object]) -> Self:

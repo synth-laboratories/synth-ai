@@ -16,7 +16,12 @@ from typing import Any, cast
 
 from synth_ai.managed_research.models.smr_actor_models import (
     SmrActorModelAssignment,
+    SmrActorType,
     normalize_actor_model_assignments,
+)
+from synth_ai.managed_research.models.smr_agent_kinds import (
+    SmrAgentKind,
+    coerce_smr_agent_kind,
 )
 from synth_ai.managed_research.models.smr_environment_kinds import (
     SmrEnvironmentKind,
@@ -1277,6 +1282,82 @@ class SmrLaunchPreflightBlocker:
 
 
 @dataclass(frozen=True)
+class SmrResolvedProfile:
+    """A single platform-resolved actor profile (read-only, hosted launches)."""
+
+    role: SmrActorType
+    profile_id: str
+    model: str
+    agent_harness: SmrAgentKind | None = None
+    agent_kind: SmrAgentKind | None = None
+
+    @classmethod
+    def from_wire(
+        cls, *, role: SmrActorType, profile_id: str, snapshot: object
+    ) -> SmrResolvedProfile | None:
+        if not isinstance(snapshot, Mapping):
+            return None
+        return cls(
+            role=role,
+            profile_id=profile_id,
+            model=str(snapshot.get("model") or ""),
+            agent_harness=coerce_smr_agent_kind(
+                snapshot.get("agent_harness") or snapshot.get("agent_kind"),
+                field_name="resolved_profiles.agent_harness",
+            ),
+            agent_kind=coerce_smr_agent_kind(
+                snapshot.get("agent_kind"),
+                field_name="resolved_profiles.agent_kind",
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SmrResolvedActorProfiles:
+    """Platform-resolved actor execution surfaced on the preflight response.
+
+    The platform — not the customer — chooses these on hosted launches.
+    """
+
+    orchestrator: SmrResolvedProfile
+    workers: tuple[SmrResolvedProfile, ...] = field(default_factory=tuple)
+    default_worker_profile_id: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> SmrResolvedActorProfiles | None:
+        if not isinstance(payload, Mapping):
+            return None
+        resolved = payload.get("resolved_profiles")
+        orchestrator_id = payload.get("orchestrator_profile_id")
+        if not isinstance(resolved, Mapping) or not orchestrator_id:
+            return None
+        orchestrator = SmrResolvedProfile.from_wire(
+            role=SmrActorType.ORCHESTRATOR,
+            profile_id=str(orchestrator_id),
+            snapshot=resolved.get(str(orchestrator_id)),
+        )
+        if orchestrator is None:
+            return None
+        worker_ids = payload.get("worker_profile_ids")
+        workers: list[SmrResolvedProfile] = []
+        if isinstance(worker_ids, (list, tuple)):
+            for worker_id in worker_ids:
+                worker = SmrResolvedProfile.from_wire(
+                    role=SmrActorType.WORKER,
+                    profile_id=str(worker_id),
+                    snapshot=resolved.get(str(worker_id)),
+                )
+                if worker is not None:
+                    workers.append(worker)
+        default_worker = payload.get("default_worker_profile_id")
+        return cls(
+            orchestrator=orchestrator,
+            workers=tuple(workers),
+            default_worker_profile_id=(str(default_worker) if default_worker else None),
+        )
+
+
+@dataclass(frozen=True)
 class SmrLaunchPreflight:
     project_id: str | None = None
     project_alias: str | None = None
@@ -1296,6 +1377,7 @@ class SmrLaunchPreflight:
     capabilities: frozenset[ActorResourceCapability] = field(default_factory=frozenset)
     required_capabilities: frozenset[ActorResourceCapability] = field(default_factory=frozenset)
     limit: UsageLimit | None = None
+    resolved_actor_profiles: SmrResolvedActorProfiles | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrLaunchPreflight:
@@ -1339,6 +1421,9 @@ class SmrLaunchPreflight:
             limit=coerce_usage_limit(
                 cast(Any, mapping.get("limit")),
                 field_name="limit",
+            ),
+            resolved_actor_profiles=SmrResolvedActorProfiles.from_wire(
+                mapping.get("resolved_actor_profiles")
             ),
         )
 
@@ -1508,6 +1593,8 @@ class RunProgress:
     pending_question_ids: list[str] = field(default_factory=list)
     recent_artifact_ids: list[str] = field(default_factory=list)
     recent_event_summary: list[dict[str, object]] = field(default_factory=list)
+    task_progress: list[dict[str, object]] = field(default_factory=list)
+    worker_progress_unavailable: dict[str, object] | None = None
     recommended_actions: list[RecommendedAction] = field(default_factory=list)
 
     @classmethod
@@ -1518,6 +1605,7 @@ class RunProgress:
         pending_question_ids = _optional_array(mapping, "pending_question_ids")
         recent_artifact_ids = _optional_array(mapping, "recent_artifact_ids")
         recent_event_summary = _optional_array(mapping, "recent_event_summary")
+        task_progress = _optional_array(mapping, "task_progress")
         return cls(
             state=_optional_string(mapping, "state"),
             phase=_optional_string(mapping, "phase"),
@@ -1536,6 +1624,14 @@ class RunProgress:
             recent_event_summary=[
                 _object_dict(item) for item in recent_event_summary if isinstance(item, Mapping)
             ],
+            task_progress=[
+                _object_dict(item) for item in task_progress if isinstance(item, Mapping)
+            ],
+            worker_progress_unavailable=(
+                _object_dict(mapping["worker_progress_unavailable"])
+                if isinstance(mapping.get("worker_progress_unavailable"), Mapping)
+                else None
+            ),
             recommended_actions=[
                 RecommendedAction.from_wire(item) for item in recommended_actions_payload
             ],

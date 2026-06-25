@@ -67,13 +67,13 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_request_resource_limit_extension",
-            description="Request a USD spend limit extension for a run or project, optionally resolving blockers and resuming work.",
+            description="Request a run resource-limit extension, optionally resolving blockers and resuming work.",
             input_schema=tool_schema(
                 {
                     "scope": {
                         "type": "string",
-                        "enum": ["run", "project"],
-                        "description": "Limit scope to extend.",
+                        "enum": ["run"],
+                        "description": "Limit scope to extend. Project-scoped run lookup is selected by also passing project_id.",
                     },
                     "run_id": {
                         "type": "string",
@@ -81,19 +81,31 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "project_id": {
                         "type": "string",
-                        "description": "Project id. Required for project scope; optional for project-scoped run lookup.",
+                        "description": "Optional project id for project-scoped run lookup.",
                     },
                     "limit_value": {
                         "type": "number",
-                        "description": "New absolute USD limit.",
+                        "description": "New absolute limit in the requested unit.",
                     },
                     "additional_value": {
                         "type": "number",
-                        "description": "USD amount to add to the current limit.",
+                        "description": "Amount to add to the current limit in the requested unit.",
+                    },
+                    "selector": {
+                        "type": "object",
+                        "description": "Optional resource selector, for example {'kind':'run','resource_id':'wallclock_seconds'}.",
                     },
                     "resource_limit_id": {
                         "type": "string",
                         "description": "Optional resource limit id being extended.",
+                    },
+                    "metric": {
+                        "type": "string",
+                        "description": "Optional limit metric, for example spend_usd or wallclock_seconds. Defaults to spend_usd only when selector/resource_limit_id are omitted.",
+                    },
+                    "unit": {
+                        "type": "string",
+                        "description": "Optional unit. Must match the metric, for example usd for spend_usd or seconds for wallclock_seconds.",
                     },
                     "reason": {
                         "type": "string",
@@ -129,6 +141,20 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
                 required=["project_id"],
             ),
             handler=server._tool_get_project_usage,
+        ),
+        ToolDefinition(
+            name="smr_get_project_economics",
+            description="Fetch canonical project economics rollups.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Project id.",
+                    },
+                },
+                required=["project_id"],
+            ),
+            handler=server._tool_get_project_economics,
         ),
     ]
 

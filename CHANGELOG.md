@@ -2,6 +2,53 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.12.0 — 2026-06-25
+
+### Added
+
+- **`SynthClient().research.tag`** — Synth Tag beta session API for delegated Managed Research work:
+  - `create_session(...)` starts a Tag session and bound SMR run.
+  - `get_session(session_id)` returns coarse status and terminal receipt.
+  - `send_message(session_id, ...)` steers the same active run without starting a new run.
+  - `get_default_scope()` returns the default organization Tag scope.
+- **Tag SDK models**: `TagSession`, `TagSessionCreateRequest`, `TagMessageRequest`, `TagSessionReceipt`, and `TagScope`.
+- **MCP tools**: `tag_create_session`, `tag_get_session`, and `tag_send_message`.
+- **Example**: `examples/tag_delegate_smoke.py` for delegate, steer, and receipt smoke checks.
+
+### Notes
+
+- Pair with backend `/api/tag/v1` routes and the `tag_steward` runbook on the same release train.
+- Production proof: Tag smoke session `b5cd5bf9-c1a7-46db-a5a2-799ca1816c8b`, run `ba255a34-0da3-4007-8ac3-0c677d836d85`, receipt `state=done`, artifact `/smr/work-products/5eae8c7a-6bf4-54e8-93a5-96401fb237f7/content`.
+
+## 0.11.7 — 2026-06-25
+
+### Added
+
+- **`SmrAgentModel.X_AI_GROK_BUILD`** (`x-ai/grok-build`) — typed SDK/MCP support for hosted SMR runs on xAI Grok Build via direct **xAI** routing (`codex_xai_grok_build` platform profile). Pairs with backend catalog row `grok-build-0.1` and metered xAI proxy.
+
+### Changed
+
+- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the supported public Grok 4.x model. Retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
+
+### Fixed
+
+- **xAI chat compatibility (backend + contract):** upstream xAI requests no longer send OpenAI-style penalty fields that caused streaming disconnects or hidden provider errors on Grok paths.
+
+## 0.11.6 — 2026-06-24
+
+### Added
+
+- **`client.promotions`** namespace — typed SMR promotion registry SDK:
+  - `list_public()`, `mine()`, `claim(campaign_id)` for `GET /smr/promotions`,
+    `GET /smr/promotions/mine`, and `POST /smr/promotions/{campaign_id}/claim`.
+  - Admin helpers: `list_admin_campaigns()`, `upsert_admin_campaign(...)`,
+    `retire_admin_campaign(campaign_id)`.
+
+### Notes
+
+- Pair with backend promotions registry routes (Phases 0–3) on the same deploy train.
+- OpenAPI contract synced from backend `smr_openapi.yaml`.
+
 ## 0.11.5 — 2026-06-24
 
 ### Added

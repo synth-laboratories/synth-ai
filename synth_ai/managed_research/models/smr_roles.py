@@ -15,6 +15,7 @@ from synth_ai.managed_research.models.smr_agent_models import (
     SmrAgentModel,
     coerce_smr_agent_model,
 )
+from synth_ai.managed_research.models.smr_providers import Provider, coerce_provider
 
 
 def _require_mapping(payload: object, *, field_name: str) -> Mapping[str, object]:
@@ -49,10 +50,60 @@ def _coerce_worker_subtype(
 
 
 @dataclass(frozen=True, slots=True)
+class RoleProviderRequirement:
+    provider_id: Provider
+    provider_required: bool = True
+    provider_model_id: str | None = None
+    route_alias: str | None = None
+
+    @classmethod
+    def from_wire(
+        cls,
+        payload: RoleProviderRequirement | Provider | str | Mapping[str, Any] | None,
+        *,
+        field_name: str = "roles.binding.provider",
+    ) -> RoleProviderRequirement | None:
+        if payload is None:
+            return None
+        if isinstance(payload, RoleProviderRequirement):
+            return payload
+        if isinstance(payload, (Provider, str)):
+            provider = coerce_provider(payload, field_name=field_name)
+            if provider is None:
+                return None
+            return cls(provider_id=provider)
+        mapping = _require_mapping(payload, field_name=field_name)
+        provider = coerce_provider(
+            mapping.get("provider_id") or mapping.get("provider") or mapping.get("kind"),
+            field_name=f"{field_name}.provider_id",
+        )
+        if provider is None:
+            raise ValueError(f"{field_name}.provider_id is required")
+        return cls(
+            provider_id=provider,
+            provider_required=bool(mapping.get("provider_required", True)),
+            provider_model_id=str(mapping.get("provider_model_id") or "").strip() or None,
+            route_alias=str(mapping.get("route_alias") or "").strip() or None,
+        )
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "provider_id": self.provider_id.value,
+            "provider_required": bool(self.provider_required),
+        }
+        if self.provider_model_id:
+            payload["provider_model_id"] = self.provider_model_id
+        if self.route_alias:
+            payload["route_alias"] = self.route_alias
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
 class RoleBinding:
     model: SmrAgentModel
     params: dict[str, Any] = field(default_factory=dict)
     agent_harness: SmrAgentHarness | None = None
+    provider: RoleProviderRequirement | Provider | str | Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         normalized_params = _optional_mapping(
@@ -65,6 +116,14 @@ class RoleBinding:
             field_name="roles.binding.agent_harness",
         )
         object.__setattr__(self, "agent_harness", resolved_harness)
+        object.__setattr__(
+            self,
+            "provider",
+            RoleProviderRequirement.from_wire(
+                self.provider,
+                field_name="roles.binding.provider",
+            ),
+        )
 
     @classmethod
     def from_wire(cls, payload: object) -> RoleBinding:
@@ -95,6 +154,10 @@ class RoleBinding:
             model=model,
             params=params or {},
             agent_harness=harness or kind,
+            provider=RoleProviderRequirement.from_wire(
+                mapping.get("provider"),
+                field_name="roles.binding.provider",
+            ),
         )
 
     def to_wire(self) -> dict[str, Any]:
@@ -103,6 +166,8 @@ class RoleBinding:
             payload["params"] = dict(self.params)
         if self.agent_harness is not None:
             payload["agent_harness"] = self.agent_harness.value
+        if self.provider is not None:
+            payload["provider"] = self.provider.to_wire()
         return payload
 
 
@@ -268,6 +333,7 @@ def coerce_smr_role_bindings(
 
 __all__ = [
     "RoleBinding",
+    "RoleProviderRequirement",
     "SmrRoleBindings",
     "WorkerRolePalette",
     "coerce_smr_role_bindings",

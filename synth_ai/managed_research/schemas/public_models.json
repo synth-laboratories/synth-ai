@@ -4,118 +4,73 @@
     {
       "id": "gpt-5.3-codex",
       "display_group": "standard_codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "provider": "openai",
-      "route_kind": "codex_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "gpt-5.3-codex-spark",
       "display_group": "standard_codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "provider": "openai",
-      "route_kind": "codex_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "gpt-5.4",
       "display_group": "standard_codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "provider": "openai",
-      "route_kind": "codex_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "gpt-5.5",
       "display_group": "standard_codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "provider": "openai",
-      "route_kind": "codex_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "gpt-5.4-mini",
       "display_group": "standard_codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "provider": "openai",
-      "route_kind": "codex_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "gpt-5.4-nano",
-      "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openai_api_pool",
-      "provider": "openai",
-      "route_kind": "api_proxy_pool",
-      "public": true
-    },
-    {
-      "id": "gpt-oss-120b",
-      "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "groq_api_pool",
-      "provider": "groq",
-      "route_kind": "api_proxy_pool",
+      "display_group": "standard_codex",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "anthropic/claude-sonnet-4-6",
       "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "anthropic_api_pool",
-      "provider": "anthropic",
-      "route_kind": "api_proxy_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "anthropic/claude-haiku-4-5-20251001",
       "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "anthropic_api_pool",
-      "provider": "anthropic",
-      "route_kind": "api_proxy_pool",
-      "public": true
-    },
-    {
-      "id": "x-ai/grok-4.1-fast",
-      "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openrouter_pool",
-      "provider": "openrouter",
-      "route_kind": "api_proxy_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "x-ai/grok-4.3",
       "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openrouter_pool",
-      "provider": "openrouter",
-      "route_kind": "api_proxy_pool",
+      "launch_lane": "",
       "public": true
     },
     {
-      "id": "x-ai/grok-4.20-beta",
+      "id": "x-ai/grok-build",
       "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openrouter_pool",
-      "provider": "openrouter",
-      "route_kind": "api_proxy_pool",
+      "launch_lane": "",
       "public": true
     },
     {
       "id": "moonshotai/kimi-k2.6",
       "display_group": "additional_first_launch",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openrouter_pool",
-      "provider": "openrouter",
-      "route_kind": "api_proxy_pool",
+      "launch_lane": "",
+      "public": true
+    },
+    {
+      "id": "baseten/zai-org/GLM-5.2",
+      "display_group": "standard_baseten_direct",
+      "launch_lane": "",
       "public": true
     }
   ]

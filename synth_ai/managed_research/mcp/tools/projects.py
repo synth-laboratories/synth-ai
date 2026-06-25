@@ -36,8 +36,6 @@ _REMOVED_PROJECT_TOOL_NAMES = {
     "smr_list_project_experiment_results",
     "smr_rank_project_experiment_results",
     "smr_open_ended_questions",
-    "smr_get_objective_status",
-    "smr_milestones",
     "smr_directed_effort_outcomes",
 }
 
@@ -948,6 +946,41 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_download_workspace_archive,
         ),
         ToolDefinition(
+            name="smr_download_code",
+            description=(
+                "Download project code, or a run-scoped immutable code snapshot when run_id is provided, "
+                "to a tarball on the machine running this MCP server. This is the user-facing alias for "
+                "the backend workspace archive."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "run_id": {
+                        "type": "string",
+                        "description": "Optional run id for immutable run-scoped code snapshot resolution.",
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Absolute or home-relative path for the .tar.gz file (e.g. ~/smr-code.tar.gz).",
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": "HTTP timeout for the download in seconds (default 600).",
+                    },
+                    "api_key": {
+                        "type": "string",
+                        "description": "Optional Synth API key override.",
+                    },
+                    "backend_base": {
+                        "type": "string",
+                        "description": "Optional backend base override.",
+                    },
+                },
+                required=["project_id", "output_path"],
+            ),
+            handler=server._tool_download_code,
+        ),
+        ToolDefinition(
             name="smr_open_ended_questions",
             description="List, create, fetch, patch, or transition project-scoped open-ended questions.",
             input_schema=tool_schema(
@@ -973,14 +1006,26 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_objectives",
-            description="List runtime-managed project objectives exposed by the backend contract.",
+            description=(
+                "List runtime-managed project objectives and record task-linked "
+                "objective progress claims."
+            ),
             input_schema=tool_schema(
                 {
                     "operation": {
                         "type": "string",
-                        "enum": [ObjectiveToolOperation.LIST.value],
+                        "enum": [
+                            ObjectiveToolOperation.LIST.value,
+                            ObjectiveToolOperation.PROGRESS.value,
+                            ObjectiveToolOperation.CLAIMS.value,
+                            ObjectiveToolOperation.CLAIM.value,
+                        ],
                     },
                     "project_id": {"type": "string", "description": "Managed research project id."},
+                    "objective_id": {
+                        "type": "string",
+                        "description": "Objective id for progress/claims/claim.",
+                    },
                     "kind": {
                         "type": "string",
                         "enum": ["open_ended_question", "directed_effort_outcome"],
@@ -989,6 +1034,15 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     "run_id": {
                         "type": "string",
                         "description": "Optional run filter when listing.",
+                    },
+                    "limit": {"type": "integer", "description": "Optional list limit."},
+                    "payload": {
+                        "type": "object",
+                        "description": (
+                            "Progress-claim payload for operation=claim. Include "
+                            "summary, optional run_id, task_id, percent_complete, "
+                            "evidence_refs, expected_remaining_work, and metadata."
+                        ),
                     },
                 },
                 required=["operation", "project_id"],
@@ -1025,7 +1079,12 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_milestones",
-            description="List, create, fetch, patch, or transition project milestones.",
+            description=(
+                "List, create, fetch, patch, or transition objective-scoped project "
+                "milestones. To align a milestone with a repo task, use the same "
+                "milestone_key/proposal_correlation_id that plan_tasks assigns and "
+                "include task context in metadata."
+            ),
             input_schema=tool_schema(
                 {
                     "operation": {
@@ -1050,7 +1109,12 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     "limit": {"type": "integer", "description": "Optional list limit."},
                     "payload": {
                         "type": "object",
-                        "description": "Create, patch, or transition payload.",
+                        "description": (
+                            "Create, patch, or transition payload. Creates require "
+                            "parent_kind, parent_id, milestone_kind, title, objective; "
+                            "patch/transition require expected_revision. Use "
+                            "proposal_correlation_id as the task milestone_key."
+                        ),
                     },
                 },
                 required=["operation", "project_id"],

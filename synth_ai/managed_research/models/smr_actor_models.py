@@ -10,6 +10,10 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
+from synth_ai.managed_research.models.smr_actor_policy_data import (
+    SMR_ACTOR_MODEL_POLICY,
+    SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
+)
 from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel, coerce_smr_agent_model
 
 
@@ -59,67 +63,6 @@ SMR_ACTOR_SUBTYPE_VALUES_BY_TYPE: dict[str, tuple[str, ...]] = {
     SmrActorType.WORKER.value: SMR_WORKER_SUBTYPE_VALUES,
 }
 
-SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
-    SmrAgentModel.GPT_5_4_MINI.value,
-    SmrAgentModel.GPT_5_4.value,
-    SmrAgentModel.GPT_5_4_NANO.value,
-    SmrAgentModel.GPT_OSS_120B.value,
-    SmrAgentModel.ANTHROPIC_CLAUDE_SONNET_4_6.value,
-    SmrAgentModel.ANTHROPIC_CLAUDE_HAIKU_4_5_20251001.value,
-    SmrAgentModel.X_AI_GROK_4_1_FAST.value,
-    SmrAgentModel.X_AI_GROK_4_3.value,
-    SmrAgentModel.X_AI_GROK_4_20_BETA.value,
-    SmrAgentModel.MOONSHOTAI_KIMI_K2_6.value,
-    SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2.value,
-)
-
-SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
-    {
-        "actor_type": SmrActorType.ORCHESTRATOR.value,
-        "actor_subtype": SmrOrchestratorSubtype.MAIN.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.MAIN.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.TASK_COMPLETION.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.RUN_COMPLETION.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.SAFETY.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.REVIEWER.value,
-        "actor_subtype": SmrReviewerSubtype.OBJECTIVE.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-    {
-        "actor_type": SmrActorType.WORKER.value,
-        "actor_subtype": SmrWorkerSubtype.ENGINEER.value,
-        "permitted_models": [
-            SmrAgentModel.GPT_5_3_CODEX.value,
-            SmrAgentModel.GPT_5_3_CODEX_SPARK.value,
-            *SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
-        ],
-    },
-    {
-        "actor_type": SmrActorType.WORKER.value,
-        "actor_subtype": SmrWorkerSubtype.RESEARCHER.value,
-        "permitted_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
-    },
-)
-
 
 @dataclass(frozen=True, slots=True)
 class SmrActorModelAssignment:
@@ -127,6 +70,8 @@ class SmrActorModelAssignment:
     actor_subtype: SmrActorSubtype
     agent_model: SmrAgentModel
     agent_model_params: dict[str, Any] | None = None
+    agent_harness: str | None = None
+    provider: dict[str, Any] | None = None
 
     def as_payload(self) -> dict[str, Any]:
         payload = {
@@ -136,6 +81,11 @@ class SmrActorModelAssignment:
         }
         if self.agent_model_params:
             payload["agent_model_params"] = dict(self.agent_model_params)
+        if self.agent_harness:
+            payload["agent_harness"] = self.agent_harness
+            payload["agent_kind"] = self.agent_harness
+        if self.provider:
+            payload["provider"] = dict(self.provider)
         return payload
 
 
@@ -236,11 +186,27 @@ def coerce_smr_actor_model_assignment(
         params = value.get("agent_model_params")
         if params is not None and not isinstance(params, Mapping):
             raise ValueError(f"{field_name}.agent_model_params must be an object when provided")
+        agent_harness = (
+            str(value.get("agent_harness") or value.get("agent_kind") or "").strip() or None
+        )
+        provider_raw = value.get("provider")
+        if provider_raw is None:
+            provider_id = str(value.get("provider_id") or "").strip()
+            provider = {"provider_id": provider_id} if provider_id else None
+        elif isinstance(provider_raw, str):
+            provider_id = provider_raw.strip()
+            provider = {"provider_id": provider_id} if provider_id else None
+        elif isinstance(provider_raw, Mapping):
+            provider = {str(key): item for key, item in provider_raw.items()}
+        else:
+            raise ValueError(f"{field_name}.provider must be an object or string when provided")
         assignment = SmrActorModelAssignment(
             actor_type=actor_type,
             actor_subtype=actor_subtype,
             agent_model=agent_model,
             agent_model_params=dict(params) if isinstance(params, Mapping) else None,
+            agent_harness=agent_harness,
+            provider=provider,
         )
     permitted = _permitted_models_for_actor(assignment.actor_type, assignment.actor_subtype)
     if assignment.agent_model.value not in permitted:
