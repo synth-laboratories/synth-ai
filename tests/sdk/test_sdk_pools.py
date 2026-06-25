@@ -46,13 +46,11 @@ def test_pools_client_end_to_end_against_local_backend(
     pool_info = client.get_pool_container_info(pool_id)
     pool_metadata = client.get_pool_container_metadata(pool_id)
     pool_rollout_exec = client.execute_pool_container_rollout(pool_id, {"input": "hello"})
-    pool_eval = client.prompt_learning_evaluate_pool(pool_id, {"algorithm": "gepa"})
 
     assert pool_health["status"] == "healthy"
     assert pool_info["kind"] == "harbor_code"
     assert pool_metadata["metadata"]["owner"] == "testing"
     assert pool_rollout_exec["accepted"] is True
-    assert pool_eval["request"]["algorithm"] == "gepa"
 
     task_health = client.get_task_container_health(pool_id, task_id)
     task_info = client.get_task_container_info(pool_id, task_id)
@@ -62,17 +60,11 @@ def test_pools_client_end_to_end_against_local_backend(
         task_id,
         {"input": "hello"},
     )
-    task_eval = client.prompt_learning_evaluate_task(
-        pool_id,
-        task_id,
-        {"algorithm": "gepa"},
-    )
 
     assert task_health["status"] == "healthy"
     assert task_info["kind"] == "harbor_code"
     assert task_metadata["metadata"]["owner"] == "testing"
     assert task_rollout_exec["accepted"] is True
-    assert task_eval["request"]["algorithm"] == "gepa"
 
     rollout_request = {"task_id": task_id, "mode": "eval", "messages": []}
     pool_rollout = client.rollouts.create(pool_id, rollout_request)

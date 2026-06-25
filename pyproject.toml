@@ -19,7 +19,6 @@ dependencies = [
 synth-ai = "synth_ai.cli:cli"
 synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
 synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
-synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
 synth-ai-research-factory-standup = "synth_ai.managed_research.factory_standup:main"
 
 [project.optional-dependencies]
@@ -67,7 +66,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai", "synth_ai.*", "readme_runs", "readme_runs.*"]
+include = ["synth_ai", "synth_ai.*"]
 exclude = [
     "docs*",
     "tests*",

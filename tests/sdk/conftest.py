@@ -9,7 +9,7 @@ import httpx
 import pytest
 import uvicorn
 
-from testing.fake_backend import TEST_API_KEY, build_fake_backend
+from fake_backend import TEST_API_KEY, build_fake_backend
 
 
 @pytest.fixture(scope="session")

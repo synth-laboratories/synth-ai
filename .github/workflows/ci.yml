@@ -111,6 +111,8 @@ jobs:
         if: steps.sdk_tests.outputs.available != 'true'
         run: |
           echo "Private SDK pytest suite is unavailable in this GitHub Actions context."
+      - name: Run in-repo SDK fake-backend suite
+        run: uv run --group dev pytest tests/sdk/ -q --maxfail=1
       - name: Run Managed Research contract suite
         run: |
           uv run --group dev pytest tests/managed_research/ -q --timeout=300
