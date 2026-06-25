@@ -1,5 +1,6 @@
 """Narrow SDK exports for the Python-only containers platform."""
 
+from synth_ai.sdk.base import SynthBaseClient, resolve_api_key, resolve_backend_base
 from synth_ai.sdk.containers import (
     AsyncContainersClient,
     Container,
@@ -21,7 +22,6 @@ from synth_ai.sdk.openai_agents_sdk import (
     AsyncOpenAIAgentsSdkClient,
     OpenAIAgentsSdkClient,
 )
-from synth_ai.sdk.base import SynthBaseClient, resolve_api_key, resolve_backend_base
 from synth_ai.sdk.pagination import AsyncPage, SyncPage, page_from_wire
 from synth_ai.sdk.pools import (
     CANONICAL_ROLLOUT_REQUEST_KEYS,

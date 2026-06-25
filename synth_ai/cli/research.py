@@ -12,7 +12,9 @@ from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 
 def _resolve_backend_url(backend_url: str | None) -> str:
-    return normalize_backend_base(backend_url or os.environ.get("SYNTH_BACKEND_URL") or BACKEND_URL_BASE)
+    return normalize_backend_base(
+        backend_url or os.environ.get("SYNTH_BACKEND_URL") or BACKEND_URL_BASE
+    )
 
 
 def _resolve_api_key(api_key: str | None) -> str:
@@ -53,7 +55,9 @@ def tag() -> None:
 
 
 @tag.command("smoke")
-@click.option("--request", default="Summarize factory status", show_default=True, help="Tag session request.")
+@click.option(
+    "--request", default="Summarize factory status", show_default=True, help="Tag session request."
+)
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
 def tag_smoke(request: str, api_key: str | None, backend_url: str | None) -> None:

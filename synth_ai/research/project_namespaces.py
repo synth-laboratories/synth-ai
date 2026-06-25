@@ -16,13 +16,17 @@ from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
 
 class ResearchProjectsSetupAPI:
+    """Prepare projects for launch (onboarding + runnable setup)."""
+
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
 
     def get(self, project_id: str) -> SmrProjectSetup:
+        """Return current setup/onboarding state for a project."""
         return self._session.setup.get(project_id)
 
     def prepare(self, project_id: str) -> SmrProjectSetup:
+        """Run setup steps required before ``runs.check_preflight`` succeeds."""
         return self._session.setup.prepare(project_id)
 
     def start_onboarding(self, project_id: str) -> dict[str, Any]:
@@ -51,6 +55,8 @@ class ResearchProjectsSetupAPI:
 
 
 class ResearchProjectsWorkspaceAPI:
+    """Upload and download project workspace inputs and archives."""
+
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
 
@@ -167,7 +173,7 @@ class ResearchProjectsObjectivesAPI:
         *,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._session.list_directed_effort_outcomes(
             project_id,
             run_id=run_id,
@@ -181,7 +187,7 @@ class ResearchProjectsObjectivesAPI:
         kind: str | None = None,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._session.list_objectives(
             project_id,
             kind=kind,
@@ -228,7 +234,7 @@ class ResearchProjectsMilestonesAPI:
         *,
         run_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         return self._session.list_milestones(
             project_id,
             run_id=run_id,

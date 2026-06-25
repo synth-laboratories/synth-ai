@@ -26,7 +26,9 @@ class AsyncPage(Generic[ItemT]):
     has_more: bool = False
 
 
-def page_from_wire(payload: dict[str, object] | list[object]) -> tuple[list[object], str | None, bool]:
+def page_from_wire(
+    payload: dict[str, object] | list[object],
+) -> tuple[list[object], str | None, bool]:
     if isinstance(payload, list):
         return list(payload), None, False
     items = payload.get("items")

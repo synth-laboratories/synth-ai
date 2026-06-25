@@ -16,6 +16,8 @@ from synth_ai.research.errors import (
     ResearchProjectMonthlyBudgetExhaustedError,
     ResearchStructuredDenialError,
 )
+from synth_ai.research.factories import ResearchFactoriesAPI
+from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
     ResearchCreateProjectResult,
     ResearchProject,
@@ -23,10 +25,8 @@ from synth_ai.research.models import (
     ResearchRunbookPreset,
     ResearchWorkProduct,
 )
-from synth_ai.research.factories import ResearchFactoriesAPI
-from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
-from synth_ai.research.runs import ResearchRunHandle, ResearchRunSession, ResearchRunsAPI
+from synth_ai.research.runs import ResearchRunHandle, ResearchRunsAPI, ResearchRunSession
 from synth_ai.research.secrets import ResearchSecretsAPI
 
 __all__ = [

@@ -2310,9 +2310,7 @@ class ManagedResearchClient:
                     if key not in {"file_count", "bytes_uploaded", "uploaded_files"}
                 }
             )
-            merged["file_count"] = int(merged["file_count"]) + int(
-                response.get("file_count") or 0
-            )
+            merged["file_count"] = int(merged["file_count"]) + int(response.get("file_count") or 0)
             merged["bytes_uploaded"] = int(merged["bytes_uploaded"]) + int(
                 response.get("bytes_uploaded") or 0
             )

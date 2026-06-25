@@ -16,12 +16,11 @@ from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunCostSummary,
 )
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
-from synth_ai.managed_research.models.run_observability import RunObservabilitySnapshot
-from synth_ai.managed_research.sdk.runs import RunHandle
+from synth_ai.sdk.pagination import SyncPage
 
 
 class _RunReadoutBound:
-    def __init__(self, handle: RunHandle) -> None:
+    def __init__(self, handle: Any) -> None:
         self._handle = handle
 
 
@@ -44,7 +43,9 @@ class ResearchRunUsageLimitsAPI(_RunReadoutBound):
 
 
 class ResearchRunUsageAPI(_RunReadoutBound):
-    def __init__(self, handle: RunHandle) -> None:
+    """Token, cost, and limit readouts for a run."""
+
+    def __init__(self, handle: Any) -> None:
         super().__init__(handle)
         self._actors: ResearchRunUsageActorsAPI | None = None
         self._cost: ResearchRunUsageCostAPI | None = None
@@ -69,11 +70,15 @@ class ResearchRunUsageAPI(_RunReadoutBound):
         return self._limits
 
     def get(self) -> SmrRunUsage:
+        """Return canonical usage totals for the run."""
         return self._handle._client.get_run_usage(self._handle.run_id)
 
 
 class ResearchRunProgressAPI(_RunReadoutBound):
+    """High-level progress summary for dashboards and polling loops."""
+
     def get(self) -> dict[str, Any]:
+        """Return coarse progress fields (phase, percent, status text)."""
         return self._handle._client.get_run_progress(
             self._handle.project_id,
             self._handle.run_id,
@@ -81,6 +86,8 @@ class ResearchRunProgressAPI(_RunReadoutBound):
 
 
 class ResearchRunSnapshotsAPI(_RunReadoutBound):
+    """Observability snapshots (control vs full detail)."""
+
     def get(
         self,
         *,
@@ -92,6 +99,12 @@ class ResearchRunSnapshotsAPI(_RunReadoutBound):
         timeline_limit: int = 10,
         message_limit: int = 8,
     ) -> Any:
+        """Return an observability snapshot for the run.
+
+        Args:
+            detail: ``"control"`` for operator dashboard fields or ``"full"`` for
+                the expanded observability projection.
+        """
         if detail == "full":
             return self._handle._client.get_run_observability_snapshot_full(
                 self._handle.project_id,
@@ -131,7 +144,7 @@ class ResearchRunEventsTasksAPI(_RunReadoutBound):
 
 
 class ResearchRunEventsAPI(_RunReadoutBound):
-    def __init__(self, handle: RunHandle) -> None:
+    def __init__(self, handle: Any) -> None:
         super().__init__(handle)
         self._objectives: ResearchRunEventsObjectivesAPI | None = None
         self._tasks: ResearchRunEventsTasksAPI | None = None
@@ -170,7 +183,7 @@ class ResearchRunTasksAPI(_RunReadoutBound):
         *,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[Any]:
+    ) -> List[Any]:
         return self._handle._client.list_task_summaries(
             self._handle.project_id,
             run_id=self._handle.run_id,
@@ -185,7 +198,7 @@ class ResearchRunMessageQueueMessagesAPI(_RunReadoutBound):
         *,
         thread_id: str | None = None,
         limit: int | None = None,
-    ) -> list[Any]:
+    ) -> List[Any]:
         return self._handle.message_queue_messages(thread_id=thread_id, limit=limit)
 
     def send(self, *, body: str, **kwargs: Any) -> dict[str, Any]:
@@ -193,7 +206,7 @@ class ResearchRunMessageQueueMessagesAPI(_RunReadoutBound):
 
 
 class ResearchRunMessageQueueThreadsAPI(_RunReadoutBound):
-    def list(self, *, limit: int | None = None) -> list[Any]:
+    def list(self, *, limit: int | None = None) -> List[Any]:
         return self._handle.message_queue_threads(limit=limit)
 
 
@@ -203,12 +216,12 @@ class ResearchRunMessageQueueInteractionsAPI(_RunReadoutBound):
         *,
         status: str | None = None,
         limit: int | None = None,
-    ) -> list[Any]:
+    ) -> List[Any]:
         return self._handle.message_queue_interactions(status=status, limit=limit)
 
 
 class ResearchRunMessageQueueAPI(_RunReadoutBound):
-    def __init__(self, handle: RunHandle) -> None:
+    def __init__(self, handle: Any) -> None:
         super().__init__(handle)
         self._messages: ResearchRunMessageQueueMessagesAPI | None = None
         self._threads: ResearchRunMessageQueueThreadsAPI | None = None
@@ -253,6 +266,8 @@ class ResearchRunRuntimeMessagesAPI(_RunReadoutBound):
 
 
 class ResearchRunTranscriptAPI(_RunReadoutBound):
+    """Transcript pages and cursor-based pagination for run events."""
+
     def get(
         self,
         *,
@@ -261,6 +276,7 @@ class ResearchRunTranscriptAPI(_RunReadoutBound):
         participant_session_id: str | None = None,
         view: str | None = None,
     ) -> dict[str, Any]:
+        """Fetch a transcript page (use ``get_page`` for ``SyncPage`` iteration)."""
         return self._handle._client.runs.transcript(
             self._handle.run_id,
             cursor=cursor,
@@ -276,9 +292,7 @@ class ResearchRunTranscriptAPI(_RunReadoutBound):
         limit: int = 200,
         participant_session_id: str | None = None,
         view: str | None = None,
-    ) -> "SyncPage[dict[str, Any]]":
-        from synth_ai.sdk.pagination import SyncPage
-
+    ) -> SyncPage[dict[str, Any]]:
         payload = self.get(
             cursor=cursor,
             limit=limit,
@@ -286,7 +300,9 @@ class ResearchRunTranscriptAPI(_RunReadoutBound):
             view=view,
         )
         events = payload.get("events") if isinstance(payload, dict) else None
-        normalized = [item for item in events if isinstance(item, dict)] if isinstance(events, list) else []
+        normalized = (
+            [item for item in events if isinstance(item, dict)] if isinstance(events, list) else []
+        )
         next_cursor = (
             str(payload.get("next_cursor") or "").strip() or None
             if isinstance(payload, dict)
@@ -300,7 +316,7 @@ class ResearchRunTranscriptAPI(_RunReadoutBound):
 
 
 class ResearchRunMilestonesAPI(_RunReadoutBound):
-    def list_primary_parent(self) -> list[dict[str, Any]]:
+    def list_primary_parent(self) -> List[dict[str, Any]]:
         return self._handle._client.list_run_primary_parent_milestones(
             self._handle.run_id,
             project_id=self._handle.project_id,
@@ -321,12 +337,12 @@ class ResearchRunWorkProductsContentAPI(_RunReadoutBound):
 
 
 class ResearchRunTrainedModelsAPI(_RunReadoutBound):
-    def list(self) -> list[Any]:
+    def list(self) -> List[Any]:
         return self._handle._client.trained_models.list_for_run(self._handle.run_id)
 
 
 class ResearchRunWorkProductsEvalPackagesAPI(_RunReadoutBound):
-    def list(self) -> list[Any]:
+    def list(self) -> List[Any]:
         return self._handle._client.work_products.list_container_eval_packages(
             self._handle.project_id,
             self._handle.run_id,
@@ -334,7 +350,7 @@ class ResearchRunWorkProductsEvalPackagesAPI(_RunReadoutBound):
 
 
 class ResearchRunWorkProductsAPI(_RunReadoutBound):
-    def __init__(self, handle: RunHandle) -> None:
+    def __init__(self, handle: Any) -> None:
         super().__init__(handle)
         self._content: ResearchRunWorkProductsContentAPI | None = None
         self._eval_packages: ResearchRunWorkProductsEvalPackagesAPI | None = None
@@ -351,7 +367,7 @@ class ResearchRunWorkProductsAPI(_RunReadoutBound):
             self._eval_packages = ResearchRunWorkProductsEvalPackagesAPI(self._handle)
         return self._eval_packages
 
-    def list(self) -> list[Any]:
+    def list(self) -> List[Any]:
         return self._handle._client.work_products.list_for_run(
             self._handle.project_id,
             self._handle.run_id,
@@ -380,7 +396,7 @@ class ResearchRunArtifactsContentAPI(_RunReadoutBound):
 
 
 class ResearchRunArtifactsAPI(_RunReadoutBound):
-    def __init__(self, handle: RunHandle) -> None:
+    def __init__(self, handle: Any) -> None:
         super().__init__(handle)
         self._manifest: ResearchRunArtifactsManifestAPI | None = None
         self._content: ResearchRunArtifactsContentAPI | None = None
@@ -403,7 +419,7 @@ class ResearchRunArtifactsAPI(_RunReadoutBound):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[Any]:
+    ) -> List[Any]:
         return self._handle._client.list_run_artifacts(
             self._handle.run_id,
             project_id=self._handle.project_id,
@@ -511,7 +527,11 @@ class ResearchRunTickingAPI(_RunReadoutBound):
 
 
 class ResearchRunReadoutsMixin:
-    """Lazy nested readout namespaces for a run handle."""
+    """Lazy nested readout namespaces on :class:`ResearchRunHandle`.
+
+    Access via ``handle.usage``, ``handle.progress``, ``handle.snapshots``,
+    ``handle.transcript``, ``handle.message_queue``, etc.
+    """
 
     _usage_api: ResearchRunUsageAPI | None = None
     _progress_api: ResearchRunProgressAPI | None = None
@@ -538,18 +558,21 @@ class ResearchRunReadoutsMixin:
 
     @property
     def usage(self) -> ResearchRunUsageAPI:
+        """Usage, cost, and limit readouts."""
         if self._usage_api is None:
             self._usage_api = ResearchRunUsageAPI(self)  # type: ignore[arg-type]
         return self._usage_api
 
     @property
     def progress(self) -> ResearchRunProgressAPI:
+        """Coarse progress for polling UIs."""
         if self._progress_api is None:
             self._progress_api = ResearchRunProgressAPI(self)  # type: ignore[arg-type]
         return self._progress_api
 
     @property
     def snapshots(self) -> ResearchRunSnapshotsAPI:
+        """Observability snapshots (control or full)."""
         if self._snapshots_api is None:
             self._snapshots_api = ResearchRunSnapshotsAPI(self)  # type: ignore[arg-type]
         return self._snapshots_api
@@ -568,6 +591,7 @@ class ResearchRunReadoutsMixin:
 
     @property
     def message_queue(self) -> ResearchRunMessageQueueAPI:
+        """Operator message queue threads and outbound messages."""
         if self._message_queue_api is None:
             self._message_queue_api = ResearchRunMessageQueueAPI(self)  # type: ignore[arg-type]
         return self._message_queue_api
@@ -580,6 +604,7 @@ class ResearchRunReadoutsMixin:
 
     @property
     def transcript(self) -> ResearchRunTranscriptAPI:
+        """Transcript pages with optional cursor pagination."""
         if self._transcript_api is None:
             self._transcript_api = ResearchRunTranscriptAPI(self)  # type: ignore[arg-type]
         return self._transcript_api

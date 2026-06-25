@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterator
-from typing import Any, List
+from typing import Any, List, cast
 
 from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimitProgress,
@@ -185,7 +185,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         _deprecated_method(
             "ResearchRunHandle.list_artifacts()",
             "handle.artifacts.list(...)",
@@ -216,6 +216,14 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        """Validate a launch request before starting a run.
+
+        Call after ``projects.setup.prepare`` to surface blockers (missing repo,
+        secrets, budget caps) without creating a run record.
+
+        Returns:
+            Preflight payload with ``allowed`` flag and structured denials.
+        """
         return self._session.runs.launch_preflight(
             project_id,
             project=project,
@@ -248,6 +256,16 @@ class ResearchRunsAPI:
         objective: str | None = None,
         **kwargs: Any,
     ) -> ResearchRunHandle | dict[str, Any]:
+        """Launch a Managed Research run.
+
+        When ``objective`` is provided, starts a run with that primary message and
+        returns a :class:`ResearchRunHandle`. Otherwise triggers a configured run
+        and may return a wire dict (legacy drivers).
+
+        Example:
+            >>> handle = research.runs.create(project_id, work_mode="standard")
+            >>> handle.progress.get()
+        """
         run_kwargs = _research_run_kwargs(kwargs)
         if objective is not None:
             handle = self._session.runs.start(
@@ -349,6 +367,13 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> ResearchRunHandle:
+        """Open a run-scoped session handle for readouts and lifecycle control.
+
+        Accepts ``(project_id, run_id)``, ``(run_id,)`` when project is implied,
+        or keyword forms. Prefer nested readouts on the returned handle:
+
+        ``handle.usage.get()``, ``handle.snapshots.get()``, ``handle.transcript.get()``.
+        """
         if len(args) > 2:
             raise TypeError("get() accepts at most two positional arguments")
         if len(args) == 1:
@@ -419,6 +444,7 @@ class ResearchRunsAPI:
         active_only: bool = False,
         **kwargs: Any,
     ) -> List[dict[str, Any]]:
+        """List runs for a project (newest first)."""
         return self._session.runs.list(project_id, active_only=active_only, **kwargs)
 
     def list_active(self, project_id: str, **kwargs: Any) -> List[dict[str, Any]]:
@@ -435,7 +461,17 @@ class ResearchRunsAPI:
         poll_interval: float = 10.0,
         raise_if_failed: bool = False,
     ) -> ResearchRun:
-        return self.get(project_id, run_id, project=project).wait(
+        """Block until a run reaches a terminal state.
+
+        Args:
+            timeout: Max seconds to wait (``None`` waits indefinitely).
+            poll_interval: Seconds between status polls.
+            raise_if_failed: Raise when the run ends in a failed state.
+
+        Returns:
+            Final ``ResearchRun`` public state model.
+        """
+        return self.get(run_id=run_id, project_id=project_id, project=project).wait(
             timeout=timeout,
             poll_interval=poll_interval,
             raise_if_failed=raise_if_failed,
@@ -452,7 +488,7 @@ class ResearchRunsAPI:
         participant_session_id: str | None = None,
         view: str | None = None,
     ) -> dict[str, Any]:
-        return self.get(run_id=run_id, project_id=project_id, project=project).transcript(
+        return self.get(run_id=run_id, project_id=project_id, project=project).transcript.get(
             cursor=cursor,
             limit=limit,
             participant_session_id=participant_session_id,
@@ -556,6 +592,12 @@ class ResearchRunsAPI:
         limit: int | None = None,
         cursor: str | None = None,
     ) -> SyncPage[dict[str, Any]]:
+        """Fetch a paginated page of run logs.
+
+        Returns:
+            ``SyncPage`` with ``items``, ``next_cursor``, and ``has_more`` for
+            cursor-based iteration without hand-parsing wire payloads.
+        """
         from synth_ai.sdk.pagination import page_from_wire
 
         payload = self.logs(project_id, run_id, limit=limit, cursor=cursor)
@@ -566,7 +608,7 @@ class ResearchRunsAPI:
             raw_items = payload["logs"]
         elif isinstance(payload, dict) and isinstance(payload.get("records"), list):
             raw_items = payload["records"]
-        normalized = [item for item in raw_items if isinstance(item, dict)]
+        normalized = [cast(dict[str, Any], item) for item in raw_items if isinstance(item, dict)]
         return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
 
     def execution(
@@ -575,6 +617,7 @@ class ResearchRunsAPI:
         run_id: str,
         **kwargs: Any,
     ) -> Any:
+        """Return orchestrator execution metadata for a run."""
         return self._session.get_run_execution(project_id, run_id, **kwargs)
 
     def orchestrator(
@@ -582,6 +625,7 @@ class ResearchRunsAPI:
         project_id: str,
         run_id: str,
     ) -> dict[str, Any]:
+        """Return orchestrator state for a run (actors, phases, checkpoints)."""
         return self._session.get_run_orchestrator(project_id, run_id)
 
 
