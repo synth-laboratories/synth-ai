@@ -504,7 +504,9 @@ class TaskSummary:
                 or _optional_string(mapping, "identifier")
                 or _require_string(mapping, "id", label="task_summary.id")
             ),
-            kind=_optional_string(mapping, "kind") or _optional_string(mapping, "target_kind") or "task",
+            kind=_optional_string(mapping, "kind")
+            or _optional_string(mapping, "target_kind")
+            or "task",
             public_task_state=(
                 _optional_string(mapping, "public_task_state")
                 or _optional_string(mapping, "task_state")
@@ -517,9 +519,7 @@ class TaskSummary:
             task_affinity_key=_optional_string(mapping, "task_affinity_key"),
             input_keys=_optional_string_list(mapping.get("input_keys"), label="input_keys"),
             instructions_present=bool(_optional_bool(mapping, "instructions_present") or False),
-            acceptance_criteria_count=(
-                _optional_int(mapping, "acceptance_criteria_count") or 0
-            ),
+            acceptance_criteria_count=(_optional_int(mapping, "acceptance_criteria_count") or 0),
             agent=_optional_string(mapping, "agent"),
             model=_optional_string(mapping, "model"),
             worker_profile_id=_optional_string(mapping, "worker_profile_id"),
@@ -790,9 +790,7 @@ class RunTickingStatus:
             project_id=_require_string(mapping, "project_id", label="ticking.project_id"),
             run_id=_require_string(mapping, "run_id", label="ticking.run_id"),
             tick_mode=RunTickMode(_require_string(mapping, "tick_mode", label="ticking.tick_mode")),
-            manual_tick_pending_count=(
-                _optional_int(mapping, "manual_tick_pending_count") or 0
-            ),
+            manual_tick_pending_count=(_optional_int(mapping, "manual_tick_pending_count") or 0),
             active_manual_tick=(
                 RunManualTickRequest.from_wire(active_manual_tick)
                 if active_manual_tick is not None

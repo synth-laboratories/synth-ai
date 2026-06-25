@@ -187,8 +187,7 @@ def coerce_smr_actor_model_assignment(
         if params is not None and not isinstance(params, Mapping):
             raise ValueError(f"{field_name}.agent_model_params must be an object when provided")
         agent_harness = (
-            str(value.get("agent_harness") or value.get("agent_kind") or "").strip()
-            or None
+            str(value.get("agent_harness") or value.get("agent_kind") or "").strip() or None
         )
         provider_raw = value.get("provider")
         if provider_raw is None:

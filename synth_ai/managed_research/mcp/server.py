@@ -2676,8 +2676,7 @@ class ManagedResearchMcpServer:
                     payload=payload,
                 )
         raise ValueError(
-            "smr_milestones.operation must be one of: "
-            "list, create, get, patch, transition"
+            "smr_milestones.operation must be one of: list, create, get, patch, transition"
         )
 
     def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:

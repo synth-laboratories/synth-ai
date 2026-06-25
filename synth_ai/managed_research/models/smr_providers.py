@@ -320,9 +320,7 @@ def default_provider_routing_policy() -> ResourceRoutingPolicy:
 
 @dataclass(frozen=True)
 class ResourceProviderPolicy:
-    default: ResourceRoutingPolicy | None = field(
-        default_factory=default_provider_routing_policy
-    )
+    default: ResourceRoutingPolicy | None = field(default_factory=default_provider_routing_policy)
     agent_inference: ResourceRoutingPolicy | None = None
     experiment_inference: ResourceRoutingPolicy | None = None
 

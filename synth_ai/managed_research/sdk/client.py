@@ -506,8 +506,7 @@ def assert_hosted_launch_surface(
         return
     raise SmrHostedModelOverridesError(
         "agent_model and related actor execution fields require local_execution; "
-        "hosted runs use platform-resolved actor profiles. Rejected: "
-        + ", ".join(rejected),
+        "hosted runs use platform-resolved actor profiles. Rejected: " + ", ".join(rejected),
         rejected_fields=rejected,
         detail={"rejected_fields": rejected},
     )
@@ -4390,9 +4389,7 @@ class ManagedResearchClient:
         summaries = [dict(item) for item in items if isinstance(item, Mapping)]
         if run_id:
             summaries = [
-                item
-                for item in summaries
-                if str(item.get("run_id") or run_id).strip() == run_id
+                item for item in summaries if str(item.get("run_id") or run_id).strip() == run_id
             ]
         if objective_id:
             summaries = [
@@ -4401,15 +4398,8 @@ class ManagedResearchClient:
                 if str(item.get("objective_id") or objective_id).strip() == objective_id
             ]
         if kind:
-            summaries = [
-                item
-                for item in summaries
-                if str(item.get("kind") or "").strip() == kind
-            ]
-        return [
-            TaskSummary.from_wire(item)
-            for item in summaries
-        ]
+            summaries = [item for item in summaries if str(item.get("kind") or "").strip() == kind]
+        return [TaskSummary.from_wire(item) for item in summaries]
 
     def create_task(
         self,

@@ -50,8 +50,7 @@ def _coerce_dict(value: Any, *, field_name: str) -> dict[str, Any]:
 
 def _coerce_int_dict(value: Any, *, field_name: str) -> dict[str, int]:
     return {
-        str(key): int(item or 0)
-        for key, item in _coerce_dict(value, field_name=field_name).items()
+        str(key): int(item or 0) for key, item in _coerce_dict(value, field_name=field_name).items()
     }
 
 

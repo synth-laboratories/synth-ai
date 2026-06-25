@@ -1353,9 +1353,7 @@ class SmrResolvedActorProfiles:
         return cls(
             orchestrator=orchestrator,
             workers=tuple(workers),
-            default_worker_profile_id=(
-                str(default_worker) if default_worker else None
-            ),
+            default_worker_profile_id=(str(default_worker) if default_worker else None),
         )
 
 

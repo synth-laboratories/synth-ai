@@ -482,12 +482,8 @@ class SmrResourceLimitProgressItem:
             current_value=_optional_float_value(mapping, "current_value"),
             remaining_value=_optional_float_value(mapping, "remaining_value"),
             limit_quantity=SmrLimitQuantity.from_wire(mapping.get("limit_quantity")),
-            current_quantity=SmrLimitQuantity.from_wire(
-                mapping.get("current_quantity")
-            ),
-            remaining_quantity=SmrLimitQuantity.from_wire(
-                mapping.get("remaining_quantity")
-            ),
+            current_quantity=SmrLimitQuantity.from_wire(mapping.get("current_quantity")),
+            remaining_quantity=SmrLimitQuantity.from_wire(mapping.get("remaining_quantity")),
             used_percent=_optional_float_value(mapping, "used_percent"),
             unit=_require_string(mapping, "unit", label="resource limit progress item.unit"),
             state=_require_string(

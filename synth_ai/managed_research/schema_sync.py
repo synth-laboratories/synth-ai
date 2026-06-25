@@ -63,11 +63,7 @@ def _shared_top_level_model_ids(policies: list[dict[str, object]]) -> tuple[str,
         models = item.get("permitted_models")
         if not isinstance(models, list) or not models:
             continue
-        normalized = {
-            str(model_id).strip()
-            for model_id in models
-            if str(model_id).strip()
-        }
+        normalized = {str(model_id).strip() for model_id in models if str(model_id).strip()}
         if normalized:
             public_sets.append(normalized)
     if not public_sets:
@@ -93,20 +89,12 @@ def _normalize_actor_policy_entries(
         seen.add(key)
         models = item.get("permitted_models")
         if not isinstance(models, list) or not models:
-            raise ValueError(
-                f"Actor model policy entry '{key}' must define permitted_models"
-            )
+            raise ValueError(f"Actor model policy entry '{key}' must define permitted_models")
         permitted_models = list(
-            dict.fromkeys(
-                str(model_id).strip()
-                for model_id in models
-                if str(model_id).strip()
-            )
+            dict.fromkeys(str(model_id).strip() for model_id in models if str(model_id).strip())
         )
         if not permitted_models:
-            raise ValueError(
-                f"Actor model policy entry '{key}' must define permitted_models"
-            )
+            raise ValueError(f"Actor model policy entry '{key}' must define permitted_models")
         entries.append(
             {
                 "actor_type": actor_type,
