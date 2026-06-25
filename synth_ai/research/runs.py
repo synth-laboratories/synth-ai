@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Iterator
 from typing import Any, List
-from synth_ai.sdk.pagination import SyncPage
+
 from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimitProgress,
     SmrResourceLimits,
@@ -21,6 +21,7 @@ from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
 from synth_ai.research.models import ResearchRun, ResearchRunbookPreset
 from synth_ai.research.run_readouts import ResearchRunReadoutsMixin, _deprecated_method
+from synth_ai.sdk.pagination import SyncPage
 
 
 def _text(value: object) -> str:
@@ -563,6 +564,8 @@ class ResearchRunsAPI:
             raw_items = payload["entries"]
         elif isinstance(payload, dict) and isinstance(payload.get("logs"), list):
             raw_items = payload["logs"]
+        elif isinstance(payload, dict) and isinstance(payload.get("records"), list):
+            raw_items = payload["records"]
         normalized = [item for item in raw_items if isinstance(item, dict)]
         return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
 
