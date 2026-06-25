@@ -2,7 +2,7 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
-## Unreleased
+## 0.12.0 — 2026-06-25
 
 ### Added
 
@@ -18,7 +18,7 @@ All notable changes to the `synth-ai` package are documented here.
 ### Notes
 
 - Pair with backend `/api/tag/v1` routes and the `tag_steward` runbook on the same release train.
-- Final PyPI version is selected at release time after prod Tag smoke evidence is captured.
+- Production proof: Tag smoke session `b5cd5bf9-c1a7-46db-a5a2-799ca1816c8b`, run `ba255a34-0da3-4007-8ac3-0c677d836d85`, receipt `state=done`, artifact `/smr/work-products/5eae8c7a-6bf4-54e8-93a5-96401fb237f7/content`.
 
 ## 0.11.7 — 2026-06-25
 
