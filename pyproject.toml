@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.12.0"
+version = "0.13.0"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -126,6 +126,13 @@ ignore = [
 
 [tool.ty.src]
 include = ["synth_ai"]
+
+[[tool.ty.overrides]]
+include = [
+    "synth_ai/research/**",
+    "synth_ai/managed_research/sdk/tag.py",
+]
+rules = { unresolved-import = "warn" }
 
 [tool.ty.rules]
 possibly-missing-attribute = "ignore"

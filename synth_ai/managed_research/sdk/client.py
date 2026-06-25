@@ -4169,6 +4169,49 @@ class ManagedResearchClient:
             label="get_run_progress",
         )
 
+    def get_run_results(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/results",
+            ),
+            label="get_run_results",
+        )
+
+    def get_run_logs(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/logs",
+                params=build_query_params(limit=limit, cursor=cursor),
+            ),
+            label="get_run_logs",
+        )
+
+    def get_run_orchestrator(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/orchestrator",
+            ),
+            label="get_run_orchestrator",
+        )
+
     def get_run_work_graph(
         self,
         project_id: str,
@@ -4282,6 +4325,21 @@ class ManagedResearchClient:
             label="list_objectives",
         )
 
+    def list_directed_effort_outcomes(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Compatibility alias for eval harnesses (use ``list_objectives``)."""
+        return self.list_objectives(
+            project_id,
+            kind="directed_effort_outcome",
+            run_id=run_id,
+            limit=limit,
+        )
+
     def get_objective_status(
         self,
         project_id: str,
@@ -4380,6 +4438,24 @@ class ManagedResearchClient:
                 ),
             ),
             label="list_milestones",
+        )
+
+    def list_project_milestones(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        parent_kind: str | None = None,
+        parent_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Compatibility alias for eval harnesses (use ``list_milestones``)."""
+        return self.list_milestones(
+            project_id,
+            run_id=run_id,
+            parent_kind=parent_kind,
+            parent_id=parent_id,
+            limit=limit,
         )
 
     def create_milestone(

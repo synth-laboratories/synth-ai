@@ -7,8 +7,7 @@ import builtins
 from enum import Enum
 from typing import Any
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.sdk.base import SynthBaseClient
 
 __all__ = [
     "AsyncTunnelsClient",
@@ -42,7 +41,7 @@ class _AsyncThreadProxy:
         return attr
 
 
-class TunnelsClient:
+class TunnelsClient(SynthBaseClient):
     def __init__(
         self,
         *,
@@ -50,39 +49,13 @@ class TunnelsClient:
         backend_base: str | None = None,
         base_url: str | None = None,
         timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
-        self._api_key = (api_key or get_api_key(required=False) or "").strip()
-        if not self._api_key:
-            raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-        resolved_base = backend_base or base_url or BACKEND_URL_BASE
-        self._backend_base = normalize_backend_base(resolved_base)
-        self._timeout = timeout
-
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._api_key}"}
-
-    def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        json_body: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
-        import httpx
-
-        resp = httpx.request(
-            method,
-            join_url(self._backend_base, path),
-            headers=self._headers(),
-            json=json_body,
-            params=params,
-            timeout=self._timeout,
+        super().__init__(
+            api_key=api_key,
+            backend_base=backend_base or base_url,
+            timeout_seconds=timeout_seconds if timeout_seconds is not None else timeout,
         )
-        resp.raise_for_status()
-        if not resp.content:
-            return {}
-        return resp.json()
 
     def health(self) -> dict[str, Any]:
         return self._request("GET", "/v1/tunnels/health")

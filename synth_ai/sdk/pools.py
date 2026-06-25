@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from enum import Enum
 from typing import Any, Iterator
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.sdk.base import SynthBaseClient
 
 CANONICAL_ROLLOUT_REQUEST_KEYS: frozenset[str] = frozenset(
     {
@@ -181,7 +179,7 @@ class _PoolMetricsClient:
         return self._raw.get_pool_metrics(pool_id)
 
 
-class ContainerPoolsClient:
+class ContainerPoolsClient(SynthBaseClient):
     def __init__(
         self,
         *,
@@ -189,13 +187,13 @@ class ContainerPoolsClient:
         backend_base: str | None = None,
         base_url: str | None = None,
         timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
-        self._api_key = (api_key or get_api_key(required=False) or "").strip()
-        if not self._api_key:
-            raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-        resolved_base = backend_base or base_url or BACKEND_URL_BASE
-        self._backend_base = normalize_backend_base(resolved_base)
-        self._timeout = timeout
+        super().__init__(
+            api_key=api_key,
+            backend_base=backend_base or base_url,
+            timeout_seconds=timeout_seconds if timeout_seconds is not None else timeout,
+        )
         self.rollouts = _PoolRolloutsClient(self)
         self.agent_rollouts = _AgentRolloutsClient(self)
         self.tasks = _PoolTasksClient(self)
@@ -204,55 +202,6 @@ class ContainerPoolsClient:
     @property
     def raw(self) -> ContainerPoolsClient:
         return self
-
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._api_key}"}
-
-    def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        json_body: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
-        import httpx
-
-        resp = httpx.request(
-            method,
-            join_url(self._backend_base, path),
-            headers=self._headers(),
-            json=json_body,
-            params=params,
-            timeout=self._timeout,
-        )
-        resp.raise_for_status()
-        if not resp.content:
-            return {}
-        return resp.json()
-
-    def _stream(
-        self, path: str, *, params: dict[str, Any] | None = None
-    ) -> Iterator[dict[str, Any]]:
-        import httpx
-
-        with httpx.stream(
-            "GET",
-            join_url(self._backend_base, path),
-            headers=self._headers(),
-            params=params,
-            timeout=self._timeout,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                text = line.decode("utf-8") if isinstance(line, (bytes, bytearray)) else str(line)
-                if not text.startswith("data:"):
-                    continue
-                payload = text[5:].strip()
-                if payload:
-                    yield json.loads(payload)
 
     def create_pool(self, request: dict[str, Any]) -> dict[str, Any]:
         return self._request("POST", "/v1/pools", json_body=request)
@@ -460,10 +409,14 @@ class AsyncContainerPoolsClient(_AsyncThreadProxy):
     """Async adapter over ``ContainerPoolsClient``."""
 
 
+PoolsClient = ContainerPoolsClient
+
+
 __all__ = [
     "AsyncContainerPoolsClient",
     "CANONICAL_ROLLOUT_REQUEST_KEYS",
     "ContainerPoolsClient",
+    "PoolsClient",
     "PoolTarget",
     "validate_pool_rollout_request",
 ]

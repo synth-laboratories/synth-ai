@@ -158,6 +158,11 @@ class ToolDefinition:
 
 def _normalized_tool_definition(tool: ToolDefinition) -> ToolDefinition:
     default_scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(tool.name, ())
+    if not default_scopes and tool.name.startswith("research_"):
+        default_scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(
+            f"smr_{tool.name[9:]}",
+            (),
+        )
     if tool.required_scopes:
         return tool
     if not default_scopes:
@@ -181,6 +186,14 @@ def build_tool_registry(tools: list[ToolDefinition]) -> dict[str, ToolDefinition
         if tool.name in registry:
             raise ValueError(f"duplicate MCP tool definition: {tool.name}")
         registry[tool.name] = tool
+    for tool in list(registry.values()):
+        if not tool.name.startswith("smr_"):
+            continue
+        alias_name = f"research_{tool.name[4:]}"
+        if alias_name in registry:
+            continue
+        alias_tool = replace(tool, name=alias_name)
+        registry[alias_name] = _normalized_tool_definition(alias_tool)
     return registry
 
 
