@@ -108,7 +108,7 @@ jobs:
         if: steps.sdk_tests.outputs.available == 'true'
         run: |
           uv run python testing/scripts/validate_synth_ai_contract.py
-          uv run --group dev pytest testing/backend/unit/synth_ai_sdk -m unit -v --maxfail=1
+          uv run --group dev pytest --confcutdir=testing/backend/unit/synth_ai_sdk testing/backend/unit/synth_ai_sdk -v --maxfail=1
       - name: Skip unavailable private SDK pytest suite
         if: steps.sdk_tests.outputs.available != 'true'
         run: |

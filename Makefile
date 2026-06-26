@@ -5,7 +5,7 @@ test test-unit:
 	@if [ -d ../testing/backend/unit/synth_ai_sdk ]; then \
 		uv run python scripts/check_sdk_architecture.py && \
 		cd ../testing && uv run python scripts/validate_synth_ai_contract.py && \
-		uv run pytest backend/unit/synth_ai_sdk -m unit -v --maxfail=1; \
+		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \
 	else \
 		echo "Missing ../testing checkout; clone synth-laboratories/testing beside synth-ai"; \
 		exit 1; \
