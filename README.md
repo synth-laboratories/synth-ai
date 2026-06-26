@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.12.0-orange synth-ai==0.12.0 -->
+<!-- CI release pins: PyPI-0.13.0-orange synth-ai==0.13.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -63,6 +63,53 @@ print(client.tunnels.health())
 print(client.pools.list())
 ```
 
+## Managed Research (hero SDK)
+
+Install the research extra when you need hosted runs, projects, Factory Tag, or MCP:
+
+```bash
+pip install "synth-ai[research]"
+```
+
+Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
+
+```python
+from synth_ai import SynthClient
+
+client = SynthClient()
+research = client.research
+
+# Org limits
+limits = research.limits.get()
+
+# Factory Tag loop
+session = research.factories.tag.sessions.create("Improve rollout throughput")
+research.factories.tag.sessions.messages.send(session.session_id, "Status update")
+scope = research.factories.tag.scopes.get_default()
+
+# Launch path
+project = research.projects.create({"name": "demo", "work_mode": "standard"})
+research.projects.setup.prepare(project.project_id)
+preflight = research.runs.check_preflight(project.project_id)
+run = research.runs.create(project.project_id, work_mode="standard")
+session = research.runs.get(project.project_id, run["run_id"])
+
+# Run readouts (nested namespaces — never ``manderqueue`` on hero)
+session.snapshots.get(detail="control")
+session.progress.get()
+session.usage.get()
+session.message_queue.messages.list()
+research.projects.objectives.list(project.project_id, run_id=session.run_id)
+```
+
+CLI smoke:
+
+```bash
+synth-ai research limits get
+synth-ai research tag smoke
+synth-ai research smoke
+```
+
 ## CLI
 
 ```bash
@@ -78,7 +125,7 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
-| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, evidence, MCP (`synth-ai[research]`). |
+| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, Factory Tag, limits, MCP (`synth-ai[research]`). |
 | Containers | `client.containers` | Hosted container records and lifecycle operations. |
 | Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
 | Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
@@ -100,13 +147,9 @@ override grants are manual audit events rather than automatic resets.
 The canonical backend surfaces are `GET /smr/billing/catalog`,
 `GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
 `GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
-SDK, use `control.billing.catalog()`, `control.billing.plan()`,
-`control.billing.run_drawdown(run_id)`,
-`control.billing.factory_effort_drawdown(effort_id)`, and the matching
-`preflight_*` helpers. The top-level aliases `control.get_billing_catalog()`,
-`control.get_billing_plan()`, `control.get_run_billing_drawdown(run_id)`, and
-`control.get_factory_effort_billing_drawdown(effort_id)` call the same billing
-namespace. Do not infer allowance from legacy Autumn balances or local spend
+SDK, use `client.research.session.billing.catalog()` and related billing
+namespace helpers for advanced billing reads. Prefer hero namespaces for new
+integrations; do not infer allowance from legacy Autumn balances or local spend
 summaries.
 
 ## Links
@@ -128,6 +171,8 @@ uv sync --group dev
 uv run ruff format --check .
 uv run ruff check .
 uv run ty check
+make docs-gen   # generate Mintlify SDK reference into docs/
+make docs-dev   # preview at http://localhost:3000/overview
 ```
 
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run

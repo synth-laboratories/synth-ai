@@ -887,6 +887,20 @@ def _is_source_bundle_entry(path: str, entry: Mapping[str, Any]) -> bool:
     )
 
 
+_DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE = 100
+
+
+def _positive_int_env(name: str, default_value: int) -> int:
+    raw = str(os.getenv(name) or "").strip()
+    if not raw:
+        return default_value
+    try:
+        value = int(raw)
+    except ValueError:
+        return default_value
+    return value if value > 0 else default_value
+
+
 def _normalize_uploaded_file(entry: Mapping[str, Any]) -> dict[str, Any]:
     path = str(entry.get("path") or "").strip()
     if not path:
@@ -2258,13 +2272,80 @@ class ManagedResearchClient:
         normalized_files = [_normalize_uploaded_file(entry) for entry in files]
         if not normalized_files:
             raise ValueError("upload_workspace_files requires at least one file")
+        chunk_size = _positive_int_env(
+            "SMR_WORKSPACE_UPLOAD_CHUNK_SIZE",
+            _DEFAULT_WORKSPACE_UPLOAD_CHUNK_SIZE,
+        )
+        if len(normalized_files) <= chunk_size:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/projects/{project_id}/workspace-inputs/files:upload",
+                    json_body={"files": normalized_files},
+                ),
+                label="upload_workspace_files",
+            )
+
+        merged: dict[str, Any] = {
+            "project_id": project_id,
+            "file_count": 0,
+            "bytes_uploaded": 0,
+            "uploaded_files": [],
+            "chunks_uploaded": 0,
+        }
+        for offset in range(0, len(normalized_files), chunk_size):
+            chunk = normalized_files[offset : offset + chunk_size]
+            response = _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/projects/{project_id}/workspace-inputs/files:upload",
+                    json_body={"files": chunk},
+                ),
+                label="upload_workspace_files",
+            )
+            merged.update(
+                {
+                    key: value
+                    for key, value in response.items()
+                    if key not in {"file_count", "bytes_uploaded", "uploaded_files"}
+                }
+            )
+            merged["file_count"] = int(merged["file_count"]) + int(response.get("file_count") or 0)
+            merged["bytes_uploaded"] = int(merged["bytes_uploaded"]) + int(
+                response.get("bytes_uploaded") or 0
+            )
+            uploaded_files = response.get("uploaded_files")
+            if isinstance(uploaded_files, list):
+                merged["uploaded_files"].extend(uploaded_files)
+            merged["chunks_uploaded"] = int(merged["chunks_uploaded"]) + 1
+        return merged
+
+    def get_workspace_upload_url(self, project_id: str) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/workspace-inputs/files:upload",
-                json_body={"files": normalized_files},
+                f"/smr/projects/{project_id}/workspace/upload-url",
             ),
-            label="upload_workspace_files",
+            label="get_workspace_upload_url",
+        )
+
+    def workspace_confirm_push(
+        self,
+        project_id: str,
+        *,
+        commit_sha: str,
+        archive_key: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/workspace/confirm-push",
+                json_body={
+                    "commit_sha": str(commit_sha or "").strip(),
+                    "archive_key": str(archive_key or "").strip(),
+                },
+            ),
+            label="workspace_confirm_push",
         )
 
     def upload_workspace_directory(
@@ -4114,6 +4195,68 @@ class ManagedResearchClient:
             label="get_run_progress",
         )
 
+    def list_run_primary_parent_milestones(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Eval-compat shim: milestones embedded in run progress payload."""
+        resolved_project_id = str(project_id or "").strip()
+        if not resolved_project_id:
+            run_payload = self.get_run(run_id)
+            resolved_project_id = str(run_payload.get("project_id") or "").strip()
+        if not resolved_project_id:
+            raise ValueError(f"run_id {run_id!r} missing project_id")
+        progress = self.get_run_progress(resolved_project_id, run_id)
+        milestones = progress.get("primary_parent_milestones")
+        if isinstance(milestones, list):
+            return [item for item in milestones if isinstance(item, dict)]
+        return []
+
+    def get_run_results(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/results",
+            ),
+            label="get_run_results",
+        )
+
+    def get_run_logs(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/logs",
+                params=build_query_params(limit=limit, cursor=cursor),
+            ),
+            label="get_run_logs",
+        )
+
+    def get_run_orchestrator(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/runs/{run_id}/orchestrator",
+            ),
+            label="get_run_orchestrator",
+        )
+
     def get_run_work_graph(
         self,
         project_id: str,
@@ -4227,6 +4370,21 @@ class ManagedResearchClient:
             label="list_objectives",
         )
 
+    def list_directed_effort_outcomes(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Compatibility alias for eval harnesses (use ``list_objectives``)."""
+        return self.list_objectives(
+            project_id,
+            kind="directed_effort_outcome",
+            run_id=run_id,
+            limit=limit,
+        )
+
     def get_objective_status(
         self,
         project_id: str,
@@ -4325,6 +4483,24 @@ class ManagedResearchClient:
                 ),
             ),
             label="list_milestones",
+        )
+
+    def list_project_milestones(
+        self,
+        project_id: str,
+        *,
+        run_id: str | None = None,
+        parent_kind: str | None = None,
+        parent_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Compatibility alias for eval harnesses (use ``list_milestones``)."""
+        return self.list_milestones(
+            project_id,
+            run_id=run_id,
+            parent_kind=parent_kind,
+            parent_id=parent_id,
+            limit=limit,
         )
 
     def create_milestone(

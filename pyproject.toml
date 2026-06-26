@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.12.0"
+version = "0.13.0"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -19,7 +19,6 @@ dependencies = [
 synth-ai = "synth_ai.cli:cli"
 synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
 synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
-synth-ai-research-readme-smoke = "readme_runs.readme_smoke:main"
 synth-ai-research-factory-standup = "synth_ai.managed_research.factory_standup:main"
 
 [project.optional-dependencies]
@@ -31,19 +30,12 @@ providers = [
 ]
 dev = [
     "build>=1.2.2.post1",
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
     "twine>=4.0.0",
     "keyring>=24.0.0",
-    "pytest>=8.3.3",
-    "pytest-xdist>=3.6.1",
-    "pytest-timeout>=2.3.1",
-    "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.1.0",
-    "coverage[toml]>=7.3.0",
     "ruff>=0.1.0",
     "papermill>=2.6.0",
     "nest_asyncio>=1.6.0",
+    "mdxify>=0.2.0",
 ]
 all = [
     # Include providers
@@ -67,7 +59,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["synth_ai", "synth_ai.*", "readme_runs", "readme_runs.*"]
+include = ["synth_ai", "synth_ai.*"]
 exclude = [
     "docs*",
     "tests*",
@@ -94,35 +86,6 @@ include-package-data = true
     "managed_research/py.typed",
     "managed_research/schemas/*",
 ]
-
-[tool.pytest.ini_options]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-asyncio_mode = "auto"
-markers = [
-    "fast: marks tests as fast (≤5 seconds) - these are the default tests to run",
-    "slow: marks tests as slow (>5 seconds) - requires more time/resources",
-    "integration: marks tests as integration tests requiring external services",
-    "integration_local: marks tests that require a local backend service",
-    "unit: marks tests as isolated unit tests",
-    "public: marks tests that can run in any environment",
-    "private: marks tests that may require credentials or special setup",
-]
-# Add timeout for long-running tests
-timeout = 300
-# Show test durations (slowest N tests)
-addopts = "--durations=10"
-
-[tool.coverage.run]
-source = ["synth_ai"]
-omit = ["*/tests/*", "*/test_*"]
-data_file = "coverage/.coverage"
-
-[tool.coverage.report]
-precision = 2
-show_missing = true
-skip_covered = false
 
 [tool.ruff]
 # Lint/format: package `synth_ai/`. Type-check: `ty` scoped to the same tree — [tool.ty.src].
@@ -165,21 +128,25 @@ ignore = [
 [tool.ty.src]
 include = ["synth_ai"]
 
+[[tool.ty.overrides]]
+include = [
+    "synth_ai/research/**",
+    "synth_ai/managed_research/sdk/tag.py",
+]
+rules = { unresolved-import = "warn" }
+
 [tool.ty.rules]
 possibly-missing-attribute = "ignore"
 
 [dependency-groups]
 dev = [
     "build>=1.2.2.post1",
-    "fastapi>=0.115.12",
-    "uvicorn>=0.34.2",
     "twine>=4.0.0",
     "keyring>=24.0.0",
     "pytest>=8.3.3",
     "pytest-xdist>=3.6.1",
     "pytest-timeout>=2.3.1",
     "pytest-asyncio>=0.24.0",
-    "pytest-cov>=4.1.0",
     "ruff>=0.1.0",
     "ty>=0.0.1a5",
     "responses>=0.25.7",
@@ -188,4 +155,5 @@ dev = [
     "nest_asyncio>=1.6.0",
     "nbstripout>=0.8.2",
     "ipykernel>=7.1.0",
+    "mdxify>=0.2.0",
 ]

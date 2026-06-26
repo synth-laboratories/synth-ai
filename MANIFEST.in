@@ -1,8 +1,6 @@
 include README.md
 include LICENSE
 recursive-include synth_ai *.py
-# Include GEPA compatibility package
-recursive-include gepa *.py
 # Only include lightweight config/data files from core packages
 recursive-include synth_ai *.toml
 # Prune heavy example/demo/test/data trees from the sdist (keep code)

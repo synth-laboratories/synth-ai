@@ -1,4 +1,7 @@
-"""Managed tunnels SDK."""
+"""Managed tunnels SDK — expose local containers to Synth via tunnel leases.
+
+Access via ``SynthClient().tunnels``.
+"""
 
 from __future__ import annotations
 
@@ -7,8 +10,7 @@ import builtins
 from enum import Enum
 from typing import Any
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.sdk.base import SynthBaseClient
 
 __all__ = [
     "AsyncTunnelsClient",
@@ -18,6 +20,8 @@ __all__ = [
 
 
 class TunnelProvider(str, Enum):
+    """Supported third-party tunnel providers."""
+
     CLOUDFLARED = "cloudflared"
     NGROK = "ngrok"
 
@@ -42,7 +46,9 @@ class _AsyncThreadProxy:
         return attr
 
 
-class TunnelsClient:
+class TunnelsClient(SynthBaseClient):
+    """Create and manage tunnels that forward traffic to local services."""
+
     def __init__(
         self,
         *,
@@ -50,41 +56,16 @@ class TunnelsClient:
         backend_base: str | None = None,
         base_url: str | None = None,
         timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
-        self._api_key = (api_key or get_api_key(required=False) or "").strip()
-        if not self._api_key:
-            raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-        resolved_base = backend_base or base_url or BACKEND_URL_BASE
-        self._backend_base = normalize_backend_base(resolved_base)
-        self._timeout = timeout
-
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {self._api_key}"}
-
-    def _request(
-        self,
-        method: str,
-        path: str,
-        *,
-        json_body: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
-        import httpx
-
-        resp = httpx.request(
-            method,
-            join_url(self._backend_base, path),
-            headers=self._headers(),
-            json=json_body,
-            params=params,
-            timeout=self._timeout,
+        super().__init__(
+            api_key=api_key,
+            backend_base=backend_base or base_url,
+            timeout_seconds=timeout_seconds if timeout_seconds is not None else timeout,
         )
-        resp.raise_for_status()
-        if not resp.content:
-            return {}
-        return resp.json()
 
     def health(self) -> dict[str, Any]:
+        """Return tunnel service health for the configured backend."""
         return self._request("GET", "/v1/tunnels/health")
 
     def list(
@@ -93,6 +74,7 @@ class TunnelsClient:
         status_filter: str | None = None,
         include_deleted: bool = False,
     ) -> builtins.list[dict[str, Any]]:
+        """List tunnels, optionally filtered by status."""
         params = {
             k: v
             for k, v in {
@@ -110,6 +92,7 @@ class TunnelsClient:
         local_port: int,
         local_host: str = "127.0.0.1",
     ) -> dict[str, Any]:
+        """Create a tunnel mapping ``subdomain`` to a local host/port."""
         return self._request(
             "POST",
             "/v1/tunnels/",
@@ -121,6 +104,7 @@ class TunnelsClient:
         )
 
     def delete(self, tunnel_id: str) -> dict[str, Any]:
+        """Delete a tunnel by id."""
         return self._request("DELETE", f"/v1/tunnels/{tunnel_id}")
 
     def rotate(
@@ -130,6 +114,7 @@ class TunnelsClient:
         local_host: str = "127.0.0.1",
         reason: str | None = None,
     ) -> dict[str, Any]:
+        """Rotate the active tunnel to a new local target."""
         body: dict[str, Any] = {"local_port": local_port, "local_host": local_host}
         if reason:
             body["reason"] = reason
@@ -147,6 +132,7 @@ class TunnelsClient:
         reuse_connector: bool = True,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        """Mint a tunnel lease for a local client instance."""
         body: dict[str, Any] = {
             "client_instance_id": client_instance_id,
             "local_host": local_host,
@@ -170,6 +156,7 @@ class TunnelsClient:
         local_ready: bool = False,
         last_error: str | None = None,
     ) -> dict[str, Any]:
+        """Report connector readiness for an active lease."""
         body = {
             "connected_to_edge": connected_to_edge,
             "gateway_ready": gateway_ready,
@@ -179,6 +166,7 @@ class TunnelsClient:
         return self._request("POST", f"/v1/tunnels/lease/{lease_id}/heartbeat", json_body=body)
 
     def release_lease(self, lease_id: str) -> dict[str, Any]:
+        """Release a tunnel lease without deleting historical records."""
         return self._request("POST", f"/v1/tunnels/lease/{lease_id}/release")
 
     def refresh_lease(
@@ -187,6 +175,7 @@ class TunnelsClient:
         *,
         requested_ttl_seconds: int = 3600,
     ) -> dict[str, Any]:
+        """Extend the TTL on an existing tunnel lease."""
         return self._request(
             "POST",
             f"/v1/tunnels/lease/{lease_id}/refresh",
@@ -194,6 +183,7 @@ class TunnelsClient:
         )
 
     def delete_lease(self, lease_id: str) -> dict[str, Any]:
+        """Delete a tunnel lease."""
         return self._request("DELETE", f"/v1/tunnels/lease/{lease_id}")
 
     def list_leases(
@@ -202,6 +192,7 @@ class TunnelsClient:
         client_instance_id: str | None = None,
         include_expired: bool = False,
     ) -> builtins.list[dict[str, Any]]:
+        """List tunnel leases for the org or a specific client instance."""
         params = {
             k: v
             for k, v in {
@@ -222,6 +213,7 @@ class TunnelsClient:
         metadata: dict[str, Any] | None = None,
         capabilities: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        """Create a SynthTunnel lease (hosted relay to your local container)."""
         return self._request(
             "POST",
             "/api/v1/synthtunnel/leases",
@@ -235,17 +227,20 @@ class TunnelsClient:
         )
 
     def get_synth_lease(self, lease_id: str) -> dict[str, Any]:
+        """Fetch a SynthTunnel lease by id."""
         return self._request("GET", f"/api/v1/synthtunnel/leases/{lease_id}")
 
     def close_synth_lease(self, lease_id: str) -> dict[str, Any]:
+        """Close an active SynthTunnel lease."""
         return self._request("DELETE", f"/api/v1/synthtunnel/leases/{lease_id}")
 
     def refresh_synth_worker_token(self, lease_id: str) -> dict[str, Any]:
+        """Rotate the worker token used to authenticate tunnel traffic."""
         return self._request("POST", f"/api/v1/synthtunnel/leases/{lease_id}/token:refresh")
 
 
 class AsyncTunnelsClient(_AsyncThreadProxy):
-    """Async adapter over ``TunnelsClient``."""
+    """Async adapter over :class:`TunnelsClient` (thread-offloaded)."""
 
     def __init__(
         self,

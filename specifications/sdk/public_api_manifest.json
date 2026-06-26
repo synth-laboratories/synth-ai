@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "description": "Public Python SDK surfaces included in mdxify reference generation.",
+  "docstring_style": "google",
+  "roots": [
+    {
+      "module": "synth_ai.client",
+      "output": "reference/sdk",
+      "all_modules": false,
+      "title": "SynthClient"
+    },
+    {
+      "module": "synth_ai.sdk.containers",
+      "output": "reference/sdk",
+      "all_modules": false,
+      "title": "ContainersClient"
+    },
+    {
+      "module": "synth_ai.sdk.tunnels",
+      "output": "reference/sdk",
+      "all_modules": false,
+      "title": "TunnelsClient"
+    },
+    {
+      "module": "synth_ai.sdk.pools",
+      "output": "reference/sdk",
+      "all_modules": false,
+      "title": "ContainerPoolsClient"
+    },
+    {
+      "module": "synth_ai.research",
+      "output": "reference/sdk/research",
+      "all_modules": true,
+      "title": "Research API"
+    }
+  ],
+  "exclude_patterns": [
+    "internal",
+    "_impl",
+    "_internal",
+    "managed_research",
+    "mcp",
+    "synth_ai.research.control"
+  ],
+  "nav_groups": [
+    {
+      "group": "Research core",
+      "pages": [
+        "reference/sdk/research/synth_ai-research-client",
+        "reference/sdk/research/synth_ai-research-factories",
+        "reference/sdk/research/synth_ai-research-limits",
+        "reference/sdk/research/synth_ai-research-secrets"
+      ]
+    },
+    {
+      "group": "Projects",
+      "pages": [
+        "reference/sdk/research/synth_ai-research-projects",
+        "reference/sdk/research/synth_ai-research-project_namespaces"
+      ]
+    },
+    {
+      "group": "Runs",
+      "pages": [
+        "reference/sdk/research/synth_ai-research-runs",
+        "reference/sdk/research/synth_ai-research-run_readouts"
+      ]
+    },
+    {
+      "group": "Types and errors",
+      "pages": [
+        "reference/sdk/research/synth_ai-research-models",
+        "reference/sdk/research/synth_ai-research-enums",
+        "reference/sdk/research/synth_ai-research-errors"
+      ]
+    },
+    {
+      "group": "Advanced",
+      "pages": [
+        "reference/sdk/research/synth_ai-research-async_client"
+      ]
+    }
+  ],
+  "docstring_coverage_required": [
+    "synth_ai/research/run_readouts.py",
+    "synth_ai/research/project_namespaces.py",
+    "synth_ai/research/factories.py",
+    "synth_ai/research/client.py",
+    "synth_ai/research/limits.py",
+    "synth_ai/research/secrets.py",
+    "synth_ai/research/projects.py",
+    "synth_ai/research/runs.py",
+    "synth_ai/client.py",
+    "synth_ai/sdk/containers.py",
+    "synth_ai/sdk/tunnels.py",
+    "synth_ai/sdk/pools.py",
+    "synth_ai/research/models.py",
+    "synth_ai/research/errors.py",
+    "synth_ai/research/enums.py",
+    "synth_ai/research/async_client.py"
+  ]
+}

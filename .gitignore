@@ -10,8 +10,8 @@
 **/*.pyc
 private_tests/
 
-# Nested clone of synth-laboratories/testing (e.g. CI layout); ignore that vendored checkout
-testing/synth_ai_sdk/
+# CI / local sibling checkout of synth-laboratories/testing (never commit)
+testing/
 
 dev/
 build/
@@ -46,32 +46,12 @@ greptile.json
 **/artifacts/
 **/results/
 **/runs/
-# README smoke: keep layout docs; ignore per-run artifact dirs under synth-ai/readme_runs/runs/
-!readme_runs/runs/
-!readme_runs/runs/README.md
-!readme_runs/runs/.gitkeep
-!readme_runs/runs/index.jsonl
-readme_runs/runs/*/
-!readme_runs/runs/latest
-# Crafter DEO runs: keep layout docs; ignore per-run artifact dirs under crafter_runs/runs/
-!crafter_runs/runs/
-!crafter_runs/runs/README.md
-!crafter_runs/runs/.gitkeep
-crafter_runs/runs/*/
 **/backend_traces/
 **/generated_images/
 
-# Rust build artifacts
+# Rust build artifacts (legacy; synth_ai_rs removed)
 target/
-synth_ai_rs/target/
 demos/**/target/
-
-# Native extension build artifacts
-*.dSYM/
-**/*.dSYM/
-synth_ai_py/*.so
-synth_ai_py/*.abi3.so
-synth_ai_py/*.dylib
 
 # DuckDB files
 *.duckdb
@@ -89,10 +69,6 @@ traces_*/
 **/traces/
 **/traces_*/
 crafter_traces/
-synth_ai/environments/examples/crafter_classic/agent_demos/traces/
-synth_ai/environments/examples/crafter_custom/agent_demos/traces/
-!tests/artifacts/traces/
-!tests/artifacts/traces/**
 
 # Root data folder (local artifacts)
 /data/
@@ -113,7 +89,6 @@ env_states/
 training_data*.json
 ft_data*/
 ft_dataset/
-!tests/artifacts/traces/**/*.jsonl
 
 # Evaluation outputs
 last_evaluation.txt
@@ -148,30 +123,19 @@ htmlcov/
 # Lock files (optional - uncomment if you want to exclude)
 # uv.lock
 
-**/environments/examples/**/agent_demos/
-synth_ai/environments/examples/*
+node_modules/
 
-# --- Force-include Wordle fixed instances file regardless of ignore rules ---
-!synth_ai/environments/examples/bandit/
-!synth_ai/environments/examples/bandit/**
-!synth_ai/environments/examples/wordle/
-!synth_ai/environments/examples/wordle/instances.json
-
+# Local graveyard: move stale dirs/files here before git rm (never committed)
+/old/
 old/
 
 # Temporary output directory for experiment artifacts
 temp/
 
-# Finetuning debug artifacts (keep local only)
-examples/finetuning/synth_qwen_v1/debug_session_*.json
-examples/finetuning/synth_qwen_v1/state.json
-
-
 # SQLite databases and locks
 *.db
 *.db-shm
 *.db-wal
-!tests/artifacts/traces/**/*.db
 *.sqlite
 *.sqlite3
 # Prevent accidental "..." file commits
@@ -187,8 +151,6 @@ examples/finetuning/synth_qwen_v1/state.json
 # Generated learning prompt JSONs
 synth_ai/learning/prompts/*.json
 synth_ai/learning/prompts/**/*.json
-examples/finetuning/_backup_synth_qwen/
-examples/agora_ex/
 
 # Ignore generic text and markdown files (except README.md)
 *.txt
@@ -200,14 +162,14 @@ examples/agora_ex/
 !**/agents.md
 !docs/*.md
 !docs/**/*.md
+!specifications/**/*.md
+# Local Mintlify preview output (regenerate with make docs-gen)
+docs/reference/
+docs/docs.json
+docs/overview.mdx
 !synth_ai/tui/opencode_config/**/*.md
 !contracts/**/*.md
 !skills/**/*.md
-
-# Re-ignore Python caches and bytecode even under bandit force-include
-synth_ai/environments/examples/bandit/**/__pycache__/
-synth_ai/environments/examples/bandit/**/*.pyc
-node_modules/
 
 uv.lock
 local-trace_trace.json
@@ -239,12 +201,6 @@ outputs/
 # Temporary workspace and embedded repos
 .tmp/
 
-# Benchmark results and comparison data (keep local only)
-examples/blog_posts/**/results/
-examples/blog_posts/**/*_results_*.json
-examples/blog_posts/**/*_readout_*.txt
-examples/blog_posts/**/*_comparison_*.json
-examples/blog_posts/**/task_specific/*/results/
 **/*_learning_curve.csv
 **/*_learning_curve.json
 **/*_stats.json
@@ -266,6 +222,9 @@ demos/web-design/generated_pages/
 # Plans directory
 plans/
 
+# Local working todo (not committed)
+todo.md
+
 # Root-level npm/bun artifacts
 /package.json
 /package-lock.json
@@ -278,6 +237,3 @@ pytest.*.ini
 # Misc temp artifacts
 engine_bench_eval_timing.json
 greptile.json
-
-# Coding agents workspace
-coding_agents/synth_ai_rs/target/

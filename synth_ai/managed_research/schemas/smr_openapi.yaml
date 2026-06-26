@@ -3117,7 +3117,7 @@ paths:
       summary: Create runnable project
       description: Canonical project-creation route for the managed-research launch
         flow.
-      operationId: create_runnable_project_smr_projects_runnable_post
+      operationId: create_project
       requestBody:
         content:
           application/json:
@@ -3232,7 +3232,7 @@ paths:
       tags:
       - smr
       summary: List Projects
-      operationId: list_projects_smr_projects_get
+      operationId: list_projects
       parameters:
       - name: include_archived
         in: query
@@ -3295,7 +3295,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SmrProjectResponse'
-                title: Response List Projects Smr Projects Get
+                title: Response List Projects
         '422':
           description: Validation Error
           content:
@@ -3307,7 +3307,7 @@ paths:
       tags:
       - smr
       summary: Get Project
-      operationId: get_project_smr_projects__project_id__get
+      operationId: retrieve_project
       parameters:
       - name: project_id
         in: path
@@ -3332,7 +3332,7 @@ paths:
       tags:
       - smr
       summary: Patch Project
-      operationId: patch_project_smr_projects__project_id__patch
+      operationId: update_project
       parameters:
       - name: project_id
         in: path
@@ -9282,7 +9282,7 @@ paths:
       summary: Trigger project run
       description: Canonical project-scoped run trigger. Use the same payload that
         you validated through launch preflight.
-      operationId: trigger_project_run_smr_projects__project_id__trigger_post
+      operationId: trigger_project_run
       parameters:
       - name: project_id
         in: path
@@ -9404,7 +9404,7 @@ paths:
       tags:
       - smr
       summary: List Runs
-      operationId: list_runs_smr_runs_get
+      operationId: list_runs
       parameters:
       - name: project_id
         in: query
@@ -9476,7 +9476,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SmrRunResponse'
-                title: Response List Runs Smr Runs Get
+                title: Response List Runs
         '422':
           description: Validation Error
           content:
@@ -9488,7 +9488,7 @@ paths:
       tags:
       - smr
       summary: List Jobs
-      operationId: list_jobs_smr_jobs_get
+      operationId: list_jobs
       parameters:
       - name: project_id
         in: query
@@ -9550,6 +9550,18 @@ paths:
           minimum: 1
           default: 50
           title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Opaque pagination cursor. Accepted forms: ''<created_at_iso>'',
+            ''<created_at_iso>|<run_id>'', or ''<run_id>''.'
+          title: Cursor
+        description: 'Opaque pagination cursor. Accepted forms: ''<created_at_iso>'',
+          ''<created_at_iso>|<run_id>'', or ''<run_id>''.'
       responses:
         '200':
           description: Successful Response
@@ -9559,7 +9571,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SmrRunResponse'
-                title: Response List Jobs Smr Jobs Get
+                title: Response List Jobs
         '422':
           description: Validation Error
           content:
@@ -9571,7 +9583,7 @@ paths:
       tags:
       - smr
       summary: Get Run
-      operationId: get_run_smr_runs__run_id__get
+      operationId: retrieve_run
       parameters:
       - name: run_id
         in: path
@@ -10264,7 +10276,7 @@ paths:
       tags:
       - smr
       summary: List Project Runs
-      operationId: list_project_runs_smr_projects__project_id__runs_get
+      operationId: list_project_runs
       parameters:
       - name: project_id
         in: path
@@ -10334,7 +10346,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SmrRunResponse'
-                title: Response List Project Runs Smr Projects  Project Id  Runs Get
+                title: Response List Project Runs
         '422':
           description: Validation Error
           content:
@@ -10346,7 +10358,7 @@ paths:
       tags:
       - smr
       summary: List Project Active Runs
-      operationId: list_project_active_runs_smr_projects__project_id__runs_active_get
+      operationId: list_project_active_runs
       parameters:
       - name: project_id
         in: path
@@ -10363,8 +10375,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SmrRunResponse'
-                title: Response List Project Active Runs Smr Projects  Project Id  Runs
-                  Active Get
+                title: Response List Project Active Runs
         '422':
           description: Validation Error
           content:
@@ -10376,7 +10387,7 @@ paths:
       tags:
       - smr
       summary: Get Project Run
-      operationId: get_project_run_smr_projects__project_id__runs__run_id__get
+      operationId: retrieve_project_run
       parameters:
       - name: project_id
         in: path
@@ -12587,7 +12598,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -20157,6 +20168,102 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions:
+    post:
+      tags:
+      - tag
+      summary: Create Session
+      operationId: create_tag_session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSessionCreateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}:
+    get:
+      tags:
+      - tag
+      summary: Get Session
+      operationId: retrieve_tag_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/messages:
+    post:
+      tags:
+      - tag
+      summary: Send Message
+      operationId: send_tag_message
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagMessageRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/scopes/default:
+    get:
+      tags:
+      - tag
+      summary: Get Default Scope
+      operationId: get_default_tag_scope
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagScopeResponse'
   /api/v1/sdk-logs:
     post:
       tags:
@@ -21131,101 +21238,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    patch:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    put:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch__put__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch__get__2
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch__post__3
+      operationId: synthtunnel_gateway_s__route_token___path__post
       parameters:
       - name: route_token
         in: path
@@ -21255,7 +21272,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch__options__4
+      operationId: synthtunnel_gateway_s__route_token___path__post__options__1
       parameters:
       - name: route_token
         in: path
@@ -21285,7 +21302,97 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__patch__delete__5
+      operationId: synthtunnel_gateway_s__route_token___path__post__delete__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__post__get__3
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__post__put__4
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__post__patch__5
       parameters:
       - name: route_token
         in: path
@@ -21616,7 +21723,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -22044,7 +22151,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageSummaryResponse'
+                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -49210,6 +49317,270 @@ components:
       - google
       title: SupportedProvider
       description: Supported LLM providers for encrypted provider-key storage.
+    TagMessageRequest:
+      properties:
+        message:
+          type: string
+          maxLength: 10000
+          minLength: 1
+          title: Message
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - message
+      title: TagMessageRequest
+    TagScopeResponse:
+      properties:
+        scope_id:
+          type: string
+          title: Scope Id
+        org_id:
+          type: string
+          title: Org Id
+        name:
+          type: string
+          title: Name
+        status:
+          type: string
+          title: Status
+        is_default:
+          type: boolean
+          title: Is Default
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        default_project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Project Id
+        default_launch_profile:
+          additionalProperties: true
+          type: object
+          title: Default Launch Profile
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - scope_id
+      - org_id
+      - name
+      - status
+      - is_default
+      - created_at
+      - updated_at
+      title: TagScopeResponse
+    TagSessionCreateRequest:
+      properties:
+        request:
+          type: string
+          maxLength: 10000
+          minLength: 1
+          title: Request
+        definition_of_done:
+          anyOf:
+          - type: string
+            maxLength: 10000
+          - type: 'null'
+          title: Definition Of Done
+        scope_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scope Id
+        session_kind:
+          type: string
+          enum:
+          - research
+          - review
+          - maintenance
+          - factory_op
+          title: Session Kind
+          default: research
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        conversation_ref:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Conversation Ref
+        timebox_seconds:
+          anyOf:
+          - type: integer
+            minimum: 60.0
+          - type: 'null'
+          title: Timebox Seconds
+        runbook_preset:
+          anyOf:
+          - type: string
+            maxLength: 128
+          - type: 'null'
+          title: Runbook Preset
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - request
+      title: TagSessionCreateRequest
+    TagSessionReceipt:
+      properties:
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        state:
+          type: string
+          title: State
+        run_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Url
+        artifact_urls:
+          items:
+            type: string
+          type: array
+          title: Artifact Urls
+        artifact_empty_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Empty Reason
+        terminal_outcome:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Terminal Outcome
+      type: object
+      required:
+      - state
+      title: TagSessionReceipt
+    TagSessionResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        org_id:
+          type: string
+          title: Org Id
+        scope_id:
+          type: string
+          title: Scope Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        status:
+          type: string
+          enum:
+          - queued
+          - running
+          - done
+          - failed
+          title: Status
+        session_kind:
+          type: string
+          enum:
+          - research
+          - review
+          - maintenance
+          - factory_op
+          title: Session Kind
+          default: research
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        conversation_ref:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Conversation Ref
+        request:
+          type: string
+          title: Request
+        definition_of_done:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Definition Of Done
+        receipt:
+          $ref: '#/components/schemas/TagSessionReceipt'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - session_id
+      - org_id
+      - scope_id
+      - status
+      - request
+      - receipt
+      - created_at
+      - updated_at
+      title: TagSessionResponse
     TierLimitsResponse:
       properties:
         tier:
@@ -49716,20 +50087,30 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        cap_amount:
+        limit_value:
           anyOf:
           - type: number
-          - type: integer
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Cap Amount
-        policy:
+          title: Limit Value
+        warning_threshold:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Policy
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
       type: object
       title: UpdateLimitRequest
+      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -50205,7 +50586,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
+          $ref: '#/components/schemas/UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -50418,32 +50799,86 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        org_id:
-          type: string
-          title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
+        total_nominal_usd:
           type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
+          title: Total Nominal Usd
+        total_cost_usd:
           type: number
-          title: Total Gpu Seconds
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
       type: object
       required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
       title: UsageSummaryResponse
     UsageType:
       type: string
@@ -50935,6 +51370,35 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
+    app__api__v1__admin__UsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
+          type: number
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
+          type: number
+          title: Total Gpu Seconds
+      type: object
+      required:
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
+      title: UsageSummaryResponse
     app__api__v1__managed_research__limits__LimitResponse:
       properties:
         scope_kind:
@@ -50994,6 +51458,22 @@ components:
       - dimension
       - unit
       title: LimitResponse
+    app__api__v1__managed_research__limits__UpdateLimitRequest:
+      properties:
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: integer
+          - type: 'null'
+          title: Cap Amount
+        policy:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Policy
+      type: object
+      title: UpdateLimitRequest
     app__api__v1__routes_balance__UsageSummaryResponse:
       properties:
         org_id:
@@ -51014,115 +51494,6 @@ components:
       - last_30_days
       title: UsageSummaryResponse
       description: Response model for usage summary.
-    app__api__v1__routes_usage_overview__UsageSummaryResponse:
-      properties:
-        total_nominal_usd:
-          type: number
-          title: Total Nominal Usd
-        total_cost_usd:
-          type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_factory:
-          items:
-            $ref: '#/components/schemas/UsageByFactoryResponse'
-          type: array
-          title: By Factory
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
-      type: object
-      required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
-      title: UsageSummaryResponse
-    app__core__session_usage__models__UpdateLimitRequest:
-      properties:
-        limit_value:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Limit Value
-        warning_threshold:
-          anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
-      type: object
-      title: UpdateLimitRequest
-      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http

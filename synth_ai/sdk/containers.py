@@ -1,4 +1,7 @@
-"""Hosted Containers SDK — create, manage, and reference hosted containers by ID."""
+"""Hosted Containers SDK — create, manage, and reference hosted containers by ID.
+
+Access via ``SynthClient().containers``.
+"""
 
 from __future__ import annotations
 
@@ -10,8 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.sdk.base import SynthBaseClient
 
 __all__ = [
     "AsyncContainersClient",
@@ -62,144 +64,111 @@ class Container(BaseModel):
     updated_at: str | None = None
 
 
-def _resolve_base_url(base_url: str | None) -> str:
-    if base_url and base_url.strip():
-        return normalize_backend_base(base_url)
-    return normalize_backend_base(BACKEND_URL_BASE)
-
-
-def _resolve_api_key(api_key: str | None) -> str:
-    if api_key and api_key.strip():
-        return api_key
-    resolved = (get_api_key("SYNTH_API_KEY", required=False) or "").strip()
-    if not resolved:
-        raise ValueError("api_key is required (provide or set SYNTH_API_KEY)")
-    return resolved
-
-
-def _headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}"}
-
-
-class ContainersClient:
-    """Client for managing hosted containers.
-
-    Usage::
-
-        client = ContainersClient(api_key="sk_...")
-        app = client.create(ContainerSpec(
-            name="my-code-task",
-            task_type=ContainerType.harbor_code,
-            definition={"repo": "https://github.com/..."},
-        ))
-        print(app.id)  # container_abc123def456
-    """
+class ContainersClient(SynthBaseClient):
+    """Create and manage hosted environment containers."""
 
     def __init__(
         self,
         *,
         api_key: str | None = None,
         backend_base: str | None = None,
+        timeout_seconds: float = 30.0,
     ) -> None:
-        self._api_key = _resolve_api_key(api_key)
-        self._base_url = _resolve_base_url(backend_base).rstrip("/")
-        self._prefix = f"{self._base_url}/v1/containers"
-
-    def _headers(self) -> dict[str, str]:
-        return _headers(self._api_key)
+        super().__init__(
+            api_key=api_key,
+            backend_base=backend_base,
+            timeout_seconds=timeout_seconds,
+        )
+        self._prefix = "/v1/containers"
 
     def create(
         self,
         spec: ContainerSpec,
         *,
-        timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> Container:
-        """Create a new hosted container."""
-        import httpx
-
+        """Provision a new hosted container from a :class:`ContainerSpec`."""
         payload = spec.model_dump(exclude_none=True)
-        resp = httpx.post(
-            self._prefix,
-            headers=self._headers(),
-            json=payload,
-            timeout=timeout,
+        return self.cast_to(
+            Container,
+            self._request(
+                "POST",
+                self._prefix,
+                json_body=payload,
+                timeout_seconds=timeout_seconds,
+            ),
         )
-        resp.raise_for_status()
-        return Container.model_validate(resp.json())
 
     def get(
         self,
         container_id: str,
         *,
-        timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> Container:
-        """Get a container by ID."""
-        import httpx
-
-        resp = httpx.get(
-            f"{self._prefix}/{container_id}",
-            headers=self._headers(),
-            timeout=timeout,
+        """Retrieve a container by id."""
+        return self.cast_to(
+            Container,
+            self._request(
+                "GET",
+                f"{self._prefix}/{container_id}",
+                timeout_seconds=timeout_seconds,
+            ),
         )
-        resp.raise_for_status()
-        return Container.model_validate(resp.json())
 
     def list(
         self,
         *,
-        timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> builtins.list[Container]:
-        """List all containers for the org."""
-        import httpx
-
-        resp = httpx.get(
-            self._prefix,
-            headers=self._headers(),
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+        """List containers in the current organization."""
+        data = self._request("GET", self._prefix, timeout_seconds=timeout_seconds)
         items = data if isinstance(data, list) else data.get("items", [])
-        return [Container.model_validate(item) for item in items]
+        return [self.cast_to(Container, item) for item in items]
 
     def delete(
         self,
         container_id: str,
         *,
-        timeout: float = 30.0,
+        timeout_seconds: float | None = None,
     ) -> None:
-        """Delete a container."""
-        import httpx
-
-        resp = httpx.delete(
+        """Delete a hosted container by id."""
+        self._request(
+            "DELETE",
             f"{self._prefix}/{container_id}",
-            headers=self._headers(),
-            timeout=timeout,
+            timeout_seconds=timeout_seconds,
         )
-        resp.raise_for_status()
 
     def wait_ready(
         self,
         container_id: str,
         *,
-        timeout: float = 300.0,
-        poll_interval: float = 2.0,
+        timeout_seconds: float = 300.0,
+        poll_interval_seconds: float = 2.0,
+        timeout: float | None = None,
+        poll_interval: float | None = None,
     ) -> Container:
         """Poll until the container reaches 'ready' status or a terminal state."""
-        deadline = time.time() + timeout
+        if timeout is not None:
+            timeout_seconds = timeout
+        if poll_interval is not None:
+            poll_interval_seconds = poll_interval
+        deadline = time.time() + timeout_seconds
         terminal = {"ready", "failed", "stopped"}
         while time.time() < deadline:
             app = self.get(container_id)
             if app.status in terminal:
                 return app
-            time.sleep(poll_interval)
-        raise TimeoutError(f"Container {container_id} did not reach ready state within {timeout}s")
+            time.sleep(poll_interval_seconds)
+        raise TimeoutError(
+            f"Container {container_id} did not reach ready state within {timeout_seconds}s"
+        )
 
 
 class AsyncContainersClient:
-    """Async adapter over ``ContainersClient``."""
+    """Async adapter over :class:`ContainersClient` (thread-offloaded)."""
 
     def __init__(self, sync_client: ContainersClient) -> None:
+        """Wrap a sync client for async call sites."""
         self._sync_client = sync_client
 
     def __getattr__(self, name: str) -> Any:

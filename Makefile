@@ -1,32 +1,23 @@
-.PHONY: build build-debug test test-unit test-integration test-fast test-slow
+.PHONY: test test-unit docs-gen docs-dev docs-check
 
-SITE_PKG := $(shell .venv/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
+docs-gen:
+	uv sync --group dev
+	uv run python scripts/generate_sdk_docs.py
 
-build:
-	@echo "Building synth_ai_py (release)..."
-	@rm -rf "$(SITE_PKG)/synth_ai_py"
-	@.venv/bin/maturin develop --release --uv
-	@.venv/bin/python -c "import synth_ai_py; print('OK: synth_ai_py loaded (' + str(len(dir(synth_ai_py))) + ' symbols)')"
+docs-check: docs-gen
+	uv run python scripts/check_sdk_docstrings.py
 
-build-debug:
-	@echo "Building synth_ai_py (debug)..."
-	@rm -rf "$(SITE_PKG)/synth_ai_py"
-	@.venv/bin/maturin develop --uv
-	@.venv/bin/python -c "import synth_ai_py; print('OK: synth_ai_py loaded (' + str(len(dir(synth_ai_py))) + ' symbols)')"
+docs-dev:
+	@test -f docs/docs.json || (echo "Run make docs-gen first" && exit 1)
+	cd docs && mint dev
 
-# SDK pytest suite lives in ../testing/synth_ai_sdk/sdk (see testing repo README).
-test-unit:
-	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v --maxfail=1
-
-test-integration:
-	@uv run --group dev pytest ../testing/synth_ai_sdk/sdk -v
-
-test: test-unit
-
-test-fast:
-	@echo "Running fast tests (< 5 seconds)..."
-	@pytest -m fast -v
-
-test-slow:
-	@echo "Running slow tests (>= 5 seconds)..."
-	@pytest -m slow -v
+# SDK pytest suite lives in ../testing (see testing/backend/unit/synth_ai_sdk/README.md).
+test test-unit:
+	@if [ -d ../testing/backend/unit/synth_ai_sdk ]; then \
+		uv run python scripts/check_sdk_architecture.py && \
+		cd ../testing && uv run python scripts/validate_synth_ai_contract.py && \
+		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \
+	else \
+		echo "Missing ../testing checkout; clone synth-laboratories/testing beside synth-ai"; \
+		exit 1; \
+	fi

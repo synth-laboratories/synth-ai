@@ -1,6 +1,15 @@
 """Research API model aliases.
 
-Typed wire models live in the canonical ``synth_ai.managed_research`` package.
+Typed wire models live in the canonical ``synth_ai.managed_research.models`` package.
+Import these names from ``synth_ai.research.models`` in customer code.
+
+| Public name | Role |
+| --- | --- |
+| ``ResearchProject`` | Project record |
+| ``ResearchRun`` | Run state model returned by ``runs.wait`` / ``runs.state`` |
+| ``ResearchRunbookPreset`` | Named runbook preset for ``runs.create`` |
+| ``ResearchWorkProduct`` | Work product metadata |
+| ``ResearchCreateProjectResult`` | Result of runnable project creation |
 """
 
 from __future__ import annotations

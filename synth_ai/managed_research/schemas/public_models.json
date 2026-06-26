@@ -3,75 +3,328 @@
   "models": [
     {
       "id": "gpt-5.3-codex",
+      "display_name": "GPT-5.3 Codex",
       "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.3-codex",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.0000025",
+        "cached_input_usd": "0.00000125",
+        "output_usd": "0.00001",
+        "reasoning_output_usd": "0.00001",
+        "source": "synth_contract_estimate",
+        "observed_at": "2026-04-21"
+      }
     },
     {
       "id": "gpt-5.3-codex-spark",
+      "display_name": "GPT-5.3 Codex Spark",
       "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
-    },
-    {
-      "id": "gpt-5.4",
-      "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.3-codex-spark",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": null,
+      "route_regions": [],
+      "zdr_supported": null,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "4E-7",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.0000016",
+        "reasoning_output_usd": "0.0000016",
+        "source": "synth_contract_estimate",
+        "observed_at": "2026-04-21"
+      }
     },
     {
       "id": "gpt-5.5",
+      "display_name": "GPT-5.5",
       "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.5",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": null,
+      "route_regions": [],
+      "zdr_supported": null,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.0000025",
+        "cached_input_usd": "0.00000125",
+        "output_usd": "0.00001",
+        "reasoning_output_usd": "0.00001",
+        "source": "synth_contract_estimate",
+        "observed_at": "2026-04-24"
+      }
     },
     {
       "id": "gpt-5.4-mini",
+      "display_name": "GPT-5.4 Mini",
       "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
-    },
-    {
-      "id": "gpt-5.4-nano",
-      "display_group": "standard_codex",
-      "launch_lane": "",
-      "public": true
-    },
-    {
-      "id": "anthropic/claude-sonnet-4-6",
-      "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
-    },
-    {
-      "id": "anthropic/claude-haiku-4-5-20251001",
-      "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.4-mini",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "4E-7",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.0000016",
+        "reasoning_output_usd": "0.0000016",
+        "source": "synth_contract",
+        "observed_at": "2026-04-21"
+      }
     },
     {
       "id": "x-ai/grok-4.3",
+      "display_name": "Grok 4.3",
       "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "xai",
+      "provider_model_id": "grok-4.3",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "xai",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "opencode_sdk",
+        "codex"
+      ],
+      "aliases": [
+        "xai/grok-4-3",
+        "x-ai/grok-4-3",
+        "grok-4.3",
+        "grok-4-3"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.00000125",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.0000025",
+        "reasoning_output_usd": "0.0000025",
+        "source": "xai_model_api_pricing",
+        "observed_at": "2026-06-25"
+      }
     },
     {
       "id": "x-ai/grok-build",
+      "display_name": "Grok Build",
       "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "xai",
+      "provider_model_id": "grok-build-0.1",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "xai",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [
+        "x-ai/grok-build-0.1",
+        "xai/grok-build",
+        "xai/grok-build-0.1",
+        "grok-build",
+        "grok-build-0.1"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000001",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.000002",
+        "reasoning_output_usd": "0.000002",
+        "source": "xai_pricing_docs",
+        "observed_at": "2026-06-24"
+      }
     },
     {
       "id": "moonshotai/kimi-k2.6",
+      "display_name": "Kimi K2.6",
       "display_group": "additional_first_launch",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "moonshotai/kimi-k2.6",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "moonshotai/kimi-k2-6",
+        "kimi-k2.6",
+        "kimi-k2-6"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 32768,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "7.448E-7",
+        "cached_input_usd": "1.463E-7",
+        "output_usd": "0.000004655",
+        "reasoning_output_usd": "0.000004655",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-04-23"
+      }
     },
     {
       "id": "baseten/zai-org/GLM-5.2",
+      "display_name": "GLM 5.2 (Baseten)",
       "display_group": "standard_baseten_direct",
-      "launch_lane": "",
-      "public": true
+      "public": true,
+      "provider": "baseten",
+      "provider_model_id": "zai-org/GLM-5.2",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "baseten_api_pool",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex",
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "zai-org/GLM-5.2",
+        "glm-5.2",
+        "baseten-glm-5.2"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": 262144,
+      "max_output_tokens": 131072,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.0000015",
+        "cached_input_usd": "3E-7",
+        "output_usd": "0.0000045",
+        "reasoning_output_usd": "0.0000045",
+        "source": "baseten_model_api_pricing",
+        "observed_at": "2026-06-23"
+      }
     }
   ]
 }

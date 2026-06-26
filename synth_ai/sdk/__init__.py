@@ -1,5 +1,6 @@
 """Narrow SDK exports for the Python-only containers platform."""
 
+from synth_ai.sdk.base import SynthBaseClient, resolve_api_key, resolve_backend_base
 from synth_ai.sdk.containers import (
     AsyncContainersClient,
     Container,
@@ -21,10 +22,12 @@ from synth_ai.sdk.openai_agents_sdk import (
     AsyncOpenAIAgentsSdkClient,
     OpenAIAgentsSdkClient,
 )
+from synth_ai.sdk.pagination import AsyncPage, SyncPage, page_from_wire
 from synth_ai.sdk.pools import (
     CANONICAL_ROLLOUT_REQUEST_KEYS,
     AsyncContainerPoolsClient,
     ContainerPoolsClient,
+    PoolsClient,
     PoolTarget,
     validate_pool_rollout_request,
 )
@@ -33,6 +36,7 @@ from synth_ai.sdk.tunnels import AsyncTunnelsClient, TunnelProvider, TunnelsClie
 __all__ = [
     "AsyncContainerPoolsClient",
     "AsyncContainersClient",
+    "AsyncPage",
     "AsyncTunnelsClient",
     "CANONICAL_ROLLOUT_REQUEST_KEYS",
     "Container",
@@ -44,8 +48,14 @@ __all__ = [
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "PoolTarget",
+    "PoolsClient",
+    "SyncPage",
+    "SynthBaseClient",
     "TunnelProvider",
     "TunnelsClient",
+    "page_from_wire",
+    "resolve_api_key",
+    "resolve_backend_base",
     "validate_pool_rollout_request",
     "AsyncHorizonsPrivateClient",
     "AsyncManagedAgentsAnthropicClient",
