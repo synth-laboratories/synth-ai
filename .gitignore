@@ -162,6 +162,11 @@ synth_ai/learning/prompts/**/*.json
 !**/agents.md
 !docs/*.md
 !docs/**/*.md
+!specifications/**/*.md
+# Local Mintlify preview output (regenerate with make docs-gen)
+docs/reference/
+docs/docs.json
+docs/overview.mdx
 !synth_ai/tui/opencode_config/**/*.md
 !contracts/**/*.md
 !skills/**/*.md

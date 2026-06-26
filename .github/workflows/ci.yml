@@ -60,6 +60,20 @@ jobs:
         run: |
           echo "⏭️ Skipping README version check for dev version: ${{ steps.get_version.outputs.version }}"
 
+  docs:
+    name: Docs
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Sync dev dependencies
+        run: uv sync --group dev
+      - name: Generate SDK reference and check docstrings
+        run: make docs-check
+
   lint:
     name: Lint
     runs-on: blacksmith-4vcpu-ubuntu-2404

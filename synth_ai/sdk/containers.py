@@ -1,4 +1,7 @@
-"""Hosted Containers SDK — create, manage, and reference hosted containers by ID."""
+"""Hosted Containers SDK — create, manage, and reference hosted containers by ID.
+
+Access via ``SynthClient().containers``.
+"""
 
 from __future__ import annotations
 
@@ -62,7 +65,7 @@ class Container(BaseModel):
 
 
 class ContainersClient(SynthBaseClient):
-    """Client for managing hosted containers."""
+    """Create and manage hosted environment containers."""
 
     def __init__(
         self,
@@ -84,6 +87,7 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> Container:
+        """Provision a new hosted container from a :class:`ContainerSpec`."""
         payload = spec.model_dump(exclude_none=True)
         return self.cast_to(
             Container,
@@ -101,6 +105,7 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> Container:
+        """Retrieve a container by id."""
         return self.cast_to(
             Container,
             self._request(
@@ -115,6 +120,7 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> builtins.list[Container]:
+        """List containers in the current organization."""
         data = self._request("GET", self._prefix, timeout_seconds=timeout_seconds)
         items = data if isinstance(data, list) else data.get("items", [])
         return [self.cast_to(Container, item) for item in items]
@@ -125,6 +131,7 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> None:
+        """Delete a hosted container by id."""
         self._request(
             "DELETE",
             f"{self._prefix}/{container_id}",
@@ -158,9 +165,10 @@ class ContainersClient(SynthBaseClient):
 
 
 class AsyncContainersClient:
-    """Async adapter over ``ContainersClient``."""
+    """Async adapter over :class:`ContainersClient` (thread-offloaded)."""
 
     def __init__(self, sync_client: ContainersClient) -> None:
+        """Wrap a sync client for async call sites."""
         self._sync_client = sync_client
 
     def __getattr__(self, name: str) -> Any:

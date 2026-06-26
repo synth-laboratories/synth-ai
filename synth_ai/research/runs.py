@@ -1,4 +1,7 @@
-"""``client.research.runs`` — alpha run surface."""
+"""``client.research.runs`` — launch and lifecycle for Managed Research runs.
+
+**Status:** alpha
+"""
 
 from __future__ import annotations
 
@@ -126,6 +129,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         timeline_limit: int = 10,
         message_limit: int = 8,
     ) -> Any:
+        """Deprecated alias for ``snapshots.get(detail=...)``."""
         _deprecated_method(
             "ResearchRunHandle.progress_snapshot()",
             "handle.snapshots.get(detail=...)",
@@ -141,6 +145,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         )
 
     def full_progress(self) -> RunObservabilitySnapshot:
+        """Return the full observability snapshot (deprecated path — use ``snapshots.get(detail='full')``)."""
         return self.snapshots.get(detail="full")
 
     def stream_transcript(
@@ -151,6 +156,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         participant_session_id: str | None = None,
         view: str | None = None,
     ) -> Iterator[dict[str, Any]]:
+        """Stream transcript event pages for the run."""
         return self._client.runs.stream_transcript(
             self.run_id,
             cursor=cursor,
@@ -165,6 +171,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         *,
         as_text: bool = True,
     ) -> str | bytes:
+        """Download work product bytes or text by id."""
         return self.work_products.content.get(work_product_id, as_text=as_text)
 
     def download_workspace_archive(
@@ -173,6 +180,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         *,
         timeout_seconds: float | None = None,
     ) -> dict[str, Any]:
+        """Deprecated alias for ``workspace.download``."""
         _deprecated_method(
             "ResearchRunHandle.download_workspace_archive()",
             "handle.workspace.download(...)",
@@ -186,6 +194,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
         limit: int | None = None,
         cursor: str | None = None,
     ) -> List[dict[str, Any]]:
+        """Deprecated alias for ``artifacts.list``."""
         _deprecated_method(
             "ResearchRunHandle.list_artifacts()",
             "handle.artifacts.list(...)",
@@ -207,6 +216,7 @@ class ResearchRunsAPI:
         self._session = session
 
     def runbook_presets(self) -> tuple[ResearchRunbookPreset, ...]:
+        """Return supported runbook presets for ``runs.create``."""
         return self._session.runs.runbook_presets()
 
     def check_preflight(
@@ -223,6 +233,12 @@ class ResearchRunsAPI:
 
         Returns:
             Preflight payload with ``allowed`` flag and structured denials.
+
+        Example:
+            research.projects.setup.prepare(project_id)
+            preflight = research.runs.check_preflight(project_id, work_mode="directed_effort")
+            if not preflight.get("allowed"):
+                raise RuntimeError(preflight)
         """
         return self._session.runs.launch_preflight(
             project_id,
@@ -237,6 +253,7 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        """Deprecated alias for ``check_preflight``."""
         warnings.warn(
             "runs.launch_preflight is deprecated; use runs.check_preflight instead.",
             DeprecationWarning,
@@ -262,9 +279,19 @@ class ResearchRunsAPI:
         returns a :class:`ResearchRunHandle`. Otherwise triggers a configured run
         and may return a wire dict (legacy drivers).
 
+        Args:
+            project_id: Owning project id.
+            objective: Primary operator message for the run (preferred launch path).
+
+        Returns:
+            :class:`ResearchRunHandle` when ``objective`` is set; otherwise a wire dict.
+
         Example:
-            >>> handle = research.runs.create(project_id, work_mode="standard")
-            >>> handle.progress.get()
+            handle = research.runs.create(
+                project_id,
+                objective="Audit the repo for security issues",
+            )
+            research.runs.wait(project_id, handle.run_id)
         """
         run_kwargs = _research_run_kwargs(kwargs)
         if objective is not None:
@@ -311,6 +338,7 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> ResearchRunHandle:
+        """Deprecated alias for ``create`` with a required objective."""
         warnings.warn(
             "runs.launch is deprecated; use runs.create instead.",
             DeprecationWarning,
@@ -349,6 +377,7 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:
+        """Deprecated alias for configured-run launch (prefer ``create``)."""
         warnings.warn(
             "runs.start_run is deprecated; use runs.create instead.",
             DeprecationWarning,
@@ -435,6 +464,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> ResearchRun:
+        """Return the public run model without opening a full session handle."""
         return self.get(run_id=run_id, project_id=project_id, project=project).public_state()
 
     def list(
@@ -488,6 +518,7 @@ class ResearchRunsAPI:
         participant_session_id: str | None = None,
         view: str | None = None,
     ) -> dict[str, Any]:
+        """Fetch a transcript page for a run (prefer ``handle.transcript.get``)."""
         return self.get(run_id=run_id, project_id=project_id, project=project).transcript.get(
             cursor=cursor,
             limit=limit,
@@ -506,6 +537,7 @@ class ResearchRunsAPI:
         last_event_id: str | None = None,
         timeout: float | None = None,
     ) -> Iterator[RunRuntimeStreamEvent]:
+        """Stream runtime events for a run (prefer ``handle.events.stream``)."""
         return self.get(run_id=run_id, project_id=project_id, project=project).stream_events(
             transcript_cursor=transcript_cursor,
             view=view,
@@ -520,6 +552,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> SmrResourceLimits:
+        """Return configured resource limits for the run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).resource_limits()
 
     def progress_toward_resource_limits(
@@ -529,6 +562,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> SmrResourceLimitProgress:
+        """Return progress toward resource limits for the run."""
         return self.get(
             run_id=run_id,
             project_id=project_id,
@@ -542,6 +576,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
+        """Request graceful stop for a run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).stop()
 
     def pause(
@@ -551,6 +586,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
+        """Pause a running run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).pause()
 
     def resume(
@@ -560,6 +596,7 @@ class ResearchRunsAPI:
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
+        """Resume a paused run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).resume()
 
     def results(
@@ -567,6 +604,7 @@ class ResearchRunsAPI:
         project_id: str,
         run_id: str,
     ) -> dict[str, Any]:
+        """Return final run results when execution completes."""
         return self._session.get_run_results(project_id, run_id)
 
     def logs(
@@ -577,6 +615,7 @@ class ResearchRunsAPI:
         limit: int | None = None,
         cursor: str | None = None,
     ) -> dict[str, Any]:
+        """List structured log records for a run."""
         return self._session.get_run_logs(
             project_id,
             run_id,

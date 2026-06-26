@@ -15,9 +15,16 @@ from synth_ai.research.secrets import ResearchSecretsAPI
 
 
 class ResearchClient:
-    """Public Research API under ``SynthClient``.
+    """Managed Research entrypoint on ``SynthClient``.
 
-    One ``ManagedResearchClient`` session backs all hero namespaces.
+    Obtain via ``SynthClient().research``. Namespaces cover projects, runs,
+    limits, secrets, and Factory Tag (``factories.tag``).
+
+    Example:
+        >>> client = SynthClient()
+        >>> research = client.research
+        >>> research.limits.get()
+        >>> research.projects.create({"name": "demo", "work_mode": "standard"})
     """
 
     def __init__(
@@ -49,11 +56,15 @@ class ResearchClient:
 
     @property
     def session(self) -> ManagedResearchClient:
-        """Advanced: wire session backing hero namespaces (eval harness interim)."""
+        """Low-level session client (advanced integrations and eval harnesses only).
+
+        Prefer hero namespaces (``projects``, ``runs``, ``limits``) for new code.
+        """
         return self._open_session()
 
     @property
     def backing_client(self) -> ManagedResearchClient:
+        """Deprecated alias for :attr:`session`."""
         warnings.warn(
             "research.backing_client is deprecated; use research.session instead.",
             DeprecationWarning,
@@ -63,36 +74,42 @@ class ResearchClient:
 
     @property
     def factories(self) -> ResearchFactoriesAPI:
+        """Factory domain APIs (Tag at ``factories.tag``)."""
         if self._factories is None:
             self._factories = ResearchFactoriesAPI(self._open_session())
         return self._factories
 
     @property
     def projects(self) -> ResearchProjectsAPI:
+        """Create and configure Managed Research projects."""
         if self._projects is None:
             self._projects = ResearchProjectsAPI(self._open_session())
         return self._projects
 
     @property
     def runs(self) -> ResearchRunsAPI:
+        """Launch runs and open run-scoped readout handles."""
         if self._runs is None:
             self._runs = ResearchRunsAPI(self._open_session())
         return self._runs
 
     @property
     def limits(self) -> ResearchLimitsAPI:
+        """Read org limits and allowance before launching work."""
         if self._limits is None:
             self._limits = ResearchLimitsAPI(self._open_session())
         return self._limits
 
     @property
     def secrets(self) -> ResearchSecretsAPI:
+        """Manage project secret refs for providers and repos."""
         if self._secrets is None:
             self._secrets = ResearchSecretsAPI(self._open_session())
         return self._secrets
 
     @property
     def tag(self) -> TagAPI:
+        """Deprecated — use ``factories.tag`` instead."""
         warnings.warn(
             "client.research.tag is deprecated; use client.research.factories.tag instead.",
             DeprecationWarning,
@@ -103,6 +120,7 @@ class ResearchClient:
         return self._tag
 
     def get_limits(self) -> dict[str, Any]:
+        """Deprecated — use ``limits.get()`` instead."""
         warnings.warn(
             "research.get_limits() is deprecated; use research.limits.get() instead.",
             DeprecationWarning,
@@ -111,6 +129,7 @@ class ResearchClient:
         return self.limits.get()
 
     def close(self) -> None:
+        """Close the underlying HTTP session and cached namespace clients."""
         if self._session is not None:
             self._session.close()
         self._session = None

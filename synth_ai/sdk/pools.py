@@ -1,4 +1,7 @@
-"""Python-only container pools SDK."""
+"""Python-only container pools SDK.
+
+Access via ``SynthClient().pools``. Nested namespaces: ``rollouts``, ``tasks``, ``metrics``, ``agent_rollouts``.
+"""
 
 from __future__ import annotations
 
@@ -35,6 +38,7 @@ CANONICAL_ROLLOUT_REQUEST_KEYS: frozenset[str] = frozenset(
 
 
 def validate_pool_rollout_request(request: dict[str, Any], *, context: str) -> None:
+    """Reject rollout payloads with non-canonical keys."""
     invalid_keys = sorted(key for key in request if key not in CANONICAL_ROLLOUT_REQUEST_KEYS)
     if invalid_keys:
         invalid_list = ", ".join(invalid_keys)
@@ -45,6 +49,7 @@ def validate_pool_rollout_request(request: dict[str, Any], *, context: str) -> N
 
 
 class PoolTarget(str, Enum):
+    """Deployment target substrate for a pool."""
     HARBOR = "harbor"
     OPENENV = "openenv"
     HORIZONS = "horizons"
@@ -180,6 +185,7 @@ class _PoolMetricsClient:
 
 
 class ContainerPoolsClient(SynthBaseClient):
+    """Manage container pools, tasks, rollouts, and metrics."""
     def __init__(
         self,
         *,
@@ -201,12 +207,15 @@ class ContainerPoolsClient(SynthBaseClient):
 
     @property
     def raw(self) -> ContainerPoolsClient:
+        """Return ``self`` for advanced raw HTTP access."""
         return self
 
     def create_pool(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Create a container pool."""
         return self._request("POST", "/v1/pools", json_body=request)
 
     def create(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Create a container pool (alias for ``create_pool``)."""
         return self.create_pool(request)
 
     def list_pools(
@@ -216,6 +225,7 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
+        """List container pools with optional cursor pagination."""
         params = {
             k: v
             for k, v in {"state": state, "limit": limit, "cursor": cursor}.items()
@@ -230,61 +240,80 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
+        """List container pools (alias for ``list_pools``)."""
         return self.list_pools(state=state, limit=limit, cursor=cursor)
 
     def get_pool(self, pool_id: str) -> dict[str, Any]:
+        """Retrieve a pool by id."""
         return self._request("GET", f"/v1/pools/{pool_id}")
 
     def get(self, pool_id: str) -> dict[str, Any]:
+        """Retrieve a pool by id (alias for ``get_pool``)."""
         return self.get_pool(pool_id)
 
     def replace_pool(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Replace a pool definition."""
         return self._request("PUT", f"/v1/pools/{pool_id}", json_body=request)
 
     def replace(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Replace a pool definition (alias for ``replace_pool``)."""
         return self.replace_pool(pool_id, request)
 
     def update_pool(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Patch-update a pool definition."""
         return self._request("PATCH", f"/v1/pools/{pool_id}", json_body=request)
 
     def update(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Patch-update a pool (alias for ``update_pool``)."""
         return self.update_pool(pool_id, request)
 
     def delete_pool(self, pool_id: str) -> dict[str, Any]:
+        """Delete a pool by id."""
         return self._request("DELETE", f"/v1/pools/{pool_id}")
 
     def delete(self, pool_id: str) -> dict[str, Any]:
+        """Delete a pool by id (alias for ``delete_pool``)."""
         return self.delete_pool(pool_id)
 
     def get_pool_urls(self, pool_id: str) -> dict[str, Any]:
+        """Return rollout URLs for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/urls")
 
     def get_urls(self, pool_id: str) -> dict[str, Any]:
+        """Return rollout URLs (alias for ``get_pool_urls``)."""
         return self.get_pool_urls(pool_id)
 
     def get_pool_metrics(self, pool_id: str) -> dict[str, Any]:
+        """Return utilization metrics for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/metrics")
 
     def list_tasks(self, pool_id: str) -> dict[str, Any]:
+        """List tasks configured on a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/tasks")
 
     def create_task(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Create a task on a pool."""
         return self._request("POST", f"/v1/pools/{pool_id}/tasks", json_body=request)
 
     def update_task(self, pool_id: str, task_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Replace a pool task definition."""
         return self._request("PUT", f"/v1/pools/{pool_id}/tasks/{task_id}", json_body=request)
 
     def patch_task(self, pool_id: str, task_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Patch-update a pool task."""
         return self._request("PATCH", f"/v1/pools/{pool_id}/tasks/{task_id}", json_body=request)
 
     def delete_task(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        """Delete a pool task."""
         return self._request("DELETE", f"/v1/pools/{pool_id}/tasks/{task_id}")
 
     def create_rollout(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
+        """Start a rollout on a pool."""
         validate_pool_rollout_request(request, context="pools.create_rollout")
         return self._request("POST", f"/v1/pools/{pool_id}/rollouts", json_body=request)
 
     def get_rollout(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
+        """Fetch rollout state for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/rollouts/{rollout_id}")
 
     def list_rollouts(
@@ -295,6 +324,7 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
+        """List rollouts for a pool."""
         params = {
             k: v
             for k, v in {"state": state, "limit": limit, "cursor": cursor}.items()
@@ -303,17 +333,21 @@ class ContainerPoolsClient(SynthBaseClient):
         return self._request("GET", f"/v1/pools/{pool_id}/rollouts", params=params)
 
     def cancel_rollout(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
+        """Cancel an in-flight pool rollout."""
         return self._request(
             "POST", f"/v1/pools/{pool_id}/rollouts/{rollout_id}/cancel", json_body={}
         )
 
     def get_rollout_artifacts(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
+        """List artifacts produced by a pool rollout."""
         return self._request("GET", f"/v1/pools/{pool_id}/rollouts/{rollout_id}/artifacts")
 
     def get_rollout_usage(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
+        """Return usage totals for a pool rollout."""
         return self._request("GET", f"/v1/pools/{pool_id}/rollouts/{rollout_id}/usage")
 
     def get_rollout_summary(self, pool_id: str, rollout_id: str) -> dict[str, Any]:
+        """Return a summary document for a pool rollout."""
         return self._request("GET", f"/v1/pools/{pool_id}/rollouts/{rollout_id}/summary")
 
     def stream_rollout_events(
@@ -323,10 +357,12 @@ class ContainerPoolsClient(SynthBaseClient):
         *,
         cursor: str | None = None,
     ) -> Iterator[dict[str, Any]]:
+        """Stream rollout events for a pool."""
         params = {"cursor": cursor} if cursor is not None else None
         return self._stream(f"/v1/pools/{pool_id}/rollouts/{rollout_id}/events", params=params)
 
     def create_global_rollout(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Start a global (non-pool-scoped) rollout."""
         validate_pool_rollout_request(request, context="rollouts.create")
         return self._request("POST", "/v1/rollouts", json_body=request)
 
@@ -337,6 +373,7 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
+        """List global rollouts."""
         params = {
             k: v
             for k, v in {"state": state, "limit": limit, "cursor": cursor}.items()
@@ -345,18 +382,23 @@ class ContainerPoolsClient(SynthBaseClient):
         return self._request("GET", "/v1/rollouts", params=params)
 
     def get_global_rollout(self, rollout_id: str) -> dict[str, Any]:
+        """Fetch a global rollout by id."""
         return self._request("GET", f"/v1/rollouts/{rollout_id}")
 
     def cancel_global_rollout(self, rollout_id: str) -> dict[str, Any]:
+        """Cancel a global rollout."""
         return self._request("POST", f"/v1/rollouts/{rollout_id}/cancel", json_body={})
 
     def get_global_rollout_artifacts(self, rollout_id: str) -> dict[str, Any]:
+        """List artifacts for a global rollout."""
         return self._request("GET", f"/v1/rollouts/{rollout_id}/artifacts")
 
     def get_global_rollout_usage(self, rollout_id: str) -> dict[str, Any]:
+        """Return usage totals for a global rollout."""
         return self._request("GET", f"/v1/rollouts/{rollout_id}/usage")
 
     def get_global_rollout_summary(self, rollout_id: str) -> dict[str, Any]:
+        """Return a summary for a global rollout."""
         return self._request("GET", f"/v1/rollouts/{rollout_id}/summary")
 
     def stream_global_rollout_events(
@@ -365,43 +407,54 @@ class ContainerPoolsClient(SynthBaseClient):
         *,
         cursor: str | None = None,
     ) -> Iterator[dict[str, Any]]:
+        """Stream events for a global rollout."""
         params = {"cursor": cursor} if cursor is not None else None
         return self._stream(f"/v1/rollouts/{rollout_id}/events", params=params)
 
     def get_pool_container_health(self, pool_id: str) -> dict[str, Any]:
+        """Return container health for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/container/health")
 
     def get_task_container_health(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        """Return container health for a pool task."""
         return self._request("GET", f"/v1/pools/{pool_id}/tasks/{task_id}/container/health")
 
     def get_pool_container_info(self, pool_id: str) -> dict[str, Any]:
+        """Return container info for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/container/info")
 
     def get_task_container_info(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        """Return container info for a pool task."""
         return self._request("GET", f"/v1/pools/{pool_id}/tasks/{task_id}/container/info")
 
     def get_pool_container_metadata(self, pool_id: str) -> dict[str, Any]:
+        """Return container metadata for a pool."""
         return self._request("GET", f"/v1/pools/{pool_id}/container/metadata")
 
     def get_task_container_metadata(self, pool_id: str, task_id: str) -> dict[str, Any]:
+        """Return container metadata for a pool task."""
         return self._request("GET", f"/v1/pools/{pool_id}/tasks/{task_id}/container/metadata")
 
     def execute_pool_container_rollout(
         self, pool_id: str, request: dict[str, Any]
     ) -> dict[str, Any]:
+        """Execute a one-off container rollout on a pool."""
         return self._request("POST", f"/v1/pools/{pool_id}/container/rollout", json_body=request)
 
     def execute_task_container_rollout(
         self, pool_id: str, task_id: str, request: dict[str, Any]
     ) -> dict[str, Any]:
+        """Execute a container rollout for a specific task."""
         return self._request(
             "POST", f"/v1/pools/{pool_id}/tasks/{task_id}/container/rollout", json_body=request
         )
 
     def get_queue_status(self) -> dict[str, Any]:
+        """Return global queue saturation status."""
         return self._request("GET", "/v1/queue/status")
 
     def get_capabilities(self) -> dict[str, Any]:
+        """Return backend capability flags for pools."""
         return self._request("GET", "/v1/capabilities")
 
 

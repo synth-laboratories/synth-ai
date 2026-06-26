@@ -1,4 +1,16 @@
-"""Research API errors (public names; Smr* compatibility aliases)."""
+"""Research API errors (public names; ``Smr*`` compatibility aliases).
+
+Catch these typed exceptions from ``SynthClient().research`` call sites.
+
+| Exception | Typical cause |
+| --- | --- |
+| ``ResearchApiError`` | Base API error with structured ``message`` |
+| ``ResearchStructuredDenialError`` | Policy or preflight denial |
+| ``ResearchLimitExceededError`` | Org or project limit exceeded |
+| ``ResearchConcurrentRunLimitExceededError`` | Too many concurrent runs |
+| ``ResearchInsufficientCreditsError`` | Insufficient account credits |
+| ``ResearchProjectMonthlyBudgetExhaustedError`` | Project monthly budget exhausted |
+"""
 
 from __future__ import annotations
 

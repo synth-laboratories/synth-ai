@@ -1,4 +1,10 @@
-"""Research launch enums (public names)."""
+"""Research launch enums (public names).
+
+| Enum | Values | Use |
+| --- | --- | --- |
+| ``ResearchWorkMode`` | standard, … | ``runs.create(work_mode=...)`` |
+| ``ResearchHostKind`` | container, … | Host selection on launch payloads |
+"""
 
 from __future__ import annotations
 

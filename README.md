@@ -171,6 +171,8 @@ uv sync --group dev
 uv run ruff format --check .
 uv run ruff check .
 uv run ty check
+make docs-gen   # generate Mintlify SDK reference into docs/
+make docs-dev   # preview at http://localhost:3000/overview
 ```
 
 Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
