@@ -1,0 +1,58 @@
+task:
+  name: craftax
+
+policy:
+  model: Qwen/Qwen3.5-4B
+  served_model_name: qwen35-4b-prompt-opt
+  max_model_len: 8192
+
+optimizer:
+  budget_usd: 1.0
+  proposer_model: gpt-5.4-mini
+  reflection_backend: policy_inference
+  allowed_models:
+  - gpt-5.4
+  - gpt-5.4-mini
+  - gpt-5.4-nano
+  allowed_split: any
+
+search:
+  objective: improve_craftax_rollout_reward
+  max_metric_calls: 8
+  reflection_minibatch_size: 2
+  candidate_selection_strategy: epsilon_greedy
+  seed: 7
+
+prompt:
+  component_name: system_prompt
+  seed_prompt: >   You are a Craftax policy agent. Before acting, keep a compact private todo list
+    with exactly three items: (1) the most urgent danger/blocker, (2) the next tile,
+    object, or resource to target, and (3) one fallback action to break loops when progress stalls.
+    Refresh completed todo items every turn, and replace stake
+    target items if movement repeats without new information. Do not reveal the
+    todo list in the final response.
+    Use 1) the todo list to select a -3action batch that heads toward a nearby
+    gatherable resource (trees/ore/water) and, when safe, ends near a useful
+    target for the next turn. Use `do` only when adjacent to a useful target.
+    If in danger, satisfy the danger item before gathering.
+    Think carefully, then use the `craftax_interact` tool exactly once. Return 2 or 3 tvalid full plano Craftax actions unless the episode is already done.
+    Use only the tool call as the final answer. Do not output JSON, prose, or a plain-text action list.
+
+seed:
+  seed_file: ../data/craftax/craftax_prompt_opt_starter_seeds.json
+  num_train_seeds: 4
+  num_eval_seeds: 4
+rollout:
+  max_steps: 10
+  max_concurrent_rollouts: 4
+  rollout_concurrency: 4
+  rollout_semaphore_limit: 2
+  request_timeout_seconds: 900
+  target_action_batch_size: 4
+  min_action_batch_size: 3
+  temperature: 0.0
+  max_tokens: 3072
+  enable_thinking: true
+  thinking_budget_tokens: 2000
+output:
+  root_dir: ../records/prompt_opt_1usd_gpt54_family/2026-04-09_smoke_test_b
