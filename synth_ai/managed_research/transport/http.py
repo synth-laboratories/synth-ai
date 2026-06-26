@@ -116,7 +116,10 @@ def _raise_for_error_response(response: httpx.Response) -> None:
                         response_text=response_text,
                         detail=detail,
                     )
-                if stripped == "smr_concurrent_run_limit_exceeded":
+                if stripped in {
+                    "smr_concurrent_run_limit_exceeded",
+                    "smr_launch_promo_concurrent_limit",
+                }:
                     raise SmrConcurrentRunLimitExceededError(
                         message,
                         status_code=status_code,
