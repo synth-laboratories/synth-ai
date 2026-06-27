@@ -1667,6 +1667,18 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             ),
             handler=server._tool_restore_run_checkpoint,
         ),
+        ToolDefinition(
+            name="smr_list_runs_by_effort",
+            description=(
+                "List runs linked to a Factory Effort by effort_id. This is the "
+                "reverse index over runs that carry effort_id."
+            ),
+            input_schema=tool_schema(
+                {"effort_id": {"type": "string", "description": "Factory Effort ID."}},
+                required=["effort_id"],
+            ),
+            handler=server._tool_list_runs_by_effort,
+        ),
     ]
     return [tool for tool in tools if tool.name not in _REMOVED_RUN_TOOL_NAMES]
 

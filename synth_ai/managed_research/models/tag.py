@@ -233,6 +233,7 @@ class TagSession:
     experiment_id: str | None = None
     candidate_id: str | None = None
     conversation_ref: dict[str, Any] | None = None
+    graduation_proposal: dict[str, Any] | None = None
     definition_of_done: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime | None = None
@@ -256,6 +257,7 @@ class TagSession:
             experiment_id=_optional_string(data, "experiment_id"),
             candidate_id=_optional_string(data, "candidate_id"),
             conversation_ref=_optional_mapping(data, "conversation_ref"),
+            graduation_proposal=_optional_mapping(data, "graduation_proposal"),
             definition_of_done=_optional_string(data, "definition_of_done"),
             metadata=dict(data.get("metadata") or {}),
             created_at=_datetime(data, "created_at"),
