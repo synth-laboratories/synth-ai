@@ -8,32 +8,77 @@ from typing import Any
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
 
+def _artifact_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+    artifacts = payload.get("artifacts")
+    if isinstance(artifacts, list):
+        return [dict(item) for item in artifacts if isinstance(item, Mapping)]
+    return []
+
+
 class ResearchHostedArtifactsAPI:
-    """Operator CRUD-style access to SMR hosted artifacts (Open Research alpha).
+    """Operator CRUD access to SMR hosted artifacts (Open Research alpha).
 
     Hosted artifacts are HTML proof pages materialized by ``artifact_builder``
-    workers during a run. Creation happens inside the worker via the
-    ``publish_hosted_artifact`` MCP tool — there is no standalone SDK
-    ``create()`` HTTP entrypoint yet.
+    workers during a run. Creation still happens in-run via the
+    ``publish_hosted_artifact`` MCP tool; this namespace covers operator read,
+    metadata patch, promote, review dispatch, and delete.
 
     | Operation | SDK | Backend |
     | --- | --- | --- |
-    | **Create** | Worker MCP ``publish_hosted_artifact`` | Internal service during run |
-    | **Read** | ``get_for_run``, ``get_content``, ``list_public``, ``get_public`` | ``GET`` routes below |
-    | **Update** | ``publish_public``, ``assign_reviewer`` | ``POST`` promote / review dispatch |
-    | **Delete** | *Not implemented* | *No unpublish/delete route yet* |
+    | **Create** | Worker MCP ``publish_hosted_artifact`` | In-run service write |
+    | **Read** | ``list``, ``get``, ``get_for_run``, ``get_content`` | ``GET`` list/detail/receipt/content |
+    | **Update** | ``update``, ``publish_public``, ``assign_reviewer`` | ``PATCH`` + promote/review routes |
+    | **Delete** | ``delete`` | ``DELETE /smr/hosted-artifacts/{id}`` |
 
     Example:
-        >>> status = client.research.hosted_artifacts.get_for_run(run_id)
-        >>> status["hosted_url"]
-        >>> client.research.hosted_artifacts.publish_public(
-        ...     status["hosted_artifact_id"],
-        ...     slug="my-result-20260628",
+        >>> artifacts = client.research.hosted_artifacts.list(project_id=project_id)
+        >>> artifact = artifacts[0]
+        >>> artifact["hosted_url"]
+        >>> client.research.hosted_artifacts.update(
+        ...     artifact["hosted_artifact_id"],
+        ...     title="Revised title",
         ... )
     """
 
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
+
+    def list(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List hosted artifacts for the org or one project.
+
+        Args:
+            project_id: When set, restrict to artifacts built under that project.
+            limit: Maximum rows to return (server capped at 250).
+
+        Returns:
+            Artifact receipts with ``project_id``, ``hosted_url``, ``public_url``,
+            and ``slug`` when promoted.
+        """
+        if project_id:
+            payload = self._session.list_project_hosted_artifacts(
+                project_id, limit=limit
+            )
+        else:
+            payload = self._session.list_hosted_artifacts(
+                project_id=project_id, limit=limit
+            )
+        return _artifact_items(payload)
+
+    def get(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Read one hosted artifact receipt with URLs.
+
+        Args:
+            hosted_artifact_id: Primary key from ``list`` or ``get_for_run``.
+
+        Returns:
+            Receipt JSON from ``GET /smr/hosted-artifacts/{id}``.
+        """
+        return self._session.get_hosted_artifact(hosted_artifact_id)
 
     def get_for_run(self, run_id: str) -> dict[str, Any]:
         """Read hosted artifact receipt for a run.
@@ -42,9 +87,7 @@ class ResearchHostedArtifactsAPI:
             run_id: SMR run id that built or owns the artifact.
 
         Returns:
-            Status payload from ``GET /smr/runs/{run_id}/hosted-artifact`` including
-            ``hosted_artifact_id``, ``hosted_url``, ``public_url``, ``slug``, and
-            ``work_product_id`` when materialized.
+            Status payload from ``GET /smr/runs/{run_id}/hosted-artifact``.
         """
         return self._session.get_run_hosted_artifact(run_id)
 
@@ -54,15 +97,7 @@ class ResearchHostedArtifactsAPI:
         *,
         as_text: bool = True,
     ) -> str | bytes:
-        """Read hosted HTML body by artifact id.
-
-        Args:
-            hosted_artifact_id: Primary key from ``get_for_run`` or publish receipt.
-            as_text: When ``True``, return decoded UTF-8 text; otherwise raw bytes.
-
-        Returns:
-            HTML content from ``GET /smr/hosted-artifacts/{id}/content``.
-        """
+        """Read hosted HTML body by artifact id."""
         payload = self._session.get_hosted_artifact_content(hosted_artifact_id)
         encoding = str(payload.get("encoding") or "utf-8")
         content = payload["content"]
@@ -73,6 +108,42 @@ class ResearchHostedArtifactsAPI:
             return raw.decode("utf-8") if as_text else raw
         text = str(content)
         return text if as_text else text.encode("utf-8")
+
+    def update(
+        self,
+        hosted_artifact_id: str,
+        *,
+        title: str | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        theme: str | None = None,
+        summary: str | None = None,
+        kind: str | None = None,
+        visibility: str | None = None,
+    ) -> dict[str, Any]:
+        """Patch hosted artifact metadata and optional public shell fields.
+
+        Args:
+            hosted_artifact_id: Artifact to update.
+            title: Replace artifact title (and public title when promoted).
+            metadata: Shallow-merge into artifact ``metadata``.
+            theme: Public index theme when a publication exists.
+            summary: Public summary when a publication exists.
+            kind: Public kind when a publication exists.
+            visibility: ``private``, ``org``, or ``public``. Demoting from
+                ``public`` removes the public shell row.
+
+        Returns:
+            Updated receipt from ``PATCH /smr/hosted-artifacts/{id}``.
+        """
+        return self._session.patch_hosted_artifact(
+            hosted_artifact_id,
+            title=title,
+            metadata=metadata,
+            theme=theme,
+            summary=summary,
+            kind=kind,
+            visibility=visibility,
+        )
 
     def publish_public(
         self,
@@ -85,20 +156,7 @@ class ResearchHostedArtifactsAPI:
         factory_id: str | None = None,
         effort_id: str | None = None,
     ) -> dict[str, Any]:
-        """Promote a hosted artifact to the public Open Research index.
-
-        Args:
-            hosted_artifact_id: Artifact to publish.
-            slug: Public slug (normalized server-side).
-            kind: Publication kind: ``bloglet``, ``result``, ``analysis``, or ``blog``.
-            theme: Optional theme label for the index card.
-            summary: Optional public summary text.
-            factory_id: Optional Factory lineage id.
-            effort_id: Optional effort lineage id.
-
-        Returns:
-            Public bundle JSON from ``POST /smr/hosted-artifacts/{id}/publish-public``.
-        """
+        """Promote a hosted artifact to the public Open Research index."""
         return self._session.publish_hosted_artifact_public(
             hosted_artifact_id,
             slug=slug,
@@ -116,44 +174,31 @@ class ResearchHostedArtifactsAPI:
         *,
         summary: str | None = None,
     ) -> dict[str, Any]:
-        """Dispatch an ``artifact_reviewer`` task for a hosted artifact.
-
-        Args:
-            hosted_artifact_id: Artifact under review.
-            reason: Operator reason shown to the reviewer dispatch.
-            summary: Optional longer review brief.
-
-        Returns:
-            Reviewer dispatch payload from
-            ``POST /smr/hosted-artifacts/{id}/assign-reviewer``.
-        """
+        """Dispatch an ``artifact_reviewer`` task for a hosted artifact."""
         return self._session.assign_hosted_artifact_reviewer(
             hosted_artifact_id,
             reason=reason,
             summary=summary,
         )
 
-    def list_public(self) -> list[dict[str, Any]]:
-        """List public Open Research artifacts (unauthenticated index JSON).
-
-        Returns:
-            Items from ``GET /api/open-research/v1/artifacts``.
-        """
-        payload = self._session.list_public_hosted_artifacts()
-        artifacts = payload.get("artifacts")
-        if isinstance(artifacts, list):
-            return [dict(item) for item in artifacts if isinstance(item, Mapping)]
-        return []
-
-    def get_public(self, slug: str) -> dict[str, Any]:
-        """Read one public artifact bundle by slug.
+    def delete(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Delete a hosted artifact and its stored HTML.
 
         Args:
-            slug: Public slug from the Open Research index.
+            hosted_artifact_id: Artifact to delete.
 
         Returns:
-            Bundle JSON from ``GET /api/open-research/v1/artifacts/{slug}``.
+            Deletion receipt with ``deleted`` and ``hosted_artifact_id``.
         """
+        return self._session.delete_hosted_artifact(hosted_artifact_id)
+
+    def list_public(self) -> list[dict[str, Any]]:
+        """List public Open Research artifacts (unauthenticated index JSON)."""
+        payload = self._session.list_public_hosted_artifacts()
+        return _artifact_items(payload)
+
+    def get_public(self, slug: str) -> dict[str, Any]:
+        """Read one public artifact bundle by slug."""
         return self._session.get_public_hosted_artifact(slug)
 
 

@@ -231,26 +231,25 @@ SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run. O
 | Operation | Supported | How |
 | --- | --- | --- |
 | **Create** | Yes (in-run) | Worker MCP ``publish_hosted_artifact`` during an ``artifact_builder`` task |
-| **Read** | Yes | ``GET`` receipt, content, public index, public slug |
-| **Update** | Partial | ``publish_public`` (promote slug), ``assign_reviewer`` (review gate) |
-| **Delete** | No | Unpublish/delete not implemented yet |
+| **Read** | Yes | ``list``, ``get``, ``get_for_run``, ``get_content``, public index/slug |
+| **Update** | Yes | ``update`` (``PATCH`` metadata), ``publish_public``, ``assign_reviewer`` |
+| **Delete** | Yes | ``delete`` removes artifact row, public shell, and stored HTML |
 
 ## Python SDK
 
 ```python
 research = client.research
-handle = research.runs.open(run_id)
 
-status = handle.hosted_artifact.get()
-html = handle.hosted_artifact.content()
+for artifact in research.hosted_artifacts.list(project_id=project_id):
+    print(artifact["hosted_url"], artifact.get("public_url"))
 
-index = research.hosted_artifacts.list_public()
-bundle = research.hosted_artifacts.get_public("artifact-builder-e2e-20260628")
-
-research.hosted_artifacts.publish_public(
-    status["hosted_artifact_id"],
-    slug="my-result-20260628",
+artifact = research.hosted_artifacts.get(hosted_artifact_id)
+research.hosted_artifacts.update(
+    hosted_artifact_id,
+    title="Revised title",
+    summary="Updated public card",
 )
+research.hosted_artifacts.delete(hosted_artifact_id)
 ```
 
 Reference: [ResearchHostedArtifactsAPI](/reference/sdk/research/synth_ai-research-hosted_artifacts).
@@ -291,7 +290,12 @@ Example kickoff task snippet:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/smr/runs/{run_id}/hosted-artifact` | Receipt: hosted URL, WorkProduct id, lineage |
+| `GET` | `/smr/hosted-artifacts` | List org artifacts (`?project_id=` optional) |
+| `GET` | `/smr/projects/{project_id}/hosted-artifacts` | List artifacts for one project |
+| `GET` | `/smr/hosted-artifacts/{id}` | Receipt with hosted/public URLs |
+| `PATCH` | `/smr/hosted-artifacts/{id}` | Patch title, metadata, public fields, visibility |
+| `DELETE` | `/smr/hosted-artifacts/{id}` | Delete artifact + public shell + HTML |
+| `GET` | `/smr/runs/{run_id}/hosted-artifact` | Run-scoped receipt |
 | `GET` | `/smr/hosted-artifacts/{id}/content` | Serve HTML |
 | `POST` | `/smr/hosted-artifacts/{id}/publish-public` | Promote public slug |
 | `POST` | `/smr/hosted-artifacts/{id}/assign-reviewer` | Dispatch `artifact_reviewer` |

@@ -2887,6 +2887,91 @@ class ManagedResearchClient:
             label="get_public_hosted_artifact",
         )
 
+    def list_hosted_artifacts(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """List hosted artifacts for the authenticated org."""
+        params: dict[str, Any] = {"limit": limit}
+        if project_id is not None:
+            params["project_id"] = project_id
+        return _coerce_dict(
+            self._request_json("GET", "/smr/hosted-artifacts", params=params),
+            label="list_hosted_artifacts",
+        )
+
+    def list_project_hosted_artifacts(
+        self,
+        project_id: str,
+        *,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """List hosted artifacts materialized for one project."""
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{_require_non_empty_string(project_id, field_name='project_id')}/hosted-artifacts",
+                params={"limit": limit},
+            ),
+            label="list_project_hosted_artifacts",
+        )
+
+    def get_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Read one hosted artifact receipt with hosted and public URLs."""
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+            ),
+            label="get_hosted_artifact",
+        )
+
+    def patch_hosted_artifact(
+        self,
+        hosted_artifact_id: str,
+        *,
+        title: str | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        theme: str | None = None,
+        summary: str | None = None,
+        kind: str | None = None,
+        visibility: str | None = None,
+    ) -> dict[str, Any]:
+        """Patch hosted artifact metadata and optional public shell fields."""
+        body: dict[str, Any] = {}
+        if title is not None:
+            body["title"] = title
+        if metadata is not None:
+            body["metadata"] = dict(metadata)
+        if theme is not None:
+            body["theme"] = theme
+        if summary is not None:
+            body["summary"] = summary
+        if kind is not None:
+            body["kind"] = kind
+        if visibility is not None:
+            body["visibility"] = visibility
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+                json_body=body or None,
+            ),
+            label="patch_hosted_artifact",
+        )
+
+    def delete_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Delete a hosted artifact, its public shell, and stored HTML."""
+        return _coerce_dict(
+            self._request_json(
+                "DELETE",
+                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+            ),
+            label="delete_hosted_artifact",
+        )
+
     def download_artifact(
         self,
         artifact_id: str,
