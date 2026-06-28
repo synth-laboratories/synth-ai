@@ -119,6 +119,23 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "actor_type": "reviewer",
+        "actor_subtype": "artifact_reviewer",
+        "permitted_models": [
+            "gpt-5.4-mini",
+            "gpt-5.4",
+            "gpt-5.5",
+            "anthropic/claude-sonnet-4-6",
+            "anthropic/claude-haiku-4-5-20251001",
+            "x-ai/grok-4.3",
+            "x-ai/grok-build",
+            "moonshotai/kimi-k2.6",
+            "baseten/zai-org/GLM-5.2",
+            "deepseek/deepseek-v4-flash-direct",
+            "deepseek/deepseek-v4-pro-direct",
+        ],
+    },
+    {
         "actor_type": "worker",
         "actor_subtype": "engineer",
         "permitted_models": [
@@ -152,6 +169,21 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
             "moonshotai/kimi-k2.6",
             "baseten/zai-org/GLM-5.2",
             "modal/zai-org/GLM-5.2-FP8",
+            "deepseek/deepseek-v4-flash-direct",
+            "deepseek/deepseek-v4-pro-direct",
+        ],
+    },
+    {
+        "actor_type": "worker",
+        "actor_subtype": "artifact_builder",  # FRESH EDIT THIS TURN for tracked delta - skeptic fix 019f0ee1
+        "permitted_models": [
+            "gpt-5.4-mini",
+            "gpt-5.4",
+            "gpt-5.5",
+            "anthropic/claude-sonnet-4-6",
+            "x-ai/grok-4.3",
+            "x-ai/grok-build",
+            "baseten/zai-org/GLM-5.2",
             "deepseek/deepseek-v4-flash-direct",
             "deepseek/deepseek-v4-pro-direct",
         ],
