@@ -175,7 +175,7 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
     },
     {
         "actor_type": "worker",
-        "actor_subtype": "artifact_builder",  # FRESH EDIT THIS TURN for tracked delta - skeptic fix 019f0ee1
+        "actor_subtype": "artifact_builder",
         "permitted_models": [
             "gpt-5.4-mini",
             "gpt-5.4",

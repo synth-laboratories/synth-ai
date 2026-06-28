@@ -63,7 +63,8 @@
       "group": "Runs",
       "pages": [
         "reference/sdk/research/synth_ai-research-runs",
-        "reference/sdk/research/synth_ai-research-run_readouts"
+        "reference/sdk/research/synth_ai-research-run_readouts",
+        "reference/sdk/research/synth_ai-research-hosted-artifacts"
       ]
     },
     {

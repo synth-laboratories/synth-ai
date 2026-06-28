@@ -27,7 +27,7 @@ class SmrActorSubtype(StrEnum):
     MAIN = "main"
     ENGINEER = "engineer"
     RESEARCHER = "researcher"
-    ARTIFACT_BUILDER = "artifact_builder"  # AC1 manifest pass this round (in delta)
+    ARTIFACT_BUILDER = "artifact_builder"
     ARTIFACT_REVIEWER = "artifact_reviewer"
     TASK_COMPLETION = "task_completion"
     RUN_COMPLETION = "run_completion"
@@ -51,7 +51,7 @@ class SmrReviewerSubtype(StrEnum):
 class SmrWorkerSubtype(StrEnum):
     ENGINEER = "engineer"
     RESEARCHER = "researcher"
-    ARTIFACT_BUILDER = "artifact_builder"  # AC1 manifest pass this round (in delta)
+    ARTIFACT_BUILDER = "artifact_builder"
 
 
 SMR_ACTOR_TYPE_VALUES: tuple[str, ...] = tuple(item.value for item in SmrActorType)
