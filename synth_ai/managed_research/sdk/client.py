@@ -2797,20 +2797,25 @@ class ManagedResearchClient:
 
     def get_run_hosted_artifact(self, run_id: str) -> dict[str, Any]:
         """Return hosted artifact receipt for a run."""
+        run_id = _require_non_empty_string(run_id, field_name="run_id")
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{_require_non_empty_string(run_id, field_name='run_id')}/hosted-artifact",
+                f"/smr/runs/{run_id}/hosted-artifact",
             ),
             label="get_run_hosted_artifact",
         )
 
     def get_hosted_artifact_content(self, hosted_artifact_id: str) -> dict[str, Any]:
         """Return hosted HTML bytes/text wrapper for an artifact id."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         return _coerce_dict(
             self._request_content(
                 "GET",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}/content",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/content",
             ),
             label="get_hosted_artifact_content",
         )
@@ -2827,6 +2832,10 @@ class ManagedResearchClient:
         effort_id: str | None = None,
     ) -> dict[str, Any]:
         """Promote a hosted artifact to the public Open Research index."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         body: dict[str, Any] = {
             "slug": _require_non_empty_string(slug, field_name="slug"),
             "kind": kind,
@@ -2842,7 +2851,7 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}/publish-public",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/publish-public",
                 json_body=body,
             ),
             label="publish_hosted_artifact_public",
@@ -2856,6 +2865,10 @@ class ManagedResearchClient:
         summary: str | None = None,
     ) -> dict[str, Any]:
         """Dispatch an artifact_reviewer for a hosted artifact."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         body: dict[str, Any] = {
             "reason": _require_non_empty_string(reason, field_name="reason"),
         }
@@ -2864,7 +2877,7 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}/assign-reviewer",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/assign-reviewer",
                 json_body=body,
             ),
             label="assign_hosted_artifact_reviewer",
@@ -2909,10 +2922,11 @@ class ManagedResearchClient:
         limit: int = 100,
     ) -> dict[str, Any]:
         """List hosted artifacts materialized for one project."""
+        project_id = _require_non_empty_string(project_id, field_name="project_id")
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{_require_non_empty_string(project_id, field_name='project_id')}/hosted-artifacts",
+                f"/smr/projects/{project_id}/hosted-artifacts",
                 params={"limit": limit},
             ),
             label="list_project_hosted_artifacts",
@@ -2920,10 +2934,14 @@ class ManagedResearchClient:
 
     def get_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
         """Read one hosted artifact receipt with hosted and public URLs."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
             ),
             label="get_hosted_artifact",
         )
@@ -2940,6 +2958,10 @@ class ManagedResearchClient:
         visibility: str | None = None,
     ) -> dict[str, Any]:
         """Patch hosted artifact metadata and optional public shell fields."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         body: dict[str, Any] = {}
         if title is not None:
             body["title"] = title
@@ -2956,7 +2978,7 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json(
                 "PATCH",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
                 json_body=body or None,
             ),
             label="patch_hosted_artifact",
@@ -2964,10 +2986,14 @@ class ManagedResearchClient:
 
     def delete_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
         """Delete a hosted artifact, its public shell, and stored HTML."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
         return _coerce_dict(
             self._request_json(
                 "DELETE",
-                f"/smr/hosted-artifacts/{_require_non_empty_string(hosted_artifact_id, field_name='hosted_artifact_id')}",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
             ),
             label="delete_hosted_artifact",
         )
