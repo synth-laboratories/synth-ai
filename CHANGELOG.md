@@ -2,6 +2,23 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+### Added
+
+- **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
+- **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
+  - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
+  - `update` (PATCH metadata), `publish_public`, `assign_reviewer`, `delete`
+  - `list_public`, `get_public` for the Open Research index
+- **Run handle:** `handle.hosted_artifact.get()`, `.content()`, `.publish_public()`, `.assign_reviewer()`
+- **Mintlify SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
+
+### Notes
+
+- Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
+- Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
+
 ## 0.12.0 — 2026-06-25
 
 ### Added
