@@ -150,6 +150,7 @@ Entrypoint: **`client.research`**
 | Namespace | Description | Reference |
 | --- | --- | --- |
 | `research.runs` | Launch, wait, lifecycle | [Runs](/reference/sdk/research/synth_ai-research-runs) |
+| `research.hosted_artifacts` | Open Research hosted artifact CRUD (alpha) | [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) |
 | `handle.*` | Usage, progress, queue, artifacts | [Run readouts](/reference/sdk/research/synth_ai-research-run_readouts) |
 
 ### Types
@@ -224,6 +225,35 @@ tag: "ALPHA"
 <Badge color="yellow" icon="triangle-exclamation">Alpha</Badge>
 
 SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run. Operators promote a public slug for the Open Research index at `/openresearch/artifacts/{slug}`.
+
+## CRUD matrix (alpha)
+
+| Operation | Supported | How |
+| --- | --- | --- |
+| **Create** | Yes (in-run) | Worker MCP ``publish_hosted_artifact`` during an ``artifact_builder`` task |
+| **Read** | Yes | ``GET`` receipt, content, public index, public slug |
+| **Update** | Partial | ``publish_public`` (promote slug), ``assign_reviewer`` (review gate) |
+| **Delete** | No | Unpublish/delete not implemented yet |
+
+## Python SDK
+
+```python
+research = client.research
+handle = research.runs.open(run_id)
+
+status = handle.hosted_artifact.get()
+html = handle.hosted_artifact.content()
+
+index = research.hosted_artifacts.list_public()
+bundle = research.hosted_artifacts.get_public("artifact-builder-e2e-20260628")
+
+research.hosted_artifacts.publish_public(
+    status["hosted_artifact_id"],
+    slug="my-result-20260628",
+)
+```
+
+Reference: [ResearchHostedArtifactsAPI](/reference/sdk/research/synth_ai-research-hosted_artifacts).
 
 ## Worker subtypes (launch contract)
 

@@ -8,6 +8,7 @@ from typing import Any
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.tag import TagAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
+from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunsAPI
@@ -43,6 +44,7 @@ class ResearchClient:
         self._runs: ResearchRunsAPI | None = None
         self._limits: ResearchLimitsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
+        self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
         self._tag: TagAPI | None = None
 
     def _open_session(self) -> ManagedResearchClient:
@@ -108,6 +110,13 @@ class ResearchClient:
         return self._secrets
 
     @property
+    def hosted_artifacts(self) -> ResearchHostedArtifactsAPI:
+        """Open Research hosted artifact operator API (read, promote, review)."""
+        if self._hosted_artifacts is None:
+            self._hosted_artifacts = ResearchHostedArtifactsAPI(self._open_session())
+        return self._hosted_artifacts
+
+    @property
     def tag(self) -> TagAPI:
         """Deprecated — use ``factories.tag`` instead."""
         warnings.warn(
@@ -138,6 +147,7 @@ class ResearchClient:
         self._runs = None
         self._limits = None
         self._secrets = None
+        self._hosted_artifacts = None
         self._tag = None
 
 
