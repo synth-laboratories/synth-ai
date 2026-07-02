@@ -13,6 +13,7 @@ from synth_ai.sdk import (
     AsyncHorizonsPrivateClient,
     AsyncManagedAgentsAnthropicClient,
     AsyncOpenAIAgentsSdkClient,
+    AsyncStackAuxClient,
     AsyncSynthManagedAgents,
     AsyncTunnelsClient,
     ContainerPoolsClient,
@@ -20,6 +21,7 @@ from synth_ai.sdk import (
     HorizonsPrivateClient,
     ManagedAgentsAnthropicClient,
     OpenAIAgentsSdkClient,
+    StackAuxClient,
     SynthManagedAgents,
     TunnelsClient,
 )
@@ -84,6 +86,11 @@ class SynthClient:
             openai_organization=openai_organization,
             openai_project=openai_project,
             request_id=openai_request_id,
+        )
+        self.stack_aux = StackAuxClient(
+            api_key=self.api_key,
+            backend_base=self.base_url,
+            timeout=self.timeout,
         )
         self._research_client: ResearchClient | None = None
         self._horizons_private: HorizonsPrivateClient | None = None
@@ -190,6 +197,13 @@ class AsyncSynthClient:
                 openai_organization=openai_organization,
                 openai_project=openai_project,
                 request_id=openai_request_id,
+            )
+        )
+        self.stack_aux = AsyncStackAuxClient(
+            StackAuxClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout=self.timeout,
             )
         )
         self._research_client: ResearchClient | None = None

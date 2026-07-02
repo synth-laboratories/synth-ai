@@ -22,6 +22,7 @@ from synth_ai.sdk.openai_agents_sdk import (
     AsyncOpenAIAgentsSdkClient,
     OpenAIAgentsSdkClient,
 )
+from synth_ai.sdk.stack_aux import AsyncStackAuxClient, StackAuxClient
 from synth_ai.sdk.pagination import AsyncPage, SyncPage, page_from_wire
 from synth_ai.sdk.pools import (
     CANONICAL_ROLLOUT_REQUEST_KEYS,
@@ -60,7 +61,9 @@ __all__ = [
     "AsyncHorizonsPrivateClient",
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
+    "AsyncStackAuxClient",
     "AsyncSynthManagedAgents",
     "OpenAIAgentsSdkClient",
+    "StackAuxClient",
     "SynthManagedAgents",
 ]

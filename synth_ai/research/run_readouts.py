@@ -767,7 +767,10 @@ class ResearchRunTickingAPI(_RunReadoutBound):
 
     def get(self) -> Any:
         """Return current ticking state for the run."""
-        return self._handle.ticking()
+        return self._handle._client.get_run_ticking(
+            self._handle.run_id,
+            project_id=self._handle.project_id,
+        )
 
     def set(self, update: Any = None, **kwargs: Any) -> Any:
         """Update ticking configuration for the run."""
