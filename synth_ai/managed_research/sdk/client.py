@@ -3484,17 +3484,9 @@ class ManagedResearchClient:
                         field_name="result",
                     ),
                     "lifecycle_state": _optional_non_empty_string(lifecycle_state),
-                    "service_summary": (
-                        None
-                        if service_summary is None
-                        else dict(service_summary)
-                    ),
-                    "log_entries": [
-                        dict(item) for item in (log_entries or [])
-                    ],
-                    "receipt_refs": [
-                        dict(item) for item in (receipt_refs or [])
-                    ],
+                    "service_summary": (None if service_summary is None else dict(service_summary)),
+                    "log_entries": [dict(item) for item in (log_entries or [])],
+                    "receipt_refs": [dict(item) for item in (receipt_refs or [])],
                     "metadata": _optional_mapping(metadata, field_name="metadata") or {},
                     "error": None if error is None else dict(error),
                 },

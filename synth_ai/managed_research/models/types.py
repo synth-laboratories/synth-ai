@@ -1153,9 +1153,7 @@ class DevEnvironmentTopology:
 
         raw_allowed = _optional_array(mapping, "allowed_substrates")
         allowed_substrates = [
-            value.strip()
-            for value in (str(item or "") for item in raw_allowed)
-            if value.strip()
+            value.strip() for value in (str(item or "") for item in raw_allowed) if value.strip()
         ]
         return cls(
             topology_id=_require_string(
@@ -1215,9 +1213,7 @@ class DevEnvironmentPreflight:
             ),
             checks=[_optional_object_dict(item) for item in checks],
             error=(
-                _optional_object_dict(error_payload)
-                if isinstance(error_payload, Mapping)
-                else None
+                _optional_object_dict(error_payload) if isinstance(error_payload, Mapping) else None
             ),
             manifest=(
                 _optional_object_dict(manifest_payload)
@@ -1296,8 +1292,7 @@ class DevEnvironmentAttach:
             ),
             attachable=bool(mapping.get("attachable")),
             attach_surfaces=[
-                _optional_object_dict(item)
-                for item in _optional_array(mapping, "attach_surfaces")
+                _optional_object_dict(item) for item in _optional_array(mapping, "attach_surfaces")
             ],
             default_surface=(
                 _optional_object_dict(default_surface)
@@ -1330,14 +1325,8 @@ class DevEnvironmentUsage:
                 label="dev_environment_usage.dev_environment_id",
             ),
             summary=_optional_object_dict(mapping.get("summary")),
-            by_meter=[
-                _optional_object_dict(item)
-                for item in _optional_array(mapping, "by_meter")
-            ],
-            facts=[
-                _optional_object_dict(item)
-                for item in _optional_array(mapping, "facts")
-            ],
+            by_meter=[_optional_object_dict(item) for item in _optional_array(mapping, "by_meter")],
+            facts=[_optional_object_dict(item) for item in _optional_array(mapping, "facts")],
             limit=_optional_int(mapping, "limit"),
             next_cursor=_optional_string(mapping, "next_cursor"),
         )
@@ -1375,8 +1364,7 @@ class DevEnvironmentMaterializationWorkItem:
         )
         return cls(
             dev_environment_id=dev_environment_id,
-            environment_id=_optional_string(mapping, "environment_id")
-            or dev_environment_id,
+            environment_id=_optional_string(mapping, "environment_id") or dev_environment_id,
             org_id=_require_string(
                 mapping,
                 "org_id",
@@ -1420,12 +1408,8 @@ class DevEnvironmentMaterializationWorkItem:
             ),
             environment=_optional_object_dict(mapping.get("environment")),
             quota_class=_optional_string(mapping, "quota_class"),
-            materialization_request=_optional_object_dict(
-                mapping.get("materialization_request")
-            ),
-            materialization_lease=_optional_object_dict(
-                mapping.get("materialization_lease")
-            ),
+            materialization_request=_optional_object_dict(mapping.get("materialization_request")),
+            materialization_lease=_optional_object_dict(mapping.get("materialization_lease")),
             service_summary=_optional_object_dict(mapping.get("service_summary")),
             metadata=_optional_object_dict(mapping.get("metadata")),
             created_at=_optional_string(mapping, "created_at"),

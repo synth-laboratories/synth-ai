@@ -1267,9 +1267,7 @@ class ManagedResearchMcpServer:
         topology_id = require_string(args, "topology_id")
         version = optional_string(args, "version")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.topology(topology_id, version=version)
-            )
+            return _mcp_jsonable(client.dev_environments.topology(topology_id, version=version))
 
     def _tool_seed_dev_environment_topology_manifest(self, args: JSONDict) -> Any:
         topology_id = optional_string(args, "topology_id") or "synth-dev"
@@ -1286,9 +1284,7 @@ class ManagedResearchMcpServer:
         project_id = optional_string(args, "project_id")
         limit = optional_int(args, "limit")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.list(project_id=project_id, limit=limit)
-            )
+            return _mcp_jsonable(client.dev_environments.list(project_id=project_id, limit=limit))
 
     def _tool_list_dev_environment_materialization_queue(
         self,
@@ -1464,9 +1460,7 @@ class ManagedResearchMcpServer:
         dev_environment_id = require_string(args, "dev_environment_id")
         limit = optional_int(args, "limit")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.usage(dev_environment_id, limit=limit)
-            )
+            return _mcp_jsonable(client.dev_environments.usage(dev_environment_id, limit=limit))
 
     def _tool_preflight_dev_environment_billing(self, args: JSONDict) -> Any:
         dev_environment_id = require_string(args, "dev_environment_id")
@@ -1484,9 +1478,7 @@ class ManagedResearchMcpServer:
     def _tool_get_dev_environment_billing_drawdown(self, args: JSONDict) -> Any:
         dev_environment_id = require_string(args, "dev_environment_id")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.dev_environments.billing_drawdown(dev_environment_id)
-            )
+            return _mcp_jsonable(client.dev_environments.billing_drawdown(dev_environment_id))
 
     def _tool_get_dev_environment_receipts(self, args: JSONDict) -> Any:
         dev_environment_id = require_string(args, "dev_environment_id")

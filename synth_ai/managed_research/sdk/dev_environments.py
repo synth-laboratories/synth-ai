@@ -5,6 +5,10 @@ from __future__ import annotations
 import time
 from typing import Any, List, Mapping
 
+from synth_ai.managed_research.models.billing import (
+    SmrBillingDrawdown,
+    SmrBillingPreflight,
+)
 from synth_ai.managed_research.models.dev_environment_evidence import (
     DevEnvironmentEvidence,
 )
@@ -18,10 +22,6 @@ from synth_ai.managed_research.models.types import (
     DevEnvironmentTopology,
     DevEnvironmentUsage,
     Environment,
-)
-from synth_ai.managed_research.models.billing import (
-    SmrBillingDrawdown,
-    SmrBillingPreflight,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -58,8 +58,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         host_kind = cls._summary_text(item.get("host_kind")) or fallback_host_kind
         topology_id = cls._summary_text(item.get("topology_id")) or fallback_topology_id
         topology_version = (
-            cls._summary_text(item.get("topology_version"))
-            or fallback_topology_version
+            cls._summary_text(item.get("topology_version")) or fallback_topology_version
         )
         launch_mode = cls._summary_text(item.get("launch_mode")) or "dev_slot_execution"
         source_refs = item.get("source_refs")
@@ -108,11 +107,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
                 return
             merged = dict(bindings_by_run[run_id])
             merged.update(
-                {
-                    key: value
-                    for key, value in binding.items()
-                    if value is not None and value != ""
-                }
+                {key: value for key, value in binding.items() if value is not None and value != ""}
             )
             existing_refs = merged.get("source_refs")
             new_refs = binding.get("source_refs")
@@ -257,9 +252,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
             "billing_allowed": (
                 billing_preflight.allowed if billing_preflight is not None else None
             ),
-            "billing_blocked": (
-                billing_drawdown.blocked if billing_drawdown is not None else None
-            ),
+            "billing_blocked": (billing_drawdown.blocked if billing_drawdown is not None else None),
             "billing_total_customer_debit_microcents": (
                 billing_drawdown.total_customer_debit_microcents
                 if billing_drawdown is not None
@@ -439,9 +432,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         if uptime_rate_microcents_per_hour is not None:
             if uptime_rate_microcents_per_hour < 0:
                 raise ValueError("uptime_rate_microcents_per_hour must be non-negative")
-            billing["uptime_rate_microcents_per_hour"] = int(
-                uptime_rate_microcents_per_hour
-            )
+            billing["uptime_rate_microcents_per_hour"] = int(uptime_rate_microcents_per_hour)
         if billing_model_class is not None:
             model_class = str(billing_model_class or "").strip().lower()
             if model_class not in {"value", "premium"}:
@@ -648,12 +639,8 @@ class DevEnvironmentsAPI(_ClientNamespace):
         logs = self.logs(dev_environment_id) if include_logs else None
         runs = self.runs(dev_environment_id)
         usage = self.usage(dev_environment_id, limit=usage_limit)
-        billing_preflight = (
-            self.billing_preflight(dev_environment_id) if include_billing else None
-        )
-        billing_drawdown = (
-            self.billing_drawdown(dev_environment_id) if include_billing else None
-        )
+        billing_preflight = self.billing_preflight(dev_environment_id) if include_billing else None
+        billing_drawdown = self.billing_drawdown(dev_environment_id) if include_billing else None
         receipts = self.receipts(dev_environment_id)
         return DevEnvironmentEvidence(
             dev_environment_id=environment.dev_environment_id,
@@ -720,8 +707,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
                     require_attachable=require_attachable,
                 )
                 raise TimeoutError(
-                    f"DevEnvironment {dev_environment_id} was not ready within "
-                    f"{timeout}s: {reason}"
+                    f"DevEnvironment {dev_environment_id} was not ready within {timeout}s: {reason}"
                 )
             time.sleep(poll_interval)
 
@@ -731,11 +717,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         lifecycle_states: tuple[str, ...] | list[str] | None,
     ) -> tuple[str, ...]:
         raw_states = lifecycle_states or cls.DEFAULT_READY_LIFECYCLE_STATES
-        states = tuple(
-            state
-            for state in (str(item or "").strip() for item in raw_states)
-            if state
-        )
+        states = tuple(state for state in (str(item or "").strip() for item in raw_states) if state)
         if not states:
             raise ValueError("at least one lifecycle state is required")
         return states
@@ -753,19 +735,14 @@ class DevEnvironmentsAPI(_ClientNamespace):
             return False
         if require_readiness and not cls._readiness_ok(evidence):
             return False
-        if require_attachable and not evidence.attach.attachable:
-            return False
-        return True
+        return not require_attachable or evidence.attach.attachable
 
     @staticmethod
     def _readiness_ok(evidence: DevEnvironmentEvidence) -> bool:
         readiness = evidence.summary.get("readiness")
         if not isinstance(readiness, Mapping):
             return False
-        return (
-            readiness.get("required_ready") is True
-            or readiness.get("ready") is True
-        )
+        return readiness.get("required_ready") is True or readiness.get("ready") is True
 
     @classmethod
     def _wait_ready_reason(
