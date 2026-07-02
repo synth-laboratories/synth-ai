@@ -244,6 +244,13 @@ from synth_ai.managed_research.models.smr_runtime_kinds import SmrRuntimeKind
 from synth_ai.managed_research.models.smr_tool_providers import SmrToolProvider
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import (
+    DevEnvironment,
+    DevEnvironmentCollection,
+    DevEnvironmentMaterializationQueue,
+    DevEnvironmentMaterializationWorkItem,
+    DevEnvironmentPreflight,
+    DevEnvironmentTopology,
+    DevEnvironmentUsage,
     Environment,
     EnvironmentPreflight,
     GitHubInstallation,
@@ -275,6 +282,7 @@ from synth_ai.managed_research.models.work_products import (
     ManagedResearchWorkProductExport,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.client import (
     ACTIVE_RUN_STATES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -287,6 +295,7 @@ from synth_ai.managed_research.sdk.client import (
 )
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
+from synth_ai.managed_research.sdk.dev_environments import DevEnvironmentsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
@@ -313,9 +322,18 @@ from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
 __all__ = [
     "ACTIVE_RUN_STATES",
     "ApprovalsAPI",
+    "BillingAPI",
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
+    "DevEnvironment",
+    "DevEnvironmentCollection",
+    "DevEnvironmentMaterializationQueue",
+    "DevEnvironmentMaterializationWorkItem",
+    "DevEnvironmentPreflight",
+    "DevEnvironmentTopology",
+    "DevEnvironmentUsage",
+    "DevEnvironmentsAPI",
     "Environment",
     "EnvironmentPreflight",
     "EnvironmentsAPI",

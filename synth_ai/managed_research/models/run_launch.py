@@ -223,6 +223,7 @@ class RunLaunchRequest(CommandRequest):
     runtime_image: RuntimeImage | None = None
     sandbox_override: SandboxOverride | WireMapping | None = None
     environment: EnvironmentSpec | WireMapping | None = None
+    dev_environment_id: str | None = None
     run_policy: SmrRunPolicy | WireMapping | None = None
     kickoff_contract: KickoffContract | WireMapping | None = None
     resource_bindings: RunResourceBindings | WireMapping | None = None
@@ -236,6 +237,7 @@ class RunLaunchRequest(CommandRequest):
 
     def __post_init__(self) -> None:
         _validate_launch_text(self.worker_pool_id, field_name="worker_pool_id")
+        _validate_launch_text(self.dev_environment_id, field_name="dev_environment_id")
         _validate_launch_text(self.runbook_preset, field_name="runbook_preset")
         _validate_launch_text(self.runbook_config_id, field_name="runbook_config_id")
         _validate_launch_text(self.agent_profile, field_name="agent_profile")
@@ -292,6 +294,7 @@ class RunLaunchRequest(CommandRequest):
             run_policy=self.run_policy,
             kickoff_contract=self.kickoff_contract,
             resource_bindings=self.resource_bindings,
+            dev_environment_id=self.dev_environment_id,
             ai_cache=self.ai_cache,
             primary_objective_id=self.primary_objective_id,
             primary_objective_kind=self.primary_objective_kind,

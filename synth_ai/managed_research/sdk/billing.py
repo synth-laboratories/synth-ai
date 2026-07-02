@@ -149,6 +149,14 @@ class BillingAPI(_ClientNamespace):
             )
         )
 
+    def dev_environment_drawdown(self, dev_environment_id: str) -> SmrBillingDrawdown:
+        return SmrBillingDrawdown.from_wire(
+            self._client._request_json(
+                "GET",
+                f"/smr/billing/dev-environments/{dev_environment_id}/drawdown",
+            )
+        )
+
     def preflight_run(
         self,
         request: SmrBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None = None,
@@ -190,6 +198,29 @@ class BillingAPI(_ClientNamespace):
             self._client._request_json(
                 "POST",
                 f"/smr/billing/factory-efforts/{factory_effort_id}/preflight",
+                json_body=payload,
+            )
+        )
+
+    def preflight_dev_environment(
+        self,
+        dev_environment_id: str,
+        request: (
+            SmrFactoryEffortBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
+        *,
+        model_class: str = "value",
+        estimated_customer_debit_microcents: int = 0,
+    ) -> SmrBillingPreflight:
+        payload = _factory_effort_preflight_payload(
+            request,
+            model_class=model_class,
+            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
+        )
+        return SmrBillingPreflight.from_wire(
+            self._client._request_json(
+                "POST",
+                f"/smr/billing/dev-environments/{dev_environment_id}/preflight",
                 json_body=payload,
             )
         )

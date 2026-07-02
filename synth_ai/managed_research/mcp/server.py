@@ -39,6 +39,7 @@ from synth_ai.managed_research.mcp.request_models import (
 from synth_ai.managed_research.mcp.tools.approvals import build_approval_tools
 from synth_ai.managed_research.mcp.tools.artifacts import build_artifact_tools
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
+from synth_ai.managed_research.mcp.tools.dev_environments import build_dev_environment_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
@@ -122,9 +123,50 @@ def _tool_body(args: JSONDict, *, exclude: set[str]) -> dict[str, Any]:
     }
 
 
+_DEV_ENVIRONMENT_RUN_REJECTED_ARGS = frozenset(
+    {
+        "local_execution",
+        "execution_profile",
+        "sandbox_override",
+        "environment",
+    }
+)
+
+
+def _reject_dev_environment_run_substrate_args(args: JSONDict) -> None:
+    rejected = sorted(
+        field
+        for field in _DEV_ENVIRONMENT_RUN_REJECTED_ARGS
+        if field in args and args[field] is not None
+    )
+    if rejected:
+        raise ValueError(
+            "DevEnvironment run tools bind the existing cloud sandbox and reject "
+            "local/ad hoc substrate fields: " + ", ".join(rejected)
+        )
+
+
 def _optional_object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
     value = args.get(key)
     return value if isinstance(value, dict) else None
+
+
+def _object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
+    value = args.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be an object when provided")
+    return dict(value)
+
+
+def _object_list_arg(args: JSONDict, key: str) -> list[dict[str, Any]]:
+    value = args.get(key)
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+        raise ValueError(f"'{key}' must be an array of objects when provided")
+    return [dict(item) for item in value]
 
 
 def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
@@ -132,6 +174,18 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
+
+
+def _mcp_jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, list):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    return value
 
 
 class RpcError(Exception):
@@ -225,6 +279,7 @@ class ManagedResearchMcpServer:
         return [
             *build_project_tools(self),
             *build_factory_tools(self),
+            *build_dev_environment_tools(self),
             *build_workspace_input_tools(self),
             *build_export_tools(self),
             *build_repo_tools(self),
@@ -1204,6 +1259,257 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.prepare_project_setup(project_id)
 
+    def _tool_list_dev_environment_topologies(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.topologies())
+
+    def _tool_get_dev_environment_topology(self, args: JSONDict) -> Any:
+        topology_id = require_string(args, "topology_id")
+        version = optional_string(args, "version")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.topology(topology_id, version=version)
+            )
+
+    def _tool_seed_dev_environment_topology_manifest(self, args: JSONDict) -> Any:
+        topology_id = optional_string(args, "topology_id") or "synth-dev"
+        version = optional_string(args, "version")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.seed_topology_environment(
+                    topology_id=topology_id,
+                    version=version,
+                )
+            )
+
+    def _tool_list_dev_environments(self, args: JSONDict) -> Any:
+        project_id = optional_string(args, "project_id")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.list(project_id=project_id, limit=limit)
+            )
+
+    def _tool_list_dev_environment_materialization_queue(
+        self,
+        args: JSONDict,
+    ) -> Any:
+        project_id = optional_string(args, "project_id")
+        host_kind = optional_string(args, "host_kind")
+        backend_target = optional_string(args, "backend_target")
+        worker_id = optional_string(args, "worker_id")
+        include_leased = optional_bool(args, "include_leased")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.materialization_queue(
+                    project_id=project_id,
+                    host_kind=host_kind,
+                    backend_target=backend_target,
+                    worker_id=worker_id,
+                    include_leased=include_leased,
+                    limit=limit,
+                )
+            )
+
+    def _tool_create_dev_environment(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.create(
+                    project_id=require_string(args, "project_id"),
+                    name=require_string(args, "name"),
+                    environment_name=require_string(args, "environment_name"),
+                    backend_target=optional_string(args, "backend_target") or "dev",
+                    topology_id=optional_string(args, "topology_id") or "synth-dev",
+                    topology_version=optional_string(args, "topology_version"),
+                    environment_digest=optional_string(args, "environment_digest"),
+                    host_kind=optional_string(args, "host_kind") or "daytona",
+                    quota_class=optional_string(args, "quota_class"),
+                    metadata=_object_arg(args, "metadata"),
+                    uptime_rate_microcents_per_hour=optional_int(
+                        args,
+                        "uptime_rate_microcents_per_hour",
+                    ),
+                    billing_model_class=optional_string(args, "billing_model_class"),
+                )
+            )
+
+    def _tool_create_dev_environment_from_topology(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.create_from_topology(
+                    project_id=require_string(args, "project_id"),
+                    name=require_string(args, "name"),
+                    backend_target=optional_string(args, "backend_target") or "dev",
+                    topology_id=optional_string(args, "topology_id") or "synth-dev",
+                    topology_version=optional_string(args, "topology_version"),
+                    host_kind=optional_string(args, "host_kind") or "daytona",
+                    quota_class=optional_string(args, "quota_class"),
+                    metadata=_object_arg(args, "metadata"),
+                    uptime_rate_microcents_per_hour=optional_int(
+                        args,
+                        "uptime_rate_microcents_per_hour",
+                    ),
+                    billing_model_class=optional_string(args, "billing_model_class"),
+                )
+            )
+
+    def _tool_get_dev_environment(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.get(dev_environment_id))
+
+    def _tool_claim_dev_environment_materialization(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        worker_id = require_string(args, "worker_id")
+        lease_seconds = optional_int(args, "lease_seconds")
+        metadata = _object_arg(args, "metadata")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.claim_materialization(
+                    dev_environment_id,
+                    worker_id=worker_id,
+                    lease_seconds=lease_seconds,
+                    metadata=metadata,
+                )
+            )
+
+    def _tool_preflight_dev_environment(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.preflight(dev_environment_id))
+
+    def _tool_dev_environment_action(
+        self,
+        args: JSONDict,
+        *,
+        action: str,
+    ) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        metadata = _object_arg(args, "metadata")
+        with self._client_from_args(args) as client:
+            namespace = client.dev_environments
+            if action == "deploy":
+                return _mcp_jsonable(namespace.deploy(dev_environment_id, metadata=metadata))
+            if action == "start":
+                return _mcp_jsonable(namespace.start(dev_environment_id, metadata=metadata))
+            if action == "snapshot":
+                return _mcp_jsonable(namespace.snapshot(dev_environment_id, metadata=metadata))
+        raise ValueError(f"unsupported DevEnvironment action: {action}")
+
+    def _tool_deploy_dev_environment(self, args: JSONDict) -> Any:
+        return self._tool_dev_environment_action(args, action="deploy")
+
+    def _tool_start_dev_environment(self, args: JSONDict) -> Any:
+        return self._tool_dev_environment_action(args, action="start")
+
+    def _tool_stop_dev_environment(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        decision = optional_string(args, "decision") or "retain"
+        metadata = _object_arg(args, "metadata")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.stop(
+                    dev_environment_id,
+                    decision=decision,
+                    metadata=metadata,
+                )
+            )
+
+    def _tool_snapshot_dev_environment(self, args: JSONDict) -> Any:
+        return self._tool_dev_environment_action(args, action="snapshot")
+
+    def _tool_report_dev_environment_materialization(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.materialize(
+                    dev_environment_id,
+                    result=optional_string(args, "result") or "succeeded",
+                    lifecycle_state=optional_string(args, "lifecycle_state"),
+                    service_summary=_object_arg(args, "service_summary"),
+                    log_entries=_object_list_arg(args, "log_entries"),
+                    receipt_refs=_object_list_arg(args, "receipt_refs"),
+                    metadata=_object_arg(args, "metadata"),
+                    error=_object_arg(args, "error"),
+                )
+            )
+
+    def _tool_destroy_dev_environment(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.destroy(dev_environment_id))
+
+    def _tool_get_dev_environment_services(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.services(dev_environment_id))
+
+    def _tool_get_dev_environment_attach(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.attach(dev_environment_id))
+
+    def _tool_get_dev_environment_logs(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.logs(dev_environment_id))
+
+    def _tool_get_dev_environment_runs(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.runs(dev_environment_id))
+
+    def _tool_get_dev_environment_usage(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.usage(dev_environment_id, limit=limit)
+            )
+
+    def _tool_preflight_dev_environment_billing(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        model_class = optional_string(args, "model_class") or "value"
+        estimated = optional_int(args, "estimated_customer_debit_microcents") or 0
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.billing_preflight(
+                    dev_environment_id,
+                    model_class=model_class,
+                    estimated_customer_debit_microcents=estimated,
+                )
+            )
+
+    def _tool_get_dev_environment_billing_drawdown(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.billing_drawdown(dev_environment_id)
+            )
+
+    def _tool_get_dev_environment_receipts(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.dev_environments.receipts(dev_environment_id))
+
+    def _tool_get_dev_environment_evidence(self, args: JSONDict) -> Any:
+        dev_environment_id = require_string(args, "dev_environment_id")
+        usage_limit = optional_int(args, "usage_limit")
+        include_preflight = optional_bool(args, "include_preflight", default=True)
+        include_logs = optional_bool(args, "include_logs")
+        include_billing = optional_bool(args, "include_billing", default=True)
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.dev_environments.evidence(
+                    dev_environment_id,
+                    usage_limit=usage_limit,
+                    include_preflight=include_preflight,
+                    include_logs=include_logs,
+                    include_billing=include_billing,
+                )
+            )
+
     def _tool_get_project_notes(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
@@ -1843,6 +2149,47 @@ class ManagedResearchMcpServer:
                 if request.project_id is None:
                     return client.trigger_one_off_run(**request.client_kwargs())
                 return client.start_run(request.project_id, **request.client_kwargs())
+        except SmrApiError as exc:
+            _raise_mcp_tool_denial(exc)
+
+    def _tool_get_launch_preflight_in_dev_environment(self, args: JSONDict) -> Any:
+        _reject_dev_environment_run_substrate_args(args)
+        payload = dict(args)
+        payload.setdefault("host_kind", "daytona")
+        request = RunLaunchRequest.from_payload(payload)
+        if request.project_id is None:
+            raise ValueError("project_id is required")
+        if request.dev_environment_id is None:
+            raise ValueError("dev_environment_id is required")
+        client_kwargs = request.client_kwargs()
+        dev_environment_id = str(client_kwargs.pop("dev_environment_id") or "").strip()
+        with self._client_from_args(args) as client:
+            return client.runs.launch_preflight_in_dev_environment(
+                request.project_id,
+                dev_environment_id=dev_environment_id,
+                **client_kwargs,
+            )
+
+    def _tool_start_run_in_dev_environment(self, args: JSONDict) -> Any:
+        _reject_dev_environment_run_substrate_args(args)
+        payload = dict(args)
+        payload.setdefault("host_kind", "daytona")
+        request = RunLaunchRequest.from_payload(payload)
+        if request.project_id is None:
+            raise ValueError("project_id is required")
+        if request.dev_environment_id is None:
+            raise ValueError("dev_environment_id is required")
+        if not str(request.objective or "").strip():
+            raise ValueError("objective is required")
+        client_kwargs = request.client_kwargs()
+        dev_environment_id = str(client_kwargs.pop("dev_environment_id") or "").strip()
+        try:
+            with self._client_from_args(args) as client:
+                return client.runs.start_run_in_dev_environment(
+                    request.project_id,
+                    dev_environment_id=dev_environment_id,
+                    **client_kwargs,
+                )
         except SmrApiError as exc:
             _raise_mcp_tool_denial(exc)
 

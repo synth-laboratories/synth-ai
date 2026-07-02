@@ -261,6 +261,7 @@ class SmrBillingDebit:
     cost_lane: str | None
     usage_fact_id: str | None
     wallet_ledger_id: str | None
+    dev_environment_id: str | None
     breach_id: str | None
     created_at: str
     metadata: dict[str, object]
@@ -292,6 +293,7 @@ class SmrBillingDebit:
             cost_lane=_optional_string(mapping, "cost_lane"),
             usage_fact_id=_optional_string(mapping, "usage_fact_id"),
             wallet_ledger_id=_optional_string(mapping, "wallet_ledger_id"),
+            dev_environment_id=_optional_string(mapping, "dev_environment_id"),
             breach_id=_optional_string(mapping, "breach_id"),
             created_at=_require_string(mapping, "created_at", label="SMR billing debit.created_at"),
             metadata=_optional_object_dict(_optional_wire_value(mapping, "metadata")),
@@ -325,6 +327,7 @@ class SmrBillingDebitPoolSummary:
 class SmrBillingDrawdown:
     org_id: str
     run_id: str | None
+    dev_environment_id: str | None
     factory_effort_id: str | None
     surface: str
     billing_plan: SmrBillingPlanSnapshot
@@ -340,6 +343,7 @@ class SmrBillingDrawdown:
         return cls(
             org_id=_require_string(mapping, "org_id", label="SMR billing drawdown.org_id"),
             run_id=_optional_string(mapping, "run_id"),
+            dev_environment_id=_optional_string(mapping, "dev_environment_id"),
             factory_effort_id=_optional_string(mapping, "factory_effort_id"),
             surface=_require_string(mapping, "surface", label="SMR billing drawdown.surface"),
             billing_plan=SmrBillingPlanSnapshot.from_wire(mapping["billing_plan"]),
@@ -367,6 +371,7 @@ class SmrBillingPreflight:
     surface: str
     project_id: str | None
     run_id: str | None
+    dev_environment_id: str | None
     factory_effort_id: str | None
     model_class: str
     estimated_customer_debit_microcents: int
@@ -387,6 +392,7 @@ class SmrBillingPreflight:
             surface=_require_string(mapping, "surface", label="SMR billing preflight.surface"),
             project_id=_optional_string(mapping, "project_id"),
             run_id=_optional_string(mapping, "run_id"),
+            dev_environment_id=_optional_string(mapping, "dev_environment_id"),
             factory_effort_id=_optional_string(mapping, "factory_effort_id"),
             model_class=_require_string(
                 mapping,

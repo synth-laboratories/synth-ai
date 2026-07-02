@@ -41,6 +41,9 @@ from synth_ai.managed_research.models.checkpoints import (
     CheckpointCadenceSource,
     CheckpointScope,
 )
+from synth_ai.managed_research.models.dev_environment_evidence import (
+    DevEnvironmentEvidence,
+)
 from synth_ai.managed_research.models.factories import (
     AuthorizationPolicy,
     BudgetPolicy,
@@ -382,6 +385,14 @@ from synth_ai.managed_research.models.tag import (
 )
 from synth_ai.managed_research.models.types import (
     CredentialRef,
+    DevEnvironment,
+    DevEnvironmentAttach,
+    DevEnvironmentCollection,
+    DevEnvironmentMaterializationQueue,
+    DevEnvironmentMaterializationWorkItem,
+    DevEnvironmentPreflight,
+    DevEnvironmentTopology,
+    DevEnvironmentUsage,
     ExperimentProgress,
     ExternalRepository,
     InlineExternalRepositoryBinding,
@@ -441,6 +452,15 @@ __all__ = [
     "CheckpointCreatedEvent",
     "CommandRequest",
     "DiagnosticEvent",
+    "DevEnvironment",
+    "DevEnvironmentAttach",
+    "DevEnvironmentCollection",
+    "DevEnvironmentEvidence",
+    "DevEnvironmentMaterializationQueue",
+    "DevEnvironmentMaterializationWorkItem",
+    "DevEnvironmentPreflight",
+    "DevEnvironmentTopology",
+    "DevEnvironmentUsage",
     "Event",
     "EventKind",
     "EventStream",

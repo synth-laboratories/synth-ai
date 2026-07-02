@@ -151,6 +151,7 @@ from synth_ai.managed_research.models.types import (
     SmrRunnableProjectRequest,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -169,6 +170,7 @@ from synth_ai.managed_research.sdk.config import (
 from synth_ai.managed_research.sdk.cost import RunCostAPI
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
+from synth_ai.managed_research.sdk.dev_environments import DevEnvironmentsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
@@ -542,6 +544,7 @@ def _build_project_run_payload(
     workflow: Mapping[str, Any] | dict[str, Any] | None = None,
     sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
     environment: Mapping[str, Any] | dict[str, Any] | None = None,
+    dev_environment_id: str | None = None,
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
@@ -739,6 +742,9 @@ def _build_project_run_payload(
     )
     if normalized_environment:
         payload["environment"] = normalized_environment
+    normalized_dev_environment_id = _optional_non_empty_string(dev_environment_id)
+    if normalized_dev_environment_id is not None:
+        payload["dev_environment_id"] = normalized_dev_environment_id
     normalized_run_policy = coerce_smr_run_policy(run_policy, field_name="run_policy")
     if normalized_run_policy is not None:
         payload["run_policy"] = normalized_run_policy.to_dict()
@@ -1034,6 +1040,11 @@ class ManagedResearchClient:
     _credentials_api: CredentialsAPI | None = field(init=False, default=None, repr=False)
     _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
+    _dev_environments_api: DevEnvironmentsAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
@@ -1041,6 +1052,7 @@ class ManagedResearchClient:
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
     _tag_api: TagAPI | None = field(init=False, default=None, repr=False)
+    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         resolved_api_key = _resolve_api_key(self.api_key)
@@ -1199,6 +1211,12 @@ class ManagedResearchClient:
         return self._environments_api
 
     @property
+    def dev_environments(self) -> DevEnvironmentsAPI:
+        if self._dev_environments_api is None:
+            self._dev_environments_api = DevEnvironmentsAPI(self)
+        return self._dev_environments_api
+
+    @property
     def logs(self) -> LogsAPI:
         if self._logs_api is None:
             self._logs_api = LogsAPI(self)
@@ -1239,6 +1257,12 @@ class ManagedResearchClient:
         if self._tag_api is None:
             self._tag_api = TagAPI(self)
         return self._tag_api
+
+    @property
+    def billing(self) -> BillingAPI:
+        if self._billing_api is None:
+            self._billing_api = BillingAPI(self)
+        return self._billing_api
 
     def create_tag_session(self, request: Mapping[str, Any] | dict[str, Any]) -> dict[str, Any]:
         return _coerce_dict(
@@ -3143,6 +3167,22 @@ class ManagedResearchClient:
             label="list_environments",
         )
 
+    def create_environment(self, *, manifest: Mapping[str, Any]) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/environments",
+                json_body={
+                    "manifest": _optional_mapping(
+                        manifest,
+                        field_name="manifest",
+                    )
+                    or {},
+                },
+            ),
+            label="create_environment",
+        )
+
     def get_environment(self, *, name: str, digest: str | None = None) -> dict[str, Any]:
         name = _require_non_empty_string(name, field_name="name")
         return _coerce_dict(
@@ -3168,6 +3208,392 @@ class ManagedResearchClient:
                 params=build_query_params(digest=digest),
             ),
             label="preflight_environment",
+        )
+
+    def list_dev_environments(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/dev-environments",
+                params=build_query_params(project_id=project_id, limit=limit),
+            ),
+            label="list_dev_environments",
+        )
+
+    def list_dev_environment_topologies(self) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/dev-environments/topologies",
+            ),
+            label="list_dev_environment_topologies",
+        )
+
+    def get_dev_environment_topology(
+        self,
+        *,
+        topology_id: str,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        topology_id = _require_non_empty_string(
+            topology_id,
+            field_name="topology_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/topologies/{topology_id}",
+                params=build_query_params(version=version),
+            ),
+            label="get_dev_environment_topology",
+        )
+
+    def list_dev_environment_materialization_queue(
+        self,
+        *,
+        project_id: str | None = None,
+        host_kind: str | None = None,
+        backend_target: str | None = None,
+        worker_id: str | None = None,
+        include_leased: bool | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                "/smr/dev-environments/materialization-queue",
+                params=build_query_params(
+                    project_id=project_id,
+                    host_kind=host_kind,
+                    backend_target=backend_target,
+                    worker_id=worker_id,
+                    include_leased=include_leased,
+                    limit=limit,
+                ),
+            ),
+            label="list_dev_environment_materialization_queue",
+        )
+
+    def create_dev_environment(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        environment_name: str,
+        backend_target: str = "dev",
+        topology_id: str = "synth-dev",
+        topology_version: str | None = None,
+        environment_digest: str | None = None,
+        host_kind: str = "daytona",
+        quota_class: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/dev-environments",
+                json_body={
+                    "project_id": _require_non_empty_string(
+                        project_id,
+                        field_name="project_id",
+                    ),
+                    "name": _require_non_empty_string(name, field_name="name"),
+                    "environment_name": _require_non_empty_string(
+                        environment_name,
+                        field_name="environment_name",
+                    ),
+                    "backend_target": _require_non_empty_string(
+                        backend_target,
+                        field_name="backend_target",
+                    ),
+                    "topology_id": _require_non_empty_string(
+                        topology_id,
+                        field_name="topology_id",
+                    ),
+                    "topology_version": _optional_non_empty_string(topology_version),
+                    "environment_digest": _optional_non_empty_string(environment_digest),
+                    "host_kind": _require_non_empty_string(
+                        host_kind,
+                        field_name="host_kind",
+                    ),
+                    "quota_class": _optional_non_empty_string(quota_class),
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                },
+            ),
+            label="create_dev_environment",
+        )
+
+    def get_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/dev-environments/{dev_environment_id}"),
+            label="get_dev_environment",
+        )
+
+    def claim_dev_environment_materialization(
+        self,
+        *,
+        dev_environment_id: str,
+        worker_id: str,
+        lease_seconds: int | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/materialization-lease",
+                json_body={
+                    "worker_id": _require_non_empty_string(
+                        worker_id,
+                        field_name="worker_id",
+                    ),
+                    "lease_seconds": lease_seconds,
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                },
+            ),
+            label="claim_dev_environment_materialization",
+        )
+
+    def preflight_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/preflight",
+            ),
+            label="preflight_dev_environment",
+        )
+
+    def _dev_environment_action(
+        self,
+        *,
+        dev_environment_id: str,
+        action: str,
+        metadata: Mapping[str, Any] | None = None,
+        extra_body: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        body = {"metadata": _optional_mapping(metadata, field_name="metadata") or {}}
+        if extra_body:
+            body.update(dict(extra_body))
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/{action}",
+                json_body=body,
+            ),
+            label=f"{action}_dev_environment",
+        )
+
+    def deploy_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            action="deploy",
+            metadata=metadata,
+        )
+
+    def start_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            action="start",
+            metadata=metadata,
+        )
+
+    def stop_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        decision: str = "retain",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            action="stop",
+            metadata=metadata,
+            extra_body={
+                "decision": _require_non_empty_string(
+                    decision,
+                    field_name="decision",
+                )
+            },
+        )
+
+    def snapshot_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            action="snapshot",
+            metadata=metadata,
+        )
+
+    def report_dev_environment_materialization(
+        self,
+        *,
+        dev_environment_id: str,
+        result: str = "succeeded",
+        lifecycle_state: str | None = None,
+        service_summary: Mapping[str, Any] | None = None,
+        log_entries: list[Mapping[str, Any]] | None = None,
+        receipt_refs: list[Mapping[str, Any]] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        error: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/materialization",
+                json_body={
+                    "result": _require_non_empty_string(
+                        result,
+                        field_name="result",
+                    ),
+                    "lifecycle_state": _optional_non_empty_string(lifecycle_state),
+                    "service_summary": (
+                        None
+                        if service_summary is None
+                        else dict(service_summary)
+                    ),
+                    "log_entries": [
+                        dict(item) for item in (log_entries or [])
+                    ],
+                    "receipt_refs": [
+                        dict(item) for item in (receipt_refs or [])
+                    ],
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                    "error": None if error is None else dict(error),
+                },
+            ),
+            label="report_dev_environment_materialization",
+        )
+
+    def delete_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json("DELETE", f"/smr/dev-environments/{dev_environment_id}"),
+            label="delete_dev_environment",
+        )
+
+    def get_dev_environment_services(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/services",
+            ),
+            label="get_dev_environment_services",
+        )
+
+    def get_dev_environment_attach(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/attach",
+            ),
+            label="get_dev_environment_attach",
+        )
+
+    def get_dev_environment_logs(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/logs",
+            ),
+            label="get_dev_environment_logs",
+        )
+
+    def get_dev_environment_runs(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/runs",
+            ),
+            label="get_dev_environment_runs",
+        )
+
+    def get_dev_environment_usage(
+        self,
+        *,
+        dev_environment_id: str,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/usage",
+                params=build_query_params(limit=limit),
+            ),
+            label="get_dev_environment_usage",
+        )
+
+    def get_dev_environment_receipts(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/receipts",
+            ),
+            label="get_dev_environment_receipts",
         )
 
     def list_project_outputs(self, project_id: str) -> list[dict[str, Any]]:
@@ -3835,6 +4261,7 @@ class ManagedResearchClient:
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
         sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
         environment: Mapping[str, Any] | dict[str, Any] | None = None,
+        dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
@@ -3881,6 +4308,7 @@ class ManagedResearchClient:
             workflow=workflow,
             sandbox_override=sandbox_override,
             environment=environment,
+            dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
@@ -3982,6 +4410,7 @@ class ManagedResearchClient:
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
         sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
         environment: Mapping[str, Any] | dict[str, Any] | None = None,
+        dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
@@ -4028,6 +4457,7 @@ class ManagedResearchClient:
             workflow=workflow,
             sandbox_override=sandbox_override,
             environment=environment,
+            dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,

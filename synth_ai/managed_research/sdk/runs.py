@@ -125,6 +125,62 @@ def _resolve_project_selector(
     return ProjectSelector.misc()
 
 
+def _resolve_required_project_selector(
+    project_id: str | None = None,
+    *,
+    project: ProjectSelector | str | None = None,
+    operation: str,
+) -> ProjectSelector:
+    if project_id is None and project is None:
+        raise ValueError(f"{operation} requires project_id or project")
+    return _resolve_project_selector(project_id, project=project)
+
+
+_DEV_ENVIRONMENT_LAUNCH_REJECTED_FIELDS = frozenset(
+    {
+        "local_execution",
+        "execution_profile",
+        "sandbox_override",
+        "environment",
+    }
+)
+
+
+def _require_dev_environment_id(dev_environment_id: str) -> str:
+    normalized = str(dev_environment_id or "").strip()
+    if not normalized:
+        raise ValueError("dev_environment_id is required")
+    return normalized
+
+
+def _dev_environment_launch_kwargs(
+    dev_environment_id: str,
+    kwargs: Mapping[str, Any],
+) -> dict[str, Any]:
+    payload = dict(kwargs)
+    rejected = sorted(
+        field
+        for field in _DEV_ENVIRONMENT_LAUNCH_REJECTED_FIELDS
+        if field in payload and payload[field] is not None
+    )
+    if rejected:
+        raise ValueError(
+            "DevEnvironment launches bind the existing cloud sandbox and reject "
+            "local/ad hoc substrate fields: " + ", ".join(rejected)
+        )
+
+    host_kind = payload.pop("host_kind", SmrHostKind.DAYTONA)
+    host_kind_value = str(getattr(host_kind, "value", host_kind) or "").strip()
+    if not host_kind_value:
+        host_kind_value = SmrHostKind.DAYTONA.value
+    if host_kind_value != SmrHostKind.DAYTONA.value:
+        raise ValueError("DevEnvironment launches require host_kind='daytona'")
+
+    payload["host_kind"] = SmrHostKind.DAYTONA.value
+    payload["dev_environment_id"] = _require_dev_environment_id(dev_environment_id)
+    return payload
+
+
 class RunHandle:
     """Project-scoped handle for one managed-research run."""
 
@@ -1069,6 +1125,22 @@ class RunsAPI(_ClientNamespace):
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.get_launch_preflight(selector.project_id, **kwargs)
 
+    def launch_preflight_in_dev_environment(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        dev_environment_id: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        selector = _resolve_required_project_selector(
+            project_id,
+            project=project,
+            operation="launch_preflight_in_dev_environment",
+        )
+        payload = _dev_environment_launch_kwargs(dev_environment_id, kwargs)
+        return self._client.get_launch_preflight(selector.project_id, **payload)
+
     def runbook_presets(self) -> tuple[SmrRunbookPreset, ...]:
         return self._client.list_runbook_presets()
 
@@ -1106,6 +1178,22 @@ class RunsAPI(_ClientNamespace):
         selector = _resolve_project_selector(project_id, project=project)
         return self._client.start_run(selector.project_id, **kwargs)
 
+    def start_run_in_dev_environment(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        dev_environment_id: str,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        selector = _resolve_required_project_selector(
+            project_id,
+            project=project,
+            operation="start_run_in_dev_environment",
+        )
+        payload = _dev_environment_launch_kwargs(dev_environment_id, kwargs)
+        return self._client.start_run(selector.project_id, **payload)
+
     def start(
         self,
         objective: str,
@@ -1126,6 +1214,46 @@ class RunsAPI(_ClientNamespace):
             wire = self._client.trigger_run(selector.project_id, **payload)
         run = ManagedResearchRun.from_wire(wire)
         return RunHandle(self._client, run.project_id, run.run_id)
+
+    def start_in_dev_environment(
+        self,
+        objective: str,
+        *,
+        project_id: str | None = None,
+        project: ProjectSelector | str | None = None,
+        dev_environment_id: str,
+        **kwargs: Any,
+    ) -> RunHandle:
+        objective_text = str(objective or "").strip()
+        if not objective_text:
+            raise ValueError("objective is required")
+        payload = dict(kwargs)
+        payload["objective"] = objective_text
+        wire = self.start_run_in_dev_environment(
+            project_id,
+            project=project,
+            dev_environment_id=dev_environment_id,
+            **payload,
+        )
+        run = ManagedResearchRun.from_wire(wire)
+        return RunHandle(self._client, run.project_id, run.run_id)
+
+    def launch_in_dev_environment(
+        self,
+        objective: str,
+        *,
+        project_id: str | None = None,
+        project: ProjectSelector | str | None = None,
+        dev_environment_id: str,
+        **kwargs: Any,
+    ) -> RunHandle:
+        return self.start_in_dev_environment(
+            objective,
+            project_id=project_id,
+            project=project,
+            dev_environment_id=dev_environment_id,
+            **kwargs,
+        )
 
     def launch(
         self,
