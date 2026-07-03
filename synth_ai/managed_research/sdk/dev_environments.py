@@ -163,6 +163,58 @@ class DevEnvironmentsAPI(_ClientNamespace):
         except (TypeError, ValueError):
             return 0
 
+    def _run_proofs(
+        self,
+        *,
+        environment: DevEnvironment,
+        run_binding_summary: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        proofs: list[dict[str, object]] = []
+        for run_id in run_binding_summary.get("bound_run_ids") or ():
+            run_id_text = str(run_id or "").strip()
+            if not run_id_text:
+                continue
+            proof: dict[str, object] = {
+                "project_id": environment.project_id,
+                "run_id": run_id_text,
+            }
+            try:
+                work_products = self._client.list_run_work_products(
+                    environment.project_id,
+                    run_id_text,
+                )
+                proof["work_products"] = work_products
+                proof["work_product_count"] = len(work_products)
+                proof["ready_work_product_count"] = sum(
+                    1
+                    for item in work_products
+                    if isinstance(item, Mapping)
+                    and str(item.get("status") or "").strip().lower() == "ready"
+                )
+            except Exception as exc:
+                proof["work_products_error"] = f"{type(exc).__name__}: {exc}"
+            try:
+                traces = self._client.get_project_run_traces(
+                    environment.project_id,
+                    run_id_text,
+                )
+                proof["trace_count"] = int(getattr(traces, "count", 0) or 0)
+                proof["traces"] = [
+                    {
+                        "trace_id": trace.trace_id,
+                        "artifact_id": trace.artifact_id,
+                        "event_count": trace.event_count,
+                        "storage_uri": trace.artifact_uri,
+                        "participant_session_id": trace.participant_session_id,
+                        "participant_role": trace.participant_role,
+                    }
+                    for trace in getattr(traces, "traces", ()) or ()
+                ]
+            except Exception as exc:
+                proof["traces_error"] = f"{type(exc).__name__}: {exc}"
+            proofs.append(proof)
+        return proofs
+
     @classmethod
     def _cloud_s0_summary(
         cls,
@@ -171,10 +223,32 @@ class DevEnvironmentsAPI(_ClientNamespace):
         environment: DevEnvironment,
         usage: DevEnvironmentUsage,
         receipts: DevEnvironmentCollection,
+        run_proofs: list[dict[str, object]],
     ) -> dict[str, object]:
         receipt_summary = receipts.summary
-        work_product_count = cls._int_summary_value(receipt_summary.get("work_product_count"))
-        trace_count = cls._int_summary_value(receipt_summary.get("trace_count"))
+        hydrated_work_product_count = sum(
+            cls._int_summary_value(proof.get("work_product_count"))
+            for proof in run_proofs
+        )
+        hydrated_ready_work_product_count = sum(
+            cls._int_summary_value(proof.get("ready_work_product_count"))
+            for proof in run_proofs
+        )
+        hydrated_trace_count = sum(
+            cls._int_summary_value(proof.get("trace_count")) for proof in run_proofs
+        )
+        work_product_count = max(
+            cls._int_summary_value(receipt_summary.get("work_product_count")),
+            hydrated_work_product_count,
+        )
+        ready_work_product_count = max(
+            cls._int_summary_value(receipt_summary.get("ready_work_product_count")),
+            hydrated_ready_work_product_count,
+        )
+        trace_count = max(
+            cls._int_summary_value(receipt_summary.get("trace_count")),
+            hydrated_trace_count,
+        )
         usage_summary = usage.summary or receipts.usage.get("summary")
         has_usage_snapshot = bool(usage_summary)
         has_cost_snapshot = bool(environment.cost_summary) or bool(
@@ -195,6 +269,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
             "checks": checks,
             "receipt_ready": all(checks.values()),
             "work_product_count": work_product_count,
+            "ready_work_product_count": ready_work_product_count,
             "trace_count": trace_count,
             "cost_summary": (
                 dict(environment.cost_summary)
@@ -203,6 +278,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
             ),
             "usage_summary": dict(usage_summary) if isinstance(usage_summary, Mapping) else {},
             "latest_run_binding": run_binding_summary.get("latest_run_binding"),
+            "run_proof_count": len(run_proofs),
         }
 
     @staticmethod
@@ -215,6 +291,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         runs: DevEnvironmentCollection,
         usage: DevEnvironmentUsage,
         receipts: DevEnvironmentCollection,
+        run_proofs: list[dict[str, object]],
         billing_preflight: SmrBillingPreflight | None,
         billing_drawdown: SmrBillingDrawdown | None,
     ) -> dict[str, object]:
@@ -270,6 +347,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
             environment=environment,
             usage=usage,
             receipts=receipts,
+            run_proofs=run_proofs,
         )
         return summary
 
@@ -642,6 +720,15 @@ class DevEnvironmentsAPI(_ClientNamespace):
         billing_preflight = self.billing_preflight(dev_environment_id) if include_billing else None
         billing_drawdown = self.billing_drawdown(dev_environment_id) if include_billing else None
         receipts = self.receipts(dev_environment_id)
+        run_binding_summary = self._run_binding_summary(
+            environment=environment,
+            runs=runs,
+            receipts=receipts,
+        )
+        run_proofs = self._run_proofs(
+            environment=environment,
+            run_binding_summary=run_binding_summary,
+        )
         return DevEnvironmentEvidence(
             dev_environment_id=environment.dev_environment_id,
             environment=environment,
@@ -654,6 +741,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
             billing_preflight=billing_preflight,
             billing_drawdown=billing_drawdown,
             receipts=receipts,
+            run_proofs=run_proofs,
             summary=self._evidence_summary(
                 environment=environment,
                 preflight=preflight,
@@ -662,6 +750,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
                 runs=runs,
                 usage=usage,
                 receipts=receipts,
+                run_proofs=run_proofs,
                 billing_preflight=billing_preflight,
                 billing_drawdown=billing_drawdown,
             ),

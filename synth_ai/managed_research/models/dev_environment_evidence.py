@@ -30,6 +30,7 @@ class DevEnvironmentEvidence:
     receipts: DevEnvironmentCollection
     preflight: DevEnvironmentPreflight | None = None
     logs: DevEnvironmentCollection | None = None
+    run_proofs: list[dict[str, object]] = field(default_factory=list)
     billing_preflight: SmrBillingPreflight | None = None
     billing_drawdown: SmrBillingDrawdown | None = None
     summary: dict[str, object] = field(default_factory=dict)
