@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
@@ -48,7 +48,7 @@ class ResearchHostedArtifactsAPI:
         *,
         project_id: str | None = None,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> List[dict[str, Any]]:
         """List hosted artifacts for the org or one project.
 
         Args:
@@ -60,13 +60,9 @@ class ResearchHostedArtifactsAPI:
             and ``slug`` when promoted.
         """
         if project_id:
-            payload = self._session.list_project_hosted_artifacts(
-                project_id, limit=limit
-            )
+            payload = self._session.list_project_hosted_artifacts(project_id, limit=limit)
         else:
-            payload = self._session.list_hosted_artifacts(
-                project_id=project_id, limit=limit
-            )
+            payload = self._session.list_hosted_artifacts(project_id=project_id, limit=limit)
         return _artifact_items(payload)
 
     def get(self, hosted_artifact_id: str) -> dict[str, Any]:
@@ -192,7 +188,7 @@ class ResearchHostedArtifactsAPI:
         """
         return self._session.delete_hosted_artifact(hosted_artifact_id)
 
-    def list_public(self) -> list[dict[str, Any]]:
+    def list_public(self) -> List[dict[str, Any]]:
         """List public Open Research artifacts (unauthenticated index JSON)."""
         payload = self._session.list_public_hosted_artifacts()
         return _artifact_items(payload)

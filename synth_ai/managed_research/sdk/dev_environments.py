@@ -168,8 +168,8 @@ class DevEnvironmentsAPI(_ClientNamespace):
         *,
         environment: DevEnvironment,
         run_binding_summary: Mapping[str, object],
-    ) -> list[dict[str, object]]:
-        proofs: list[dict[str, object]] = []
+    ) -> List[dict[str, object]]:
+        proofs: List[dict[str, object]] = []
         for run_id in run_binding_summary.get("bound_run_ids") or ():
             run_id_text = str(run_id or "").strip()
             if not run_id_text:
@@ -223,16 +223,14 @@ class DevEnvironmentsAPI(_ClientNamespace):
         environment: DevEnvironment,
         usage: DevEnvironmentUsage,
         receipts: DevEnvironmentCollection,
-        run_proofs: list[dict[str, object]],
+        run_proofs: List[dict[str, object]],
     ) -> dict[str, object]:
         receipt_summary = receipts.summary
         hydrated_work_product_count = sum(
-            cls._int_summary_value(proof.get("work_product_count"))
-            for proof in run_proofs
+            cls._int_summary_value(proof.get("work_product_count")) for proof in run_proofs
         )
         hydrated_ready_work_product_count = sum(
-            cls._int_summary_value(proof.get("ready_work_product_count"))
-            for proof in run_proofs
+            cls._int_summary_value(proof.get("ready_work_product_count")) for proof in run_proofs
         )
         hydrated_trace_count = sum(
             cls._int_summary_value(proof.get("trace_count")) for proof in run_proofs
@@ -251,9 +249,8 @@ class DevEnvironmentsAPI(_ClientNamespace):
         )
         usage_summary = usage.summary or receipts.usage.get("summary")
         has_usage_snapshot = bool(usage_summary)
-        has_cost_snapshot = bool(environment.cost_summary) or bool(
-            receipts.environment.get("cost_summary")
-        )
+        receipt_cost_summary = receipts.environment.get("cost_summary")
+        has_cost_snapshot = bool(environment.cost_summary) or bool(receipt_cost_summary)
         checks = {
             "environment_id_bound": run_binding_summary.get("has_bound_run") is True,
             "dev_slot_execution_bound": (
@@ -274,7 +271,9 @@ class DevEnvironmentsAPI(_ClientNamespace):
             "cost_summary": (
                 dict(environment.cost_summary)
                 if environment.cost_summary
-                else dict(receipts.environment.get("cost_summary", {}))
+                else dict(receipt_cost_summary)
+                if isinstance(receipt_cost_summary, Mapping)
+                else {}
             ),
             "usage_summary": dict(usage_summary) if isinstance(usage_summary, Mapping) else {},
             "latest_run_binding": run_binding_summary.get("latest_run_binding"),
@@ -291,7 +290,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         runs: DevEnvironmentCollection,
         usage: DevEnvironmentUsage,
         receipts: DevEnvironmentCollection,
-        run_proofs: list[dict[str, object]],
+        run_proofs: List[dict[str, object]],
         billing_preflight: SmrBillingPreflight | None,
         billing_drawdown: SmrBillingDrawdown | None,
     ) -> dict[str, object]:
@@ -610,8 +609,8 @@ class DevEnvironmentsAPI(_ClientNamespace):
         result: str = "succeeded",
         lifecycle_state: str | None = None,
         service_summary: Mapping[str, Any] | None = None,
-        log_entries: list[Mapping[str, Any]] | None = None,
-        receipt_refs: list[Mapping[str, Any]] | None = None,
+        log_entries: List[Mapping[str, Any]] | None = None,
+        receipt_refs: List[Mapping[str, Any]] | None = None,
         metadata: Mapping[str, Any] | None = None,
         error: Mapping[str, Any] | None = None,
     ) -> DevEnvironment:
@@ -760,7 +759,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
         self,
         dev_environment_id: str,
         *,
-        lifecycle_states: tuple[str, ...] | list[str] | None = None,
+        lifecycle_states: tuple[str, ...] | List[str] | None = None,
         timeout: float | None = 1800.0,
         poll_interval: float = 10.0,
         require_readiness: bool = True,
@@ -803,7 +802,7 @@ class DevEnvironmentsAPI(_ClientNamespace):
     @classmethod
     def _normalized_lifecycle_targets(
         cls,
-        lifecycle_states: tuple[str, ...] | list[str] | None,
+        lifecycle_states: tuple[str, ...] | List[str] | None,
     ) -> tuple[str, ...]:
         raw_states = lifecycle_states or cls.DEFAULT_READY_LIFECYCLE_STATES
         states = tuple(state for state in (str(item or "").strip() for item in raw_states) if state)
