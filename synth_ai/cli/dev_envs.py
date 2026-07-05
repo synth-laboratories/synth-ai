@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import asdict, is_dataclass
-from typing import Any
+from typing import Any, Mapping
 
 import click
 
@@ -136,13 +136,12 @@ def _git_proofs_from_evidence(
         run_id = str(item.get("run_id") or "").strip()
         if expected_run_ids and run_id not in expected_run_ids:
             continue
-        git = dict(item.get("git")) if isinstance(item.get("git"), dict) else {}
-        run_git = (
-            dict(git.get("run_git_context")) if isinstance(git.get("run_git_context"), dict) else {}
-        )
-        project_git = (
-            dict(git.get("project_git")) if isinstance(git.get("project_git"), dict) else {}
-        )
+        git_raw = item.get("git")
+        git = dict(git_raw) if isinstance(git_raw, Mapping) else {}
+        run_git_raw = git.get("run_git_context")
+        run_git = dict(run_git_raw) if isinstance(run_git_raw, Mapping) else {}
+        project_git_raw = git.get("project_git")
+        project_git = dict(project_git_raw) if isinstance(project_git_raw, Mapping) else {}
         branch = str(run_git.get("branch") or project_git.get("default_branch") or "").strip()
         commit_sha = str(
             run_git.get("head_commit_sha") or project_git.get("commit_sha") or ""

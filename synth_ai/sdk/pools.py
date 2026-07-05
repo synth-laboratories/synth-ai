@@ -50,6 +50,7 @@ def validate_pool_rollout_request(request: dict[str, Any], *, context: str) -> N
 
 class PoolTarget(str, Enum):
     """Deployment target substrate for a pool."""
+
     HARBOR = "harbor"
     OPENENV = "openenv"
     HORIZONS = "horizons"
@@ -186,6 +187,7 @@ class _PoolMetricsClient:
 
 class ContainerPoolsClient(SynthBaseClient):
     """Manage container pools, tasks, rollouts, and metrics."""
+
     def __init__(
         self,
         *,
