@@ -3383,7 +3383,8 @@ class ManagedResearchClient:
         self,
         *,
         dev_environment_id: str,
-        action: str,
+        route_path: str,
+        label: str,
         metadata: Mapping[str, Any] | None = None,
         extra_body: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -3397,10 +3398,10 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/dev-environments/{dev_environment_id}/{action}",
+                route_path,
                 json_body=body,
             ),
-            label=f"{action}_dev_environment",
+            label=label,
         )
 
     def deploy_dev_environment(
@@ -3411,7 +3412,8 @@ class ManagedResearchClient:
     ) -> dict[str, Any]:
         return self._dev_environment_action(
             dev_environment_id=dev_environment_id,
-            action="deploy",
+            route_path=f"/smr/dev-environments/{dev_environment_id}/deploy",
+            label="deploy_dev_environment",
             metadata=metadata,
         )
 
@@ -3423,7 +3425,8 @@ class ManagedResearchClient:
     ) -> dict[str, Any]:
         return self._dev_environment_action(
             dev_environment_id=dev_environment_id,
-            action="start",
+            route_path=f"/smr/dev-environments/{dev_environment_id}/start",
+            label="start_dev_environment",
             metadata=metadata,
         )
 
@@ -3436,7 +3439,8 @@ class ManagedResearchClient:
     ) -> dict[str, Any]:
         return self._dev_environment_action(
             dev_environment_id=dev_environment_id,
-            action="stop",
+            route_path=f"/smr/dev-environments/{dev_environment_id}/stop",
+            label="stop_dev_environment",
             metadata=metadata,
             extra_body={
                 "decision": _require_non_empty_string(
@@ -3454,7 +3458,8 @@ class ManagedResearchClient:
     ) -> dict[str, Any]:
         return self._dev_environment_action(
             dev_environment_id=dev_environment_id,
-            action="snapshot",
+            route_path=f"/smr/dev-environments/{dev_environment_id}/snapshot",
+            label="snapshot_dev_environment",
             metadata=metadata,
         )
 
@@ -6710,8 +6715,8 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
     """Compatibility alias that retains the legacy synth-ai bridge surface.
 
     `ManagedResearchClient` is the canonical public name. `SmrControlClient`
-    remains as a one-release alias and preserves the older default-backend +
-    synth-ai bridge behavior for migration safety.
+    remains as a one-release alias but requires callers to pass the selected
+    backend explicitly so default construction cannot silently target prod.
     """
 
     def __init__(
@@ -6724,9 +6729,16 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
         openai_project: str | None = None,
         openai_request_id: str | None = None,
     ) -> None:
+        explicit_backend_base = str(backend_base or "").strip()
+        if not explicit_backend_base:
+            raise ValueError(
+                "SmrControlClient requires an explicit backend_base. "
+                "Pass backend_base from the selected environment instead of "
+                "relying on SYNTH_BACKEND_URL or the prod SDK default."
+            )
         super().__init__(
             api_key=api_key,
-            backend_base=backend_base,
+            backend_base=explicit_backend_base,
             timeout_seconds=timeout_seconds,
         )
         self._initialize_openai_bridge(
