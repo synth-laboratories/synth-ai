@@ -11,20 +11,12 @@
       "compute_pool_kind": "auth_pool",
       "compute_pool_id": "openai_chatgpt_pool",
       "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
         "codex"
       ],
       "aliases": [],
       "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh"
+        "medium"
       ],
       "default_reasoning_effort": "medium",
       "context_window_tokens": null,
@@ -52,18 +44,13 @@
       "compute_pool_kind": "auth_pool",
       "compute_pool_id": "openai_chatgpt_pool",
       "route_kind": "codex_pool",
-      "provider_domicile": null,
-      "route_regions": [],
-      "zdr_supported": null,
       "harnesses": [
         "codex"
       ],
       "aliases": [],
       "supported_reasoning_efforts": [
         "low",
-        "medium",
-        "high",
-        "xhigh"
+        "medium"
       ],
       "default_reasoning_effort": "medium",
       "context_window_tokens": null,
@@ -82,6 +69,40 @@
       }
     },
     {
+      "id": "gpt-5.4",
+      "display_name": "GPT-5.4",
+      "display_group": "standard_codex",
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.4",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "medium",
+        "high"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.0000025",
+        "cached_input_usd": "0.00000125",
+        "output_usd": "0.00001",
+        "reasoning_output_usd": "0.00001",
+        "source": "synth_contract",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
       "id": "gpt-5.5",
       "display_name": "GPT-5.5",
       "display_group": "standard_codex",
@@ -91,15 +112,11 @@
       "compute_pool_kind": "auth_pool",
       "compute_pool_id": "openai_chatgpt_pool",
       "route_kind": "codex_pool",
-      "provider_domicile": null,
-      "route_regions": [],
-      "zdr_supported": null,
       "harnesses": [
         "codex"
       ],
       "aliases": [],
       "supported_reasoning_efforts": [
-        "low",
         "medium",
         "high",
         "xhigh"
@@ -130,11 +147,6 @@
       "compute_pool_kind": "auth_pool",
       "compute_pool_id": "openai_chatgpt_pool",
       "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
         "codex"
       ],
@@ -142,8 +154,7 @@
       "supported_reasoning_efforts": [
         "low",
         "medium",
-        "high",
-        "xhigh"
+        "high"
       ],
       "default_reasoning_effort": "medium",
       "context_window_tokens": null,
@@ -162,23 +173,190 @@
       }
     },
     {
+      "id": "gpt-5.4-nano",
+      "display_name": "GPT-5.4 Nano",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.4-nano",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openai_api_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low"
+      ],
+      "default_reasoning_effort": "low",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "1E-7",
+        "cached_input_usd": "5E-8",
+        "output_usd": "4E-7",
+        "reasoning_output_usd": "4E-7",
+        "source": "synth_contract",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
+      "id": "gpt-oss-120b",
+      "display_name": "GPT-OSS 120B",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "groq",
+      "provider_model_id": "openai/gpt-oss-120b",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "groq_api_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [
+        "openai/gpt-oss-120b"
+      ],
+      "supported_reasoning_efforts": [
+        "high"
+      ],
+      "default_reasoning_effort": "high",
+      "context_window_tokens": null,
+      "max_output_tokens": 131072,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "1.5E-7",
+        "cached_input_usd": "1.5E-7",
+        "output_usd": "7.5E-7",
+        "reasoning_output_usd": "7.5E-7",
+        "source": "synth_contract",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
+      "id": "anthropic/claude-sonnet-4-6",
+      "display_name": "Claude Sonnet 4.6",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "anthropic",
+      "provider_model_id": "claude-sonnet-4-6",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "anthropic_api_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "claude-sonnet-4-6"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 64000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000003",
+        "cached_input_usd": "3E-7",
+        "output_usd": "0.000015",
+        "reasoning_output_usd": "0.000015",
+        "source": "anthropic_public_pricing",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
+      "id": "anthropic/claude-haiku-4-5-20251001",
+      "display_name": "Claude Haiku 4.5",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "anthropic",
+      "provider_model_id": "claude-haiku-4-5-20251001",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "anthropic_api_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "anthropic/claude-haiku-4-5",
+        "claude-haiku-4-5",
+        "claude-haiku-4-5-20251001"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 64000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000001",
+        "cached_input_usd": "1E-7",
+        "output_usd": "0.000005",
+        "reasoning_output_usd": "0.000005",
+        "source": "anthropic_public_pricing",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
+      "id": "x-ai/grok-4.1-fast",
+      "display_name": "Grok 4.1 Fast",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "x-ai/grok-4.1-fast",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "xai/grok-4-1-fast",
+        "x-ai/grok-4-1-fast",
+        "grok-4-1-fast",
+        "grok-4-1-fast-reasoning",
+        "grok-4-1-fast-non-reasoning"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 32768,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "2E-7",
+        "cached_input_usd": "5E-8",
+        "output_usd": "5E-7",
+        "reasoning_output_usd": "5E-7",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-04-21"
+      }
+    },
+    {
       "id": "x-ai/grok-4.3",
       "display_name": "Grok 4.3",
       "display_group": "additional_first_launch",
       "public": true,
-      "provider": "xai",
-      "provider_model_id": "grok-4.3",
+      "provider": "openrouter",
+      "provider_model_id": "x-ai/grok-4.3",
       "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "xai",
+      "compute_pool_id": "openrouter_pool",
       "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
-        "opencode_sdk",
-        "codex"
+        "opencode_sdk"
       ],
       "aliases": [
         "xai/grok-4-3",
@@ -199,8 +377,8 @@
         "cached_input_usd": "2E-7",
         "output_usd": "0.0000025",
         "reasoning_output_usd": "0.0000025",
-        "source": "xai_model_api_pricing",
-        "observed_at": "2026-06-25"
+        "source": "openrouter_catalog",
+        "observed_at": "2026-05-04"
       }
     },
     {
@@ -213,11 +391,6 @@
       "compute_pool_kind": "api_proxy_pool",
       "compute_pool_id": "xai",
       "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
         "codex"
       ],
@@ -246,6 +419,47 @@
       }
     },
     {
+      "id": "x-ai/grok-4.20-beta",
+      "display_name": "Grok 4.20 Beta",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "x-ai/grok-4.20-beta",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "xai/grok-4-20-beta",
+        "x-ai/grok-4-20-beta",
+        "x-ai/grok-4.20",
+        "grok-4.20-beta",
+        "grok-4-20-beta",
+        "grok-4.20",
+        "grok-4-20",
+        "grok-4.2",
+        "grok-4-2"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000002",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.000006",
+        "reasoning_output_usd": "0.000006",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-05-04"
+      }
+    },
+    {
       "id": "moonshotai/kimi-k2.6",
       "display_name": "Kimi K2.6",
       "display_group": "additional_first_launch",
@@ -255,11 +469,6 @@
       "compute_pool_kind": "api_proxy_pool",
       "compute_pool_id": "openrouter_pool",
       "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
         "opencode_sdk"
       ],
@@ -286,44 +495,143 @@
       }
     },
     {
-      "id": "baseten/zai-org/GLM-5.2",
-      "display_name": "GLM 5.2 (Baseten)",
-      "display_group": "standard_baseten_direct",
+      "id": "arcee-ai/trinity-large-thinking",
+      "display_name": "Trinity Large Thinking",
+      "display_group": "additional_first_launch",
       "public": true,
-      "provider": "baseten",
-      "provider_model_id": "zai-org/GLM-5.2",
+      "provider": "openrouter",
+      "provider_model_id": "arcee-ai/trinity-large-thinking",
       "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "baseten_api_pool",
+      "compute_pool_id": "openrouter_pool",
       "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
       "harnesses": [
-        "codex",
         "opencode_sdk"
       ],
       "aliases": [
-        "zai-org/GLM-5.2",
-        "glm-5.2",
-        "baseten-glm-5.2"
+        "trinity-large-thinking",
+        "arcee/trinity-large-thinking",
+        "opencode-trinity-large-thinking"
       ],
       "supported_reasoning_efforts": [],
       "default_reasoning_effort": null,
       "context_window_tokens": 262144,
-      "max_output_tokens": 131072,
+      "max_output_tokens": 80000,
       "usage_required": true,
       "pricing_present": true,
       "pricing": {
         "currency": "USD",
         "unit": "token",
-        "input_usd": "0.0000015",
-        "cached_input_usd": "3E-7",
-        "output_usd": "0.0000045",
-        "reasoning_output_usd": "0.0000045",
-        "source": "baseten_model_api_pricing",
-        "observed_at": "2026-06-23"
+        "input_usd": "2.2E-7",
+        "cached_input_usd": "6E-8",
+        "output_usd": "8.5E-7",
+        "reasoning_output_usd": "8.5E-7",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-05-23"
+      }
+    },
+    {
+      "id": "arcee-ai/trinity-large-thinking:free",
+      "display_name": "Trinity Large Thinking (free promo)",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "arcee-ai/trinity-large-thinking:free",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "trinity-large-thinking:free",
+        "arcee/trinity-large-thinking:free",
+        "opencode-trinity-large-thinking-free"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": 262144,
+      "max_output_tokens": 80000,
+      "usage_required": false,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0",
+        "cached_input_usd": "0",
+        "output_usd": "0",
+        "reasoning_output_usd": "0",
+        "source": "openrouter_free_promo",
+        "observed_at": "2026-05-23"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash",
+      "display_name": "DeepSeek V4 Flash",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "deepseek/deepseek-v4-flash",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "openrouter-deepseek-v4-flash",
+        "openrouter/deepseek-v4-flash",
+        "deepseek-v4-flash-openrouter"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 32768,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "1.4E-7",
+        "cached_input_usd": "2.8E-8",
+        "output_usd": "2.8E-7",
+        "reasoning_output_usd": "2.8E-7",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-05-11"
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-pro",
+      "display_name": "DeepSeek V4 Pro",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "openrouter",
+      "provider_model_id": "deepseek/deepseek-v4-pro",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "openrouter_pool",
+      "route_kind": "api_proxy_pool",
+      "harnesses": [
+        "opencode_sdk"
+      ],
+      "aliases": [
+        "openrouter-deepseek-v4-pro",
+        "openrouter/deepseek-v4-pro",
+        "deepseek-v4-pro-openrouter"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 32768,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "4.35E-7",
+        "cached_input_usd": "3.625E-9",
+        "output_usd": "8.7E-7",
+        "reasoning_output_usd": "8.7E-7",
+        "source": "openrouter_catalog",
+        "observed_at": "2026-05-12"
       }
     }
   ]
