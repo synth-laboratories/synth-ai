@@ -3605,7 +3605,6 @@ class ManagedResearchClient:
             label="get_dev_environment_receipts",
         )
 
-
     # ------------------------------------------------------------------
     # Cloud deployments (service lane: durable stacks on persistent VMs)
     # ------------------------------------------------------------------
