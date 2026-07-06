@@ -99,7 +99,10 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_deploy_cloud_deployment",
-            description="Request deployment steps for a CloudDeployment whose VM is ready.",
+            description=(
+                "Request deployment steps for a VM-ready CloudDeployment or retry "
+                "a failed CloudDeployment after fixing the reported cause."
+            ),
             input_schema=_cloud_deployment_action_schema(),
             handler=server._tool_deploy_cloud_deployment,
         ),
