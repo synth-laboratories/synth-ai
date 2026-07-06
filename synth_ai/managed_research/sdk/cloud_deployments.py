@@ -3,8 +3,9 @@
 The service lane of the substrate split: DevEnvironments are disposable
 sandboxes; CloudDeployments are retained-by-default service stacks (exe).
 Rows advance requested → provisioning → vm_ready → deploying → running,
-driven by the backend reconciler; `running` means the deployed service
-answers its declared health path through the VM's HTTPS proxy.
+driven by the backend reconciler; failed rows can be retried with deploy.
+`running` means the deployed service answers its declared health path through
+the VM's HTTPS proxy.
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ from typing import Any, List, Mapping
 
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
-_TERMINAL_STATES = frozenset({"failed", "retired"})
+_RETRYABLE_FAILURE_STATES = frozenset({"failed"})
+_TERMINAL_STATES = frozenset({"retired"})
 
 
 class CloudDeploymentsAPI(_ClientNamespace):
@@ -95,9 +97,10 @@ class CloudDeploymentsAPI(_ClientNamespace):
     ) -> dict[str, Any]:
         """Poll until the deployment serves (state `running`).
 
-        Raises RuntimeError with the deployment's failure_reason when it
-        lands in a terminal state, or TimeoutError when the budget runs out
-        (the last payload is attached for diagnosis).
+        Raises RuntimeError with the deployment's failure_reason when it lands
+        in a failed or terminal state, or TimeoutError when the budget runs out
+        (the last payload is attached for diagnosis). A failed deployment can
+        be retried with ``deploy`` after fixing the reported cause.
         """
         deadline = time.monotonic() + max(1.0, float(timeout_seconds))
         payload = self.get(deployment_id=deployment_id)
@@ -105,6 +108,12 @@ class CloudDeploymentsAPI(_ClientNamespace):
             state = str(payload.get("state") or "")
             if state == "running":
                 return payload
+            if state in _RETRYABLE_FAILURE_STATES:
+                raise RuntimeError(
+                    f"cloud deployment {deployment_id} reached retryable state "
+                    f"{state}: {payload.get('failure_reason')}; fix the cause "
+                    "then call deploy to retry"
+                )
             if state in _TERMINAL_STATES:
                 raise RuntimeError(
                     f"cloud deployment {deployment_id} reached terminal state "
