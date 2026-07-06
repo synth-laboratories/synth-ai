@@ -38,6 +38,9 @@ from synth_ai.managed_research.mcp.request_models import (
 )
 from synth_ai.managed_research.mcp.tools.approvals import build_approval_tools
 from synth_ai.managed_research.mcp.tools.artifacts import build_artifact_tools
+from synth_ai.managed_research.mcp.tools.cloud_deployments import (
+    build_cloud_deployment_tools,
+)
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.dev_environments import build_dev_environment_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
@@ -280,6 +283,7 @@ class ManagedResearchMcpServer:
             *build_project_tools(self),
             *build_factory_tools(self),
             *build_dev_environment_tools(self),
+            *build_cloud_deployment_tools(self),
             *build_workspace_input_tools(self),
             *build_export_tools(self),
             *build_repo_tools(self),
@@ -1499,6 +1503,61 @@ class ManagedResearchMcpServer:
                     include_preflight=include_preflight,
                     include_logs=include_logs,
                     include_billing=include_billing,
+                )
+            )
+
+    def _tool_list_cloud_deployments(self, args: JSONDict) -> Any:
+        project_id = optional_string(args, "project_id")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.list(project_id=project_id, limit=limit))
+
+    def _tool_create_cloud_deployment(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.create(
+                    project_id=require_string(args, "project_id"),
+                    name=require_string(args, "name"),
+                    topology_id=require_string(args, "topology_id"),
+                    topology_version=optional_string(args, "topology_version"),
+                    host_kind=optional_string(args, "host_kind") or "exe_dev",
+                    metadata=_object_arg(args, "metadata"),
+                )
+            )
+
+    def _tool_get_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.get(deployment_id=deployment_id))
+
+    def _tool_observe_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.observe(deployment_id=deployment_id))
+
+    def _tool_deploy_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.deploy(
+                    deployment_id=deployment_id,
+                    reason=optional_string(args, "reason"),
+                )
+            )
+
+    def _tool_retire_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        delete_vm = optional_bool(args, "delete_vm", default=False)
+        confirm_vm_name = optional_string(args, "confirm_vm_name")
+        if delete_vm and not confirm_vm_name:
+            raise ValueError("confirm_vm_name is required when delete_vm is true")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.retire(
+                    deployment_id=deployment_id,
+                    reason=optional_string(args, "reason"),
+                    delete_vm=delete_vm,
+                    confirm_vm_name=confirm_vm_name,
                 )
             )
 
