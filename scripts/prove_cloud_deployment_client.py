@@ -25,6 +25,17 @@ def _env_or_arg(value: str | None, env_name: str) -> str:
     raise RuntimeError(f"{env_name} is required")
 
 
+def _backend_base_default() -> str | None:
+    return os.environ.get("SYNTH_BACKEND_BASE") or os.environ.get("SYNTH_BACKEND_URL")
+
+
+def _backend_base_arg(value: str | None) -> str:
+    text = str(value or _backend_base_default() or "").strip()
+    if text:
+        return text
+    raise RuntimeError("SYNTH_BACKEND_BASE or SYNTH_BACKEND_URL is required")
+
+
 def _parse_metadata(values: list[str]) -> dict[str, Any]:
     metadata: dict[str, Any] = {}
     for value in values:
@@ -87,7 +98,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "worktree. The script creates only when --create is supplied."
         )
     )
-    parser.add_argument("--backend-base", default=os.environ.get("SYNTH_BACKEND_BASE"))
+    parser.add_argument("--backend-base", default=_backend_base_default())
     parser.add_argument("--api-key", default=os.environ.get("SYNTH_API_KEY"))
     parser.add_argument("--project-id", default=os.environ.get("PROJECT_ID"))
     parser.add_argument("--deployment-id", default=None)
@@ -134,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.delete_vm and not str(args.confirm_vm_name or "").strip():
             raise RuntimeError("--delete-vm requires --confirm-vm-name")
 
-        backend_base = _env_or_arg(args.backend_base, "SYNTH_BACKEND_BASE")
+        backend_base = _backend_base_arg(args.backend_base)
         api_key = _env_or_arg(args.api_key, "SYNTH_API_KEY")
         client = ManagedResearchClient(api_key=api_key, backend_base=backend_base)
 
