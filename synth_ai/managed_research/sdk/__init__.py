@@ -293,6 +293,7 @@ from synth_ai.managed_research.sdk.client import (
     SmrControlClient,
     first_id,
 )
+from synth_ai.managed_research.sdk.cloud_deployments import CloudDeploymentsAPI
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.dev_environments import DevEnvironmentsAPI
@@ -333,6 +334,7 @@ __all__ = [
     "DevEnvironmentPreflight",
     "DevEnvironmentTopology",
     "DevEnvironmentUsage",
+    "CloudDeploymentsAPI",
     "DevEnvironmentsAPI",
     "Environment",
     "EnvironmentPreflight",

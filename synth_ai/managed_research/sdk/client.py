@@ -152,6 +152,7 @@ from synth_ai.managed_research.models.types import (
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
+from synth_ai.managed_research.sdk.cloud_deployments import CloudDeploymentsAPI
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -1040,6 +1041,11 @@ class ManagedResearchClient:
     _credentials_api: CredentialsAPI | None = field(init=False, default=None, repr=False)
     _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
+    _cloud_deployments_api: CloudDeploymentsAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _dev_environments_api: DevEnvironmentsAPI | None = field(
         init=False,
         default=None,
@@ -1209,6 +1215,12 @@ class ManagedResearchClient:
         if self._environments_api is None:
             self._environments_api = EnvironmentsAPI(self)
         return self._environments_api
+
+    @property
+    def cloud_deployments(self) -> CloudDeploymentsAPI:
+        if self._cloud_deployments_api is None:
+            self._cloud_deployments_api = CloudDeploymentsAPI(self)
+        return self._cloud_deployments_api
 
     @property
     def dev_environments(self) -> DevEnvironmentsAPI:
@@ -3591,6 +3603,128 @@ class ManagedResearchClient:
                 f"/smr/dev-environments/{dev_environment_id}/receipts",
             ),
             label="get_dev_environment_receipts",
+        )
+
+
+    # ------------------------------------------------------------------
+    # Cloud deployments (service lane: durable stacks on persistent VMs)
+    # ------------------------------------------------------------------
+
+    def create_cloud_deployment(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        topology_id: str,
+        topology_version: str | None = None,
+        host_kind: str = "exe_dev",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/v1/deployments",
+                json_body={
+                    "project_id": _require_non_empty_string(
+                        project_id,
+                        field_name="project_id",
+                    ),
+                    "name": _require_non_empty_string(name, field_name="name"),
+                    "topology_id": _require_non_empty_string(
+                        topology_id,
+                        field_name="topology_id",
+                    ),
+                    "topology_version": _optional_non_empty_string(topology_version),
+                    "host_kind": _require_non_empty_string(
+                        host_kind,
+                        field_name="host_kind",
+                    ),
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                },
+            ),
+            label="create_cloud_deployment",
+        )
+
+    def list_cloud_deployments(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/v1/deployments",
+                params=build_query_params(project_id=project_id, limit=limit),
+            ),
+            label="list_cloud_deployments",
+        )
+
+    def get_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}"),
+            label="get_cloud_deployment",
+        )
+
+    def observe_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/v1/deployments/{deployment_id}/observe",
+            ),
+            label="observe_cloud_deployment",
+        )
+
+    def deploy_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/v1/deployments/{deployment_id}/deploy",
+                json_body={"reason": _optional_non_empty_string(reason)},
+            ),
+            label="deploy_cloud_deployment",
+        )
+
+    def retire_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        reason: str | None = None,
+        delete_vm: bool = False,
+        confirm_vm_name: str | None = None,
+    ) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/v1/deployments/{deployment_id}/retire",
+                json_body={
+                    "reason": _optional_non_empty_string(reason),
+                    "delete_vm": bool(delete_vm),
+                    "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
+                },
+            ),
+            label="retire_cloud_deployment",
         )
 
     def list_project_outputs(self, project_id: str) -> list[dict[str, Any]]:
