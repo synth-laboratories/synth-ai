@@ -1,5 +1,8 @@
 """MCP tool builders."""
 
+from synth_ai.managed_research.mcp.tools.cloud_deployments import (
+    build_cloud_deployment_tools,
+)
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
@@ -15,6 +18,7 @@ from synth_ai.managed_research.mcp.tools.runs import build_run_tools
 from synth_ai.managed_research.mcp.tools.workspace_inputs import build_workspace_input_tools
 
 __all__ = [
+    "build_cloud_deployment_tools",
     "build_dataset_tools",
     "build_export_tools",
     "build_factory_tools",
