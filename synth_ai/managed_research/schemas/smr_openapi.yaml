@@ -6265,6 +6265,209 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments:
+    post:
+      tags:
+      - smr
+      summary: Create Cloud Deployment
+      operationId: create_cloud_deployment_smr_v1_deployments_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Create Cloud Deployment Smr V1 Deployments Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      summary: List Cloud Deployments
+      operationId: list_cloud_deployments_smr_v1_deployments_get
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                title: Response List Cloud Deployments Smr V1 Deployments Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment
+      operationId: get_cloud_deployment_smr_v1_deployments__deployment_id__get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Cloud Deployment Smr V1 Deployments  Deployment
+                  Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/observe:
+    post:
+      tags:
+      - smr
+      summary: Observe Cloud Deployment
+      operationId: observe_cloud_deployment_smr_v1_deployments__deployment_id__observe_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Observe Cloud Deployment Smr V1 Deployments  Deployment
+                  Id  Observe Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/deploy:
+    post:
+      tags:
+      - smr
+      summary: Deploy Cloud Deployment
+      description: 'Queue a (re)deploy: the reconciler picks up vm_ready rows and
+        runs the
+
+        workspace bootstrap + supervisor deploy steps on the VM. Failed rows retry
+
+        through the same durable deployment id: no-VM failures go back to requested,
+
+        while VM-backed failures go back to vm_ready.'
+      operationId: deploy_cloud_deployment_smr_v1_deployments__deployment_id__deploy_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentDeployRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Deploy Cloud Deployment Smr V1 Deployments  Deployment
+                  Id  Deploy Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/retire:
+    post:
+      tags:
+      - smr
+      summary: Retire Cloud Deployment
+      operationId: retire_cloud_deployment_smr_v1_deployments__deployment_id__retire_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentRetireRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Retire Cloud Deployment Smr V1 Deployments  Deployment
+                  Id  Retire Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/dev-environments:
     get:
       tags:
@@ -27336,6 +27539,65 @@ components:
       - session_id
       title: CheckoutSessionResponse
       description: Response with checkout session URL.
+    CloudDeploymentCreateRequest:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Name
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Topology Version
+        host_kind:
+          type: string
+          title: Host Kind
+          default: exe_dev
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      type: object
+      required:
+      - project_id
+      - name
+      - topology_id
+      title: CloudDeploymentCreateRequest
+    CloudDeploymentDeployRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      title: CloudDeploymentDeployRequest
+    CloudDeploymentRetireRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        delete_vm:
+          type: boolean
+          title: Delete Vm
+          default: false
+        confirm_vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Confirm Vm Name
+      type: object
+      title: CloudDeploymentRetireRequest
     CompleteTrainedModelAdapterUploadBody:
       properties:
         bucket:
