@@ -6,6 +6,14 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Added
 
+- **`client.cloud_deployments`** — `CloudDeploymentsAPI` namespace on `ManagedResearchClient` for exe.dev-backed Synth deployments:
+  - Raw methods: `create_cloud_deployment`, `list_cloud_deployments`, `get_cloud_deployment`, `observe_cloud_deployment`, `deploy_cloud_deployment`, `retire_cloud_deployment` over `/smr/v1/deployments`.
+  - Convenience: `service_url()`, `wait_until_running()` (`failed` is retryable via `deploy`; `retired` is terminal).
+  - Safety: `retire(delete_vm=True)` requires `confirm_vm_name`.
+- **MCP tools**: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
+- **OpenAPI vendoring**: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
+- **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
+- Pairs with backend CloudDeployment routes (backend PR #340, `smr_cloud_deployments` table + reconciler); do not publish to PyPI before those routes are deployed for the target audience.
 - **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
 - **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
   - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
