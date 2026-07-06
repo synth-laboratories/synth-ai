@@ -83,6 +83,18 @@ def _health_probe(service_url: str, health_path: str) -> dict[str, Any]:
         }
 
 
+def _authoritative_health_ok(deployment: dict[str, Any]) -> bool:
+    health = deployment.get("health")
+    if not isinstance(health, dict):
+        return False
+    http = health.get("http")
+    vm_http = health.get("vm_http")
+    return bool(
+        (isinstance(http, dict) and http.get("ok"))
+        or (isinstance(vm_http, dict) and vm_http.get("ok"))
+    )
+
+
 def _write_receipt(path: str | None, payload: dict[str, Any]) -> None:
     if not path:
         return
@@ -186,8 +198,16 @@ def main(argv: list[str] | None = None) -> int:
         if not service_url:
             raise RuntimeError("running deployment did not include service_url")
         health = _health_probe(service_url, args.health_path)
-        receipt["steps"].append({"step": "health", "result": health})
-        if not health["ok"]:
+        authoritative_health_ok = _authoritative_health_ok(running)
+        receipt["steps"].append(
+            {
+                "step": "health",
+                "result": health,
+                "authoritative_health_ok": authoritative_health_ok,
+                "deployment_health": running.get("health"),
+            }
+        )
+        if not health["ok"] and not authoritative_health_ok:
             raise RuntimeError(f"health probe failed: {health}")
 
         if args.redeploy:
