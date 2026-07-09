@@ -268,8 +268,7 @@ class SmrBillingResetBank:
             available_count=_int_value(mapping, "available_count"),
             expiring_count=_int_value(mapping, "expiring_count"),
             grants=[
-                SmrBillingResetGrant.from_wire(item)
-                for item in _optional_array(mapping, "grants")
+                SmrBillingResetGrant.from_wire(item) for item in _optional_array(mapping, "grants")
             ],
         )
 
@@ -710,8 +709,7 @@ class SmrBillingPlanSnapshot:
         blocked_reason = _optional_string(mapping, "blocked_reason")
         plan_payload = _optional_wire_value(mapping, "plan")
         return cls(
-            schema_version=_optional_string(mapping, "schema_version")
-            or "smr_billing_plan.v0",
+            schema_version=_optional_string(mapping, "schema_version") or "smr_billing_plan.v0",
             org_id=_require_string(
                 mapping,
                 "org_id",
@@ -732,12 +730,8 @@ class SmrBillingPlanSnapshot:
                 for item in _optional_array(mapping, "allowance_windows")
             ],
             wallet=SmrBillingWallet.from_wire(mapping["wallet"]),
-            reset_bank=SmrBillingResetBank.from_wire(
-                _optional_wire_value(mapping, "reset_bank")
-            ),
-            promotions=SmrBillingPromotions.from_wire(
-                _optional_wire_value(mapping, "promotions")
-            ),
+            reset_bank=SmrBillingResetBank.from_wire(_optional_wire_value(mapping, "reset_bank")),
+            promotions=SmrBillingPromotions.from_wire(_optional_wire_value(mapping, "promotions")),
             usage_summary=SmrBillingUsageSummary.from_wire(
                 _optional_wire_value(mapping, "usage_summary")
             ),
@@ -859,9 +853,7 @@ class SmrManualBillingGrantPreviewRequest:
         if self.campaign_id is not None:
             payload["campaign_id"] = self.campaign_id
         if self.wallet_credit_microcents is not None:
-            payload["wallet_credit_microcents"] = int(
-                self.wallet_credit_microcents
-            )
+            payload["wallet_credit_microcents"] = int(self.wallet_credit_microcents)
         return payload
 
 
