@@ -9,8 +9,6 @@ from synth_ai.managed_research.models.billing import (
     SmrBillingDebit,
     SmrBillingDebitPoolSummary,
     SmrBillingDrawdown,
-    SmrManualBillingGrantPreview,
-    SmrManualBillingGrantPreviewRequest,
     SmrBillingPlanInfo,
     SmrBillingPlanSnapshot,
     SmrBillingPreflight,
@@ -27,6 +25,8 @@ from synth_ai.managed_research.models.billing import (
     SmrBillingWallet,
     SmrBillingWalletSource,
     SmrFactoryEffortBillingPreflightRequest,
+    SmrManualBillingGrantPreview,
+    SmrManualBillingGrantPreviewRequest,
 )
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementAsset,

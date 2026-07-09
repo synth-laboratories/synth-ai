@@ -79,7 +79,7 @@ def _metadata_dict(value: object) -> dict[str, object]:
         return {}
     if not isinstance(value, Mapping):
         raise ValueError("metadata must be an object when provided")
-    return dict(value)
+    return {str(key): item for key, item in value.items()}
 
 
 def _preflight_request_from_mapping(
@@ -190,9 +190,7 @@ def _manual_grant_preview_request_from_mapping(
     wallet_credit_microcents: int | None,
     metadata: Mapping[str, object] | None,
 ) -> SmrManualBillingGrantPreviewRequest:
-    unknown = sorted(
-        str(key) for key in request if key not in _MANUAL_GRANT_PREVIEW_REQUEST_FIELDS
-    )
+    unknown = sorted(str(key) for key in request if key not in _MANUAL_GRANT_PREVIEW_REQUEST_FIELDS)
     if unknown:
         raise ValueError(
             "unknown SmrManualBillingGrantPreviewRequest fields: " + ", ".join(unknown)
@@ -229,12 +227,7 @@ def _manual_grant_preview_request_from_mapping(
 
 
 def _manual_grant_preview_payload(
-    request: (
-        SmrManualBillingGrantPreviewRequest
-        | Mapping[str, Any]
-        | dict[str, Any]
-        | None
-    ),
+    request: (SmrManualBillingGrantPreviewRequest | Mapping[str, Any] | dict[str, Any] | None),
     *,
     target_org_id: str | None,
     grant_kind: str,
@@ -299,10 +292,7 @@ class BillingAPI(_ClientNamespace):
     def preview_manual_grant(
         self,
         request: (
-            SmrManualBillingGrantPreviewRequest
-            | Mapping[str, Any]
-            | dict[str, Any]
-            | None
+            SmrManualBillingGrantPreviewRequest | Mapping[str, Any] | dict[str, Any] | None
         ) = None,
         *,
         target_org_id: str | None = None,
