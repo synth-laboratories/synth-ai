@@ -151,6 +151,7 @@ from synth_ai.managed_research.models.types import (
     SmrRunnableProjectRequest,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -1037,6 +1038,7 @@ class ManagedResearchClient:
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
+    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
@@ -1215,6 +1217,12 @@ class ManagedResearchClient:
         if self._usage_api is None:
             self._usage_api = UsageAPI(self)
         return self._usage_api
+
+    @property
+    def billing(self) -> BillingAPI:
+        if self._billing_api is None:
+            self._billing_api = BillingAPI(self)
+        return self._billing_api
 
     @property
     def trained_models(self) -> TrainedModelsAPI:

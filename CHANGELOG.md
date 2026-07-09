@@ -2,6 +2,22 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.13.1 — 2026-07-09
+
+### Added
+
+- Typed `client.billing.plan()` support for the unified `economics_snapshot.v1`
+  contract, including plan policy, allowance windows, wallet, banked resets,
+  promotion state, usage summaries, block details, and recovery actions.
+- Typed read-only billing catalog and manual-grant preview models aligned with
+  the production backend contract.
+
+### Notes
+
+- The vendored Managed Research OpenAPI snapshot is generated from the backend
+  production promotion branch for this release train.
+- This release does not claim, grant, reset, or mutate customer billing state.
+
 ## 0.12.0 — 2026-06-25
 
 ### Added
