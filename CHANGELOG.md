@@ -2,6 +2,20 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.14.2 — 2026-07-10
+
+### Added
+
+- Typed `SmrAgentModel` coverage for every model in the backend-owned supported-model
+  catalog, including `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and
+  `cursor/grok-4.5`.
+
+### Changed
+
+- The vendored Managed Research OpenAPI model enum now matches the backend catalog.
+- Existing model values, including `gpt-5.4` and internal compatibility values, remain
+  importable so the daily release does not break existing typed callers.
+
 ## 0.13.1 — 2026-07-09
 
 ### Added

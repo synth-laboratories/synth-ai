@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import shutil
@@ -46,6 +47,13 @@ def _enum_member_name(model_id: str) -> str:
 def _default_backend_manifest_path() -> Path:
     workspace_root = Path(__file__).resolve().parents[3]
     return workspace_root / "backend" / "config" / "smr_supported_models.json"
+
+
+def _default_backend_supported_models_path() -> Path:
+    workspace_root = Path(__file__).resolve().parents[3]
+    return (
+        workspace_root / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
+    )
 
 
 def _default_backend_public_models_path() -> Path:
@@ -161,6 +169,8 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ),
 )
 
+_SMR_AGENT_MODEL_COMPATIBILITY_VALUES: tuple[str, ...] = ("gpt-5.4",)
+
 
 def _render_static_enum_module(
     *,
@@ -245,31 +255,47 @@ def sync_smr_agent_models(
     source_manifest: Path | None = None,
     destination_file: Path | None = None,
 ) -> Path:
-    """Generate the public Managed Research model enum from the backend public-model export."""
+    """Generate the Managed Research model enum from the backend-supported catalog."""
 
-    source = source_manifest or _default_backend_public_models_path()
+    source = source_manifest or _default_backend_supported_models_path()
     destination = destination_file or (
         Path(__file__).resolve().parent / "models" / "smr_agent_models.py"
     )
-    raw = json.loads(source.read_text(encoding="utf-8"))
-    models = raw.get("models")
-    if not isinstance(models, list) or not models:
-        raise ValueError(
-            "Managed Research public model manifest must contain a non-empty models list"
-        )
+    if source.suffix == ".py":
+        module = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        models = None
+        for node in module.body:
+            if isinstance(node, ast.AnnAssign):
+                if (
+                    isinstance(node.target, ast.Name)
+                    and node.target.id == "SUPPORTED_MODEL_ENTRIES"
+                    and node.value is not None
+                ):
+                    models = ast.literal_eval(node.value)
+                    break
+            elif isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "SUPPORTED_MODEL_ENTRIES"
+                for target in node.targets
+            ):
+                models = ast.literal_eval(node.value)
+                break
+    else:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        models = raw.get("models")
+    if not isinstance(models, (list, tuple)) or not models:
+        raise ValueError("Managed Research supported-model source must contain non-empty models")
 
-    model_ids = [
-        str(item.get("id") or "").strip()
-        for item in models
-        if isinstance(item, dict) and bool(item.get("public", True))
-    ]
+    model_ids = [str(item.get("id") or "").strip() for item in models if isinstance(item, dict)]
     if not model_ids or any(not model_id for model_id in model_ids):
-        raise ValueError("Managed Research public model manifest entries require non-empty ids")
+        raise ValueError("Managed Research supported-model entries require non-empty ids")
+    model_ids.extend(
+        model_id for model_id in _SMR_AGENT_MODEL_COMPATIBILITY_VALUES if model_id not in model_ids
+    )
 
     lines = [
-        '"""Generated public Managed Research agent model enum.',
+        '"""Generated Managed Research agent model enum.',
         "",
-        "Source of truth: backend/config/smr_public_models.json",
+        "Source of truth: backend/packages/smr/config/supported_models_catalog.py",
         '"""',
         "",
         "from __future__ import annotations",
