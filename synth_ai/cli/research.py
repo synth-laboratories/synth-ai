@@ -58,9 +58,17 @@ def tag() -> None:
 @click.option(
     "--request", default="Summarize factory status", show_default=True, help="Tag session request."
 )
+@click.option("--factory-id", required=True, help="Owning Factory ID.")
+@click.option("--effort-id", required=True, help="Owning canonical-project Effort ID.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
-def tag_smoke(request: str, api_key: str | None, backend_url: str | None) -> None:
+def tag_smoke(
+    request: str,
+    factory_id: str,
+    effort_id: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
     """Create a Tag session, send a message, and print scope metadata."""
     from synth_ai import SynthClient
 
@@ -69,7 +77,11 @@ def tag_smoke(request: str, api_key: str | None, backend_url: str | None) -> Non
         base_url=_resolve_backend_url(backend_url),
     )
     tag_api = client.research.factories.tag
-    session = tag_api.sessions.create(request)
+    session = tag_api.sessions.create(
+        request,
+        factory_id=factory_id,
+        effort_id=effort_id,
+    )
     tag_api.sessions.messages.send(session.session_id, "Smoke check-in")
     scope = tag_api.scopes.get_default()
     click.echo(
@@ -86,11 +98,25 @@ def tag_smoke(request: str, api_key: str | None, backend_url: str | None) -> Non
 
 
 @research.command("smoke")
+@click.option("--factory-id", required=True, help="Owning Factory ID.")
+@click.option("--effort-id", required=True, help="Owning canonical-project Effort ID.")
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
-def research_smoke(api_key: str | None, backend_url: str | None) -> None:
+def research_smoke(
+    factory_id: str,
+    effort_id: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
     """Run limits + Tag smoke in one command."""
     ctx = click.get_current_context()
     ctx.invoke(limits_get, api_key=api_key, backend_url=backend_url)
     click.echo("")
-    ctx.invoke(tag_smoke, request="Research SDK smoke", api_key=api_key, backend_url=backend_url)
+    ctx.invoke(
+        tag_smoke,
+        request="Research SDK smoke",
+        factory_id=factory_id,
+        effort_id=effort_id,
+        api_key=api_key,
+        backend_url=backend_url,
+    )
