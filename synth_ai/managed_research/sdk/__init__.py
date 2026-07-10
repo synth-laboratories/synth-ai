@@ -54,6 +54,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryProjectPatchRequest,
     FactoryProjectRole,
     FactoryProjectStatus,
+    FactoryRunKind,
     FactoryProjectSummary,
     FactoryReportSummary,
     FactoryRunSummary,
@@ -175,6 +176,7 @@ from synth_ai.managed_research.models.run_state import (
     ManagedResearchRunLivenessPhase,
     ManagedResearchRunState,
     ManagedResearchRunTerminalOutcome,
+    ManagedResearchRunKind,
     RunState,
 )
 from synth_ai.managed_research.models.run_timeline import (
@@ -357,6 +359,7 @@ __all__ = [
     "FactoryProjectPatchRequest",
     "FactoryProjectRole",
     "FactoryProjectStatus",
+    "FactoryRunKind",
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
@@ -437,6 +440,7 @@ __all__ = [
     "RunState",
     "ManagedResearchRunState",
     "ManagedResearchRunTerminalOutcome",
+    "ManagedResearchRunKind",
     "LaunchPreflight",
     "LaunchPreflightBlocker",
     "ActorCollectionSnapshot",
