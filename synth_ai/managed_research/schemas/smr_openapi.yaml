@@ -14319,7 +14319,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -22542,414 +22542,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/managed-agents/anthropic/v1/health:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Health
-      operationId: proxy_health_api_managed_agents_anthropic_v1_health_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/environments:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/environments/{environment_id}:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/environments/{environment_id}/archive:
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Environments Environment Id Archive
-      operationId: proxy_environments_environment_id_archive_api_managed_agents_anthropic_v1_environments__environment_id__archive_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/agents:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/agents/{agent_id}:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/agents/{agent_id}/archive:
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Agents Agent Id Archive
-      operationId: proxy_agents_agent_id_archive_api_managed_agents_anthropic_v1_agents__agent_id__archive_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions/{session_id}:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions/{session_id}/archive:
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id Archive
-      operationId: proxy_sessions_session_id_archive_api_managed_agents_anthropic_v1_sessions__session_id__archive_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions/{session_id}/events:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions/{session_id}/events/stream:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id Events Stream
-      operationId: proxy_sessions_session_id_events_stream_api_managed_agents_anthropic_v1_sessions__session_id__events_stream_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/anthropic/v1/sessions/{session_id}/stream:
-    get:
-      tags:
-      - managed-agents-anthropic-proxy
-      summary: Proxy Sessions Session Id Stream
-      operationId: proxy_sessions_session_id_stream_api_managed_agents_anthropic_v1_sessions__session_id__stream_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses:
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses
-      operationId: proxy_openai_responses_api_managed_agents_openai_v1_responses_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses/{response_id}:
-    get:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    delete:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id
-      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__delete__delete__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses/{response_id}/cancel:
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id Cancel
-      operationId: proxy_openai_responses_response_id_cancel_api_managed_agents_openai_v1_responses__response_id__cancel_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses/{response_id}/input_items:
-    get:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id Input Items
-      operationId: proxy_openai_responses_response_id_input_items_api_managed_agents_openai_v1_responses__response_id__input_items_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses/{response_id}/input_tokens:
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id Input Tokens
-      operationId: proxy_openai_responses_response_id_input_tokens_api_managed_agents_openai_v1_responses__response_id__input_tokens_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/responses/{response_id}/compact:
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Responses Response Id Compact
-      operationId: proxy_openai_responses_response_id_compact_api_managed_agents_openai_v1_responses__response_id__compact_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/conversations:
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations
-      operationId: proxy_openai_conversations_api_managed_agents_openai_v1_conversations_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/conversations/{conversation_id}:
-    get:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    delete:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__delete__delete__2
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/conversations/{conversation_id}/items:
-    get:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    post:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get__post__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-  /api/managed-agents/openai/v1/conversations/{conversation_id}/items/{item_id}:
-    get:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-    delete:
-      tags:
-      - managed-agents-openai-proxy
-      summary: Proxy Openai Conversations Conversation Id Items Item Id
-      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__delete__delete__1
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
   /api/v1/optimizers/gelo-launch-promo/status:
     get:
       tags:
@@ -22977,11 +22569,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    get:
+    put:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get
+      operationId: synthtunnel_gateway_s__route_token___path__put
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__put__delete__1
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__put__post__2
       parameters:
       - name: route_token
         in: path
@@ -23011,37 +22663,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__patch__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__delete__2
+      operationId: synthtunnel_gateway_s__route_token___path__put__patch__3
       parameters:
       - name: route_token
         in: path
@@ -23071,7 +22693,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__options__3
+      operationId: synthtunnel_gateway_s__route_token___path__put__options__4
       parameters:
       - name: route_token
         in: path
@@ -23097,41 +22719,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    put:
+    get:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__put__4
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__post__5
+      operationId: synthtunnel_gateway_s__route_token___path__put__get__5
       parameters:
       - name: route_token
         in: path
@@ -23462,7 +23054,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -23890,7 +23482,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
+                $ref: '#/components/schemas/UsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -34707,15 +34299,11 @@ components:
       - gpt-5.5
       - gpt-5.4
       - gpt-5.4-mini
-      - gpt-5.6-sol
-      - gpt-5.6-terra
-      - gpt-5.6-luna
       - nemotron-super
       - deepseek/deepseek-v4-flash
       - deepseek/deepseek-v4-pro
       - cursor/composer-2.5
       - cursor/gpt-5
-      - cursor/grok-4.5
       - cursor/sonnet-4
       - x-ai/grok-4.3
       - x-ai/grok-build
@@ -53704,30 +53292,20 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        limit_value:
+        cap_amount:
           anyOf:
           - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: integer
           - type: 'null'
-          title: Limit Value
-        warning_threshold:
+          title: Cap Amount
+        policy:
           anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - additionalProperties: true
+            type: object
           - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
+          title: Policy
       type: object
       title: UpdateLimitRequest
-      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -54203,7 +53781,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/UsageSummaryResponse'
+          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -54416,86 +53994,32 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        total_nominal_usd:
+        org_id:
+          type: string
+          title: Org Id
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
           type: number
-          title: Total Nominal Usd
-        total_cost_usd:
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
           type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_factory:
-          items:
-            $ref: '#/components/schemas/UsageByFactoryResponse'
-          type: array
-          title: By Factory
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
+          title: Total Gpu Seconds
       type: object
       required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
       title: UsageSummaryResponse
     UsageType:
       type: string
@@ -54987,35 +54511,6 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__admin__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
-      type: object
-      required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
-      title: UsageSummaryResponse
     app__api__v1__managed_research__limits__LimitResponse:
       properties:
         scope_kind:
@@ -55075,22 +54570,6 @@ components:
       - dimension
       - unit
       title: LimitResponse
-    app__api__v1__managed_research__limits__UpdateLimitRequest:
-      properties:
-        cap_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Cap Amount
-        policy:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Policy
-      type: object
-      title: UpdateLimitRequest
     app__api__v1__routes_balance__UsageSummaryResponse:
       properties:
         org_id:
@@ -55111,6 +54590,115 @@ components:
       - last_30_days
       title: UsageSummaryResponse
       description: Response model for usage summary.
+    app__api__v1__routes_usage_overview__UsageSummaryResponse:
+      properties:
+        total_nominal_usd:
+          type: number
+          title: Total Nominal Usd
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
+      type: object
+      required:
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
+      title: UsageSummaryResponse
+    app__core__session_usage__models__UpdateLimitRequest:
+      properties:
+        limit_value:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Limit Value
+        warning_threshold:
+          anyOf:
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      title: UpdateLimitRequest
+      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http
