@@ -1682,6 +1682,19 @@ class ManagedResearchClient:
             label="get_factory_status",
         )
 
+    def get_experiment_bundle(
+        self,
+        project_id: str,
+        experiment_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/{experiment_id}/bundle",
+            ),
+            label="get_experiment_bundle",
+        )
+
     def create_factory_idea(
         self,
         factory_id: str,
