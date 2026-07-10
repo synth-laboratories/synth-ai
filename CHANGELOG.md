@@ -13,6 +13,8 @@ All notable changes to the `synth-ai` package are documented here.
 ### Changed
 
 - The vendored Managed Research OpenAPI model enum now matches the backend catalog.
+- The retired BetterStack SDK-log ingestion endpoint and payload schemas are no
+  longer published; application logs use the backend-owned VictoriaLogs path.
 - Existing model values, including `gpt-5.4` and internal compatibility values, remain
   importable so the daily release does not break existing typed callers.
 
