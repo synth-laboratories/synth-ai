@@ -2341,13 +2341,16 @@ class ManagedResearchMcpServer:
     def _tool_list_tasks(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
-            return client.runs.list_tasks(
-                project_id,
-                run_id=optional_string(args, "run_id"),
-                objective_id=optional_string(args, "objective_id"),
-                kind=optional_string(args, "kind"),
-                limit=optional_int(args, "limit"),
-            )
+            return [
+                task.to_wire()
+                for task in client.runs.list_tasks(
+                    project_id,
+                    run_id=optional_string(args, "run_id"),
+                    objective_id=optional_string(args, "objective_id"),
+                    kind=optional_string(args, "kind"),
+                    limit=optional_int(args, "limit"),
+                )
+            ]
 
     def _tool_create_task(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2465,7 +2468,7 @@ class ManagedResearchMcpServer:
                 logical_timeline_limit=optional_int(args, "logical_timeline_limit"),
                 transcript_limit=optional_int(args, "transcript_limit"),
                 reconciliation_limit=optional_int(args, "reconciliation_limit"),
-            )
+            ).to_wire()
 
     def _tool_get_run_traces(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")

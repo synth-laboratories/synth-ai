@@ -11,6 +11,7 @@ from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimits,
     SmrRunUsage,
 )
+from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunActorUsage,
     SmrRunCostSummary,
@@ -725,7 +726,7 @@ class ResearchRunEvidenceAPI(_RunReadoutBound):
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> SmrRunOperatorEvidence:
         """Return operator evidence with optional per-section limits."""
         return self._handle.operator_evidence(
             runtime_timeline_limit=runtime_timeline_limit,
