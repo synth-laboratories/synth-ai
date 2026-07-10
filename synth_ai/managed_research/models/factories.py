@@ -62,6 +62,7 @@ class FactoryIdeaSource(StrEnum):
 
 
 class FactoryActorRole(StrEnum):
+    ORCHESTRATOR = "orchestrator"
     SERAPH = "seraph"
     GARDENER = "gardener"
     ARCHITECT = "architect"
@@ -98,10 +99,14 @@ class EffortStatus(StrEnum):
 
 class EffortType(StrEnum):
     RESEARCH = "research"
-    MAINTENANCE = "maintenance"
     EVAL_FACTORY = "eval_factory"
     OPTIMIZER = "optimizer"
     OPEN_RESEARCH = "open_research"
+
+
+class FactoryRunKind(StrEnum):
+    RESEARCH = "research"
+    MAINTENANCE = "maintenance"
 
 
 def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | None:
@@ -1116,6 +1121,7 @@ class FactoryRunSummary:
     project_id: str
     public_state: str
     effort_id: str | None = None
+    run_kind: FactoryRunKind = FactoryRunKind.RESEARCH
     created_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -1129,6 +1135,9 @@ class FactoryRunSummary:
             run_id=_require_string(mapping, "run_id", label="run.run_id"),
             project_id=_require_string(mapping, "project_id", label="run.project_id"),
             effort_id=_optional_string(mapping, "effort_id"),
+            run_kind=FactoryRunKind(
+                _optional_string(mapping, "run_kind") or FactoryRunKind.RESEARCH
+            ),
             public_state=_require_string(mapping, "public_state", label="run.public_state"),
             created_at=_optional_datetime(mapping, "created_at"),
             started_at=_optional_datetime(mapping, "started_at"),
@@ -1175,8 +1184,10 @@ class FactoryWorkProductSummary:
     title: str
     status: str
     readiness: str
+    summary: str | None = None
     effort_id: str | None = None
     artifact_id: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     raw: dict[str, object] = field(default_factory=dict)
@@ -1195,9 +1206,13 @@ class FactoryWorkProductSummary:
             effort_id=_optional_string(mapping, "effort_id"),
             kind=_require_string(mapping, "kind", label="work_product.kind"),
             title=_require_string(mapping, "title", label="work_product.title"),
+            summary=_optional_string(mapping, "summary"),
             status=_require_string(mapping, "status", label="work_product.status"),
             readiness=_require_string(mapping, "readiness", label="work_product.readiness"),
             artifact_id=_optional_string(mapping, "artifact_id"),
+            metadata=_optional_object_dict(
+                mapping.get("metadata"), label="work_product.metadata"
+            ),
             created_at=_optional_datetime(mapping, "created_at"),
             updated_at=_optional_datetime(mapping, "updated_at"),
             raw=dict(mapping),
@@ -1870,6 +1885,7 @@ class FactoryWakeDueEffort:
     status: str
     reason: str | None = None
     run_id: str | None = None
+    run_kind: FactoryRunKind | None = None
     next_wake_at: datetime | None = None
     launch_preview: dict[str, object] = field(default_factory=dict)
     raw: dict[str, object] = field(default_factory=dict)
@@ -1883,6 +1899,11 @@ class FactoryWakeDueEffort:
             status=_require_string(mapping, "status", label="wake.status"),
             reason=_optional_string(mapping, "reason"),
             run_id=_optional_string(mapping, "run_id"),
+            run_kind=_optional_enum(
+                FactoryRunKind,
+                mapping.get("run_kind"),
+                field_name="wake.run_kind",
+            ),
             next_wake_at=_optional_datetime(mapping, "next_wake_at"),
             launch_preview=_optional_object_dict(
                 mapping.get("launch_preview"),
@@ -2019,6 +2040,7 @@ FACTORY_ACTOR_OUTPUT_KIND_VALUES = tuple(item.value for item in FactoryActorOutp
 FACTORY_ACTOR_OUTPUT_STATUS_VALUES = tuple(item.value for item in FactoryActorOutputStatus)
 EFFORT_STATUS_VALUES = tuple(item.value for item in EffortStatus)
 EFFORT_TYPE_VALUES = tuple(item.value for item in EffortType)
+FACTORY_RUN_KIND_VALUES = tuple(item.value for item in FactoryRunKind)
 
 
 __all__ = [
@@ -2033,6 +2055,7 @@ __all__ = [
     "FACTORY_ACTOR_ROLE_VALUES",
     "FACTORY_ACTOR_OUTPUT_KIND_VALUES",
     "FACTORY_ACTOR_OUTPUT_STATUS_VALUES",
+    "FACTORY_RUN_KIND_VALUES",
     "Effort",
     "EffortCreateRequest",
     "EffortPatchRequest",
@@ -2075,6 +2098,7 @@ __all__ = [
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
+    "FactoryRunKind",
     "FactoryStatus",
     "FactoryWakeDueEffort",
     "FactoryWakeDueRequest",
