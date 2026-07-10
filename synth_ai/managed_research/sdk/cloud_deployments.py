@@ -11,12 +11,21 @@ the VM's HTTPS proxy.
 from __future__ import annotations
 
 import time
-from typing import Any, List, Mapping
+from typing import Any, List, Literal, Mapping, TypedDict
 
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 _RETRYABLE_FAILURE_STATES = frozenset({"failed"})
 _TERMINAL_STATES = frozenset({"retired"})
+
+
+class CloudDeploymentProjectGitSource(TypedDict):
+    """Immutable project-git source identity for a durable deployment."""
+
+    kind: Literal["project_git"]
+    source_commit_sha: str
+    evidence_commit_sha: str
+    instance_id: str
 
 
 class CloudDeploymentsAPI(_ClientNamespace):
@@ -29,6 +38,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         topology_version: str | None = None,
         host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
+        source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         return self._client.create_cloud_deployment(
             project_id=project_id,
@@ -37,6 +47,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
             topology_version=topology_version,
             host_kind=host_kind,
             metadata=metadata,
+            source=source,
         )
 
     def list(
@@ -129,4 +140,4 @@ class CloudDeploymentsAPI(_ClientNamespace):
             payload = self.get(deployment_id=deployment_id)
 
 
-__all__ = ["CloudDeploymentsAPI"]
+__all__ = ["CloudDeploymentProjectGitSource", "CloudDeploymentsAPI"]
