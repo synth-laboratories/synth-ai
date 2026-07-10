@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
 
@@ -210,6 +211,8 @@ def execute_factory_standup(
 
     if project_id is None and not create_project:
         raise ValueError("project.project_id or create_project is required")
+    if create_project:
+        SmrRunnableProjectRequest.from_wire(create_project)
 
     if dry_run:
         return {

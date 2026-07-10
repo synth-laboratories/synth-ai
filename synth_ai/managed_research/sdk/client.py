@@ -58,6 +58,8 @@ from synth_ai.managed_research.models.factories import (
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
 )
+from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
+from synth_ai.managed_research.models.run_authority import ManagedResearchRunTask
 from synth_ai.managed_research.models.run_control import ManagedResearchRunControlError
 from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunActorLogs,
@@ -173,6 +175,7 @@ from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
+from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
@@ -1017,6 +1020,7 @@ class ManagedResearchClient:
     _transport: SmrHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
     _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
+    _factory_evidence_api: FactoryEvidenceAPI | None = field(init=False, default=None, repr=False)
     _efforts_api: EffortsAPI | None = field(init=False, default=None, repr=False)
     _runs_api: RunsAPI | None = field(init=False, default=None, repr=False)
     _workspace_inputs_api: WorkspaceInputsAPI | None = field(init=False, default=None, repr=False)
@@ -1075,6 +1079,12 @@ class ManagedResearchClient:
         if self._factories_api is None:
             self._factories_api = FactoriesAPI(self)
         return self._factories_api
+
+    @property
+    def factory_evidence(self) -> FactoryEvidenceAPI:
+        if self._factory_evidence_api is None:
+            self._factory_evidence_api = FactoryEvidenceAPI(self)
+        return self._factory_evidence_api
 
     @property
     def efforts(self) -> EffortsAPI:
@@ -1654,6 +1664,19 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", f"/smr/factories/{factory_id}/status"),
             label="get_factory_status",
+        )
+
+    def get_experiment_bundle(
+        self,
+        project_id: str,
+        experiment_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/{experiment_id}/bundle",
+            ),
+            label="get_experiment_bundle",
         )
 
     def create_factory_idea(
@@ -4575,16 +4598,45 @@ class ManagedResearchClient:
         objective_id: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        if objective_id:
-            raise SmrApiError(
-                "Objective-scoped task listing is not available in the current "
-                "Managed Research backend contract; use run-scoped tasks or "
-                "run objective events instead.",
-                failure_class="unsupported_backend_contract",
-            )
+    ) -> list[ManagedResearchRunTask]:
+        """Return project-scoped task DTOs from the backend owner route."""
+
         if not run_id:
+            if objective_id:
+                raise SmrApiError(
+                    "Objective-scoped task listing is not available in the current "
+                    "Managed Research backend contract; use run-scoped tasks or "
+                    "run objective events instead.",
+                    failure_class="unsupported_backend_contract",
+                )
             raise ValueError("run_id or objective_id is required")
+        tasks = [
+            ManagedResearchRunTask.from_wire(item)
+            for item in self.list_tasks_raw(
+                project_id,
+                run_id=run_id,
+                kind=kind,
+                limit=limit,
+            )
+        ]
+        for task in tasks:
+            if task.project_id != project_id or task.run_id != run_id:
+                raise SmrApiError(
+                    "Task owner-route identity does not match the requested project/run",
+                    failure_class="backend_contract_mismatch",
+                )
+        return tasks
+
+    def list_tasks_raw(
+        self,
+        project_id: str,
+        *,
+        run_id: str,
+        kind: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Legacy serialized task rows; canonical SDK callers use ``list_tasks``."""
+
         return _coerce_dict_list(
             self._request_json(
                 "GET",
@@ -5190,7 +5242,32 @@ class ManagedResearchClient:
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Return the canonical typed operator-evidence owner response."""
+
+        return SmrRunOperatorEvidence.from_wire(
+            self.get_project_run_operator_evidence_raw(
+                project_id,
+                run_id,
+                runtime_timeline_limit=runtime_timeline_limit,
+                logical_timeline_limit=logical_timeline_limit,
+                transcript_limit=transcript_limit,
+                reconciliation_limit=reconciliation_limit,
+            )
+        )
+
+    def get_project_run_operator_evidence_raw(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
     ) -> dict[str, Any]:
+        """Legacy serialized operator evidence; canonical callers use the DTO."""
+
         return _coerce_dict(
             self._request_json(
                 "GET",
@@ -5203,6 +5280,27 @@ class ManagedResearchClient:
                 ),
             ),
             label="get_project_run_operator_evidence",
+        )
+
+    def get_project_run_operator_evidence_typed(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Compatibility alias for the canonical typed operator-evidence read."""
+
+        return self.get_project_run_operator_evidence(
+            project_id,
+            run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
         )
 
     def get_run_traces(self, run_id: str) -> SmrRunTraces:

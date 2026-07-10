@@ -1296,6 +1296,283 @@ class FactoryHealth:
 
 
 @dataclass(frozen=True)
+class FactoryControlLoopFlags:
+    schema_version: str
+    service_type: str
+    environment: str
+    scheduler_enabled: bool
+    reactor_enabled: bool
+    flag_names: dict[str, str]
+    observed_at: datetime
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryControlLoopFlags:
+        mapping = _require_mapping(payload, label="factory control-loop flags")
+        schema_version = _require_string(
+            mapping,
+            "schema_version",
+            label="factory control-loop flags.schema_version",
+        )
+        if schema_version != "factory_control_loop_flags.v1":
+            raise ValueError(
+                "factory control-loop flags schema must be factory_control_loop_flags.v1"
+            )
+        observed_at = _optional_datetime(mapping, "observed_at")
+        if observed_at is None:
+            raise ValueError("factory control-loop flags observed_at is required")
+        raw_flag_names = _require_mapping(
+            mapping.get("flag_names"), label="factory control-loop flags.flag_names"
+        )
+        return cls(
+            schema_version=schema_version,
+            service_type=_require_string(
+                mapping,
+                "service_type",
+                label="factory control-loop flags.service_type",
+            ),
+            environment=_require_string(
+                mapping,
+                "environment",
+                label="factory control-loop flags.environment",
+            ),
+            scheduler_enabled=bool(_optional_bool(mapping, "scheduler_enabled")),
+            reactor_enabled=bool(_optional_bool(mapping, "reactor_enabled")),
+            flag_names={str(key): str(value) for key, value in raw_flag_names.items()},
+            observed_at=observed_at,
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "schema_version": self.schema_version,
+            "service_type": self.service_type,
+            "environment": self.environment,
+            "scheduler_enabled": self.scheduler_enabled,
+            "reactor_enabled": self.reactor_enabled,
+            "flag_names": dict(self.flag_names),
+            "observed_at": self.observed_at.isoformat(),
+        }
+
+
+@dataclass(frozen=True)
+class FactoryReactorReceipt:
+    effort_id: str
+    run_id: str
+    observed_at: datetime
+    terminal_outcome: str | None = None
+    failure_class: str | None = None
+    action: str | None = None
+    review_actor_keys: tuple[str, ...] = ()
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryReactorReceipt:
+        mapping = _require_mapping(payload, label="factory reactor receipt")
+        observed_at = _optional_datetime(mapping, "observed_at")
+        if observed_at is None:
+            raise ValueError("factory reactor receipt observed_at is required")
+        return cls(
+            effort_id=_require_string(
+                mapping, "effort_id", label="factory reactor receipt.effort_id"
+            ),
+            run_id=_require_string(mapping, "run_id", label="factory reactor receipt.run_id"),
+            terminal_outcome=_optional_string(mapping, "terminal_outcome"),
+            failure_class=_optional_string(mapping, "failure_class"),
+            action=_optional_string(mapping, "action"),
+            review_actor_keys=_string_tuple(mapping.get("review_actor_keys")),
+            observed_at=observed_at,
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "effort_id": self.effort_id,
+            "run_id": self.run_id,
+            "terminal_outcome": self.terminal_outcome,
+            "failure_class": self.failure_class,
+            "action": self.action,
+            "review_actor_keys": list(self.review_actor_keys),
+            "observed_at": self.observed_at.isoformat(),
+        }
+
+
+@dataclass(frozen=True)
+class FactoryReactorStatus:
+    kind: str
+    owner: str
+    state: str
+    processed_terminal_runs: int
+    efforts_with_receipts: int
+    last_observed_at: datetime | None = None
+    last_receipt: FactoryReactorReceipt | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryReactorStatus:
+        mapping = _require_mapping(payload, label="factory reactor status")
+        return cls(
+            kind=_require_string(mapping, "kind", label="factory reactor status.kind"),
+            owner=_require_string(mapping, "owner", label="factory reactor status.owner"),
+            state=_require_string(mapping, "state", label="factory reactor status.state"),
+            processed_terminal_runs=int(mapping.get("processed_terminal_runs") or 0),
+            efforts_with_receipts=int(mapping.get("efforts_with_receipts") or 0),
+            last_observed_at=_optional_datetime(mapping, "last_observed_at"),
+            last_receipt=(
+                FactoryReactorReceipt.from_wire(mapping.get("last_receipt"))
+                if mapping.get("last_receipt") is not None
+                else None
+            ),
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "owner": self.owner,
+            "state": self.state,
+            "last_observed_at": (
+                self.last_observed_at.isoformat() if self.last_observed_at is not None else None
+            ),
+            "last_receipt": (
+                self.last_receipt.to_wire() if self.last_receipt is not None else None
+            ),
+            "processed_terminal_runs": self.processed_terminal_runs,
+            "efforts_with_receipts": self.efforts_with_receipts,
+        }
+
+
+@dataclass(frozen=True)
+class FactoryRuntimeStatus:
+    kind: str
+    owner: str
+    mode: str
+    state: str
+    enabled: bool
+    observed_at: datetime
+    reactor: FactoryReactorStatus
+    control_loop_flags: FactoryControlLoopFlags
+    last_observed_at: datetime | None = None
+    last_cycle: dict[str, object] = field(default_factory=dict)
+    next_event: dict[str, object] = field(default_factory=dict)
+    schedule: tuple[dict[str, object], ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryRuntimeStatus:
+        mapping = _require_mapping(payload, label="factory runtime status")
+        observed_at = _optional_datetime(mapping, "observed_at")
+        if observed_at is None:
+            raise ValueError("factory runtime status observed_at is required")
+        raw_schedule = mapping.get("schedule") or []
+        if not isinstance(raw_schedule, list):
+            raise ValueError("factory runtime status schedule must be a list")
+        return cls(
+            kind=_require_string(mapping, "kind", label="factory runtime status.kind"),
+            owner=_require_string(mapping, "owner", label="factory runtime status.owner"),
+            mode=_require_string(mapping, "mode", label="factory runtime status.mode"),
+            state=_require_string(mapping, "state", label="factory runtime status.state"),
+            enabled=bool(_optional_bool(mapping, "enabled")),
+            observed_at=observed_at,
+            last_observed_at=_optional_datetime(mapping, "last_observed_at"),
+            last_cycle=_optional_object_dict(
+                mapping.get("last_cycle"), label="factory runtime status.last_cycle"
+            ),
+            next_event=_optional_object_dict(
+                mapping.get("next_event"), label="factory runtime status.next_event"
+            ),
+            schedule=tuple(
+                _optional_object_dict(item, label="factory runtime status.schedule item")
+                for item in raw_schedule
+            ),
+            reactor=FactoryReactorStatus.from_wire(mapping.get("reactor")),
+            control_loop_flags=FactoryControlLoopFlags.from_wire(mapping.get("control_loop_flags")),
+            raw=dict(mapping),
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "owner": self.owner,
+            "mode": self.mode,
+            "state": self.state,
+            "enabled": self.enabled,
+            "observed_at": self.observed_at.isoformat(),
+            "last_observed_at": (
+                self.last_observed_at.isoformat() if self.last_observed_at is not None else None
+            ),
+            "last_cycle": dict(self.last_cycle),
+            "next_event": dict(self.next_event),
+            "schedule": [dict(item) for item in self.schedule],
+            "reactor": self.reactor.to_wire(),
+            "control_loop_flags": self.control_loop_flags.to_wire(),
+        }
+
+
+@dataclass(frozen=True)
+class ExperimentBundle:
+    """Typed top-level contract for an owner-assembled experiment bundle."""
+
+    experiment_id: str
+    project_id: str
+    schema_version: str
+    run_ids: tuple[str, ...] = ()
+    experiment: dict[str, object] = field(default_factory=dict)
+    candidate: dict[str, object] = field(default_factory=dict)
+    executions: tuple[dict[str, object], ...] = ()
+    evaluations: tuple[dict[str, object], ...] = ()
+    trace_index: tuple[dict[str, object], ...] = ()
+    economics: dict[str, object] = field(default_factory=dict)
+    decisions: dict[str, object] = field(default_factory=dict)
+    provenance: dict[str, object] = field(default_factory=dict)
+    workspace_layout: dict[str, object] = field(default_factory=dict)
+    integrity: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def accepted_cycle(self) -> bool:
+        return self.integrity.get("accepted_cycle") is True
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ExperimentBundle:
+        mapping = _require_mapping(payload, label="experiment bundle")
+        return cls(
+            experiment_id=_require_string(mapping, "experiment_id", label="experiment bundle"),
+            project_id=_require_string(mapping, "project_id", label="experiment bundle"),
+            schema_version=_require_string(mapping, "schema_version", label="experiment bundle"),
+            run_ids=tuple(str(item) for item in list(mapping.get("run_ids") or [])),
+            experiment=_optional_object_dict(
+                mapping.get("experiment"), label="experiment bundle experiment"
+            ),
+            candidate=_optional_object_dict(
+                mapping.get("candidate"), label="experiment bundle candidate"
+            ),
+            executions=tuple(
+                _optional_object_dict(item, label="experiment bundle execution")
+                for item in list(mapping.get("executions") or [])
+            ),
+            evaluations=tuple(
+                _optional_object_dict(item, label="experiment bundle evaluation")
+                for item in list(mapping.get("evaluations") or [])
+            ),
+            trace_index=tuple(
+                _optional_object_dict(item, label="experiment bundle trace")
+                for item in list(mapping.get("trace_index") or [])
+            ),
+            economics=_optional_object_dict(
+                mapping.get("economics"), label="experiment bundle economics"
+            ),
+            decisions=_optional_object_dict(
+                mapping.get("decisions"), label="experiment bundle decisions"
+            ),
+            provenance=_optional_object_dict(
+                mapping.get("provenance"), label="experiment bundle provenance"
+            ),
+            workspace_layout=_optional_object_dict(
+                mapping.get("workspace_layout"), label="experiment bundle workspace_layout"
+            ),
+            integrity=_optional_object_dict(
+                mapping.get("integrity"), label="experiment bundle integrity"
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1317,11 +1594,25 @@ class FactoryStatus:
     factory_health: FactoryHealth | None = None
     proof_readiness: dict[str, object] = field(default_factory=dict)
     public_visuals: dict[str, object] = field(default_factory=dict)
+    experiment_observability: ExperimentBundle | None = None
     raw: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def typed_runtime(self) -> FactoryRuntimeStatus:
+        """Return the typed backend scheduler/reactor owner-route payload."""
+
+        return FactoryRuntimeStatus.from_wire(self.runtime)
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryStatus:
         mapping = _require_mapping(payload, label="factory status")
+        experiment_payload = mapping.get("experiment_observability")
+        experiment_observability = (
+            ExperimentBundle.from_wire(experiment_payload)
+            if isinstance(experiment_payload, Mapping)
+            and bool(experiment_payload.get("experiment_id"))
+            else None
+        )
         efforts_by_status_raw = mapping.get("efforts_by_status")
         if efforts_by_status_raw is not None and not isinstance(efforts_by_status_raw, Mapping):
             raise ValueError("factory status efforts_by_status must be an object")
@@ -1393,6 +1684,7 @@ class FactoryStatus:
                 mapping.get("public_visuals"),
                 label="factory status public_visuals",
             ),
+            experiment_observability=experiment_observability,
             raw=dict(mapping),
         )
 
@@ -1592,6 +1884,7 @@ __all__ = [
     "EffortPatchRequest",
     "EffortStatus",
     "EffortType",
+    "ExperimentBundle",
     "BudgetPolicy",
     "CapPolicy",
     "AuthorizationPolicy",
@@ -1605,6 +1898,10 @@ __all__ = [
     "FactoryCreateRequest",
     "FactoryHealth",
     "FactoryMaintenanceAction",
+    "FactoryControlLoopFlags",
+    "FactoryReactorReceipt",
+    "FactoryReactorStatus",
+    "FactoryRuntimeStatus",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
     "FactoryIdeaPatchRequest",
