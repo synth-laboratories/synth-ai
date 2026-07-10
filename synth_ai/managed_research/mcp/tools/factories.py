@@ -341,6 +341,47 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="smr_get_experiment_history",
+            description=(
+                "Read owner-assembled experiment bundles with missing-evidence "
+                "alerts and accepted/incomplete cycle counts."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string"},
+                    "limit": {"type": "integer", "default": 50},
+                },
+                required=["project_id"],
+            ),
+            handler=lambda args: server._client_from_args(args).factories.experiment_history(
+                str(args["project_id"]), limit=int(args.get("limit") or 50)
+            ),
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_compare_experiments",
+            description=(
+                "Compare accepted experiments only when backend-owned cohort, "
+                "seed, scorer, taskset, and metric dimensions match."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string"},
+                    "experiment_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 2,
+                    },
+                },
+                required=["project_id", "experiment_ids"],
+            ),
+            handler=lambda args: server._client_from_args(args).factories.compare_experiments(
+                str(args["project_id"]),
+                [str(item) for item in args["experiment_ids"]],
+            ),
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_link_factory_project",
             description=(
                 "Link a Project to the Factory. Use canonical for the primary workspace "

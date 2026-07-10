@@ -1277,6 +1277,45 @@ class ManagedResearchClient:
             label="get_tag_session",
         )
 
+    def list_tag_sessions(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/api/tag/v1/sessions",
+                params=build_query_params(
+                    factory_id=factory_id,
+                    effort_id=effort_id,
+                    limit=limit,
+                ),
+            ),
+            label="list_tag_sessions",
+        )
+
+    def watch_tag_session(self, session_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/watch",
+            ),
+            label="watch_tag_session",
+        )
+
+    def control_tag_session(self, session_id: str, *, action: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/control",
+                json_body={"action": _require_non_empty_string(action, field_name="action")},
+            ),
+            label="control_tag_session",
+        )
+
     def send_tag_message(
         self,
         session_id: str,
@@ -1694,6 +1733,20 @@ class ManagedResearchClient:
             label="get_experiment_history",
         )
 
+    def compare_experiments(
+        self,
+        project_id: str,
+        experiment_ids: Iterable[str],
+    ) -> dict[str, Any]:
+        normalized_ids = [str(item).strip() for item in experiment_ids if str(item).strip()]
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/compare",
+                params={"experiment_ids": normalized_ids},
+            ),
+            label="compare_experiments",
+        )
     def create_factory_idea(
         self,
         factory_id: str,
