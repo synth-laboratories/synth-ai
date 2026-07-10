@@ -1,6 +1,7 @@
 name: Auto-publish to PyPI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
 
