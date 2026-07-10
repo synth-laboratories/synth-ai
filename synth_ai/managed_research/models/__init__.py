@@ -93,6 +93,7 @@ from synth_ai.managed_research.models.factories import (
     RecurrencePolicy,
 )
 from synth_ai.managed_research.models.factory_evidence import (
+    ActorContainerRunBinding,
     AppliedBudgetOwnerReceipt,
     AppliedExperimentRegistrationReceipt,
     AppliedSynthWikiReceipt,
@@ -862,6 +863,7 @@ __all__ = [
     "WorkspaceSourceRepo",
     "WorkspaceUploadResult",
     "is_open_research_visual_manifest",
+    "ActorContainerRunBinding",
     "AppliedBudgetOwnerReceipt",
     "AppliedExperimentRegistrationReceipt",
     "AppliedSynthWikiReceipt",

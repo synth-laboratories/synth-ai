@@ -704,9 +704,12 @@ class RuntimeImageIdentity:
             raise FactoryEvidenceValidationError(
                 "runtime_image_identity.image_digest must be sha256:<64 lowercase hex>"
             )
-        if f"@{image_digest}" not in image_reference:
+        if (
+            f"@{image_digest}" not in image_reference
+            and image_reference != f"local-docker-image://{image_digest}"
+        ):
             raise FactoryEvidenceValidationError(
-                "runtime image reference must be pinned to its immutable digest"
+                "runtime image reference must be an OCI digest or exact local Docker image ID"
             )
         source_manifest_digest = _text(
             image.get("source_manifest_digest"),
@@ -728,6 +731,143 @@ class RuntimeImageIdentity:
             "image_digest": self.image_digest,
             "source_manifest_digest": self.source_manifest_digest,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class ActorContainerRunBinding:
+    """Verified binding from the launched run to its observed actor container."""
+
+    run_id: str
+    slot_id: str
+    container_id: str
+    container_name: str
+    expected_image_id: str
+    observed_image_id: str
+    observed_at: datetime
+    runtime_image_reference: str
+    source_identity: SourceIdentity
+    raw: dict[str, Any]
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ActorContainerRunBinding:
+        evidence = _mapping(payload, field_name="runtime_contract_evidence")
+        _reject_untrusted_markers(evidence, field_name="runtime_contract_evidence")
+        if evidence.get("schema_version") != "craftax_factory.runtime_contract_evidence.v2":
+            raise FactoryEvidenceValidationError(
+                "runtime_contract_evidence schema must be craftax_factory.runtime_contract_evidence.v2"
+            )
+        if evidence.get("accepted") is not True or list(evidence.get("acceptance_blockers") or []):
+            raise FactoryEvidenceValidationError(
+                "runtime_contract_evidence must be accepted with no blockers"
+            )
+        observations = _required_mapping(
+            evidence.get("running_container_observations"),
+            field_name="runtime_contract_evidence.running_container_observations",
+        )
+        actor = _required_mapping(
+            observations.get("craftax_actor_runtime"),
+            field_name="runtime_contract_evidence.running_container_observations.craftax_actor_runtime",
+        )
+        if (
+            actor.get("schema_version") != "craftax_factory.running_container_image_observation.v1"
+            or actor.get("authority") != "synth-dev.local-runtime.docker-inspect"
+            or actor.get("role") != "craftax_actor_runtime"
+            or actor.get("exact_match") is not True
+        ):
+            raise FactoryEvidenceValidationError(
+                "runtime_contract_evidence actor observation is not an exact synth-dev Docker inspection"
+            )
+        expected_image_id = _text(
+            actor.get("expected_image_id"),
+            field_name="actor_container_binding.expected_image_id",
+        ).lower()
+        observed_image_id = _text(
+            actor.get("observed_container_image_id"),
+            field_name="actor_container_binding.observed_container_image_id",
+        ).lower()
+        if not _SHA256.fullmatch(expected_image_id) or observed_image_id != expected_image_id:
+            raise FactoryEvidenceValidationError(
+                "actor container image ID must exactly match the verified runtime image ID"
+            )
+        labels = _required_mapping(
+            actor.get("container_labels"),
+            field_name="actor_container_binding.container_labels",
+        )
+        if str(labels.get("horizons.managed") or "").strip().lower() != "true":
+            raise FactoryEvidenceValidationError(
+                "actor container binding must identify a managed Horizons container"
+            )
+        source_identity = SourceIdentity.from_wire(evidence.get("source_identity"))
+        if source_identity.runtime_image["image_id"].lower() != expected_image_id:
+            raise FactoryEvidenceValidationError(
+                "actor container binding image ID does not match source identity"
+            )
+        launch_binding = _required_mapping(
+            evidence.get("launch_readiness_binding"),
+            field_name="runtime_contract_evidence.launch_readiness_binding",
+        )
+        runtime_image_reference = _text(
+            launch_binding.get("smr_runtime_image"),
+            field_name="runtime_contract_evidence.launch_readiness_binding.smr_runtime_image",
+        )
+        if (
+            launch_binding.get("exact_match") is not True
+            or launch_binding.get("source_identity_runtime_image_ref") != runtime_image_reference
+            or source_identity.runtime_image["image_ref"] != runtime_image_reference
+        ):
+            raise FactoryEvidenceValidationError(
+                "runtime contract launch-readiness image binding is not exact"
+            )
+        evidence_digest = _text(
+            evidence.get("evidence_digest"),
+            field_name="runtime_contract_evidence.evidence_digest",
+        ).lower()
+        if not _SHA256.fullmatch(evidence_digest):
+            raise FactoryEvidenceValidationError(
+                "runtime_contract_evidence.evidence_digest must be sha256:<64 lowercase hex>"
+            )
+        digest_payload = dict(evidence)
+        digest_payload.pop("evidence_digest", None)
+        computed_digest = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(digest_payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+            ).hexdigest()
+        )
+        if evidence_digest != computed_digest:
+            raise FactoryEvidenceValidationError(
+                "runtime_contract_evidence.evidence_digest does not match its payload"
+            )
+        return cls(
+            run_id=_text(
+                labels.get("horizons.run_id"),
+                field_name="actor_container_binding.horizons.run_id",
+            ),
+            slot_id=_text(
+                labels.get("horizons.slot_id"),
+                field_name="actor_container_binding.horizons.slot_id",
+            ),
+            container_id=_text(
+                actor.get("container_id"),
+                field_name="actor_container_binding.container_id",
+            ),
+            container_name=_text(
+                actor.get("container_name"),
+                field_name="actor_container_binding.container_name",
+            ),
+            expected_image_id=expected_image_id,
+            observed_image_id=observed_image_id,
+            observed_at=_datetime(
+                actor.get("observed_at"),
+                field_name="actor_container_binding.observed_at",
+            ),
+            runtime_image_reference=runtime_image_reference,
+            source_identity=source_identity,
+            raw=evidence,
+        )
+
+    def to_wire(self) -> dict[str, Any]:
+        return dict(self.raw)
 
 
 @dataclass(frozen=True, slots=True)
@@ -812,6 +952,7 @@ class ArtifactBackedWorkProductIdentity:
     project_id: str
     run_id: str
     kind: str
+    title: str
     status: str
     readiness: str
     artifact_id: str
@@ -845,6 +986,7 @@ class ArtifactBackedWorkProductIdentity:
             project_id=_text(mapping.get("project_id"), field_name="WorkProduct.project_id"),
             run_id=_text(mapping.get("run_id"), field_name="WorkProduct.run_id"),
             kind=_text(mapping.get("kind"), field_name="WorkProduct.kind"),
+            title=_text(mapping.get("title"), field_name="WorkProduct.title"),
             status=status,
             readiness=readiness,
             artifact_id=_text(
@@ -860,6 +1002,7 @@ class ArtifactBackedWorkProductIdentity:
             "project_id": self.project_id,
             "run_id": self.run_id,
             "kind": self.kind,
+            "title": self.title,
             "status": self.status,
             "readiness": self.readiness,
             "artifact": {
@@ -980,6 +1123,7 @@ class FactoryEvidencePacket:
     factory_runtime: FactoryRuntimeStatus
     source_identity: SourceIdentity
     runtime_image_identity: RuntimeImageIdentity
+    actor_container_binding: ActorContainerRunBinding
     cost_identity: RunCostIdentity
     experiment_registration: AppliedExperimentRegistrationReceipt
     synth_wiki_receipt: AppliedSynthWikiReceipt
@@ -1045,6 +1189,9 @@ class FactoryEvidencePacket:
             runtime_image_identity=RuntimeImageIdentity.from_wire(
                 mapping.get("runtime_image_identity")
             ),
+            actor_container_binding=ActorContainerRunBinding.from_wire(
+                mapping.get("actor_container_binding")
+            ),
             cost_identity=RunCostIdentity.from_wire(mapping.get("cost_identity")),
             experiment_registration=AppliedExperimentRegistrationReceipt.from_wire(
                 mapping.get("experiment_registration")
@@ -1080,6 +1227,19 @@ class FactoryEvidencePacket:
         if packet.cost_identity.run_id != packet.run_id:
             raise FactoryEvidenceValidationError(
                 "factory_evidence_packet cost run identity mismatch"
+            )
+        if packet.actor_container_binding.run_id != packet.run_id:
+            raise FactoryEvidenceValidationError(
+                "factory_evidence_packet actor container run identity mismatch"
+            )
+        if (
+            packet.actor_container_binding.runtime_image_reference
+            != packet.runtime_image_identity.image_reference
+            or packet.actor_container_binding.expected_image_id
+            != packet.source_identity.runtime_image["image_id"].lower()
+        ):
+            raise FactoryEvidenceValidationError(
+                "factory_evidence_packet actor container image identity mismatch"
             )
         if packet.operator_evidence.project_id != packet.project_id or (
             packet.operator_evidence.run_id != packet.run_id
@@ -1154,6 +1314,7 @@ class FactoryEvidencePacket:
             "factory_runtime": self.factory_runtime.to_wire(),
             "source_identity": self.source_identity.to_wire(),
             "runtime_image_identity": self.runtime_image_identity.to_wire(),
+            "actor_container_binding": self.actor_container_binding.to_wire(),
             "cost_identity": self.cost_identity.to_wire(),
             "experiment_registration": self.experiment_registration.to_wire(),
             "synth_wiki_receipt": self.synth_wiki_receipt.to_wire(),
@@ -1176,6 +1337,7 @@ def assemble_factory_evidence_packet(
     work_products: Sequence[ArtifactBackedWorkProduct],
     source_identity: SourceIdentity,
     runtime_image_identity: RuntimeImageIdentity,
+    actor_container_binding: ActorContainerRunBinding,
     cost_identity: RunCostIdentity,
     experiment_registration: AppliedExperimentRegistrationReceipt,
     synth_wiki_receipt: AppliedSynthWikiReceipt,
@@ -1257,6 +1419,17 @@ def assemble_factory_evidence_packet(
         raise FactoryEvidenceValidationError(
             "runtime image reference/digest does not match source identity"
         )
+    if actor_container_binding.run_id != run.run_id:
+        raise FactoryEvidenceValidationError("actor container binding run_id mismatch")
+    if (
+        actor_container_binding.runtime_image_reference != runtime_image_identity.image_reference
+        or actor_container_binding.expected_image_id
+        != source_identity.runtime_image["image_id"].lower()
+        or actor_container_binding.source_identity.to_wire() != source_identity.to_wire()
+    ):
+        raise FactoryEvidenceValidationError(
+            "actor container binding source/runtime image identity mismatch"
+        )
     lineage = {
         experiment_registration.project_id,
         synth_wiki_receipt.project_id,
@@ -1303,6 +1476,7 @@ def assemble_factory_evidence_packet(
         factory_runtime=factory_runtime,
         source_identity=source_identity,
         runtime_image_identity=runtime_image_identity,
+        actor_container_binding=actor_container_binding,
         cost_identity=cost_identity,
         experiment_registration=experiment_registration,
         synth_wiki_receipt=synth_wiki_receipt,
@@ -1418,6 +1592,7 @@ def assemble_factory_launch_readiness(
 
 
 __all__ = [
+    "ActorContainerRunBinding",
     "AppliedBudgetOwnerReceipt",
     "AppliedExperimentRegistrationReceipt",
     "AppliedSynthWikiReceipt",

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from synth_ai.managed_research.models.factory_evidence import (
+    ActorContainerRunBinding,
     AppliedBudgetOwnerReceipt,
     AppliedExperimentRegistrationReceipt,
     AppliedSynthWikiReceipt,
@@ -70,6 +71,7 @@ class FactoryEvidenceAPI(_ClientNamespace):
         evidence_tier: FactoryEvidenceTier | str,
         source_identity: SourceIdentity | Mapping[str, Any],
         runtime_image_identity: RuntimeImageIdentity | Mapping[str, Any],
+        runtime_contract_evidence: ActorContainerRunBinding | Mapping[str, Any],
         experiment_registration: AppliedExperimentRegistrationReceipt | Mapping[str, Any],
         synth_wiki_receipt: AppliedSynthWikiReceipt | Mapping[str, Any],
         git_push_receipt: ConfirmedProjectGitPushReceipt | Mapping[str, Any],
@@ -91,6 +93,11 @@ class FactoryEvidenceAPI(_ClientNamespace):
             runtime_image_identity
             if isinstance(runtime_image_identity, RuntimeImageIdentity)
             else RuntimeImageIdentity.from_wire(runtime_image_identity)
+        )
+        typed_actor_container_binding = (
+            runtime_contract_evidence
+            if isinstance(runtime_contract_evidence, ActorContainerRunBinding)
+            else ActorContainerRunBinding.from_wire(runtime_contract_evidence)
         )
         typed_experiment = (
             experiment_registration
@@ -122,6 +129,7 @@ class FactoryEvidenceAPI(_ClientNamespace):
             work_products=reads.work_products,
             source_identity=typed_source_identity,
             runtime_image_identity=typed_runtime_image,
+            actor_container_binding=typed_actor_container_binding,
             cost_identity=reads.cost_identity,
             experiment_registration=typed_experiment,
             synth_wiki_receipt=typed_wiki,
