@@ -613,6 +613,7 @@ def _build_project_run_payload(
     primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
     effort_id: str | None = None,
+    run_kind: str = "research",
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
@@ -899,6 +900,10 @@ def _build_project_run_payload(
         payload["primary_parent"] = normalized_primary_parent
     if effort_id and effort_id.strip():
         payload["effort_id"] = effort_id.strip()
+    normalized_run_kind = str(run_kind or "research").strip().lower()
+    if normalized_run_kind not in {"research", "maintenance"}:
+        raise ValueError("run_kind must be 'research' or 'maintenance'")
+    payload["run_kind"] = normalized_run_kind
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
     if idempotency_key and idempotency_key.strip():
@@ -4065,6 +4070,7 @@ class ManagedResearchClient:
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
         effort_id: str | None = None,
+        run_kind: str = "research",
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -4108,6 +4114,7 @@ class ManagedResearchClient:
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
             effort_id=effort_id,
+            run_kind=run_kind,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )
