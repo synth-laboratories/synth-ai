@@ -20,6 +20,7 @@ from synth_ai.managed_research.errors import (
 )
 from synth_ai.managed_research.models import (
     ActorCollectionSnapshot,
+    ActorContainerRunBinding,
     ActorImageId,
     ActorResourceCapability,
     ActorSnapshot,
@@ -582,6 +583,7 @@ __all__ = [
     "SmrLaunchPreflightBlocker",
     "SmrResolvedActorProfiles",
     "SmrResolvedProfile",
+    "ActorContainerRunBinding",
     "SmrOrchestratorSubtype",
     "SmrLimitQuantity",
     "SmrProjectEconomics",

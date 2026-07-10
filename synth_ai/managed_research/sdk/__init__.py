@@ -71,6 +71,7 @@ from synth_ai.managed_research.models.factories import (
     RecurrencePolicy,
 )
 from synth_ai.managed_research.models.factory_evidence import (
+    ActorContainerRunBinding,
     AppliedBudgetOwnerReceipt,
     AppliedExperimentRegistrationReceipt,
     AppliedSynthWikiReceipt,
@@ -757,6 +758,7 @@ __all__ = [
     "CheckpointCadenceSource",
     "CheckpointScope",
     "SmrControlClient",
+    "ActorContainerRunBinding",
     "AppliedBudgetOwnerReceipt",
     "AppliedExperimentRegistrationReceipt",
     "AppliedSynthWikiReceipt",
