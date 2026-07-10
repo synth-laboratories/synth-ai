@@ -1504,6 +1504,75 @@ class FactoryRuntimeStatus:
 
 
 @dataclass(frozen=True)
+class ExperimentBundle:
+    """Typed top-level contract for an owner-assembled experiment bundle."""
+
+    experiment_id: str
+    project_id: str
+    schema_version: str
+    run_ids: tuple[str, ...] = ()
+    experiment: dict[str, object] = field(default_factory=dict)
+    candidate: dict[str, object] = field(default_factory=dict)
+    executions: tuple[dict[str, object], ...] = ()
+    evaluations: tuple[dict[str, object], ...] = ()
+    trace_index: tuple[dict[str, object], ...] = ()
+    economics: dict[str, object] = field(default_factory=dict)
+    decisions: dict[str, object] = field(default_factory=dict)
+    provenance: dict[str, object] = field(default_factory=dict)
+    workspace_layout: dict[str, object] = field(default_factory=dict)
+    integrity: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def accepted_cycle(self) -> bool:
+        return self.integrity.get("accepted_cycle") is True
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ExperimentBundle:
+        mapping = _require_mapping(payload, label="experiment bundle")
+        return cls(
+            experiment_id=_require_string(mapping, "experiment_id", label="experiment bundle"),
+            project_id=_require_string(mapping, "project_id", label="experiment bundle"),
+            schema_version=_require_string(mapping, "schema_version", label="experiment bundle"),
+            run_ids=tuple(str(item) for item in list(mapping.get("run_ids") or [])),
+            experiment=_optional_object_dict(
+                mapping.get("experiment"), label="experiment bundle experiment"
+            ),
+            candidate=_optional_object_dict(
+                mapping.get("candidate"), label="experiment bundle candidate"
+            ),
+            executions=tuple(
+                _optional_object_dict(item, label="experiment bundle execution")
+                for item in list(mapping.get("executions") or [])
+            ),
+            evaluations=tuple(
+                _optional_object_dict(item, label="experiment bundle evaluation")
+                for item in list(mapping.get("evaluations") or [])
+            ),
+            trace_index=tuple(
+                _optional_object_dict(item, label="experiment bundle trace")
+                for item in list(mapping.get("trace_index") or [])
+            ),
+            economics=_optional_object_dict(
+                mapping.get("economics"), label="experiment bundle economics"
+            ),
+            decisions=_optional_object_dict(
+                mapping.get("decisions"), label="experiment bundle decisions"
+            ),
+            provenance=_optional_object_dict(
+                mapping.get("provenance"), label="experiment bundle provenance"
+            ),
+            workspace_layout=_optional_object_dict(
+                mapping.get("workspace_layout"), label="experiment bundle workspace_layout"
+            ),
+            integrity=_optional_object_dict(
+                mapping.get("integrity"), label="experiment bundle integrity"
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1525,6 +1594,7 @@ class FactoryStatus:
     factory_health: FactoryHealth | None = None
     proof_readiness: dict[str, object] = field(default_factory=dict)
     public_visuals: dict[str, object] = field(default_factory=dict)
+    experiment_observability: ExperimentBundle | None = None
     raw: dict[str, object] = field(default_factory=dict)
 
     @property
@@ -1606,6 +1676,12 @@ class FactoryStatus:
             public_visuals=_optional_object_dict(
                 mapping.get("public_visuals"),
                 label="factory status public_visuals",
+            ),
+            experiment_observability=(
+                ExperimentBundle.from_wire(mapping.get("experiment_observability"))
+                if isinstance(mapping.get("experiment_observability"), Mapping)
+                and mapping.get("experiment_observability", {}).get("experiment_id")
+                else None
             ),
             raw=dict(mapping),
         )
@@ -1806,6 +1882,7 @@ __all__ = [
     "EffortPatchRequest",
     "EffortStatus",
     "EffortType",
+    "ExperimentBundle",
     "BudgetPolicy",
     "CapPolicy",
     "AuthorizationPolicy",
