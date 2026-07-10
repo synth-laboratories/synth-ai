@@ -14,6 +14,7 @@ from synth_ai.managed_research.models.factories import (
     EffortPatchRequest,
     EffortStatus,
     EffortType,
+    ExperimentBundle,
     Factory,
     FactoryActorOutput,
     FactoryActorOutputCreateRequest,
@@ -287,6 +288,17 @@ class FactoriesAPI(_ClientNamespace):
 
     def status(self, factory_id: str) -> FactoryStatus:
         return FactoryStatus.from_wire(self._client.get_factory_status(factory_id))
+
+    def experiment_bundle(
+        self,
+        project_id: str,
+        experiment_id: str,
+    ) -> ExperimentBundle:
+        """Read the backend-owned experiment observability projection."""
+
+        return ExperimentBundle.from_wire(
+            self._client.get_experiment_bundle(project_id, experiment_id)
+        )
 
     def create_idea(
         self,

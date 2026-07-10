@@ -18,6 +18,12 @@ from synth_ai.managed_research.models.canonical_usage import (
     SmrRunUsage,
 )
 from synth_ai.managed_research.models.checkpoints import Checkpoint
+from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
+from synth_ai.managed_research.models.run_authority import (
+    ManagedResearchAuthorityTask,
+    ManagedResearchExecutionTurn,
+    ManagedResearchRunTask,
+)
 from synth_ai.managed_research.models.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
@@ -314,8 +320,8 @@ class RunHandle:
         *,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> List[TaskSummary]:
-        return self._client.list_task_summaries(
+    ) -> List[ManagedResearchRunTask]:
+        return self._client.list_tasks(
             self.project_id,
             run_id=self.run_id,
             kind=kind,
@@ -735,6 +741,16 @@ class RunHandle:
             include_runtime_authority=include_runtime_authority,
         )
 
+    def authority_tasks(self) -> tuple[ManagedResearchAuthorityTask, ...]:
+        """Read canonical tasks without the sublinear compatibility projection."""
+
+        return self.authority_readouts(include_runtime_authority=True).authority_tasks
+
+    def execution_turns(self) -> tuple[ManagedResearchExecutionTurn, ...]:
+        """Read canonical execution-turn identities from backend authority rows."""
+
+        return tuple(turn for task in self.authority_tasks() for turn in task.execution_turns)
+
     def operator_evidence(
         self,
         *,
@@ -742,8 +758,46 @@ class RunHandle:
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> SmrRunOperatorEvidence:
         return self._client.get_project_run_operator_evidence(
+            self.project_id,
+            self.run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
+        )
+
+    def operator_evidence_raw(
+        self,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Legacy serialized operator evidence for compatibility consumers."""
+
+        return self._client.get_project_run_operator_evidence_raw(
+            self.project_id,
+            self.run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
+        )
+
+    def operator_evidence_typed(
+        self,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Return typed operator evidence while preserving the legacy raw method."""
+
+        return self._client.get_project_run_operator_evidence_typed(
             self.project_id,
             self.run_id,
             runtime_timeline_limit=runtime_timeline_limit,
@@ -1993,6 +2047,32 @@ class RunsAPI(_ClientNamespace):
             include_runtime_authority=include_runtime_authority,
         )
 
+    def list_authority_tasks(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> tuple[ManagedResearchAuthorityTask, ...]:
+        """List canonical task authority rows for one project run."""
+
+        return self.get_authority_readouts(
+            run_id,
+            project_id=project_id,
+            include_runtime_authority=True,
+        ).authority_tasks
+
+    def list_execution_turns(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> tuple[ManagedResearchExecutionTurn, ...]:
+        """List typed execution turns without reconstructing turn IDs."""
+
+        return tuple(
+            turn
+            for task in self.list_authority_tasks(project_id, run_id)
+            for turn in task.execution_turns
+        )
+
     def get_operator_evidence(
         self,
         project_id: str,
@@ -2002,8 +2082,50 @@ class RunsAPI(_ClientNamespace):
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> SmrRunOperatorEvidence:
         return self._client.get_project_run_operator_evidence(
+            project_id,
+            run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
+        )
+
+    def get_operator_evidence_raw(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Legacy serialized operator evidence for compatibility consumers."""
+
+        return self._client.get_project_run_operator_evidence_raw(
+            project_id,
+            run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
+        )
+
+    def get_operator_evidence_typed(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Return typed operator evidence while retaining the raw compatibility API."""
+
+        return self._client.get_project_run_operator_evidence_typed(
             project_id,
             run_id,
             runtime_timeline_limit=runtime_timeline_limit,
@@ -2254,7 +2376,7 @@ class RunsAPI(_ClientNamespace):
         objective_id: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> List[dict[str, Any]]:
+    ) -> List[ManagedResearchRunTask]:
         return self._client.list_tasks(
             project_id,
             run_id=run_id,
