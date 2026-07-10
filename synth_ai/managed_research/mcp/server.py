@@ -1233,6 +1233,7 @@ class ManagedResearchMcpServer:
                     topology_version=optional_string(args, "topology_version"),
                     host_kind=optional_string(args, "host_kind") or "exe_dev",
                     metadata=_object_arg(args, "metadata"),
+                    source=_object_arg(args, "source"),
                 )
             )
 

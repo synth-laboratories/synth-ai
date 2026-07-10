@@ -312,6 +312,8 @@ from synth_ai.managed_research.sdk import (
     OPENAI_TRANSPORT_MODE_BACKEND_BFF,
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
     ApprovalsAPI,
+    CloudDeploymentProjectGitSource,
+    CloudDeploymentsAPI,
     CredentialsAPI,
     DatasetsAPI,
     EffortsAPI,
@@ -748,6 +750,7 @@ __all__ = [
     "SmrControlClient",
     "SmrResolvedActorProfiles",
     "SmrResolvedProfile",
+    "CloudDeploymentProjectGitSource",
     "__version__",
 ]
 

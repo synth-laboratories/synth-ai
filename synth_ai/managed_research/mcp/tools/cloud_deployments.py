@@ -80,6 +80,42 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional caller metadata for lifecycle receipts.",
                     },
+                    "source": {
+                        "type": "object",
+                        "description": (
+                            "Optional immutable project-git source binding. Remote URLs "
+                            "and credentials are not accepted."
+                        ),
+                        "properties": {
+                            "kind": {
+                                "type": "string",
+                                "const": "project_git",
+                                "description": "Project-git source authority.",
+                            },
+                            "source_commit_sha": {
+                                "type": "string",
+                                "pattern": "^[0-9a-fA-F]{40}$",
+                                "description": "Full source commit SHA.",
+                            },
+                            "evidence_commit_sha": {
+                                "type": "string",
+                                "pattern": "^[0-9a-fA-F]{40}$",
+                                "description": "Full evidence commit SHA.",
+                            },
+                            "instance_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "description": "Reflexion instance identity.",
+                            },
+                        },
+                        "required": [
+                            "kind",
+                            "source_commit_sha",
+                            "evidence_commit_sha",
+                            "instance_id",
+                        ],
+                        "additionalProperties": False,
+                    },
                 },
                 required=["project_id", "name", "topology_id"],
             ),
