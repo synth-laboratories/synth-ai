@@ -1606,6 +1606,13 @@ class FactoryStatus:
     @classmethod
     def from_wire(cls, payload: object) -> FactoryStatus:
         mapping = _require_mapping(payload, label="factory status")
+        experiment_payload = mapping.get("experiment_observability")
+        experiment_observability = (
+            ExperimentBundle.from_wire(experiment_payload)
+            if isinstance(experiment_payload, Mapping)
+            and bool(experiment_payload.get("experiment_id"))
+            else None
+        )
         efforts_by_status_raw = mapping.get("efforts_by_status")
         if efforts_by_status_raw is not None and not isinstance(efforts_by_status_raw, Mapping):
             raise ValueError("factory status efforts_by_status must be an object")
@@ -1677,12 +1684,7 @@ class FactoryStatus:
                 mapping.get("public_visuals"),
                 label="factory status public_visuals",
             ),
-            experiment_observability=(
-                ExperimentBundle.from_wire(mapping.get("experiment_observability"))
-                if isinstance(mapping.get("experiment_observability"), Mapping)
-                and mapping.get("experiment_observability", {}).get("experiment_id")
-                else None
-            ),
+            experiment_observability=experiment_observability,
             raw=dict(mapping),
         )
 
