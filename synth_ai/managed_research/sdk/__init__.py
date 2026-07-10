@@ -323,7 +323,10 @@ from synth_ai.managed_research.sdk.client import (
     SmrControlClient,
     first_id,
 )
-from synth_ai.managed_research.sdk.cloud_deployments import CloudDeploymentsAPI
+from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeploymentProjectGitSource,
+    CloudDeploymentsAPI,
+)
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
@@ -357,6 +360,7 @@ __all__ = [
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
+    "CloudDeploymentProjectGitSource",
     "Environment",
     "EnvironmentPreflight",
     "EnvironmentsAPI",
