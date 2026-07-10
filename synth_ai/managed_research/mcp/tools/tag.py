@@ -40,6 +40,22 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
                         "type": "string",
                         "description": "Optional Tag scope id. Defaults to the org scope.",
                     },
+                    "factory_id": {
+                        "type": "string",
+                        "description": "Owning Factory id (required by backend).",
+                    },
+                    "effort_id": {
+                        "type": "string",
+                        "description": "Owning canonical-project Effort id.",
+                    },
+                    "experiment_id": {
+                        "type": "string",
+                        "description": "Optional owner experiment binding.",
+                    },
+                    "candidate_id": {
+                        "type": "string",
+                        "description": "Optional candidate within experiment_id.",
+                    },
                     "timebox_seconds": {
                         "type": "integer",
                         "description": "Optional run timebox in seconds.",
@@ -52,12 +68,32 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
                     "api_key": {"type": "string"},
                     "backend_base": {"type": "string"},
                 },
-                required=["request"],
+                required=["request", "factory_id", "effort_id"],
             ),
             handler=lambda args: _client(server, args).tag.create_session(
                 _tool_body(args, exclude=set())
             ),
             required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="tag_list_sessions",
+            description="List org-owned Factory Tag sessions with optional owner filters.",
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string"},
+                    "effort_id": {"type": "string"},
+                    "limit": {"type": "integer", "default": 50},
+                    "api_key": {"type": "string"},
+                    "backend_base": {"type": "string"},
+                },
+                required=[],
+            ),
+            handler=lambda args: _client(server, args).tag.list_sessions(
+                factory_id=args.get("factory_id"),
+                effort_id=args.get("effort_id"),
+                limit=int(args.get("limit") or 50),
+            ),
+            required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
             name="tag_get_session",
@@ -74,12 +110,31 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="tag_watch_session",
+            description="Reconnect to a Tag session and read its ordered message ledger.",
+            input_schema=tool_schema(
+                {
+                    "session_id": {"type": "string"},
+                    "api_key": {"type": "string"},
+                    "backend_base": {"type": "string"},
+                },
+                required=["session_id"],
+            ),
+            handler=lambda args: _client(server, args).tag.watch_session(str(args["session_id"])),
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="tag_send_message",
-            description="Steer an active Synth Tag session without creating a new run.",
+            description="Steer the active run or persist direction for the next cycle.",
             input_schema=tool_schema(
                 {
                     "session_id": {"type": "string", "description": "Tag session id."},
                     "message": {"type": "string", "description": "Steering message."},
+                    "steering_target": {
+                        "type": "string",
+                        "enum": ["active_run", "next_cycle"],
+                        "default": "active_run",
+                    },
                     "metadata": {"type": "object", "description": "Optional metadata."},
                     "idempotency_key": {
                         "type": "string",
@@ -93,6 +148,26 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
             handler=lambda args: _client(server, args).tag.send_message(
                 str(args["session_id"]),
                 _tool_body(args, exclude={"session_id"}),
+            ),
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="tag_control_session",
+            description="Pause, stop, archive, or reconnect a Factory Tag session.",
+            input_schema=tool_schema(
+                {
+                    "session_id": {"type": "string"},
+                    "action": {
+                        "type": "string",
+                        "enum": ["pause", "stop", "archive", "reconnect"],
+                    },
+                    "api_key": {"type": "string"},
+                    "backend_base": {"type": "string"},
+                },
+                required=["session_id", "action"],
+            ),
+            handler=lambda args: _client(server, args).tag.control_session(
+                str(args["session_id"]), str(args["action"])
             ),
             required_scopes=WRITE_SCOPES,
         ),

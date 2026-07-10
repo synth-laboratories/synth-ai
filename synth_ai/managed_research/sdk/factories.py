@@ -14,6 +14,9 @@ from synth_ai.managed_research.models.factories import (
     EffortPatchRequest,
     EffortStatus,
     EffortType,
+    ExperimentBundle,
+    ExperimentComparison,
+    ExperimentHistory,
     Factory,
     FactoryActorOutput,
     FactoryActorOutputCreateRequest,
@@ -287,6 +290,36 @@ class FactoriesAPI(_ClientNamespace):
 
     def status(self, factory_id: str) -> FactoryStatus:
         return FactoryStatus.from_wire(self._client.get_factory_status(factory_id))
+
+    def experiment_bundle(
+        self,
+        project_id: str,
+        experiment_id: str,
+    ) -> ExperimentBundle:
+        """Read the backend-owned experiment observability projection."""
+
+        return ExperimentBundle.from_wire(
+            self._client.get_experiment_bundle(project_id, experiment_id)
+        )
+
+    def experiment_history(
+        self,
+        project_id: str,
+        *,
+        limit: int = 50,
+    ) -> ExperimentHistory:
+        return ExperimentHistory.from_wire(
+            self._client.get_experiment_history(project_id, limit=limit)
+        )
+
+    def compare_experiments(
+        self,
+        project_id: str,
+        experiment_ids: tuple[str, ...] | List[str],
+    ) -> ExperimentComparison:
+        return ExperimentComparison.from_wire(
+            self._client.compare_experiments(project_id, experiment_ids)
+        )
 
     def create_idea(
         self,
