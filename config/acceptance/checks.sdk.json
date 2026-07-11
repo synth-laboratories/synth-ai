@@ -1,0 +1,20 @@
+{
+  "_doc": "SDK acceptance checks owned by synth-ai (moved from synth-dev).",
+  "source": "synth-dev/config/acceptance/checks.json",
+  "checks": [
+    {
+      "check_id": "AT-SDK-PYPI",
+      "tier": "P0",
+      "kind": "smoke",
+      "surface": "sdk",
+      "stages": [
+        "staging",
+        "prod"
+      ],
+      "ttl_hours": 168,
+      "type": "pypi_version",
+      "package": "synth-ai",
+      "expect": "0.13.0"
+    }
+  ]
+}
