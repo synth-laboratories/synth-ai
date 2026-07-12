@@ -9,7 +9,10 @@ from synth_ai.managed_research.models.tag import (
     TagMessageRequest,
     TagScope,
     TagSession,
+    TagSessionControlAction,
     TagSessionCreateRequest,
+    TagSessionWatch,
+    TagSteeringTarget,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -21,6 +24,10 @@ class TagAPI(_ClientNamespace):
         *,
         definition_of_done: str | None = None,
         scope_id: str | None = None,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        experiment_id: str | None = None,
+        candidate_id: str | None = None,
         timebox_seconds: int | None = None,
         runbook_preset: str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -28,10 +35,16 @@ class TagAPI(_ClientNamespace):
         if isinstance(request, TagSessionCreateRequest):
             payload = request.to_wire()
         elif isinstance(request, str):
+            if not factory_id or not effort_id:
+                raise ValueError("factory_id and effort_id are required for a Tag session")
             payload = TagSessionCreateRequest(
                 request=request,
+                factory_id=factory_id,
+                effort_id=effort_id,
                 definition_of_done=definition_of_done,
                 scope_id=scope_id,
+                experiment_id=experiment_id,
+                candidate_id=candidate_id,
                 timebox_seconds=timebox_seconds,
                 runbook_preset=runbook_preset,
                 metadata=dict(metadata or {}),
@@ -45,6 +58,37 @@ class TagAPI(_ClientNamespace):
     def get_session(self, session_id: str) -> TagSession:
         return TagSession.from_wire(self._client.get_tag_session(session_id))
 
+    def list_sessions(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> tuple[TagSession, ...]:
+        return tuple(
+            TagSession.from_wire(item)
+            for item in self._client.list_tag_sessions(
+                factory_id=factory_id,
+                effort_id=effort_id,
+                limit=limit,
+            )
+        )
+
+    def watch_session(self, session_id: str) -> TagSessionWatch:
+        return TagSessionWatch.from_wire(self._client.watch_tag_session(session_id))
+
+    def control_session(
+        self,
+        session_id: str,
+        action: TagSessionControlAction | str,
+    ) -> TagSession:
+        return TagSession.from_wire(
+            self._client.control_tag_session(
+                session_id,
+                action=str(getattr(action, "value", action)),
+            )
+        )
+
     def send_message(
         self,
         session_id: str,
@@ -52,12 +96,14 @@ class TagAPI(_ClientNamespace):
         *,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        steering_target: TagSteeringTarget | str = TagSteeringTarget.ACTIVE_RUN,
     ) -> TagSession:
         if isinstance(message, TagMessageRequest):
             payload = message.to_wire()
         elif isinstance(message, str):
             payload = TagMessageRequest(
                 message=message,
+                steering_target=steering_target,
                 metadata=dict(metadata or {}),
                 idempotency_key=idempotency_key,
             ).to_wire()

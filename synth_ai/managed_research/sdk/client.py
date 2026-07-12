@@ -6,6 +6,7 @@ import base64
 import json as _json
 import mimetypes
 import os
+import re
 import time
 import warnings
 from collections.abc import Iterable, Mapping
@@ -154,7 +155,10 @@ from synth_ai.managed_research.models.types import (
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
-from synth_ai.managed_research.sdk.cloud_deployments import CloudDeploymentsAPI
+from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeploymentProjectGitSource,
+    CloudDeploymentsAPI,
+)
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -203,6 +207,7 @@ from synth_ai.managed_research.transport.http import SmrHttpTransport, _raise_fo
 from synth_ai.managed_research.transport.pagination import build_query_params
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
+_FULL_GIT_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = [
     "ACTIVE_RUN_STATES",
@@ -253,6 +258,53 @@ def _optional_mapping(
     if not isinstance(payload, Mapping):
         raise ValueError(f"{field_name} must be a mapping when provided")
     return dict(payload)
+
+
+def _optional_cloud_deployment_source(
+    payload: CloudDeploymentProjectGitSource | Mapping[str, Any] | None,
+) -> dict[str, str] | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, Mapping):
+        raise ValueError("source must be a mapping when provided")
+    required_fields = {
+        "kind",
+        "source_commit_sha",
+        "evidence_commit_sha",
+        "instance_id",
+    }
+    provided_fields = set(payload)
+    if provided_fields != required_fields:
+        missing_fields = sorted(required_fields - provided_fields)
+        unexpected_fields = sorted(provided_fields - required_fields)
+        details: list[str] = []
+        if missing_fields:
+            details.append(f"missing {', '.join(missing_fields)}")
+        if unexpected_fields:
+            details.append(f"unexpected {', '.join(unexpected_fields)}")
+        raise ValueError(
+            "source fields must exactly match the project_git contract (" + "; ".join(details) + ")"
+        )
+    kind = _require_non_empty_string(
+        payload.get("kind"),
+        field_name="source.kind",
+    )
+    if kind != "project_git":
+        raise ValueError("source.kind must be project_git")
+    normalized = {"kind": kind}
+    for field_name in ("source_commit_sha", "evidence_commit_sha"):
+        commit_sha = _require_non_empty_string(
+            payload.get(field_name),
+            field_name=f"source.{field_name}",
+        ).lower()
+        if not _FULL_GIT_COMMIT_SHA.fullmatch(commit_sha):
+            raise ValueError(f"source.{field_name} must be a full 40-character Git commit SHA")
+        normalized[field_name] = commit_sha
+    normalized["instance_id"] = _require_non_empty_string(
+        payload.get("instance_id"),
+        field_name="source.instance_id",
+    )
+    return normalized
 
 
 def _coerce_branch_request(
@@ -563,6 +615,7 @@ def _build_project_run_payload(
     primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
     effort_id: str | None = None,
+    run_kind: str = "research",
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
@@ -852,6 +905,10 @@ def _build_project_run_payload(
         payload["primary_parent"] = normalized_primary_parent
     if effort_id and effort_id.strip():
         payload["effort_id"] = effort_id.strip()
+    normalized_run_kind = str(run_kind or "research").strip().lower()
+    if normalized_run_kind not in {"research", "maintenance"}:
+        raise ValueError("run_kind must be 'research' or 'maintenance'")
+    payload["run_kind"] = normalized_run_kind
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
     if idempotency_key and idempotency_key.strip():
@@ -1305,6 +1362,45 @@ class ManagedResearchClient:
             label="get_tag_session",
         )
 
+    def list_tag_sessions(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/api/tag/v1/sessions",
+                params=build_query_params(
+                    factory_id=factory_id,
+                    effort_id=effort_id,
+                    limit=limit,
+                ),
+            ),
+            label="list_tag_sessions",
+        )
+
+    def watch_tag_session(self, session_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/watch",
+            ),
+            label="watch_tag_session",
+        )
+
+    def control_tag_session(self, session_id: str, *, action: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/control",
+                json_body={"action": _require_non_empty_string(action, field_name="action")},
+            ),
+            label="control_tag_session",
+        )
+
     def send_tag_message(
         self,
         session_id: str,
@@ -1722,6 +1818,20 @@ class ManagedResearchClient:
             label="get_experiment_history",
         )
 
+    def compare_experiments(
+        self,
+        project_id: str,
+        experiment_ids: Iterable[str],
+    ) -> dict[str, Any]:
+        normalized_ids = [str(item).strip() for item in experiment_ids if str(item).strip()]
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/compare",
+                params={"experiment_ids": normalized_ids},
+            ),
+            label="compare_experiments",
+        )
     def create_factory_idea(
         self,
         factory_id: str,
@@ -3656,28 +3766,33 @@ class ManagedResearchClient:
         topology_version: str | None = None,
         host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
+        source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        request_body: dict[str, Any] = {
+            "project_id": _require_non_empty_string(
+                project_id,
+                field_name="project_id",
+            ),
+            "name": _require_non_empty_string(name, field_name="name"),
+            "topology_id": _require_non_empty_string(
+                topology_id,
+                field_name="topology_id",
+            ),
+            "topology_version": _optional_non_empty_string(topology_version),
+            "host_kind": _require_non_empty_string(
+                host_kind,
+                field_name="host_kind",
+            ),
+            "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+        }
+        normalized_source = _optional_cloud_deployment_source(source)
+        if normalized_source is not None:
+            request_body["source"] = normalized_source
         return _coerce_dict(
             self._request_json(
                 "POST",
                 "/smr/v1/deployments",
-                json_body={
-                    "project_id": _require_non_empty_string(
-                        project_id,
-                        field_name="project_id",
-                    ),
-                    "name": _require_non_empty_string(name, field_name="name"),
-                    "topology_id": _require_non_empty_string(
-                        topology_id,
-                        field_name="topology_id",
-                    ),
-                    "topology_version": _optional_non_empty_string(topology_version),
-                    "host_kind": _require_non_empty_string(
-                        host_kind,
-                        field_name="host_kind",
-                    ),
-                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
-                },
+                json_body=request_body,
             ),
             label="create_cloud_deployment",
         )
@@ -4595,6 +4710,7 @@ class ManagedResearchClient:
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
         effort_id: str | None = None,
+        run_kind: str = "research",
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -4639,6 +4755,7 @@ class ManagedResearchClient:
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
             effort_id=effort_id,
+            run_kind=run_kind,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )

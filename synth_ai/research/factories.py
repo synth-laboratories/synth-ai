@@ -9,7 +9,10 @@ from synth_ai.managed_research.models.tag import (
     TagMessageRequest,
     TagScope,
     TagSession,
+    TagSessionControlAction,
     TagSessionCreateRequest,
+    TagSessionWatch,
+    TagSteeringTarget,
 )
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
@@ -27,6 +30,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
         *,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        steering_target: TagSteeringTarget | str = TagSteeringTarget.ACTIVE_RUN,
     ) -> TagSession:
         """Post a message to a Tag session and return the updated session state.
 
@@ -44,6 +48,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
             message,
             metadata=metadata,
             idempotency_key=idempotency_key,
+            steering_target=steering_target,
         )
 
 
@@ -67,6 +72,10 @@ class ResearchFactoriesTagSessionsAPI:
         *,
         definition_of_done: str | None = None,
         scope_id: str | None = None,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        experiment_id: str | None = None,
+        candidate_id: str | None = None,
         timebox_seconds: int | None = None,
         runbook_preset: str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -86,7 +95,11 @@ class ResearchFactoriesTagSessionsAPI:
             Created ``TagSession`` with ids needed for ``messages.send``.
 
         Example:
-            session = research.factories.tag.sessions.create("Summarize test failures")
+            session = research.factories.tag.sessions.create(
+                "Summarize test failures",
+                factory_id=factory_id,
+                effort_id=effort_id,
+            )
             research.factories.tag.sessions.messages.send(
                 session.session_id,
                 "Return a bullet list of root causes.",
@@ -96,6 +109,10 @@ class ResearchFactoriesTagSessionsAPI:
             request,
             definition_of_done=definition_of_done,
             scope_id=scope_id,
+            factory_id=factory_id,
+            effort_id=effort_id,
+            experiment_id=experiment_id,
+            candidate_id=candidate_id,
             timebox_seconds=timebox_seconds,
             runbook_preset=runbook_preset,
             metadata=metadata,
@@ -104,6 +121,29 @@ class ResearchFactoriesTagSessionsAPI:
     def get(self, session_id: str) -> TagSession:
         """Fetch the current Tag session state and terminal receipt fields."""
         return self._session.tag.get_session(session_id)
+
+    def list(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> tuple[TagSession, ...]:
+        return self._session.tag.list_sessions(
+            factory_id=factory_id,
+            effort_id=effort_id,
+            limit=limit,
+        )
+
+    def watch(self, session_id: str) -> TagSessionWatch:
+        return self._session.tag.watch_session(session_id)
+
+    def control(
+        self,
+        session_id: str,
+        action: TagSessionControlAction | str,
+    ) -> TagSession:
+        return self._session.tag.control_session(session_id, action)
 
 
 class ResearchFactoriesTagScopesAPI:
