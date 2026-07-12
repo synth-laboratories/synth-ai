@@ -1707,6 +1707,21 @@ class ManagedResearchClient:
             label="get_experiment_bundle",
         )
 
+    def get_experiment_history(
+        self,
+        project_id: str,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiment-bundles",
+                params=build_query_params(limit=limit),
+            ),
+            label="get_experiment_history",
+        )
+
     def create_factory_idea(
         self,
         factory_id: str,
