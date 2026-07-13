@@ -2085,17 +2085,11 @@ class FactoryCandidate:
         created_at = _optional_datetime(mapping, "created_at")
         updated_at = _optional_datetime(mapping, "updated_at")
         if published_at is None or created_at is None or updated_at is None:
-            raise ValueError(
-                "factory candidate requires published_at, created_at, and updated_at"
-            )
+            raise ValueError("factory candidate requires published_at, created_at, and updated_at")
         return cls(
-            candidate_id=_require_string(
-                mapping, "candidate_id", label="candidate.candidate_id"
-            ),
+            candidate_id=_require_string(mapping, "candidate_id", label="candidate.candidate_id"),
             org_id=_require_string(mapping, "org_id", label="candidate.org_id"),
-            factory_id=_require_string(
-                mapping, "factory_id", label="candidate.factory_id"
-            ),
+            factory_id=_require_string(mapping, "factory_id", label="candidate.factory_id"),
             project_id=_optional_string(mapping, "project_id"),
             effort_id=_optional_string(mapping, "effort_id"),
             run_id=_optional_string(mapping, "run_id"),
@@ -2103,13 +2097,9 @@ class FactoryCandidate:
             candidate_key=_require_string(
                 mapping, "candidate_key", label="candidate.candidate_key"
             ),
-            git_remote=_require_string(
-                mapping, "git_remote", label="candidate.git_remote"
-            ),
+            git_remote=_require_string(mapping, "git_remote", label="candidate.git_remote"),
             git_sha=_require_string(mapping, "git_sha", label="candidate.git_sha"),
-            entrypoint=_require_string(
-                mapping, "entrypoint", label="candidate.entrypoint"
-            ),
+            entrypoint=_require_string(mapping, "entrypoint", label="candidate.entrypoint"),
             execution_contract_version=_require_string(
                 mapping,
                 "execution_contract_version",
@@ -2121,13 +2111,9 @@ class FactoryCandidate:
             ),
             artifact_ids=tuple(mapping.get("artifact_ids") or ()),
             grading_status=FactoryCandidateGradingStatus(
-                _require_string(
-                    mapping, "grading_status", label="candidate.grading_status"
-                )
+                _require_string(mapping, "grading_status", label="candidate.grading_status")
             ),
-            grading=_optional_object_dict(
-                mapping.get("grading"), label="candidate.grading"
-            ),
+            grading=_optional_object_dict(mapping.get("grading"), label="candidate.grading"),
             held_out_score=_optional_float(mapping, "held_out_score"),
             baseline_score=_optional_float(mapping, "baseline_score"),
             graded_at=_optional_datetime(mapping, "graded_at"),
@@ -2175,9 +2161,7 @@ class FactoryChampionEvent:
             held_out_score=_optional_float(mapping, "held_out_score"),
             baseline_score=_optional_float(mapping, "baseline_score"),
             reason=_optional_string(mapping, "reason"),
-            payload=_optional_object_dict(
-                mapping.get("payload"), label="event.payload"
-            ),
+            payload=_optional_object_dict(mapping.get("payload"), label="event.payload"),
             created_at=created_at,
             raw=dict(mapping),
         )
@@ -2341,9 +2325,7 @@ FACTORY_RUN_KIND_VALUES = tuple(item.value for item in FactoryRunKind)
 FACTORY_CANDIDATE_GRADING_STATUS_VALUES = tuple(
     item.value for item in FactoryCandidateGradingStatus
 )
-FACTORY_CHAMPION_EVENT_ACTION_VALUES = tuple(
-    item.value for item in FactoryChampionEventAction
-)
+FACTORY_CHAMPION_EVENT_ACTION_VALUES = tuple(item.value for item in FactoryChampionEventAction)
 
 
 __all__ = [
