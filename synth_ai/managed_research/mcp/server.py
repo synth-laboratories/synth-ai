@@ -130,11 +130,32 @@ def _optional_object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
+    value = args.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be an object when provided")
+    return dict(value)
+
+
 def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
     value = args.get(key)
     if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
+
+
+def _mcp_jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, list):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    return value
 
 
 class RpcError(Exception):
