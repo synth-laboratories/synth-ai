@@ -1733,9 +1733,9 @@ class ManagedResearchClient:
         self,
         factory_id: str,
         candidate_id: str,
-        request: FactoryCandidateGradingRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json(
@@ -1763,9 +1763,9 @@ class ManagedResearchClient:
     def rollback_factory_champion(
         self,
         factory_id: str,
-        request: FactoryChampionRollbackRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json(
