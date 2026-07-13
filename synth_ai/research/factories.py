@@ -39,6 +39,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
             message: ``TagMessageRequest``, mapping, or plain string body.
             metadata: Optional message metadata.
             idempotency_key: Optional idempotency key for safe retries.
+            steering_target: Select the active run or orchestrator steering lane.
 
         Returns:
             Updated ``TagSession`` after the message is accepted.
@@ -87,6 +88,10 @@ class ResearchFactoriesTagSessionsAPI:
                 string shown to the Tag worker.
             definition_of_done: Optional explicit DoD text.
             scope_id: Optional Tag scope override (defaults via ``scopes``).
+            factory_id: Optional Factory identity for program-bound delegation.
+            effort_id: Optional Effort identity for program-bound delegation.
+            experiment_id: Optional experiment identity attached to the session.
+            candidate_id: Optional candidate identity attached to the session.
             timebox_seconds: Optional wall-clock cap for the session.
             runbook_preset: Optional runbook preset slug.
             metadata: Optional session metadata.
@@ -129,6 +134,16 @@ class ResearchFactoriesTagSessionsAPI:
         effort_id: str | None = None,
         limit: int = 50,
     ) -> tuple[TagSession, ...]:
+        """List Tag sessions, optionally scoped to a Factory or Effort.
+
+        Args:
+            factory_id: Return only sessions attached to this Factory.
+            effort_id: Return only sessions attached to this Effort.
+            limit: Maximum number of sessions to return.
+
+        Returns:
+            Matching sessions in backend-defined order.
+        """
         return self._session.tag.list_sessions(
             factory_id=factory_id,
             effort_id=effort_id,
@@ -136,6 +151,14 @@ class ResearchFactoriesTagSessionsAPI:
         )
 
     def watch(self, session_id: str) -> TagSessionWatch:
+        """Read the typed watch projection for a Tag session.
+
+        Args:
+            session_id: Tag session identity from ``sessions.create`` or ``list``.
+
+        Returns:
+            Current session, active-run, steering, and terminal-receipt projection.
+        """
         return self._session.tag.watch_session(session_id)
 
     def control(
@@ -143,6 +166,15 @@ class ResearchFactoriesTagSessionsAPI:
         session_id: str,
         action: TagSessionControlAction | str,
     ) -> TagSession:
+        """Apply a supported lifecycle control action to a Tag session.
+
+        Args:
+            session_id: Tag session identity to control.
+            action: Typed or string control action accepted by the backend.
+
+        Returns:
+            Updated ``TagSession`` after the action is accepted.
+        """
         return self._session.tag.control_session(session_id, action)
 
 
