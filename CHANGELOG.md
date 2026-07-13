@@ -2,6 +2,24 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## 0.15.0 — 2026-07-13
+
+### Added
+
+- **Research Factory evidence** — typed Factory status now exposes proof readiness, accepted actor outputs, and experiment observability. `FactoriesAPI` adds experiment bundle/history/compare reads, while Tag and CLI projections carry experiment, candidate, and tag evidence.
+- **Factory maintenance runs** — `EffortsAPI.launch_maintenance(...)`, `FactoryRunKind.MAINTENANCE`, `FactoryMaintenanceAction`, and the `FactoryActorRole.ORCHESTRATOR` role support typed maintenance cycles without crossing backend authority boundaries.
+- **Project-bound Cloud Deployments** — `client.cloud_deployments` exposes exe.dev-backed deployments tied to project Git:
+  - Raw methods: `create_cloud_deployment`, `list_cloud_deployments`, `get_cloud_deployment`, `observe_cloud_deployment`, `deploy_cloud_deployment`, `retire_cloud_deployment` over `/smr/v1/deployments`.
+  - Convenience: `service_url()`, `wait_until_running()` (`failed` is retryable via `deploy`; `retired` is terminal).
+  - Safety: `retire(delete_vm=True)` requires `confirm_vm_name`.
+  - MCP tools: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
+  - OpenAPI vendoring: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
+- **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
+
+### Notes
+
+- Pairs with backend Factory and CloudDeployment routes on the same release train; publish only after the backend routes are deployed for the target audience.
+
 ## 0.14.2 — 2026-07-10
 
 ### Added
@@ -17,6 +35,21 @@ All notable changes to the `synth-ai` package are documented here.
   longer published; application logs use the backend-owned VictoriaLogs path.
 - Existing model values, including `gpt-5.4` and internal compatibility values, remain
   importable so the daily release does not break existing typed callers.
+
+## 0.14.0 — 2026-06-27
+
+### Added
+
+- **`SynthClient().research.efforts`** — run→Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
+  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
+  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
+- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
+- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
+- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
+
+### Notes
+
+- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
 
 ## 0.13.1 — 2026-07-09
 

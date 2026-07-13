@@ -21939,13 +21939,13 @@ paths:
       tags:
       - tag
       summary: Create Session
-      operationId: create_session_api_tag_v1_sessions_post
+      operationId: create_tag_session
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/TagSessionCreateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -21959,12 +21959,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - tag
+      summary: List Sessions
+      operationId: list_tag_sessions
+      parameters:
+      - name: factory_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagSessionResponse'
+                title: Response List Tag Sessions
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}:
     get:
       tags:
       - tag
       summary: Get Session
-      operationId: get_session_api_tag_v1_sessions__session_id__get
+      operationId: retrieve_tag_session
       parameters:
       - name: session_id
         in: path
@@ -21990,7 +22037,7 @@ paths:
       tags:
       - tag
       summary: Send Message
-      operationId: send_message_api_tag_v1_sessions__session_id__messages_post
+      operationId: send_tag_message
       parameters:
       - name: session_id
         in: path
@@ -26527,6 +26574,339 @@ paths:
           content:
             application/json:
               schema: {}
+  /api/tag/v1/sessions/{session_id}/control:
+    post:
+      tags:
+      - tag
+      summary: Control Session
+      operationId: control_tag_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSessionControlRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/watch:
+    get:
+      tags:
+      - tag
+      summary: Watch Session
+      operationId: watch_tag_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionWatchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/champion-rollback:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Rollback Champion
+      operationId: rollback_champion_api_v1_managed_research_efforts_champion_rollback_post
+      parameters:
+      - name: factory_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: actor_output_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Actor Output Id
+      - name: reason
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Reason
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Rollback Champion Api V1 Managed Research Efforts
+                  Champion Rollback Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/from-runs:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Create Effort From Runs
+      operationId: create_effort_from_runs_api_v1_managed_research_efforts_from_runs_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrEffortFromRunsRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrEffortResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/proposals:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Graduation Proposals
+      operationId: list_graduation_proposals_api_v1_managed_research_efforts_proposals_get
+      parameters:
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrGraduationProposalResponse'
+                title: Response List Graduation Proposals Api V1 Managed Research
+                  Efforts Proposals Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/{effort_id}/runs:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Runs For Effort
+      operationId: list_runs_for_effort_api_v1_managed_research_efforts__effort_id__runs_get
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryRunSummaryResponse'
+                title: Response List Runs For Effort Api V1 Managed Research Efforts  Effort
+                  Id  Runs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiment-bundles:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: List Project Experiment Bundles
+      description: Return experiment history and explicit missing-evidence alerts.
+      operationId: list_project_experiment_bundles_smr_projects__project_id__experiment_bundles_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentHistoryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiments/compare:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: Compare Project Experiments
+      description: Compare accepted experiments only across matching evidence dimensions.
+      operationId: compare_project_experiments_smr_projects__project_id__experiments_compare_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: experiment_ids
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 20
+          title: Experiment Ids
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentComparisonResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiments/{experiment_id}/bundle:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: Get Project Experiment Bundle
+      description: Return the owner-assembled experiment, evidence, and integrity
+        view.
+      operationId: get_project_experiment_bundle_smr_projects__project_id__experiments__experiment_id__bundle_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Experiment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentBundleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiments/{experiment_id}/inspect:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: Inspect Project Experiment
+      description: Return the canonical bundle with its human-oriented inspection
+        projection.
+      operationId: inspect_project_experiment_smr_projects__project_id__experiments__experiment_id__inspect_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Experiment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentBundleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     AccessControlResponse:
@@ -27335,6 +27715,10 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentProjectGitSourceRequest'
+          - type: 'null'
       type: object
       required:
       - project_id
@@ -35963,7 +36347,6 @@ components:
           type: string
           enum:
           - research
-          - maintenance
           - eval_factory
           - optimizer
           - open_research
@@ -36063,7 +36446,6 @@ components:
           - type: string
             enum:
             - research
-            - maintenance
             - eval_factory
             - optimizer
             - open_research
@@ -36176,7 +36558,6 @@ components:
           type: string
           enum:
           - research
-          - maintenance
           - eval_factory
           - optimizer
           - open_research
@@ -36898,16 +37279,22 @@ components:
       additionalProperties: false
       type: object
       title: SmrFactoryActorOutputAcceptRequest
-      description: "Operator acceptance of a Factory actor output through owner routes.\n\
-        \nAll fields are optional overrides merged onto the stored row before the\n\
-        typed contract re-validates. For typed kinds (seraph_brief,\ngardener_digest)\
-        \ the contract-derived status stays authoritative \u2014\nacceptance never\
-        \ upgrades a pause verdict."
+      description: 'Operator acceptance of a Factory actor output through owner routes.
+
+
+        All fields are optional overrides merged onto the stored row before the
+
+        typed contract re-validates. For typed kinds (seraph_brief,
+
+        gardener_digest) the contract-derived status stays authoritative;
+
+        acceptance never upgrades a pause verdict.'
     SmrFactoryActorOutputCreateRequest:
       properties:
         actor_role:
           type: string
           enum:
+          - orchestrator
           - seraph
           - gardener
           - architect
@@ -36925,6 +37312,7 @@ components:
           - finding_report
           - decision_brief
           - success_measurement_card
+          - graduation_proposal
           title: Kind
         title:
           type: string
@@ -36993,6 +37381,7 @@ components:
           anyOf:
           - type: string
             enum:
+            - orchestrator
             - seraph
             - gardener
             - architect
@@ -37012,6 +37401,7 @@ components:
             - finding_report
             - decision_brief
             - success_measurement_card
+            - graduation_proposal
           - type: 'null'
           title: Kind
         title:
@@ -37117,6 +37507,7 @@ components:
         actor_role:
           type: string
           enum:
+          - orchestrator
           - seraph
           - gardener
           - architect
@@ -37134,6 +37525,7 @@ components:
           - finding_report
           - decision_brief
           - success_measurement_card
+          - graduation_proposal
           title: Kind
         status:
           type: string
@@ -38044,6 +38436,13 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        run_kind:
+          type: string
+          enum:
+          - research
+          - maintenance
+          title: Run Kind
+          default: research
         public_state:
           type: string
           title: Public State
@@ -38156,6 +38555,18 @@ components:
           additionalProperties: true
           type: object
           title: Public Visuals
+        experiment_observability:
+          additionalProperties: true
+          type: object
+          title: Experiment Observability
+        operator_view:
+          additionalProperties: true
+          type: object
+          title: Operator View
+        judgment_state:
+          additionalProperties: true
+          type: object
+          title: Judgment State
         publication_states:
           additionalProperties: true
           type: object
@@ -38167,6 +38578,10 @@ components:
         factory_health:
           anyOf:
           - $ref: '#/components/schemas/SmrFactoryHealthResponse'
+          - type: 'null'
+        operating_window:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryOperatingWindowResponse'
           - type: 'null'
       type: object
       required:
@@ -38241,6 +38656,14 @@ components:
           - type: string
           - type: 'null'
           title: Run Id
+        run_kind:
+          anyOf:
+          - type: string
+            enum:
+            - research
+            - maintenance
+          - type: 'null'
+          title: Run Kind
         next_wake_at:
           anyOf:
           - type: string
@@ -38345,6 +38768,11 @@ components:
         title:
           type: string
           title: Title
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
         status:
           type: string
           title: Status
@@ -38356,6 +38784,10 @@ components:
           - type: string
           - type: 'null'
           title: Artifact Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
         created_at:
           type: string
           format: date-time
@@ -52617,6 +53049,16 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
         conversation_ref:
           anyOf:
           - additionalProperties: true
@@ -52695,6 +53137,42 @@ components:
           - type: string
           - type: 'null'
           title: Terminal Outcome
+        project_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Url
+        factory_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Url
+        effort_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Url
+        experiment_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Url
+        wiki_urls:
+          items:
+            type: string
+          type: array
+          title: Wiki Urls
+        git_urls:
+          items:
+            type: string
+          type: array
+          title: Git Urls
+        steering_receipts:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Steering Receipts
       type: object
       required:
       - state
@@ -52725,8 +53203,10 @@ components:
           enum:
           - queued
           - running
+          - paused
           - done
           - failed
+          - archived
           title: Status
         session_kind:
           type: string
@@ -52747,6 +53227,16 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
         conversation_ref:
           anyOf:
           - additionalProperties: true
@@ -54699,6 +55189,480 @@ components:
       type: object
       title: UpdateLimitRequest
       description: Request to update a limit.
+    CloudDeploymentProjectGitSourceRequest:
+      properties:
+        kind:
+          type: string
+          const: project_git
+          title: Kind
+        source_commit_sha:
+          type: string
+          maxLength: 40
+          minLength: 40
+          title: Source Commit Sha
+        evidence_commit_sha:
+          type: string
+          maxLength: 40
+          minLength: 40
+          title: Evidence Commit Sha
+        instance_id:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Instance Id
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - source_commit_sha
+      - evidence_commit_sha
+      - instance_id
+      title: CloudDeploymentProjectGitSourceRequest
+    SmrEffortFromRunsRequest:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        run_ids:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Run Ids
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      additionalProperties: false
+      type: object
+      required:
+      - project_id
+      - name
+      - run_ids
+      title: SmrEffortFromRunsRequest
+      description: 'Accept a graduation proposal: graduate candidate runs into one
+        Effort.'
+    SmrExperimentBundleIntegrityResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_bundle_integrity.v1
+          title: Schema Version
+          default: smr_experiment_bundle_integrity.v1
+        state:
+          type: string
+          enum:
+          - collecting
+          - complete
+          - incomplete
+          title: State
+        accepted_cycle:
+          type: boolean
+          title: Accepted Cycle
+          default: false
+        terminal:
+          type: boolean
+          title: Terminal
+          default: false
+        missing:
+          items:
+            type: string
+          type: array
+          title: Missing
+        warnings:
+          items:
+            type: string
+          type: array
+          title: Warnings
+      type: object
+      required:
+      - state
+      title: SmrExperimentBundleIntegrityResponse
+    SmrExperimentBundleResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_bundle.v1
+          title: Schema Version
+          default: smr_experiment_bundle.v1
+        experiment_id:
+          type: string
+          title: Experiment Id
+        project_id:
+          type: string
+          title: Project Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_ids:
+          items:
+            type: string
+          type: array
+          title: Run Ids
+        experiment:
+          additionalProperties: true
+          type: object
+          title: Experiment
+        candidate:
+          additionalProperties: true
+          type: object
+          title: Candidate
+        executions:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Executions
+        evaluations:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Evaluations
+        trace_index:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Trace Index
+        planning_graph:
+          additionalProperties: true
+          type: object
+          title: Planning Graph
+        project_git:
+          additionalProperties: true
+          type: object
+          title: Project Git
+        inspection:
+          additionalProperties: true
+          type: object
+          title: Inspection
+        economics:
+          additionalProperties: true
+          type: object
+          title: Economics
+        decisions:
+          additionalProperties: true
+          type: object
+          title: Decisions
+        provenance:
+          additionalProperties: true
+          type: object
+          title: Provenance
+        deployment_identity:
+          additionalProperties: true
+          type: object
+          title: Deployment Identity
+        artifact_index:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Artifact Index
+        workspace_layout:
+          additionalProperties:
+            type: string
+          type: object
+          title: Workspace Layout
+        integrity:
+          $ref: '#/components/schemas/SmrExperimentBundleIntegrityResponse'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - experiment_id
+      - project_id
+      - integrity
+      - created_at
+      - updated_at
+      title: SmrExperimentBundleResponse
+      description: One owner-assembled view of an experiment and all of its evidence.
+    SmrExperimentComparisonResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_comparison.v1
+          title: Schema Version
+          default: smr_experiment_comparison.v1
+        project_id:
+          type: string
+          title: Project Id
+        experiment_ids:
+          items:
+            type: string
+          type: array
+          title: Experiment Ids
+        comparable:
+          type: boolean
+          title: Comparable
+          default: false
+        comparison_dimensions:
+          additionalProperties: true
+          type: object
+          title: Comparison Dimensions
+        rows:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Rows
+        not_comparable_reasons:
+          items:
+            type: string
+          type: array
+          title: Not Comparable Reasons
+      type: object
+      required:
+      - project_id
+      title: SmrExperimentComparisonResponse
+      description: Comparable owner evidence for an explicit experiment set.
+    SmrExperimentHistoryResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_history.v1
+          title: Schema Version
+          default: smr_experiment_history.v1
+        project_id:
+          type: string
+          title: Project Id
+        bundles:
+          items:
+            $ref: '#/components/schemas/SmrExperimentBundleResponse'
+          type: array
+          title: Bundles
+        accepted_cycles:
+          type: integer
+          minimum: 0.0
+          title: Accepted Cycles
+          default: 0
+        incomplete_cycles:
+          type: integer
+          minimum: 0.0
+          title: Incomplete Cycles
+          default: 0
+        missing_evidence_alerts:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Missing Evidence Alerts
+      type: object
+      required:
+      - project_id
+      title: SmrExperimentHistoryResponse
+      description: Owner-assembled experiment history with explicit evidence alerts.
+    SmrFactoryOperatingWindowResponse:
+      properties:
+        schema_version:
+          type: string
+          const: factory_operating_window.v1
+          title: Schema Version
+          default: factory_operating_window.v1
+        evaluated_at:
+          type: string
+          format: date-time
+          title: Evaluated At
+        window_started_at:
+          type: string
+          format: date-time
+          title: Window Started At
+        window_days:
+          type: integer
+          minimum: 1.0
+          title: Window Days
+          default: 30
+        required_cycles:
+          type: integer
+          minimum: 1.0
+          title: Required Cycles
+          default: 12
+        terminal_attempts:
+          type: integer
+          minimum: 0.0
+          title: Terminal Attempts
+          default: 0
+        observed_cycles:
+          type: integer
+          minimum: 0.0
+          title: Observed Cycles
+          default: 0
+        rejected_cycles:
+          type: integer
+          minimum: 0.0
+          title: Rejected Cycles
+          default: 0
+        remaining_cycles:
+          type: integer
+          minimum: 0.0
+          title: Remaining Cycles
+          default: 12
+        status:
+          type: string
+          enum:
+          - collecting
+          - satisfied
+          title: Status
+          default: collecting
+        first_cycle_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: First Cycle At
+        latest_cycle_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Cycle At
+        cycle_run_ids:
+          items:
+            type: string
+          type: array
+          title: Cycle Run Ids
+        rejected_cycle_run_ids:
+          items:
+            type: string
+          type: array
+          title: Rejected Cycle Run Ids
+        cycle_evidence:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Cycle Evidence
+      type: object
+      required:
+      - evaluated_at
+      - window_started_at
+      title: SmrFactoryOperatingWindowResponse
+    SmrGraduationProposalResponse:
+      properties:
+        proposal_id:
+          type: string
+          title: Proposal Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        suggested_name:
+          type: string
+          title: Suggested Name
+        run_ids:
+          items:
+            type: string
+          type: array
+          title: Run Ids
+        status:
+          type: string
+          enum:
+          - suggested
+          - accepted
+          - dismissed
+          title: Status
+        hypothesis_or_topic:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hypothesis Or Topic
+        effort_type:
+          anyOf:
+          - type: string
+            enum:
+            - research
+            - eval_factory
+            - optimizer
+            - open_research
+          - type: 'null'
+          title: Effort Type
+        rationale:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rationale
+        confidence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Confidence
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - proposal_id
+      - org_id
+      - project_id
+      - suggested_name
+      - status
+      - created_at
+      - updated_at
+      title: SmrGraduationProposalResponse
+    TagSessionControlRequest:
+      properties:
+        action:
+          type: string
+          enum:
+          - pause
+          - stop
+          - archive
+          - reconnect
+          title: Action
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      title: TagSessionControlRequest
+    TagSessionWatchResponse:
+      properties:
+        session:
+          $ref: '#/components/schemas/TagSessionResponse'
+        messages:
+          items:
+            $ref: '#/components/schemas/TagTaskResponse'
+          type: array
+          title: Messages
+      type: object
+      required:
+      - session
+      title: TagSessionWatchResponse
   securitySchemes:
     HTTPBearer:
       type: http

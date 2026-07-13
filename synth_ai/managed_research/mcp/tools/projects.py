@@ -448,7 +448,9 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             name="smr_attach_project_experiment_result",
             description=(
                 "Attach a normalized measured result to an SMR experiment. "
-                "Use one result row per candidate metric/split."
+                "Use one result row per candidate metric/split. Observable Factory "
+                "experiments include experiment_registration, synth_wiki_changeset, "
+                "git_server_receipt, and budget_receipt inside metadata."
             ),
             input_schema=tool_schema(
                 {

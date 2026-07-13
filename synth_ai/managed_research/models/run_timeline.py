@@ -5,7 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from synth_ai.managed_research.models.run_authority import (
+        ManagedResearchAuthorityTask,
+        ManagedResearchRuntimeAuthority,
+    )
 
 
 def _require_text(value: str | None, *, field_name: str) -> str:
@@ -405,6 +411,30 @@ class SmrAuthorityReadouts:
     compatibility: dict[str, Any] = field(default_factory=dict)
     links: dict[str, str] = field(default_factory=dict)
 
+    @property
+    def typed_runtime_authority(self) -> ManagedResearchRuntimeAuthority | None:
+        """Parse the optional backend authority payload without using compatibility data."""
+
+        if self.runtime_authority is None:
+            return None
+        from synth_ai.managed_research.models.run_authority import (
+            ManagedResearchRuntimeAuthority,
+        )
+
+        authority = ManagedResearchRuntimeAuthority.from_wire(self.runtime_authority)
+        if authority.project_id != self.project_id or authority.run_id != self.run_id:
+            raise ValueError("runtime authority identity does not match its project/run readout")
+        if authority.source_authority_version != self.source_authority_version:
+            raise ValueError("runtime authority version does not match its project/run readout")
+        return authority
+
+    @property
+    def authority_tasks(self) -> tuple[ManagedResearchAuthorityTask, ...]:
+        """Return canonical typed task rows from the backend authority readout."""
+
+        authority = self.typed_runtime_authority
+        return () if authority is None else authority.tasks
+
     @classmethod
     def from_wire(cls, payload: dict[str, Any]) -> SmrAuthorityReadouts:
         return cls(
@@ -430,6 +460,23 @@ class SmrAuthorityReadouts:
             ),
             links=_coerce_string_dict(payload.get("links"), field_name="links"),
         )
+
+    def to_wire(self) -> dict[str, Any]:
+        typed_runtime_authority = self.typed_runtime_authority
+        return {
+            "project_id": self.project_id,
+            "run_id": self.run_id,
+            "generated_at": self.generated_at.isoformat(),
+            "source_authority_version": self.source_authority_version,
+            "public_status": (dict(self.public_status) if self.public_status is not None else None),
+            "operator_control": dict(self.operator_control),
+            "diagnostic": dict(self.diagnostic),
+            "runtime_authority": (
+                typed_runtime_authority.to_wire() if typed_runtime_authority is not None else None
+            ),
+            "compatibility": dict(self.compatibility),
+            "links": dict(self.links),
+        }
 
 
 __all__ = [
