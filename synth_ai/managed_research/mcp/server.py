@@ -1082,6 +1082,29 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.efforts.get(effort_id).raw
 
+    def _tool_list_graduation_proposals(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return [item.raw for item in client.efforts.list_graduation_proposals(project_id)]
+
+    def _tool_graduate_runs_to_effort(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        name = require_string(args, "name")
+        run_ids = _optional_string_tuple_arg(args, "run_ids")
+        factory_id = optional_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.from_runs(
+                project_id=project_id,
+                name=name,
+                run_ids=run_ids,
+                factory_id=factory_id,
+            ).raw
+
+    def _tool_list_runs_by_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.list_runs(effort_id)
+
     def _tool_patch_effort(self, args: JSONDict) -> Any:
         effort_id = require_string(args, "effort_id")
         with self._client_from_args(args) as client:
