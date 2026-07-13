@@ -244,9 +244,7 @@ class ResearchFactoryCandidatesAPI:
         self,
         factory_id: str,
         candidate_id: str,
-        request: (
-            FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any]
-        ),
+        request: FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any],
     ) -> FactoryCandidate:
         """Record a benchmark-owned grading result for one immutable candidate."""
         return self._session.factories.record_candidate_grading(
@@ -273,9 +271,7 @@ class ResearchFactoryChampionsAPI:
     def rollback(
         self,
         factory_id: str,
-        request: (
-            FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any]
-        ),
+        request: FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any],
     ) -> FactoryChampionDecision:
         """Roll the champion pointer back and append the decision event."""
         return self._session.factories.rollback_champion(factory_id, request)
@@ -287,9 +283,7 @@ class ResearchFactoryChampionsAPI:
         limit: int = 100,
     ) -> tuple[FactoryChampionEvent, ...]:
         """List the append-only champion decision history, newest first."""
-        return tuple(
-            self._session.factories.list_champion_events(factory_id, limit=limit)
-        )
+        return tuple(self._session.factories.list_champion_events(factory_id, limit=limit))
 
 
 class ResearchFactoriesAPI:
