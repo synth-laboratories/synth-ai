@@ -230,6 +230,7 @@ class ResearchFactoryCandidatesAPI:
         effort_id: str | None = None,
         limit: int = 200,
     ) -> tuple[FactoryCandidate, ...]:
+        """List candidates, optionally filtered by grading status or Effort."""
         return tuple(
             self._session.factories.list_candidates(
                 factory_id,
@@ -243,10 +244,11 @@ class ResearchFactoryCandidatesAPI:
         self,
         factory_id: str,
         candidate_id: str,
-        request: FactoryCandidateGradingRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> FactoryCandidate:
+        """Record a benchmark-owned grading result for one immutable candidate."""
         return self._session.factories.record_candidate_grading(
             factory_id,
             candidate_id,
@@ -265,15 +267,17 @@ class ResearchFactoryChampionsAPI:
         factory_id: str,
         request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
     ) -> FactoryChampionDecision:
+        """Select the deterministic winner when it strictly beats the baseline."""
         return self._session.factories.select_champion(factory_id, request)
 
     def rollback(
         self,
         factory_id: str,
-        request: FactoryChampionRollbackRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> FactoryChampionDecision:
+        """Roll the champion pointer back and append the decision event."""
         return self._session.factories.rollback_champion(factory_id, request)
 
     def list_events(
@@ -282,6 +286,7 @@ class ResearchFactoryChampionsAPI:
         *,
         limit: int = 100,
     ) -> tuple[FactoryChampionEvent, ...]:
+        """List the append-only champion decision history, newest first."""
         return tuple(
             self._session.factories.list_champion_events(factory_id, limit=limit)
         )
@@ -298,12 +303,14 @@ class ResearchFactoriesAPI:
 
     @property
     def candidates(self) -> ResearchFactoryCandidatesAPI:
+        """Immutable candidate discovery and benchmark-owned grading intake."""
         if self._candidates is None:
             self._candidates = ResearchFactoryCandidatesAPI(self._session)
         return self._candidates
 
     @property
     def champions(self) -> ResearchFactoryChampionsAPI:
+        """Deterministic champion selection, rollback, and decision history."""
         if self._champions is None:
             self._champions = ResearchFactoryChampionsAPI(self._session)
         return self._champions

@@ -2205,9 +2205,9 @@ class FactoryChampionDecision:
             ),
             reason=_require_string(mapping, "reason", label="decision.reason"),
             changed=bool(_optional_bool(mapping, "changed")),
-            champion=(
-                FactoryCandidate.from_wire(champion) if champion is not None else None
-            ),
+            champion=FactoryCandidate.from_wire(champion)
+            if champion is not None
+            else None,
             raw=dict(mapping),
         )
 

@@ -115,9 +115,9 @@ class FactoriesAPI(_ClientNamespace):
         self,
         factory_id: str,
         candidate_id: str,
-        request: FactoryCandidateGradingRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> FactoryCandidate:
         return FactoryCandidate.from_wire(
             self._client.record_factory_candidate_grading(
@@ -139,9 +139,9 @@ class FactoriesAPI(_ClientNamespace):
     def rollback_champion(
         self,
         factory_id: str,
-        request: FactoryChampionRollbackRequest
-        | Mapping[str, Any]
-        | dict[str, Any],
+        request: (
+            FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any]
+        ),
     ) -> FactoryChampionDecision:
         return FactoryChampionDecision.from_wire(
             self._client.rollback_factory_champion(factory_id, request)
