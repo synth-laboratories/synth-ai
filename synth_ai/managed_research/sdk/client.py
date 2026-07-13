@@ -1818,6 +1818,7 @@ class ManagedResearchClient:
             ),
             label="compare_experiments",
         )
+
     def create_factory_idea(
         self,
         factory_id: str,

@@ -1269,9 +1269,7 @@ class FactoryWorkProductSummary:
             status=_require_string(mapping, "status", label="work_product.status"),
             readiness=_require_string(mapping, "readiness", label="work_product.readiness"),
             artifact_id=_optional_string(mapping, "artifact_id"),
-            metadata=_optional_object_dict(
-                mapping.get("metadata"), label="work_product.metadata"
-            ),
+            metadata=_optional_object_dict(mapping.get("metadata"), label="work_product.metadata"),
             created_at=_optional_datetime(mapping, "created_at"),
             updated_at=_optional_datetime(mapping, "updated_at"),
             raw=dict(mapping),

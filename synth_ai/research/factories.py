@@ -129,6 +129,16 @@ class ResearchFactoriesTagSessionsAPI:
         effort_id: str | None = None,
         limit: int = 50,
     ) -> tuple[TagSession, ...]:
+        """List Tag sessions, optionally filtered by factory or effort.
+
+        Args:
+            factory_id: Only sessions bound to this factory.
+            effort_id: Only sessions bound to this effort.
+            limit: Maximum sessions returned (newest first).
+
+        Returns:
+            Tuple of ``TagSession`` records.
+        """
         return self._session.tag.list_sessions(
             factory_id=factory_id,
             effort_id=effort_id,
@@ -136,6 +146,14 @@ class ResearchFactoriesTagSessionsAPI:
         )
 
     def watch(self, session_id: str) -> TagSessionWatch:
+        """Open a watch handle that polls the session until it is terminal.
+
+        Args:
+            session_id: Tag session to observe.
+
+        Returns:
+            ``TagSessionWatch`` iterator of session state snapshots.
+        """
         return self._session.tag.watch_session(session_id)
 
     def control(
@@ -143,6 +161,15 @@ class ResearchFactoriesTagSessionsAPI:
         session_id: str,
         action: TagSessionControlAction | str,
     ) -> TagSession:
+        """Apply a control action (for example pause, resume, cancel) to a session.
+
+        Args:
+            session_id: Tag session to control.
+            action: ``TagSessionControlAction`` or its string value.
+
+        Returns:
+            Updated ``TagSession`` after the action is applied.
+        """
         return self._session.tag.control_session(session_id, action)
 
 
