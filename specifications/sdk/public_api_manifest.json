@@ -28,6 +28,12 @@
       "title": "ContainerPoolsClient"
     },
     {
+      "module": "synth_ai.sdk.optimizers",
+      "output": "reference/sdk",
+      "all_modules": false,
+      "title": "OptimizersClient"
+    },
+    {
       "module": "synth_ai.research",
       "output": "reference/sdk/research",
       "all_modules": true,
@@ -96,6 +102,7 @@
     "synth_ai/sdk/containers.py",
     "synth_ai/sdk/tunnels.py",
     "synth_ai/sdk/pools.py",
+    "synth_ai/sdk/optimizers.py",
     "synth_ai/research/models.py",
     "synth_ai/research/errors.py",
     "synth_ai/research/enums.py",

@@ -699,6 +699,67 @@ class _BoundProjectChangeSetsAPI:
 
 
 @dataclass
+class _BoundProjectWikiAPI:
+    _client: Any
+    project_id: str
+
+    def get(self):
+        return self._client.wiki.get(self.project_id)
+
+    def list_pages(self):
+        return self._client.wiki.list_pages(self.project_id)
+
+    def get_page(self, page_id_or_slug: str):
+        return self._client.wiki.get_page(self.project_id, page_id_or_slug)
+
+    def search(self, *, query: str, limit: int = 20):
+        return self._client.wiki.search(self.project_id, query=query, limit=limit)
+
+    def context_pack(self, *, limit: int = 80):
+        return self._client.wiki.context_pack(self.project_id, limit=limit)
+
+    def list_proposals(self, *, state: str | None = None, limit: int = 50):
+        return self._client.wiki.list_proposals(
+            self.project_id,
+            state=state,
+            limit=limit,
+        )
+
+    def create_change_set(self, **kwargs: Any):
+        return self._client.wiki.create_change_set(self.project_id, **kwargs)
+
+    def create_proposal(self, **kwargs: Any):
+        return self._client.wiki.create_proposal(self.project_id, **kwargs)
+
+    def accept_proposal(self, proposal_id: str, **kwargs: Any):
+        return self._client.wiki.accept_proposal(
+            self.project_id,
+            proposal_id,
+            **kwargs,
+        )
+
+    def reject_proposal(self, proposal_id: str, **kwargs: Any):
+        return self._client.wiki.reject_proposal(
+            self.project_id,
+            proposal_id,
+            **kwargs,
+        )
+
+    def attach_evidence(self, **kwargs: Any):
+        return self._client.wiki.attach_evidence(self.project_id, **kwargs)
+
+    def mark_stale(self, **kwargs: Any):
+        return self._client.wiki.mark_stale(self.project_id, **kwargs)
+
+    def accept_staleness(self, staleness_signal_id: str, **kwargs: Any):
+        return self._client.wiki.accept_staleness(
+            self.project_id,
+            staleness_signal_id,
+            **kwargs,
+        )
+
+
+@dataclass
 class ManagedResearchProjectClient:
     _client: Any
     project_id: str
@@ -770,6 +831,11 @@ class ManagedResearchProjectClient:
         default=None,
         repr=False,
     )
+    _wiki_api: _BoundProjectWikiAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
 
     @property
     def repositories(self) -> _BoundProjectReposAPI:
@@ -828,6 +894,12 @@ class ManagedResearchProjectClient:
         if self._context_api is None:
             self._context_api = _BoundProjectContextAPI(self._client, self.project_id)
         return self._context_api
+
+    @property
+    def wiki(self) -> _BoundProjectWikiAPI:
+        if self._wiki_api is None:
+            self._wiki_api = _BoundProjectWikiAPI(self._client, self.project_id)
+        return self._wiki_api
 
     @property
     def credentials(self) -> _BoundProjectCredentialsAPI:

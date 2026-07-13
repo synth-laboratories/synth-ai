@@ -741,6 +741,166 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_curated_knowledge,
         ),
         ToolDefinition(
+            name="smr_get_project_wiki",
+            description=(
+                "Fetch the synth-wiki overview for a managed research project "
+                "(pages/sections/open proposal counts)."
+            ),
+            input_schema=tool_schema(
+                {"project_id": {"type": "string", "description": "Managed research project id."}},
+                required=["project_id"],
+            ),
+            handler=server._tool_get_project_wiki,
+        ),
+        ToolDefinition(
+            name="smr_list_project_wiki_pages",
+            description="List synth-wiki pages for a managed research project.",
+            input_schema=tool_schema(
+                {"project_id": {"type": "string", "description": "Managed research project id."}},
+                required=["project_id"],
+            ),
+            handler=server._tool_list_project_wiki_pages,
+        ),
+        ToolDefinition(
+            name="smr_get_project_wiki_page",
+            description="Read one synth-wiki page and its typed sections.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "page_id_or_slug": {
+                        "type": "string",
+                        "description": "Wiki page id or slug (for example next-run-context).",
+                    },
+                },
+                required=["project_id", "page_id_or_slug"],
+            ),
+            handler=server._tool_get_project_wiki_page,
+        ),
+        ToolDefinition(
+            name="smr_search_project_wiki",
+            description="Search synth-wiki page titles, summaries, and section bodies.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "query": {"type": "string", "description": "Search query."},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max hits (1-50).",
+                        "minimum": 1,
+                        "maximum": 50,
+                    },
+                },
+                required=["project_id", "query"],
+            ),
+            handler=server._tool_search_project_wiki,
+        ),
+        ToolDefinition(
+            name="smr_preview_project_wiki_context_pack",
+            description=(
+                "Preview accepted/tentative synth-wiki memory for the next run "
+                "(context pack)."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max sections (1-200).",
+                        "minimum": 1,
+                        "maximum": 200,
+                    },
+                },
+                required=["project_id"],
+            ),
+            handler=server._tool_preview_project_wiki_context_pack,
+        ),
+        ToolDefinition(
+            name="smr_list_project_wiki_proposals",
+            description="List synth-wiki edit proposals for a project.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "state": {
+                        "type": "string",
+                        "description": "Optional review_state filter (for example proposed).",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max proposals (1-200).",
+                        "minimum": 1,
+                        "maximum": 200,
+                    },
+                },
+                required=["project_id"],
+            ),
+            handler=server._tool_list_project_wiki_proposals,
+        ),
+        ToolDefinition(
+            name="smr_create_project_wiki_proposal",
+            description=(
+                "Propose a synth-wiki edit or new typed section. Does not mutate "
+                "accepted truth until accepted."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "operation": {
+                        "type": "string",
+                        "description": "Proposal operation (for example propose_new_section).",
+                    },
+                    "target_kind": {
+                        "type": "string",
+                        "description": "wiki, page, section, change_set, proposal, or staleness_signal.",
+                    },
+                    "payload": {
+                        "type": "object",
+                        "description": "Proposed content payload.",
+                    },
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "source_kind": {"type": "string"},
+                    "changeset_id": {"type": "string"},
+                    "target_id": {"type": "string"},
+                    "evidence_summary": {"type": "string"},
+                    "confidence": {"type": "string"},
+                },
+                required=["project_id", "operation", "target_kind", "payload"],
+            ),
+            handler=server._tool_create_project_wiki_proposal,
+        ),
+        ToolDefinition(
+            name="smr_accept_project_wiki_proposal",
+            description=(
+                "Accept a synth-wiki proposal and apply it to accepted project memory."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "proposal_id": {"type": "string", "description": "Wiki proposal id."},
+                    "reviewer_type": {"type": "string"},
+                    "reviewer_id": {"type": "string"},
+                    "decision_rationale": {"type": "string"},
+                },
+                required=["project_id", "proposal_id"],
+            ),
+            handler=server._tool_accept_project_wiki_proposal,
+        ),
+        ToolDefinition(
+            name="smr_reject_project_wiki_proposal",
+            description="Reject a synth-wiki proposal without changing accepted truth.",
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string", "description": "Managed research project id."},
+                    "proposal_id": {"type": "string", "description": "Wiki proposal id."},
+                    "reviewer_type": {"type": "string"},
+                    "reviewer_id": {"type": "string"},
+                    "decision_rationale": {"type": "string"},
+                },
+                required=["project_id", "proposal_id"],
+            ),
+            handler=server._tool_reject_project_wiki_proposal,
+        ),
+        ToolDefinition(
             name="smr_pause_project",
             description="Pause a managed research project so new runs cannot start.",
             input_schema=tool_schema(

@@ -19,6 +19,43 @@ All notable changes to the `synth-ai` package are documented here.
 - Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
 - Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
 
+## 0.14.0 — 2026-06-28
+
+### Added
+
+- **`SynthClient().research.efforts`** — run-to-Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
+  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
+  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
+- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
+- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
+- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
+
+### Notes
+
+- Release artifacts: PyPI `synth_ai-0.14.0-py3-none-any.whl` and `synth_ai-0.14.0.tar.gz`, uploaded 2026-06-28T03:58:40Z.
+- Code evidence: local release-branch commit `ba0e7842` (`feat(research): add run→Effort graduation SDK surface (0.14.0)`).
+- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
+
+## 0.13.0 — 2026-06-26
+
+### Added
+
+- **Research SDK package alignment for the Tag / Factory public surface** — the PyPI package now carries the current Managed Research SDK routing used by the Tag and GameBench launch surfaces.
+- **`SynthClient().research.factories` and project namespaces** — typed Factory-facing SDK paths used by the current Tag docs and launch examples.
+- **Run readout helpers, pagination, limits, secrets, and async client surfaces** under the `SynthClient().research` SDK namespace.
+- **Vendored Managed Research OpenAPI contract refresh** for the 0.13 release train.
+
+### Changed
+
+- Public install pins for launch-facing docs, blog, and changelog surfaces moved to `synth-ai[research]==0.13.0`.
+- Tag launch examples use the current `client.research.factories.tag.sessions` shape instead of the deprecated direct `client.research.tag` alias.
+
+### Notes
+
+- Release artifacts: PyPI `synth_ai-0.13.0-py3-none-any.whl` and `synth_ai-0.13.0.tar.gz`, uploaded 2026-06-26T01:35:16Z.
+- Code evidence: git tag `v0.13.0` (`cfc530de`, release subject `Release synth-ai 0.13.0`) plus release-gate cleanup commit `57295d18`.
+- Product proof: June shipping ledger rows `tag-prod-20260626`, `smr-factory-partial`, and `gelo-free-72h-20260626` record `synth-ai` 0.13.0 as the live/package-smoked SDK for those launch surfaces.
+
 ## 0.12.0 — 2026-06-25
 
 ### Added

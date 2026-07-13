@@ -29,6 +29,7 @@ GENERATED_RENAMES: dict[str, str] = {
     "synth_ai-sdk-containers.mdx": "containers-client.mdx",
     "synth_ai-sdk-tunnels.mdx": "tunnels-client.mdx",
     "synth_ai-sdk-pools.mdx": "pools-client.mdx",
+    "synth_ai-sdk-optimizers.mdx": "optimizers-client.mdx",
 }
 
 INFRA_NAV_PAGES: list[str] = [
@@ -37,6 +38,7 @@ INFRA_NAV_PAGES: list[str] = [
     "reference/sdk/containers-client",
     "reference/sdk/tunnels-client",
     "reference/sdk/pools-client",
+    "reference/sdk/optimizers-client",
 ]
 
 
@@ -124,6 +126,7 @@ For narrative quickstarts, see [Managed Research SDK](https://docs.usesynth.ai/m
 | Containers | Build and run environment containers | [ContainersClient](/reference/sdk/containers-client) |
 | Tunnels | Expose local containers to Synth | [TunnelsClient](/reference/sdk/tunnels-client) |
 | Pools | Container pools and rollouts | [ContainerPoolsClient](/reference/sdk/pools-client) |
+| Optimizers | Hosted optimizer receipts and audits | [OptimizersClient](/reference/sdk/optimizers-client) |
 
 ## Managed Research (`SynthClient().research`)
 

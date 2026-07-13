@@ -22,6 +22,22 @@ from synth_ai.sdk.openai_agents_sdk import (
     AsyncOpenAIAgentsSdkClient,
     OpenAIAgentsSdkClient,
 )
+from synth_ai.sdk.optimizers import (
+    AsyncOptimizersClient,
+    OnlineReflexionEvidencePacket,
+    OnlineReflexionEvidenceNotesReview,
+    OnlineReflexionReceiptAudit,
+    OnlineReflexionReceiptAuditSet,
+    OnlineReflexionReceiptBundle,
+    OnlineReflexionReceiptList,
+    OnlineReflexionStartupPreflight,
+    OptimizerBillingFeatureConfig,
+    OptimizerCatalogEntry,
+    OptimizerRun,
+    OptimizerStartupCatalog,
+    OptimizerStartupPreflightError,
+    OptimizersClient,
+)
 from synth_ai.sdk.pagination import AsyncPage, SyncPage, page_from_wire
 from synth_ai.sdk.pools import (
     CANONICAL_ROLLOUT_REQUEST_KEYS,
@@ -32,12 +48,21 @@ from synth_ai.sdk.pools import (
     validate_pool_rollout_request,
 )
 from synth_ai.sdk.tunnels import AsyncTunnelsClient, TunnelProvider, TunnelsClient
+from synth_ai.sdk.workflows import (
+    AsyncWorkflowsClient,
+    JesterkyReplayResult,
+    JesterkyRunResult,
+    JesterkyStreamEvent,
+    JesterkyValidationResult,
+    WorkflowsClient,
+)
 
 __all__ = [
     "AsyncContainerPoolsClient",
     "AsyncContainersClient",
     "AsyncPage",
     "AsyncTunnelsClient",
+    "AsyncWorkflowsClient",
     "CANONICAL_ROLLOUT_REQUEST_KEYS",
     "Container",
     "ContainerPoolsClient",
@@ -45,6 +70,10 @@ __all__ = [
     "ContainerType",
     "ContainersClient",
     "HorizonsPrivateClient",
+    "JesterkyReplayResult",
+    "JesterkyRunResult",
+    "JesterkyStreamEvent",
+    "JesterkyValidationResult",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "PoolTarget",
@@ -53,6 +82,7 @@ __all__ = [
     "SynthBaseClient",
     "TunnelProvider",
     "TunnelsClient",
+    "WorkflowsClient",
     "page_from_wire",
     "resolve_api_key",
     "resolve_backend_base",
@@ -60,7 +90,21 @@ __all__ = [
     "AsyncHorizonsPrivateClient",
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
+    "AsyncOptimizersClient",
     "AsyncSynthManagedAgents",
     "OpenAIAgentsSdkClient",
+    "OnlineReflexionEvidencePacket",
+    "OnlineReflexionEvidenceNotesReview",
+    "OnlineReflexionReceiptAudit",
+    "OnlineReflexionReceiptAuditSet",
+    "OnlineReflexionReceiptBundle",
+    "OnlineReflexionReceiptList",
+    "OnlineReflexionStartupPreflight",
+    "OptimizerBillingFeatureConfig",
+    "OptimizerCatalogEntry",
+    "OptimizerRun",
+    "OptimizerStartupCatalog",
+    "OptimizerStartupPreflightError",
+    "OptimizersClient",
     "SynthManagedAgents",
 ]

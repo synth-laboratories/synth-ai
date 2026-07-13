@@ -316,6 +316,7 @@ from synth_ai.managed_research.sdk.runs import MISC_PROJECT_ID, ProjectSelector,
 from synth_ai.managed_research.sdk.secrets import SecretsAPI
 from synth_ai.managed_research.sdk.setup import SetupAPI
 from synth_ai.managed_research.sdk.usage import UsageAPI
+from synth_ai.managed_research.sdk.wiki import WikiAPI
 from synth_ai.managed_research.sdk.work_products import WorkProductsAPI
 from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
 
@@ -634,6 +635,7 @@ __all__ = [
     "TaskCollectionSnapshot",
     "TaskSnapshot",
     "UsageAPI",
+    "WikiAPI",
     "WorkspaceInputsAPI",
     "WorkProductsAPI",
     "ManagedResearchContainerEvalPackage",

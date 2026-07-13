@@ -193,6 +193,7 @@ from synth_ai.managed_research.sdk.tag import TagAPI
 from synth_ai.managed_research.sdk.trained_models import TrainedModelsAPI
 from synth_ai.managed_research.sdk.transport import build_http_transport
 from synth_ai.managed_research.sdk.usage import UsageAPI
+from synth_ai.managed_research.sdk.wiki import WikiAPI
 from synth_ai.managed_research.sdk.work_products import WorkProductsAPI
 from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
 from synth_ai.managed_research.transport.http import SmrHttpTransport, _raise_for_error_response
@@ -1051,6 +1052,7 @@ class ManagedResearchClient:
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
+    _wiki_api: WikiAPI | None = field(init=False, default=None, repr=False)
     _tag_api: TagAPI | None = field(init=False, default=None, repr=False)
     _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
 
@@ -1245,6 +1247,12 @@ class ManagedResearchClient:
         if self._work_products_api is None:
             self._work_products_api = WorkProductsAPI(self)
         return self._work_products_api
+
+    @property
+    def wiki(self) -> WikiAPI:
+        if self._wiki_api is None:
+            self._wiki_api = WikiAPI(self)
+        return self._wiki_api
 
     @property
     def run_cost(self) -> RunCostAPI:
@@ -1979,6 +1987,284 @@ class ManagedResearchClient:
                 json_body={"content": str(content)},
             ),
             label="set_project_knowledge",
+        )
+
+    def get_project_wiki(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/wiki"),
+            label="get_project_wiki",
+        )
+
+    def list_project_wiki_pages(self, project_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/projects/{project_id}/wiki/pages"),
+            label="list_project_wiki_pages",
+        )
+
+    def get_project_wiki_page(self, project_id: str, page_id_or_slug: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/wiki/pages/{page_id_or_slug}",
+            ),
+            label="get_project_wiki_page",
+        )
+
+    def search_project_wiki(
+        self,
+        project_id: str,
+        *,
+        query: str,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/wiki/search",
+                params={"q": str(query), "limit": int(limit)},
+            ),
+            label="search_project_wiki",
+        )
+
+    def preview_project_wiki_context_pack(
+        self,
+        project_id: str,
+        *,
+        limit: int = 80,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/wiki/context-pack/preview",
+                params={"limit": int(limit)},
+            ),
+            label="preview_project_wiki_context_pack",
+        )
+
+    def list_project_wiki_proposals(
+        self,
+        project_id: str,
+        *,
+        state: str | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": int(limit)}
+        if state is not None:
+            params["state"] = str(state)
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/wiki/proposals",
+                params=params,
+            ),
+            label="list_project_wiki_proposals",
+        )
+
+    def create_project_wiki_change_set(
+        self,
+        project_id: str,
+        *,
+        title: str,
+        summary: str = "",
+        source_kind: str = "manual",
+        source_run_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "title": str(title),
+            "summary": str(summary),
+            "source_kind": str(source_kind),
+            "metadata": dict(metadata or {}),
+        }
+        if source_run_id is not None:
+            body["source_run_id"] = str(source_run_id)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/change-sets",
+                json_body=body,
+            ),
+            label="create_project_wiki_change_set",
+        )
+
+    def create_project_wiki_proposal(
+        self,
+        project_id: str,
+        *,
+        operation: str,
+        target_kind: str,
+        payload: Mapping[str, Any],
+        title: str = "Wiki change proposal",
+        summary: str = "",
+        source_kind: str = "manual",
+        changeset_id: str | None = None,
+        target_id: str | None = None,
+        evidence_summary: str | None = None,
+        confidence: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "title": str(title),
+            "summary": str(summary),
+            "source_kind": str(source_kind),
+            "operation": str(operation),
+            "target_kind": str(target_kind),
+            "payload": dict(payload),
+            "metadata": dict(metadata or {}),
+        }
+        if changeset_id is not None:
+            body["changeset_id"] = str(changeset_id)
+        if target_id is not None:
+            body["target_id"] = str(target_id)
+        if evidence_summary is not None:
+            body["evidence_summary"] = str(evidence_summary)
+        if confidence is not None:
+            body["confidence"] = str(confidence)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/proposals",
+                json_body=body,
+            ),
+            label="create_project_wiki_proposal",
+        )
+
+    def accept_project_wiki_proposal(
+        self,
+        project_id: str,
+        proposal_id: str,
+        *,
+        reviewer_type: str = "operator",
+        reviewer_id: str | None = None,
+        decision_rationale: str | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {"reviewer_type": str(reviewer_type)}
+        if reviewer_id is not None:
+            body["reviewer_id"] = str(reviewer_id)
+        if decision_rationale is not None:
+            body["decision_rationale"] = str(decision_rationale)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/proposals/{proposal_id}/accept",
+                json_body=body,
+            ),
+            label="accept_project_wiki_proposal",
+        )
+
+    def reject_project_wiki_proposal(
+        self,
+        project_id: str,
+        proposal_id: str,
+        *,
+        reviewer_type: str = "operator",
+        reviewer_id: str | None = None,
+        decision_rationale: str | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {"reviewer_type": str(reviewer_type)}
+        if reviewer_id is not None:
+            body["reviewer_id"] = str(reviewer_id)
+        if decision_rationale is not None:
+            body["decision_rationale"] = str(decision_rationale)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/proposals/{proposal_id}/reject",
+                json_body=body,
+            ),
+            label="reject_project_wiki_proposal",
+        )
+
+    def create_project_wiki_evidence_link(
+        self,
+        project_id: str,
+        *,
+        target_kind: str,
+        target_id: str,
+        evidence_ref_id: str | None = None,
+        source_kind: str = "manual",
+        source_id: str | None = None,
+        role: str = "supporting",
+        quote: str | None = None,
+        note: str | None = None,
+        confidence: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "target_kind": str(target_kind),
+            "target_id": str(target_id),
+            "source_kind": str(source_kind),
+            "role": str(role),
+            "metadata": dict(metadata or {}),
+        }
+        if evidence_ref_id is not None:
+            body["evidence_ref_id"] = str(evidence_ref_id)
+        if source_id is not None:
+            body["source_id"] = str(source_id)
+        if quote is not None:
+            body["quote"] = str(quote)
+        if note is not None:
+            body["note"] = str(note)
+        if confidence is not None:
+            body["confidence"] = str(confidence)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/evidence-links",
+                json_body=body,
+            ),
+            label="create_project_wiki_evidence_link",
+        )
+
+    def create_project_wiki_staleness_signal(
+        self,
+        project_id: str,
+        *,
+        target_kind: str,
+        target_id: str,
+        reason: str,
+        signal_kind: str = "stale",
+        source_kind: str = "manual",
+        source_id: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "target_kind": str(target_kind),
+            "target_id": str(target_id),
+            "reason": str(reason),
+            "signal_kind": str(signal_kind),
+            "source_kind": str(source_kind),
+            "metadata": dict(metadata or {}),
+        }
+        if source_id is not None:
+            body["source_id"] = str(source_id)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/staleness-signals",
+                json_body=body,
+            ),
+            label="create_project_wiki_staleness_signal",
+        )
+
+    def accept_project_wiki_staleness_signal(
+        self,
+        project_id: str,
+        staleness_signal_id: str,
+        *,
+        reviewer_type: str = "operator",
+        reviewer_id: str | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {"reviewer_type": str(reviewer_type)}
+        if reviewer_id is not None:
+            body["reviewer_id"] = str(reviewer_id)
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/projects/{project_id}/wiki/staleness-signals/{staleness_signal_id}/accept",
+                json_body=body,
+            ),
+            label="accept_project_wiki_staleness_signal",
         )
 
     def get_project_status(self, project_id: str) -> dict[str, Any]:

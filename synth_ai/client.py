@@ -13,15 +13,19 @@ from synth_ai.sdk import (
     AsyncHorizonsPrivateClient,
     AsyncManagedAgentsAnthropicClient,
     AsyncOpenAIAgentsSdkClient,
+    AsyncOptimizersClient,
     AsyncSynthManagedAgents,
     AsyncTunnelsClient,
+    AsyncWorkflowsClient,
     ContainerPoolsClient,
     ContainersClient,
     HorizonsPrivateClient,
     ManagedAgentsAnthropicClient,
     OpenAIAgentsSdkClient,
+    OptimizersClient,
     SynthManagedAgents,
     TunnelsClient,
+    WorkflowsClient,
 )
 
 if TYPE_CHECKING:
@@ -75,6 +79,16 @@ class SynthClient:
             api_key=self.api_key,
             backend_base=self.base_url,
             timeout=self.timeout,
+        )
+        self.optimizers = OptimizersClient(
+            api_key=self.api_key,
+            backend_base=self.base_url,
+            timeout_seconds=self.timeout,
+        )
+        self.workflows = WorkflowsClient(
+            api_key=self.api_key,
+            backend_base=self.base_url,
+            timeout_seconds=self.timeout,
         )
         self.openai_agents_sdk = OpenAIAgentsSdkClient(
             api_key=self.api_key,
@@ -181,6 +195,20 @@ class AsyncSynthClient:
             )
         )
         self._pools_sync = self.pools._sync_obj
+        self.optimizers = AsyncOptimizersClient(
+            OptimizersClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        )
+        self.workflows = AsyncWorkflowsClient(
+            WorkflowsClient(
+                api_key=self.api_key,
+                backend_base=self.base_url,
+                timeout_seconds=self.timeout,
+            )
+        )
         self.openai_agents_sdk = AsyncOpenAIAgentsSdkClient(
             OpenAIAgentsSdkClient(
                 api_key=self.api_key,
@@ -271,15 +299,19 @@ __all__ = [
     "AsyncHorizonsPrivateClient",
     "AsyncManagedAgentsAnthropicClient",
     "AsyncOpenAIAgentsSdkClient",
+    "AsyncOptimizersClient",
     "AsyncSynthClient",
     "AsyncSynthManagedAgents",
     "AsyncTunnelsClient",
+    "AsyncWorkflowsClient",
     "ContainerPoolsClient",
     "ContainersClient",
     "HorizonsPrivateClient",
     "ManagedAgentsAnthropicClient",
     "OpenAIAgentsSdkClient",
+    "OptimizersClient",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
+    "WorkflowsClient",
 ]

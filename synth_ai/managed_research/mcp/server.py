@@ -1561,6 +1561,98 @@ class ManagedResearchMcpServer:
                 return client.set_org_knowledge(content)
             return client.set_project_knowledge(project_id, content)
 
+    def _tool_get_project_wiki(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.wiki.get(project_id))
+
+    def _tool_list_project_wiki_pages(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.wiki.list_pages(project_id))
+
+    def _tool_get_project_wiki_page(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        page_id_or_slug = require_string(args, "page_id_or_slug")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.wiki.get_page(project_id, page_id_or_slug))
+
+    def _tool_search_project_wiki(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        query = require_string(args, "query")
+        limit = int(args.get("limit") or 20)
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.wiki.search(project_id, query=query, limit=limit)
+            )
+
+    def _tool_preview_project_wiki_context_pack(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        limit = int(args.get("limit") or 80)
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.wiki.context_pack(project_id, limit=limit))
+
+    def _tool_list_project_wiki_proposals(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        state = optional_string(args, "state")
+        limit = int(args.get("limit") or 50)
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.wiki.list_proposals(project_id, state=state, limit=limit)
+            )
+
+    def _tool_create_project_wiki_proposal(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        operation = require_string(args, "operation")
+        target_kind = require_string(args, "target_kind")
+        payload = args.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError("'payload' must be an object")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.wiki.create_proposal(
+                    project_id,
+                    operation=operation,
+                    target_kind=target_kind,
+                    payload=payload,
+                    title=str(args.get("title") or "Wiki change proposal"),
+                    summary=str(args.get("summary") or ""),
+                    source_kind=str(args.get("source_kind") or "manual"),
+                    changeset_id=optional_string(args, "changeset_id"),
+                    target_id=optional_string(args, "target_id"),
+                    evidence_summary=optional_string(args, "evidence_summary"),
+                    confidence=optional_string(args, "confidence"),
+                )
+            )
+
+    def _tool_accept_project_wiki_proposal(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        proposal_id = require_string(args, "proposal_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.wiki.accept_proposal(
+                    project_id,
+                    proposal_id,
+                    reviewer_type=str(args.get("reviewer_type") or "operator"),
+                    reviewer_id=optional_string(args, "reviewer_id"),
+                    decision_rationale=optional_string(args, "decision_rationale"),
+                )
+            )
+
+    def _tool_reject_project_wiki_proposal(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        proposal_id = require_string(args, "proposal_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.wiki.reject_proposal(
+                    project_id,
+                    proposal_id,
+                    reviewer_type=str(args.get("reviewer_type") or "operator"),
+                    reviewer_id=optional_string(args, "reviewer_id"),
+                    decision_rationale=optional_string(args, "decision_rationale"),
+                )
+            )
+
     def _tool_pause_project(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
