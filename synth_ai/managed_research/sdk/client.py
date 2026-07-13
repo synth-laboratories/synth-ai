@@ -25,6 +25,7 @@ from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     Checkpoint,
     EffortCreateRequest,
+    EffortFromRunsRequest,
     EffortPatchRequest,
     FactoryActorOutputCreateRequest,
     FactoryActorOutputPatchRequest,
@@ -45,6 +46,7 @@ from synth_ai.managed_research.models import (
 )
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
+    effort_from_runs_payload,
     effort_patch_payload,
     factory_actor_output_create_payload,
     factory_actor_output_patch_payload,
@@ -1995,6 +1997,38 @@ class ManagedResearchClient:
                 json_body=effort_patch_payload(request),
             ),
             label="patch_effort",
+        )
+
+    def list_graduation_proposals(self, project_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/api/v1/managed_research/efforts/proposals",
+                params=build_query_params(project_id=project_id),
+            ),
+            label="list_graduation_proposals",
+        )
+
+    def create_effort_from_runs(
+        self,
+        request: EffortFromRunsRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/api/v1/managed_research/efforts/from-runs",
+                json_body=effort_from_runs_payload(request),
+            ),
+            label="create_effort_from_runs",
+        )
+
+    def list_runs_for_effort(self, effort_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/api/v1/managed_research/efforts/{effort_id}/runs",
+            ),
+            label="list_runs_for_effort",
         )
 
     def get_default_project(self) -> dict[str, Any]:

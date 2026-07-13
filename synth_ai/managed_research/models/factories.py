@@ -593,6 +593,65 @@ class EffortPatchRequest:
 
 
 @dataclass(frozen=True)
+class EffortFromRunsRequest:
+    project_id: str
+    name: str
+    run_ids: tuple[str, ...] | list[str]
+    factory_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "project_id": self.project_id,
+            "name": self.name,
+            "run_ids": list(self.run_ids),
+        }
+        if self.factory_id is not None:
+            payload["factory_id"] = self.factory_id
+        return payload
+
+
+@dataclass(frozen=True)
+class GraduationProposal:
+    """Gardener-authored proposal to graduate related Runs into a persistent Effort."""
+
+    proposal_id: str
+    project_id: str
+    suggested_name: str
+    run_ids: tuple[str, ...]
+    factory_id: str | None = None
+    hypothesis_or_topic: str | None = None
+    effort_type: EffortType | None = None
+    rationale: str | None = None
+    confidence: float | None = None
+    created_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GraduationProposal:
+        mapping = _require_mapping(payload, label="graduation proposal")
+        effort_type_value = _optional_string(mapping, "effort_type")
+        return cls(
+            proposal_id=_require_string(
+                mapping, "proposal_id", label="graduation_proposal.proposal_id"
+            ),
+            project_id=_require_string(
+                mapping, "project_id", label="graduation_proposal.project_id"
+            ),
+            suggested_name=_require_string(
+                mapping, "suggested_name", label="graduation_proposal.suggested_name"
+            ),
+            run_ids=_string_tuple(mapping.get("run_ids")),
+            factory_id=_optional_string(mapping, "factory_id"),
+            hypothesis_or_topic=_optional_string(mapping, "hypothesis_or_topic"),
+            effort_type=EffortType(effort_type_value) if effort_type_value is not None else None,
+            rationale=_optional_string(mapping, "rationale"),
+            confidence=_optional_float(mapping, "confidence"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class Effort:
     effort_id: str
     org_id: str
@@ -2029,6 +2088,14 @@ def effort_patch_payload(
     return dict(request)
 
 
+def effort_from_runs_payload(
+    request: EffortFromRunsRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, EffortFromRunsRequest):
+        return request.to_wire()
+    return dict(request)
+
+
 FACTORY_KIND_VALUES = tuple(item.value for item in FactoryKind)
 FACTORY_LIFECYCLE_STATE_VALUES = tuple(item.value for item in FactoryLifecycleState)
 FACTORY_PROJECT_ROLE_VALUES = tuple(item.value for item in FactoryProjectRole)
@@ -2058,12 +2125,14 @@ __all__ = [
     "FACTORY_RUN_KIND_VALUES",
     "Effort",
     "EffortCreateRequest",
+    "EffortFromRunsRequest",
     "EffortPatchRequest",
     "EffortStatus",
     "EffortType",
     "ExperimentBundle",
     "ExperimentComparison",
     "ExperimentHistory",
+    "GraduationProposal",
     "BudgetPolicy",
     "CapPolicy",
     "AuthorizationPolicy",
@@ -2108,6 +2177,7 @@ __all__ = [
     "PublicationPolicy",
     "RecurrencePolicy",
     "effort_create_payload",
+    "effort_from_runs_payload",
     "effort_patch_payload",
     "factory_actor_output_create_payload",
     "factory_actor_output_patch_payload",
