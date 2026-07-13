@@ -18,7 +18,6 @@ from synth_ai.managed_research.models.factories import (
     ExperimentBundle,
     ExperimentComparison,
     ExperimentHistory,
-    GraduationProposal,
     Factory,
     FactoryActorOutput,
     FactoryActorOutputCreateRequest,
@@ -43,6 +42,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryWakeDueRequest,
     FactoryWakeDueResult,
     FactoryWorkspace,
+    GraduationProposal,
     RecurrencePolicy,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
