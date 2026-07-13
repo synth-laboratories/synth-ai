@@ -15,19 +15,10 @@ All notable changes to the `synth-ai` package are documented here.
   - MCP tools: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
   - OpenAPI vendoring: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
 - **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
-- **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
-- **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
-  - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
-  - `update` (PATCH metadata), `publish_public`, `assign_reviewer`, `delete`
-  - `list_public`, `get_public` for the Open Research index
-- **Run handle:** `handle.hosted_artifact.get()`, `.content()`, `.publish_public()`, `.assign_reviewer()`
-- **Mintlify SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
 
 ### Notes
 
 - Pairs with backend Factory and CloudDeployment routes on the same release train; publish only after the backend routes are deployed for the target audience.
-- Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
-- Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
 
 ## 0.14.2 — 2026-07-10
 
@@ -45,6 +36,21 @@ All notable changes to the `synth-ai` package are documented here.
 - Existing model values, including `gpt-5.4` and internal compatibility values, remain
   importable so the daily release does not break existing typed callers.
 
+## 0.14.0 — 2026-06-27
+
+### Added
+
+- **`SynthClient().research.efforts`** — run→Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
+  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
+  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
+- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
+- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
+- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
+
+### Notes
+
+- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
+
 ## 0.13.1 — 2026-07-09
 
 ### Added
@@ -60,21 +66,6 @@ All notable changes to the `synth-ai` package are documented here.
 - The vendored Managed Research OpenAPI snapshot is generated from the backend
   production promotion branch for this release train.
 - This release does not claim, grant, reset, or mutate customer billing state.
-
-## 0.14.0 — 2026-06-27
-
-### Added
-
-- **`SynthClient().research.efforts`** — run→Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
-  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
-  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
-- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
-- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
-- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
-
-### Notes
-
-- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
 
 ## 0.12.0 — 2026-06-25
 
