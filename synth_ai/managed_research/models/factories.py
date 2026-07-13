@@ -2132,9 +2132,7 @@ class FactoryCandidate:
             baseline_score=_optional_float(mapping, "baseline_score"),
             graded_at=_optional_datetime(mapping, "graded_at"),
             is_champion=bool(_optional_bool(mapping, "is_champion")),
-            champion_selected_at=_optional_datetime(
-                mapping, "champion_selected_at"
-            ),
+            champion_selected_at=_optional_datetime(mapping, "champion_selected_at"),
             published_at=published_at,
             created_at=created_at,
             updated_at=updated_at,
@@ -2167,9 +2165,7 @@ class FactoryChampionEvent:
         return cls(
             event_id=_require_string(mapping, "event_id", label="event.event_id"),
             org_id=_require_string(mapping, "org_id", label="event.org_id"),
-            factory_id=_require_string(
-                mapping, "factory_id", label="event.factory_id"
-            ),
+            factory_id=_require_string(mapping, "factory_id", label="event.factory_id"),
             effort_id=_optional_string(mapping, "effort_id"),
             candidate_id=_optional_string(mapping, "candidate_id"),
             action=FactoryChampionEventAction(
@@ -2205,9 +2201,7 @@ class FactoryChampionDecision:
             ),
             reason=_require_string(mapping, "reason", label="decision.reason"),
             changed=bool(_optional_bool(mapping, "changed")),
-            champion=FactoryCandidate.from_wire(champion)
-            if champion is not None
-            else None,
+            champion=FactoryCandidate.from_wire(champion) if champion is not None else None,
             raw=dict(mapping),
         )
 
