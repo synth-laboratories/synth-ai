@@ -66,6 +66,11 @@ class ManagedResearchRunTerminalOutcome(StrEnum):
     TIMED_OUT = "timed_out"
 
 
+class ManagedResearchRunKind(StrEnum):
+    RESEARCH = "research"
+    MAINTENANCE = "maintenance"
+
+
 class ManagedResearchRunLivenessPhase(StrEnum):
     ACCEPTED = "accepted"
     BOOTSTRAPPING = "bootstrapping"
@@ -430,6 +435,7 @@ class ManagedResearchRun:
     project_id: str
     public_state: RunState
     effort_id: str | None = None
+    run_kind: ManagedResearchRunKind = ManagedResearchRunKind.RESEARCH
     runbook: str | None = None
     project_alias: str | None = None
     project_kind: str | None = None
@@ -495,6 +501,9 @@ class ManagedResearchRun:
             run_id=_require_string(mapping, "run_id", label="run.run_id"),
             project_id=project_id,
             effort_id=_optional_string(mapping, "effort_id"),
+            run_kind=ManagedResearchRunKind(
+                _optional_string(mapping, "run_kind") or ManagedResearchRunKind.RESEARCH
+            ),
             runbook=_optional_string(mapping, "runbook"),
             project_alias=project_alias,
             project_kind=project_kind,

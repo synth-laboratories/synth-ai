@@ -7,6 +7,7 @@ from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.tag import TagAPI
+from synth_ai.research.efforts import ResearchEffortsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
@@ -39,6 +40,7 @@ class ResearchClient:
         self.timeout_seconds = timeout_seconds
         self._session: ManagedResearchClient | None = None
         self._factories: ResearchFactoriesAPI | None = None
+        self._efforts: ResearchEffortsAPI | None = None
         self._projects: ResearchProjectsAPI | None = None
         self._runs: ResearchRunsAPI | None = None
         self._limits: ResearchLimitsAPI | None = None
@@ -78,6 +80,13 @@ class ResearchClient:
         if self._factories is None:
             self._factories = ResearchFactoriesAPI(self._open_session())
         return self._factories
+
+    @property
+    def efforts(self) -> ResearchEffortsAPI:
+        """Graduate runs into persistent Efforts (``efforts.proposals`` for proposals)."""
+        if self._efforts is None:
+            self._efforts = ResearchEffortsAPI(self._open_session())
+        return self._efforts
 
     @property
     def projects(self) -> ResearchProjectsAPI:
@@ -134,6 +143,7 @@ class ResearchClient:
             self._session.close()
         self._session = None
         self._factories = None
+        self._efforts = None
         self._projects = None
         self._runs = None
         self._limits = None

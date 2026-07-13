@@ -6,6 +6,7 @@ import base64
 import json as _json
 import mimetypes
 import os
+import re
 import time
 import warnings
 from collections.abc import Iterable, Mapping
@@ -24,9 +25,13 @@ from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
     Checkpoint,
     EffortCreateRequest,
+    EffortFromRunsRequest,
     EffortPatchRequest,
     FactoryActorOutputCreateRequest,
     FactoryActorOutputPatchRequest,
+    FactoryCandidateGradingRequest,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
     FactoryCreateRequest,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
@@ -44,9 +49,13 @@ from synth_ai.managed_research.models import (
 )
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
+    effort_from_runs_payload,
     effort_patch_payload,
     factory_actor_output_create_payload,
     factory_actor_output_patch_payload,
+    factory_candidate_grading_payload,
+    factory_champion_rollback_payload,
+    factory_champion_select_payload,
     factory_create_payload,
     factory_idea_create_payload,
     factory_idea_patch_payload,
@@ -58,6 +67,8 @@ from synth_ai.managed_research.models.factories import (
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
 )
+from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
+from synth_ai.managed_research.models.run_authority import ManagedResearchRunTask
 from synth_ai.managed_research.models.run_control import ManagedResearchRunControlError
 from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunActorLogs,
@@ -152,6 +163,10 @@ from synth_ai.managed_research.models.types import (
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
+from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeploymentProjectGitSource,
+    CloudDeploymentsAPI,
+)
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
     DEFAULT_MISC_PROJECT_ALIAS,
@@ -173,6 +188,7 @@ from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
+from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
@@ -198,6 +214,7 @@ from synth_ai.managed_research.transport.http import SmrHttpTransport, _raise_fo
 from synth_ai.managed_research.transport.pagination import build_query_params
 
 ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
+_FULL_GIT_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = [
     "ACTIVE_RUN_STATES",
@@ -248,6 +265,53 @@ def _optional_mapping(
     if not isinstance(payload, Mapping):
         raise ValueError(f"{field_name} must be a mapping when provided")
     return dict(payload)
+
+
+def _optional_cloud_deployment_source(
+    payload: CloudDeploymentProjectGitSource | Mapping[str, Any] | None,
+) -> dict[str, str] | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, Mapping):
+        raise ValueError("source must be a mapping when provided")
+    required_fields = {
+        "kind",
+        "source_commit_sha",
+        "evidence_commit_sha",
+        "instance_id",
+    }
+    provided_fields = set(payload)
+    if provided_fields != required_fields:
+        missing_fields = sorted(required_fields - provided_fields)
+        unexpected_fields = sorted(provided_fields - required_fields)
+        details: list[str] = []
+        if missing_fields:
+            details.append(f"missing {', '.join(missing_fields)}")
+        if unexpected_fields:
+            details.append(f"unexpected {', '.join(unexpected_fields)}")
+        raise ValueError(
+            "source fields must exactly match the project_git contract (" + "; ".join(details) + ")"
+        )
+    kind = _require_non_empty_string(
+        payload.get("kind"),
+        field_name="source.kind",
+    )
+    if kind != "project_git":
+        raise ValueError("source.kind must be project_git")
+    normalized = {"kind": kind}
+    for field_name in ("source_commit_sha", "evidence_commit_sha"):
+        commit_sha = _require_non_empty_string(
+            payload.get(field_name),
+            field_name=f"source.{field_name}",
+        ).lower()
+        if not _FULL_GIT_COMMIT_SHA.fullmatch(commit_sha):
+            raise ValueError(f"source.{field_name} must be a full 40-character Git commit SHA")
+        normalized[field_name] = commit_sha
+    normalized["instance_id"] = _require_non_empty_string(
+        payload.get("instance_id"),
+        field_name="source.instance_id",
+    )
+    return normalized
 
 
 def _coerce_branch_request(
@@ -557,6 +621,7 @@ def _build_project_run_payload(
     primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
     effort_id: str | None = None,
+    run_kind: str = "research",
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
@@ -843,6 +908,10 @@ def _build_project_run_payload(
         payload["primary_parent"] = normalized_primary_parent
     if effort_id and effort_id.strip():
         payload["effort_id"] = effort_id.strip()
+    normalized_run_kind = str(run_kind or "research").strip().lower()
+    if normalized_run_kind not in {"research", "maintenance"}:
+        raise ValueError("run_kind must be 'research' or 'maintenance'")
+    payload["run_kind"] = normalized_run_kind
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()
     if idempotency_key and idempotency_key.strip():
@@ -1017,6 +1086,7 @@ class ManagedResearchClient:
     _transport: SmrHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
     _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
+    _factory_evidence_api: FactoryEvidenceAPI | None = field(init=False, default=None, repr=False)
     _efforts_api: EffortsAPI | None = field(init=False, default=None, repr=False)
     _runs_api: RunsAPI | None = field(init=False, default=None, repr=False)
     _workspace_inputs_api: WorkspaceInputsAPI | None = field(init=False, default=None, repr=False)
@@ -1035,6 +1105,11 @@ class ManagedResearchClient:
     _credentials_api: CredentialsAPI | None = field(init=False, default=None, repr=False)
     _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
+    _cloud_deployments_api: CloudDeploymentsAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
@@ -1075,6 +1150,12 @@ class ManagedResearchClient:
         if self._factories_api is None:
             self._factories_api = FactoriesAPI(self)
         return self._factories_api
+
+    @property
+    def factory_evidence(self) -> FactoryEvidenceAPI:
+        if self._factory_evidence_api is None:
+            self._factory_evidence_api = FactoryEvidenceAPI(self)
+        return self._factory_evidence_api
 
     @property
     def efforts(self) -> EffortsAPI:
@@ -1201,6 +1282,12 @@ class ManagedResearchClient:
         return self._environments_api
 
     @property
+    def cloud_deployments(self) -> CloudDeploymentsAPI:
+        if self._cloud_deployments_api is None:
+            self._cloud_deployments_api = CloudDeploymentsAPI(self)
+        return self._cloud_deployments_api
+
+    @property
     def logs(self) -> LogsAPI:
         if self._logs_api is None:
             self._logs_api = LogsAPI(self)
@@ -1265,6 +1352,45 @@ class ManagedResearchClient:
                 f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}",
             ),
             label="get_tag_session",
+        )
+
+    def list_tag_sessions(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/api/tag/v1/sessions",
+                params=build_query_params(
+                    factory_id=factory_id,
+                    effort_id=effort_id,
+                    limit=limit,
+                ),
+            ),
+            label="list_tag_sessions",
+        )
+
+    def watch_tag_session(self, session_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/watch",
+            ),
+            label="watch_tag_session",
+        )
+
+    def control_tag_session(self, session_id: str, *, action: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/api/tag/v1/sessions/{_require_non_empty_string(session_id, field_name='session_id')}/control",
+                json_body={"action": _require_non_empty_string(action, field_name="action")},
+            ),
+            label="control_tag_session",
         )
 
     def send_tag_message(
@@ -1582,6 +1708,85 @@ class ManagedResearchClient:
             label="patch_factory",
         )
 
+    def list_factory_candidates(
+        self,
+        factory_id: str,
+        *,
+        grading_status: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/candidates",
+                params=build_query_params(
+                    grading_status=grading_status,
+                    effort_id=effort_id,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_candidates",
+        )
+
+    def record_factory_candidate_grading(
+        self,
+        factory_id: str,
+        candidate_id: str,
+        request: FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/candidates/{candidate_id}/grading",
+                json_body=factory_candidate_grading_payload(request),
+            ),
+            label="record_factory_candidate_grading",
+        )
+
+    def select_factory_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/champion/select",
+                json_body=factory_champion_select_payload(request),
+            ),
+            label="select_factory_champion",
+        )
+
+    def rollback_factory_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/champion/rollback",
+                json_body=factory_champion_rollback_payload(request),
+            ),
+            label="rollback_factory_champion",
+        )
+
+    def list_factory_champion_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/champion/events",
+                params=build_query_params(limit=limit),
+            ),
+            label="list_factory_champion_events",
+        )
+
     def link_factory_project(
         self,
         factory_id: str,
@@ -1654,6 +1859,49 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", f"/smr/factories/{factory_id}/status"),
             label="get_factory_status",
+        )
+
+    def get_experiment_bundle(
+        self,
+        project_id: str,
+        experiment_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/{experiment_id}/bundle",
+            ),
+            label="get_experiment_bundle",
+        )
+
+    def get_experiment_history(
+        self,
+        project_id: str,
+        *,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiment-bundles",
+                params=build_query_params(limit=limit),
+            ),
+            label="get_experiment_history",
+        )
+
+    def compare_experiments(
+        self,
+        project_id: str,
+        experiment_ids: Iterable[str],
+    ) -> dict[str, Any]:
+        normalized_ids = [str(item).strip() for item in experiment_ids if str(item).strip()]
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/experiments/compare",
+                params={"experiment_ids": normalized_ids},
+            ),
+            label="compare_experiments",
         )
 
     def create_factory_idea(
@@ -1835,6 +2083,38 @@ class ManagedResearchClient:
                 json_body=effort_patch_payload(request),
             ),
             label="patch_effort",
+        )
+
+    def list_graduation_proposals(self, project_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/api/v1/managed_research/efforts/proposals",
+                params=build_query_params(project_id=project_id),
+            ),
+            label="list_graduation_proposals",
+        )
+
+    def create_effort_from_runs(
+        self,
+        request: EffortFromRunsRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/api/v1/managed_research/efforts/from-runs",
+                json_body=effort_from_runs_payload(request),
+            ),
+            label="create_effort_from_runs",
+        )
+
+    def list_runs_for_effort(self, effort_id: str) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/api/v1/managed_research/efforts/{effort_id}/runs",
+            ),
+            label="list_runs_for_effort",
         )
 
     def get_default_project(self) -> dict[str, Any]:
@@ -2975,6 +3255,113 @@ class ManagedResearchClient:
             label="preflight_environment",
         )
 
+    def create_cloud_deployment(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        topology_id: str,
+        topology_version: str | None = None,
+        host_kind: str = "exe_dev",
+        metadata: Mapping[str, Any] | None = None,
+        source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        request_body: dict[str, Any] = {
+            "project_id": _require_non_empty_string(
+                project_id,
+                field_name="project_id",
+            ),
+            "name": _require_non_empty_string(name, field_name="name"),
+            "topology_id": _require_non_empty_string(
+                topology_id,
+                field_name="topology_id",
+            ),
+            "topology_version": _optional_non_empty_string(topology_version),
+            "host_kind": _require_non_empty_string(
+                host_kind,
+                field_name="host_kind",
+            ),
+            "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+        }
+        normalized_source = _optional_cloud_deployment_source(source)
+        if normalized_source is not None:
+            request_body["source"] = normalized_source
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/v1/deployments",
+                json_body=request_body,
+            ),
+            label="create_cloud_deployment",
+        )
+
+    def list_cloud_deployments(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/v1/deployments",
+                params=build_query_params(project_id=project_id, limit=limit),
+            ),
+            label="list_cloud_deployments",
+        )
+
+    def get_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}"),
+            label="get_cloud_deployment",
+        )
+
+    def observe_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
+        return _coerce_dict(
+            self._request_json("POST", f"/smr/v1/deployments/{deployment_id}/observe"),
+            label="observe_cloud_deployment",
+        )
+
+    def deploy_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        reason: str | None = None,
+    ) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/v1/deployments/{deployment_id}/deploy",
+                json_body={"reason": _optional_non_empty_string(reason)},
+            ),
+            label="deploy_cloud_deployment",
+        )
+
+    def retire_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        reason: str | None = None,
+        delete_vm: bool = False,
+        confirm_vm_name: str | None = None,
+    ) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/v1/deployments/{deployment_id}/retire",
+                json_body={
+                    "reason": _optional_non_empty_string(reason),
+                    "delete_vm": bool(delete_vm),
+                    "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
+                },
+            ),
+            label="retire_cloud_deployment",
+        )
+
     def list_project_outputs(self, project_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
             self._request_json("GET", f"/smr/projects/{project_id}/outputs"),
@@ -3803,6 +4190,7 @@ class ManagedResearchClient:
         primary_parent_ref: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_parent: Mapping[str, Any] | dict[str, Any] | None = None,
         effort_id: str | None = None,
+        run_kind: str = "research",
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
@@ -3846,6 +4234,7 @@ class ManagedResearchClient:
             primary_parent_ref=primary_parent_ref,
             primary_parent=primary_parent,
             effort_id=effort_id,
+            run_kind=run_kind,
             idempotency_key_run_create=idempotency_key_run_create,
             idempotency_key=idempotency_key,
         )
@@ -4575,16 +4964,45 @@ class ManagedResearchClient:
         objective_id: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        if objective_id:
-            raise SmrApiError(
-                "Objective-scoped task listing is not available in the current "
-                "Managed Research backend contract; use run-scoped tasks or "
-                "run objective events instead.",
-                failure_class="unsupported_backend_contract",
-            )
+    ) -> list[ManagedResearchRunTask]:
+        """Return project-scoped task DTOs from the backend owner route."""
+
         if not run_id:
+            if objective_id:
+                raise SmrApiError(
+                    "Objective-scoped task listing is not available in the current "
+                    "Managed Research backend contract; use run-scoped tasks or "
+                    "run objective events instead.",
+                    failure_class="unsupported_backend_contract",
+                )
             raise ValueError("run_id or objective_id is required")
+        tasks = [
+            ManagedResearchRunTask.from_wire(item)
+            for item in self.list_tasks_raw(
+                project_id,
+                run_id=run_id,
+                kind=kind,
+                limit=limit,
+            )
+        ]
+        for task in tasks:
+            if task.project_id != project_id or task.run_id != run_id:
+                raise SmrApiError(
+                    "Task owner-route identity does not match the requested project/run",
+                    failure_class="backend_contract_mismatch",
+                )
+        return tasks
+
+    def list_tasks_raw(
+        self,
+        project_id: str,
+        *,
+        run_id: str,
+        kind: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Legacy serialized task rows; canonical SDK callers use ``list_tasks``."""
+
         return _coerce_dict_list(
             self._request_json(
                 "GET",
@@ -5190,7 +5608,32 @@ class ManagedResearchClient:
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Return the canonical typed operator-evidence owner response."""
+
+        return SmrRunOperatorEvidence.from_wire(
+            self.get_project_run_operator_evidence_raw(
+                project_id,
+                run_id,
+                runtime_timeline_limit=runtime_timeline_limit,
+                logical_timeline_limit=logical_timeline_limit,
+                transcript_limit=transcript_limit,
+                reconciliation_limit=reconciliation_limit,
+            )
+        )
+
+    def get_project_run_operator_evidence_raw(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
     ) -> dict[str, Any]:
+        """Legacy serialized operator evidence; canonical callers use the DTO."""
+
         return _coerce_dict(
             self._request_json(
                 "GET",
@@ -5203,6 +5646,27 @@ class ManagedResearchClient:
                 ),
             ),
             label="get_project_run_operator_evidence",
+        )
+
+    def get_project_run_operator_evidence_typed(
+        self,
+        project_id: str,
+        run_id: str,
+        *,
+        runtime_timeline_limit: int | None = None,
+        logical_timeline_limit: int | None = None,
+        transcript_limit: int | None = None,
+        reconciliation_limit: int | None = None,
+    ) -> SmrRunOperatorEvidence:
+        """Compatibility alias for the canonical typed operator-evidence read."""
+
+        return self.get_project_run_operator_evidence(
+            project_id,
+            run_id,
+            runtime_timeline_limit=runtime_timeline_limit,
+            logical_timeline_limit=logical_timeline_limit,
+            transcript_limit=transcript_limit,
+            reconciliation_limit=reconciliation_limit,
         )
 
     def get_run_traces(self, run_id: str) -> SmrRunTraces:

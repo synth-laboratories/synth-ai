@@ -38,6 +38,9 @@ from synth_ai.managed_research.mcp.request_models import (
 )
 from synth_ai.managed_research.mcp.tools.approvals import build_approval_tools
 from synth_ai.managed_research.mcp.tools.artifacts import build_artifact_tools
+from synth_ai.managed_research.mcp.tools.cloud_deployments import (
+    build_cloud_deployment_tools,
+)
 from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
@@ -127,11 +130,32 @@ def _optional_object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
+def _object_arg(args: JSONDict, key: str) -> dict[str, Any] | None:
+    value = args.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise ValueError(f"'{key}' must be an object when provided")
+    return dict(value)
+
+
 def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
     value = args.get(key)
     if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
+
+
+def _mcp_jsonable(value: Any) -> Any:
+    if is_dataclass(value):
+        return asdict(value)
+    if isinstance(value, list):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, tuple):
+        return [_mcp_jsonable(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    return value
 
 
 class RpcError(Exception):
@@ -225,6 +249,7 @@ class ManagedResearchMcpServer:
         return [
             *build_project_tools(self),
             *build_factory_tools(self),
+            *build_cloud_deployment_tools(self),
             *build_workspace_input_tools(self),
             *build_export_tools(self),
             *build_repo_tools(self),
@@ -1023,6 +1048,29 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return client.efforts.get(effort_id).raw
 
+    def _tool_list_graduation_proposals(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        with self._client_from_args(args) as client:
+            return [item.raw for item in client.efforts.list_graduation_proposals(project_id)]
+
+    def _tool_graduate_runs_to_effort(self, args: JSONDict) -> Any:
+        project_id = require_string(args, "project_id")
+        name = require_string(args, "name")
+        run_ids = _optional_string_tuple_arg(args, "run_ids")
+        factory_id = optional_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.from_runs(
+                project_id=project_id,
+                name=name,
+                run_ids=run_ids,
+                factory_id=factory_id,
+            ).raw
+
+    def _tool_list_runs_by_effort(self, args: JSONDict) -> Any:
+        effort_id = require_string(args, "effort_id")
+        with self._client_from_args(args) as client:
+            return client.efforts.list_runs(effort_id)
+
     def _tool_patch_effort(self, args: JSONDict) -> Any:
         effort_id = require_string(args, "effort_id")
         with self._client_from_args(args) as client:
@@ -1203,6 +1251,62 @@ class ManagedResearchMcpServer:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
             return client.prepare_project_setup(project_id)
+
+    def _tool_list_cloud_deployments(self, args: JSONDict) -> Any:
+        project_id = optional_string(args, "project_id")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.list(project_id=project_id, limit=limit))
+
+    def _tool_create_cloud_deployment(self, args: JSONDict) -> Any:
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.create(
+                    project_id=require_string(args, "project_id"),
+                    name=require_string(args, "name"),
+                    topology_id=require_string(args, "topology_id"),
+                    topology_version=optional_string(args, "topology_version"),
+                    host_kind=optional_string(args, "host_kind") or "exe_dev",
+                    metadata=_object_arg(args, "metadata"),
+                    source=_object_arg(args, "source"),
+                )
+            )
+
+    def _tool_get_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.get(deployment_id=deployment_id))
+
+    def _tool_observe_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.observe(deployment_id=deployment_id))
+
+    def _tool_deploy_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.deploy(
+                    deployment_id=deployment_id,
+                    reason=optional_string(args, "reason"),
+                )
+            )
+
+    def _tool_retire_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        delete_vm = optional_bool(args, "delete_vm", default=False)
+        confirm_vm_name = optional_string(args, "confirm_vm_name")
+        if delete_vm and not confirm_vm_name:
+            raise ValueError("confirm_vm_name is required when delete_vm is true")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.retire(
+                    deployment_id=deployment_id,
+                    reason=optional_string(args, "reason"),
+                    delete_vm=delete_vm,
+                    confirm_vm_name=confirm_vm_name,
+                )
+            )
 
     def _tool_get_project_notes(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2002,13 +2106,16 @@ class ManagedResearchMcpServer:
     def _tool_list_tasks(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
         with self._client_from_args(args) as client:
-            return client.runs.list_tasks(
-                project_id,
-                run_id=optional_string(args, "run_id"),
-                objective_id=optional_string(args, "objective_id"),
-                kind=optional_string(args, "kind"),
-                limit=optional_int(args, "limit"),
-            )
+            return [
+                task.to_wire()
+                for task in client.runs.list_tasks(
+                    project_id,
+                    run_id=optional_string(args, "run_id"),
+                    objective_id=optional_string(args, "objective_id"),
+                    kind=optional_string(args, "kind"),
+                    limit=optional_int(args, "limit"),
+                )
+            ]
 
     def _tool_create_task(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
@@ -2126,7 +2233,7 @@ class ManagedResearchMcpServer:
                 logical_timeline_limit=optional_int(args, "logical_timeline_limit"),
                 transcript_limit=optional_int(args, "transcript_limit"),
                 reconciliation_limit=optional_int(args, "reconciliation_limit"),
-            )
+            ).to_wire()
 
     def _tool_get_run_traces(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")
