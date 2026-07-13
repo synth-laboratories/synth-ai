@@ -1,0 +1,173 @@
+# Changelog
+
+All notable changes to the `synth-ai` package are documented here.
+
+## 0.14.2 — 2026-07-10
+
+### Added
+
+- Typed `SmrAgentModel` coverage for every model in the backend-owned supported-model
+  catalog, including `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and
+  `cursor/grok-4.5`.
+
+### Changed
+
+- The vendored Managed Research OpenAPI model enum now matches the backend catalog.
+- The retired BetterStack SDK-log ingestion endpoint and payload schemas are no
+  longer published; application logs use the backend-owned VictoriaLogs path.
+- Existing model values, including `gpt-5.4` and internal compatibility values, remain
+  importable so the daily release does not break existing typed callers.
+
+## 0.13.1 — 2026-07-09
+
+### Added
+
+- Typed `client.billing.plan()` support for the unified `economics_snapshot.v1`
+  contract, including plan policy, allowance windows, wallet, banked resets,
+  promotion state, usage summaries, block details, and recovery actions.
+- Typed read-only billing catalog and manual-grant preview models aligned with
+  the production backend contract.
+
+### Notes
+
+- The vendored Managed Research OpenAPI snapshot is generated from the backend
+  production promotion branch for this release train.
+- This release does not claim, grant, reset, or mutate customer billing state.
+
+## 0.12.0 — 2026-06-25
+
+### Added
+
+- **`SynthClient().research.tag`** — Synth Tag beta session API for delegated Managed Research work:
+  - `create_session(...)` starts a Tag session and bound SMR run.
+  - `get_session(session_id)` returns coarse status and terminal receipt.
+  - `send_message(session_id, ...)` steers the same active run without starting a new run.
+  - `get_default_scope()` returns the default organization Tag scope.
+- **Tag SDK models**: `TagSession`, `TagSessionCreateRequest`, `TagMessageRequest`, `TagSessionReceipt`, and `TagScope`.
+- **MCP tools**: `tag_create_session`, `tag_get_session`, and `tag_send_message`.
+- **Example**: `examples/tag_delegate_smoke.py` for delegate, steer, and receipt smoke checks.
+
+### Notes
+
+- Pair with backend `/api/tag/v1` routes and the `tag_steward` runbook on the same release train.
+- Production proof: Tag smoke session `b5cd5bf9-c1a7-46db-a5a2-799ca1816c8b`, run `ba255a34-0da3-4007-8ac3-0c677d836d85`, receipt `state=done`, artifact `/smr/work-products/5eae8c7a-6bf4-54e8-93a5-96401fb237f7/content`.
+
+## 0.11.7 — 2026-06-25
+
+### Added
+
+- **`SmrAgentModel.X_AI_GROK_BUILD`** (`x-ai/grok-build`) — typed SDK/MCP support for hosted SMR runs on xAI Grok Build via direct **xAI** routing (`codex_xai_grok_build` platform profile). Pairs with backend catalog row `grok-build-0.1` and metered xAI proxy.
+
+### Changed
+
+- **Grok catalog consolidation:** `SmrAgentModel` drops `x-ai/grok-4.1-fast` and `x-ai/grok-4.20-beta`; **`x-ai/grok-4.3`** (direct xAI via Codex) is the supported public Grok 4.x model. Retired ids are aliased to grok-4.3 on the backend catalog, so existing run-policy references still resolve server-side. Vendored `smr_openapi.yaml` re-synced to the backend contract (byte-match).
+
+### Fixed
+
+- **xAI chat compatibility (backend + contract):** upstream xAI requests no longer send OpenAI-style penalty fields that caused streaming disconnects or hidden provider errors on Grok paths.
+
+## 0.11.6 — 2026-06-24
+
+### Added
+
+- **`client.promotions`** namespace — typed SMR promotion registry SDK:
+  - `list_public()`, `mine()`, `claim(campaign_id)` for `GET /smr/promotions`,
+    `GET /smr/promotions/mine`, and `POST /smr/promotions/{campaign_id}/claim`.
+  - Admin helpers: `list_admin_campaigns()`, `upsert_admin_campaign(...)`,
+    `retire_admin_campaign(campaign_id)`.
+
+### Notes
+
+- Pair with backend promotions registry routes (Phases 0–3) on the same deploy train.
+- OpenAPI contract synced from backend `smr_openapi.yaml`.
+
+## 0.11.5 — 2026-06-24
+
+### Added
+
+- **`client.billing`** namespace — typed SMR Codex-style billing SDK:
+  - `get_catalog()`, `get_plan()`, `get_run_drawdown(run_id)`, `preflight_run(...)`,
+    factory-effort drawdown/preflight, and admin grant helpers matching
+    `GET /smr/billing/plan`, `/smr/billing/catalog`, run drawdown, and preflight routes.
+
+### Notes
+
+- Ships the billing SDK already merged on `dev`; no Factory surface changes.
+- Pair with backend billing routes on the same deploy train.
+
+## 0.11.4 — 2026-06-24
+
+### Added
+
+- **`SmrAgentModel.BASETEN_ZAI_ORG_GLM_5_2`** (`baseten/zai-org/GLM-5.2`) — GLM 5.2 via Baseten, added to the public agent-model enum and the shared actor model allowlist.
+- Run-policy **`groq`** credential provider and **`openrouter`** inference provider accepted client-side (BYOK / run-policy coercion no longer rejects them).
+
+### Changed
+
+- **Public model catalog sunset** (backend `smr_supported_models.json`): Trinity Large Thinking (`arcee-ai/trinity-large-thinking` and `:free`), `gpt-oss-120b`, `gpt-5.4-nano`, `deepseek/deepseek-v4-flash`, and `deepseek/deepseek-v4-pro` are no longer public and are dropped from `GET /smr/agent-models`. These ids remain importable from `SmrAgentModel` (no breaking enum removal) but fail backend preflight; use `gpt-5.4-mini`, `gpt-5.4`, or GLM 5.2 (entitlement-dependent). DeepSeek×Codex bench profiles remain available internally via `profile_id`.
+
+### Fixed
+
+- Removed the dead **`smr_get_project_economics`** MCP tool. **Errata:** the 0.11.3 notes listed `smr_get_project_economics` as an included tool, but its handler returned a removed-contract error (no backend route). Use **`smr_get_project_usage`** / **`smr_get_run_usage`** / billing entitlements instead (per the 0.11.2 migration table).
+
+## 0.11.3 — 2026-06-22
+
+### Changed
+
+- Prepared a distinct launch package version for the current Managed Research MCP surface so PyPI can ship the 222-tool launch worktree instead of the stale 0.11.2 wheel.
+- Included the project economics and GitHub setup MCP tools in the release target: `smr_get_project_economics`, `smr_setup_github_status`, `smr_setup_github_start_oauth`, `smr_setup_github_list_repos`, and `smr_setup_github_disconnect`.
+
+## 0.11.2 — 2026-06-16
+
+### Added
+
+- **`SynthClient().research`** — public Managed Research + Research Factory namespace (`ResearchClient`).
+- MCP entrypoint **`synth-ai-managed-research-mcp`** (stdio) alongside hosted HTTP MCP at `https://api.usesynth.ai/mcp`.
+- Optional extra **`synth-ai[research]`** for Research/MCP dependencies.
+
+### Changed
+
+- **Canonical install:** `pip install "synth-ai[research]==0.11.2"` (or `uv add "synth-ai[research]"`).
+- **Canonical Python entry:** `from synth_ai import SynthClient` → `client.research`.
+- MCP tool enumeration and SDK namespaces reconciled to the shipped backend OpenAPI contract.
+
+### Removed (breaking vs 0.11.1)
+
+The following **public SDK/MCP surfaces were removed** because they are not part of the launch contract. Use the replacements below.
+
+| Removed area | Replacement |
+| --- | --- |
+| Objective / milestone / experiment CRUD helpers | Objectives are **runtime-managed** during runs; inspect with `smr_get_run_work_graph`, `smr_objectives` (read), run observability |
+| Project economics convenience wrappers on deprecated paths | **`smr_get_project_usage`**, **`smr_get_run_usage`**, resource-limit progress tools, billing entitlements |
+| Connect-git / legacy GitHub setup SDK modules | GitHub OAuth via MCP `smr_setup_github_*` where enabled; attach repos via console or `smr_work_repos_*` |
+| Standalone **`managed-research`** PyPI package as the primary story | **`synth-ai[research]`** only; legacy `ManagedResearchClient` import remains under `synth_ai` for advanced/low-level callers |
+| Data-factory trigger/publish MCP tools (`smr_trigger_data_factory`, …) | Factory programs via hosted control plane + documented factory MCP tools |
+
+### Migration (0.11.1 → 0.11.2)
+
+```bash
+uv add "synth-ai[research]==0.11.2"
+export SYNTH_API_KEY="sk_..."
+```
+
+```python
+# Before (0.11.1 docs / standalone package)
+# from managed_research import ManagedResearchClient
+# client = ManagedResearchClient()
+
+# After
+from synth_ai import SynthClient
+
+research = SynthClient().research
+projects = research.projects.list()
+run = research.runs.start(
+    "Inspect the repo and leave evidence.",
+    host_kind="daytona",
+    work_mode="directed_effort",
+    providers=[{"provider": "openrouter"}],
+    runbook="lite",
+)
+```
+
+- **MCP stdio:** `uv tool install "synth-ai[research]"` then run `synth-ai-managed-research-mcp`.
+- **Errors:** launch denials return typed exceptions / MCP tool errors with `402` (insufficient credits) and `429` (limits). See [Preflight and Errors](https://docs.usesynth.ai/managed-research/preflight-and-errors).

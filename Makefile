@@ -1,35 +1,23 @@
-.PHONY: test test-unit test-integration test-fast test-slow categorize-tests coverage
+.PHONY: test test-unit docs-gen docs-dev docs-check
 
-test-unit:
-	@./scripts/test_unit.sh
+docs-gen:
+	uv sync --group dev
+	uv run python scripts/generate_sdk_docs.py
 
-test-integration:
-	@./scripts/test_integration.sh
+docs-check: docs-gen
+	uv run python scripts/check_sdk_docstrings.py
 
-test: test-unit
+docs-dev:
+	@test -f docs/docs.json || (echo "Run make docs-gen first" && exit 1)
+	cd docs && mint dev
 
-test-fast:
-	@echo "Running fast tests (< 5 seconds)..."
-	@pytest -m fast -v
-
-test-slow:
-	@echo "Running slow tests (>= 5 seconds)..."
-	@pytest -m slow -v
-
-categorize-tests:
-	@echo "Categorizing tests by speed..."
-	@python scripts/categorize_tests.py --run-and-apply
-
-categorize-tests-dry-run:
-	@echo "Preview test categorization (dry run)..."
-	@python scripts/categorize_tests.py --run-and-apply --dry-run
-
-coverage:
-	@python scripts/coverage_summary.py
-
-coverage-ci:
-	@python scripts/coverage_summary.py --no-readme
-
-.PHONY: verify-trace-fixtures
-verify-trace-fixtures:
-	@python scripts/build_trace_fixtures.py --dest tests/artifacts/traces --overwrite
+# SDK pytest suite lives in ../testing (see testing/backend/unit/synth_ai_sdk/README.md).
+test test-unit:
+	@if [ -d ../testing/backend/unit/synth_ai_sdk ]; then \
+		uv run python scripts/check_sdk_architecture.py && \
+		cd ../testing && uv run python scripts/validate_synth_ai_contract.py && \
+		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \
+	else \
+		echo "Missing ../testing checkout; clone synth-laboratories/testing beside synth-ai"; \
+		exit 1; \
+	fi

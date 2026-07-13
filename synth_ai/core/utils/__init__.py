@@ -10,8 +10,8 @@ from synth_ai.core.utils.json import (
 from synth_ai.core.utils.paths import (
     REPO_ROOT,
     SYNTH_BIN_DIR,
+    SYNTH_CONTAINER_CONFIG_PATH,
     SYNTH_HOME_DIR,
-    SYNTH_LOCALAPI_CONFIG_PATH,
     SYNTH_USER_CONFIG_PATH,
     configure_import_paths,
     temporary_import_paths,
@@ -29,6 +29,7 @@ from synth_ai.core.utils.urls import (
     normalize_base_url,
     normalize_inference_base,
 )
+from synth_ai.core.utils.workspace import WorkspaceResolution, resolve_workspace
 
 __all__ = [
     # dict
@@ -45,7 +46,7 @@ __all__ = [
     "REPO_ROOT",
     "SYNTH_BIN_DIR",
     "SYNTH_HOME_DIR",
-    "SYNTH_LOCALAPI_CONFIG_PATH",
+    "SYNTH_CONTAINER_CONFIG_PATH",
     "SYNTH_USER_CONFIG_PATH",
     "configure_import_paths",
     "temporary_import_paths",
@@ -60,4 +61,7 @@ __all__ = [
     "normalize_base_url",
     "normalize_backend_base",
     "normalize_inference_base",
+    # workspace
+    "WorkspaceResolution",
+    "resolve_workspace",
 ]

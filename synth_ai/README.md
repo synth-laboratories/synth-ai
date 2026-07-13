@@ -1,137 +1,82 @@
-# Synth AI Python Package
+# `synth_ai` Package
 
-Root package for Synth AI SDK, CLI, and supporting infrastructure.
+Runtime package for the public Synth AI SDK and CLI.
 
-## Quick Start
+The public first-mile surface is intentionally small:
 
-```python
-# SDK classes are available directly from synth_ai
-from synth_ai import (
-    PolicyOptimizationJob,
-    EvalJob,
-    InProcessTaskApp,
-    VerifierClient,
-)
+- `SynthClient`
+- `AsyncSynthClient`
+- `client.containers`
+- `client.tunnels`
+- `client.pools`
+- `synth_ai.managed_research`
+- `synth-ai` CLI
 
-# Data types are available from synth_ai.data
-from synth_ai.data import SessionTrace, Rubric, Criterion
-```
+Public docs live at https://docs.usesynth.ai/sdk/overview.
 
 ## Package Structure
 
-```
+```text
 synth_ai/
-├── data/           # Pure data types (traces, rewards, rubrics, enums)
-├── core/           # Internal infrastructure (auth, config, streaming, tunnels)
-├── sdk/            # User-facing SDK (jobs, clients, optimization)
-├── cli/            # Command-line interface
-├── __init__.py     # Package version and top-level exports
-└── __main__.py     # Entry point for `python -m synth_ai`
+├── client.py       # SynthClient and AsyncSynthClient composition layer
+├── sdk/            # Public client modules and request/response contracts
+├── managed_research/ # Managed Research client, models, MCP, and billing SDK
+├── core/           # Shared runtime helpers and errors
+├── cli/            # CLI commands for containers, tunnels, and pools
+└── __init__.py     # Package version and top-level exports
 ```
 
-## Module Hierarchy
+## Dependency Direction
 
-The modules follow a strict dependency hierarchy:
-
-```
-┌─────────┐
-│  data/  │  ← Pure data types, no internal dependencies
-└────┬────┘
-     │
-┌────▼────┐
-│  core/  │  ← Internal infrastructure, imports from data/
-└────┬────┘
-     │
-┌────▼────┐
-│  sdk/   │  ← User-facing SDK, imports from data/ and core/
-└────┬────┘
-     │
-┌────▼────┐
-│  cli/   │  ← CLI layer, imports from data/, core/, and sdk/
-└─────────┘
+```text
+core/ -> sdk/ -> client.py -> cli/
+core/ -> managed_research/ -> managed_research/mcp/
 ```
 
-### Dependency Rules
+- `core/` owns shared runtime plumbing such as errors, environment lookup, and URL normalization.
+- `sdk/` owns HTTP clients and contracts for the supported public surfaces.
+- `managed_research/` owns Managed Research SDK models, clients, MCP tools, and
+  typed billing helpers generated from the backend SMR contract.
+- `client.py` composes those clients behind `SynthClient` and `AsyncSynthClient`.
+- `cli/` wraps the SDK for terminal use.
 
-| Module | Can Import From | Cannot Import From |
-|--------|-----------------|-------------------|
-| `data/` | standard library only | `core/`, `sdk/`, `cli/` |
-| `core/` | `data/` | `sdk/`, `cli/` |
-| `sdk/` | `data/`, `core/` | `cli/` |
-| `cli/` | `data/`, `core/`, `sdk/` | — |
+## Supported Imports
 
-## Module Purposes
-
-### `data/` - Data Layer
-Pure data types and structures. The canonical source for all user-facing data format classes.
-
-- Traces, events, LLM call records
-- Rubrics and judgements
-- Rewards and objectives
-- Domain enums
-
-**Design principle**: Use `@dataclass`, not Pydantic. No business logic.
-
-### `core/` - Infrastructure Layer
-Internal shared utilities. Not user-facing.
-
-- Authentication and API keys
-- Configuration management
-- Logging and errors
-- Streaming infrastructure
-- Tunnel management
-
-**Design principle**: Shared infrastructure that both SDK and CLI need.
-
-### `sdk/` - SDK Layer
-User-facing programmatic API.
-
-- Optimization jobs (PolicyOptimizationJob, GraphOptimizationJob)
-- Evaluation jobs (EvalJob)
-- Clients (VerifierClient, InferenceClient)
-- LocalAPI for task apps
-
-**Design principle**: Clean, stable API for external consumption.
-
-### `cli/` - CLI Layer
-Command-line interface. Thin wrapper around SDK.
-
-- Authentication commands
-- Job management
-- Local development tools
-
-**Design principle**: Minimal logic; delegate to SDK.
-
-## Top-Level Exports
-
-The package exports verifier API contracts for backward compatibility:
+Prefer the front-door client:
 
 ```python
-from synth_ai import (
-    VerifierScoreRequest,
-    VerifierScoreResponse,
-    VerifierOptions,
-    # ...
-)
+from synth_ai import SynthClient
+
+client = SynthClient()
+client.containers.list()
+client.tunnels.health()
+client.pools.list()
 ```
 
-For most use cases, import from the specific module:
+Use specific clients only when you need lower-level control:
 
 ```python
-from synth_ai.sdk import EvalJob, PolicyOptimizationJob
-from synth_ai.data import SessionTrace, Rubric
+from synth_ai.sdk.containers import ContainersClient
+from synth_ai.sdk.pools import ContainerPoolsClient
+from synth_ai.sdk.tunnels import TunnelsClient
 ```
 
-## Entry Points
+Managed Research callers should use the Managed Research front door and its
+co-located billing namespace:
 
-- `python -m synth_ai` → CLI (via `__main__.py`)
-- `synth` command → CLI (installed by package)
+```python
+from synth_ai.managed_research import ManagedResearchClient
+
+control = ManagedResearchClient()
+catalog = control.billing.catalog()
+plan = control.billing.plan()
+```
 
 ## Guidelines for New Code
 
-1. **Data types** → `data/`
-2. **Internal utilities** → `core/`
-3. **User-facing APIs** → `sdk/`
-4. **CLI commands** → `cli/`
-
-When in doubt, check the README in each module for specific guidelines.
+1. Put shared errors, URL handling, and environment helpers in `core/`.
+2. Put public HTTP clients and request/response contracts in `sdk/`.
+3. Put Managed Research SDK/client/model/MCP surfaces in `managed_research/`.
+4. Put front-door composition in `client.py`.
+5. Put terminal commands in `cli/`.
+6. Keep unreleased or internal compatibility APIs out of public README examples and public-first docs.

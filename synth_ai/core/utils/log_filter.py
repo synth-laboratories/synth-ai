@@ -1,22 +1,23 @@
-"""Utilities for filtering noisy logs from stdout/stderr (Rust-backed)."""
+"""Utilities for filtering noisy logs from stdout/stderr."""
 
 from __future__ import annotations
 
 import sys
 from typing import TextIO
 
-try:
-    import synth_ai_py
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for utils.log_filter.") from exc
-
 
 def should_filter_log_line(line: str) -> bool:
     """Check if a log line should be filtered out."""
-    fn = getattr(synth_ai_py, "should_filter_log_line", None)
-    if fn is None:
+    normalized = line.strip().lower()
+    if not normalized:
         return False
-    return fn(line)
+    noisy_fragments = (
+        "codex_otel",
+        "opentelemetry",
+        "otel exporter",
+        "failed to export traces",
+    )
+    return any(fragment in normalized for fragment in noisy_fragments)
 
 
 class FilteredStream:

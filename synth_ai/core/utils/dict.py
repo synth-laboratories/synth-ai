@@ -1,20 +1,25 @@
-"""Generic dictionary utilities backed by Rust core."""
+"""Generic dictionary utilities."""
 
 from typing import Any, Mapping, MutableMapping
-
-try:
-    import synth_ai_py
-except Exception as exc:  # pragma: no cover
-    raise RuntimeError("synth_ai_py is required for utils.dict.") from exc
 
 
 def deep_update(
     base: MutableMapping[str, Any], overrides: Mapping[str, Any]
 ) -> MutableMapping[str, Any]:
     """Deep update with support for dot-notation keys (e.g., 'a.b.c')."""
-    updated = synth_ai_py.deep_update(base, overrides)
-    if isinstance(base, dict) and isinstance(updated, dict):
-        base.clear()
-        base.update(updated)
-        return base
-    return updated
+    for key, value in overrides.items():
+        parts = str(key).split(".")
+        current: MutableMapping[str, Any] = base
+        for part in parts[:-1]:
+            nested = current.get(part)
+            if not isinstance(nested, MutableMapping):
+                nested = {}
+                current[part] = nested
+            current = nested
+        leaf = parts[-1]
+        existing = current.get(leaf)
+        if isinstance(existing, MutableMapping) and isinstance(value, Mapping):
+            deep_update(existing, value)
+        else:
+            current[leaf] = value
+    return base
