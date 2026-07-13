@@ -2,6 +2,30 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+## 0.15.0 — 2026-07-13
+
+### Added
+
+- **Research Factory evidence** — typed Factory status exposes proof readiness,
+  accepted actor outputs, experiment observability, candidate evidence, and Tag
+  evidence through the SDK and CLI projections.
+- **Factory maintenance runs** — `EffortsAPI.launch_maintenance(...)`,
+  `FactoryRunKind.MAINTENANCE`, `FactoryMaintenanceAction`, and the
+  `FactoryActorRole.ORCHESTRATOR` role support typed maintenance cycles while
+  backend remains the run-state authority.
+- **Project-bound Cloud Deployments** — `client.cloud_deployments` exposes the
+  `/smr/v1/deployments` lifecycle, immutable project-Git source identity,
+  service URL discovery, retry-aware `wait_until_running()`, and matching MCP
+  tools. VM deletion still requires an exact `confirm_vm_name`.
+
+### Notes
+
+- Pair this release with the backend Factory and CloudDeployment routes on the
+  same release train; publish only after those routes are deployed for the
+  target audience.
+
 ## 0.14.2 — 2026-07-10
 
 ### Added
@@ -17,6 +41,22 @@ All notable changes to the `synth-ai` package are documented here.
   longer published; application logs use the backend-owned VictoriaLogs path.
 - Existing model values, including `gpt-5.4` and internal compatibility values, remain
   importable so the daily release does not break existing typed callers.
+
+## 0.14.0 — 2026-06-27
+
+### Added
+
+- **`SynthClient().research.efforts`** — run→Effort graduation for promoting
+  related Runs into persistent Research Factory Efforts, including proposal
+  listing, `from_runs(...)`, reverse run lookup, typed models, and matching MCP
+  tools.
+- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on
+  the Tag session projection.
+
+### Notes
+
+- Pairs with backend effort proposal, from-runs, and effort run-index routes on
+  the same release train.
 
 ## 0.13.1 — 2026-07-09
 
