@@ -1,0 +1,11 @@
+interface:
+  display_name: "SMR Status"
+  short_description: "Summarize live SMR project and run state."
+  default_prompt: "Check the current status of this Synth Managed Research project and tell me what is blocked or needs attention."
+dependencies:
+  tools:
+    - type: mcp_server
+      value: synth_managed_research
+      description: "Synth Managed Research MCP server"
+policy:
+  allow_implicit_invocation: false

@@ -9,19 +9,15 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any
 
 from synth_ai.core.errors import AuthenticationError
 from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 from synth_ai.core.utils.secure_files import write_private_json
-from synth_ai.core.utils.urls import BACKEND_URL_BASE
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_local_backend_base_url
 
 # Backward-compatible alias for older callers.
 PROD_BASE_URL = BACKEND_URL_BASE
-
-try:
-    import synth_ai_py
-except Exception as exc:  # pragma: no cover - rust bindings required
-    raise RuntimeError("synth_ai_py is required for env utilities.") from exc
 
 
 def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | None:
@@ -37,7 +33,7 @@ def get_api_key(env_key: str = "SYNTH_API_KEY", required: bool = True) -> str | 
     Raises:
         AuthenticationError: If required and not found
     """
-    value = synth_ai_py.get_api_key(env_key)
+    value = os.getenv(env_key) or _load_user_env().get(env_key)
     if not value and required:
         raise AuthenticationError(
             f"Missing required API key: {env_key}\n"
@@ -62,30 +58,16 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
     return f"{value[:visible_chars]}...{value[-visible_chars:]}"
 
 
-def get_synth_and_env_keys() -> tuple[str, str]:
-    synth_ai_py.auth_load_user_env()
-    synth_api_key = os.environ.get("SYNTH_API_KEY")
-    env_api_key = os.environ.get("ENVIRONMENT_API_KEY")
-    if not synth_api_key:
-        raise RuntimeError(
-            f"SYNTH_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
-            "Either run synth-ai setup to load automatically or manually set it in your shell."
-        )
-    if not env_api_key:
-        raise RuntimeError(
-            f"ENVIRONMENT_API_KEY not in process environment or {SYNTH_HOME_DIR} config. "
-            "Either run synth-ai setup to load automatically or manually set it in your shell."
-        )
-    return synth_api_key, env_api_key
-
-
 def get_backend_url() -> str:
     """Return the configured backend URL base."""
     return BACKEND_URL_BASE
 
 
 def mask_str(input: str, position: int = 3) -> str:
-    return synth_ai_py.mask_str(input)
+    text = str(input)
+    if len(text) <= position * 2:
+        return "***"
+    return f"{text[:position]}...{text[-position:]}"
 
 
 def ensure_env_var(key: str, expected_value: str) -> None:
@@ -107,7 +89,7 @@ def resolve_env_var(key: str, override_process_env: bool = False) -> str:
         click.echo(f"Using {key}={mask_str(env_value)} from process environment")
         return env_value
 
-    applied = synth_ai_py.auth_load_user_env()
+    applied = _load_user_env()
     config_value = applied.get(key)
 
     if override_process_env and config_value is not None:
@@ -194,9 +176,6 @@ def mint_demo_api_key(
     Raises:
         RuntimeError: If the request fails or returns invalid response
     """
-    if hasattr(synth_ai_py, "mint_demo_key"):
-        return synth_ai_py.mint_demo_key(backend_url, ttl_hours)
-
     import httpx
 
     base = backend_url or BACKEND_URL_BASE
@@ -211,9 +190,85 @@ def mint_demo_api_key(
     return str(key)
 
 
+# Local dev default (non-secret): synth-dev local stack seeds this key in the dev database.
+LOCAL_DEV_SYNTH_API_KEY = "sk_dev_00000000000000000000000000000001"
+
+
+def _is_local_backend_url(url: str | None) -> bool:
+    return is_local_backend_base_url(url)
+
+
+def ensure_synth_api_key(
+    *,
+    backend_url: str | None = None,
+    mint_demo_if_missing: bool = True,
+) -> str:
+    """Ensure SYNTH_API_KEY is set and return it.
+
+    Dev ergonomics:
+    - For local backends (localhost/127.0.0.1/host.docker.internal), default to the
+      seeded dev key if none is present in the environment.
+    - For non-local backends, optionally mint a demo key.
+    """
+    existing = (os.environ.get("SYNTH_API_KEY") or "").strip()
+    if existing:
+        return existing
+
+    resolved_backend = (
+        (backend_url or "").strip()
+        or (os.environ.get("SYNTH_BACKEND_URL") or "").strip()
+        or BACKEND_URL_BASE
+    )
+    if _is_local_backend_url(resolved_backend):
+        os.environ["SYNTH_API_KEY"] = LOCAL_DEV_SYNTH_API_KEY
+        return LOCAL_DEV_SYNTH_API_KEY
+
+    if not mint_demo_if_missing:
+        raise AuthenticationError("Missing required API key: SYNTH_API_KEY")
+
+    minted = mint_demo_api_key(backend_url=resolved_backend)
+    os.environ["SYNTH_API_KEY"] = minted
+    return minted
+
+
+def _load_user_env() -> dict[str, str]:
+    values: dict[str, str] = {}
+    for path in _candidate_config_paths():
+        if not path.is_file():
+            continue
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                payload: Any = json.load(handle)
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        for key, value in payload.items():
+            if isinstance(value, str):
+                values[str(key)] = value
+            elif value is not None:
+                values[str(key)] = str(value)
+    return values
+
+
+def _candidate_config_paths() -> list[Path]:
+    paths = [SYNTH_HOME_DIR / "config.json"]
+    if SYNTH_HOME_DIR.exists():
+        paths.extend(sorted(SYNTH_HOME_DIR.glob("*.json")))
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for path in paths:
+        resolved = path.expanduser()
+        if resolved not in seen:
+            seen.add(resolved)
+            unique.append(resolved)
+    return unique
+
+
 __all__ = [
     "get_api_key",
-    "get_synth_and_env_keys",
+    "ensure_synth_api_key",
+    "LOCAL_DEV_SYNTH_API_KEY",
     "mint_demo_api_key",
     "mask_value",
     "mask_str",

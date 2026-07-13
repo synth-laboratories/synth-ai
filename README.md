@@ -1,237 +1,182 @@
-# Synth
+# Synth AI SDK
 
-[![Python](https://img.shields.io/badge/python-3.11+-blue)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/PyPI-0.7.16-orange)](https://pypi.org/project/synth-ai/)
-[![Crates.io](https://img.shields.io/crates/v/synth-ai?label=crates.io)](https://crates.io/crates/synth-ai)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+<!-- CI release pins: PyPI-0.14.2-orange synth-ai==0.14.2 -->
 
-Prompt Optimization
+[![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
+[![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Use the sdk in Python (`uv add synth-ai`) and Rust (beta) (`cargo add synth-ai`), or hit our serverless endpoints in any language
+Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted containers.
 
-<p align="center">
-  <picture align="center">
-    <source media="(prefers-color-scheme: dark)" srcset="assets/langprobe_v2_dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/langprobe_v2_light.png">
-    <img alt="Shows a bar chart comparing prompt optimization performance across GPT-4.1 Nano, GPT-4o Mini, and GPT-5 Nano with baseline vs GEPA optimized." src="assets/langprobe_v2_light.png">
-  </picture>
-</p>
+**Documentation:** https://docs.usesynth.ai/sdk/overview
 
-<p align="center">
-  <i>Average accuracy on <a href="https://arxiv.org/abs/2502.20315">LangProBe</a> prompt optimization benchmarks.</i>
-</p>
-
-## Demo Notebooks (Colab)
-
-- [GEPA Banking77 Prompt Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb)
-- [GEPA Crafter VLM Verifier Optimization](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/gepa_crafter_vlm/gepa_crafter_vlm_verifier_optimization.ipynb)
-- [GraphGen Image Style Matching](https://colab.research.google.com/github/synth-laboratories/synth-ai/blob/main/demos/image_style_matching/graphgen_image_style_matching.ipynb)
-
-## Highlights
-
-- 🎯 **GEPA Prompt Optimization** - Automatically improve prompts with evolutionary search. See 70%→95% accuracy gains on Banking77, +62% on critical game achievements
-- 🔍 **Zero-Shot Verifiers** - Fast, accurate rubric-based evaluation with configurable scoring criteria
-- 🧬 **GraphGen** - Train custom verifier graphs optimized for your specific workflows. Train custom pipelines for other tasks
-- 🚀 **No Code Changes** - Wrap existing code in a FastAPI app and optimize via HTTP. Works with any language or framework
-- ⚡️ **Local Development** - Run experiments locally with tunneled task apps. No cloud setup required
-- 🗂️ **Multi-Experiment Management** - Track and compare prompts/models across runs with built-in experiment queues
-
-## Getting Started
-
-### SDK (Python)
+## Installation
 
 ```bash
-pip install synth-ai==0.7.16
-# or
 uv add synth-ai
 ```
 
-### SDK (Rust - Beta)
+Or install with pip:
 
 ```bash
-cargo add synth-ai
+pip install synth-ai
 ```
 
-### TUI (Homebrew)
+## Authenticate
+
+Set `SYNTH_API_KEY` before using the SDK or CLI:
 
 ```bash
-brew install synth-laboratories/tap/synth-ai-tui
-synth-ai-tui
+export SYNTH_API_KEY="sk_..."
 ```
 
-The TUI provides a visual interface for managing jobs, viewing events, and monitoring optimization runs.
+## Local Workspaces
 
-## OpenCode Skills (Synth API)
+For local multi-repo development, `synth-ai` treats workspace resolution as a
+read-only overlay. `.env` and Synth home config may provide defaults and
+secrets; selecting a worktree must not rewrite those defaults.
 
-The Synth-AI TUI integrates with OpenCode and ships a **`synth-api`** skill.
+Use `SYNTH_WORKSPACE_MANIFEST` or `SYNTH_WORKSPACE_ROOT` for command-scoped
+worktree resolution. The resolver in `synth_ai.core.utils.workspace` returns
+repo paths and a scoped env mapping for subprocesses without mutating `.env`.
 
-```bash
-# List packaged skills shipped with synth-ai
-uvx synth-ai skill list
-```
-
-```bash
-uvx synth-ai skill install synth-api --dir ~/custom/opencode/skill
-```
-
-## Testing
-
-Run the TUI integration tests:
-
-```bash
-cd tui/app
-bun test
-```
-
-Synth is maintained by devs behind the [MIPROv2](https://scholar.google.com/citations?view_op=view_citation&hl=en&user=jauNVA8AAAAJ&citation_for_view=jauNVA8AAAAJ:u5HHmVD_uO8C) prompt optimizer.
-
-## Documentation
-
-**[docs.usesynth.ai](https://docs.usesynth.ai)**
-
-## Community
-
-**[Join our Discord](https://discord.gg/VKxZqUhZ)**
-
-## GEPA Prompt Optimization (SDK)
-
-Run GEPA prompt optimization programmatically:
+Pass `base_url` when you need to pin a production, local, staging, or private
+backend explicitly:
 
 ```python
-import asyncio
-import os
-from synth_ai.sdk.api.train.prompt_learning import PromptLearningJob
-from synth_ai.sdk.localapi import LocalAPIConfig, create_local_api
+from synth_ai import SynthClient
 
-# Create a local task app: app = create_local_api(LocalAPIConfig(app_id="my_app", handler=my_handler))
-
-# Create and submit a GEPA job
-pl_job = PromptLearningJob.from_dict({
-    "job_type": "prompt_learning",
-    "config": {
-        "prompt_learning": {
-            "gepa": {
-                "rollout": {"budget": 100},
-                "population_size": 10,
-                "generations": 5,
-            }
-        }
-    },
-    "task_app_id": "my_task_app",
-})
-
-pl_job.submit()
-result = pl_job.stream_until_complete(timeout=3600.0)
-print(f"Best score: {result.best_score}")
+client = SynthClient(base_url="http://127.0.0.1:8000")
 ```
 
-See the [Banking77 demo notebook](demos/gepa_banking77/gepa_banking77_prompt_optimization.ipynb) for a complete example with local task apps.
+The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
-## Online MIPRO (SDK, Ontology Enabled)
-
-Run online MIPRO so rollouts call a proxy URL and rewards stream back to the optimizer. Enable ontology by setting `MIPRO_ONT_ENABLED=1` and `HELIX_URL` on the backend, then follow the [Banking77 online MIPRO notes](demos/mipro_banking77/online_mipro_explained.txt).
+## Quickstart
 
 ```python
-import os
-from synth_ai.sdk.optimization.policy import MiproOnlineSession
+from synth_ai import SynthClient
 
-# Use the demo config shape from demos/mipro_banking77
-mipro_config = {...}
+client = SynthClient()
 
-session = MiproOnlineSession.create(
-    config_body=mipro_config,
-    api_key=os.environ["SYNTH_API_KEY"],
-)
-urls = session.get_prompt_urls()
-proxy_url = urls["online_url"]
-
-# Use proxy_url in your rollout loop, then report rewards
-session.update_reward(
-    reward_info={"score": 0.9},
-    rollout_id="rollout_001",
-    candidate_id="candidate_abc",
-)
+print(client.containers.list())
+print(client.tunnels.health())
+print(client.pools.list())
 ```
 
-## Graph Evolve: Optimize RLM-Based Verifier Graphs
+## Managed Research (hero SDK)
 
-Train a verifier graph with an RLM backbone for long-context evaluation. See the [Image Style Matching demo](demos/image_style_matching/) for a complete Graph Evolve example:
+Install the research extra when you need hosted runs, projects, Factory Tag, or MCP:
+
+```bash
+pip install "synth-ai[research]"
+```
+
+Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
 
 ```python
-from synth_ai.sdk.api.train.graph_evolve import GraphEvolveJob
+from synth_ai import SynthClient
 
-# Train an RLM-based verifier graph
-verifier_job = GraphEvolveJob.from_dataset(
-    dataset="verifier_dataset.json",
-    graph_type="rlm",
-    policy_models=["gpt-4.1"],
-    proposer_effort="medium",  # Use "medium" (gpt-4.1) or "high" (gpt-5.2)
-    rollout_budget=200,
-)
-verifier_job.submit()
-result = verifier_job.stream_until_complete(timeout=3600.0)
+client = SynthClient()
+research = client.research
 
-# Run inference with trained verifier
-verification = verifier_job.run_verifier(
-    trace=my_trace,
-    context={"rubric": my_rubric},
-)
-print(f"Reward: {verification.reward}, Reasoning: {verification.reasoning}")
+# Org limits
+limits = research.limits.get()
+
+# Factory Tag loop
+session = research.factories.tag.sessions.create("Improve rollout throughput")
+research.factories.tag.sessions.messages.send(session.session_id, "Status update")
+scope = research.factories.tag.scopes.get_default()
+
+# Launch path
+project = research.projects.create({"name": "demo", "work_mode": "standard"})
+research.projects.setup.prepare(project.project_id)
+preflight = research.runs.check_preflight(project.project_id)
+run = research.runs.create(project.project_id, work_mode="standard")
+session = research.runs.get(project.project_id, run["run_id"])
+
+# Run readouts (nested namespaces — never ``manderqueue`` on hero)
+session.snapshots.get(detail="control")
+session.progress.get()
+session.usage.get()
+session.message_queue.messages.list()
+research.projects.objectives.list(project.project_id, run_id=session.run_id)
 ```
 
-## Zero-Shot Verifiers (SDK)
+CLI smoke:
 
-Run a built-in verifier graph with rubric criteria passed at runtime. See the [Crafter VLM demo](demos/gepa_crafter_vlm/) for verifier optimization:
-
-```python
-import asyncio
-import os
-from synth_ai.sdk.graphs import VerifierClient
-
-async def run_verifier():
-    client = VerifierClient(
-        base_url=os.environ["SYNTH_BACKEND_BASE"],
-        api_key=os.environ["SYNTH_API_KEY"],
-    )
-    result = await client.evaluate(
-        job_id="zero_shot_verifier_single",
-        trace={"session_id": "s", "session_time_steps": []},
-        rubric={
-            "event": [{"id": "accuracy", "weight": 1.0, "description": "Correctness"}],
-            "outcome": [{"id": "task_completion", "weight": 1.0, "description": "Completed task"}],
-        },
-        options={"event": True, "outcome": True, "model": "gpt-5-nano"},
-        policy_name="my_policy",
-        task_app_id="my_task",
-    )
-    return result
-
-asyncio.run(run_verifier())
+```bash
+synth-ai research limits get
+synth-ai research tag smoke
+synth-ai research smoke
 ```
 
-You can also call arbitrary graphs directly with the Rust SDK:
+## CLI
 
-```rust
-use serde_json::json;
-use synth_ai::{GraphCompletionRequest, Synth};
-
-#[tokio::main]
-async fn main() -> Result<(), synth_ai::Error> {
-    let synth = Synth::from_env()?;
-
-    let request = GraphCompletionRequest {
-        job_id: "zero_shot_verifier_rubric_single".to_string(),
-        input: json!({
-            "trace": {"session_id": "s", "session_time_steps": []},
-            "rubric": {"event": [], "outcome": []},
-        }),
-        model: None,
-        prompt_snapshot_id: None,
-        stream: None,
-    };
-
-    let resp = synth.complete(request).await?;
-    println!("Output: {:?}", resp.output);
-    Ok(())
-}
+```bash
+synth-ai --help
+synth-ai containers list
+synth-ai tunnels health
+synth-ai pools list
 ```
+
+## Public Surface
+
+Use `SynthClient` as the front door:
+
+| Surface | Client namespace | Use it for |
+| --- | --- | --- |
+| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, Factory Tag, limits, MCP (`synth-ai[research]`). |
+| Containers | `client.containers` | Hosted container records and lifecycle operations. |
+| Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
+| Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
+| CLI | `synth-ai` | Terminal access to containers, tunnels, and pools. |
+
+Use [Managed Research](https://docs.usesynth.ai/managed-research/intro) when you
+want hosted research workers, repo runs, evidence, checkpoints, MCP, or final
+reports.
+
+## Managed Research Billing
+
+Standalone SMR and Managed Factory draw from the same org-level allowance and
+flex-credit wallet. Free, Standard ($20/month), and Max ($200/month) expose
+premium and value usage windows with reset times, then use explicit flex credits
+after included usage is exhausted. Premium models consume allowance faster;
+value models stretch the same allowance further. Promo, make-good, banked, and
+override grants are manual audit events rather than automatic resets.
+
+The canonical backend surfaces are `GET /smr/billing/catalog`,
+`GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
+`GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
+SDK, use `client.research.session.billing.catalog()` and related billing
+namespace helpers for advanced billing reads. Prefer hero namespaces for new
+integrations; do not infer allowance from legacy Autumn balances or local spend
+summaries.
+
+## Links
+
+- [Install and authenticate](https://docs.usesynth.ai/sdk/install-and-auth)
+- [SynthClient guide](https://docs.usesynth.ai/sdk/synth-client)
+- [Tunnels](https://docs.usesynth.ai/sdk/tunnels)
+- [Pools](https://docs.usesynth.ai/sdk/pools)
+- [Containers](https://docs.usesynth.ai/sdk/containers)
+- [SDK reference](https://docs.usesynth.ai/reference/sdk)
+- [OpenAPI contracts](https://docs.usesynth.ai/reference/openapi)
+
+## Local Development
+
+Use `uv run` for Python tools:
+
+```bash
+uv sync --group dev
+uv run ruff format --check .
+uv run ruff check .
+uv run ty check
+make docs-gen   # generate Mintlify SDK reference into docs/
+make docs-dev   # preview at http://localhost:3000/overview
+```
+
+Optional: install [Lefthook](https://github.com/evilmartians/lefthook) and run
+`lefthook install` to run formatting, linting, and type checks on staged Python
+files.
+
+[SMR Handoff X thread](https://github.com/usesynth/smr-handoff/blob/main/marketing/smr-handoff-x-thread.md) — hand agent tasks to [Managed Research](https://usesynth.ai/smr) from Cursor, Codex, or Claude Code ([repo](https://github.com/usesynth/smr-handoff)).

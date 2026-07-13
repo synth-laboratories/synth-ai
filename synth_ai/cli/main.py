@@ -1,9 +1,11 @@
-"""Root CLI group with explicit subcommands."""
+"""Root CLI group with Python-only containers platform commands."""
 
 import click
 
-from synth_ai.cli.commands.harbor import harbor
-from synth_ai.cli.setup import setup
+from synth_ai.cli.containers import containers
+from synth_ai.cli.pools import pools
+from synth_ai.cli.research import research
+from synth_ai.cli.tunnels import tunnels
 
 
 def _get_version():
@@ -19,10 +21,12 @@ def _get_version():
 @click.version_option(version=_get_version(), prog_name="synth-ai")
 @click.pass_context
 def cli(ctx):
-    """Synth AI CLI."""
+    """Synth AI Python-only containers platform."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
 
-cli.add_command(setup)
-cli.add_command(harbor)
+cli.add_command(containers)
+cli.add_command(pools)
+cli.add_command(research)
+cli.add_command(tunnels)
