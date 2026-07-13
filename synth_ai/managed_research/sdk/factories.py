@@ -25,6 +25,13 @@ from synth_ai.managed_research.models.factories import (
     FactoryActorOutputPatchRequest,
     FactoryActorOutputStatus,
     FactoryActorRole,
+    FactoryCandidate,
+    FactoryCandidateGradingRequest,
+    FactoryCandidateGradingStatus,
+    FactoryChampionDecision,
+    FactoryChampionEvent,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
     FactoryCreateRequest,
     FactoryIdea,
     FactoryIdeaCreateRequest,
@@ -85,6 +92,74 @@ class FactoriesAPI(_ClientNamespace):
         request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
     ) -> Factory:
         return Factory.from_wire(self._client.patch_factory(factory_id, request))
+
+    def list_candidates(
+        self,
+        factory_id: str,
+        *,
+        grading_status: FactoryCandidateGradingStatus | str | None = None,
+        effort_id: str | None = None,
+        limit: int = 200,
+    ) -> List[FactoryCandidate]:
+        return [
+            FactoryCandidate.from_wire(item)
+            for item in self._client.list_factory_candidates(
+                factory_id,
+                grading_status=_enum_query_value(grading_status),
+                effort_id=effort_id,
+                limit=limit,
+            )
+        ]
+
+    def record_candidate_grading(
+        self,
+        factory_id: str,
+        candidate_id: str,
+        request: FactoryCandidateGradingRequest
+        | Mapping[str, Any]
+        | dict[str, Any],
+    ) -> FactoryCandidate:
+        return FactoryCandidate.from_wire(
+            self._client.record_factory_candidate_grading(
+                factory_id,
+                candidate_id,
+                request,
+            )
+        )
+
+    def select_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        return FactoryChampionDecision.from_wire(
+            self._client.select_factory_champion(factory_id, request)
+        )
+
+    def rollback_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionRollbackRequest
+        | Mapping[str, Any]
+        | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        return FactoryChampionDecision.from_wire(
+            self._client.rollback_factory_champion(factory_id, request)
+        )
+
+    def list_champion_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> List[FactoryChampionEvent]:
+        return [
+            FactoryChampionEvent.from_wire(item)
+            for item in self._client.list_factory_champion_events(
+                factory_id,
+                limit=limit,
+            )
+        ]
 
     def link_project(
         self,

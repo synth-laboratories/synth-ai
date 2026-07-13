@@ -29,6 +29,9 @@ from synth_ai.managed_research.models import (
     EffortPatchRequest,
     FactoryActorOutputCreateRequest,
     FactoryActorOutputPatchRequest,
+    FactoryCandidateGradingRequest,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
     FactoryCreateRequest,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
@@ -50,6 +53,9 @@ from synth_ai.managed_research.models.factories import (
     effort_patch_payload,
     factory_actor_output_create_payload,
     factory_actor_output_patch_payload,
+    factory_candidate_grading_payload,
+    factory_champion_rollback_payload,
+    factory_champion_select_payload,
     factory_create_payload,
     factory_idea_create_payload,
     factory_idea_patch_payload,
@@ -1716,6 +1722,89 @@ class ManagedResearchClient:
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
+        )
+
+    def list_factory_candidates(
+        self,
+        factory_id: str,
+        *,
+        grading_status: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/candidates",
+                params=build_query_params(
+                    grading_status=grading_status,
+                    effort_id=effort_id,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_candidates",
+        )
+
+    def record_factory_candidate_grading(
+        self,
+        factory_id: str,
+        candidate_id: str,
+        request: FactoryCandidateGradingRequest
+        | Mapping[str, Any]
+        | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/candidates/{candidate_id}/grading",
+                json_body=factory_candidate_grading_payload(request),
+            ),
+            label="record_factory_candidate_grading",
+        )
+
+    def select_factory_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/champion/select",
+                json_body=factory_champion_select_payload(request),
+            ),
+            label="select_factory_champion",
+        )
+
+    def rollback_factory_champion(
+        self,
+        factory_id: str,
+        request: FactoryChampionRollbackRequest
+        | Mapping[str, Any]
+        | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/champion/rollback",
+                json_body=factory_champion_rollback_payload(request),
+            ),
+            label="rollback_factory_champion",
+        )
+
+    def list_factory_champion_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/champion/events",
+                params=build_query_params(limit=limit),
+            ),
+            label="list_factory_champion_events",
         )
 
     def link_factory_project(
