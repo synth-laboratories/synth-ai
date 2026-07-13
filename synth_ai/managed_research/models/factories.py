@@ -109,6 +109,19 @@ class FactoryRunKind(StrEnum):
     MAINTENANCE = "maintenance"
 
 
+class FactoryCandidateGradingStatus(StrEnum):
+    PENDING = "pending"
+    GRADED = "graded"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+
+
+class FactoryChampionEventAction(StrEnum):
+    PROMOTE = "promote"
+    ROLLBACK = "rollback"
+    NO_LIFT = "no_lift"
+
+
 def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | None:
     value = payload.get(key)
     if value is None:
@@ -1998,6 +2011,185 @@ class FactoryWakeDueResult:
         )
 
 
+@dataclass(frozen=True)
+class FactoryCandidateGradingRequest:
+    """Benchmark-owned grading record submitted for one immutable candidate."""
+
+    grading: dict[str, Any]
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"grading": dict(self.grading)}
+
+
+@dataclass(frozen=True)
+class FactoryChampionSelectRequest:
+    baseline_score: float
+    effort_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"baseline_score": float(self.baseline_score)}
+        if self.effort_id is not None:
+            payload["effort_id"] = self.effort_id
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryChampionRollbackRequest:
+    to_candidate_id: str
+    reason: str
+    effort_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "to_candidate_id": self.to_candidate_id,
+            "reason": self.reason,
+        }
+        if self.effort_id is not None:
+            payload["effort_id"] = self.effort_id
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryCandidate:
+    candidate_id: str
+    org_id: str
+    factory_id: str
+    candidate_key: str
+    git_remote: str
+    git_sha: str
+    entrypoint: str
+    execution_contract_version: str
+    grading_status: FactoryCandidateGradingStatus
+    published_at: datetime
+    created_at: datetime
+    updated_at: datetime
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    work_product_id: str | None = None
+    parent_candidate_id: str | None = None
+    grading_target: dict[str, object] = field(default_factory=dict)
+    artifact_ids: tuple[object, ...] = ()
+    grading: dict[str, object] = field(default_factory=dict)
+    held_out_score: float | None = None
+    baseline_score: float | None = None
+    graded_at: datetime | None = None
+    is_champion: bool = False
+    champion_selected_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryCandidate:
+        mapping = _require_mapping(payload, label="factory candidate")
+        published_at = _optional_datetime(mapping, "published_at")
+        created_at = _optional_datetime(mapping, "created_at")
+        updated_at = _optional_datetime(mapping, "updated_at")
+        if published_at is None or created_at is None or updated_at is None:
+            raise ValueError("factory candidate requires published_at, created_at, and updated_at")
+        return cls(
+            candidate_id=_require_string(mapping, "candidate_id", label="candidate.candidate_id"),
+            org_id=_require_string(mapping, "org_id", label="candidate.org_id"),
+            factory_id=_require_string(mapping, "factory_id", label="candidate.factory_id"),
+            project_id=_optional_string(mapping, "project_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            run_id=_optional_string(mapping, "run_id"),
+            work_product_id=_optional_string(mapping, "work_product_id"),
+            candidate_key=_require_string(
+                mapping, "candidate_key", label="candidate.candidate_key"
+            ),
+            git_remote=_require_string(mapping, "git_remote", label="candidate.git_remote"),
+            git_sha=_require_string(mapping, "git_sha", label="candidate.git_sha"),
+            entrypoint=_require_string(mapping, "entrypoint", label="candidate.entrypoint"),
+            execution_contract_version=_require_string(
+                mapping,
+                "execution_contract_version",
+                label="candidate.execution_contract_version",
+            ),
+            parent_candidate_id=_optional_string(mapping, "parent_candidate_id"),
+            grading_target=_optional_object_dict(
+                mapping.get("grading_target"), label="candidate.grading_target"
+            ),
+            artifact_ids=tuple(mapping.get("artifact_ids") or ()),
+            grading_status=FactoryCandidateGradingStatus(
+                _require_string(mapping, "grading_status", label="candidate.grading_status")
+            ),
+            grading=_optional_object_dict(mapping.get("grading"), label="candidate.grading"),
+            held_out_score=_optional_float(mapping, "held_out_score"),
+            baseline_score=_optional_float(mapping, "baseline_score"),
+            graded_at=_optional_datetime(mapping, "graded_at"),
+            is_champion=bool(_optional_bool(mapping, "is_champion")),
+            champion_selected_at=_optional_datetime(mapping, "champion_selected_at"),
+            published_at=published_at,
+            created_at=created_at,
+            updated_at=updated_at,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryChampionEvent:
+    event_id: str
+    org_id: str
+    factory_id: str
+    action: FactoryChampionEventAction
+    created_at: datetime
+    effort_id: str | None = None
+    candidate_id: str | None = None
+    git_sha: str | None = None
+    held_out_score: float | None = None
+    baseline_score: float | None = None
+    reason: str | None = None
+    payload: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryChampionEvent:
+        mapping = _require_mapping(payload, label="factory champion event")
+        created_at = _optional_datetime(mapping, "created_at")
+        if created_at is None:
+            raise ValueError("factory champion event requires created_at")
+        return cls(
+            event_id=_require_string(mapping, "event_id", label="event.event_id"),
+            org_id=_require_string(mapping, "org_id", label="event.org_id"),
+            factory_id=_require_string(mapping, "factory_id", label="event.factory_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            candidate_id=_optional_string(mapping, "candidate_id"),
+            action=FactoryChampionEventAction(
+                _require_string(mapping, "action", label="event.action")
+            ),
+            git_sha=_optional_string(mapping, "git_sha"),
+            held_out_score=_optional_float(mapping, "held_out_score"),
+            baseline_score=_optional_float(mapping, "baseline_score"),
+            reason=_optional_string(mapping, "reason"),
+            payload=_optional_object_dict(mapping.get("payload"), label="event.payload"),
+            created_at=created_at,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryChampionDecision:
+    action: FactoryChampionEventAction
+    reason: str
+    changed: bool
+    champion: FactoryCandidate | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryChampionDecision:
+        mapping = _require_mapping(payload, label="factory champion decision")
+        champion = mapping.get("champion")
+        return cls(
+            action=FactoryChampionEventAction(
+                _require_string(mapping, "action", label="decision.action")
+            ),
+            reason=_require_string(mapping, "reason", label="decision.reason"),
+            changed=bool(_optional_bool(mapping, "changed")),
+            champion=FactoryCandidate.from_wire(champion) if champion is not None else None,
+            raw=dict(mapping),
+        )
+
+
 def factory_create_payload(
     request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
@@ -2034,6 +2226,30 @@ def factory_wake_due_payload(
     request: FactoryWakeDueRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
     if isinstance(request, FactoryWakeDueRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_candidate_grading_payload(
+    request: FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryCandidateGradingRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_champion_select_payload(
+    request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryChampionSelectRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_champion_rollback_payload(
+    request: FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryChampionRollbackRequest):
         return request.to_wire()
     return dict(request)
 
@@ -2106,6 +2322,10 @@ FACTORY_ACTOR_OUTPUT_STATUS_VALUES = tuple(item.value for item in FactoryActorOu
 EFFORT_STATUS_VALUES = tuple(item.value for item in EffortStatus)
 EFFORT_TYPE_VALUES = tuple(item.value for item in EffortType)
 FACTORY_RUN_KIND_VALUES = tuple(item.value for item in FactoryRunKind)
+FACTORY_CANDIDATE_GRADING_STATUS_VALUES = tuple(
+    item.value for item in FactoryCandidateGradingStatus
+)
+FACTORY_CHAMPION_EVENT_ACTION_VALUES = tuple(item.value for item in FactoryChampionEventAction)
 
 
 __all__ = [
@@ -2121,6 +2341,8 @@ __all__ = [
     "FACTORY_ACTOR_OUTPUT_KIND_VALUES",
     "FACTORY_ACTOR_OUTPUT_STATUS_VALUES",
     "FACTORY_RUN_KIND_VALUES",
+    "FACTORY_CANDIDATE_GRADING_STATUS_VALUES",
+    "FACTORY_CHAMPION_EVENT_ACTION_VALUES",
     "Effort",
     "EffortCreateRequest",
     "EffortFromRunsRequest",
@@ -2142,6 +2364,14 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryCandidate",
+    "FactoryCandidateGradingRequest",
+    "FactoryCandidateGradingStatus",
+    "FactoryChampionDecision",
+    "FactoryChampionEvent",
+    "FactoryChampionEventAction",
+    "FactoryChampionRollbackRequest",
+    "FactoryChampionSelectRequest",
     "FactoryHealth",
     "FactoryMaintenanceAction",
     "FactoryOperatingWindow",
@@ -2180,6 +2410,9 @@ __all__ = [
     "factory_actor_output_create_payload",
     "factory_actor_output_patch_payload",
     "factory_create_payload",
+    "factory_candidate_grading_payload",
+    "factory_champion_rollback_payload",
+    "factory_champion_select_payload",
     "factory_idea_create_payload",
     "factory_idea_patch_payload",
     "factory_patch_payload",

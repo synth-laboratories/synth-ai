@@ -5,6 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from synth_ai.managed_research.models.factories import (
+    FactoryCandidate,
+    FactoryCandidateGradingRequest,
+    FactoryCandidateGradingStatus,
+    FactoryChampionDecision,
+    FactoryChampionEvent,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
+)
 from synth_ai.managed_research.models.tag import (
     TagMessageRequest,
     TagScope,
@@ -207,12 +216,98 @@ class ResearchFactoriesTagAPI:
         return self._scopes
 
 
+class ResearchFactoryCandidatesAPI:
+    """Immutable Factory candidates and benchmark-owned grading intake."""
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        grading_status: FactoryCandidateGradingStatus | str | None = None,
+        effort_id: str | None = None,
+        limit: int = 200,
+    ) -> tuple[FactoryCandidate, ...]:
+        """List candidates, optionally filtered by grading status or Effort."""
+        return tuple(
+            self._session.factories.list_candidates(
+                factory_id,
+                grading_status=grading_status,
+                effort_id=effort_id,
+                limit=limit,
+            )
+        )
+
+    def record_grading(
+        self,
+        factory_id: str,
+        candidate_id: str,
+        request: FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryCandidate:
+        """Record a benchmark-owned grading result for one immutable candidate."""
+        return self._session.factories.record_candidate_grading(
+            factory_id,
+            candidate_id,
+            request,
+        )
+
+
+class ResearchFactoryChampionsAPI:
+    """Deterministic champion selection and append-only decision history."""
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def select(
+        self,
+        factory_id: str,
+        request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        """Select the deterministic winner when it strictly beats the baseline."""
+        return self._session.factories.select_champion(factory_id, request)
+
+    def rollback(
+        self,
+        factory_id: str,
+        request: FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        """Roll the champion pointer back and append the decision event."""
+        return self._session.factories.rollback_champion(factory_id, request)
+
+    def list_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> tuple[FactoryChampionEvent, ...]:
+        """List the append-only champion decision history, newest first."""
+        return tuple(self._session.factories.list_champion_events(factory_id, limit=limit))
+
+
 class ResearchFactoriesAPI:
     """Factory domain namespace (Tag ships under ``factories.tag``)."""
 
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
         self._tag: ResearchFactoriesTagAPI | None = None
+        self._candidates: ResearchFactoryCandidatesAPI | None = None
+        self._champions: ResearchFactoryChampionsAPI | None = None
+
+    @property
+    def candidates(self) -> ResearchFactoryCandidatesAPI:
+        """Immutable candidate discovery and benchmark-owned grading intake."""
+        if self._candidates is None:
+            self._candidates = ResearchFactoryCandidatesAPI(self._session)
+        return self._candidates
+
+    @property
+    def champions(self) -> ResearchFactoryChampionsAPI:
+        """Deterministic champion selection, rollback, and decision history."""
+        if self._champions is None:
+            self._champions = ResearchFactoryChampionsAPI(self._session)
+        return self._champions
 
     @property
     def tag(self) -> ResearchFactoriesTagAPI:
@@ -228,4 +323,6 @@ __all__ = [
     "ResearchFactoriesTagScopesAPI",
     "ResearchFactoriesTagSessionsAPI",
     "ResearchFactoriesTagSessionsMessagesAPI",
+    "ResearchFactoryCandidatesAPI",
+    "ResearchFactoryChampionsAPI",
 ]
