@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime
 from typing import Any, List, cast
 
@@ -11,10 +11,14 @@ from synth_ai.managed_research.models.factories import (
     AuthorizationPolicy,
     Effort,
     EffortCreateRequest,
+    EffortFromRunsRequest,
     EffortPatchRequest,
     EffortStatus,
     EffortType,
     ExperimentBundle,
+    ExperimentComparison,
+    ExperimentHistory,
+    GraduationProposal,
     Factory,
     FactoryActorOutput,
     FactoryActorOutputCreateRequest,
@@ -298,6 +302,25 @@ class FactoriesAPI(_ClientNamespace):
 
         return ExperimentBundle.from_wire(
             self._client.get_experiment_bundle(project_id, experiment_id)
+        )
+
+    def experiment_history(
+        self,
+        project_id: str,
+        *,
+        limit: int = 50,
+    ) -> ExperimentHistory:
+        return ExperimentHistory.from_wire(
+            self._client.get_experiment_history(project_id, limit=limit)
+        )
+
+    def compare_experiments(
+        self,
+        project_id: str,
+        experiment_ids: tuple[str, ...] | List[str],
+    ) -> ExperimentComparison:
+        return ExperimentComparison.from_wire(
+            self._client.compare_experiments(project_id, experiment_ids)
         )
 
     def create_idea(
@@ -708,6 +731,34 @@ class EffortsAPI(_ClientNamespace):
     ) -> Effort:
         return Effort.from_wire(self._client.patch_effort(effort_id, request))
 
+    def list_graduation_proposals(self, project_id: str) -> List[GraduationProposal]:
+        return [
+            GraduationProposal.from_wire(item)
+            for item in self._client.list_graduation_proposals(project_id)
+        ]
+
+    def from_runs(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        run_ids: Iterable[str],
+        factory_id: str | None = None,
+    ) -> Effort:
+        return Effort.from_wire(
+            self._client.create_effort_from_runs(
+                EffortFromRunsRequest(
+                    project_id=project_id,
+                    name=name,
+                    run_ids=tuple(run_ids),
+                    factory_id=factory_id,
+                )
+            )
+        )
+
+    def list_runs(self, effort_id: str) -> List[dict[str, Any]]:
+        return self._client.list_runs_for_effort(effort_id)
+
     def pause(self, effort_id: str) -> Effort:
         return self.patch(effort_id, EffortPatchRequest(status=EffortStatus.PAUSED))
 
@@ -784,7 +835,14 @@ class EffortsAPI(_ClientNamespace):
             EffortPatchRequest(decision_needed=False, decision_note=note),
         )
 
-    def launch(self, effort_id: str, objective: str | None = None, **kwargs: Any):
+    def launch(
+        self,
+        effort_id: str,
+        objective: str | None = None,
+        *,
+        run_kind: str = "research",
+        **kwargs: Any,
+    ):
         from synth_ai.managed_research.models.run_state import ManagedResearchRun
         from synth_ai.managed_research.sdk.runs import RunHandle
 
@@ -794,15 +852,32 @@ class EffortsAPI(_ClientNamespace):
                 objective,
                 project_id=effort.project_id,
                 effort_id=effort.effort_id,
+                run_kind=run_kind,
                 **kwargs,
             )
         wire = self._client.trigger_run(
             effort.project_id,
             effort_id=effort.effort_id,
+            run_kind=run_kind,
             **kwargs,
         )
         run = ManagedResearchRun.from_wire(wire)
         return RunHandle(self._client, run.project_id, run.run_id)
+
+    def launch_maintenance(
+        self,
+        effort_id: str,
+        *,
+        objective: str | None = None,
+        **kwargs: Any,
+    ):
+        """Send a typed external signal to start maintenance on one Effort."""
+        return self.launch(
+            effort_id,
+            objective=objective,
+            run_kind="maintenance",
+            **kwargs,
+        )
 
 
 __all__ = ["EffortsAPI", "FactoriesAPI"]

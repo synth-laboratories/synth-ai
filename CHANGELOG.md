@@ -4,16 +4,19 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.15.0 — 2026-07-13
+
 ### Added
 
-- **`client.cloud_deployments`** — `CloudDeploymentsAPI` namespace on `ManagedResearchClient` for exe.dev-backed Synth deployments:
+- **Research Factory evidence** — typed Factory status now exposes proof readiness, accepted actor outputs, and experiment observability. `FactoriesAPI` adds experiment bundle/history/compare reads, while Tag and CLI projections carry experiment, candidate, and tag evidence.
+- **Factory maintenance runs** — `EffortsAPI.launch_maintenance(...)`, `FactoryRunKind.MAINTENANCE`, `FactoryMaintenanceAction`, and the `FactoryActorRole.ORCHESTRATOR` role support typed maintenance cycles without crossing backend authority boundaries.
+- **Project-bound Cloud Deployments** — `client.cloud_deployments` exposes exe.dev-backed deployments tied to project Git:
   - Raw methods: `create_cloud_deployment`, `list_cloud_deployments`, `get_cloud_deployment`, `observe_cloud_deployment`, `deploy_cloud_deployment`, `retire_cloud_deployment` over `/smr/v1/deployments`.
   - Convenience: `service_url()`, `wait_until_running()` (`failed` is retryable via `deploy`; `retired` is terminal).
   - Safety: `retire(delete_vm=True)` requires `confirm_vm_name`.
-- **MCP tools**: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
-- **OpenAPI vendoring**: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
+  - MCP tools: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
+  - OpenAPI vendoring: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
 - **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
-- Pairs with backend CloudDeployment routes (backend PR #340, `smr_cloud_deployments` table + reconciler); do not publish to PyPI before those routes are deployed for the target audience.
 - **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
 - **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
   - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
@@ -24,8 +27,24 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Notes
 
+- Pairs with backend Factory and CloudDeployment routes on the same release train; publish only after the backend routes are deployed for the target audience.
 - Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
 - Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
+
+## 0.14.0 — 2026-06-27
+
+### Added
+
+- **`SynthClient().research.efforts`** — run→Effort graduation surface for promoting related Runs into persistent Research Factory Efforts:
+  - `efforts.proposals.list(project_id)` returns Gardener-authored graduation proposals.
+  - `efforts.from_runs(project_id, name, run_ids, factory_id=None)` graduates a set of Runs into a new Effort.
+- **Graduation SDK models**: `GraduationProposal` and `EffortFromRunsRequest` (with `effort_from_runs_payload`).
+- **`TagSession.graduation_proposal`** — optional graduation-proposal payload on the Tag session projection.
+- **MCP tools**: `smr_list_graduation_proposals`, `smr_graduate_runs_to_effort`, and `smr_list_runs_by_effort` (reverse index over runs that carry `effort_id`).
+
+### Notes
+
+- Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
 
 ## 0.12.0 — 2026-06-25
 

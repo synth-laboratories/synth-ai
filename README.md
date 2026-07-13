@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.13.0-orange synth-ai==0.13.0 -->
+<!-- CI release pins: PyPI-0.15.0-orange synth-ai==0.15.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)

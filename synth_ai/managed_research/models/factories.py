@@ -9,8 +9,10 @@ from enum import StrEnum
 from typing import Any
 
 from synth_ai.managed_research.models.run_state import (
+    _int_value,
     _optional_bool,
     _optional_object_dict,
+    _optional_object_tuple,
     _optional_string,
     _require_mapping,
     _require_string,
@@ -60,6 +62,7 @@ class FactoryIdeaSource(StrEnum):
 
 
 class FactoryActorRole(StrEnum):
+    ORCHESTRATOR = "orchestrator"
     SERAPH = "seraph"
     GARDENER = "gardener"
     ARCHITECT = "architect"
@@ -96,10 +99,14 @@ class EffortStatus(StrEnum):
 
 class EffortType(StrEnum):
     RESEARCH = "research"
-    MAINTENANCE = "maintenance"
     EVAL_FACTORY = "eval_factory"
     OPTIMIZER = "optimizer"
     OPEN_RESEARCH = "open_research"
+
+
+class FactoryRunKind(StrEnum):
+    RESEARCH = "research"
+    MAINTENANCE = "maintenance"
 
 
 def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | None:
@@ -583,6 +590,65 @@ class EffortPatchRequest:
                 else self.next_wake_at
             )
         return payload
+
+
+@dataclass(frozen=True)
+class EffortFromRunsRequest:
+    project_id: str
+    name: str
+    run_ids: tuple[str, ...] | list[str]
+    factory_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "project_id": self.project_id,
+            "name": self.name,
+            "run_ids": list(self.run_ids),
+        }
+        if self.factory_id is not None:
+            payload["factory_id"] = self.factory_id
+        return payload
+
+
+@dataclass(frozen=True)
+class GraduationProposal:
+    """Gardener-authored proposal to graduate related Runs into a persistent Effort."""
+
+    proposal_id: str
+    project_id: str
+    suggested_name: str
+    run_ids: tuple[str, ...]
+    factory_id: str | None = None
+    hypothesis_or_topic: str | None = None
+    effort_type: EffortType | None = None
+    rationale: str | None = None
+    confidence: float | None = None
+    created_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GraduationProposal:
+        mapping = _require_mapping(payload, label="graduation proposal")
+        effort_type_value = _optional_string(mapping, "effort_type")
+        return cls(
+            proposal_id=_require_string(
+                mapping, "proposal_id", label="graduation_proposal.proposal_id"
+            ),
+            project_id=_require_string(
+                mapping, "project_id", label="graduation_proposal.project_id"
+            ),
+            suggested_name=_require_string(
+                mapping, "suggested_name", label="graduation_proposal.suggested_name"
+            ),
+            run_ids=_string_tuple(mapping.get("run_ids")),
+            factory_id=_optional_string(mapping, "factory_id"),
+            hypothesis_or_topic=_optional_string(mapping, "hypothesis_or_topic"),
+            effort_type=EffortType(effort_type_value) if effort_type_value is not None else None,
+            rationale=_optional_string(mapping, "rationale"),
+            confidence=_optional_float(mapping, "confidence"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            raw=dict(mapping),
+        )
 
 
 @dataclass(frozen=True)
@@ -1114,6 +1180,7 @@ class FactoryRunSummary:
     project_id: str
     public_state: str
     effort_id: str | None = None
+    run_kind: FactoryRunKind = FactoryRunKind.RESEARCH
     created_at: datetime | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -1127,6 +1194,9 @@ class FactoryRunSummary:
             run_id=_require_string(mapping, "run_id", label="run.run_id"),
             project_id=_require_string(mapping, "project_id", label="run.project_id"),
             effort_id=_optional_string(mapping, "effort_id"),
+            run_kind=FactoryRunKind(
+                _optional_string(mapping, "run_kind") or FactoryRunKind.RESEARCH
+            ),
             public_state=_require_string(mapping, "public_state", label="run.public_state"),
             created_at=_optional_datetime(mapping, "created_at"),
             started_at=_optional_datetime(mapping, "started_at"),
@@ -1173,8 +1243,10 @@ class FactoryWorkProductSummary:
     title: str
     status: str
     readiness: str
+    summary: str | None = None
     effort_id: str | None = None
     artifact_id: str | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
     raw: dict[str, object] = field(default_factory=dict)
@@ -1193,9 +1265,13 @@ class FactoryWorkProductSummary:
             effort_id=_optional_string(mapping, "effort_id"),
             kind=_require_string(mapping, "kind", label="work_product.kind"),
             title=_require_string(mapping, "title", label="work_product.title"),
+            summary=_optional_string(mapping, "summary"),
             status=_require_string(mapping, "status", label="work_product.status"),
             readiness=_require_string(mapping, "readiness", label="work_product.readiness"),
             artifact_id=_optional_string(mapping, "artifact_id"),
+            metadata=_optional_object_dict(
+                mapping.get("metadata"), label="work_product.metadata"
+            ),
             created_at=_optional_datetime(mapping, "created_at"),
             updated_at=_optional_datetime(mapping, "updated_at"),
             raw=dict(mapping),
@@ -1573,6 +1649,147 @@ class ExperimentBundle:
 
 
 @dataclass(frozen=True)
+class ExperimentHistory:
+    project_id: str
+    schema_version: str
+    bundles: tuple[ExperimentBundle, ...] = ()
+    accepted_cycles: int = 0
+    incomplete_cycles: int = 0
+    missing_evidence_alerts: tuple[dict[str, object], ...] = ()
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ExperimentHistory:
+        mapping = _require_mapping(payload, label="experiment history")
+        return cls(
+            project_id=_require_string(mapping, "project_id", label="experiment history"),
+            schema_version=_require_string(mapping, "schema_version", label="experiment history"),
+            bundles=tuple(
+                ExperimentBundle.from_wire(item)
+                for item in _optional_object_tuple(
+                    mapping.get("bundles"), label="experiment history bundles"
+                )
+            ),
+            accepted_cycles=_int_value(
+                mapping, "accepted_cycles", label="experiment history accepted_cycles"
+            ),
+            incomplete_cycles=_int_value(
+                mapping, "incomplete_cycles", label="experiment history incomplete_cycles"
+            ),
+            missing_evidence_alerts=_optional_object_tuple(
+                mapping.get("missing_evidence_alerts"),
+                label="experiment history missing_evidence_alerts",
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class ExperimentComparison:
+    project_id: str
+    schema_version: str
+    experiment_ids: tuple[str, ...]
+    comparable: bool
+    comparison_dimensions: dict[str, object] = field(default_factory=dict)
+    rows: tuple[dict[str, object], ...] = ()
+    not_comparable_reasons: tuple[str, ...] = ()
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ExperimentComparison:
+        mapping = _require_mapping(payload, label="experiment comparison")
+        return cls(
+            project_id=_require_string(mapping, "project_id", label="experiment comparison"),
+            schema_version=_require_string(
+                mapping, "schema_version", label="experiment comparison"
+            ),
+            experiment_ids=_string_tuple(mapping.get("experiment_ids")),
+            comparable=bool(mapping.get("comparable")),
+            comparison_dimensions=_optional_object_dict(
+                mapping.get("comparison_dimensions"),
+                label="experiment comparison dimensions",
+            ),
+            rows=_optional_object_tuple(
+                mapping.get("rows"),
+                label="experiment comparison rows",
+            ),
+            not_comparable_reasons=_string_tuple(mapping.get("not_comparable_reasons")),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryOperatingWindow:
+    schema_version: str
+    evaluated_at: datetime
+    window_started_at: datetime
+    window_days: int
+    required_cycles: int
+    terminal_attempts: int
+    observed_cycles: int
+    rejected_cycles: int
+    remaining_cycles: int
+    status: str
+    first_cycle_at: datetime | None = None
+    latest_cycle_at: datetime | None = None
+    cycle_run_ids: tuple[str, ...] = ()
+    rejected_cycle_run_ids: tuple[str, ...] = ()
+    cycle_evidence: tuple[dict[str, object], ...] = ()
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryOperatingWindow:
+        mapping = _require_mapping(payload, label="factory operating window")
+        evaluated_at = _optional_datetime(mapping, "evaluated_at")
+        window_started_at = _optional_datetime(mapping, "window_started_at")
+        if evaluated_at is None or window_started_at is None:
+            raise ValueError("factory operating window timestamps are required")
+        return cls(
+            schema_version=_require_string(
+                mapping, "schema_version", label="factory operating window"
+            ),
+            evaluated_at=evaluated_at,
+            window_started_at=window_started_at,
+            window_days=(
+                _int_value(mapping, "window_days", label="factory operating window window_days")
+                or 30
+            ),
+            required_cycles=(
+                _int_value(
+                    mapping,
+                    "required_cycles",
+                    label="factory operating window required_cycles",
+                )
+                or 12
+            ),
+            terminal_attempts=_int_value(
+                mapping,
+                "terminal_attempts",
+                label="factory operating window terminal_attempts",
+            ),
+            observed_cycles=_int_value(
+                mapping,
+                "observed_cycles",
+                label="factory operating window observed_cycles",
+            ),
+            rejected_cycles=_int_value(
+                mapping,
+                "rejected_cycles",
+                label="factory operating window rejected_cycles",
+            ),
+            remaining_cycles=_int_value(
+                mapping,
+                "remaining_cycles",
+                label="factory operating window remaining_cycles",
+            ),
+            status=_require_string(mapping, "status", label="factory operating window"),
+            first_cycle_at=_optional_datetime(mapping, "first_cycle_at"),
+            latest_cycle_at=_optional_datetime(mapping, "latest_cycle_at"),
+            cycle_run_ids=_string_tuple(mapping.get("cycle_run_ids")),
+            rejected_cycle_run_ids=_string_tuple(mapping.get("rejected_cycle_run_ids")),
+            cycle_evidence=_optional_object_tuple(
+                mapping.get("cycle_evidence"),
+                label="factory operating window cycle_evidence",
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1595,6 +1812,8 @@ class FactoryStatus:
     proof_readiness: dict[str, object] = field(default_factory=dict)
     public_visuals: dict[str, object] = field(default_factory=dict)
     experiment_observability: ExperimentBundle | None = None
+    judgment_state: dict[str, object] = field(default_factory=dict)
+    operating_window: FactoryOperatingWindow | None = None
     raw: dict[str, object] = field(default_factory=dict)
 
     @property
@@ -1685,6 +1904,15 @@ class FactoryStatus:
                 label="factory status public_visuals",
             ),
             experiment_observability=experiment_observability,
+            judgment_state=_optional_object_dict(
+                mapping.get("judgment_state"),
+                label="factory status judgment_state",
+            ),
+            operating_window=(
+                FactoryOperatingWindow.from_wire(mapping.get("operating_window"))
+                if mapping.get("operating_window") is not None
+                else None
+            ),
             raw=dict(mapping),
         )
 
@@ -1716,6 +1944,7 @@ class FactoryWakeDueEffort:
     status: str
     reason: str | None = None
     run_id: str | None = None
+    run_kind: FactoryRunKind | None = None
     next_wake_at: datetime | None = None
     launch_preview: dict[str, object] = field(default_factory=dict)
     raw: dict[str, object] = field(default_factory=dict)
@@ -1729,6 +1958,11 @@ class FactoryWakeDueEffort:
             status=_require_string(mapping, "status", label="wake.status"),
             reason=_optional_string(mapping, "reason"),
             run_id=_optional_string(mapping, "run_id"),
+            run_kind=_optional_enum(
+                FactoryRunKind,
+                mapping.get("run_kind"),
+                field_name="wake.run_kind",
+            ),
             next_wake_at=_optional_datetime(mapping, "next_wake_at"),
             launch_preview=_optional_object_dict(
                 mapping.get("launch_preview"),
@@ -1854,6 +2088,14 @@ def effort_patch_payload(
     return dict(request)
 
 
+def effort_from_runs_payload(
+    request: EffortFromRunsRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, EffortFromRunsRequest):
+        return request.to_wire()
+    return dict(request)
+
+
 FACTORY_KIND_VALUES = tuple(item.value for item in FactoryKind)
 FACTORY_LIFECYCLE_STATE_VALUES = tuple(item.value for item in FactoryLifecycleState)
 FACTORY_PROJECT_ROLE_VALUES = tuple(item.value for item in FactoryProjectRole)
@@ -1865,6 +2107,7 @@ FACTORY_ACTOR_OUTPUT_KIND_VALUES = tuple(item.value for item in FactoryActorOutp
 FACTORY_ACTOR_OUTPUT_STATUS_VALUES = tuple(item.value for item in FactoryActorOutputStatus)
 EFFORT_STATUS_VALUES = tuple(item.value for item in EffortStatus)
 EFFORT_TYPE_VALUES = tuple(item.value for item in EffortType)
+FACTORY_RUN_KIND_VALUES = tuple(item.value for item in FactoryRunKind)
 
 
 __all__ = [
@@ -1879,12 +2122,17 @@ __all__ = [
     "FACTORY_ACTOR_ROLE_VALUES",
     "FACTORY_ACTOR_OUTPUT_KIND_VALUES",
     "FACTORY_ACTOR_OUTPUT_STATUS_VALUES",
+    "FACTORY_RUN_KIND_VALUES",
     "Effort",
     "EffortCreateRequest",
+    "EffortFromRunsRequest",
     "EffortPatchRequest",
     "EffortStatus",
     "EffortType",
     "ExperimentBundle",
+    "ExperimentComparison",
+    "ExperimentHistory",
+    "GraduationProposal",
     "BudgetPolicy",
     "CapPolicy",
     "AuthorizationPolicy",
@@ -1898,6 +2146,7 @@ __all__ = [
     "FactoryCreateRequest",
     "FactoryHealth",
     "FactoryMaintenanceAction",
+    "FactoryOperatingWindow",
     "FactoryControlLoopFlags",
     "FactoryReactorReceipt",
     "FactoryReactorStatus",
@@ -1918,6 +2167,7 @@ __all__ = [
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
+    "FactoryRunKind",
     "FactoryStatus",
     "FactoryWakeDueEffort",
     "FactoryWakeDueRequest",
@@ -1927,6 +2177,7 @@ __all__ = [
     "PublicationPolicy",
     "RecurrencePolicy",
     "effort_create_payload",
+    "effort_from_runs_payload",
     "effort_patch_payload",
     "factory_actor_output_create_payload",
     "factory_actor_output_patch_payload",
