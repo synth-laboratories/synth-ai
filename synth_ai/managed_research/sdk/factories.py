@@ -914,26 +914,19 @@ class EffortsAPI(_ClientNamespace):
         run_kind: str = "research",
         **kwargs: Any,
     ):
-        from synth_ai.managed_research.models.run_state import ManagedResearchRun
-        from synth_ai.managed_research.sdk.runs import RunHandle
-
         effort = self.get(effort_id)
-        if objective is not None:
-            return self._client.runs.start(
-                objective,
-                project_id=effort.project_id,
-                effort_id=effort.effort_id,
-                run_kind=run_kind,
-                **kwargs,
-            )
-        wire = self._client.trigger_run(
-            effort.project_id,
+        objective_text = (
+            str(effort.hypothesis_or_topic or effort.name or "").strip()
+            if objective is None
+            else str(objective).strip()
+        )
+        return self._client.runs.start(
+            objective_text,
+            project_id=effort.project_id,
             effort_id=effort.effort_id,
             run_kind=run_kind,
             **kwargs,
         )
-        run = ManagedResearchRun.from_wire(wire)
-        return RunHandle(self._client, run.project_id, run.run_id)
 
     def launch_maintenance(
         self,
