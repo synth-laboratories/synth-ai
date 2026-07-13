@@ -71,6 +71,8 @@ Install the research extra when you need hosted runs, projects, Factory Tag, or 
 pip install "synth-ai[research]"
 ```
 
+Install the standalone `managed-research` package for Managed Research SDK access.
+
 Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
 
 ```python
