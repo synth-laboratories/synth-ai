@@ -84,6 +84,7 @@ include-package-data = true
 "synth_ai" = [
     "opencode/skill/*/SKILL.md",
     "managed_research/py.typed",
+    "managed_research/factory_plans/*.json",
     "managed_research/schemas/*",
 ]
 
