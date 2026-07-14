@@ -11,8 +11,14 @@ the VM's HTTPS proxy.
 from __future__ import annotations
 
 import time
-from typing import Any, List, Literal, Mapping, TypedDict
+from contextlib import contextmanager
+from typing import Any, Iterator, List, Literal, Mapping, TypedDict
 
+from synth_ai.managed_research.models.cloud_deployment_claims import (
+    ClaimHeartbeat,
+    ClaimProjection,
+    CloudDeploymentClaim,
+)
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 _RETRYABLE_FAILURE_STATES = frozenset({"failed"})
@@ -72,10 +78,18 @@ class CloudDeploymentsAPI(_ClientNamespace):
         *,
         deployment_id: str,
         reason: str | None = None,
+        fencing_token: int | None = None,
     ) -> dict[str, Any]:
+        """Deploy (or retry) the stack; ``fencing_token`` is sent as ``X-Fencing-Token``.
+
+        When a claim is active the backend refuses unfenced mutations
+        (FencingTokenRequiredError) and superseded tokens
+        (FencingTokenStaleError).
+        """
         return self._client.deploy_cloud_deployment(
             deployment_id=deployment_id,
             reason=reason,
+            fencing_token=fencing_token,
         )
 
     def retire(
@@ -85,13 +99,158 @@ class CloudDeploymentsAPI(_ClientNamespace):
         reason: str | None = None,
         delete_vm: bool = False,
         confirm_vm_name: str | None = None,
+        fencing_token: int | None = None,
     ) -> dict[str, Any]:
+        """Retire the deployment; ``fencing_token`` is sent as ``X-Fencing-Token``.
+
+        When a claim is active the backend refuses unfenced mutations
+        (FencingTokenRequiredError) and superseded tokens
+        (FencingTokenStaleError).
+        """
         return self._client.retire_cloud_deployment(
             deployment_id=deployment_id,
             reason=reason,
             delete_vm=delete_vm,
             confirm_vm_name=confirm_vm_name,
+            fencing_token=fencing_token,
         )
+
+    # ------------------------------------------------------------------
+    # Claims (advisory TTL leases with integer fencing tokens)
+    # ------------------------------------------------------------------
+
+    def acquire_claim(
+        self,
+        *,
+        deployment_id: str,
+        holder: str,
+        purpose: str,
+        ttl_seconds: int,
+    ) -> CloudDeploymentClaim:
+        """Acquire the deployment's claim for ``holder``.
+
+        Raises ClaimConflictError (409 ``claim_conflict:<holder>``) when another
+        holder owns it; the error's ``holder`` attribute names the current owner.
+        The returned claim carries the integer ``fencing_token`` to pass to
+        ``deploy``/``retire``.
+
+        Example::
+
+            from synth_ai.managed_research import ManagedResearchClient
+
+            client = ManagedResearchClient(
+                api_key="sk-...",
+                backend_base="https://staging.api.usesynth.ai",
+            )
+            claim = client.cloud_deployments.acquire_claim(
+                deployment_id="cldep_123",
+                holder="factory-worker-7",
+                purpose="champion promotion",
+                ttl_seconds=300,
+            )
+            client.cloud_deployments.deploy(
+                deployment_id="cldep_123",
+                fencing_token=claim.fencing_token,
+            )
+        """
+        return CloudDeploymentClaim.from_wire(
+            self._client.acquire_cloud_deployment_claim(
+                deployment_id=deployment_id,
+                holder=holder,
+                purpose=purpose,
+                ttl_seconds=ttl_seconds,
+            )
+        )
+
+    def heartbeat_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> ClaimHeartbeat:
+        """Renew the claim TTL; returns the new ``expires_at``.
+
+        Raises ClaimExpiredError (410 ``claim_expired``) when the TTL already
+        lapsed and ClaimSupersededError (409 ``claim_superseded``) when a newer
+        claim replaced this one. The caller owns heartbeat cadence — the SDK
+        never heartbeats in the background.
+        """
+        return ClaimHeartbeat.from_wire(
+            self._client.heartbeat_cloud_deployment_claim(
+                deployment_id=deployment_id,
+                claim_id=claim_id,
+            )
+        )
+
+    def release_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> CloudDeploymentClaim:
+        """Release the claim (idempotent); returns the claim's final state."""
+        return CloudDeploymentClaim.from_wire(
+            self._client.release_cloud_deployment_claim(
+                deployment_id=deployment_id,
+                claim_id=claim_id,
+            )
+        )
+
+    def get_claims(self, *, deployment_id: str) -> ClaimProjection:
+        """Read the claim projection: active claim (or explicit none) + last fencing token issued."""
+        return ClaimProjection.from_wire(
+            self._client.get_cloud_deployment_claims(deployment_id=deployment_id)
+        )
+
+    @contextmanager
+    def claim(
+        self,
+        *,
+        deployment_id: str,
+        holder: str,
+        purpose: str,
+        ttl_seconds: int,
+    ) -> Iterator[CloudDeploymentClaim]:
+        """Hold the deployment's claim for the duration of the ``with`` block.
+
+        Acquires on entry and releases on exit — release runs even when the
+        body raises, and nothing is swallowed: acquire conflicts, body
+        exceptions, and release failures all propagate. Heartbeat is NOT
+        automatic (no background threads or timers); the caller owns the
+        heartbeat cadence and must call ``heartbeat_claim`` before the TTL
+        lapses when the body outlives ``ttl_seconds``.
+
+        Example::
+
+            with client.cloud_deployments.claim(
+                deployment_id="cldep_123",
+                holder="factory-worker-7",
+                purpose="champion promotion",
+                ttl_seconds=300,
+            ) as held:
+                client.cloud_deployments.deploy(
+                    deployment_id="cldep_123",
+                    fencing_token=held.fencing_token,
+                )
+                # long work: caller heartbeats explicitly
+                client.cloud_deployments.heartbeat_claim(
+                    deployment_id="cldep_123",
+                    claim_id=held.claim_id,
+                )
+        """
+        held = self.acquire_claim(
+            deployment_id=deployment_id,
+            holder=holder,
+            purpose=purpose,
+            ttl_seconds=ttl_seconds,
+        )
+        try:
+            yield held
+        finally:
+            self.release_claim(
+                deployment_id=deployment_id,
+                claim_id=held.claim_id,
+            )
 
     def service_url(self, *, deployment_id: str) -> str | None:
         """HTTPS base URL of the deployed service, once a VM exists."""

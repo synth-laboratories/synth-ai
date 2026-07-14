@@ -219,6 +219,7 @@ class SmrHttpTransport:
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
     ) -> Any:
         try:
@@ -227,6 +228,7 @@ class SmrHttpTransport:
                 path,
                 params=params,
                 json=json_body,
+                headers=headers,
             )
         except httpx.TimeoutException as exc:
             raise SmrApiError(f"{method} {path} timed out") from exc

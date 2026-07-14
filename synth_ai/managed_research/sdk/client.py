@@ -20,6 +20,7 @@ import httpx
 from synth_ai.managed_research.errors import (
     SmrApiError,
     SmrHostedModelOverridesError,
+    raise_cloud_deployment_claim_error,
 )
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
@@ -47,6 +48,7 @@ from synth_ai.managed_research.models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
+from synth_ai.managed_research.models.cloud_deployment_claims import ClaimAcquireRequest
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_from_runs_payload,
@@ -313,6 +315,15 @@ def _optional_cloud_deployment_source(
         field_name="source.instance_id",
     )
     return normalized
+
+
+def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
+    """``X-Fencing-Token`` header for mutating CloudDeployment ops, or None."""
+    if fencing_token is None:
+        return None
+    if isinstance(fencing_token, bool):
+        raise ValueError("fencing_token must be an integer when provided")
+    return {"X-Fencing-Token": str(int(fencing_token))}
 
 
 def _coerce_branch_request(
@@ -1577,6 +1588,7 @@ class ManagedResearchClient:
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
     ) -> Any:
         try:
@@ -1585,6 +1597,7 @@ class ManagedResearchClient:
                 path,
                 params=params,
                 json_body=json_body,
+                headers=headers,
                 allow_not_found=allow_not_found,
             )
         except SmrApiError as exc:
@@ -3960,19 +3973,25 @@ class ManagedResearchClient:
         *,
         deployment_id: str,
         reason: str | None = None,
+        fencing_token: int | None = None,
     ) -> dict[str, Any]:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/v1/deployments/{deployment_id}/deploy",
-                json_body={"reason": _optional_non_empty_string(reason)},
-            ),
-            label="deploy_cloud_deployment",
-        )
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/deploy",
+                    json_body={"reason": _optional_non_empty_string(reason)},
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="deploy_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
 
     def retire_cloud_deployment(
         self,
@@ -3981,22 +4000,128 @@ class ManagedResearchClient:
         reason: str | None = None,
         delete_vm: bool = False,
         confirm_vm_name: str | None = None,
+        fencing_token: int | None = None,
     ) -> dict[str, Any]:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/retire",
+                    json_body={
+                        "reason": _optional_non_empty_string(reason),
+                        "delete_vm": bool(delete_vm),
+                        "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
+                    },
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="retire_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def acquire_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        holder: str,
+        purpose: str,
+        ttl_seconds: int,
+    ) -> dict[str, Any]:
+        """POST /smr/v1/deployments/{deployment_id}/claims — acquire the claim.
+
+        409 ``claim_conflict:<holder>`` surfaces as ClaimConflictError.
+        """
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        request = ClaimAcquireRequest(
+            holder=_require_non_empty_string(holder, field_name="holder"),
+            purpose=_require_non_empty_string(purpose, field_name="purpose"),
+            ttl_seconds=int(ttl_seconds),
+        )
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims",
+                    json_body=dict(request.to_wire()),
+                ),
+                label="acquire_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def heartbeat_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> dict[str, Any]:
+        """POST .../claims/{claim_id}/heartbeat — renew the claim TTL.
+
+        410 ``claim_expired`` surfaces as ClaimExpiredError; 409
+        ``claim_superseded`` as ClaimSupersededError.
+        """
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        claim_id = _require_non_empty_string(claim_id, field_name="claim_id")
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims/{claim_id}/heartbeat",
+                ),
+                label="heartbeat_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def release_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> dict[str, Any]:
+        """POST .../claims/{claim_id}/release — idempotent; returns claim state."""
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        claim_id = _require_non_empty_string(claim_id, field_name="claim_id")
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims/{claim_id}/release",
+                ),
+                label="release_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def get_cloud_deployment_claims(self, *, deployment_id: str) -> dict[str, Any]:
+        """GET .../claims — active claim (or explicit none) + last fencing token issued."""
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
         return _coerce_dict(
             self._request_json(
-                "POST",
-                f"/smr/v1/deployments/{deployment_id}/retire",
-                json_body={
-                    "reason": _optional_non_empty_string(reason),
-                    "delete_vm": bool(delete_vm),
-                    "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
-                },
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/claims",
             ),
-            label="retire_cloud_deployment",
+            label="get_cloud_deployment_claims",
         )
 
     def list_project_outputs(self, project_id: str) -> list[dict[str, Any]]:
