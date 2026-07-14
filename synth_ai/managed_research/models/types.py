@@ -1922,7 +1922,9 @@ class SmrRunnableProjectRequest:
                 mapping.get("actor_model_assignments"),
                 field_name="actor_model_assignments",
             ),
-            runtime_artifact_release_id=_optional_string(mapping, "runtime_artifact_release_id"),
+            runtime_artifact_release_id=_optional_string(
+                mapping, "runtime_artifact_release_id"
+            ),
             budgets=_optional_object_dict(mapping.get("budgets")),
             key_policy=_optional_object_dict(mapping.get("key_policy")),
             execution_policy=_optional_object_dict(mapping.get("execution_policy")),
