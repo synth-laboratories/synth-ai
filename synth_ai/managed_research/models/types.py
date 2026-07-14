@@ -725,7 +725,9 @@ class ProjectCodeSource:
     kind: str
     status: str
     default_branch: str
-    upload_id: str
+    # The backend always includes this legacy field, but project-git sources
+    # legitimately carry it as an empty string rather than an upload id.
+    upload_id: str | None = None
     internal_repo_ref: dict[str, object] = field(default_factory=dict)
     head_commit_sha: str | None = None
     validation_summary: dict[str, object] = field(default_factory=dict)
@@ -745,7 +747,7 @@ class ProjectCodeSource:
                 "default_branch",
                 label="project code source.default_branch",
             ),
-            upload_id=_require_string(mapping, "upload_id", label="project code source.upload_id"),
+            upload_id=_optional_string(mapping, "upload_id"),
             internal_repo_ref=_optional_object_dict(mapping.get("internal_repo_ref")),
             head_commit_sha=_optional_string(mapping, "head_commit_sha"),
             validation_summary=_optional_object_dict(mapping.get("validation_summary")),
