@@ -545,8 +545,7 @@ def render_factory_standup_plan(
         return dict(plan)
     if plan.get("schema_version") != _OPERATOR_INPUT_PLAN_SCHEMA_VERSION:
         raise ValueError(
-            "operator-input plan schema_version must equal "
-            f"{_OPERATOR_INPUT_PLAN_SCHEMA_VERSION!r}"
+            f"operator-input plan schema_version must equal {_OPERATOR_INPUT_PLAN_SCHEMA_VERSION!r}"
         )
     _verify_rsi_operator_bindings(plan)
     specs = _mapping(raw_specs, field="operator_inputs")
@@ -570,8 +569,7 @@ def render_factory_standup_plan(
             continue
         if maximum_input not in resolved:
             raise ValueError(
-                f"operator_inputs.{name}.maximum_input references unknown input "
-                f"{maximum_input!r}"
+                f"operator_inputs.{name}.maximum_input references unknown input {maximum_input!r}"
             )
         if Decimal(str(resolved[name])) > Decimal(str(resolved[maximum_input])):
             raise ValueError(f"plan input {name!r} must not exceed {maximum_input!r}")
