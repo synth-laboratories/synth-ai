@@ -493,9 +493,8 @@ def _coerce_plan_input(name: str, value: object, spec: Mapping[str, Any]) -> obj
         if pattern is not None and re.fullmatch(pattern, normalized) is None:
             raise ValueError(f"plan input {name!r} does not match {pattern!r}")
         allowed = spec.get("enum")
-        if allowed is not None:
-            if not isinstance(allowed, list) or normalized not in allowed:
-                raise ValueError(f"plan input {name!r} must be one of {allowed!r}")
+        if allowed is not None and (not isinstance(allowed, list) or normalized not in allowed):
+            raise ValueError(f"plan input {name!r} must be one of {allowed!r}")
         return evidence_binding if evidence_binding is not None else normalized
     if input_type in {"number", "integer", "money_usd"}:
         if isinstance(value, bool):
