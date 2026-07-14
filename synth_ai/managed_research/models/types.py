@@ -1456,6 +1456,7 @@ class SmrRunnableProjectRequest:
     worker_profile_ids: list[str] = field(default_factory=list)
     actor_profile_id: str | None = None
     actor_model_assignments: list[SmrActorModelAssignment] = field(default_factory=list)
+    runtime_artifact_release_id: str | None = None
     budgets: dict[str, object] = field(default_factory=dict)
     key_policy: dict[str, object] = field(default_factory=dict)
     execution_policy: dict[str, object] = field(default_factory=dict)
@@ -1530,6 +1531,9 @@ class SmrRunnableProjectRequest:
                 mapping.get("actor_model_assignments"),
                 field_name="actor_model_assignments",
             ),
+            runtime_artifact_release_id=_optional_string(
+                mapping, "runtime_artifact_release_id"
+            ),
             budgets=_optional_object_dict(mapping.get("budgets")),
             key_policy=_optional_object_dict(mapping.get("key_policy")),
             execution_policy=_optional_object_dict(mapping.get("execution_policy")),
@@ -1575,6 +1579,8 @@ class SmrRunnableProjectRequest:
             ]
         if self.actor_profile_id is not None:
             payload["actor_profile_id"] = self.actor_profile_id
+        if self.runtime_artifact_release_id is not None:
+            payload["runtime_artifact_release_id"] = self.runtime_artifact_release_id
         if self.scenario is not None:
             payload["scenario"] = self.scenario
         if self.notes is not None:
