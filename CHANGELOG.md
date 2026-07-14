@@ -4,6 +4,10 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Added
+
+- **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
+
 ## 0.15.0 — 2026-07-13
 
 ### Added

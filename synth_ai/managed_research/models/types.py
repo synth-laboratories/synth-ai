@@ -1844,6 +1844,7 @@ class SmrRunnableProjectRequest:
     runtime_kind: SmrRuntimeKind
     environment_kind: SmrEnvironmentKind
     agent_profiles: SmrAgentProfileBindings
+    runtime_artifact_release_id: str | None = None
     worker_profile_ids: list[str] = field(default_factory=list)
     actor_profile_id: str | None = None
     actor_model_assignments: list[SmrActorModelAssignment] = field(default_factory=list)
@@ -1915,6 +1916,9 @@ class SmrRunnableProjectRequest:
                 ),
                 worker_profile_ids=worker_profile_ids,
             ),
+            runtime_artifact_release_id=_optional_string(
+                mapping, "runtime_artifact_release_id"
+            ),
             worker_profile_ids=worker_profile_ids,
             actor_profile_id=_optional_string(mapping, "actor_profile_id"),
             actor_model_assignments=normalize_actor_model_assignments(
@@ -1966,6 +1970,8 @@ class SmrRunnableProjectRequest:
             ]
         if self.actor_profile_id is not None:
             payload["actor_profile_id"] = self.actor_profile_id
+        if self.runtime_artifact_release_id is not None:
+            payload["runtime_artifact_release_id"] = self.runtime_artifact_release_id
         if self.scenario is not None:
             payload["scenario"] = self.scenario
         if self.notes is not None:

@@ -49930,6 +49930,13 @@ components:
           maxLength: 128
           minLength: 1
           title: Environment Kind
+        runtime_artifact_release_id:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Runtime Artifact Release Id
         orchestrator_profile_id:
           type: string
           maxLength: 200
