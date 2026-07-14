@@ -1,0 +1,537 @@
+{
+  "schema_version": "synth.factory_standup_plan.rsi.v1",
+  "operator_inputs": {
+    "factory_monthly_limit_usd": {
+      "type": "money_usd",
+      "exclusive_minimum": 0,
+      "maximum": 1000000,
+      "description": "Operator-approved monthly Factory cap in USD. No default is permitted."
+    },
+    "ordinary_run_limit_usd": {
+      "type": "money_usd",
+      "exclusive_minimum": 0,
+      "maximum": 1000000,
+      "maximum_input": "factory_monthly_limit_usd",
+      "description": "Operator-approved hard cap for one ordinary RSI run in USD. No default is permitted."
+    },
+    "ordinary_run_target_usd": {
+      "type": "money_usd",
+      "exclusive_minimum": 0,
+      "maximum": 1000000,
+      "maximum_input": "ordinary_run_limit_usd",
+      "description": "Operator-approved target for one ordinary RSI run in USD. No default is permitted."
+    },
+    "cloud_pool_id": {
+      "type": "string",
+      "description": "Pool id from the approved cloud-slot allocation receipt after backend issue 340 lands."
+    },
+    "cloud_environment_kind": {
+      "type": "string",
+      "enum": [
+        "daytona"
+      ],
+      "description": "Daytona environment kind named by the approved cloud-slot allocation and accepted by the hosted launch contract."
+    },
+    "orchestrator_profile_id": {
+      "type": "string",
+      "description": "Approved hosted orchestrator profile id."
+    },
+    "worker_profile_id": {
+      "type": "string",
+      "description": "Approved hosted worker profile id."
+    },
+    "first_wake_at": {
+      "type": "rfc3339",
+      "description": "Operator-selected first legal wake time after every activation dependency is proved; starts the soak clock without a post-standup patch."
+    },
+    "cloud_deployment_id": {
+      "type": "string",
+      "description": "CloudDeployment id whose evidence proves the cloud slot; retained as evidence, not a fabricated Factory binding."
+    },
+    "cloud_slot_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Absolute file URI plus exact-byte SHA-256 for a synth.rsi_operator_probe_attestation.v1 packet. The operator-attested probe output must be typed JSON captured from backend for subject backend-340-cloud-slot; the portable packet is embedded before persistence."
+    },
+    "coordinator_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Absolute file URI plus exact-byte SHA-256 for a fresh operator-attested typed probe capture of subject hosted-coordinator from internal-code-factory."
+    },
+    "coordinator_mode": {
+      "type": "string",
+      "enum": [
+        "railway",
+        "supervised_local"
+      ],
+      "description": "Typed coordinator durability posture proved by coordinator_evidence_ref."
+    },
+    "github_delivery_credential_mode": {
+      "type": "string",
+      "enum": [
+        "pat",
+        "dated_waiver"
+      ],
+      "description": "Approved GitHub delivery credential posture."
+    },
+    "github_delivery_credential_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound non-secret operator attestation for PAT mode, or waiver:YYYY-MM-DD:file:/absolute/path#sha256=<digest> for a dated waiver; packet subject is github-delivery-credential and its typed probe output must never contain the raw credential."
+    },
+    "m2_contract_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Exact Internal Code Factory revision that owns the accepted M2 contract."
+    },
+    "m2_terminal_receipt_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound evidence packet proving subject m2-terminal-receipt from internal-code-factory."
+    },
+    "m2_combined_matrix_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound evidence packet proving subject m2-combined-matrix from internal-code-factory."
+    },
+    "backend_delivery_join_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound evidence packet proving subject backend-delivery-join from backend."
+    },
+    "backend_decision_task_synthesis_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound evidence packet proving subject decision-task-synthesis from backend."
+    },
+    "factorybench_synth_repository_adapter_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound evidence packet proving subject factorybench-synth-repository-adapter from evals and the exact execution contract."
+    },
+    "backend_repository_registration_id": {
+      "type": "string",
+      "description": "Typed Code Factory repository registration for backend."
+    },
+    "backend_repository_policy_version": {
+      "type": "integer",
+      "exclusive_minimum": 0,
+      "description": "Probed draft-only Code Factory policy version for backend."
+    },
+    "backend_repository_registration_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound operator-attested capture of a fresh internal-code-factory owner read for subject repository-registration:backend."
+    },
+    "synth_ai_repository_registration_id": {
+      "type": "string",
+      "description": "Typed Code Factory repository registration for synth-ai."
+    },
+    "synth_ai_repository_policy_version": {
+      "type": "integer",
+      "exclusive_minimum": 0,
+      "description": "Probed draft-only Code Factory policy version for synth-ai."
+    },
+    "synth_ai_repository_registration_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound operator-attested capture of a fresh internal-code-factory owner read for subject repository-registration:synth-ai."
+    },
+    "evals_repository_registration_id": {
+      "type": "string",
+      "description": "Typed Code Factory repository registration for evals."
+    },
+    "evals_repository_policy_version": {
+      "type": "integer",
+      "exclusive_minimum": 0,
+      "description": "Probed draft-only Code Factory policy version for evals."
+    },
+    "evals_repository_registration_evidence_ref": {
+      "type": "evidence_ref",
+      "description": "Digest-bound operator-attested capture of a fresh internal-code-factory owner read for subject repository-registration:evals."
+    }
+  },
+  "factory": {
+    "name": "synth-rsi",
+    "kind": "internal",
+    "description": "Private Synth-on-Synth Research Factory that turns organic maintenance decisions into exact-head draft Deliveries and grades them with FactoryBench.",
+    "budget_policy": {
+      "currency": "USD",
+      "period": "monthly",
+      "limit": {
+        "$operator_input": "factory_monthly_limit_usd"
+      },
+      "ordinary_run_limit_usd": {
+        "$operator_input": "ordinary_run_limit_usd"
+      },
+      "ordinary_run_target_usd": {
+        "$operator_input": "ordinary_run_target_usd"
+      }
+    },
+    "cap_policy": {
+      "max_active_efforts": 1,
+      "max_active_runs": 1
+    },
+    "publication_policy": {
+      "visibility": "private",
+      "publish_reports": true,
+      "publish_work_products": true
+    },
+    "authorization_policy": {
+      "enabled": true,
+      "requires_audit_trail": true
+    },
+    "metadata": {
+      "definition_id": "rsi_synth_on_synth.v1",
+      "metric_id": "factorybench_score",
+      "delivery_posture": "draft_pr_only",
+      "human_merge_required": true
+    }
+  },
+  "create_project": {
+    "name": "synth-rsi",
+    "timezone": "UTC",
+    "pool_id": {
+      "$operator_input": "cloud_pool_id"
+    },
+    "runtime_kind": "sandbox_agent",
+    "environment_kind": {
+      "$operator_input": "cloud_environment_kind"
+    },
+    "agent_profiles": {
+      "orchestrator_profile_id": {
+        "$operator_input": "orchestrator_profile_id"
+      },
+      "default_worker_profile_id": {
+        "$operator_input": "worker_profile_id"
+      },
+      "worker_profile_ids": [
+        {
+          "$operator_input": "worker_profile_id"
+        }
+      ]
+    },
+    "execution_policy": {
+      "task_completion_review": "reviewer",
+      "one_operator_per_lane": true
+    },
+    "research": {
+      "metric_id": "factorybench_score",
+      "metric_name": "FactoryBench score",
+      "metric_authority": "evals",
+      "evidence_policy": "sealed_held_out_benchmark_owned"
+    },
+    "notes": "Production RSI project. Resolve only from the approved cloud-slot receipt; laptop slots are not an allowed fallback."
+  },
+  "project": {
+    "role": "canonical",
+    "status": "active",
+    "display_name": "Synth RSI",
+    "description": "Canonical workspace for Synth-on-Synth maintenance Deliveries.",
+    "default_launch_profile": {
+      "runbook_preset": "lite",
+      "host_kind": {
+        "$operator_input": "cloud_environment_kind"
+      },
+      "timebox_seconds": 3600,
+      "limit": {
+        "max_spend_usd": {
+          "$operator_input": "ordinary_run_limit_usd"
+        }
+      },
+      "required_capabilities": [
+        "inference"
+      ]
+    },
+    "metadata": {
+      "definition_id": "rsi_synth_on_synth.v1",
+      "cloud_slot_dependency": {
+        "dependency": "backend#340 CloudDeployments substrate and approved cloud-slot allocation",
+        "required_before": "standup",
+        "cloud_deployment_id": {
+          "$operator_input": "cloud_deployment_id"
+        },
+        "pool_id": {
+          "$operator_input": "cloud_pool_id"
+        },
+        "evidence_ref": {
+          "$operator_input": "cloud_slot_evidence_ref"
+        },
+        "binding_rule": "Use the typed Project pool id from the cloud-slot receipt. Do not invent Factory cloud-deployment fields or place a deployment id in resource_bindings.",
+        "fallback": "none; local coordinator plus exe.dev is development-only and laptop slots are forbidden"
+      }
+    }
+  },
+  "efforts": [
+    {
+      "name": "Synth repository FactoryBench improvement",
+      "effort_type": "research",
+      "status": "active",
+      "hypothesis_or_topic": "Improve the sealed, held-out FactoryBench score for exact-head candidates produced from organic maintenance decisions against one registered Synth repository: backend, synth-ai, or evals. Each cycle selects one bounded decision, creates one Delivery through the code-factory service, publishes only a draft PR at its exact head, registers a factory_candidate.v1 WorkProduct, grades it against the benchmark-owned baseline, and appends a champion or no_lift event. Preserve originating_run_id, decision_id, delivery_id, code_factory_session_id, the exact delivered head SHA, and evidence artifacts. Automation must never merge; a human alone performs the merge.",
+      "recurrence_policy": {
+        "enabled": true,
+        "on_run_complete": true,
+        "delay_seconds": 3600,
+        "max_active_runs": 1,
+        "research": {
+          "enabled": true
+        },
+        "maintenance": {
+          "enabled": true,
+          "every_n_research_runs": 1
+        }
+      },
+      "next_wake_at": {
+        "$operator_input": "first_wake_at"
+      },
+      "budget_policy": {
+        "currency": "USD",
+        "period": "monthly",
+        "limit": {
+          "$operator_input": "factory_monthly_limit_usd"
+        },
+        "ordinary_run_limit_usd": {
+          "$operator_input": "ordinary_run_limit_usd"
+        },
+        "ordinary_run_target_usd": {
+          "$operator_input": "ordinary_run_target_usd"
+        }
+      },
+      "publication_policy": {
+        "visibility": "private",
+        "publish_reports": true,
+        "publish_work_products": true
+      },
+      "authorization_policy": {
+        "enabled": true,
+        "requires_audit_trail": true
+      },
+      "actor_notes": {
+        "maintenance_decision": "For one bounded repository change, emit factory_code_change_intent.v1 with the allowed repository_key, docs/config/single_file scope, one exact relative target_path, a bounded objective, and typed acceptance_criteria. Omit the intent for no_op or delegated decisions; prose is never parsed into a task.",
+        "delivery": "Use the typed Delivery service and its admitted repository revision. Produce an exact-head draft PR only; never mark ready, merge, or bypass repository policy.",
+        "grading": "Publish a candidate only after delivery evidence is durable. FactoryBench owns held-out inputs, scoring, baseline comparison, and the champion verdict."
+      },
+      "metadata": {
+        "definition_id": "rsi_synth_on_synth.v1",
+        "metric": {
+          "metric_id": "factorybench_score",
+          "display_name": "FactoryBench score",
+          "authority": "evals",
+          "evidence_class": "sealed_held_out_benchmark_owned",
+          "baseline_required": true
+        },
+        "delivery_policy": {
+          "product_noun": "Delivery",
+          "service": "code_factory",
+          "draft_required": true,
+          "exact_head_required": true,
+          "human_merge_required": true,
+          "automation_may_merge": false,
+          "enforcement_authorities": [
+            "internal_code_factory.repository_policy",
+            "backend.delivery.receipt_validation"
+          ],
+          "required_join_fields": [
+            "originating_run_id",
+            "decision_id",
+            "delivery_id",
+            "code_factory_session_id"
+          ],
+          "invariants": [
+            "delivery_id equals code_factory_session_id",
+            "the receipt session_id equals delivery_id",
+            "originating_run_id and decision_id match Managed Research authority reads"
+          ]
+        },
+        "candidate_contract": {
+          "schema_version": "factory_candidate.v1",
+          "execution_contract_version": "factorybench.synth_repository_delivery.v1",
+          "adapter_owner": "evals",
+          "work_product_metadata_path": "metadata.candidate",
+          "candidate_identity": "delivery_id",
+          "one_repository_per_candidate": true,
+          "repository_registration_contract": {
+            "authority": "internal_code_factory",
+            "owner_read_required": true,
+            "required_policy": {
+              "default_integration_ref": "dev",
+              "allowed_base_refs_must_include": "dev",
+              "access_mode": "read_write",
+              "branch_policy": {
+                "nonempty_prefix_required": true,
+                "non_force_only": true,
+                "remote_delete_allowed": false
+              },
+              "required_github_permissions": [
+                "metadata:read",
+                "contents:write",
+                "pull_requests:write",
+                "checks:read"
+              ],
+              "delivery_policy": {
+                "draft_required": true,
+                "real_product_merge_allowed": false,
+                "fixture_ready_allowed": false,
+                "fixture_merge_allowed": false,
+                "fixture_close_allowed": false
+              }
+            },
+            "per_delivery_requirement": "admit the exact probed dev head through the typed revision-admission endpoint; do not accept a caller-declared SHA as admission proof"
+          },
+          "allowed_repositories": [
+            {
+              "repository_key": "backend",
+              "git_remote": "https://github.com/synth-laboratories/backend.git",
+              "integration_ref": "dev",
+              "code_factory_registration_required": true,
+              "repository_registration_id": {
+                "$operator_input": "backend_repository_registration_id"
+              },
+              "policy_version": {
+                "$operator_input": "backend_repository_policy_version"
+              },
+              "registration_evidence_ref": {
+                "$operator_input": "backend_repository_registration_evidence_ref"
+              },
+              "required_per_delivery": "fresh typed revision_admission_id at the exact base SHA"
+            },
+            {
+              "repository_key": "synth-ai",
+              "git_remote": "https://github.com/synth-laboratories/synth-ai.git",
+              "integration_ref": "dev",
+              "code_factory_registration_required": true,
+              "repository_registration_id": {
+                "$operator_input": "synth_ai_repository_registration_id"
+              },
+              "policy_version": {
+                "$operator_input": "synth_ai_repository_policy_version"
+              },
+              "registration_evidence_ref": {
+                "$operator_input": "synth_ai_repository_registration_evidence_ref"
+              },
+              "required_per_delivery": "fresh typed revision_admission_id at the exact base SHA"
+            },
+            {
+              "repository_key": "evals",
+              "git_remote": "https://github.com/synth-laboratories/evals.git",
+              "integration_ref": "dev",
+              "code_factory_registration_required": true,
+              "repository_registration_id": {
+                "$operator_input": "evals_repository_registration_id"
+              },
+              "policy_version": {
+                "$operator_input": "evals_repository_policy_version"
+              },
+              "registration_evidence_ref": {
+                "$operator_input": "evals_repository_registration_evidence_ref"
+              },
+              "required_per_delivery": "fresh typed revision_admission_id at the exact base SHA"
+            }
+          ],
+          "required_fields": [
+            "schema_version",
+            "candidate_id",
+            "git_remote",
+            "git_sha",
+            "entrypoint",
+            "execution_contract_version",
+            "parent_candidate_id",
+            "artifact_ids",
+            "grading_target.source_sha"
+          ],
+          "invariants": [
+            "schema_version equals factory_candidate.v1",
+            "candidate_id equals delivery_id",
+            "git_sha is the immutable 40-character head SHA of the delivered draft PR",
+            "grading_target.source_sha equals git_sha",
+            "git_remote exactly matches one allowed repository registration",
+            "entrypoint is a repository-relative regular file accepted by the benchmark-owned repository adapter",
+            "parent_candidate_id is null or identifies a candidate from the same repository",
+            "artifact_ids include the durable Delivery evidence"
+          ]
+        },
+        "promotion_preflight": {
+          "required_before": "first_promotion_cycle",
+          "capture_at_gate_time": true,
+          "ancestor_probe_template": "git -C <backend-checkout> merge-base --is-ancestor <fix-sha> <backend-promotion-target-sha>",
+          "requirements": [
+            {
+              "id": "champion_ledger_rollback_repromotion",
+              "source": "QUALITY_FINDINGS_ship_surfaces.md backend finding 1",
+              "probe_at_first_promotion": true,
+              "proof": "merged evidence reference plus ancestor probe exit 0"
+            },
+            {
+              "id": "champion_baseline_evolution",
+              "source": "QUALITY_FINDINGS_ship_surfaces.md backend finding 2",
+              "probe_at_first_promotion": true,
+              "proof": "merged evidence reference plus ancestor probe exit 0"
+            }
+          ]
+        },
+        "activation_dependencies": [
+          {
+            "id": "backend-340-cloud-slot",
+            "issue": "backend#340",
+            "required_before": "standup",
+            "cloud_deployment_id": {
+              "$operator_input": "cloud_deployment_id"
+            },
+            "pool_id": {
+              "$operator_input": "cloud_pool_id"
+            },
+            "evidence_ref": {
+              "$operator_input": "cloud_slot_evidence_ref"
+            },
+            "fallback": "none; do not substitute laptop slots or untyped metadata bindings"
+          },
+          {
+            "id": "hosted-coordinator",
+            "required_before": "standup",
+            "mode": {
+              "$operator_input": "coordinator_mode"
+            },
+            "evidence_ref": {
+              "$operator_input": "coordinator_evidence_ref"
+            },
+            "accepted_posture": "Railway coordinator or explicitly supervised-local interim"
+          },
+          {
+            "id": "github-delivery-credential",
+            "required_before": "standup",
+            "mode": {
+              "$operator_input": "github_delivery_credential_mode"
+            },
+            "evidence_ref": {
+              "$operator_input": "github_delivery_credential_evidence_ref"
+            }
+          },
+          {
+            "id": "m2-terminal-and-matrix",
+            "required_before": "standup",
+            "contract_sha": {
+              "$operator_input": "m2_contract_sha"
+            },
+            "terminal_receipt_ref": {
+              "$operator_input": "m2_terminal_receipt_ref"
+            },
+            "combined_matrix_evidence_ref": {
+              "$operator_input": "m2_combined_matrix_evidence_ref"
+            }
+          },
+          {
+            "id": "backend-delivery-join",
+            "required_before": "standup",
+            "evidence_ref": {
+              "$operator_input": "backend_delivery_join_evidence_ref"
+            }
+          },
+          {
+            "id": "decision-task-synthesis",
+            "required_before": "standup",
+            "evidence_ref": {
+              "$operator_input": "backend_decision_task_synthesis_evidence_ref"
+            }
+          },
+          {
+            "id": "factorybench-synth-repository-adapter",
+            "required_before": "standup",
+            "evidence_ref": {
+              "$operator_input": "factorybench_synth_repository_adapter_evidence_ref"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
