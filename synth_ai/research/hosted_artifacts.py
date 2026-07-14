@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, List
+from typing import Any, List, Literal
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+
+
+HostedArtifactType = Literal["artifact_site", "debrief"]
+HostedArtifactBundleFile = Literal["index.html", "data.json", "receipt.json"]
 
 
 def _artifact_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -95,6 +99,28 @@ class ResearchHostedArtifactsAPI:
     ) -> str | bytes:
         """Read hosted HTML body by artifact id."""
         payload = self._session.get_hosted_artifact_content(hosted_artifact_id)
+        encoding = str(payload.get("encoding") or "utf-8")
+        content = payload["content"]
+        if encoding == "base64":
+            import base64
+
+            raw = base64.b64decode(str(content))
+            return raw.decode("utf-8") if as_text else raw
+        text = str(content)
+        return text if as_text else text.encode("utf-8")
+
+    def get_bundle_file(
+        self,
+        hosted_artifact_id: str,
+        filename: HostedArtifactBundleFile,
+        *,
+        as_text: bool = True,
+    ) -> str | bytes:
+        """Read one file from a typed, digest-bound hosted artifact bundle."""
+        payload = self._session.get_hosted_artifact_bundle_file(
+            hosted_artifact_id,
+            filename,
+        )
         encoding = str(payload.get("encoding") or "utf-8")
         content = payload["content"]
         if encoding == "base64":
@@ -198,4 +224,8 @@ class ResearchHostedArtifactsAPI:
         return self._session.get_public_hosted_artifact(slug)
 
 
-__all__ = ["ResearchHostedArtifactsAPI"]
+__all__ = [
+    "HostedArtifactBundleFile",
+    "HostedArtifactType",
+    "ResearchHostedArtifactsAPI",
+]

@@ -3124,6 +3124,27 @@ class ManagedResearchClient:
             label="get_hosted_artifact_content",
         )
 
+    def get_hosted_artifact_bundle_file(
+        self,
+        hosted_artifact_id: str,
+        filename: str,
+    ) -> dict[str, Any]:
+        """Return one digest-bound file from a typed hosted artifact bundle."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        filename = _require_non_empty_string(filename, field_name="filename")
+        if filename not in {"index.html", "data.json", "receipt.json"}:
+            raise ValueError("filename must be index.html, data.json, or receipt.json")
+        return _coerce_dict(
+            self._request_content(
+                "GET",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/content/{filename}",
+            ),
+            label="get_hosted_artifact_bundle_file",
+        )
+
     def publish_hosted_artifact_public(
         self,
         hosted_artifact_id: str,
