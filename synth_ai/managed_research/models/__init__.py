@@ -55,6 +55,12 @@ from synth_ai.managed_research.models.checkpoints import (
     CheckpointCadenceSource,
     CheckpointScope,
 )
+from synth_ai.managed_research.models.cloud_deployment_claims import (
+    ClaimAcquireRequest,
+    ClaimHeartbeat,
+    ClaimProjection,
+    CloudDeploymentClaim,
+)
 from synth_ai.managed_research.models.dev_environment_evidence import (
     DevEnvironmentEvidence,
 )
@@ -522,6 +528,10 @@ __all__ = [
     "ActorStateChangedEvent",
     "AsyncEventStream",
     "CheckpointCreatedEvent",
+    "ClaimAcquireRequest",
+    "ClaimHeartbeat",
+    "ClaimProjection",
+    "CloudDeploymentClaim",
     "CommandRequest",
     "DiagnosticEvent",
     "DevEnvironment",
