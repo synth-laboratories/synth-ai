@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__routes_balance__UsageSummaryResponse'
+                $ref: '#/components/schemas/UsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -3135,379 +3135,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/runtime/ensure:
-    post:
-      summary: Ensure Runtime Session
-      operationId: ensure_runtime_session_smr_runtime_control_runtime_ensure_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnsureRuntimeSessionRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Ensure Runtime Session Smr Runtime Control Runtime
-                  Ensure Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/runtime/shutdown:
-    post:
-      summary: Shutdown Runtime Session
-      operationId: shutdown_runtime_session_smr_runtime_control_runtime_shutdown_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ShutdownRuntimeSessionRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Shutdown Runtime Session Smr Runtime Control Runtime
-                  Shutdown Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/runtime/enqueue_initial_messages:
-    post:
-      summary: Enqueue Initial Runtime Messages
-      operationId: enqueue_initial_runtime_messages_smr_runtime_control_runtime_enqueue_initial_messages_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnqueueInitialRuntimeMessagesRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Enqueue Initial Runtime Messages Smr Runtime Control
-                  Runtime Enqueue Initial Messages Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/runtime/enqueue_message:
-    post:
-      summary: Enqueue Runtime Message
-      operationId: enqueue_runtime_message_smr_runtime_control_runtime_enqueue_message_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EnqueueRuntimeMessageRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Enqueue Runtime Message Smr Runtime Control Runtime
-                  Enqueue Message Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/runtime/publish_wakeup:
-    post:
-      summary: Publish Runtime Wakeup
-      operationId: publish_runtime_wakeup_smr_runtime_control_runtime_publish_wakeup_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublishRuntimeWakeupRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Publish Runtime Wakeup Smr Runtime Control Runtime
-                  Publish Wakeup Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/mcp/call_tool:
-    post:
-      summary: Call Runtime Mcp Tool
-      operationId: call_runtime_mcp_tool_smr_runtime_control_mcp_call_tool_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RuntimeMcpToolCallRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Call Runtime Mcp Tool Smr Runtime Control Mcp Call
-                  Tool Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/local/reset_live_sessions:
-    post:
-      summary: Reset Process Local Live Sessions
-      operationId: reset_process_local_live_sessions_smr_runtime_control_local_reset_live_sessions_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              title: Payload
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Reset Process Local Live Sessions Smr Runtime Control
-                  Local Reset Live Sessions Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/lifecycle/signal_projection:
-    post:
-      summary: Apply Run Workflow Signal Projection
-      operationId: apply_run_workflow_signal_projection_smr_runtime_control_lifecycle_signal_projection_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              title: Payload
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Apply Run Workflow Signal Projection Smr Runtime Control
-                  Lifecycle Signal Projection Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/state_machine/advance:
-    post:
-      summary: Advance State Machine Turn
-      operationId: advance_state_machine_turn_smr_runtime_control_state_machine_advance_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              title: Payload
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Advance State Machine Turn Smr Runtime Control State
-                  Machine Advance Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/superstep/execute:
-    post:
-      summary: Advance State Machine Turn
-      operationId: advance_state_machine_turn_smr_runtime_control_superstep_execute_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              title: Payload
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Advance State Machine Turn Smr Runtime Control Superstep
-                  Execute Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/runtime/control/codex_turn/interrupt:
-    post:
-      summary: Interrupt Managed Codex Turn
-      operationId: interrupt_managed_codex_turn_smr_runtime_control_codex_turn_interrupt_post
-      parameters:
-      - name: X-SMR-Worker-Key
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Smr-Worker-Key
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-              title: Payload
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Interrupt Managed Codex Turn Smr Runtime Control Codex
-                  Turn Interrupt Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects:runnable:
     post:
       tags:
@@ -3515,7 +3142,7 @@ paths:
       summary: Create runnable project
       description: Canonical project-creation route for the managed-research launch
         flow.
-      operationId: create_runnable_project_smr_projects_runnable_post
+      operationId: create_project
       requestBody:
         content:
           application/json:
@@ -3630,7 +3257,7 @@ paths:
       tags:
       - smr
       summary: List Projects
-      operationId: list_projects_smr_projects_get
+      operationId: list_projects
       parameters:
       - name: include_archived
         in: query
@@ -3705,7 +3332,7 @@ paths:
       tags:
       - smr
       summary: Get Project
-      operationId: get_project_smr_projects__project_id__get
+      operationId: retrieve_project
       parameters:
       - name: project_id
         in: path
@@ -3730,7 +3357,7 @@ paths:
       tags:
       - smr
       summary: Patch Project
-      operationId: patch_project_smr_projects__project_id__patch
+      operationId: update_project
       parameters:
       - name: project_id
         in: path
@@ -5168,6 +4795,116 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiments/{experiment_id}/bundle:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: Get Project Experiment Bundle
+      description: Return the owner-assembled experiment, evidence, and integrity
+        view.
+      operationId: get_project_experiment_bundle_smr_projects__project_id__experiments__experiment_id__bundle_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: experiment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Experiment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentBundleResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiment-bundles:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: List Project Experiment Bundles
+      description: Return experiment history and explicit missing-evidence alerts.
+      operationId: list_project_experiment_bundles_smr_projects__project_id__experiment_bundles_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentHistoryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/experiments/compare:
+    get:
+      tags:
+      - smr
+      - experiments
+      summary: Compare Project Experiments
+      description: Compare accepted experiments only across matching evidence dimensions.
+      operationId: compare_project_experiments_smr_projects__project_id__experiments_compare_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: experiment_ids
+        in: query
+        required: true
+        schema:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 20
+          title: Experiment Ids
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrExperimentComparisonResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/billing/catalog:
     get:
       tags:
@@ -6294,6 +6031,291 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrFactoryWakeDueResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/candidates:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Factory Candidates
+      operationId: list_factory_candidates_smr_factories__factory_id__candidates_get
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: grading_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Grading Status
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 200
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryCandidateResponse'
+                title: Response List Factory Candidates Smr Factories  Factory Id  Candidates
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/candidates/{candidate_id}/grading:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Record Factory Candidate Grading
+      operationId: record_factory_candidate_grading_smr_factories__factory_id__candidates__candidate_id__grading_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: candidate_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Candidate Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryCandidateGradingRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryCandidateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/champion/select:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Select Factory Champion
+      operationId: select_factory_champion_smr_factories__factory_id__champion_select_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryChampionSelectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryChampionDecisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/champion/rollback:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Rollback Factory Champion
+      operationId: rollback_factory_champion_smr_factories__factory_id__champion_rollback_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryChampionRollbackRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryChampionDecisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/champion/events:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Factory Champion Events
+      operationId: list_factory_champion_events_smr_factories__factory_id__champion_events_get
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryChampionEventResponse'
+                title: Response List Factory Champion Events Smr Factories  Factory
+                  Id  Champion Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/proposals:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Graduation Proposals
+      operationId: list_graduation_proposals_api_v1_managed_research_efforts_proposals_get
+      parameters:
+      - name: project_id
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrGraduationProposalResponse'
+                title: Response List Graduation Proposals Api V1 Managed Research
+                  Efforts Proposals Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/from-runs:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Create Effort From Runs
+      operationId: create_effort_from_runs_api_v1_managed_research_efforts_from_runs_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrEffortFromRunsRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrEffortResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/managed_research/efforts/{effort_id}/runs:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Runs For Effort
+      operationId: list_runs_for_effort_api_v1_managed_research_efforts__effort_id__runs_get
+      parameters:
+      - name: effort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Effort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryRunSummaryResponse'
+                title: Response List Runs For Effort Api V1 Managed Research Efforts  Effort
+                  Id  Runs Get
         '422':
           description: Validation Error
           content:
@@ -10627,7 +10649,7 @@ paths:
       summary: Trigger project run
       description: Canonical project-scoped run trigger. Use the same payload that
         you validated through launch preflight.
-      operationId: trigger_project_run_smr_projects__project_id__trigger_post
+      operationId: trigger_project_run
       parameters:
       - name: project_id
         in: path
@@ -10749,7 +10771,7 @@ paths:
       tags:
       - smr
       summary: List Runs
-      operationId: list_runs_smr_runs_get
+      operationId: list_runs
       parameters:
       - name: project_id
         in: query
@@ -10833,7 +10855,7 @@ paths:
       tags:
       - smr
       summary: List Jobs
-      operationId: list_jobs_smr_jobs_get
+      operationId: list_jobs
       parameters:
       - name: project_id
         in: query
@@ -10895,6 +10917,18 @@ paths:
           minimum: 1
           default: 50
           title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Opaque pagination cursor. Accepted forms: ''<created_at_iso>'',
+            ''<created_at_iso>|<run_id>'', or ''<run_id>''.'
+          title: Cursor
+        description: 'Opaque pagination cursor. Accepted forms: ''<created_at_iso>'',
+          ''<created_at_iso>|<run_id>'', or ''<run_id>''.'
       responses:
         '200':
           description: Successful Response
@@ -10916,7 +10950,7 @@ paths:
       tags:
       - smr
       summary: Get Run
-      operationId: get_run_smr_runs__run_id__get
+      operationId: retrieve_run
       parameters:
       - name: run_id
         in: path
@@ -11588,15 +11622,6 @@ paths:
           title: Include
         description: Temporary compatibility option. Set include=run for the legacy
           full run payload.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              anyOf:
-              - type: object
-                additionalProperties: true
-              - type: 'null'
-              title: Stop Request
       responses:
         '200':
           description: Successful Response
@@ -11618,7 +11643,7 @@ paths:
       tags:
       - smr
       summary: List Project Runs
-      operationId: list_project_runs_smr_projects__project_id__runs_get
+      operationId: list_project_runs
       parameters:
       - name: project_id
         in: path
@@ -11700,7 +11725,7 @@ paths:
       tags:
       - smr
       summary: List Project Active Runs
-      operationId: list_project_active_runs_smr_projects__project_id__runs_active_get
+      operationId: list_project_active_runs
       parameters:
       - name: project_id
         in: path
@@ -11730,7 +11755,7 @@ paths:
       tags:
       - smr
       summary: Get Project Run
-      operationId: get_project_run_smr_projects__project_id__runs__run_id__get
+      operationId: retrieve_project_run
       parameters:
       - name: project_id
         in: path
@@ -13202,15 +13227,6 @@ paths:
           title: Include
         description: Temporary compatibility option. Set include=run for the legacy
           full run payload.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              anyOf:
-              - type: object
-                additionalProperties: true
-              - type: 'null'
-              title: Stop Request
       responses:
         '200':
           description: Successful Response
@@ -13229,33 +13245,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
   /smr/hosted-artifacts:
-    post:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: Create Hosted Artifact
-      operationId: create_hosted_artifact_smr_hosted_artifacts_post
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrCreateHostedArtifactRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Create Hosted Artifact Smr Hosted Artifacts Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     get:
       tags:
       - smr
@@ -13438,14 +13427,6 @@ paths:
         schema:
           type: string
           title: Hosted Artifact Id
-      - name: v
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: V
       responses:
         '200':
           description: Successful Response
@@ -14187,7 +14168,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                  $ref: '#/components/schemas/LimitResponse'
                 title: Response List Limits Smr Projects  Project Id   Scope   Scope
                   Id  Limits Get
         '422':
@@ -14233,7 +14214,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -14277,7 +14258,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -14319,14 +14300,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+                $ref: '#/components/schemas/LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -21939,13 +21920,13 @@ paths:
       tags:
       - tag
       summary: Create Session
-      operationId: create_session_api_tag_v1_sessions_post
+      operationId: create_tag_session
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/TagSessionCreateRequest'
-        required: true
       responses:
         '200':
           description: Successful Response
@@ -21959,12 +21940,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - tag
+      summary: List Sessions
+      operationId: list_tag_sessions
+      parameters:
+      - name: factory_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagSessionResponse'
+                title: Response List Tag Sessions
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}:
     get:
       tags:
       - tag
       summary: Get Session
-      operationId: get_session_api_tag_v1_sessions__session_id__get
+      operationId: retrieve_tag_session
       parameters:
       - name: session_id
         in: path
@@ -21985,12 +22013,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/watch:
+    get:
+      tags:
+      - tag
+      summary: Watch Session
+      operationId: watch_tag_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionWatchResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/control:
+    post:
+      tags:
+      - tag
+      summary: Control Session
+      operationId: control_tag_session
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagSessionControlRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagSessionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}/messages:
     post:
       tags:
       - tag
       summary: Send Message
-      operationId: send_message_api_tag_v1_sessions__session_id__messages_post
+      operationId: send_tag_message
       parameters:
       - name: session_id
         in: path
@@ -22022,7 +22108,7 @@ paths:
       tags:
       - tag
       summary: Get Default Scope
-      operationId: get_default_scope_api_tag_v1_scopes_default_get
+      operationId: get_default_tag_scope
       responses:
         '200':
           description: Successful Response
@@ -22542,6 +22628,414 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/managed-agents/anthropic/v1/health:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Health
+      operationId: proxy_health_api_managed_agents_anthropic_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/environments:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Environments
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Environments
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/environments/{environment_id}:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Environments Environment Id
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Environments Environment Id
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/environments/{environment_id}/archive:
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Environments Environment Id Archive
+      operationId: proxy_environments_environment_id_archive_api_managed_agents_anthropic_v1_environments__environment_id__archive_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/agents:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Agents
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Agents
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/agents/{agent_id}:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Agents Agent Id
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Agents Agent Id
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/agents/{agent_id}/archive:
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Agents Agent Id Archive
+      operationId: proxy_agents_agent_id_archive_api_managed_agents_anthropic_v1_agents__agent_id__archive_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions/{session_id}:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions/{session_id}/archive:
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id Archive
+      operationId: proxy_sessions_session_id_archive_api_managed_agents_anthropic_v1_sessions__session_id__archive_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions/{session_id}/events:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id Events
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id Events
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions/{session_id}/events/stream:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id Events Stream
+      operationId: proxy_sessions_session_id_events_stream_api_managed_agents_anthropic_v1_sessions__session_id__events_stream_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/anthropic/v1/sessions/{session_id}/stream:
+    get:
+      tags:
+      - managed-agents-anthropic-proxy
+      summary: Proxy Sessions Session Id Stream
+      operationId: proxy_sessions_session_id_stream_api_managed_agents_anthropic_v1_sessions__session_id__stream_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses:
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses
+      operationId: proxy_openai_responses_api_managed_agents_openai_v1_responses_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses/{response_id}:
+    get:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    delete:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id
+      operationId: proxy_openai_responses_response_id_api_managed_agents_openai_v1_responses__response_id__get__delete__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses/{response_id}/cancel:
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id Cancel
+      operationId: proxy_openai_responses_response_id_cancel_api_managed_agents_openai_v1_responses__response_id__cancel_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses/{response_id}/input_items:
+    get:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id Input Items
+      operationId: proxy_openai_responses_response_id_input_items_api_managed_agents_openai_v1_responses__response_id__input_items_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses/{response_id}/input_tokens:
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id Input Tokens
+      operationId: proxy_openai_responses_response_id_input_tokens_api_managed_agents_openai_v1_responses__response_id__input_tokens_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/responses/{response_id}/compact:
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Responses Response Id Compact
+      operationId: proxy_openai_responses_response_id_compact_api_managed_agents_openai_v1_responses__response_id__compact_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/conversations:
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations
+      operationId: proxy_openai_conversations_api_managed_agents_openai_v1_conversations_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/conversations/{conversation_id}:
+    get:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    delete:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__delete__2
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/conversations/{conversation_id}/items:
+    get:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id Items
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id Items
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post__post__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/managed-agents/openai/v1/conversations/{conversation_id}/items/{item_id}:
+    get:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id Items Item Id
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    delete:
+      tags:
+      - managed-agents-openai-proxy
+      summary: Proxy Openai Conversations Conversation Id Items Item Id
+      operationId: proxy_openai_conversations_conversation_id_items_item_id_api_managed_agents_openai_v1_conversations__conversation_id__items__item_id__get__delete__1
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /api/v1/optimizers/gelo-launch-promo/status:
     get:
       tags:
@@ -22569,71 +23063,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    put:
+    get:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    delete:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put__delete__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put__post__2
+      operationId: synthtunnel_gateway_s__route_token___path__get
       parameters:
       - name: route_token
         in: path
@@ -22663,7 +23097,97 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put__patch__3
+      operationId: synthtunnel_gateway_s__route_token___path__get__patch__1
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__get__post__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__get__put__3
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__get__delete__4
       parameters:
       - name: route_token
         in: path
@@ -22693,37 +23217,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put__options__4
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__put__get__5
+      operationId: synthtunnel_gateway_s__route_token___path__get__options__5
       parameters:
       - name: route_token
         in: path
@@ -22987,7 +23481,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/LimitResponse'
+                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -23021,7 +23515,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23054,14 +23548,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23126,7 +23620,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LimitResponse'
+                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23482,7 +23976,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageSummaryResponse'
+                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -24693,32 +25187,6 @@ paths:
                 type: object
                 additionalProperties: true
                 title: Response Get Public Artifact Api Open Research V1 Artifacts  Slug  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/artifact-pages/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Public Artifact Page
-      operationId: get_public_artifact_page_api_open_research_v1_artifact_pages__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            text/html:
-              schema:
-                type: string
         '422':
           description: Validation Error
           content:
@@ -27335,6 +27803,10 @@ components:
           additionalProperties: true
           type: object
           title: Metadata
+        source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentProjectGitSourceRequest'
+          - type: 'null'
       type: object
       required:
       - project_id
@@ -27350,6 +27822,35 @@ components:
           title: Reason
       type: object
       title: CloudDeploymentDeployRequest
+    CloudDeploymentProjectGitSourceRequest:
+      properties:
+        kind:
+          type: string
+          const: project_git
+          title: Kind
+        source_commit_sha:
+          type: string
+          maxLength: 40
+          minLength: 40
+          title: Source Commit Sha
+        evidence_commit_sha:
+          type: string
+          maxLength: 40
+          minLength: 40
+          title: Evidence Commit Sha
+        instance_id:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Instance Id
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - source_commit_sha
+      - evidence_commit_sha
+      - instance_id
+      title: CloudDeploymentProjectGitSourceRequest
     CloudDeploymentRetireRequest:
       properties:
         reason:
@@ -28361,36 +28862,6 @@ components:
       - dev_environment_id
       - limit
       title: DevEnvironmentUsageResponse
-    EnqueueInitialRuntimeMessagesRequest:
-      properties:
-        run_id:
-          type: string
-          title: Run Id
-        sender:
-          type: string
-          title: Sender
-        messages:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Messages
-      type: object
-      required:
-      - run_id
-      - sender
-      - messages
-      title: EnqueueInitialRuntimeMessagesRequest
-    EnqueueRuntimeMessageRequest:
-      properties:
-        request:
-          additionalProperties: true
-          type: object
-          title: Request
-      type: object
-      required:
-      - request
-      title: EnqueueRuntimeMessageRequest
     EnsureCustomerRequest:
       properties:
         org_id:
@@ -28419,28 +28890,6 @@ components:
       - org_id
       - customer_id
       title: EnsureCustomerResponse
-    EnsureRuntimeSessionRequest:
-      properties:
-        run_id:
-          type: string
-          title: Run Id
-        project_id:
-          type: string
-          title: Project Id
-        target_state:
-          type: string
-          title: Target State
-        checkpoint_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Checkpoint Id
-      type: object
-      required:
-      - run_id
-      - project_id
-      - target_state
-      title: EnsureRuntimeSessionRequest
     EntitlementAssetId:
       type: string
       enum:
@@ -29892,75 +30341,63 @@ components:
       title: LimitDimension
     LimitResponse:
       properties:
-        limit_id:
+        scope_kind:
           type: string
-          format: uuid
-          title: Limit Id
-        session_id:
+          title: Scope Kind
+        scope_id:
           type: string
-          title: Session Id
-        limit_type:
+          title: Scope Id
+        dimension:
           type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
-        limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
-        warning_threshold:
+          title: Dimension
+        cap_amount:
           anyOf:
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        window_seconds:
-          anyOf:
+          - type: number
           - type: integer
           - type: 'null'
-          title: Window Seconds
-        exceeded_at:
+          title: Cap Amount
+        used_amount:
           anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
+          - type: number
+          - type: integer
+          title: Used Amount
+          default: 0
+        remaining_amount:
           anyOf:
-          - type: string
+          - type: number
+          - type: integer
           - type: 'null'
-          title: Exceeded Reason
-        created_at:
+          title: Remaining Amount
+        fraction_used:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Fraction Used
+        unit:
           type: string
-          format: date-time
-          title: Created At
-        expires_at:
+          title: Unit
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        last_used_writer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used Writer
+        updated_at:
           anyOf:
           - type: string
             format: date-time
           - type: 'null'
-          title: Expires At
+          title: Updated At
       type: object
       required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
+      - scope_kind
+      - scope_id
+      - dimension
+      - unit
       title: LimitResponse
-      description: Response model for a limit.
     ListKeysResponse:
       properties:
         keys:
@@ -32637,23 +33074,6 @@ components:
           title: Client Metadata
       type: object
       title: PublishManderqueueMessageRequest
-    PublishRuntimeWakeupRequest:
-      properties:
-        run_id:
-          type: string
-          title: Run Id
-        reason:
-          type: string
-          title: Reason
-        trigger:
-          type: string
-          title: Trigger
-          default: manual_wake
-      type: object
-      required:
-      - run_id
-      - reason
-      title: PublishRuntimeWakeupRequest
     QueueSummary:
       properties:
         id:
@@ -33101,7 +33521,7 @@ components:
           title: Updated At
         limits:
           items:
-            $ref: '#/components/schemas/app__api__v1__managed_research__limits__LimitResponse'
+            $ref: '#/components/schemas/LimitResponse'
           type: array
           title: Limits
       type: object
@@ -33132,6 +33552,11 @@ components:
         kind:
           type: string
           title: Kind
+        subtype_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtype Kind
         title:
           type: string
           title: Title
@@ -33442,28 +33867,6 @@ components:
       - seq
       - action
       title: RuntimeIntentView
-    RuntimeMcpToolCallRequest:
-      properties:
-        run_id:
-          type: string
-          title: Run Id
-        namespace:
-          type: string
-          title: Namespace
-        tool_name:
-          type: string
-          title: Tool Name
-        arguments:
-          additionalProperties: true
-          type: object
-          title: Arguments
-          default: {}
-      type: object
-      required:
-      - run_id
-      - namespace
-      - tool_name
-      title: RuntimeMcpToolCallRequest
     RuntimeMessageMode:
       type: string
       enum:
@@ -33471,23 +33874,6 @@ components:
       - steer
       - control
       title: RuntimeMessageMode
-    ShutdownRuntimeSessionRequest:
-      properties:
-        run_id:
-          type: string
-          title: Run Id
-        project_id:
-          type: string
-          title: Project Id
-        target_state:
-          type: string
-          title: Target State
-      type: object
-      required:
-      - run_id
-      - project_id
-      - target_state
-      title: ShutdownRuntimeSessionRequest
     SmrActorControlRequest:
       properties:
         action:
@@ -33619,7 +34005,7 @@ components:
           $ref: '#/components/schemas/SmrActorSubtype'
           description: Actor subtype. Supported values are main, engineer, researcher,
             artifact_builder, artifact_reviewer, task_completion, run_completion,
-            safety, objective; valid combinations depend on actor_type.
+            safety, objective, seraph, gardener; valid combinations depend on actor_type.
         agent_model:
           $ref: '#/components/schemas/SmrAgentModel'
           description: Actor-scoped agent model override. Engineer-only models such
@@ -33923,6 +34309,8 @@ components:
       - run_completion
       - safety
       - objective
+      - seraph
+      - gardener
       title: SmrActorSubtype
     SmrActorTraceArtifactRefResponse:
       properties:
@@ -34297,7 +34685,7 @@ components:
       - gpt-5.3-codex
       - gpt-5.3-codex-spark
       - gpt-5.5
-      - gpt-5.4
+      - gpt-5.6-luna
       - gpt-5.4-mini
       - nemotron-super
       - deepseek/deepseek-v4-flash
@@ -35677,58 +36065,6 @@ components:
       - supports_chatgpt_connect
       - supports_capacity_lane_preview
       title: SmrCapabilitiesResponse
-    SmrCreateHostedArtifactRequest:
-      properties:
-        hosted_artifact_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Hosted Artifact Id
-        title:
-          type: string
-          maxLength: 500
-          minLength: 1
-          title: Title
-        html_content:
-          type: string
-          minLength: 1
-          title: Html Content
-        visibility:
-          type: string
-          maxLength: 20
-          title: Visibility
-          default: org
-        project_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-        source_run_ids:
-          items:
-            type: string
-          type: array
-          title: Source Run Ids
-        trace_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Trace Id
-        slug_hint:
-          anyOf:
-          - type: string
-            maxLength: 120
-          - type: 'null'
-          title: Slug Hint
-      type: object
-      required:
-      - title
-      - html_content
-      title: SmrCreateHostedArtifactRequest
     SmrCredentialProvider:
       type: string
       enum:
@@ -35963,7 +36299,6 @@ components:
           type: string
           enum:
           - research
-          - maintenance
           - eval_factory
           - optimizer
           - open_research
@@ -36031,6 +36366,36 @@ components:
       - project_id
       - name
       title: SmrEffortCreateRequest
+    SmrEffortFromRunsRequest:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Name
+        run_ids:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Run Ids
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      additionalProperties: false
+      type: object
+      required:
+      - project_id
+      - name
+      - run_ids
+      title: SmrEffortFromRunsRequest
+      description: 'Accept a graduation proposal: graduate candidate runs into one
+        Effort.'
     SmrEffortPatchRequest:
       properties:
         name:
@@ -36063,7 +36428,6 @@ components:
           - type: string
             enum:
             - research
-            - maintenance
             - eval_factory
             - optimizer
             - open_research
@@ -36176,7 +36540,6 @@ components:
           type: string
           enum:
           - research
-          - maintenance
           - eval_factory
           - optimizer
           - open_research
@@ -36561,6 +36924,213 @@ components:
       - host_kind
       - required_runtime_kind
       title: SmrExecutionProfileRequest
+    SmrExperimentBundleIntegrityResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_bundle_integrity.v1
+          title: Schema Version
+          default: smr_experiment_bundle_integrity.v1
+        state:
+          type: string
+          enum:
+          - collecting
+          - complete
+          - incomplete
+          title: State
+        accepted_cycle:
+          type: boolean
+          title: Accepted Cycle
+          default: false
+        terminal:
+          type: boolean
+          title: Terminal
+          default: false
+        missing:
+          items:
+            type: string
+          type: array
+          title: Missing
+        warnings:
+          items:
+            type: string
+          type: array
+          title: Warnings
+      type: object
+      required:
+      - state
+      title: SmrExperimentBundleIntegrityResponse
+    SmrExperimentBundleResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_bundle.v1
+          title: Schema Version
+          default: smr_experiment_bundle.v1
+        experiment_id:
+          type: string
+          title: Experiment Id
+        project_id:
+          type: string
+          title: Project Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_ids:
+          items:
+            type: string
+          type: array
+          title: Run Ids
+        experiment:
+          additionalProperties: true
+          type: object
+          title: Experiment
+        candidate:
+          additionalProperties: true
+          type: object
+          title: Candidate
+        executions:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Executions
+        evaluations:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Evaluations
+        trace_index:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Trace Index
+        economics:
+          additionalProperties: true
+          type: object
+          title: Economics
+        decisions:
+          additionalProperties: true
+          type: object
+          title: Decisions
+        provenance:
+          additionalProperties: true
+          type: object
+          title: Provenance
+        artifact_index:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Artifact Index
+        workspace_layout:
+          additionalProperties:
+            type: string
+          type: object
+          title: Workspace Layout
+        integrity:
+          $ref: '#/components/schemas/SmrExperimentBundleIntegrityResponse'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - experiment_id
+      - project_id
+      - integrity
+      - created_at
+      - updated_at
+      title: SmrExperimentBundleResponse
+      description: One owner-assembled view of an experiment and all of its evidence.
+    SmrExperimentComparisonResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_comparison.v1
+          title: Schema Version
+          default: smr_experiment_comparison.v1
+        project_id:
+          type: string
+          title: Project Id
+        experiment_ids:
+          items:
+            type: string
+          type: array
+          title: Experiment Ids
+        comparable:
+          type: boolean
+          title: Comparable
+          default: false
+        comparison_dimensions:
+          additionalProperties: true
+          type: object
+          title: Comparison Dimensions
+        rows:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Rows
+        not_comparable_reasons:
+          items:
+            type: string
+          type: array
+          title: Not Comparable Reasons
+      type: object
+      required:
+      - project_id
+      title: SmrExperimentComparisonResponse
+      description: Comparable owner evidence for an explicit experiment set.
+    SmrExperimentHistoryResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr_experiment_history.v1
+          title: Schema Version
+          default: smr_experiment_history.v1
+        project_id:
+          type: string
+          title: Project Id
+        bundles:
+          items:
+            $ref: '#/components/schemas/SmrExperimentBundleResponse'
+          type: array
+          title: Bundles
+        accepted_cycles:
+          type: integer
+          minimum: 0.0
+          title: Accepted Cycles
+          default: 0
+        incomplete_cycles:
+          type: integer
+          minimum: 0.0
+          title: Incomplete Cycles
+          default: 0
+        missing_evidence_alerts:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Missing Evidence Alerts
+      type: object
+      required:
+      - project_id
+      title: SmrExperimentHistoryResponse
+      description: Owner-assembled experiment history with explicit evidence alerts.
     SmrExperimentLogEntryResponse:
       properties:
         entry_id:
@@ -36898,16 +37468,22 @@ components:
       additionalProperties: false
       type: object
       title: SmrFactoryActorOutputAcceptRequest
-      description: "Operator acceptance of a Factory actor output through owner routes.\n\
-        \nAll fields are optional overrides merged onto the stored row before the\n\
-        typed contract re-validates. For typed kinds (seraph_brief,\ngardener_digest)\
-        \ the contract-derived status stays authoritative \u2014\nacceptance never\
-        \ upgrades a pause verdict."
+      description: 'Operator acceptance of a Factory actor output through owner routes.
+
+
+        All fields are optional overrides merged onto the stored row before the
+
+        typed contract re-validates. For typed kinds (seraph_brief,
+
+        gardener_digest) the contract-derived status stays authoritative;
+
+        acceptance never upgrades a pause verdict.'
     SmrFactoryActorOutputCreateRequest:
       properties:
         actor_role:
           type: string
           enum:
+          - orchestrator
           - seraph
           - gardener
           - architect
@@ -36925,6 +37501,7 @@ components:
           - finding_report
           - decision_brief
           - success_measurement_card
+          - graduation_proposal
           title: Kind
         title:
           type: string
@@ -36993,6 +37570,7 @@ components:
           anyOf:
           - type: string
             enum:
+            - orchestrator
             - seraph
             - gardener
             - architect
@@ -37012,6 +37590,7 @@ components:
             - finding_report
             - decision_brief
             - success_measurement_card
+            - graduation_proposal
           - type: 'null'
           title: Kind
         title:
@@ -37117,6 +37696,7 @@ components:
         actor_role:
           type: string
           enum:
+          - orchestrator
           - seraph
           - gardener
           - architect
@@ -37134,6 +37714,7 @@ components:
           - finding_report
           - decision_brief
           - success_measurement_card
+          - graduation_proposal
           title: Kind
         status:
           type: string
@@ -37185,6 +37766,264 @@ components:
       - created_at
       - updated_at
       title: SmrFactoryActorOutputResponse
+    SmrFactoryCandidateGradingRequest:
+      properties:
+        grading:
+          additionalProperties: true
+          type: object
+          title: Grading
+      type: object
+      required:
+      - grading
+      title: SmrFactoryCandidateGradingRequest
+      description: 'Typed intake for a benchmark-owned factorybench.candidate_grading.v1
+
+        record. The backend never grades; it stores what the grader proved.'
+    SmrFactoryCandidateResponse:
+      properties:
+        candidate_id:
+          type: string
+          title: Candidate Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        candidate_key:
+          type: string
+          title: Candidate Key
+        git_remote:
+          type: string
+          title: Git Remote
+        git_sha:
+          type: string
+          title: Git Sha
+        entrypoint:
+          type: string
+          title: Entrypoint
+        execution_contract_version:
+          type: string
+          title: Execution Contract Version
+        parent_candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parent Candidate Id
+        grading_target:
+          additionalProperties: true
+          type: object
+          title: Grading Target
+        artifact_ids:
+          items: {}
+          type: array
+          title: Artifact Ids
+        grading_status:
+          type: string
+          enum:
+          - pending
+          - graded
+          - failed
+          - timeout
+          title: Grading Status
+          default: pending
+        grading:
+          additionalProperties: true
+          type: object
+          title: Grading
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        graded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Graded At
+        is_champion:
+          type: boolean
+          title: Is Champion
+          default: false
+        champion_selected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Champion Selected At
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - candidate_id
+      - org_id
+      - factory_id
+      - candidate_key
+      - git_remote
+      - git_sha
+      - entrypoint
+      - execution_contract_version
+      - published_at
+      - created_at
+      - updated_at
+      title: SmrFactoryCandidateResponse
+    SmrFactoryChampionDecisionResponse:
+      properties:
+        action:
+          type: string
+          enum:
+          - promote
+          - rollback
+          - no_lift
+          title: Action
+        reason:
+          type: string
+          title: Reason
+        changed:
+          type: boolean
+          title: Changed
+        champion:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryCandidateResponse'
+          - type: 'null'
+      type: object
+      required:
+      - action
+      - reason
+      - changed
+      title: SmrFactoryChampionDecisionResponse
+    SmrFactoryChampionEventResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        action:
+          type: string
+          enum:
+          - promote
+          - rollback
+          - no_lift
+          title: Action
+        git_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git Sha
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        payload:
+          additionalProperties: true
+          type: object
+          title: Payload
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - event_id
+      - org_id
+      - factory_id
+      - action
+      - created_at
+      title: SmrFactoryChampionEventResponse
+    SmrFactoryChampionRollbackRequest:
+      properties:
+        to_candidate_id:
+          type: string
+          title: To Candidate Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - to_candidate_id
+      - reason
+      title: SmrFactoryChampionRollbackRequest
+    SmrFactoryChampionSelectRequest:
+      properties:
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        baseline_score:
+          type: number
+          title: Baseline Score
+      type: object
+      required:
+      - baseline_score
+      title: SmrFactoryChampionSelectRequest
     SmrFactoryCreateRequest:
       properties:
         name:
@@ -37614,6 +38453,91 @@ components:
       - action_key
       - action
       title: SmrFactoryMaintenanceActionResponse
+    SmrFactoryOperatingWindowResponse:
+      properties:
+        schema_version:
+          type: string
+          const: factory_operating_window.v1
+          title: Schema Version
+          default: factory_operating_window.v1
+        evaluated_at:
+          type: string
+          format: date-time
+          title: Evaluated At
+        window_started_at:
+          type: string
+          format: date-time
+          title: Window Started At
+        window_days:
+          type: integer
+          minimum: 1.0
+          title: Window Days
+          default: 30
+        required_cycles:
+          type: integer
+          minimum: 1.0
+          title: Required Cycles
+          default: 12
+        terminal_attempts:
+          type: integer
+          minimum: 0.0
+          title: Terminal Attempts
+          default: 0
+        observed_cycles:
+          type: integer
+          minimum: 0.0
+          title: Observed Cycles
+          default: 0
+        rejected_cycles:
+          type: integer
+          minimum: 0.0
+          title: Rejected Cycles
+          default: 0
+        remaining_cycles:
+          type: integer
+          minimum: 0.0
+          title: Remaining Cycles
+          default: 12
+        status:
+          type: string
+          enum:
+          - collecting
+          - satisfied
+          title: Status
+          default: collecting
+        first_cycle_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: First Cycle At
+        latest_cycle_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Cycle At
+        cycle_run_ids:
+          items:
+            type: string
+          type: array
+          title: Cycle Run Ids
+        rejected_cycle_run_ids:
+          items:
+            type: string
+          type: array
+          title: Rejected Cycle Run Ids
+        cycle_evidence:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Cycle Evidence
+      type: object
+      required:
+      - evaluated_at
+      - window_started_at
+      title: SmrFactoryOperatingWindowResponse
     SmrFactoryPatchRequest:
       properties:
         name:
@@ -38044,6 +38968,13 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        run_kind:
+          type: string
+          enum:
+          - research
+          - maintenance
+          title: Run Kind
+          default: research
         public_state:
           type: string
           title: Public State
@@ -38156,6 +39087,14 @@ components:
           additionalProperties: true
           type: object
           title: Public Visuals
+        experiment_observability:
+          additionalProperties: true
+          type: object
+          title: Experiment Observability
+        judgment_state:
+          additionalProperties: true
+          type: object
+          title: Judgment State
         publication_states:
           additionalProperties: true
           type: object
@@ -38167,6 +39106,10 @@ components:
         factory_health:
           anyOf:
           - $ref: '#/components/schemas/SmrFactoryHealthResponse'
+          - type: 'null'
+        operating_window:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryOperatingWindowResponse'
           - type: 'null'
       type: object
       required:
@@ -38241,6 +39184,14 @@ components:
           - type: string
           - type: 'null'
           title: Run Id
+        run_kind:
+          anyOf:
+          - type: string
+            enum:
+            - research
+            - maintenance
+          - type: 'null'
+          title: Run Kind
         next_wake_at:
           anyOf:
           - type: string
@@ -38756,6 +39707,85 @@ components:
           title: Redirect Uri
       type: object
       title: SmrGithubOrgOauthStartRequest
+    SmrGraduationProposalResponse:
+      properties:
+        proposal_id:
+          type: string
+          title: Proposal Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        suggested_name:
+          type: string
+          title: Suggested Name
+        run_ids:
+          items:
+            type: string
+          type: array
+          title: Run Ids
+        status:
+          type: string
+          enum:
+          - suggested
+          - accepted
+          - dismissed
+          title: Status
+        hypothesis_or_topic:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hypothesis Or Topic
+        effort_type:
+          anyOf:
+          - type: string
+            enum:
+            - research
+            - eval_factory
+            - optimizer
+            - open_research
+          - type: 'null'
+          title: Effort Type
+        rationale:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rationale
+        confidence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Confidence
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - proposal_id
+      - org_id
+      - project_id
+      - suggested_name
+      - status
+      - created_at
+      - updated_at
+      title: SmrGraduationProposalResponse
     SmrHarnessResponse:
       properties:
         project_id:
@@ -39506,6 +40536,16 @@ components:
           type: boolean
           title: Requires Hosted Capacity
           default: false
+        env:
+          additionalProperties:
+            type: string
+          type: object
+          title: Env
+        unset_env:
+          items:
+            type: string
+          type: array
+          title: Unset Env
       type: object
       required:
       - slot_id
@@ -42462,6 +43502,14 @@ components:
           title: Worker Pool Id
           description: Optional per-run worker dispatch pool override. When omitted,
             the run uses the project's execution pool configuration.
+        execution_policy:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Execution Policy
+          description: Optional run-scoped execution-policy overlay materialized in
+            this run's immutable config snapshot.
         local_execution:
           anyOf:
           - $ref: '#/components/schemas/SmrLocalExecutionRequest'
@@ -42484,6 +43532,16 @@ components:
           description: Optional Research Factory Effort id. When present, the run
             is linked to that Effort and the Effort latest-run pointer is updated
             at launch.
+        run_kind:
+          type: string
+          enum:
+          - research
+          - maintenance
+          title: Run Kind
+          description: Kind of work performed by a Factory-linked run. Maintenance
+            runs start with an orchestrator that decides whether to stop early, act,
+            or delegate stewardship work.
+          default: research
         intended_horizon_hours:
           anyOf:
           - type: integer
@@ -42516,8 +43574,8 @@ components:
           - type: 'null'
           description: Override one shared agent model for this run. Shared top-level
             values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct',
-            'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4',
-            'gpt-5.4-mini', 'gpt-5.5', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides
+            'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4-mini',
+            'gpt-5.5', 'gpt-5.6-luna', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides
             for actor-specific model selection.
         agent_harness:
           anyOf:
@@ -44050,6 +45108,8 @@ components:
       - run_completion
       - safety
       - objective
+      - seraph
+      - gardener
       - artifact_reviewer
       title: SmrReviewerSubtype
     SmrRoleBindingRequest:
@@ -47139,6 +48199,13 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        run_kind:
+          type: string
+          enum:
+          - research
+          - maintenance
+          title: Run Kind
+          default: research
         runbook:
           type: string
           title: Runbook
@@ -52508,6 +53575,13 @@ components:
           maxLength: 10000
           minLength: 1
           title: Message
+        steering_target:
+          type: string
+          enum:
+          - active_run
+          - next_cycle
+          title: Steering Target
+          default: active_run
         metadata:
           additionalProperties: true
           type: object
@@ -52580,6 +53654,21 @@ components:
       - created_at
       - updated_at
       title: TagScopeResponse
+    TagSessionControlRequest:
+      properties:
+        action:
+          type: string
+          enum:
+          - pause
+          - stop
+          - archive
+          - reconnect
+          title: Action
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      title: TagSessionControlRequest
     TagSessionCreateRequest:
       properties:
         request:
@@ -52617,6 +53706,16 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
         conversation_ref:
           anyOf:
           - additionalProperties: true
@@ -52695,6 +53794,42 @@ components:
           - type: string
           - type: 'null'
           title: Terminal Outcome
+        project_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Url
+        factory_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Url
+        effort_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Url
+        experiment_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Url
+        wiki_urls:
+          items:
+            type: string
+          type: array
+          title: Wiki Urls
+        git_urls:
+          items:
+            type: string
+          type: array
+          title: Git Urls
+        steering_receipts:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Steering Receipts
       type: object
       required:
       - state
@@ -52725,8 +53860,10 @@ components:
           enum:
           - queued
           - running
+          - paused
           - done
           - failed
+          - archived
           title: Status
         session_kind:
           type: string
@@ -52747,6 +53884,16 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
         conversation_ref:
           anyOf:
           - additionalProperties: true
@@ -52786,6 +53933,74 @@ components:
       - created_at
       - updated_at
       title: TagSessionResponse
+    TagSessionWatchResponse:
+      properties:
+        session:
+          $ref: '#/components/schemas/TagSessionResponse'
+        messages:
+          items:
+            $ref: '#/components/schemas/TagTaskResponse'
+          type: array
+          title: Messages
+      type: object
+      required:
+      - session
+      title: TagSessionWatchResponse
+    TagTaskResponse:
+      properties:
+        task_id:
+          type: string
+          title: Task Id
+        session_id:
+          type: string
+          title: Session Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        task_kind:
+          type: string
+          enum:
+          - delegate
+          - steer
+          title: Task Kind
+        steering_target:
+          anyOf:
+          - type: string
+            enum:
+            - active_run
+            - next_cycle
+          - type: 'null'
+          title: Steering Target
+        body:
+          type: string
+          title: Body
+        definition_of_done:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Definition Of Done
+        transport_ref:
+          additionalProperties: true
+          type: object
+          title: Transport Ref
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - task_id
+      - session_id
+      - task_kind
+      - body
+      - created_at
+      title: TagTaskResponse
     TierLimitsResponse:
       properties:
         tier:
@@ -53292,20 +54507,30 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        cap_amount:
+        limit_value:
           anyOf:
           - type: number
-          - type: integer
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Cap Amount
-        policy:
+          title: Limit Value
+        warning_threshold:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
-          title: Policy
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
       type: object
       title: UpdateLimitRequest
+      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -53997,30 +55222,21 @@ components:
         org_id:
           type: string
           title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
+        current_month:
+          additionalProperties: true
+          type: object
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
+          type: object
+          title: Last 30 Days
       type: object
       required:
       - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
+      - current_month
+      - last_30_days
       title: UsageSummaryResponse
+      description: Response model for usage summary.
     UsageType:
       type: string
       enum:
@@ -54511,85 +55727,51 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__managed_research__limits__LimitResponse:
+    app__api__v1__admin__UsageSummaryResponse:
       properties:
-        scope_kind:
+        org_id:
           type: string
-          title: Scope Kind
-        scope_id:
+          title: Org Id
+        date_range:
           type: string
-          title: Scope Id
-        dimension:
-          type: string
-          title: Dimension
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
+          type: number
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
+          type: number
+          title: Total Gpu Seconds
+      type: object
+      required:
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
+      title: UsageSummaryResponse
+    app__api__v1__managed_research__limits__UpdateLimitRequest:
+      properties:
         cap_amount:
           anyOf:
           - type: number
           - type: integer
           - type: 'null'
           title: Cap Amount
-        used_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          title: Used Amount
-          default: 0
-        remaining_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Remaining Amount
-        fraction_used:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Fraction Used
-        unit:
-          type: string
-          title: Unit
         policy:
-          additionalProperties: true
-          type: object
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
           title: Policy
-        last_used_writer:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Last Used Writer
-        updated_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Updated At
       type: object
-      required:
-      - scope_kind
-      - scope_id
-      - dimension
-      - unit
-      title: LimitResponse
-    app__api__v1__routes_balance__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        current_month:
-          additionalProperties: true
-          type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
-          type: object
-          title: Last 30 Days
-      type: object
-      required:
-      - org_id
-      - current_month
-      - last_30_days
-      title: UsageSummaryResponse
-      description: Response model for usage summary.
+      title: UpdateLimitRequest
     app__api__v1__routes_usage_overview__UsageSummaryResponse:
       properties:
         total_nominal_usd:
@@ -54673,23 +55855,59 @@ components:
       - total_charged_usd
       - total_internal_cost_usd
       title: UsageSummaryResponse
-    app__core__session_usage__models__UpdateLimitRequest:
+    app__core__session_usage__models__LimitResponse:
       properties:
+        limit_id:
+          type: string
+          format: uuid
+          title: Limit Id
+        session_id:
+          type: string
+          title: Session Id
+        limit_type:
+          type: string
+          title: Limit Type
+        metric_type:
+          type: string
+          title: Metric Type
         limit_value:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
         warning_threshold:
           anyOf:
-          - type: number
           - type: string
             pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
           - type: 'null'
           title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
         expires_at:
           anyOf:
           - type: string
@@ -54697,8 +55915,17 @@ components:
           - type: 'null'
           title: Expires At
       type: object
-      title: UpdateLimitRequest
-      description: Request to update a limit.
+      required:
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
+      title: LimitResponse
+      description: Response model for a limit.
   securitySchemes:
     HTTPBearer:
       type: http

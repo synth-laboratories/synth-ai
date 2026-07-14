@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from synth_ai.managed_research.models.factory_evidence import ArtifactBackedWorkProduct
 from synth_ai.managed_research.models.work_products import (
     ManagedResearchContainerEvalPackage,
     ManagedResearchRunWorkProduct,
@@ -28,6 +29,37 @@ class WorkProductsAPI(_ClientNamespace):
         return ManagedResearchRunWorkProduct.from_wire(
             self._client.get_run_work_product(work_product_id)
         )
+
+    def get_artifact_backed(
+        self,
+        work_product_id: str,
+        *,
+        artifact_id: str | None = None,
+    ) -> ArtifactBackedWorkProduct:
+        """Resolve and verify the immutable artifact backing a WorkProduct."""
+
+        work_product = self.get(work_product_id)
+        resolved_artifact_id = artifact_id or work_product.artifact_id
+        if resolved_artifact_id is None and work_product.artifact_links:
+            resolved_artifact_id = work_product.artifact_links[0].artifact_id
+        if resolved_artifact_id is None:
+            raise ValueError(f"WorkProduct {work_product_id} has no linked artifact")
+        return ArtifactBackedWorkProduct.from_records(
+            work_product,
+            self._client.get_artifact(resolved_artifact_id),
+        )
+
+    def list_artifact_backed_for_run(
+        self,
+        project_id: str,
+        run_id: str,
+    ) -> list[ArtifactBackedWorkProduct]:
+        """Return only fully verified, artifact-backed WorkProducts for a run."""
+
+        return [
+            self.get_artifact_backed(work_product.work_product_id)
+            for work_product in self.list_for_run(project_id, run_id)
+        ]
 
     def content(self, work_product_id: str, *, as_text: bool = True) -> str | bytes:
         return self._client.get_run_work_product_content(

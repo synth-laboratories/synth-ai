@@ -5,11 +5,23 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from synth_ai.managed_research.models.factories import (
+    FactoryCandidate,
+    FactoryCandidateGradingRequest,
+    FactoryCandidateGradingStatus,
+    FactoryChampionDecision,
+    FactoryChampionEvent,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
+)
 from synth_ai.managed_research.models.tag import (
     TagMessageRequest,
     TagScope,
     TagSession,
+    TagSessionControlAction,
     TagSessionCreateRequest,
+    TagSessionWatch,
+    TagSteeringTarget,
 )
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
@@ -27,6 +39,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
         *,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
         idempotency_key: str | None = None,
+        steering_target: TagSteeringTarget | str = TagSteeringTarget.ACTIVE_RUN,
     ) -> TagSession:
         """Post a message to a Tag session and return the updated session state.
 
@@ -44,6 +57,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
             message,
             metadata=metadata,
             idempotency_key=idempotency_key,
+            steering_target=steering_target,
         )
 
 
@@ -67,6 +81,10 @@ class ResearchFactoriesTagSessionsAPI:
         *,
         definition_of_done: str | None = None,
         scope_id: str | None = None,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        experiment_id: str | None = None,
+        candidate_id: str | None = None,
         timebox_seconds: int | None = None,
         runbook_preset: str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -86,7 +104,11 @@ class ResearchFactoriesTagSessionsAPI:
             Created ``TagSession`` with ids needed for ``messages.send``.
 
         Example:
-            session = research.factories.tag.sessions.create("Summarize test failures")
+            session = research.factories.tag.sessions.create(
+                "Summarize test failures",
+                factory_id=factory_id,
+                effort_id=effort_id,
+            )
             research.factories.tag.sessions.messages.send(
                 session.session_id,
                 "Return a bullet list of root causes.",
@@ -96,6 +118,10 @@ class ResearchFactoriesTagSessionsAPI:
             request,
             definition_of_done=definition_of_done,
             scope_id=scope_id,
+            factory_id=factory_id,
+            effort_id=effort_id,
+            experiment_id=experiment_id,
+            candidate_id=candidate_id,
             timebox_seconds=timebox_seconds,
             runbook_preset=runbook_preset,
             metadata=metadata,
@@ -104,6 +130,56 @@ class ResearchFactoriesTagSessionsAPI:
     def get(self, session_id: str) -> TagSession:
         """Fetch the current Tag session state and terminal receipt fields."""
         return self._session.tag.get_session(session_id)
+
+    def list(
+        self,
+        *,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+        limit: int = 50,
+    ) -> tuple[TagSession, ...]:
+        """List Tag sessions, optionally filtered by factory or effort.
+
+        Args:
+            factory_id: Only sessions bound to this factory.
+            effort_id: Only sessions bound to this effort.
+            limit: Maximum sessions returned (newest first).
+
+        Returns:
+            Tuple of ``TagSession`` records.
+        """
+        return self._session.tag.list_sessions(
+            factory_id=factory_id,
+            effort_id=effort_id,
+            limit=limit,
+        )
+
+    def watch(self, session_id: str) -> TagSessionWatch:
+        """Open a watch handle that polls the session until it is terminal.
+
+        Args:
+            session_id: Tag session to observe.
+
+        Returns:
+            ``TagSessionWatch`` iterator of session state snapshots.
+        """
+        return self._session.tag.watch_session(session_id)
+
+    def control(
+        self,
+        session_id: str,
+        action: TagSessionControlAction | str,
+    ) -> TagSession:
+        """Apply a control action (for example pause, resume, cancel) to a session.
+
+        Args:
+            session_id: Tag session to control.
+            action: ``TagSessionControlAction`` or its string value.
+
+        Returns:
+            Updated ``TagSession`` after the action is applied.
+        """
+        return self._session.tag.control_session(session_id, action)
 
 
 class ResearchFactoriesTagScopesAPI:
@@ -140,12 +216,98 @@ class ResearchFactoriesTagAPI:
         return self._scopes
 
 
+class ResearchFactoryCandidatesAPI:
+    """Immutable Factory candidates and benchmark-owned grading intake."""
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        grading_status: FactoryCandidateGradingStatus | str | None = None,
+        effort_id: str | None = None,
+        limit: int = 200,
+    ) -> tuple[FactoryCandidate, ...]:
+        """List candidates, optionally filtered by grading status or Effort."""
+        return tuple(
+            self._session.factories.list_candidates(
+                factory_id,
+                grading_status=grading_status,
+                effort_id=effort_id,
+                limit=limit,
+            )
+        )
+
+    def record_grading(
+        self,
+        factory_id: str,
+        candidate_id: str,
+        request: FactoryCandidateGradingRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryCandidate:
+        """Record a benchmark-owned grading result for one immutable candidate."""
+        return self._session.factories.record_candidate_grading(
+            factory_id,
+            candidate_id,
+            request,
+        )
+
+
+class ResearchFactoryChampionsAPI:
+    """Deterministic champion selection and append-only decision history."""
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def select(
+        self,
+        factory_id: str,
+        request: FactoryChampionSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        """Select the deterministic winner when it strictly beats the baseline."""
+        return self._session.factories.select_champion(factory_id, request)
+
+    def rollback(
+        self,
+        factory_id: str,
+        request: FactoryChampionRollbackRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryChampionDecision:
+        """Roll the champion pointer back and append the decision event."""
+        return self._session.factories.rollback_champion(factory_id, request)
+
+    def list_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> tuple[FactoryChampionEvent, ...]:
+        """List the append-only champion decision history, newest first."""
+        return tuple(self._session.factories.list_champion_events(factory_id, limit=limit))
+
+
 class ResearchFactoriesAPI:
     """Factory domain namespace (Tag ships under ``factories.tag``)."""
 
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
         self._tag: ResearchFactoriesTagAPI | None = None
+        self._candidates: ResearchFactoryCandidatesAPI | None = None
+        self._champions: ResearchFactoryChampionsAPI | None = None
+
+    @property
+    def candidates(self) -> ResearchFactoryCandidatesAPI:
+        """Immutable candidate discovery and benchmark-owned grading intake."""
+        if self._candidates is None:
+            self._candidates = ResearchFactoryCandidatesAPI(self._session)
+        return self._candidates
+
+    @property
+    def champions(self) -> ResearchFactoryChampionsAPI:
+        """Deterministic champion selection, rollback, and decision history."""
+        if self._champions is None:
+            self._champions = ResearchFactoryChampionsAPI(self._session)
+        return self._champions
 
     @property
     def tag(self) -> ResearchFactoriesTagAPI:
@@ -161,4 +323,6 @@ __all__ = [
     "ResearchFactoriesTagScopesAPI",
     "ResearchFactoriesTagSessionsAPI",
     "ResearchFactoriesTagSessionsMessagesAPI",
+    "ResearchFactoryCandidatesAPI",
+    "ResearchFactoryChampionsAPI",
 ]

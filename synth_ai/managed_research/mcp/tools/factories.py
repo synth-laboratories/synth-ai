@@ -341,6 +341,47 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="smr_get_experiment_history",
+            description=(
+                "Read owner-assembled experiment bundles with missing-evidence "
+                "alerts and accepted/incomplete cycle counts."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string"},
+                    "limit": {"type": "integer", "default": 50},
+                },
+                required=["project_id"],
+            ),
+            handler=lambda args: server._client_from_args(args).factories.experiment_history(
+                str(args["project_id"]), limit=int(args.get("limit") or 50)
+            ),
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_compare_experiments",
+            description=(
+                "Compare accepted experiments only when backend-owned cohort, "
+                "seed, scorer, taskset, and metric dimensions match."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {"type": "string"},
+                    "experiment_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 2,
+                    },
+                },
+                required=["project_id", "experiment_ids"],
+            ),
+            handler=lambda args: server._client_from_args(args).factories.compare_experiments(
+                str(args["project_id"]),
+                [str(item) for item in args["experiment_ids"]],
+            ),
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_link_factory_project",
             description=(
                 "Link a Project to the Factory. Use canonical for the primary workspace "
@@ -853,6 +894,53 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 required=["effort_id"],
             ),
             handler=server._tool_launch_effort,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_list_graduation_proposals",
+            description=(
+                "List Gardener-authored graduation proposals for a Managed Research "
+                "project. Each proposal suggests promoting a set of related Runs into "
+                "a persistent Effort."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Managed Research project ID.",
+                    }
+                },
+                required=["project_id"],
+            ),
+            handler=server._tool_list_graduation_proposals,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_graduate_runs_to_effort",
+            description=(
+                "Graduate a set of Runs into a persistent Research Factory Effort. "
+                "Creates the Effort under the runs' project and links the runs to it."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Run IDs to graduate into the new Effort.",
+                    },
+                    "name": {"type": "string", "description": "Human-readable Effort name."},
+                    "project_id": {
+                        "type": "string",
+                        "description": "Managed Research project ID.",
+                    },
+                    "factory_id": {
+                        "type": "string",
+                        "description": "Optional Factory ID to own the Effort.",
+                    },
+                },
+                required=["run_ids", "name", "project_id"],
+            ),
+            handler=server._tool_graduate_runs_to_effort,
             required_scopes=WRITE_SCOPES,
         ),
     ]

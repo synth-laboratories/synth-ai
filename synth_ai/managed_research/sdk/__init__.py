@@ -40,6 +40,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryActorOutputPatchRequest,
     FactoryActorOutputStatus,
     FactoryActorRole,
+    FactoryControlLoopFlags,
     FactoryCreateRequest,
     FactoryIdea,
     FactoryIdeaCreateRequest,
@@ -55,8 +56,12 @@ from synth_ai.managed_research.models.factories import (
     FactoryProjectRole,
     FactoryProjectStatus,
     FactoryProjectSummary,
+    FactoryReactorReceipt,
+    FactoryReactorStatus,
     FactoryReportSummary,
+    FactoryRunKind,
     FactoryRunSummary,
+    FactoryRuntimeStatus,
     FactoryStatus,
     FactoryWakeDueEffort,
     FactoryWakeDueRequest,
@@ -65,6 +70,26 @@ from synth_ai.managed_research.models.factories import (
     FactoryWorkspace,
     PublicationPolicy,
     RecurrencePolicy,
+)
+from synth_ai.managed_research.models.factory_evidence import (
+    ActorContainerRunBinding,
+    AppliedBudgetOwnerReceipt,
+    AppliedExperimentRegistrationReceipt,
+    AppliedSynthWikiReceipt,
+    ArtifactBackedWorkProduct,
+    ArtifactBackedWorkProductIdentity,
+    ConfirmedProjectGitPushReceipt,
+    FactoryEvidencePacket,
+    FactoryEvidenceReadSet,
+    FactoryEvidenceTier,
+    FactoryEvidenceValidationError,
+    FactoryLaunchReadiness,
+    FactoryLaunchTarget,
+    RunCostIdentity,
+    RuntimeImageIdentity,
+    SourceIdentity,
+    assemble_factory_evidence_packet,
+    assemble_factory_launch_readiness,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,
@@ -95,6 +120,14 @@ from synth_ai.managed_research.models.open_research_visual import (
     OpenResearchVisualManifest,
     is_open_research_visual_manifest,
 )
+from synth_ai.managed_research.models.operator_evidence import (
+    OperatorEvidenceDiagnostic,
+    ProjectionEvidenceReceipt,
+    ReportBenchWitnessEvidence,
+    SmrRunOperatorEvidence,
+    TraceCoverageEvidence,
+    TranscriptCoverageEvidence,
+)
 from synth_ai.managed_research.models.project import CreateRunnableResult, ManagedResearchProject
 from synth_ai.managed_research.models.project_workspace import (
     ProjectWorkspaceActor,
@@ -114,6 +147,12 @@ from synth_ai.managed_research.models.project_workspace import (
     ProjectWorkspaceReviewItem,
     ProjectWorkspaceRun,
     ProjectWorkspaceSummary,
+)
+from synth_ai.managed_research.models.run_authority import (
+    ManagedResearchAuthorityTask,
+    ManagedResearchExecutionTurn,
+    ManagedResearchRunTask,
+    ManagedResearchRuntimeAuthority,
 )
 from synth_ai.managed_research.models.run_control import (
     ManagedResearchActorControlAck,
@@ -172,6 +211,7 @@ from synth_ai.managed_research.models.run_state import (
     ManagedResearchProjectResolution,
     ManagedResearchProjectResolutionMode,
     ManagedResearchRun,
+    ManagedResearchRunKind,
     ManagedResearchRunLivenessPhase,
     ManagedResearchRunState,
     ManagedResearchRunTerminalOutcome,
@@ -285,11 +325,16 @@ from synth_ai.managed_research.sdk.client import (
     SmrControlClient,
     first_id,
 )
+from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeploymentProjectGitSource,
+    CloudDeploymentsAPI,
+)
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
+from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
@@ -313,9 +358,11 @@ from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
 __all__ = [
     "ACTIVE_RUN_STATES",
     "ApprovalsAPI",
+    "CloudDeploymentsAPI",
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
+    "CloudDeploymentProjectGitSource",
     "Environment",
     "EnvironmentPreflight",
     "EnvironmentsAPI",
@@ -351,6 +398,7 @@ __all__ = [
     "FactoryProjectPatchRequest",
     "FactoryProjectRole",
     "FactoryProjectStatus",
+    "FactoryRunKind",
     "FactoryProjectSummary",
     "FactoryReportSummary",
     "FactoryRunSummary",
@@ -431,6 +479,7 @@ __all__ = [
     "RunState",
     "ManagedResearchRunState",
     "ManagedResearchRunTerminalOutcome",
+    "ManagedResearchRunKind",
     "LaunchPreflight",
     "LaunchPreflightBlocker",
     "ActorCollectionSnapshot",
@@ -701,6 +750,39 @@ __all__ = [
     "CheckpointCadenceSource",
     "CheckpointScope",
     "SmrControlClient",
+    "ActorContainerRunBinding",
+    "AppliedBudgetOwnerReceipt",
+    "AppliedExperimentRegistrationReceipt",
+    "AppliedSynthWikiReceipt",
+    "ArtifactBackedWorkProduct",
+    "ArtifactBackedWorkProductIdentity",
+    "ConfirmedProjectGitPushReceipt",
+    "FactoryControlLoopFlags",
+    "FactoryEvidenceAPI",
+    "FactoryEvidencePacket",
+    "FactoryEvidenceReadSet",
+    "FactoryEvidenceTier",
+    "FactoryEvidenceValidationError",
+    "FactoryLaunchReadiness",
+    "FactoryLaunchTarget",
+    "FactoryReactorReceipt",
+    "FactoryReactorStatus",
+    "FactoryRuntimeStatus",
+    "ManagedResearchAuthorityTask",
+    "ManagedResearchExecutionTurn",
+    "ManagedResearchRunTask",
+    "ManagedResearchRuntimeAuthority",
+    "OperatorEvidenceDiagnostic",
+    "ProjectionEvidenceReceipt",
+    "ReportBenchWitnessEvidence",
+    "RunCostIdentity",
+    "RuntimeImageIdentity",
+    "SmrRunOperatorEvidence",
+    "SourceIdentity",
+    "TraceCoverageEvidence",
+    "TranscriptCoverageEvidence",
+    "assemble_factory_evidence_packet",
+    "assemble_factory_launch_readiness",
     "first_id",
     "is_open_research_visual_manifest",
 ]
