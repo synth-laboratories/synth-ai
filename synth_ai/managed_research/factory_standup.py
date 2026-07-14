@@ -55,9 +55,7 @@ def _json_object(raw: str, *, field: str) -> dict[str, Any]:
         resource_name = _BUILTIN_PLANS.get(plan_name)
         if resource_name is None:
             available = ", ".join(sorted(_BUILTIN_PLANS))
-            raise ValueError(
-                f"unknown built-in plan {plan_name!r}; available: {available}"
-            )
+            raise ValueError(f"unknown built-in plan {plan_name!r}; available: {available}")
         value = (
             resources.files("synth_ai.managed_research.factory_plans")
             .joinpath(resource_name)
@@ -158,15 +156,12 @@ def _validate_evidence_packet(packet: object) -> dict[str, Any]:
         raise ValueError("evidence packet contains unknown fields")
     if packet.get("schema_version") != _EVIDENCE_PACKET_SCHEMA_VERSION:
         raise ValueError(
-            "evidence packet schema_version must equal "
-            f"{_EVIDENCE_PACKET_SCHEMA_VERSION!r}"
+            "evidence packet schema_version must equal " f"{_EVIDENCE_PACKET_SCHEMA_VERSION!r}"
         )
     _required_typed_string(packet, "subject_id")
     _required_typed_string(packet, "authority")
     if packet.get("attestation_type") != "operator_probe_capture":
-        raise ValueError(
-            "evidence packet attestation_type must be operator_probe_capture"
-        )
+        raise ValueError("evidence packet attestation_type must be operator_probe_capture")
     _required_typed_string(packet, "attested_by")
     captured_at = _required_typed_string(packet, "captured_at")
     try:
@@ -189,9 +184,7 @@ def _validate_evidence_packet(packet: object) -> dict[str, Any]:
     output_digest = _required_typed_string(probe, "output_digest")
     if re.fullmatch(r"sha256:[0-9a-f]{64}", output_digest) is None:
         raise ValueError("evidence packet probe output_digest must be a SHA-256 digest")
-    actual_output_digest = (
-        f"sha256:{hashlib.sha256(probe_output.encode('utf-8')).hexdigest()}"
-    )
+    actual_output_digest = f"sha256:{hashlib.sha256(probe_output.encode('utf-8')).hexdigest()}"
     if not hmac.compare_digest(actual_output_digest, output_digest):
         raise ValueError("evidence packet probe output does not match output_digest")
     claims = _required_mapping(packet, "claims")
@@ -203,9 +196,7 @@ def _validate_evidence_packet(packet: object) -> dict[str, Any]:
         dict(output_claims),
         claims,
     ):
-        raise ValueError(
-            "evidence packet claims must exactly equal parsed probe output"
-        )
+        raise ValueError("evidence packet claims must exactly equal parsed probe output")
     return packet
 
 
@@ -223,9 +214,7 @@ def _load_evidence_packet(reference: str) -> dict[str, Any]:
         raise ValueError("evidence locator must be an absolute local file URI")
     evidence_path = Path(urllib.parse.unquote(parsed.path))
     if not evidence_path.is_absolute() or not evidence_path.is_file():
-        raise ValueError(
-            "evidence locator does not resolve to an existing regular file"
-        )
+        raise ValueError("evidence locator does not resolve to an existing regular file")
     evidence_bytes = evidence_path.read_bytes()
     actual_digest = hashlib.sha256(evidence_bytes).hexdigest()
     if not hmac.compare_digest(actual_digest, expected_digest):
@@ -251,9 +240,7 @@ def _resolve_evidence_binding(reference: str) -> dict[str, Any]:
         "schema_version": _EVIDENCE_BINDING_SCHEMA_VERSION,
         "source_digest": f"sha256:{source_digest}",
         "packet_digest": f"sha256:{hashlib.sha256(canonical_packet).hexdigest()}",
-        "waiver_expires_on": (
-            waiver_match.group("expiry") if waiver_match is not None else None
-        ),
+        "waiver_expires_on": (waiver_match.group("expiry") if waiver_match is not None else None),
         "packet": packet,
     }
 
@@ -282,9 +269,7 @@ def _load_evidence_binding(value: object) -> dict[str, Any]:
         not isinstance(waiver_expires_on, str)
         or re.fullmatch(r"\d{4}-\d{2}-\d{2}", waiver_expires_on) is None
     ):
-        raise ValueError(
-            "evidence binding waiver_expires_on must be YYYY-MM-DD or null"
-        )
+        raise ValueError("evidence binding waiver_expires_on must be YYYY-MM-DD or null")
     packet = _validate_evidence_packet(binding.get("packet"))
     canonical_packet = json.dumps(
         packet,
@@ -305,9 +290,7 @@ def _required_evidence_binding(
     try:
         return _load_evidence_binding(parent.get(key))
     except ValueError as exc:
-        raise ValueError(
-            f"{key} must be a verified embedded evidence binding: {exc}"
-        ) from exc
+        raise ValueError(f"{key} must be a verified embedded evidence binding: {exc}") from exc
 
 
 def _verify_evidence_packet(
@@ -325,8 +308,7 @@ def _verify_evidence_packet(
         raise ValueError(f"evidence packet does not prove subject {subject_id!r}")
     if packet.get("authority") != authority:
         raise ValueError(
-            f"operator attestation for {subject_id!r} must name source authority "
-            f"{authority!r}"
+            f"operator attestation for {subject_id!r} must name source authority " f"{authority!r}"
         )
     if require_current:
         if max_validity_seconds is None or max_validity_seconds < 1:
@@ -334,18 +316,11 @@ def _verify_evidence_packet(
         valid_until = _required_typed_string(packet, "valid_until")
         captured_at = _required_typed_string(packet, "captured_at")
         try:
-            valid_until_timestamp = datetime.fromisoformat(
-                valid_until.replace("Z", "+00:00")
-            )
-            captured_timestamp = datetime.fromisoformat(
-                captured_at.replace("Z", "+00:00")
-            )
+            valid_until_timestamp = datetime.fromisoformat(valid_until.replace("Z", "+00:00"))
+            captured_timestamp = datetime.fromisoformat(captured_at.replace("Z", "+00:00"))
         except ValueError as exc:
             raise ValueError("mutable evidence valid_until must be RFC 3339") from exc
-        if (
-            valid_until_timestamp.tzinfo is None
-            or valid_until_timestamp.utcoffset() is None
-        ):
+        if valid_until_timestamp.tzinfo is None or valid_until_timestamp.utcoffset() is None:
             raise ValueError("mutable evidence valid_until must include a UTC offset")
         now = datetime.now().astimezone()
         if valid_until_timestamp <= now:
@@ -358,22 +333,16 @@ def _verify_evidence_packet(
         if now - captured_timestamp > maximum_window:
             raise ValueError(f"evidence packet for {subject_id!r} is too old")
         if valid_until_timestamp - captured_timestamp > maximum_window:
-            raise ValueError(
-                f"evidence packet for {subject_id!r} exceeds its maximum validity"
-            )
+            raise ValueError(f"evidence packet for {subject_id!r} exceeds its maximum validity")
         waiver_expiry = binding.get("waiver_expires_on")
         if isinstance(waiver_expiry, str) and (
             valid_until_timestamp.date() > datetime.fromisoformat(waiver_expiry).date()
         ):
-            raise ValueError(
-                f"evidence packet for {subject_id!r} outlives its dated waiver"
-            )
+            raise ValueError(f"evidence packet for {subject_id!r} outlives its dated waiver")
     claims = _required_mapping(packet, "claims")
     for key, expected in dict(expected_claims or {}).items():
         if not _json_contract_equal(claims.get(key), expected):
-            raise ValueError(
-                f"evidence packet for {subject_id!r} changed claim {key!r}"
-            )
+            raise ValueError(f"evidence packet for {subject_id!r} changed claim {key!r}")
 
 
 def _parse_plan_inputs(values: list[str]) -> dict[str, str]:
@@ -402,9 +371,7 @@ def _verify_rsi_operator_bindings(plan: Mapping[str, Any]) -> None:
                 key = str(raw_key)
                 item_field = f"{field}.{key}"
                 if key.endswith("evidence_ref") or key.endswith("receipt_ref"):
-                    if not isinstance(item, Mapping) or set(item) != {
-                        "$operator_input"
-                    }:
+                    if not isinstance(item, Mapping) or set(item) != {"$operator_input"}:
                         raise ValueError(
                             f"{item_field} must remain bound to an evidence operator input"
                         )
@@ -496,9 +463,7 @@ def _verify_rsi_operator_bindings(plan: Mapping[str, Any]) -> None:
     )
     for actual, input_name, field in required_bindings:
         if actual != {"$operator_input": input_name}:
-            raise ValueError(
-                f"{field} must remain bound to operator input {input_name!r}"
-            )
+            raise ValueError(f"{field} must remain bound to operator input {input_name!r}")
 
 
 def _coerce_plan_input(name: str, value: object, spec: Mapping[str, Any]) -> object:
@@ -542,12 +507,8 @@ def _coerce_plan_input(name: str, value: object, spec: Mapping[str, Any]) -> obj
         if not normalized_number.is_finite():
             raise ValueError(f"plan input {name!r} must be finite")
         exclusive_minimum = spec.get("exclusive_minimum")
-        if exclusive_minimum is not None and normalized_number <= Decimal(
-            str(exclusive_minimum)
-        ):
-            raise ValueError(
-                f"plan input {name!r} must be greater than {exclusive_minimum}"
-            )
+        if exclusive_minimum is not None and normalized_number <= Decimal(str(exclusive_minimum)):
+            raise ValueError(f"plan input {name!r} must be greater than {exclusive_minimum}")
         maximum = spec.get("maximum")
         if maximum is not None and normalized_number > Decimal(str(maximum)):
             raise ValueError(f"plan input {name!r} must not exceed {maximum}")
@@ -578,9 +539,7 @@ def render_factory_standup_plan(
     supplied = dict(inputs or {})
     if raw_specs is None:
         if plan.get("schema_version") == _OPERATOR_INPUT_PLAN_SCHEMA_VERSION:
-            raise ValueError(
-                "RSI standup plans must retain their operator_inputs contract"
-            )
+            raise ValueError("RSI standup plans must retain their operator_inputs contract")
         if supplied:
             raise ValueError("plan does not declare operator_inputs")
         return dict(plan)
@@ -628,20 +587,12 @@ def render_factory_standup_plan(
                     )
                 input_name = _required_string(value, "$operator_input")
                 if input_name not in resolved:
-                    raise ValueError(
-                        f"{field} references unknown plan input {input_name!r}"
-                    )
+                    raise ValueError(f"{field} references unknown plan input {input_name!r}")
                 used_inputs.add(input_name)
                 return resolved[input_name]
-            return {
-                str(key): replace(item, field=f"{field}.{key}")
-                for key, item in value.items()
-            }
+            return {str(key): replace(item, field=f"{field}.{key}") for key, item in value.items()}
         if isinstance(value, list):
-            return [
-                replace(item, field=f"{field}[{index}]")
-                for index, item in enumerate(value)
-            ]
+            return [replace(item, field=f"{field}[{index}]") for index, item in enumerate(value)]
         return value
 
     rendered = replace(
@@ -652,9 +603,7 @@ def render_factory_standup_plan(
         raise ValueError("rendered plan must be a JSON object")
     unused_inputs = sorted(set(resolved) - used_inputs)
     if unused_inputs:
-        raise ValueError(
-            "RSI plan declares unused operator inputs: " + ", ".join(unused_inputs)
-        )
+        raise ValueError("RSI plan declares unused operator inputs: " + ", ".join(unused_inputs))
     return rendered
 
 
@@ -713,8 +662,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
     }
     if set(dependency_by_id) != required_ids:
         raise ValueError(
-            "RSI activation dependencies must exactly match: "
-            + ", ".join(sorted(required_ids))
+            "RSI activation dependencies must exactly match: " + ", ".join(sorted(required_ids))
         )
 
     for dependency_id, dependency in dependency_by_id.items():
@@ -743,13 +691,8 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
                 )
 
     m2_dependency = dependency_by_id["m2-terminal-and-matrix"]
-    if (
-        re.fullmatch(r"[0-9a-f]{40}", str(m2_dependency.get("contract_sha") or ""))
-        is None
-    ):
-        raise ValueError(
-            "M2 activation evidence requires an exact 40-character contract SHA"
-        )
+    if re.fullmatch(r"[0-9a-f]{40}", str(m2_dependency.get("contract_sha") or "")) is None:
+        raise ValueError("M2 activation evidence requires an exact 40-character contract SHA")
 
     coordinator_mode = str(dependency_by_id["hosted-coordinator"].get("mode") or "")
     if coordinator_mode not in {"railway", "supervised_local"}:
@@ -768,9 +711,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         try:
             expiry = datetime.fromisoformat(waiver_expiry).date()
         except ValueError as exc:
-            raise ValueError(
-                "dated waiver evidence has an invalid expiry date"
-            ) from exc
+            raise ValueError("dated waiver evidence has an invalid expiry date") from exc
         if expiry <= datetime.now().astimezone().date():
             raise ValueError("dated waiver evidence is expired")
     elif credential_mode == "pat":
@@ -896,9 +837,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         registration_contract.get("authority") != "internal_code_factory"
         or registration_contract.get("owner_read_required") is not True
     ):
-        raise ValueError(
-            "RSI repository registrations require Code Factory owner reads"
-        )
+        raise ValueError("RSI repository registrations require Code Factory owner reads")
     required_policy = _mapping(
         registration_contract.get("required_policy"),
         field="candidate_contract.repository_registration_contract.required_policy",
@@ -927,9 +866,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         },
     }
     if required_policy != expected_required_policy:
-        raise ValueError(
-            "RSI repository registration policy must match the draft-only contract"
-        )
+        raise ValueError("RSI repository registration policy must match the draft-only contract")
     allowed_repositories = candidate_contract.get("allowed_repositories")
     if not isinstance(allowed_repositories, list) or len(allowed_repositories) != 3:
         raise ValueError("RSI candidate contract requires exactly three repositories")
@@ -951,9 +888,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
             or repository.get("integration_ref") != "dev"
             or repository.get("code_factory_registration_required") is not True
         ):
-            raise ValueError(
-                "RSI repository allowlist drifted from its exact dev registration"
-            )
+            raise ValueError("RSI repository allowlist drifted from its exact dev registration")
         repository_registration_id = _required_string(
             repository,
             "repository_registration_id",
@@ -970,9 +905,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
             "registration_evidence_ref",
         )
         if evidence_binding.get("waiver_expires_on") is not None:
-            raise ValueError(
-                "repository registration owner reads cannot use waiver evidence"
-            )
+            raise ValueError("repository registration owner reads cannot use waiver evidence")
         _verify_evidence_packet(
             evidence_binding,
             subject_id=f"repository-registration:{repository_key}",
@@ -991,9 +924,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
             max_validity_seconds=3600,
         )
     if repository_keys != {"backend", "synth-ai", "evals"}:
-        raise ValueError(
-            "RSI repository registrations must be backend, synth-ai, and evals"
-        )
+        raise ValueError("RSI repository registrations must be backend, synth-ai, and evals")
 
     delivery_policy = _mapping(
         metadata.get("delivery_policy"),
@@ -1026,9 +957,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         or factory_budget.get("currency") != "USD"
         or factory_budget.get("period") != "monthly"
     ):
-        raise ValueError(
-            "RSI Factory and Effort must share the exact approved USD budget"
-        )
+        raise ValueError("RSI Factory and Effort must share the exact approved USD budget")
     try:
         monthly_limit = Decimal(str(factory_budget["limit"]))
         ordinary_limit = Decimal(str(factory_budget["ordinary_run_limit_usd"]))
@@ -1045,9 +974,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
     ):
         raise ValueError("RSI budgets must be positive, bounded whole-cent USD amounts")
     if ordinary_target > ordinary_limit or ordinary_limit > monthly_limit:
-        raise ValueError(
-            "RSI ordinary target and limit must remain within the monthly cap"
-        )
+        raise ValueError("RSI ordinary target and limit must remain within the monthly cap")
     if _required_mapping(factory, "cap_policy") != {
         "max_active_efforts": 1,
         "max_active_runs": 1,
@@ -1068,9 +995,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         or _required_mapping(factory, "authorization_policy") != expected_authorization
         or _required_mapping(effort, "authorization_policy") != expected_authorization
     ):
-        raise ValueError(
-            "RSI publication and authorization policy must remain private and audited"
-        )
+        raise ValueError("RSI publication and authorization policy must remain private and audited")
 
     recurrence_policy = _mapping(
         effort.get("recurrence_policy"),
@@ -1085,9 +1010,7 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         "maintenance": {"enabled": True, "every_n_research_runs": 1},
     }
     if recurrence_policy != expected_recurrence_policy:
-        raise ValueError(
-            "RSI effort recurrence policy must match the one-lane hourly contract"
-        )
+        raise ValueError("RSI effort recurrence policy must match the one-lane hourly contract")
     next_wake_at = _required_string(effort, "next_wake_at")
     first_wake = datetime.fromisoformat(next_wake_at.replace("Z", "+00:00"))
     if first_wake.tzinfo is None or first_wake.utcoffset() is None:
@@ -1174,16 +1097,14 @@ def _verify_rsi_activation_gate(plan: Mapping[str, Any]) -> None:
         or launch_profile.get("timebox_seconds") != 3600
         or launch_profile.get("required_capabilities") != ["inference"]
         or "agent_profile" in launch_profile
-        or launch_limit.get("max_spend_usd")
-        != effort_budget.get("ordinary_run_limit_usd")
+        or launch_limit.get("max_spend_usd") != effort_budget.get("ordinary_run_limit_usd")
         or create_project.get("runtime_kind") != "sandbox_agent"
         or create_project.get("environment_kind") != "daytona"
         or create_project.get("pool_id") != cloud_dependency.get("pool_id")
         or cloud_slot_dependency.get("pool_id") != cloud_dependency.get("pool_id")
         or cloud_slot_dependency.get("cloud_deployment_id")
         != cloud_dependency.get("cloud_deployment_id")
-        or cloud_slot_dependency.get("evidence_ref")
-        != cloud_dependency.get("evidence_ref")
+        or cloud_slot_dependency.get("evidence_ref") != cloud_dependency.get("evidence_ref")
     ):
         raise ValueError(
             "RSI Project must preserve the proved Daytona slot and bounded one-hour launch"
@@ -1240,9 +1161,7 @@ def _project_link_payload(plan: Mapping[str, Any]) -> dict[str, Any]:
             project.get("resource_bindings"),
             field="project.resource_bindings",
         ),
-        "feed_health": _mapping(
-            project.get("feed_health"), field="project.feed_health"
-        ),
+        "feed_health": _mapping(project.get("feed_health"), field="project.feed_health"),
         "default_launch_profile": _mapping(
             project.get("default_launch_profile"),
             field="project.default_launch_profile",
@@ -1259,24 +1178,18 @@ def _effort_plans(plan: Mapping[str, Any]) -> list[dict[str, Any]]:
     for index, item in enumerate(efforts):
         if not isinstance(item, Mapping):
             raise ValueError(f"efforts[{index}] must be a JSON object")
-        result.append(
-            {str(item_key): item_value for item_key, item_value in item.items()}
-        )
+        result.append({str(item_key): item_value for item_key, item_value in item.items()})
     return result
 
 
-def _effort_kwargs(
-    effort: Mapping[str, Any], *, default_project_id: str
-) -> dict[str, Any]:
+def _effort_kwargs(effort: Mapping[str, Any], *, default_project_id: str) -> dict[str, Any]:
     return {
         "name": _required_string(effort, "name"),
         "project_id": _optional_string(effort.get("project_id")) or default_project_id,
         "hypothesis_or_topic": _optional_string(
             effort.get("hypothesis_or_topic") or effort.get("topic")
         ),
-        "effort_type": str(
-            effort.get("effort_type") or effort.get("type") or "research"
-        ),
+        "effort_type": str(effort.get("effort_type") or effort.get("type") or "research"),
         "status": str(effort.get("status") or "active"),
         "recurrence_policy": _mapping(
             effort.get("recurrence_policy"),
@@ -1285,9 +1198,7 @@ def _effort_kwargs(
         "next_wake_at": _optional_string(effort.get("next_wake_at")),
         "latest_run_id": _optional_string(effort.get("latest_run_id")),
         "latest_report_id": _optional_string(effort.get("latest_report_id")),
-        "latest_work_product_id": _optional_string(
-            effort.get("latest_work_product_id")
-        ),
+        "latest_work_product_id": _optional_string(effort.get("latest_work_product_id")),
         "decision_needed": bool(effort.get("decision_needed") or False),
         "decision_note": _optional_string(effort.get("decision_note")),
         "budget_policy": _mapping(
@@ -1408,9 +1319,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Create, link, and seed a Research Factory from one JSON plan.",
     )
     parser.add_argument("--api-key", default=None, help="defaults to $SYNTH_API_KEY")
-    parser.add_argument(
-        "--backend", default=None, help="defaults to $SYNTH_BACKEND_URL"
-    )
+    parser.add_argument("--backend", default=None, help="defaults to $SYNTH_BACKEND_URL")
     parser.add_argument(
         "--plan",
         required=True,
