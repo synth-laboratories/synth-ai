@@ -1844,10 +1844,10 @@ class SmrRunnableProjectRequest:
     runtime_kind: SmrRuntimeKind
     environment_kind: SmrEnvironmentKind
     agent_profiles: SmrAgentProfileBindings
-    runtime_artifact_release_id: str | None = None
     worker_profile_ids: list[str] = field(default_factory=list)
     actor_profile_id: str | None = None
     actor_model_assignments: list[SmrActorModelAssignment] = field(default_factory=list)
+    runtime_artifact_release_id: str | None = None
     budgets: dict[str, object] = field(default_factory=dict)
     key_policy: dict[str, object] = field(default_factory=dict)
     execution_policy: dict[str, object] = field(default_factory=dict)
@@ -1916,14 +1916,14 @@ class SmrRunnableProjectRequest:
                 ),
                 worker_profile_ids=worker_profile_ids,
             ),
-            runtime_artifact_release_id=_optional_string(
-                mapping, "runtime_artifact_release_id"
-            ),
             worker_profile_ids=worker_profile_ids,
             actor_profile_id=_optional_string(mapping, "actor_profile_id"),
             actor_model_assignments=normalize_actor_model_assignments(
                 mapping.get("actor_model_assignments"),
                 field_name="actor_model_assignments",
+            ),
+            runtime_artifact_release_id=_optional_string(
+                mapping, "runtime_artifact_release_id"
             ),
             budgets=_optional_object_dict(mapping.get("budgets")),
             key_policy=_optional_object_dict(mapping.get("key_policy")),
