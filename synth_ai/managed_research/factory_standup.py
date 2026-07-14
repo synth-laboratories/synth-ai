@@ -156,7 +156,7 @@ def _validate_evidence_packet(packet: object) -> dict[str, Any]:
         raise ValueError("evidence packet contains unknown fields")
     if packet.get("schema_version") != _EVIDENCE_PACKET_SCHEMA_VERSION:
         raise ValueError(
-            "evidence packet schema_version must equal " f"{_EVIDENCE_PACKET_SCHEMA_VERSION!r}"
+            f"evidence packet schema_version must equal {_EVIDENCE_PACKET_SCHEMA_VERSION!r}"
         )
     _required_typed_string(packet, "subject_id")
     _required_typed_string(packet, "authority")
@@ -308,7 +308,7 @@ def _verify_evidence_packet(
         raise ValueError(f"evidence packet does not prove subject {subject_id!r}")
     if packet.get("authority") != authority:
         raise ValueError(
-            f"operator attestation for {subject_id!r} must name source authority " f"{authority!r}"
+            f"operator attestation for {subject_id!r} must name source authority {authority!r}"
         )
     if require_current:
         if max_validity_seconds is None or max_validity_seconds < 1:
