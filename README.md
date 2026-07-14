@@ -16,12 +16,6 @@ Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted
 uv add synth-ai
 ```
 
-Or install with pip:
-
-```bash
-pip install synth-ai
-```
-
 ## Authenticate
 
 Set `SYNTH_API_KEY` before using the SDK or CLI:
@@ -68,7 +62,7 @@ print(client.pools.list())
 Install the research extra when you need hosted runs, projects, Factory Tag, or MCP:
 
 ```bash
-pip install "synth-ai[research]"
+uv add "synth-ai[research]"
 ```
 
 Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):

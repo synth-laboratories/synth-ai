@@ -177,7 +177,7 @@ sidebarTitle: Overview
 Install:
 
 ```bash
-pip install "synth-ai[research]"
+uv add "synth-ai[research]"
 ```
 
 Hero entrypoint:
