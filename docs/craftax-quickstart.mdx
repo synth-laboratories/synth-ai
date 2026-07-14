@@ -1,0 +1,205 @@
+---
+title: "Zero to Factory: Craftax Quickstart"
+description: Stand up a Research Factory with one Craftax Effort, run budget-capped research, and grade immutable candidates against a sealed held-out baseline.
+sidebarTitle: Craftax Quickstart
+---
+
+# Zero to Factory: Craftax Quickstart
+
+A Research Factory conducts repeated research and maintenance runs against an objective you define, publishes every executable result as an immutable candidate, and grades each candidate on benchmark-owned held-out seeds the workers never see. This guide stands up one Factory with one project and one budget-capped Craftax Effort, then walks the full loop: research runs → typed maintenance → immutable candidates → held-out grading → champion ledger.
+
+The Factory automates the research process, not the outcome. Grading is objective and benchmark-owned; the champion ledger records `no_lift` as readily as `promote`.
+
+Requires synth-ai 0.15.0.
+
+## Install and authenticate
+
+```bash
+uv add "synth-ai[research]"
+export SYNTH_API_KEY="sk-..."
+```
+
+All SDK access flows through one client:
+
+```python
+from synth_ai import SynthClient
+
+client = SynthClient()
+research = client.research
+```
+
+## Stand up the Factory
+
+One CLI call creates the Factory, creates and links its project, and seeds the Craftax Effort from a single JSON plan.
+
+Write `plan.json`:
+
+```json
+{
+  "factory": {
+    "name": "craftax-code-policy",
+    "kind": "customer",
+    "description": "Craftax code-policy hill-climb",
+    "budget_policy": {"limit": 25.0, "currency": "usd", "period": "monthly"},
+    "cap_policy": {"max_active_efforts": 1}
+  },
+  "create_project": {
+    "name": "craftax-code-policy",
+    "work_mode": "directed_effort"
+  },
+  "project": {"role": "canonical"},
+  "efforts": [
+    {
+      "name": "Craftax harness and prompt hill-climb",
+      "effort_type": "research",
+      "hypothesis_or_topic": "Hill-climb the Craftax code policy through harness and prompt/policy optimization.",
+      "budget_policy": {"limit": 10.0, "currency": "usd", "period": "monthly"},
+      "recurrence_policy": {}
+    }
+  ],
+  "wake_due": {"limit": 1}
+}
+```
+
+Preview, then execute:
+
+```bash
+synth-ai-research-factory-standup --plan @plan.json --dry-run
+synth-ai-research-factory-standup --plan @plan.json --wake-due --wake-due-launch --output proof.json
+```
+
+`--wake-due` alone previews launches as a dry run; `--wake-due-launch` starts real runs. `proof.json` records the created `factory_id`, `project_id`, and Effort ids.
+
+The objective text lives on the Effort and on each launched run. A concrete Craftax objective bounds the work: advance the code policy through real experiments, record hypotheses/config/seeds/scores/costs, and publish an executable model work product per research run. Budget policies cap spend at the Factory and Effort level; exhausted budgets surface as `ResearchProjectMonthlyBudgetExhaustedError` on launch.
+
+## Or stand it up from the SDK
+
+The same flow is available on the session client for programmatic control:
+
+```python
+session = research.session  # ManagedResearchClient
+
+factory = session.factories.create({
+    "name": "craftax-code-policy",
+    "kind": "customer",
+    "budget_policy": {"limit": 25.0, "currency": "usd", "period": "monthly"},
+})
+project = research.projects.create(
+    {"name": "craftax-code-policy", "work_mode": "directed_effort"}
+)
+session.factories.link_workspace_project(factory.factory_id, project.project_id)
+
+effort = session.factories.create_effort(
+    factory.factory_id,
+    name="Craftax harness and prompt hill-climb",
+    hypothesis_or_topic="Hill-climb the Craftax code policy.",
+    effort_type="research",
+    budget_policy={"limit": 10.0, "currency": "usd", "period": "monthly"},
+)
+```
+
+## Run research and maintenance
+
+`wake_due` launches runs for every Effort that is due; a targeted launch starts one run with an explicit objective:
+
+```python
+session.factories.wake_due(factory.factory_id, limit=1)
+
+handle = session.efforts.launch(
+    effort.effort_id,
+    "Improve the Craftax code policy: run one bounded experiment, "
+    "record seeds and scores, publish an executable candidate.",
+)
+```
+
+Maintenance is a typed run kind beneath the same Effort, not a separate pipeline:
+
+```python
+session.efforts.launch_maintenance(effort.effort_id)
+```
+
+Maintenance runs publish typed `FactoryMaintenanceAction` decisions — each names the vital signal observed, the action taken, and the reason — rather than free-form prose. They surface on factory health:
+
+```python
+health = session.factories.status(factory.factory_id).factory_health
+for action in health.recommended_actions:
+    print(action.action, action.reason)
+```
+
+## Inspect immutable candidates
+
+Each research run publishes its executable output as an immutable candidate: a pinned `git_remote` + 40-character `git_sha` + `entrypoint` under a versioned execution contract. Candidates are append-only; a new result is a new candidate with `parent_candidate_id` set.
+
+```python
+candidates = research.factories.candidates.list(factory.factory_id)
+for c in candidates:
+    print(c.candidate_id, c.git_sha[:8], c.grading_status, c.held_out_score)
+
+pending = research.factories.candidates.list(
+    factory.factory_id, grading_status="pending"
+)
+```
+
+`grading_status` moves `pending → graded` (or `failed` / `timeout`). `grading_target.source_sha` must match `git_sha`; the benchmark rejects mismatches.
+
+## Grade against the sealed baseline
+
+Grading is benchmark-owned. The benchmark checks out each candidate's `git_sha`, executes its `entrypoint` on held-out seeds, and scores it against a sealed baseline. Workers never run or inspect the held-out seeds. The grading result is recorded back onto the candidate:
+
+```python
+research.factories.candidates.record_grading(
+    factory.factory_id,
+    candidate.candidate_id,
+    {
+        "grading": {
+            "schema_version": "factorybench.candidate_grading.v1",
+            "status": "graded",
+            "git_sha": candidate.git_sha,
+            "held_out_score": 4.31,
+            "baseline_score": 3.72,
+        }
+    },
+)
+```
+
+The record is schema-versioned and validated: `status` is one of `graded`, `failed`, or `timeout`; a `graded` record requires finite `held_out_score` and `baseline_score`; `git_sha` must match the registered candidate. Failures and timeouts are first-class terminal grading states, not omissions. Terminal grading is immutable — an identical retry is a no-op, a different record is a conflict.
+
+## Promote or record no_lift
+
+Champion selection is deterministic: the graded winner is promoted only when it strictly beats the baseline; otherwise the ledger records `no_lift`. Every decision appends to an immutable event history.
+
+```python
+decision = research.factories.champions.select(
+    factory.factory_id,
+    {"baseline_score": 3.72},
+)
+print(decision.action, decision.changed, decision.reason)
+# promote | no_lift, with the winning candidate on decision.champion when changed
+
+events = research.factories.champions.list_events(factory.factory_id)
+```
+
+`champions.rollback(factory_id, {"to_candidate_id": ..., "reason": ...})` moves the pointer back and appends the rollback event; history is never rewritten.
+
+## Watch status
+
+```python
+status = session.factories.status(factory.factory_id)
+print(status.efforts_by_status, status.next_wake_at)
+for run in status.latest_runs:
+    print(run)
+
+factories = session.factories.list()
+one = session.factories.get(factory.factory_id)
+```
+
+`FactoryStatus` carries the linked projects, Efforts, latest runs, latest work products, and open decisions in one read. Individual runs are inspectable through `research.runs.get(run_id)` and the run handle's `progress_snapshot()` / `stream_transcript()`.
+
+## Wind down
+
+```python
+session.factories.pause(factory.factory_id)    # stop scheduling, keep state
+session.factories.archive(factory.factory_id)  # terminal
+```
+
+Budgets, the immutable candidate record, and the champion event history persist through pause and archive.
