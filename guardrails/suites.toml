@@ -1,0 +1,22 @@
+# Guardrail suite manifest owned by synth-ai.
+# synth-dev release guardrails resolve suite ids as "synth-ai/<id>".
+# The full SDK contract-parity pytest suite lives in the sibling
+# synth-laboratories/testing repo; register it here once that checkout is a
+# workspace requirement. Until then these deterministic in-repo guards are
+# the SDK contract surface.
+
+[[suite]]
+id = "sdk-architecture-guard-v1"
+version = "1"
+kind = "script"
+cwd = "."
+description = "SDK architecture invariants (module layout, import boundaries)."
+command = ["uv", "run", "python", "scripts/check_sdk_architecture.py"]
+
+[[suite]]
+id = "sdk-no-rust-guard-v1"
+version = "1"
+kind = "script"
+cwd = "."
+description = "Guards against Rust SDK artifacts entering the Python SDK."
+command = ["uv", "run", "python", "scripts/check_no_rust_sdk.py"]
