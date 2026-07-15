@@ -9,6 +9,9 @@ the up / run / down loop against remote branches:
     uv run scripts/cloud_slot.py exec --cloud-slot slot1-cloud --fencing-token <n> -- git status
     uv run scripts/cloud_slot.py services --cloud-slot slot1-cloud
     uv run scripts/cloud_slot.py logs --cloud-slot slot1-cloud --service-id backend-api
+    uv run scripts/cloud_slot.py artifacts --cloud-slot slot1-cloud
+    uv run scripts/cloud_slot.py artifact --cloud-slot slot1-cloud \
+        --root-id reportbench-readme-smoke --path run.json --output run.json
     uv run scripts/cloud_slot.py ls                              # what sltop CLOUD shows
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud    # retire (keep VM)
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud --delete-vm --confirm-vm-name <vm>
@@ -25,6 +28,8 @@ failure class rather than a bare status code, and never blind-retry.
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 import sys
@@ -33,6 +38,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from dataclasses import asdict, is_dataclass
+from pathlib import Path
 
 from synth_ai.managed_research import CLOUD_SLOT_IDENTITIES, ManagedResearchClient
 from synth_ai.managed_research.errors import SmrApiError
@@ -318,6 +324,111 @@ def cmd_logs(args: argparse.Namespace) -> int:
     return int(logs["exit_code"])
 
 
+def cmd_artifacts(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    artifacts = client.cloud_deployments.artifacts(
+        deployment_id=str(deployment["deployment_id"]),
+        root_id=args.root_id,
+        relative_prefix=args.relative_prefix,
+        after=args.after,
+        limit=args.limit,
+    )
+    _emit({"deployment": _summary(deployment), "artifact_inventory": artifacts})
+    return 0
+
+
+def cmd_artifact(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    deployment_id = str(deployment["deployment_id"])
+    target = Path(args.output).expanduser()
+    if os.path.lexists(target) and not args.force:
+        raise CloudSlotError(f"output already exists: {target}; pass --force to replace it")
+    if not target.parent.is_dir():
+        raise CloudSlotError(f"output parent does not exist: {target.parent}")
+
+    temporary = target.with_name(f".{target.name}.cloud-slot-{os.getpid()}.tmp")
+    if os.path.lexists(temporary):
+        raise CloudSlotError(f"temporary output already exists: {temporary}")
+    expected_size: int | None = None
+    expected_sha256: str | None = None
+    expected_modified_at_ns: int | None = None
+    offset = 0
+    digest = hashlib.sha256()
+    try:
+        with temporary.open("xb") as output:
+            while True:
+                chunk = client.cloud_deployments.artifact_content(
+                    deployment_id=deployment_id,
+                    root_id=args.root_id,
+                    relative_path=args.path,
+                    offset=offset,
+                    max_bytes=args.chunk_bytes,
+                    include_sha256=offset == 0,
+                )
+                if chunk["offset"] != offset:
+                    raise CloudSlotError(
+                        f"artifact chunk offset changed: expected {offset}, got {chunk['offset']}"
+                    )
+                if expected_size is None:
+                    expected_size = int(chunk["size_bytes"])
+                    expected_sha256 = chunk["sha256"]
+                    expected_modified_at_ns = int(chunk["modified_at_ns"])
+                    if not expected_sha256:
+                        raise CloudSlotError("artifact response omitted the requested SHA-256")
+                elif (
+                    int(chunk["size_bytes"]) != expected_size
+                    or int(chunk["modified_at_ns"]) != expected_modified_at_ns
+                ):
+                    raise CloudSlotError("artifact identity changed during retrieval")
+                if chunk["root_id"] != args.root_id or chunk["relative_path"] != args.path:
+                    raise CloudSlotError("artifact response identity did not match the request")
+                try:
+                    content = base64.b64decode(chunk["content_base64"], validate=True)
+                except (ValueError, TypeError) as exc:
+                    raise CloudSlotError("artifact response contained invalid base64") from exc
+                if len(content) != int(chunk["bytes_returned"]):
+                    raise CloudSlotError("artifact response byte count did not match its content")
+                if not content and not chunk["eof"]:
+                    raise CloudSlotError("artifact retrieval made no progress before EOF")
+                output.write(content)
+                digest.update(content)
+                offset += len(content)
+                if chunk["eof"]:
+                    break
+            output.flush()
+            os.fsync(output.fileno())
+        if expected_size is None or offset != expected_size:
+            raise CloudSlotError(
+                f"artifact size mismatch: expected {expected_size}, retrieved {offset}"
+            )
+        actual_sha256 = digest.hexdigest()
+        if actual_sha256 != expected_sha256:
+            raise CloudSlotError("artifact SHA-256 mismatch")
+        if args.force:
+            os.replace(temporary, target)
+        else:
+            os.link(temporary, target)
+            temporary.unlink()
+    finally:
+        if os.path.lexists(temporary):
+            temporary.unlink()
+
+    _emit(
+        {
+            "action": "artifact_retrieved",
+            "deployment": _summary(deployment),
+            "root_id": args.root_id,
+            "relative_path": args.path,
+            "output": str(target),
+            "size_bytes": offset,
+            "sha256": actual_sha256,
+        }
+    )
+    return 0
+
+
 def cmd_down(args: argparse.Namespace) -> int:
     client = _client(args)
     deployment = _resolve_deployment(client, args)
@@ -506,6 +617,29 @@ def _build_parser() -> argparse.ArgumentParser:
     p_logs.add_argument("--service-id", required=True)
     p_logs.add_argument("--tail", type=int, default=200)
     p_logs.set_defaults(func=cmd_logs)
+
+    p_artifacts = sub.add_parser(
+        "artifacts",
+        help="list declared artifact roots or one root's paginated files",
+    )
+    add_address_flags(p_artifacts)
+    p_artifacts.add_argument("--root-id", default=None)
+    p_artifacts.add_argument("--relative-prefix", default=None)
+    p_artifacts.add_argument("--after", default=None, help="next_after cursor; requires --root-id")
+    p_artifacts.add_argument("--limit", type=int, default=100)
+    p_artifacts.set_defaults(func=cmd_artifacts)
+
+    p_artifact = sub.add_parser(
+        "artifact",
+        help="retrieve a complete declared artifact through verified bounded chunks",
+    )
+    add_address_flags(p_artifact)
+    p_artifact.add_argument("--root-id", required=True)
+    p_artifact.add_argument("--path", required=True, help="file path relative to the declared root")
+    p_artifact.add_argument("--output", required=True, help="local destination file")
+    p_artifact.add_argument("--chunk-bytes", type=int, default=131_072)
+    p_artifact.add_argument("--force", action="store_true", help="replace an existing destination")
+    p_artifact.set_defaults(func=cmd_artifact)
 
     for command in ("down", "retire"):
         p_down = sub.add_parser(command, help="retire a slot (keeps the VM unless --delete-vm)")

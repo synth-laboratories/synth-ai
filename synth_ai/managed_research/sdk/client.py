@@ -167,6 +167,8 @@ from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
     CLOUD_SLOT_IDENTITIES,
+    CloudDeploymentArtifactContent,
+    CloudDeploymentArtifacts,
     CloudDeploymentExecResult,
     CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
@@ -4201,6 +4203,85 @@ class ManagedResearchClient:
             label="get_cloud_deployment_logs",
         )
         return cast(CloudDeploymentLogs, payload)
+
+    def get_cloud_deployment_artifacts(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str | None = None,
+        relative_prefix: str | None = None,
+        after: str | None = None,
+        limit: int = 100,
+    ) -> CloudDeploymentArtifacts:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        normalized_root_id = _optional_non_empty_string(root_id)
+        normalized_after = _optional_non_empty_string(after)
+        if normalized_after is not None and normalized_root_id is None:
+            raise ValueError("after requires root_id")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/artifacts",
+                params=build_query_params(
+                    root_id=normalized_root_id,
+                    relative_prefix=_optional_non_empty_string(relative_prefix),
+                    after=normalized_after,
+                    limit=int(limit),
+                ),
+            ),
+            expected_schema="cloud-deployment-artifacts-v1",
+            label="get_cloud_deployment_artifacts",
+        )
+        return cast(CloudDeploymentArtifacts, payload)
+
+    def get_cloud_deployment_artifact_content(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str,
+        relative_path: str,
+        offset: int = 0,
+        max_bytes: int = 65_536,
+        include_sha256: bool = False,
+    ) -> CloudDeploymentArtifactContent:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        root_id = _require_non_empty_string(root_id, field_name="root_id")
+        relative_path = _require_non_empty_string(
+            relative_path,
+            field_name="relative_path",
+        )
+        if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+            raise ValueError("offset must be a non-negative integer")
+        if (
+            isinstance(max_bytes, bool)
+            or not isinstance(max_bytes, int)
+            or not 1 <= max_bytes <= 131_072
+        ):
+            raise ValueError("max_bytes must be between 1 and 131072")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/artifacts/content",
+                params=build_query_params(
+                    root_id=root_id,
+                    relative_path=relative_path,
+                    offset=int(offset),
+                    max_bytes=int(max_bytes),
+                    include_sha256=bool(include_sha256),
+                ),
+            ),
+            expected_schema="cloud-deployment-artifact-content-v1",
+            label="get_cloud_deployment_artifact_content",
+        )
+        return cast(CloudDeploymentArtifactContent, payload)
 
     def deploy_cloud_deployment(
         self,

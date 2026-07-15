@@ -6811,6 +6811,135 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/artifacts:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Artifacts
+      operationId: get_cloud_deployment_artifacts_smr_v1_deployments__deployment_id__artifacts_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: root_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 120
+          - type: 'null'
+          title: Root Id
+      - name: relative_prefix
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Relative Prefix
+      - name: after
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: After
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentArtifactsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/artifacts/content:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Artifact Content
+      operationId: get_cloud_deployment_artifact_content_smr_v1_deployments__deployment_id__artifacts_content_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: root_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 120
+          title: Root Id
+      - name: relative_path
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+          title: Relative Path
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: max_bytes
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 131072
+          minimum: 1
+          default: 65536
+          title: Max Bytes
+      - name: include_sha256
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Sha256
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentArtifactContentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/v1/deployments/{deployment_id}/observe:
     post:
       tags:
@@ -28257,6 +28386,171 @@ components:
       - session_id
       title: CheckoutSessionResponse
       description: Response with checkout session URL.
+    CloudDeploymentArtifactContentResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-artifact-content-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        root_id:
+          type: string
+          title: Root Id
+        relative_path:
+          type: string
+          title: Relative Path
+        size_bytes:
+          type: integer
+          title: Size Bytes
+        sha256:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sha256
+        modified_at_ns:
+          type: integer
+          title: Modified At Ns
+        content_type:
+          type: string
+          title: Content Type
+        encoding:
+          type: string
+          const: base64
+          title: Encoding
+        offset:
+          type: integer
+          title: Offset
+        bytes_returned:
+          type: integer
+          title: Bytes Returned
+        eof:
+          type: boolean
+          title: Eof
+        content_base64:
+          type: string
+          title: Content Base64
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - root_id
+      - relative_path
+      - size_bytes
+      - modified_at_ns
+      - content_type
+      - encoding
+      - offset
+      - bytes_returned
+      - eof
+      - content_base64
+      title: CloudDeploymentArtifactContentResponse
+    CloudDeploymentArtifactDescriptor:
+      properties:
+        root_id:
+          type: string
+          title: Root Id
+        relative_path:
+          type: string
+          title: Relative Path
+        size_bytes:
+          type: integer
+          title: Size Bytes
+        modified_at_epoch_seconds:
+          type: number
+          title: Modified At Epoch Seconds
+      type: object
+      required:
+      - root_id
+      - relative_path
+      - size_bytes
+      - modified_at_epoch_seconds
+      title: CloudDeploymentArtifactDescriptor
+    CloudDeploymentArtifactRoot:
+      properties:
+        root_id:
+          type: string
+          title: Root Id
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        relative_path:
+          type: string
+          title: Relative Path
+        description:
+          type: string
+          title: Description
+        authority:
+          type: string
+          title: Authority
+        available:
+          type: boolean
+          title: Available
+        prefix_available:
+          type: boolean
+          title: Prefix Available
+      type: object
+      required:
+      - root_id
+      - repository
+      - path
+      - relative_path
+      - description
+      - authority
+      - available
+      - prefix_available
+      title: CloudDeploymentArtifactRoot
+    CloudDeploymentArtifactsResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-artifacts-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        relative_prefix:
+          type: string
+          title: Relative Prefix
+        roots:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentArtifactRoot'
+          type: array
+          title: Roots
+        artifacts:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentArtifactDescriptor'
+          type: array
+          title: Artifacts
+        truncated:
+          type: boolean
+          title: Truncated
+        next_after:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next After
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - relative_prefix
+      - roots
+      - artifacts
+      - truncated
+      title: CloudDeploymentArtifactsResponse
     CloudDeploymentClaimAcquireRequest:
       properties:
         holder:

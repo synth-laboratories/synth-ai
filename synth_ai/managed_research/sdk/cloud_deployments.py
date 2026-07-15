@@ -136,6 +136,60 @@ class CloudDeploymentLogs(TypedDict):
     stderr_truncated: bool
 
 
+class CloudDeploymentArtifactRoot(TypedDict):
+    """One topology-declared, repository-relative artifact root."""
+
+    root_id: str
+    repository: str
+    path: str
+    relative_path: str
+    description: str
+    authority: str
+    available: bool
+    prefix_available: bool
+
+
+class CloudDeploymentArtifactDescriptor(TypedDict):
+    """One file in a topology-declared artifact root."""
+
+    root_id: str
+    relative_path: str
+    size_bytes: int
+    modified_at_epoch_seconds: float
+
+
+class CloudDeploymentArtifacts(TypedDict):
+    """Bounded artifact inventory (``cloud-deployment-artifacts-v1``)."""
+
+    schema_version: Literal["cloud-deployment-artifacts-v1"]
+    deployment_id: str
+    vm_name: str
+    relative_prefix: str
+    roots: list[CloudDeploymentArtifactRoot]
+    artifacts: list[CloudDeploymentArtifactDescriptor]
+    truncated: bool
+    next_after: str | None
+
+
+class CloudDeploymentArtifactContent(TypedDict):
+    """One bounded base64 file chunk (``cloud-deployment-artifact-content-v1``)."""
+
+    schema_version: Literal["cloud-deployment-artifact-content-v1"]
+    deployment_id: str
+    vm_name: str
+    root_id: str
+    relative_path: str
+    size_bytes: int
+    sha256: str | None
+    modified_at_ns: int
+    content_type: str
+    encoding: Literal["base64"]
+    offset: int
+    bytes_returned: int
+    eof: bool
+    content_base64: str
+
+
 class CloudDeploymentsAPI(_ClientNamespace):
     def create(
         self,
@@ -244,6 +298,44 @@ class CloudDeploymentsAPI(_ClientNamespace):
             deployment_id=deployment_id,
             service_id=service_id,
             tail=tail,
+        )
+
+    def artifacts(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str | None = None,
+        relative_prefix: str | None = None,
+        after: str | None = None,
+        limit: int = 100,
+    ) -> CloudDeploymentArtifacts:
+        """List declared artifact roots or one root's bounded file inventory."""
+        return self._client.get_cloud_deployment_artifacts(
+            deployment_id=deployment_id,
+            root_id=root_id,
+            relative_prefix=relative_prefix,
+            after=after,
+            limit=limit,
+        )
+
+    def artifact_content(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str,
+        relative_path: str,
+        offset: int = 0,
+        max_bytes: int = 65_536,
+        include_sha256: bool = False,
+    ) -> CloudDeploymentArtifactContent:
+        """Read one bounded chunk from a topology-declared artifact file."""
+        return self._client.get_cloud_deployment_artifact_content(
+            deployment_id=deployment_id,
+            root_id=root_id,
+            relative_path=relative_path,
+            offset=offset,
+            max_bytes=max_bytes,
+            include_sha256=include_sha256,
         )
 
     def deploy(
@@ -474,6 +566,10 @@ class CloudDeploymentsAPI(_ClientNamespace):
 
 __all__ = [
     "CLOUD_SLOT_IDENTITIES",
+    "CloudDeploymentArtifactContent",
+    "CloudDeploymentArtifactDescriptor",
+    "CloudDeploymentArtifactRoot",
+    "CloudDeploymentArtifacts",
     "CloudDeploymentExecResult",
     "CloudDeploymentLogs",
     "CloudDeploymentProjectGitSource",

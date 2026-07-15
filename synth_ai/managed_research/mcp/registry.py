@@ -105,6 +105,8 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "smr_materialize_cloud_deployment_workspace": WRITE_SCOPES,
     "smr_exec_cloud_deployment": WRITE_SCOPES,
     "smr_get_cloud_deployment_logs": READ_SCOPES,
+    "smr_get_cloud_deployment_artifacts": READ_SCOPES,
+    "smr_get_cloud_deployment_artifact_content": READ_SCOPES,
     "smr_observe_cloud_deployment": WRITE_SCOPES,
     "smr_deploy_cloud_deployment": WRITE_SCOPES,
     "smr_retire_cloud_deployment": WRITE_SCOPES,
