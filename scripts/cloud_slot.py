@@ -255,10 +255,10 @@ def cmd_down(args: argparse.Namespace) -> int:
     deployment_id = str(deployment["deployment_id"])
     vm_name = str(deployment.get("vm_name") or "").strip()
     confirm = str(args.confirm_vm_name or "").strip()
-    if args.delete_vm and confirm != vm_name:
+    if args.delete_vm and (not vm_name or not confirm or confirm != vm_name):
         raise CloudSlotError(
             "--delete-vm destroys the VM: --confirm-vm-name must exactly match "
-            f"the deployment vm_name {vm_name!r} (got {confirm!r})"
+            f"the nonempty deployment vm_name {vm_name!r} (got {confirm!r})"
         )
     retired = client.cloud_deployments.retire(
         deployment_id=deployment_id,
