@@ -15,6 +15,7 @@ from synth_ai.managed_research.models.factories import (
     FactoryChampionSelectRequest,
 )
 from synth_ai.managed_research.models.tag import (
+    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -77,55 +78,30 @@ class ResearchFactoriesTagSessionsAPI:
 
     def create(
         self,
-        request: TagSessionCreateRequest | Mapping[str, Any] | dict[str, Any] | str,
-        *,
-        definition_of_done: str | None = None,
-        scope_id: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-        experiment_id: str | None = None,
-        candidate_id: str | None = None,
-        timebox_seconds: int | None = None,
-        runbook_preset: str | None = None,
-        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        request: TagSessionCreateRequest,
     ) -> TagSession:
         """Start a Factory Tag session for a one-off research task.
 
         Args:
-            request: ``TagSessionCreateRequest``, mapping, or primary request
-                string shown to the Tag worker.
-            definition_of_done: Optional explicit DoD text.
-            scope_id: Optional Tag scope override (defaults via ``scopes``).
-            timebox_seconds: Optional wall-clock cap for the session.
-            runbook_preset: Optional runbook preset slug.
-            metadata: Optional session metadata.
+            request: Fully typed Tag session request.
 
         Returns:
             Created ``TagSession`` with ids needed for ``messages.send``.
 
         Example:
             session = research.factories.tag.sessions.create(
-                "Summarize test failures",
-                factory_id=factory_id,
-                effort_id=effort_id,
+                TagSessionCreateRequest(
+                    request="Summarize test failures",
+                    factory_id=factory_id,
+                    effort_id=effort_id,
+                )
             )
             research.factories.tag.sessions.messages.send(
                 session.session_id,
                 "Return a bullet list of root causes.",
             )
         """
-        return self._session.tag.create_session(
-            request,
-            definition_of_done=definition_of_done,
-            scope_id=scope_id,
-            factory_id=factory_id,
-            effort_id=effort_id,
-            experiment_id=experiment_id,
-            candidate_id=candidate_id,
-            timebox_seconds=timebox_seconds,
-            runbook_preset=runbook_preset,
-            metadata=metadata,
-        )
+        return self._session.tag.create_session(request)
 
     def get(self, session_id: str) -> TagSession:
         """Fetch the current Tag session state and terminal receipt fields."""
@@ -181,6 +157,10 @@ class ResearchFactoriesTagSessionsAPI:
         """
         return self._session.tag.control_session(session_id, action)
 
+    def get_factory_context(self, session_id: str) -> TagFactoryContext:
+        """Read the Factory champion and candidate context bound to a session."""
+        return self._session.tag.get_factory_context(session_id=session_id)
+
 
 class ResearchFactoriesTagScopesAPI:
     """Resolve default Tag scopes for an organization."""
@@ -191,6 +171,10 @@ class ResearchFactoriesTagScopesAPI:
     def get_default(self) -> TagScope:
         """Return the org default Tag scope used when ``scope_id`` is omitted."""
         return self._session.tag.get_default_scope()
+
+    def get_factory_context(self, scope_id: str = "default") -> TagFactoryContext:
+        """Read Factory champion and candidate context for a Tag scope."""
+        return self._session.tag.get_factory_context(scope_id=scope_id)
 
 
 class ResearchFactoriesTagAPI:

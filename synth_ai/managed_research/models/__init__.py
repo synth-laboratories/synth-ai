@@ -449,6 +449,13 @@ from synth_ai.managed_research.models.smr_runtime_kinds import SmrRuntimeKind
 from synth_ai.managed_research.models.smr_tool_providers import SmrToolProvider
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.tag import (
+    TagArtifactKind,
+    TagArtifactLink,
+    TagChampionEventAction,
+    TagFactoryCandidateCounts,
+    TagFactoryChampion,
+    TagFactoryChampionEvent,
+    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -458,7 +465,9 @@ from synth_ai.managed_research.models.tag import (
     TagSessionReceipt,
     TagSessionStatus,
     TagSessionWatch,
+    TagSteeringReceipt,
     TagSteeringTarget,
+    TagSteeringWikiLink,
     TagTask,
 )
 from synth_ai.managed_research.models.types import (
@@ -916,6 +925,13 @@ __all__ = [
     "TinkerConfig",
     "UsageLimit",
     "StoredFile",
+    "TagArtifactKind",
+    "TagArtifactLink",
+    "TagChampionEventAction",
+    "TagFactoryCandidateCounts",
+    "TagFactoryChampion",
+    "TagFactoryChampionEvent",
+    "TagFactoryContext",
     "TagMessageRequest",
     "TagScope",
     "TagSession",
@@ -925,7 +941,9 @@ __all__ = [
     "TagSessionReceipt",
     "TagSessionStatus",
     "TagSessionWatch",
+    "TagSteeringReceipt",
     "TagSteeringTarget",
+    "TagSteeringWikiLink",
     "TagTask",
     "TaskCollectionSnapshot",
     "TaskSnapshot",

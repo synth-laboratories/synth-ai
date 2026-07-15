@@ -71,6 +71,7 @@ def tag_smoke(
 ) -> None:
     """Create a Tag session, send a message, and print scope metadata."""
     from synth_ai import SynthClient
+    from synth_ai.managed_research.models.tag import TagSessionCreateRequest
 
     client = SynthClient(
         api_key=_resolve_api_key(api_key),
@@ -78,9 +79,11 @@ def tag_smoke(
     )
     tag_api = client.research.factories.tag
     session = tag_api.sessions.create(
-        request,
-        factory_id=factory_id,
-        effort_id=effort_id,
+        TagSessionCreateRequest(
+            request=request,
+            factory_id=factory_id,
+            effort_id=effort_id,
+        )
     )
     tag_api.sessions.messages.send(session.session_id, "Smoke check-in")
     scope = tag_api.scopes.get_default()
