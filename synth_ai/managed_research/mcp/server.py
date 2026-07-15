@@ -1578,16 +1578,12 @@ class ManagedResearchMcpServer:
     def _tool_get_cloud_deployment_services(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.services(deployment_id=deployment_id)
-            )
+            return _mcp_jsonable(client.cloud_deployments.services(deployment_id=deployment_id))
 
     def _tool_get_cloud_deployment_workspace(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.workspace(deployment_id=deployment_id)
-            )
+            return _mcp_jsonable(client.cloud_deployments.workspace(deployment_id=deployment_id))
 
     def _tool_materialize_cloud_deployment_workspace(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
@@ -1620,9 +1616,7 @@ class ManagedResearchMcpServer:
                     fencing_token=fencing_token,
                     cwd=optional_string(args, "cwd"),
                     timeout_seconds=timeout_seconds if timeout_seconds is not None else 300,
-                    max_output_bytes=(
-                        max_output_bytes if max_output_bytes is not None else 65_536
-                    ),
+                    max_output_bytes=max_output_bytes if max_output_bytes is not None else 65_536,
                 )
             )
 

@@ -11,6 +11,7 @@ the VM's HTTPS proxy.
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from contextlib import contextmanager
 from typing import Any, Iterator, List, Literal, Mapping, TypedDict
 
@@ -215,7 +216,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         self,
         *,
         deployment_id: str,
-        argv: list[str],
+        argv: Sequence[str],
         fencing_token: int,
         cwd: str | None = None,
         timeout_seconds: int = 300,
@@ -224,7 +225,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         """Execute argv (never caller shell text) under an active fenced claim."""
         return self._client.exec_cloud_deployment(
             deployment_id=deployment_id,
-            argv=argv,
+            argv=list(argv),
             fencing_token=fencing_token,
             cwd=cwd,
             timeout_seconds=timeout_seconds,

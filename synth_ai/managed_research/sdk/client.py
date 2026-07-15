@@ -4055,10 +4055,7 @@ class ManagedResearchClient:
             field_name="deployment_id",
         )
         payload = _coerce_cloud_deployment_schema(
-            self._request_json(
-                "GET",
-                f"/smr/v1/deployments/{deployment_id}/services",
-            ),
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/services"),
             expected_schema="cloud-deployment-services-v1",
             label="get_cloud_deployment_services",
         )
@@ -4074,10 +4071,7 @@ class ManagedResearchClient:
             field_name="deployment_id",
         )
         payload = _coerce_cloud_deployment_schema(
-            self._request_json(
-                "GET",
-                f"/smr/v1/deployments/{deployment_id}/workspace",
-            ),
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/workspace"),
             expected_schema="cloud-deployment-workspace-v1",
             label="get_cloud_deployment_workspace",
         )
