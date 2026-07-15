@@ -1454,6 +1454,28 @@ class ManagedResearchClient:
             label="get_default_tag_scope",
         )
 
+    def get_tag_scope_factory_context(self, scope_id: str) -> dict[str, Any]:
+        scope_id_value = _require_non_empty_string(scope_id, field_name="scope_id")
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/scopes/{scope_id_value}/factory-context",
+            ),
+            label="get_tag_scope_factory_context",
+        )
+
+    def get_tag_session_factory_context(self, session_id: str) -> dict[str, Any]:
+        session_id_value = _require_non_empty_string(
+            session_id, field_name="session_id"
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{session_id_value}/factory-context",
+            ),
+            label="get_tag_session_factory_context",
+        )
+
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return self.usage.get_billing_entitlements()
 

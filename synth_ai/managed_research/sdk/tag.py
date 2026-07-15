@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from synth_ai.managed_research.models.tag import (
+    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -20,40 +21,13 @@ from synth_ai.managed_research.sdk._base import _ClientNamespace
 class TagAPI(_ClientNamespace):
     def create_session(
         self,
-        request: TagSessionCreateRequest | Mapping[str, Any] | dict[str, Any] | str,
-        *,
-        definition_of_done: str | None = None,
-        scope_id: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-        experiment_id: str | None = None,
-        candidate_id: str | None = None,
-        timebox_seconds: int | None = None,
-        runbook_preset: str | None = None,
-        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        request: TagSessionCreateRequest,
     ) -> TagSession:
-        if isinstance(request, TagSessionCreateRequest):
-            payload = request.to_wire()
-        elif isinstance(request, str):
-            if not factory_id or not effort_id:
-                raise ValueError("factory_id and effort_id are required for a Tag session")
-            payload = TagSessionCreateRequest(
-                request=request,
-                factory_id=factory_id,
-                effort_id=effort_id,
-                definition_of_done=definition_of_done,
-                scope_id=scope_id,
-                experiment_id=experiment_id,
-                candidate_id=candidate_id,
-                timebox_seconds=timebox_seconds,
-                runbook_preset=runbook_preset,
-                metadata=dict(metadata or {}),
-            ).to_wire()
-        elif isinstance(request, Mapping):
-            payload = dict(request)
-        else:
-            raise TypeError("request must be TagSessionCreateRequest, mapping, or string")
-        return TagSession.from_wire(self._client.create_tag_session(payload))
+        if not isinstance(request, TagSessionCreateRequest):
+            raise TypeError("request must be TagSessionCreateRequest")
+        return TagSession.from_payload(
+            self._client.create_tag_session(request.to_wire())
+        )
 
     def get_session(self, session_id: str) -> TagSession:
         return TagSession.from_wire(self._client.get_tag_session(session_id))
@@ -115,6 +89,20 @@ class TagAPI(_ClientNamespace):
 
     def get_default_scope(self) -> TagScope:
         return TagScope.from_wire(self._client.get_default_tag_scope())
+
+    def get_factory_context(
+        self,
+        *,
+        scope_id: str | None = None,
+        session_id: str | None = None,
+    ) -> TagFactoryContext:
+        if (scope_id is None) == (session_id is None):
+            raise ValueError("exactly one of scope_id or session_id is required")
+        if scope_id is not None:
+            payload = self._client.get_tag_scope_factory_context(scope_id)
+        else:
+            payload = self._client.get_tag_session_factory_context(str(session_id))
+        return TagFactoryContext.from_payload(payload)
 
 
 __all__ = ["TagAPI"]
