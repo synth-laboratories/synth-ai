@@ -207,6 +207,11 @@ class SmrHttpTransport:
             base_url=self.base_url.rstrip("/"),
             headers=self.headers,
             timeout=self.timeout,
+            # WorkProduct content resolves through the durable artifact owner.
+            # The API first redirects to its artifact route and may then redirect
+            # to presigned object storage; returning the first 3xx body would
+            # silently surface empty content instead of the stored blob.
+            follow_redirects=True,
         )
 
     def close(self) -> None:
