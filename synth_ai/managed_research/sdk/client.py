@@ -363,8 +363,7 @@ def _coerce_cloud_deployment_schema(
     schema_version = str(result.get("schema_version") or "").strip()
     if schema_version != expected_schema:
         raise ValueError(
-            f"{label} returned schema_version {schema_version!r}; "
-            f"expected {expected_schema!r}"
+            f"{label} returned schema_version {schema_version!r}; expected {expected_schema!r}"
         )
     return result
 
