@@ -121,6 +121,46 @@
       }
     },
     {
+      "id": "gpt-5.6-luna",
+      "display_name": "GPT-5.6 Luna",
+      "display_group": "standard_codex",
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.6-luna",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000001",
+        "cached_input_usd": "1E-7",
+        "output_usd": "0.000006",
+        "reasoning_output_usd": "0.000006",
+        "source": "openai_gpt_5_6_preview",
+        "observed_at": "2026-07-09"
+      }
+    },
+    {
       "id": "gpt-5.4-mini",
       "display_name": "GPT-5.4 Mini",
       "display_group": "standard_codex",
@@ -159,126 +199,6 @@
         "reasoning_output_usd": "0.0000016",
         "source": "synth_contract",
         "observed_at": "2026-04-21"
-      }
-    },
-    {
-      "id": "gpt-5.6-sol",
-      "display_name": "GPT-5.6 Sol",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.6-sol",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.000001",
-        "cached_input_usd": "1E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "openai_gpt_5_6_preview",
-        "observed_at": "2026-07-09"
-      }
-    },
-    {
-      "id": "gpt-5.6-terra",
-      "display_name": "GPT-5.6 Terra",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.6-terra",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.000001",
-        "cached_input_usd": "1E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "openai_gpt_5_6_preview",
-        "observed_at": "2026-07-09"
-      }
-    },
-    {
-      "id": "gpt-5.6-luna",
-      "display_name": "GPT-5.6 Luna",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.6-luna",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.000001",
-        "cached_input_usd": "1E-7",
-        "output_usd": "0.000006",
-        "reasoning_output_usd": "0.000006",
-        "source": "openai_gpt_5_6_preview",
-        "observed_at": "2026-07-09"
       }
     },
     {
