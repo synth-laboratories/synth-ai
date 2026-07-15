@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageSummaryResponse'
+                $ref: '#/components/schemas/app__api__v1__routes_balance__UsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -3054,6 +3054,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/exe-credentials/issue:
+    post:
+      tags:
+      - exe-credentials
+      summary: Issue Exe Credentials
+      description: Return one short-lived credential envelope for an exact repository
+        binding.
+      operationId: issue_exe_credentials_api_v1_exe_credentials_issue_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialBrokerIssueRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialBrokerIssueResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/horizons/runtime/mcp/healthz:
     get:
       tags:
@@ -6657,6 +6686,14 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       requestBody:
         required: true
         content:
@@ -6692,6 +6729,14 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       requestBody:
         required: true
         content:
@@ -6708,6 +6753,142 @@ paths:
                 additionalProperties: true
                 title: Response Retire Cloud Deployment Smr V1 Deployments  Deployment
                   Id  Retire Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims:
+    post:
+      tags:
+      - smr
+      summary: Acquire Cloud Deployment Claim
+      operationId: acquire_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentClaimAcquireRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Acquire Cloud Deployment Claim Smr V1 Deployments  Deployment
+                  Id  Claims Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Claims
+      description: 'Typed ownership projection: the active claim or explicit none.'
+      operationId: get_cloud_deployment_claims_smr_v1_deployments__deployment_id__claims_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Cloud Deployment Claims Smr V1 Deployments  Deployment
+                  Id  Claims Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims/{claim_id}/heartbeat:
+    post:
+      tags:
+      - smr
+      summary: Heartbeat Cloud Deployment Claim
+      operationId: heartbeat_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims__claim_id__heartbeat_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Heartbeat Cloud Deployment Claim Smr V1 Deployments  Deployment
+                  Id  Claims  Claim Id  Heartbeat Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims/{claim_id}/release:
+    post:
+      tags:
+      - smr
+      summary: Release Cloud Deployment Claim
+      description: "Explicit release; idempotent \u2014 released/expired claims report\
+        \ state."
+      operationId: release_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims__claim_id__release_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Release Cloud Deployment Claim Smr V1 Deployments  Deployment
+                  Id  Claims  Claim Id  Release Post
         '422':
           description: Validation Error
           content:
@@ -14300,7 +14481,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -22645,7 +22826,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get
       responses:
         '200':
           description: Successful Response
@@ -22656,7 +22837,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post__post__1
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22668,7 +22849,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get
       responses:
         '200':
           description: Successful Response
@@ -22679,7 +22860,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post__post__1
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22703,7 +22884,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get
       responses:
         '200':
           description: Successful Response
@@ -22714,7 +22895,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post__post__1
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22726,7 +22907,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get
       responses:
         '200':
           description: Successful Response
@@ -22737,7 +22918,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post__post__1
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22761,7 +22942,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get
       responses:
         '200':
           description: Successful Response
@@ -22772,7 +22953,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post__post__1
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22784,7 +22965,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get
       responses:
         '200':
           description: Successful Response
@@ -22795,7 +22976,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post__post__1
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22819,7 +23000,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get
       responses:
         '200':
           description: Successful Response
@@ -22830,7 +23011,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post__post__1
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22961,7 +23142,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get
       responses:
         '200':
           description: Successful Response
@@ -22972,7 +23153,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__post__1
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22983,7 +23164,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__delete__2
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__delete__2
       responses:
         '200':
           description: Successful Response
@@ -22995,7 +23176,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get
       responses:
         '200':
           description: Successful Response
@@ -23006,7 +23187,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post__post__1
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -23063,71 +23244,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    get:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__patch__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__post__2
+      operationId: synthtunnel_gateway_s__route_token___path__post
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__post__get__1
       parameters:
       - name: route_token
         in: path
@@ -23157,7 +23308,37 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__put__3
+      operationId: synthtunnel_gateway_s__route_token___path__post__put__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__post__patch__3
       parameters:
       - name: route_token
         in: path
@@ -23187,7 +23368,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__delete__4
+      operationId: synthtunnel_gateway_s__route_token___path__post__delete__4
       parameters:
       - name: route_token
         in: path
@@ -23217,7 +23398,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__options__5
+      operationId: synthtunnel_gateway_s__route_token___path__post__options__5
       parameters:
       - name: route_token
         in: path
@@ -23548,7 +23729,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -27551,6 +27732,21 @@ components:
       - file
       - artifact_type
       title: Body_worker_upload_artifact_smr_internal_runs__run_id__artifacts_upload_post
+    BrokeredRepositoryToken:
+      properties:
+        kind:
+          type: string
+          const: token
+          title: Kind
+          default: token
+        token:
+          type: string
+          minLength: 1
+          title: Token
+      type: object
+      required:
+      - token
+      title: BrokeredRepositoryToken
     CancelSubscriptionResponse:
       properties:
         cancelled_at:
@@ -27777,6 +27973,30 @@ components:
       - session_id
       title: CheckoutSessionResponse
       description: Response with checkout session URL.
+    CloudDeploymentClaimAcquireRequest:
+      properties:
+        holder:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Holder
+        purpose:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Purpose
+        ttl_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 1.0
+          title: Ttl Seconds
+      additionalProperties: false
+      type: object
+      required:
+      - holder
+      - purpose
+      - ttl_seconds
+      title: CloudDeploymentClaimAcquireRequest
     CloudDeploymentCreateRequest:
       properties:
         project_id:
@@ -28202,6 +28422,57 @@ components:
       - subdomain
       title: CreateTunnelRequest
       description: Request payload for creating a managed tunnel.
+    CredentialBrokerIssueRequest:
+      properties:
+        session_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Session Id
+        repository_registration_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Repository Registration Id
+        repository_credential_reference_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Repository Credential Reference Id
+        codex_credential_reference_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Codex Credential Reference Id
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - repository_registration_id
+      - repository_credential_reference_id
+      - codex_credential_reference_id
+      title: CredentialBrokerIssueRequest
+    CredentialBrokerIssueResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        codex_auth_json:
+          type: string
+          title: Codex Auth Json
+        repository_credential:
+          $ref: '#/components/schemas/BrokeredRepositoryToken'
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - session_id
+      - codex_auth_json
+      - repository_credential
+      - expires_at
+      title: CredentialBrokerIssueResponse
     CredentialResponse:
       properties:
         id:
@@ -37778,7 +38049,11 @@ components:
       title: SmrFactoryCandidateGradingRequest
       description: 'Typed intake for a benchmark-owned factorybench.candidate_grading.v1
 
-        record. The backend never grades; it stores what the grader proved.'
+        record. The record must carry the same candidate_id and git_sha as the
+
+        route-owned registry row. The backend never grades; it stores what the
+
+        grader proved.'
     SmrFactoryCandidateResponse:
       properties:
         candidate_id:
@@ -48188,6 +48463,11 @@ components:
         run_id:
           type: string
           title: Run Id
+        code_factory_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code Factory Session Id
         org_id:
           type: string
           title: Org Id
@@ -52990,6 +53270,11 @@ components:
           - type: string
           - type: 'null'
           title: Default Branch
+        commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Sha
       type: object
       required:
       - url
@@ -54514,30 +54799,20 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        limit_value:
+        cap_amount:
           anyOf:
           - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: integer
           - type: 'null'
-          title: Limit Value
-        warning_threshold:
+          title: Cap Amount
+        policy:
           anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - additionalProperties: true
+            type: object
           - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
+          title: Policy
       type: object
       title: UpdateLimitRequest
-      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -55013,7 +55288,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
+          $ref: '#/components/schemas/UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -55226,24 +55501,87 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        org_id:
-          type: string
-          title: Org Id
-        current_month:
-          additionalProperties: true
+        total_nominal_usd:
+          type: number
+          title: Total Nominal Usd
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
           type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
           type: object
-          title: Last 30 Days
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
       type: object
       required:
-      - org_id
-      - current_month
-      - last_30_days
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
       title: UsageSummaryResponse
-      description: Response model for usage summary.
     UsageType:
       type: string
       enum:
@@ -55763,105 +56101,26 @@ components:
       - gpu_events_count
       - total_gpu_seconds
       title: UsageSummaryResponse
-    app__api__v1__managed_research__limits__UpdateLimitRequest:
+    app__api__v1__routes_balance__UsageSummaryResponse:
       properties:
-        cap_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Cap Amount
-        policy:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Policy
-      type: object
-      title: UpdateLimitRequest
-    app__api__v1__routes_usage_overview__UsageSummaryResponse:
-      properties:
-        total_nominal_usd:
-          type: number
-          title: Total Nominal Usd
-        total_cost_usd:
-          type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_factory:
-          items:
-            $ref: '#/components/schemas/UsageByFactoryResponse'
-          type: array
-          title: By Factory
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+        org_id:
+          type: string
+          title: Org Id
+        current_month:
+          additionalProperties: true
           type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
           type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
+          title: Last 30 Days
       type: object
       required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
+      - org_id
+      - current_month
+      - last_30_days
       title: UsageSummaryResponse
+      description: Response model for usage summary.
     app__core__session_usage__models__LimitResponse:
       properties:
         limit_id:
@@ -55933,6 +56192,32 @@ components:
       - created_at
       title: LimitResponse
       description: Response model for a limit.
+    app__core__session_usage__models__UpdateLimitRequest:
+      properties:
+        limit_value:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Limit Value
+        warning_threshold:
+          anyOf:
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      title: UpdateLimitRequest
+      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http
