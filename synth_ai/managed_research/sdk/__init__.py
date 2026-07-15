@@ -335,6 +335,7 @@ from synth_ai.managed_research.sdk.client import (
 )
 from synth_ai.managed_research.sdk.cloud_deployments import (
     CLOUD_SLOT_IDENTITIES,
+    CloudDeployment,
     CloudDeploymentArtifactContent,
     CloudDeploymentArtifactDescriptor,
     CloudDeploymentArtifactRoot,
@@ -345,6 +346,7 @@ from synth_ai.managed_research.sdk.cloud_deployments import (
     CloudDeploymentsAPI,
     CloudDeploymentService,
     CloudDeploymentServices,
+    CloudDeploymentTopologySource,
     CloudDeploymentWorkspace,
     CloudDeploymentWorkspaceLiveState,
     CloudDeploymentWorkspaceMaterialization,
@@ -393,6 +395,7 @@ __all__ = [
     "DevEnvironmentTopology",
     "DevEnvironmentUsage",
     "CloudDeploymentsAPI",
+    "CloudDeployment",
     "CloudDeploymentArtifactContent",
     "CloudDeploymentArtifactDescriptor",
     "CloudDeploymentArtifactRoot",
@@ -402,6 +405,7 @@ __all__ = [
     "CloudDeploymentProjectGitSource",
     "CloudDeploymentService",
     "CloudDeploymentServices",
+    "CloudDeploymentTopologySource",
     "CloudDeploymentWorkspace",
     "CloudDeploymentWorkspaceLiveState",
     "CloudDeploymentWorkspaceMaterialization",

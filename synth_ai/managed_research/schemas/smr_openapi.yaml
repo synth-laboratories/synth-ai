@@ -6558,9 +6558,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Create Cloud Deployment Smr V1 Deployments Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -6598,8 +6596,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  additionalProperties: true
+                  $ref: '#/components/schemas/CloudDeploymentResponse'
                 title: Response List Cloud Deployments Smr V1 Deployments Get
         '422':
           description: Validation Error
@@ -6626,10 +6623,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Get
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -6967,10 +6961,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Observe Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Observe Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -7018,10 +7009,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Deploy Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Deploy Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -7061,10 +7049,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Retire Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Retire Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -7096,10 +7081,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Acquire Cloud Deployment Claim Smr V1 Deployments  Deployment
-                  Id  Claims Post
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
         '422':
           description: Validation Error
           content:
@@ -7125,10 +7107,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Cloud Deployment Claims Smr V1 Deployments  Deployment
-                  Id  Claims Get
+                $ref: '#/components/schemas/CloudDeploymentClaimProjectionResponse'
         '422':
           description: Validation Error
           content:
@@ -7160,10 +7139,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Heartbeat Cloud Deployment Claim Smr V1 Deployments  Deployment
-                  Id  Claims  Claim Id  Heartbeat Post
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
         '422':
           description: Validation Error
           content:
@@ -7197,10 +7173,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Release Cloud Deployment Claim Smr V1 Deployments  Deployment
-                  Id  Claims  Claim Id  Release Post
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
         '422':
           description: Validation Error
           content:
@@ -28575,6 +28548,190 @@ components:
       - purpose
       - ttl_seconds
       title: CloudDeploymentClaimAcquireRequest
+    CloudDeploymentClaimProjectionResponse:
+      properties:
+        deployment_id:
+          type: string
+          title: Deployment Id
+        cloud_slot:
+          anyOf:
+          - type: string
+            enum:
+            - slot1-cloud
+            - slot2-cloud
+          - type: 'null'
+          title: Cloud Slot
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+        active_claim:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimResponse'
+          - type: 'null'
+        last_fencing_token:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Fencing Token
+      additionalProperties: false
+      type: object
+      required:
+      - deployment_id
+      - cloud_slot
+      - topology_id
+      - topology_version
+      - topology_source
+      - vm_name
+      - active_claim
+      - last_fencing_token
+      title: CloudDeploymentClaimProjectionResponse
+    CloudDeploymentClaimResponse:
+      properties:
+        claim_id:
+          type: string
+          title: Claim Id
+        deployment_id:
+          type: string
+          title: Deployment Id
+        org_id:
+          type: string
+          title: Org Id
+        holder:
+          type: string
+          title: Holder
+        purpose:
+          type: string
+          title: Purpose
+        ttl_seconds:
+          type: integer
+          title: Ttl Seconds
+        fencing_token:
+          type: integer
+          title: Fencing Token
+        state:
+          type: string
+          title: State
+        acquired_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Acquired At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        released_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Released At
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+        cloud_slot:
+          anyOf:
+          - type: string
+            enum:
+            - slot1-cloud
+            - slot2-cloud
+          - type: 'null'
+          title: Cloud Slot
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+      additionalProperties: false
+      type: object
+      required:
+      - claim_id
+      - deployment_id
+      - org_id
+      - holder
+      - purpose
+      - ttl_seconds
+      - fencing_token
+      - state
+      - acquired_at
+      - expires_at
+      - released_at
+      - created_at
+      - updated_at
+      - cloud_slot
+      - topology_id
+      - topology_version
+      - topology_source
+      - vm_name
+      title: CloudDeploymentClaimResponse
+    CloudDeploymentClaimTopologySourceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-topology-source-v1
+          title: Schema Version
+        kind:
+          type: string
+          const: backend_git
+          title: Kind
+        repository:
+          type: string
+          const: https://github.com/synth-laboratories/backend.git
+          title: Repository
+        implementation_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Implementation Commit Sha
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Topology Digest Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - kind
+      - repository
+      - implementation_commit_sha
+      - topology_id
+      - topology_version
+      - topology_digest_sha256
+      title: CloudDeploymentClaimTopologySourceResponse
     CloudDeploymentCreateRequest:
       properties:
         project_id:
@@ -28782,6 +28939,124 @@ components:
       - evidence_commit_sha
       - instance_id
       title: CloudDeploymentProjectGitSourceRequest
+    CloudDeploymentResponse:
+      properties:
+        deployment_id:
+          type: string
+          title: Deployment Id
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        host_kind:
+          type: string
+          title: Host Kind
+        state:
+          type: string
+          title: State
+        cloud_slot:
+          anyOf:
+          - type: string
+            enum:
+            - slot1-cloud
+            - slot2-cloud
+          - type: 'null'
+          title: Cloud Slot
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+        service_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Url
+        failure_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Reason
+        provisioned_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provisioned At
+        retired_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Retired At
+        vm_deleted:
+          type: boolean
+          title: Vm Deleted
+        request_payload:
+          additionalProperties: true
+          type: object
+          title: Request Payload
+        provision_receipts:
+          additionalProperties: true
+          type: object
+          title: Provision Receipts
+        health:
+          additionalProperties: true
+          type: object
+          title: Health
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - deployment_id
+      - org_id
+      - project_id
+      - name
+      - topology_id
+      - topology_version
+      - host_kind
+      - state
+      - cloud_slot
+      - topology_source
+      - vm_name
+      - service_url
+      - failure_reason
+      - provisioned_at
+      - retired_at
+      - vm_deleted
+      - request_payload
+      - provision_receipts
+      - health
+      - metadata
+      - created_at
+      - updated_at
+      title: CloudDeploymentResponse
     CloudDeploymentRetireRequest:
       properties:
         reason:
@@ -28867,6 +29142,45 @@ components:
       - services
       - deployment_health
       title: CloudDeploymentServicesResponse
+    CloudDeploymentTopologySourceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-topology-source-v1
+          title: Schema Version
+        kind:
+          type: string
+          const: backend_git
+          title: Kind
+        repository:
+          type: string
+          const: https://github.com/synth-laboratories/backend.git
+          title: Repository
+        implementation_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Implementation Commit Sha
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Topology Digest Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - kind
+      - repository
+      - implementation_commit_sha
+      - topology_id
+      - topology_version
+      - topology_digest_sha256
+      title: CloudDeploymentTopologySourceResponse
     CloudDeploymentWorkspaceLiveState:
       properties:
         available:

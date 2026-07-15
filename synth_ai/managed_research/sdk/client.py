@@ -49,6 +49,9 @@ from synth_ai.managed_research.models import (
     SmrRunUsage,
 )
 from synth_ai.managed_research.models.cloud_deployment_claims import ClaimAcquireRequest
+from synth_ai.managed_research.models.cloud_deployments import (
+    cloud_deployment_topology_source_from_wire,
+)
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_from_runs_payload,
@@ -167,6 +170,7 @@ from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
     CLOUD_SLOT_IDENTITIES,
+    CloudDeployment,
     CloudDeploymentArtifactContent,
     CloudDeploymentArtifacts,
     CloudDeploymentExecResult,
@@ -368,6 +372,38 @@ def _coerce_cloud_deployment_schema(
             f"{label} returned schema_version {schema_version!r}; expected {expected_schema!r}"
         )
     return result
+
+
+def _coerce_cloud_deployment(payload: Any, *, label: str) -> CloudDeployment:
+    result = _coerce_dict(payload, label=label)
+    if "cloud_slot" not in result or "topology_source" not in result:
+        raise ValueError(f"{label} omitted cloud-slot source authority")
+    result["cloud_slot"] = _optional_cloud_slot(result.get("cloud_slot"))
+    topology_id = _require_non_empty_string(
+        result.get("topology_id"),
+        field_name=f"{label}.topology_id",
+    )
+    topology_version = _require_non_empty_string(
+        result.get("topology_version"),
+        field_name=f"{label}.topology_version",
+    )
+    raw_topology_source = result.get("topology_source")
+    if raw_topology_source is not None:
+        topology_source = cloud_deployment_topology_source_from_wire(raw_topology_source)
+        if topology_source["topology_id"] != topology_id:
+            raise ValueError(f"{label} topology_source.topology_id does not match deployment")
+        if topology_source["topology_version"] != topology_version:
+            raise ValueError(f"{label} topology_source.topology_version does not match deployment")
+        result["topology_source"] = topology_source
+    return cast(CloudDeployment, result)
+
+
+def _coerce_cloud_deployment_list(payload: Any, *, label: str) -> list[CloudDeployment]:
+    rows = _coerce_dict_list(payload, label=label)
+    return [
+        _coerce_cloud_deployment(row, label=f"{label}[{index}]")
+        for index, row in enumerate(rows)
+    ]
 
 
 def _coerce_branch_request(
@@ -3965,22 +4001,27 @@ class ManagedResearchClient:
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
         cloud_slot: CloudSlotIdentity | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
+        normalized_project_id = _require_non_empty_string(
+            project_id,
+            field_name="project_id",
+        )
+        normalized_name = _require_non_empty_string(name, field_name="name")
+        normalized_topology_id = _require_non_empty_string(
+            topology_id,
+            field_name="topology_id",
+        )
+        normalized_topology_version = _optional_non_empty_string(topology_version)
+        normalized_host_kind = _require_non_empty_string(
+            host_kind,
+            field_name="host_kind",
+        )
         request_body: dict[str, Any] = {
-            "project_id": _require_non_empty_string(
-                project_id,
-                field_name="project_id",
-            ),
-            "name": _require_non_empty_string(name, field_name="name"),
-            "topology_id": _require_non_empty_string(
-                topology_id,
-                field_name="topology_id",
-            ),
-            "topology_version": _optional_non_empty_string(topology_version),
-            "host_kind": _require_non_empty_string(
-                host_kind,
-                field_name="host_kind",
-            ),
+            "project_id": normalized_project_id,
+            "name": normalized_name,
+            "topology_id": normalized_topology_id,
+            "topology_version": normalized_topology_version,
+            "host_kind": normalized_host_kind,
             "metadata": _optional_mapping(metadata, field_name="metadata") or {},
         }
         normalized_source = _optional_cloud_deployment_source(source)
@@ -3989,7 +4030,7 @@ class ManagedResearchClient:
         normalized_cloud_slot = _optional_cloud_slot(cloud_slot)
         if normalized_cloud_slot is not None:
             request_body["cloud_slot"] = normalized_cloud_slot
-        return _coerce_dict(
+        created = _coerce_cloud_deployment(
             self._request_json(
                 "POST",
                 "/smr/v1/deployments",
@@ -3997,14 +4038,36 @@ class ManagedResearchClient:
             ),
             label="create_cloud_deployment",
         )
+        expected_identity = {
+            "project_id": normalized_project_id,
+            "name": normalized_name,
+            "topology_id": normalized_topology_id,
+            "host_kind": normalized_host_kind,
+        }
+        if normalized_topology_version is not None:
+            expected_identity["topology_version"] = normalized_topology_version
+        for field_name, expected_value in expected_identity.items():
+            if created.get(field_name) != expected_value:
+                raise ValueError(
+                    "create_cloud_deployment response did not bind the request "
+                    f"({field_name}={created.get(field_name)!r}, expected={expected_value!r})"
+                )
+        if created["cloud_slot"] != normalized_cloud_slot:
+            raise ValueError(
+                "create_cloud_deployment response did not bind requested cloud_slot "
+                f"({created['cloud_slot']!r}, expected={normalized_cloud_slot!r})"
+            )
+        if created["topology_source"] is None:
+            raise ValueError("create_cloud_deployment response omitted immutable topology_source")
+        return created
 
     def list_cloud_deployments(
         self,
         *,
         project_id: str | None = None,
         limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
+    ) -> list[CloudDeployment]:
+        return _coerce_cloud_deployment_list(
             self._request_json(
                 "GET",
                 "/smr/v1/deployments",
@@ -4013,12 +4076,12 @@ class ManagedResearchClient:
             label="list_cloud_deployments",
         )
 
-    def get_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+    def get_cloud_deployment(self, *, deployment_id: str) -> CloudDeployment:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
-        return _coerce_dict(
+        return _coerce_cloud_deployment(
             self._request_json("GET", f"/smr/v1/deployments/{deployment_id}"),
             label="get_cloud_deployment",
         )
@@ -4028,13 +4091,13 @@ class ManagedResearchClient:
         *,
         deployment_id: str,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
         try:
-            return _coerce_dict(
+            return _coerce_cloud_deployment(
                 self._request_json(
                     "POST",
                     f"/smr/v1/deployments/{deployment_id}/observe",
@@ -4289,13 +4352,13 @@ class ManagedResearchClient:
         deployment_id: str,
         reason: str | None = None,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
         try:
-            return _coerce_dict(
+            return _coerce_cloud_deployment(
                 self._request_json(
                     "POST",
                     f"/smr/v1/deployments/{deployment_id}/deploy",
@@ -4316,13 +4379,13 @@ class ManagedResearchClient:
         delete_vm: bool = False,
         confirm_vm_name: str | None = None,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
         try:
-            return _coerce_dict(
+            return _coerce_cloud_deployment(
                 self._request_json(
                     "POST",
                     f"/smr/v1/deployments/{deployment_id}/retire",

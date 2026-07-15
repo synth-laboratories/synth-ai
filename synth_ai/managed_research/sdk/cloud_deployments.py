@@ -16,9 +16,11 @@ from contextlib import contextmanager
 from typing import Any, Iterator, List, Literal, Mapping, TypedDict
 
 from synth_ai.managed_research.models.cloud_deployment_claims import (
-    ClaimHeartbeat,
     ClaimProjection,
     CloudDeploymentClaim,
+)
+from synth_ai.managed_research.models.cloud_deployments import (
+    CloudDeploymentTopologySource,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
@@ -35,6 +37,33 @@ class CloudDeploymentProjectGitSource(TypedDict):
     source_commit_sha: str
     evidence_commit_sha: str
     instance_id: str
+
+
+class CloudDeployment(TypedDict):
+    """Typed durable CloudDeployment projection returned by every lifecycle verb."""
+
+    deployment_id: str
+    org_id: str
+    project_id: str
+    name: str
+    topology_id: str
+    topology_version: str
+    host_kind: str
+    state: str
+    cloud_slot: CloudSlotIdentity | None
+    topology_source: CloudDeploymentTopologySource | None
+    vm_name: str | None
+    service_url: str | None
+    failure_reason: str | None
+    provisioned_at: str | None
+    retired_at: str | None
+    vm_deleted: bool
+    request_payload: dict[str, Any]
+    provision_receipts: dict[str, Any]
+    health: dict[str, Any]
+    metadata: dict[str, Any]
+    created_at: str | None
+    updated_at: str | None
 
 
 class CloudDeploymentService(TypedDict):
@@ -202,7 +231,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
         cloud_slot: CloudSlotIdentity | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         return self._client.create_cloud_deployment(
             project_id=project_id,
             name=name,
@@ -219,13 +248,13 @@ class CloudDeploymentsAPI(_ClientNamespace):
         *,
         project_id: str | None = None,
         limit: int = 100,
-    ) -> List[dict[str, Any]]:
+    ) -> List[CloudDeployment]:
         return self._client.list_cloud_deployments(
             project_id=project_id,
             limit=limit,
         )
 
-    def get(self, *, deployment_id: str) -> dict[str, Any]:
+    def get(self, *, deployment_id: str) -> CloudDeployment:
         return self._client.get_cloud_deployment(deployment_id=deployment_id)
 
     def observe(
@@ -233,7 +262,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         *,
         deployment_id: str,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         """Refresh substrate health, fenced when an active claim exists."""
         return self._client.observe_cloud_deployment(
             deployment_id=deployment_id,
@@ -344,7 +373,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         deployment_id: str,
         reason: str | None = None,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         """Deploy (or retry) the stack; ``fencing_token`` is sent as ``X-Fencing-Token``.
 
         When a claim is active the backend refuses unfenced mutations
@@ -365,7 +394,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         delete_vm: bool = False,
         confirm_vm_name: str | None = None,
         fencing_token: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         """Retire the deployment; ``fencing_token`` is sent as ``X-Fencing-Token``.
 
         When a claim is active the backend refuses unfenced mutations
@@ -432,15 +461,15 @@ class CloudDeploymentsAPI(_ClientNamespace):
         *,
         deployment_id: str,
         claim_id: str,
-    ) -> ClaimHeartbeat:
-        """Renew the claim TTL; returns the new ``expires_at``.
+    ) -> CloudDeploymentClaim:
+        """Renew the claim TTL; returns the refreshed claim and deployment authority.
 
         Raises ClaimExpiredError (410 ``claim_expired``) when the TTL already
         lapsed and ClaimSupersededError (409 ``claim_superseded``) when a newer
         claim replaced this one. The caller owns heartbeat cadence — the SDK
         never heartbeats in the background.
         """
-        return ClaimHeartbeat.from_wire(
+        return CloudDeploymentClaim.from_wire(
             self._client.heartbeat_cloud_deployment_claim(
                 deployment_id=deployment_id,
                 claim_id=claim_id,
@@ -529,7 +558,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         deployment_id: str,
         timeout_seconds: float = 1800.0,
         poll_seconds: float = 10.0,
-    ) -> dict[str, Any]:
+    ) -> CloudDeployment:
         """Poll until the deployment serves (state `running`).
 
         Raises RuntimeError with the deployment's failure_reason when it lands
@@ -570,11 +599,13 @@ __all__ = [
     "CloudDeploymentArtifactDescriptor",
     "CloudDeploymentArtifactRoot",
     "CloudDeploymentArtifacts",
+    "CloudDeployment",
     "CloudDeploymentExecResult",
     "CloudDeploymentLogs",
     "CloudDeploymentProjectGitSource",
     "CloudDeploymentService",
     "CloudDeploymentServices",
+    "CloudDeploymentTopologySource",
     "CloudDeploymentsAPI",
     "CloudDeploymentWorkspace",
     "CloudDeploymentWorkspaceLiveState",

@@ -11,7 +11,8 @@ Wire contract (frozen with the backend claims lane):
 - ``POST /smr/v1/deployments/{deployment_id}/claims`` with
   ``{holder, purpose, ttl_seconds}`` returns ``{claim_id, deployment_id,
   holder, purpose, fencing_token, acquired_at, expires_at}``.
-- ``POST .../claims/{claim_id}/heartbeat`` returns ``{expires_at}``.
+- ``POST .../claims/{claim_id}/heartbeat`` returns the refreshed claim and
+  repeats the deployment's slot, topology-source, and VM authority.
 - ``POST .../claims/{claim_id}/release`` is idempotent and returns claim state.
 - ``GET .../claims`` returns the active claim (or explicit none) plus the last
   fencing token issued.
@@ -22,6 +23,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal, cast
+
+from synth_ai.managed_research.models.cloud_deployments import (
+    CloudDeploymentTopologySource,
+    cloud_deployment_topology_source_from_wire,
+)
 
 
 def _require_mapping(payload: object, *, label: str) -> Mapping[str, object]:
@@ -88,6 +95,41 @@ def _required_int(payload: Mapping[str, object], key: str, *, label: str) -> int
     return value
 
 
+def _optional_cloud_slot(
+    payload: Mapping[str, object],
+) -> Literal["slot1-cloud", "slot2-cloud"] | None:
+    value = _optional_text(payload, "cloud_slot")
+    if value is None:
+        return None
+    if value not in {"slot1-cloud", "slot2-cloud"}:
+        raise ValueError("cloud_slot must be slot1-cloud or slot2-cloud")
+    return cast(Literal["slot1-cloud", "slot2-cloud"], value)
+
+
+def _optional_topology_source(
+    payload: Mapping[str, object],
+) -> CloudDeploymentTopologySource | None:
+    value = payload.get("topology_source")
+    if value is None:
+        return None
+    return cloud_deployment_topology_source_from_wire(value)
+
+
+def _validate_topology_source_binding(
+    topology_source: CloudDeploymentTopologySource | None,
+    *,
+    topology_id: str,
+    topology_version: str,
+    label: str,
+) -> None:
+    if topology_source is None:
+        return
+    if topology_source["topology_id"] != topology_id:
+        raise ValueError(f"{label}.topology_source topology_id does not match authority")
+    if topology_source["topology_version"] != topology_version:
+        raise ValueError(f"{label}.topology_source topology_version does not match authority")
+
+
 @dataclass(frozen=True, slots=True)
 class ClaimAcquireRequest:
     """Request body for ``POST /smr/v1/deployments/{deployment_id}/claims``."""
@@ -130,12 +172,30 @@ class CloudDeploymentClaim:
     fencing_token: int
     acquired_at: datetime
     expires_at: datetime
+    cloud_slot: Literal["slot1-cloud", "slot2-cloud"] | None
+    topology_id: str
+    topology_version: str
+    topology_source: CloudDeploymentTopologySource | None
+    vm_name: str | None
     state: str | None = None
     released_at: datetime | None = None
 
     @classmethod
     def from_wire(cls, payload: Mapping[str, object] | object) -> CloudDeploymentClaim:
         mapping = _require_mapping(payload, label="cloud deployment claim")
+        topology_id = _required_text(mapping, "topology_id", label="topology_id")
+        topology_version = _required_text(
+            mapping,
+            "topology_version",
+            label="topology_version",
+        )
+        topology_source = _optional_topology_source(mapping)
+        _validate_topology_source_binding(
+            topology_source,
+            topology_id=topology_id,
+            topology_version=topology_version,
+            label="cloud deployment claim",
+        )
         return cls(
             claim_id=_required_text(mapping, "claim_id", label="claim_id"),
             deployment_id=_required_text(mapping, "deployment_id", label="deployment_id"),
@@ -144,6 +204,11 @@ class CloudDeploymentClaim:
             fencing_token=_required_int(mapping, "fencing_token", label="fencing_token"),
             acquired_at=_required_datetime(mapping, "acquired_at", label="acquired_at"),
             expires_at=_required_datetime(mapping, "expires_at", label="expires_at"),
+            cloud_slot=_optional_cloud_slot(mapping),
+            topology_id=topology_id,
+            topology_version=topology_version,
+            topology_source=topology_source,
+            vm_name=_optional_text(mapping, "vm_name"),
             state=_optional_text(mapping, "state"),
             released_at=_optional_datetime(mapping, "released_at"),
         )
@@ -151,7 +216,7 @@ class CloudDeploymentClaim:
 
 @dataclass(frozen=True, slots=True)
 class ClaimHeartbeat:
-    """Response of ``POST .../claims/{claim_id}/heartbeat`` — the renewed expiry."""
+    """Legacy expiry-only adapter; heartbeat APIs now return ``CloudDeploymentClaim``."""
 
     expires_at: datetime
 
@@ -172,23 +237,65 @@ class ClaimProjection:
     """
 
     deployment_id: str
+    cloud_slot: Literal["slot1-cloud", "slot2-cloud"] | None
+    topology_id: str
+    topology_version: str
+    topology_source: CloudDeploymentTopologySource | None
+    vm_name: str | None
     active_claim: CloudDeploymentClaim | None
     last_fencing_token: int | None
 
     @classmethod
     def from_wire(cls, payload: Mapping[str, object] | object) -> ClaimProjection:
         mapping = _require_mapping(payload, label="claim projection")
+        deployment_id = _required_text(mapping, "deployment_id", label="deployment_id")
+        cloud_slot = _optional_cloud_slot(mapping)
+        topology_id = _required_text(mapping, "topology_id", label="topology_id")
+        topology_version = _required_text(
+            mapping,
+            "topology_version",
+            label="topology_version",
+        )
+        topology_source = _optional_topology_source(mapping)
+        vm_name = _optional_text(mapping, "vm_name")
+        _validate_topology_source_binding(
+            topology_source,
+            topology_id=topology_id,
+            topology_version=topology_version,
+            label="claim projection",
+        )
         raw_active = mapping.get("active_claim")
         active_claim = None if raw_active is None else CloudDeploymentClaim.from_wire(raw_active)
-        deployment_id = _optional_text(mapping, "deployment_id")
-        if deployment_id is None and active_claim is not None:
-            deployment_id = active_claim.deployment_id
-        if deployment_id is None:
-            raise ValueError("deployment_id is required")
+        last_fencing_token = _optional_int(mapping, "last_fencing_token")
+        if active_claim is not None:
+            projection_authority = {
+                "deployment_id": deployment_id,
+                "cloud_slot": cloud_slot,
+                "topology_id": topology_id,
+                "topology_version": topology_version,
+                "topology_source": topology_source,
+                "vm_name": vm_name,
+            }
+            for field_name, expected_value in projection_authority.items():
+                if getattr(active_claim, field_name) != expected_value:
+                    raise ValueError(
+                        "active_claim authority does not match claim projection "
+                        f"for {field_name}"
+                    )
+            if active_claim.fencing_token != last_fencing_token:
+                raise ValueError(
+                    "active_claim fencing_token does not match claim projection "
+                    "last_fencing_token"
+                )
         return cls(
             deployment_id=deployment_id,
+            cloud_slot=cloud_slot,
+            topology_id=topology_id,
+            topology_version=topology_version,
+            topology_source=topology_source,
+            vm_name=vm_name,
             active_claim=active_claim,
-            last_fencing_token=_optional_int(mapping, "last_fencing_token"),
+            last_fencing_token=last_fencing_token,
         )
 
 
