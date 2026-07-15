@@ -49,6 +49,7 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
 ```python
 from synth_ai import SynthClient
+from synth_ai.managed_research.models import TagSessionCreateRequest
 
 client = SynthClient()
 
@@ -77,7 +78,13 @@ research = client.research
 limits = research.limits.get()
 
 # Factory Tag loop
-session = research.factories.tag.sessions.create("Improve rollout throughput")
+session = research.factories.tag.sessions.create(
+    TagSessionCreateRequest(
+        request="Improve rollout throughput",
+        factory_id=factory_id,
+        effort_id=effort_id,
+    )
+)
 research.factories.tag.sessions.messages.send(session.session_id, "Status update")
 scope = research.factories.tag.scopes.get_default()
 

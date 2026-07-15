@@ -1465,9 +1465,7 @@ class ManagedResearchClient:
         )
 
     def get_tag_session_factory_context(self, session_id: str) -> dict[str, Any]:
-        session_id_value = _require_non_empty_string(
-            session_id, field_name="session_id"
-        )
+        session_id_value = _require_non_empty_string(session_id, field_name="session_id")
         return _coerce_dict(
             self._request_json(
                 "GET",

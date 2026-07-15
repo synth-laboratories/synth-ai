@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 
 class TagSessionStatus(StrEnum):
@@ -52,7 +52,7 @@ class TagChampionEventAction(StrEnum):
 def _mapping(payload: object, *, label: str) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} must be an object")
-    return dict(payload)
+    return dict(cast(Mapping[str, Any], payload))
 
 
 def _optional_mapping(payload: Mapping[str, Any], key: str) -> dict[str, Any] | None:
@@ -329,9 +329,7 @@ class TagSessionReceipt:
             run_id=_optional_string(data, "run_id"),
             run_url=_optional_string(data, "run_url"),
             artifact_urls=[str(item) for item in data.get("artifact_urls") or []],
-            artifacts=[
-                TagArtifactLink.from_wire(item) for item in data.get("artifacts") or []
-            ],
+            artifacts=[TagArtifactLink.from_wire(item) for item in data.get("artifacts") or []],
             artifact_empty_reason=_optional_string(data, "artifact_empty_reason"),
             terminal_outcome=_optional_string(data, "terminal_outcome"),
             project_url=_optional_string(data, "project_url"),
@@ -341,8 +339,7 @@ class TagSessionReceipt:
             wiki_urls=[str(item) for item in data.get("wiki_urls") or []],
             git_urls=[str(item) for item in data.get("git_urls") or []],
             steering_receipts=[
-                TagSteeringReceipt.from_wire(item)
-                for item in data.get("steering_receipts") or []
+                TagSteeringReceipt.from_wire(item) for item in data.get("steering_receipts") or []
             ],
         )
 
@@ -455,9 +452,7 @@ class TagSessionWatch:
         )
 
     @classmethod
-    def from_payload(
-        cls, payload: Mapping[str, Any] | dict[str, Any]
-    ) -> TagSessionWatch:
+    def from_payload(cls, payload: Mapping[str, Any] | dict[str, Any]) -> TagSessionWatch:
         return cls.from_wire(payload)
 
 
@@ -552,9 +547,7 @@ class TagFactoryContext:
             factory_id=_required_string(data, "factory_id"),
             effort_id=_optional_string(data, "effort_id"),
             experiment_ref=_optional_string(data, "experiment_ref"),
-            champion=(
-                TagFactoryChampion.from_wire(champion) if champion is not None else None
-            ),
+            champion=(TagFactoryChampion.from_wire(champion) if champion is not None else None),
             last_champion_event=(
                 TagFactoryChampionEvent.from_wire(event) if event is not None else None
             ),

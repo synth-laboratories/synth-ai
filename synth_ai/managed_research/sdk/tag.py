@@ -25,9 +25,7 @@ class TagAPI(_ClientNamespace):
     ) -> TagSession:
         if not isinstance(request, TagSessionCreateRequest):
             raise TypeError("request must be TagSessionCreateRequest")
-        return TagSession.from_payload(
-            self._client.create_tag_session(request.to_wire())
-        )
+        return TagSession.from_payload(self._client.create_tag_session(request.to_wire()))
 
     def get_session(self, session_id: str) -> TagSession:
         return TagSession.from_wire(self._client.get_tag_session(session_id))
