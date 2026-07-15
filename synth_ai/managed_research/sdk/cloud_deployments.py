@@ -23,6 +23,8 @@ from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 _RETRYABLE_FAILURE_STATES = frozenset({"failed"})
 _TERMINAL_STATES = frozenset({"retired"})
+CLOUD_SLOT_IDENTITIES = ("slot1-cloud", "slot2-cloud")
+CloudSlotIdentity = Literal["slot1-cloud", "slot2-cloud"]
 
 
 class CloudDeploymentProjectGitSource(TypedDict):
@@ -45,6 +47,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
         host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
+        cloud_slot: CloudSlotIdentity | None = None,
     ) -> dict[str, Any]:
         return self._client.create_cloud_deployment(
             project_id=project_id,
@@ -54,6 +57,7 @@ class CloudDeploymentsAPI(_ClientNamespace):
             host_kind=host_kind,
             metadata=metadata,
             source=source,
+            cloud_slot=cloud_slot,
         )
 
     def list(
@@ -299,4 +303,9 @@ class CloudDeploymentsAPI(_ClientNamespace):
             payload = self.get(deployment_id=deployment_id)
 
 
-__all__ = ["CloudDeploymentProjectGitSource", "CloudDeploymentsAPI"]
+__all__ = [
+    "CLOUD_SLOT_IDENTITIES",
+    "CloudDeploymentProjectGitSource",
+    "CloudDeploymentsAPI",
+    "CloudSlotIdentity",
+]

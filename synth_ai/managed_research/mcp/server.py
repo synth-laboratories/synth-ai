@@ -71,6 +71,7 @@ from synth_ai.managed_research.open_research import (
 )
 from synth_ai.managed_research.open_research.models import ExperimentStatusFilter
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.managed_research.sdk.cloud_deployments import CLOUD_SLOT_IDENTITIES, CloudSlotIdentity
 from synth_ai.managed_research.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
@@ -177,6 +178,16 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
     if not isinstance(value, list):
         return ()
     return tuple(str(item) for item in value)
+
+
+def _optional_cloud_slot_arg(args: JSONDict) -> CloudSlotIdentity | None:
+    value = optional_string(args, "cloud_slot")
+    if value is None:
+        return None
+    if value not in CLOUD_SLOT_IDENTITIES:
+        supported = ", ".join(CLOUD_SLOT_IDENTITIES)
+        raise ValueError(f"cloud_slot must be one of: {supported}")
+    return cast(CloudSlotIdentity, value)
 
 
 def _mcp_jsonable(value: Any) -> Any:
@@ -1546,6 +1557,7 @@ class ManagedResearchMcpServer:
                     host_kind=optional_string(args, "host_kind") or "exe_dev",
                     metadata=_object_arg(args, "metadata"),
                     source=_object_arg(args, "source"),
+                    cloud_slot=_optional_cloud_slot_arg(args),
                 )
             )
 
@@ -1566,6 +1578,7 @@ class ManagedResearchMcpServer:
                 client.cloud_deployments.deploy(
                     deployment_id=deployment_id,
                     reason=optional_string(args, "reason"),
+                    fencing_token=optional_int(args, "fencing_token"),
                 )
             )
 
@@ -1582,8 +1595,49 @@ class ManagedResearchMcpServer:
                     reason=optional_string(args, "reason"),
                     delete_vm=delete_vm,
                     confirm_vm_name=confirm_vm_name,
+                    fencing_token=optional_int(args, "fencing_token"),
                 )
             )
+
+    def _tool_acquire_cloud_deployment_claim(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        ttl_seconds = optional_int(args, "ttl_seconds")
+        if ttl_seconds is None:
+            raise ValueError("ttl_seconds is required")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.acquire_claim(
+                    deployment_id=deployment_id,
+                    holder=require_string(args, "holder"),
+                    purpose=require_string(args, "purpose"),
+                    ttl_seconds=ttl_seconds,
+                )
+            )
+
+    def _tool_heartbeat_cloud_deployment_claim(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.heartbeat_claim(
+                    deployment_id=deployment_id,
+                    claim_id=require_string(args, "claim_id"),
+                )
+            )
+
+    def _tool_release_cloud_deployment_claim(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.release_claim(
+                    deployment_id=deployment_id,
+                    claim_id=require_string(args, "claim_id"),
+                )
+            )
+
+    def _tool_get_cloud_deployment_claims(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.cloud_deployments.get_claims(deployment_id=deployment_id))
 
     def _tool_get_project_notes(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

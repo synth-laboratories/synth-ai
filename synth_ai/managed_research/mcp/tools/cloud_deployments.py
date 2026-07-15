@@ -20,12 +20,21 @@ _REASON = {
     }
 }
 
+_FENCING_TOKEN = {
+    "fencing_token": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Active claim fencing token required for a claimed deployment.",
+    }
+}
+
 
 def _cloud_deployment_action_schema() -> dict[str, Any]:
     return tool_schema(
         {
             **_CLOUD_DEPLOYMENT_ID,
             **_REASON,
+            **_FENCING_TOKEN,
         },
         required=["deployment_id"],
     )
@@ -75,6 +84,11 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                     "host_kind": {
                         "type": "string",
                         "description": "Service substrate kind. Defaults to exe_dev.",
+                    },
+                    "cloud_slot": {
+                        "type": "string",
+                        "enum": ["slot1-cloud", "slot2-cloud"],
+                        "description": "Optional canonical cloud-slot identity.",
                     },
                     "metadata": {
                         "type": "object",
@@ -149,6 +163,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                 {
                     **_CLOUD_DEPLOYMENT_ID,
                     **_REASON,
+                    **_FENCING_TOKEN,
                     "delete_vm": {
                         "type": "boolean",
                         "description": "Whether to delete the substrate VM. Defaults to false.",
@@ -161,6 +176,66 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                 required=["deployment_id"],
             ),
             handler=server._tool_retire_cloud_deployment,
+        ),
+        ToolDefinition(
+            name="smr_acquire_cloud_deployment_claim",
+            description="Acquire the TTL-bounded claim and mint a fencing token.",
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "holder": {
+                        "type": "string",
+                        "description": "Stable operator or agent identity.",
+                    },
+                    "purpose": {
+                        "type": "string",
+                        "description": "Human-readable reason for the claim.",
+                    },
+                    "ttl_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "Claim lifetime before a heartbeat is required.",
+                    },
+                },
+                required=["deployment_id", "holder", "purpose", "ttl_seconds"],
+            ),
+            handler=server._tool_acquire_cloud_deployment_claim,
+        ),
+        ToolDefinition(
+            name="smr_heartbeat_cloud_deployment_claim",
+            description="Renew the active cloud-deployment claim TTL.",
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "claim_id": {
+                        "type": "string",
+                        "description": "Claim id returned by acquire.",
+                    },
+                },
+                required=["deployment_id", "claim_id"],
+            ),
+            handler=server._tool_heartbeat_cloud_deployment_claim,
+        ),
+        ToolDefinition(
+            name="smr_release_cloud_deployment_claim",
+            description="Release a cloud-deployment claim idempotently.",
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "claim_id": {
+                        "type": "string",
+                        "description": "Claim id returned by acquire.",
+                    },
+                },
+                required=["deployment_id", "claim_id"],
+            ),
+            handler=server._tool_release_cloud_deployment_claim,
+        ),
+        ToolDefinition(
+            name="smr_get_cloud_deployment_claims",
+            description="Read active claim and last-issued fencing-token truth.",
+            input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
+            handler=server._tool_get_cloud_deployment_claims,
         ),
     ]
 
