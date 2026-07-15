@@ -263,16 +263,12 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 120,
-                        "description": (
-                            "Optional declared root id; omit to inspect root availability."
-                        ),
+                        "description": "Optional declared root id; omit to inspect root availability.",
                     },
                     "relative_prefix": {
                         "type": "string",
                         "maxLength": 512,
-                        "description": (
-                            "Optional repository-relative directory prefix within the root."
-                        ),
+                        "description": "Optional repository-relative directory prefix within the root.",
                     },
                     "after": {
                         "type": "string",
