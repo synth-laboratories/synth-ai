@@ -6,6 +6,9 @@ the up / run / down loop against remote branches:
 
     uv run scripts/cloud_slot.py up   --cloud-slot slot1-cloud --commit <sha>
     uv run scripts/cloud_slot.py run  --cloud-slot slot1-cloud    # redeploy + reprove
+    uv run scripts/cloud_slot.py exec --cloud-slot slot1-cloud --fencing-token <n> -- git status
+    uv run scripts/cloud_slot.py services --cloud-slot slot1-cloud
+    uv run scripts/cloud_slot.py logs --cloud-slot slot1-cloud --service-id backend-api
     uv run scripts/cloud_slot.py ls                              # what sltop CLOUD shows
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud    # retire (keep VM)
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud --delete-vm --confirm-vm-name <vm>
@@ -249,6 +252,72 @@ def cmd_run(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def cmd_exec(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    argv = list(args.argv)
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    if not argv:
+        raise CloudSlotError("exec requires command argv after '--'")
+    result = client.cloud_deployments.exec(
+        deployment_id=str(deployment["deployment_id"]),
+        argv=argv,
+        fencing_token=args.fencing_token,
+        cwd=args.cwd,
+        timeout_seconds=args.timeout_seconds,
+        max_output_bytes=args.max_output_bytes,
+    )
+    _emit({"action": "exec", "deployment": _summary(deployment), "result": result})
+    return int(result["exit_code"])
+
+
+def cmd_services(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    services = client.cloud_deployments.services(
+        deployment_id=str(deployment["deployment_id"]),
+    )
+    _emit({"deployment": _summary(deployment), "service_discovery": services})
+    return 0
+
+
+def cmd_workspace(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    workspace = client.cloud_deployments.workspace(
+        deployment_id=str(deployment["deployment_id"]),
+    )
+    _emit({"deployment": _summary(deployment), "workspace": workspace})
+    return 0
+
+
+def cmd_materialize(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    receipt = client.cloud_deployments.materialize_workspace(
+        deployment_id=str(deployment["deployment_id"]),
+        repository=args.repository,
+        branch=args.branch,
+        source_commit_sha=args.source_commit_sha,
+        fencing_token=args.fencing_token,
+    )
+    _emit({"action": "materialize", "deployment": _summary(deployment), "receipt": receipt})
+    return 0
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    logs = client.cloud_deployments.logs(
+        deployment_id=str(deployment["deployment_id"]),
+        service_id=args.service_id,
+        tail=args.tail,
+    )
+    _emit({"deployment": _summary(deployment), "logs": logs})
+    return int(logs["exit_code"])
+
+
 def cmd_down(args: argparse.Namespace) -> int:
     client = _client(args)
     deployment = _resolve_deployment(client, args)
@@ -295,6 +364,17 @@ def cmd_health(args: argparse.Namespace) -> int:
     health = _health_probe(service_url, args.health_path)
     _emit({"deployment": _summary(deployment), "health": health})
     return 0 if health.get("ok") is True else 1
+
+
+def cmd_observe(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    observed = client.cloud_deployments.observe(
+        deployment_id=str(deployment["deployment_id"]),
+        fencing_token=args.fencing_token,
+    )
+    _emit({"action": "observe", "deployment": observed})
+    return 0
 
 
 def cmd_claim(args: argparse.Namespace) -> int:
@@ -387,6 +467,46 @@ def _build_parser() -> argparse.ArgumentParser:
     add_wait_flags(p_run)
     p_run.set_defaults(func=cmd_run)
 
+    p_exec = sub.add_parser(
+        "exec",
+        help="execute command argv in the declared workspace (requires active claim fencing)",
+    )
+    add_address_flags(p_exec)
+    p_exec.add_argument("--fencing-token", type=int, required=True)
+    p_exec.add_argument("--cwd", default=None, help="path relative to the declared workspace root")
+    p_exec.add_argument("--timeout-seconds", type=int, default=300)
+    p_exec.add_argument("--max-output-bytes", type=int, default=65_536)
+    p_exec.add_argument("argv", nargs=argparse.REMAINDER, help="command argv after '--'")
+    p_exec.set_defaults(func=cmd_exec)
+
+    p_services = sub.add_parser(
+        "services",
+        help="discover topology-declared services and endpoints",
+    )
+    add_address_flags(p_services)
+    p_services.set_defaults(func=cmd_services)
+
+    p_workspace = sub.add_parser("workspace", help="show declared and live workspace source proof")
+    add_address_flags(p_workspace)
+    p_workspace.set_defaults(func=cmd_workspace)
+
+    p_materialize = sub.add_parser(
+        "materialize",
+        help="materialize an exact declared repository source (requires active claim fencing)",
+    )
+    add_address_flags(p_materialize)
+    p_materialize.add_argument("--repository", required=True)
+    p_materialize.add_argument("--branch", required=True)
+    p_materialize.add_argument("--source-commit-sha", required=True)
+    p_materialize.add_argument("--fencing-token", type=int, required=True)
+    p_materialize.set_defaults(func=cmd_materialize)
+
+    p_logs = sub.add_parser("logs", help="read bounded logs for a declared service")
+    add_address_flags(p_logs)
+    p_logs.add_argument("--service-id", required=True)
+    p_logs.add_argument("--tail", type=int, default=200)
+    p_logs.set_defaults(func=cmd_logs)
+
     for command in ("down", "retire"):
         p_down = sub.add_parser(command, help="retire a slot (keeps the VM unless --delete-vm)")
         add_address_flags(p_down)
@@ -410,11 +530,26 @@ def _build_parser() -> argparse.ArgumentParser:
     p_health.add_argument("--health-path", default="/health")
     p_health.set_defaults(func=cmd_health)
 
+    p_observe = sub.add_parser("observe", help="refresh substrate health and lifecycle state")
+    add_address_flags(p_observe)
+    p_observe.add_argument(
+        "--fencing-token",
+        type=int,
+        default=None,
+        help="active claim fencing token (required when a claim is active)",
+    )
+    p_observe.set_defaults(func=cmd_observe)
+
     p_claim = sub.add_parser("claim", help="acquire a TTL claim and fencing token")
     add_address_flags(p_claim)
     p_claim.add_argument("--holder", required=True)
     p_claim.add_argument("--purpose", required=True)
-    p_claim.add_argument("--ttl-seconds", type=int, default=300)
+    p_claim.add_argument(
+        "--ttl-seconds",
+        type=int,
+        default=900,
+        help="claim lifetime (default: 900; covers default exec and materialization budgets)",
+    )
     p_claim.set_defaults(func=cmd_claim)
 
     p_heartbeat = sub.add_parser("heartbeat", help="renew a cloud-slot claim")
@@ -438,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     try:
         return int(args.func(args))
-    except CloudSlotError as exc:
+    except (CloudSlotError, ValueError) as exc:
         print(f"cloud-slot: {exc}", file=sys.stderr)
         return 2
     except SmrApiError as exc:

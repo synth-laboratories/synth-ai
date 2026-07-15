@@ -36,6 +36,105 @@ class CloudDeploymentProjectGitSource(TypedDict):
     instance_id: str
 
 
+class CloudDeploymentService(TypedDict):
+    """One topology-declared service available on a CloudDeployment."""
+
+    service_id: str
+    kind: str
+    required: bool
+    endpoint: str | None
+    health_checks: list[dict[str, Any]]
+    logs_supported: bool
+
+
+class CloudDeploymentServices(TypedDict):
+    """Declared service discovery projection (``cloud-deployment-services-v1``)."""
+
+    schema_version: Literal["cloud-deployment-services-v1"]
+    deployment_id: str
+    vm_name: str
+    service_url: str | None
+    services: list[CloudDeploymentService]
+    deployment_health: dict[str, Any]
+
+
+class CloudDeploymentWorkspaceLiveState(TypedDict):
+    """Observed Git state for one declared workspace repository."""
+
+    available: bool
+    head_commit_sha: str | None
+    branch: str | None
+    detached: bool
+    dirty_path_count: int | None
+
+
+class CloudDeploymentWorkspaceRepository(TypedDict):
+    """Declared and observed source identity for one workspace repository."""
+
+    repository: str
+    path: str
+    remote_repo: str
+    declared_branch: str
+    declared_source_commit_sha: str
+    authority: str
+    live: CloudDeploymentWorkspaceLiveState
+
+
+class CloudDeploymentWorkspace(TypedDict):
+    """Workspace/source proof projection (``cloud-deployment-workspace-v1``)."""
+
+    schema_version: Literal["cloud-deployment-workspace-v1"]
+    deployment_id: str
+    vm_name: str
+    workspace_root: str
+    repositories: list[CloudDeploymentWorkspaceRepository]
+
+
+class CloudDeploymentWorkspaceMaterialization(TypedDict):
+    """Exact-source materialization receipt for a declared repository."""
+
+    schema_version: Literal["cloud-deployment-workspace-materialization-v1"]
+    deployment_id: str
+    vm_name: str
+    repository: str
+    path: str
+    branch: str
+    source_commit_sha: str
+    clean: bool
+    detached: bool
+
+
+class CloudDeploymentExecResult(TypedDict):
+    """Bounded argv execution result (``cloud-deployment-exec-v1``)."""
+
+    schema_version: Literal["cloud-deployment-exec-v1"]
+    deployment_id: str
+    vm_name: str
+    working_directory: str
+    argv_count: int
+    timeout_seconds: float
+    exit_code: int
+    stdout: str
+    stderr: str
+    stdout_truncated: bool
+    stderr_truncated: bool
+
+
+class CloudDeploymentLogs(TypedDict):
+    """Bounded declared-service logs result (``cloud-deployment-logs-v1``)."""
+
+    schema_version: Literal["cloud-deployment-logs-v1"]
+    deployment_id: str
+    vm_name: str
+    service_id: str
+    tail: int
+    exit_code: int
+    stdout: str
+    stderr: str
+    stdout_truncated: bool
+    stderr_truncated: bool
+
+
 class CloudDeploymentsAPI(_ClientNamespace):
     def create(
         self,
@@ -74,8 +173,77 @@ class CloudDeploymentsAPI(_ClientNamespace):
     def get(self, *, deployment_id: str) -> dict[str, Any]:
         return self._client.get_cloud_deployment(deployment_id=deployment_id)
 
-    def observe(self, *, deployment_id: str) -> dict[str, Any]:
-        return self._client.observe_cloud_deployment(deployment_id=deployment_id)
+    def observe(
+        self,
+        *,
+        deployment_id: str,
+        fencing_token: int | None = None,
+    ) -> dict[str, Any]:
+        """Refresh substrate health, fenced when an active claim exists."""
+        return self._client.observe_cloud_deployment(
+            deployment_id=deployment_id,
+            fencing_token=fencing_token,
+        )
+
+    def services(self, *, deployment_id: str) -> CloudDeploymentServices:
+        """Discover topology-declared services and their routed endpoints."""
+        return self._client.get_cloud_deployment_services(deployment_id=deployment_id)
+
+    def workspace(self, *, deployment_id: str) -> CloudDeploymentWorkspace:
+        """Inspect declared repositories and their live Git/source state."""
+        return self._client.get_cloud_deployment_workspace(deployment_id=deployment_id)
+
+    def materialize_workspace(
+        self,
+        *,
+        deployment_id: str,
+        repository: str,
+        branch: str,
+        source_commit_sha: str,
+        fencing_token: int,
+    ) -> CloudDeploymentWorkspaceMaterialization:
+        """Materialize an exact declared source under an active fenced claim."""
+        return self._client.materialize_cloud_deployment_workspace(
+            deployment_id=deployment_id,
+            repository=repository,
+            branch=branch,
+            source_commit_sha=source_commit_sha,
+            fencing_token=fencing_token,
+        )
+
+    def exec(
+        self,
+        *,
+        deployment_id: str,
+        argv: list[str],
+        fencing_token: int,
+        cwd: str | None = None,
+        timeout_seconds: int = 300,
+        max_output_bytes: int = 65_536,
+    ) -> CloudDeploymentExecResult:
+        """Execute argv (never caller shell text) under an active fenced claim."""
+        return self._client.exec_cloud_deployment(
+            deployment_id=deployment_id,
+            argv=argv,
+            fencing_token=fencing_token,
+            cwd=cwd,
+            timeout_seconds=timeout_seconds,
+            max_output_bytes=max_output_bytes,
+        )
+
+    def logs(
+        self,
+        *,
+        deployment_id: str,
+        service_id: str,
+        tail: int = 200,
+    ) -> CloudDeploymentLogs:
+        """Read bounded logs for a topology-declared service."""
+        return self._client.get_cloud_deployment_logs(
+            deployment_id=deployment_id,
+            service_id=service_id,
+            tail=tail,
+        )
 
     def deploy(
         self,
@@ -305,7 +473,15 @@ class CloudDeploymentsAPI(_ClientNamespace):
 
 __all__ = [
     "CLOUD_SLOT_IDENTITIES",
+    "CloudDeploymentExecResult",
+    "CloudDeploymentLogs",
     "CloudDeploymentProjectGitSource",
+    "CloudDeploymentService",
+    "CloudDeploymentServices",
     "CloudDeploymentsAPI",
+    "CloudDeploymentWorkspace",
+    "CloudDeploymentWorkspaceLiveState",
+    "CloudDeploymentWorkspaceMaterialization",
+    "CloudDeploymentWorkspaceRepository",
     "CloudSlotIdentity",
 ]

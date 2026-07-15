@@ -173,6 +173,15 @@ def _object_list_arg(args: JSONDict, key: str) -> list[dict[str, Any]]:
     return [dict(item) for item in value]
 
 
+def _required_string_list_arg(args: JSONDict, key: str) -> list[str]:
+    value = args.get(key)
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"'{key}' must be a nonempty array of strings")
+    if not all(isinstance(item, str) for item in value):
+        raise ValueError(f"'{key}' must be a nonempty array of strings")
+    return list(value)
+
+
 def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
     value = args.get(key)
     if not isinstance(value, list):
@@ -1566,10 +1575,78 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             return _mcp_jsonable(client.cloud_deployments.get(deployment_id=deployment_id))
 
+    def _tool_get_cloud_deployment_services(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.services(deployment_id=deployment_id)
+            )
+
+    def _tool_get_cloud_deployment_workspace(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.workspace(deployment_id=deployment_id)
+            )
+
+    def _tool_materialize_cloud_deployment_workspace(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        fencing_token = optional_int(args, "fencing_token")
+        if fencing_token is None:
+            raise ValueError("fencing_token is required")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.materialize_workspace(
+                    deployment_id=deployment_id,
+                    repository=require_string(args, "repository"),
+                    branch=require_string(args, "branch"),
+                    source_commit_sha=require_string(args, "source_commit_sha"),
+                    fencing_token=fencing_token,
+                )
+            )
+
+    def _tool_exec_cloud_deployment(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        fencing_token = optional_int(args, "fencing_token")
+        if fencing_token is None:
+            raise ValueError("fencing_token is required")
+        timeout_seconds = optional_int(args, "timeout_seconds")
+        max_output_bytes = optional_int(args, "max_output_bytes")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.exec(
+                    deployment_id=deployment_id,
+                    argv=_required_string_list_arg(args, "argv"),
+                    fencing_token=fencing_token,
+                    cwd=optional_string(args, "cwd"),
+                    timeout_seconds=timeout_seconds if timeout_seconds is not None else 300,
+                    max_output_bytes=(
+                        max_output_bytes if max_output_bytes is not None else 65_536
+                    ),
+                )
+            )
+
+    def _tool_get_cloud_deployment_logs(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        tail = optional_int(args, "tail")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.logs(
+                    deployment_id=deployment_id,
+                    service_id=require_string(args, "service_id"),
+                    tail=tail if tail is not None else 200,
+                )
+            )
+
     def _tool_observe_cloud_deployment(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(client.cloud_deployments.observe(deployment_id=deployment_id))
+            return _mcp_jsonable(
+                client.cloud_deployments.observe(
+                    deployment_id=deployment_id,
+                    fencing_token=optional_int(args, "fencing_token"),
+                )
+            )
 
     def _tool_deploy_cloud_deployment(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")

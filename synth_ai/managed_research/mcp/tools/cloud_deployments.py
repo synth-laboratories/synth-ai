@@ -142,9 +142,121 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_cloud_deployment,
         ),
         ToolDefinition(
+            name="smr_get_cloud_deployment_services",
+            description="Discover topology-declared services, health checks, and routed endpoints.",
+            input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
+            handler=server._tool_get_cloud_deployment_services,
+        ),
+        ToolDefinition(
+            name="smr_get_cloud_deployment_workspace",
+            description="Inspect declared repositories and live Git/source materialization proof.",
+            input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
+            handler=server._tool_get_cloud_deployment_workspace,
+        ),
+        ToolDefinition(
+            name="smr_materialize_cloud_deployment_workspace",
+            description=(
+                "Materialize an exact commit for a topology-declared repository; "
+                "requires the active claim fencing token."
+            ),
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    **_FENCING_TOKEN,
+                    "repository": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Topology-declared repository selector.",
+                    },
+                    "branch": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Declared branch containing the exact commit.",
+                    },
+                    "source_commit_sha": {
+                        "type": "string",
+                        "pattern": "^[0-9a-fA-F]{40}$",
+                        "description": "Exact full Git commit SHA to materialize.",
+                    },
+                },
+                required=[
+                    "deployment_id",
+                    "repository",
+                    "branch",
+                    "source_commit_sha",
+                    "fencing_token",
+                ],
+            ),
+            handler=server._tool_materialize_cloud_deployment_workspace,
+        ),
+        ToolDefinition(
+            name="smr_exec_cloud_deployment",
+            description=(
+                "Execute argv inside a CloudDeployment workspace with bounded output; "
+                "requires the active claim fencing token."
+            ),
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    **_FENCING_TOKEN,
+                    "argv": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 128,
+                        "items": {"type": "string", "maxLength": 4096},
+                        "description": "Command argv; shell command strings are not accepted.",
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "description": "Optional path relative to the declared workspace root.",
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 900,
+                        "default": 300,
+                    },
+                    "max_output_bytes": {
+                        "type": "integer",
+                        "minimum": 1024,
+                        "maximum": 262144,
+                        "default": 65536,
+                    },
+                },
+                required=["deployment_id", "argv", "fencing_token"],
+            ),
+            handler=server._tool_exec_cloud_deployment,
+        ),
+        ToolDefinition(
+            name="smr_get_cloud_deployment_logs",
+            description="Read bounded logs for one topology-declared service.",
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "service_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Service id returned by service discovery.",
+                    },
+                    "tail": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5000,
+                        "default": 200,
+                    },
+                },
+                required=["deployment_id", "service_id"],
+            ),
+            handler=server._tool_get_cloud_deployment_logs,
+        ),
+        ToolDefinition(
             name="smr_observe_cloud_deployment",
             description="Observe one CloudDeployment against its substrate and update lifecycle state.",
-            input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
+            input_schema=tool_schema(
+                {**_CLOUD_DEPLOYMENT_ID, **_FENCING_TOKEN},
+                required=["deployment_id"],
+            ),
             handler=server._tool_observe_cloud_deployment,
         ),
         ToolDefinition(
