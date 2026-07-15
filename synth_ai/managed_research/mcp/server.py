@@ -71,10 +71,7 @@ from synth_ai.managed_research.open_research import (
 )
 from synth_ai.managed_research.open_research.models import ExperimentStatusFilter
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
-from synth_ai.managed_research.sdk.cloud_deployments import (
-    CLOUD_SLOT_IDENTITIES,
-    CloudSlotIdentity,
-)
+from synth_ai.managed_research.sdk.cloud_deployments import CLOUD_SLOT_IDENTITIES, CloudSlotIdentity
 from synth_ai.managed_research.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
