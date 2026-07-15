@@ -207,14 +207,20 @@ def cmd_up(args: argparse.Namespace) -> int:
         raise CloudSlotError(f"{action} deployment has no deployment_id: {deployment}")
 
     result = {"action": action, "deployment": _summary(deployment)}
+    exit_code = 0
     if args.wait:
         running = _wait_running(client, deployment_id, args)
         result["deployment"] = _summary(running)
         service_url = str(running.get("service_url") or "").strip()
         if service_url:
             result["health"] = _health_probe(service_url, args.health_path)
+            if result["health"].get("ok") is not True:
+                exit_code = 1
+        else:
+            result["health"] = {"ok": False, "error": "running deployment has no service_url"}
+            exit_code = 1
     _emit(result)
-    return 0
+    return exit_code
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -227,14 +233,20 @@ def cmd_run(args: argparse.Namespace) -> int:
         fencing_token=args.fencing_token,
     )
     result = {"action": "redeploy", "deployment": _summary(queued)}
+    exit_code = 0
     if args.wait:
         running = _wait_running(client, deployment_id, args)
         result["deployment"] = _summary(running)
         service_url = str(running.get("service_url") or "").strip()
         if service_url:
             result["health"] = _health_probe(service_url, args.health_path)
+            if result["health"].get("ok") is not True:
+                exit_code = 1
+        else:
+            result["health"] = {"ok": False, "error": "running deployment has no service_url"}
+            exit_code = 1
     _emit(result)
-    return 0
+    return exit_code
 
 
 def cmd_down(args: argparse.Namespace) -> int:

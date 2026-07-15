@@ -7,9 +7,10 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer
 from synth_ai.managed_research.sdk.cloud_deployments import CLOUD_SLOT_IDENTITIES
@@ -136,14 +137,70 @@ def _tool_registry_receipt(server: ManagedResearchMcpServer) -> dict[str, Any]:
     }
 
 
+@contextmanager
+def _held_claim(
+    *,
+    server: ManagedResearchMcpServer,
+    deployment_id: str,
+    holder: str,
+    purpose: str,
+    ttl_seconds: int,
+    receipt: dict[str, Any],
+) -> Iterator[tuple[str, int]]:
+    claim = server.call_tool(
+        "smr_acquire_cloud_deployment_claim",
+        {
+            "deployment_id": deployment_id,
+            "holder": holder,
+            "purpose": purpose,
+            "ttl_seconds": ttl_seconds,
+        },
+    )
+    claim_id = str(claim.get("claim_id") or "")
+    fencing_token = claim.get("fencing_token")
+    if not claim_id or not isinstance(fencing_token, int):
+        raise RuntimeError(f"claim response omitted claim_id/fencing_token: {claim}")
+    receipt["claim_id"] = claim_id
+    receipt["fencing_token"] = fencing_token
+    receipt["steps"].append({"step": "claim", "claim": claim})
+    try:
+        yield claim_id, fencing_token
+    except BaseException:
+        try:
+            released = server.call_tool(
+                "smr_release_cloud_deployment_claim",
+                {"deployment_id": deployment_id, "claim_id": claim_id},
+            )
+            receipt["steps"].append({"step": "claim_release", "claim": released})
+        except Exception as release_exc:
+            receipt["steps"].append(
+                {
+                    "step": "claim_release",
+                    "error": f"{type(release_exc).__name__}: {release_exc}",
+                }
+            )
+        raise
+    else:
+        released = server.call_tool(
+            "smr_release_cloud_deployment_claim",
+            {"deployment_id": deployment_id, "claim_id": claim_id},
+        )
+        receipt["steps"].append({"step": "claim_release", "claim": released})
+
+
 def _wait_for_running(
     *,
     server: ManagedResearchMcpServer,
     deployment_id: str,
     timeout_seconds: float,
     poll_seconds: float,
+    claim_id: str | None = None,
+    heartbeat_every_seconds: float | None = None,
+    heartbeat_receipts: list[dict[str, Any]] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     deadline = time.monotonic() + max(1.0, timeout_seconds)
+    heartbeat_every = max(1.0, float(heartbeat_every_seconds or 0.0))
+    next_heartbeat = time.monotonic() if claim_id else float("inf")
     observations: list[dict[str, Any]] = []
     while True:
         payload = server.call_tool(
@@ -153,6 +210,17 @@ def _wait_for_running(
         summary = _deployment_summary(payload)
         summary["observed_at"] = _utc_now()
         observations.append(summary)
+        now = time.monotonic()
+        if claim_id and now >= next_heartbeat:
+            heartbeat = server.call_tool(
+                "smr_heartbeat_cloud_deployment_claim",
+                {"deployment_id": deployment_id, "claim_id": claim_id},
+            )
+            if heartbeat_receipts is not None:
+                heartbeat_receipts.append(
+                    {"observed_at": _utc_now(), "heartbeat": heartbeat}
+                )
+            next_heartbeat = now + heartbeat_every
         state = str(summary.get("state") or "")
         if state in RUNNING_STATES:
             return payload, observations
@@ -173,7 +241,10 @@ def _wait_for_running(
             raise TimeoutError(
                 f"cloud deployment did not reach running before timeout: last={summary}"
             )
-        time.sleep(max(1.0, poll_seconds))
+        sleep_seconds = max(1.0, poll_seconds)
+        if claim_id:
+            sleep_seconds = min(sleep_seconds, heartbeat_every)
+        time.sleep(sleep_seconds)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -312,96 +383,83 @@ def main(argv: list[str] | None = None) -> int:
         )
         current_deployment = running
 
-        claim = server.call_tool(
-            "smr_acquire_cloud_deployment_claim",
-            {
-                "deployment_id": deployment_id,
-                "holder": args.claim_holder,
-                "purpose": args.claim_purpose,
-                "ttl_seconds": args.claim_ttl_seconds,
-            },
-        )
-        claim_id = str(claim.get("claim_id") or "")
-        fencing_token = claim.get("fencing_token")
-        if not claim_id or not isinstance(fencing_token, int):
-            raise RuntimeError(f"claim response omitted claim_id/fencing_token: {claim}")
-        receipt["claim_id"] = claim_id
-        receipt["fencing_token"] = fencing_token
-        receipt["steps"].append({"step": "claim", "claim": claim})
-
-        service_url = str(running.get("service_url") or "").strip()
-        if not service_url:
-            raise RuntimeError("running deployment did not include service_url")
-        health = _health_probe(service_url, args.health_path)
-        authoritative_health_ok = _authoritative_health_ok(running)
-        receipt["steps"].append(
-            {
-                "step": "health",
-                "result": health,
-                "authoritative_health_ok": authoritative_health_ok,
-                "deployment_health": running.get("health"),
-            }
-        )
-        if not health["ok"] and not authoritative_health_ok:
-            raise RuntimeError(f"health probe failed: {health}")
-
-        if args.redeploy:
-            queued = server.call_tool(
-                "smr_deploy_cloud_deployment",
-                {
-                    "deployment_id": deployment_id,
-                    "reason": "mcp p8 proof idempotent redeploy",
-                    "fencing_token": fencing_token,
-                },
-            )
-            receipt["steps"].append(
-                {"step": "redeploy_queue", "deployment": _deployment_summary(queued)}
-            )
-            redeployed, redeploy_observations = _wait_for_running(
-                server=server,
-                deployment_id=deployment_id,
-                timeout_seconds=args.timeout_seconds,
-                poll_seconds=args.poll_seconds,
-            )
+        with _held_claim(
+            server=server,
+            deployment_id=deployment_id,
+            holder=args.claim_holder,
+            purpose=args.claim_purpose,
+            ttl_seconds=args.claim_ttl_seconds,
+            receipt=receipt,
+        ) as (claim_id, fencing_token):
+            service_url = str(running.get("service_url") or "").strip()
+            if not service_url:
+                raise RuntimeError("running deployment did not include service_url")
+            health = _health_probe(service_url, args.health_path)
+            authoritative_health_ok = _authoritative_health_ok(running)
             receipt["steps"].append(
                 {
-                    "step": "redeploy_wait_until_running",
-                    "deployment": _deployment_summary(redeployed),
-                    "observations": redeploy_observations,
+                    "step": "health",
+                    "result": health,
+                    "authoritative_health_ok": authoritative_health_ok,
+                    "deployment_health": running.get("health"),
                 }
             )
-            current_deployment = redeployed
-            heartbeat = server.call_tool(
-                "smr_heartbeat_cloud_deployment_claim",
-                {"deployment_id": deployment_id, "claim_id": claim_id},
-            )
-            receipt["steps"].append({"step": "claim_heartbeat", "heartbeat": heartbeat})
+            if not health["ok"] and not authoritative_health_ok:
+                raise RuntimeError(f"health probe failed: {health}")
 
-        if args.retire_at_end:
-            vm_name = str(current_deployment.get("vm_name") or "").strip()
-            confirmed_vm_name = str(args.confirm_vm_name or "").strip()
-            if args.delete_vm and confirmed_vm_name != vm_name:
-                raise RuntimeError(
-                    "--confirm-vm-name must exactly match deployment vm_name "
-                    f"for delete: expected {vm_name!r}, got {confirmed_vm_name!r}"
+            if args.redeploy:
+                queued = server.call_tool(
+                    "smr_deploy_cloud_deployment",
+                    {
+                        "deployment_id": deployment_id,
+                        "reason": "mcp p8 proof idempotent redeploy",
+                        "fencing_token": fencing_token,
+                    },
                 )
-            retired = server.call_tool(
-                "smr_retire_cloud_deployment",
-                {
-                    "deployment_id": deployment_id,
-                    "reason": args.retire_reason,
-                    "delete_vm": bool(args.delete_vm),
-                    "confirm_vm_name": confirmed_vm_name if args.delete_vm else None,
-                    "fencing_token": fencing_token,
-                },
-            )
-            receipt["steps"].append({"step": "retire", "deployment": _deployment_summary(retired)})
+                receipt["steps"].append(
+                    {"step": "redeploy_queue", "deployment": _deployment_summary(queued)}
+                )
+                heartbeat_receipts: list[dict[str, Any]] = []
+                redeployed, redeploy_observations = _wait_for_running(
+                    server=server,
+                    deployment_id=deployment_id,
+                    timeout_seconds=args.timeout_seconds,
+                    poll_seconds=args.poll_seconds,
+                    claim_id=claim_id,
+                    heartbeat_every_seconds=max(1.0, args.claim_ttl_seconds / 3),
+                    heartbeat_receipts=heartbeat_receipts,
+                )
+                receipt["steps"].append(
+                    {
+                        "step": "redeploy_wait_until_running",
+                        "deployment": _deployment_summary(redeployed),
+                        "observations": redeploy_observations,
+                        "claim_heartbeats": heartbeat_receipts,
+                    }
+                )
+                current_deployment = redeployed
 
-        released = server.call_tool(
-            "smr_release_cloud_deployment_claim",
-            {"deployment_id": deployment_id, "claim_id": claim_id},
-        )
-        receipt["steps"].append({"step": "claim_release", "claim": released})
+            if args.retire_at_end:
+                vm_name = str(current_deployment.get("vm_name") or "").strip()
+                confirmed_vm_name = str(args.confirm_vm_name or "").strip()
+                if args.delete_vm and confirmed_vm_name != vm_name:
+                    raise RuntimeError(
+                        "--confirm-vm-name must exactly match deployment vm_name "
+                        f"for delete: expected {vm_name!r}, got {confirmed_vm_name!r}"
+                    )
+                retired = server.call_tool(
+                    "smr_retire_cloud_deployment",
+                    {
+                        "deployment_id": deployment_id,
+                        "reason": args.retire_reason,
+                        "delete_vm": bool(args.delete_vm),
+                        "confirm_vm_name": confirmed_vm_name if args.delete_vm else None,
+                        "fencing_token": fencing_token,
+                    },
+                )
+                receipt["steps"].append(
+                    {"step": "retire", "deployment": _deployment_summary(retired)}
+                )
 
         receipt["completed_at"] = _utc_now()
         receipt["ok"] = True
