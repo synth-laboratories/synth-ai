@@ -61,6 +61,9 @@ from synth_ai.managed_research.models.cloud_deployment_claims import (
     ClaimProjection,
     CloudDeploymentClaim,
 )
+from synth_ai.managed_research.models.cloud_deployments import (
+    CloudDeploymentTopologySource,
+)
 from synth_ai.managed_research.models.dev_environment_evidence import (
     DevEnvironmentEvidence,
 )
@@ -541,6 +544,7 @@ __all__ = [
     "ClaimHeartbeat",
     "ClaimProjection",
     "CloudDeploymentClaim",
+    "CloudDeploymentTopologySource",
     "CommandRequest",
     "DiagnosticEvent",
     "DevEnvironment",
