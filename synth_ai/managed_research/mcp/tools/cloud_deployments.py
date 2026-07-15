@@ -251,6 +251,88 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_cloud_deployment_logs,
         ),
         ToolDefinition(
+            name="smr_get_cloud_deployment_artifacts",
+            description=(
+                "List topology-declared artifact roots or a bounded, paginated file "
+                "inventory under one declared root."
+            ),
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "root_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120,
+                        "description": (
+                            "Optional declared root id; omit to inspect root availability."
+                        ),
+                    },
+                    "relative_prefix": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "description": (
+                            "Optional repository-relative directory prefix within the root."
+                        ),
+                    },
+                    "after": {
+                        "type": "string",
+                        "maxLength": 512,
+                        "description": "Prior next_after cursor; requires root_id.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                        "default": 100,
+                    },
+                },
+                required=["deployment_id"],
+            ),
+            handler=server._tool_get_cloud_deployment_artifacts,
+        ),
+        ToolDefinition(
+            name="smr_get_cloud_deployment_artifact_content",
+            description=(
+                "Read one bounded base64 chunk from a file under a "
+                "topology-declared artifact root."
+            ),
+            input_schema=tool_schema(
+                {
+                    **_CLOUD_DEPLOYMENT_ID,
+                    "root_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120,
+                        "description": "Declared artifact root id.",
+                    },
+                    "relative_path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 512,
+                        "description": "Repository-relative file path within the root.",
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "default": 0,
+                    },
+                    "max_bytes": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 131072,
+                        "default": 65536,
+                    },
+                    "include_sha256": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Compute a full-file digest for this response.",
+                    },
+                },
+                required=["deployment_id", "root_id", "relative_path"],
+            ),
+            handler=server._tool_get_cloud_deployment_artifact_content,
+        ),
+        ToolDefinition(
             name="smr_observe_cloud_deployment",
             description="Observe one CloudDeployment against its substrate and update lifecycle state.",
             input_schema=tool_schema(

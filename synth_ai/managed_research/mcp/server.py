@@ -1632,6 +1632,36 @@ class ManagedResearchMcpServer:
                 )
             )
 
+    def _tool_get_cloud_deployment_artifacts(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        limit = optional_int(args, "limit")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.artifacts(
+                    deployment_id=deployment_id,
+                    root_id=optional_string(args, "root_id"),
+                    relative_prefix=optional_string(args, "relative_prefix"),
+                    after=optional_string(args, "after"),
+                    limit=limit if limit is not None else 100,
+                )
+            )
+
+    def _tool_get_cloud_deployment_artifact_content(self, args: JSONDict) -> Any:
+        deployment_id = require_string(args, "deployment_id")
+        offset = optional_int(args, "offset")
+        max_bytes = optional_int(args, "max_bytes")
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(
+                client.cloud_deployments.artifact_content(
+                    deployment_id=deployment_id,
+                    root_id=require_string(args, "root_id"),
+                    relative_path=require_string(args, "relative_path"),
+                    offset=offset if offset is not None else 0,
+                    max_bytes=max_bytes if max_bytes is not None else 65_536,
+                    include_sha256=optional_bool(args, "include_sha256") or False,
+                )
+            )
+
     def _tool_observe_cloud_deployment(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
         with self._client_from_args(args) as client:
