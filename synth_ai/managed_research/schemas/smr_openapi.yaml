@@ -6636,6 +6636,181 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/services:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Services
+      operationId: get_cloud_deployment_services_smr_v1_deployments__deployment_id__services_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentServicesResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/workspace:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Workspace
+      operationId: get_cloud_deployment_workspace_smr_v1_deployments__deployment_id__workspace_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentWorkspaceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/workspace/materialize:
+    post:
+      tags:
+      - smr
+      summary: Materialize Cloud Deployment Workspace
+      operationId: materialize_cloud_deployment_workspace_smr_v1_deployments__deployment_id__workspace_materialize_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentWorkspaceMaterializeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentWorkspaceMaterializeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/exec:
+    post:
+      tags:
+      - smr
+      summary: Exec Cloud Deployment Command
+      operationId: exec_cloud_deployment_command_smr_v1_deployments__deployment_id__exec_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentExecRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentExecResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/logs:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Logs
+      operationId: get_cloud_deployment_logs_smr_v1_deployments__deployment_id__logs_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: service_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 120
+          title: Service Id
+      - name: tail
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 200
+          title: Tail
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentLogsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/v1/deployments/{deployment_id}/observe:
     post:
       tags:
@@ -6649,6 +6824,14 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       responses:
         '200':
           description: Successful Response
@@ -22220,6 +22403,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/factory-context:
+    get:
+      tags:
+      - tag
+      summary: Get Session Factory Context
+      operationId: get_tag_session_factory_context
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagFactoryContextResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}/control:
     post:
       tags:
@@ -22297,6 +22506,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TagScopeResponse'
+  /api/tag/v1/scopes/{scope_id}/factory-context:
+    get:
+      tags:
+      - tag
+      summary: Get Scope Factory Context
+      operationId: get_tag_scope_factory_context
+      parameters:
+      - name: scope_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scope Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagFactoryContextResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/tunnels/health:
     get:
       tags:
@@ -28096,6 +28331,134 @@ components:
           title: Reason
       type: object
       title: CloudDeploymentDeployRequest
+    CloudDeploymentExecRequest:
+      properties:
+        argv:
+          items:
+            type: string
+          type: array
+          maxItems: 128
+          minItems: 1
+          title: Argv
+        cwd:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cwd
+        timeout_seconds:
+          type: integer
+          maximum: 900.0
+          minimum: 1.0
+          title: Timeout Seconds
+          default: 300
+        max_output_bytes:
+          type: integer
+          maximum: 262144.0
+          minimum: 1024.0
+          title: Max Output Bytes
+          default: 65536
+      additionalProperties: false
+      type: object
+      required:
+      - argv
+      title: CloudDeploymentExecRequest
+    CloudDeploymentExecResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-exec-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        working_directory:
+          type: string
+          title: Working Directory
+        argv_count:
+          type: integer
+          title: Argv Count
+        timeout_seconds:
+          type: number
+          title: Timeout Seconds
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout:
+          type: string
+          title: Stdout
+        stderr:
+          type: string
+          title: Stderr
+        stdout_truncated:
+          type: boolean
+          title: Stdout Truncated
+        stderr_truncated:
+          type: boolean
+          title: Stderr Truncated
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - working_directory
+      - argv_count
+      - timeout_seconds
+      - exit_code
+      - stdout
+      - stderr
+      - stdout_truncated
+      - stderr_truncated
+      title: CloudDeploymentExecResponse
+    CloudDeploymentLogsResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-logs-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        service_id:
+          type: string
+          title: Service Id
+        tail:
+          type: integer
+          title: Tail
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout:
+          type: string
+          title: Stdout
+        stderr:
+          type: string
+          title: Stderr
+        stdout_truncated:
+          type: boolean
+          title: Stdout Truncated
+        stderr_truncated:
+          type: boolean
+          title: Stderr Truncated
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - service_id
+      - tail
+      - exit_code
+      - stdout
+      - stderr
+      - stdout_truncated
+      - stderr_truncated
+      title: CloudDeploymentLogsResponse
     CloudDeploymentProjectGitSourceRequest:
       properties:
         kind:
@@ -28143,6 +28506,226 @@ components:
           title: Confirm Vm Name
       type: object
       title: CloudDeploymentRetireRequest
+    CloudDeploymentServiceDescriptor:
+      properties:
+        service_id:
+          type: string
+          title: Service Id
+        kind:
+          type: string
+          title: Kind
+        required:
+          type: boolean
+          title: Required
+        endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Endpoint
+        health_checks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Health Checks
+        logs_supported:
+          type: boolean
+          title: Logs Supported
+      type: object
+      required:
+      - service_id
+      - kind
+      - required
+      - health_checks
+      - logs_supported
+      title: CloudDeploymentServiceDescriptor
+    CloudDeploymentServicesResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-services-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        service_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Url
+        services:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentServiceDescriptor'
+          type: array
+          title: Services
+        deployment_health:
+          additionalProperties: true
+          type: object
+          title: Deployment Health
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - services
+      - deployment_health
+      title: CloudDeploymentServicesResponse
+    CloudDeploymentWorkspaceLiveState:
+      properties:
+        available:
+          type: boolean
+          title: Available
+        head_commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Head Commit Sha
+        branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Branch
+        detached:
+          type: boolean
+          title: Detached
+        dirty_path_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Dirty Path Count
+      type: object
+      required:
+      - available
+      - detached
+      title: CloudDeploymentWorkspaceLiveState
+    CloudDeploymentWorkspaceMaterializeRequest:
+      properties:
+        repository:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Repository
+        branch:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Branch
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-fA-F]{40}$
+          title: Source Commit Sha
+      additionalProperties: false
+      type: object
+      required:
+      - repository
+      - branch
+      - source_commit_sha
+      title: CloudDeploymentWorkspaceMaterializeRequest
+    CloudDeploymentWorkspaceMaterializeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-workspace-materialization-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        branch:
+          type: string
+          title: Branch
+        source_commit_sha:
+          type: string
+          title: Source Commit Sha
+        detached:
+          type: boolean
+          title: Detached
+        clean:
+          type: boolean
+          title: Clean
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - repository
+      - path
+      - branch
+      - source_commit_sha
+      - detached
+      - clean
+      title: CloudDeploymentWorkspaceMaterializeResponse
+    CloudDeploymentWorkspaceRepository:
+      properties:
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        remote_repo:
+          type: string
+          title: Remote Repo
+        declared_branch:
+          type: string
+          title: Declared Branch
+        declared_source_commit_sha:
+          type: string
+          title: Declared Source Commit Sha
+        authority:
+          type: string
+          title: Authority
+        live:
+          $ref: '#/components/schemas/CloudDeploymentWorkspaceLiveState'
+      type: object
+      required:
+      - repository
+      - path
+      - remote_repo
+      - declared_branch
+      - declared_source_commit_sha
+      - authority
+      - live
+      title: CloudDeploymentWorkspaceRepository
+    CloudDeploymentWorkspaceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-workspace-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        workspace_root:
+          type: string
+          title: Workspace Root
+        repositories:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentWorkspaceRepository'
+          type: array
+          title: Repositories
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - workspace_root
+      - repositories
+      title: CloudDeploymentWorkspaceResponse
     CompleteTrainedModelAdapterUploadBody:
       properties:
         bucket:
@@ -54011,6 +54594,180 @@ components:
       - google
       title: SupportedProvider
       description: Supported LLM providers for encrypted provider-key storage.
+    TagArtifactLink:
+      properties:
+        schema_version:
+          type: string
+          const: tag_artifact_link.v1
+          title: Schema Version
+          default: tag_artifact_link.v1
+        kind:
+          type: string
+          enum:
+          - run_record
+          - run_summary
+          - work_product
+          title: Kind
+        url:
+          type: string
+          title: Url
+        artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Id
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        readiness:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Readiness
+      type: object
+      required:
+      - kind
+      - url
+      title: TagArtifactLink
+    TagFactoryCandidateCounts:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+        graded:
+          type: integer
+          minimum: 0.0
+          title: Graded
+        pending:
+          type: integer
+          minimum: 0.0
+          title: Pending
+      type: object
+      required:
+      - total
+      - graded
+      - pending
+      title: TagFactoryCandidateCounts
+    TagFactoryChampion:
+      properties:
+        candidate_id:
+          type: string
+          title: Candidate Id
+        git_sha:
+          type: string
+          title: Git Sha
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        selected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Selected At
+      type: object
+      required:
+      - candidate_id
+      - git_sha
+      title: TagFactoryChampion
+    TagFactoryChampionEvent:
+      properties:
+        action:
+          type: string
+          enum:
+          - promote
+          - no_lift
+          - rollback
+          title: Action
+        at:
+          type: string
+          format: date-time
+          title: At
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        git_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git Sha
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - action
+      - at
+      title: TagFactoryChampionEvent
+    TagFactoryContextResponse:
+      properties:
+        schema_version:
+          type: string
+          const: tag_factory_context.v1
+          title: Schema Version
+          default: tag_factory_context.v1
+        factory_id:
+          type: string
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        experiment_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Ref
+        champion:
+          anyOf:
+          - $ref: '#/components/schemas/TagFactoryChampion'
+          - type: 'null'
+        last_champion_event:
+          anyOf:
+          - $ref: '#/components/schemas/TagFactoryChampionEvent'
+          - type: 'null'
+        candidates:
+          $ref: '#/components/schemas/TagFactoryCandidateCounts'
+        as_of:
+          type: string
+          format: date-time
+          title: As Of
+      type: object
+      required:
+      - factory_id
+      - candidates
+      - as_of
+      title: TagFactoryContextResponse
     TagMessageRequest:
       properties:
         message:
@@ -54209,6 +54966,11 @@ components:
       title: TagSessionCreateRequest
     TagSessionReceipt:
       properties:
+        schema_version:
+          type: string
+          const: tag_receipt.v1
+          title: Schema Version
+          default: tag_receipt.v1
         run_id:
           anyOf:
           - type: string
@@ -54227,6 +54989,11 @@ components:
             type: string
           type: array
           title: Artifact Urls
+        artifacts:
+          items:
+            $ref: '#/components/schemas/TagArtifactLink'
+          type: array
+          title: Artifacts
         artifact_empty_reason:
           anyOf:
           - type: string
@@ -54269,8 +55036,7 @@ components:
           title: Git Urls
         steering_receipts:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/TagSteeringReceipt'
           type: array
           title: Steering Receipts
       type: object
@@ -54389,6 +55155,109 @@ components:
       required:
       - session
       title: TagSessionWatchResponse
+    TagSteeringReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: tag_steering_receipt.v1
+          title: Schema Version
+          default: tag_steering_receipt.v1
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        org_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Org Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        steering_target:
+          anyOf:
+          - type: string
+            enum:
+            - active_run
+            - next_cycle
+          - type: 'null'
+          title: Steering Target
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        idempotency_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency Key
+        transport_ref:
+          additionalProperties: true
+          type: object
+          title: Transport Ref
+        accepted_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Accepted At
+        wiki:
+          anyOf:
+          - $ref: '#/components/schemas/TagSteeringWikiLink'
+          - type: 'null'
+      type: object
+      title: TagSteeringReceipt
+    TagSteeringWikiLink:
+      properties:
+        changeset_id:
+          type: string
+          title: Changeset Id
+        proposal_id:
+          type: string
+          title: Proposal Id
+        url:
+          type: string
+          title: Url
+      type: object
+      required:
+      - changeset_id
+      - proposal_id
+      - url
+      title: TagSteeringWikiLink
     TagTaskResponse:
       properties:
         task_id:

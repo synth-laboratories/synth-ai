@@ -167,8 +167,13 @@ from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
     CLOUD_SLOT_IDENTITIES,
+    CloudDeploymentExecResult,
+    CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
+    CloudDeploymentServices,
+    CloudDeploymentWorkspace,
+    CloudDeploymentWorkspaceMaterialization,
     CloudSlotIdentity,
 )
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
@@ -338,6 +343,29 @@ def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
     if isinstance(fencing_token, bool):
         raise ValueError("fencing_token must be an integer when provided")
     return {"X-Fencing-Token": str(int(fencing_token))}
+
+
+def _require_fencing_headers(fencing_token: int) -> dict[str, str]:
+    if isinstance(fencing_token, bool) or not isinstance(fencing_token, int):
+        raise ValueError("fencing_token must be a positive integer")
+    if fencing_token < 1:
+        raise ValueError("fencing_token must be a positive integer")
+    return {"X-Fencing-Token": str(fencing_token)}
+
+
+def _coerce_cloud_deployment_schema(
+    payload: Any,
+    *,
+    expected_schema: str,
+    label: str,
+) -> dict[str, Any]:
+    result = _coerce_dict(payload, label=label)
+    schema_version = str(result.get("schema_version") or "").strip()
+    if schema_version != expected_schema:
+        raise ValueError(
+            f"{label} returned schema_version {schema_version!r}; expected {expected_schema!r}"
+        )
+    return result
 
 
 def _coerce_branch_request(
@@ -3993,18 +4021,186 @@ class ManagedResearchClient:
             label="get_cloud_deployment",
         )
 
-    def observe_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
+    def observe_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        fencing_token: int | None = None,
+    ) -> dict[str, Any]:
         deployment_id = _require_non_empty_string(
             deployment_id,
             field_name="deployment_id",
         )
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/v1/deployments/{deployment_id}/observe",
-            ),
-            label="observe_cloud_deployment",
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/observe",
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="observe_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def get_cloud_deployment_services(
+        self,
+        *,
+        deployment_id: str,
+    ) -> CloudDeploymentServices:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
         )
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/services"),
+            expected_schema="cloud-deployment-services-v1",
+            label="get_cloud_deployment_services",
+        )
+        return cast(CloudDeploymentServices, payload)
+
+    def get_cloud_deployment_workspace(
+        self,
+        *,
+        deployment_id: str,
+    ) -> CloudDeploymentWorkspace:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/workspace"),
+            expected_schema="cloud-deployment-workspace-v1",
+            label="get_cloud_deployment_workspace",
+        )
+        return cast(CloudDeploymentWorkspace, payload)
+
+    def materialize_cloud_deployment_workspace(
+        self,
+        *,
+        deployment_id: str,
+        repository: str,
+        branch: str,
+        source_commit_sha: str,
+        fencing_token: int,
+    ) -> CloudDeploymentWorkspaceMaterialization:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        request_body = {
+            "repository": _require_non_empty_string(
+                repository,
+                field_name="repository",
+            ),
+            "branch": _require_non_empty_string(branch, field_name="branch"),
+            "source_commit_sha": _require_non_empty_string(
+                source_commit_sha,
+                field_name="source_commit_sha",
+            ).lower(),
+        }
+        if not _FULL_GIT_COMMIT_SHA.fullmatch(request_body["source_commit_sha"]):
+            raise ValueError("source_commit_sha must be a full 40-character Git commit SHA")
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/workspace/materialize",
+                    json_body=request_body,
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-workspace-materialization-v1",
+                label="materialize_cloud_deployment_workspace",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        return cast(CloudDeploymentWorkspaceMaterialization, payload)
+
+    def exec_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        argv: list[str],
+        fencing_token: int,
+        cwd: str | None = None,
+        timeout_seconds: int = 300,
+        max_output_bytes: int = 65_536,
+    ) -> CloudDeploymentExecResult:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        if not isinstance(argv, list) or not argv or len(argv) > 128:
+            raise ValueError("argv must be a list with 1 to 128 items")
+        normalized_argv: list[str] = []
+        for item in argv:
+            if not isinstance(item, str):
+                raise ValueError("argv items must be strings")
+            if "\x00" in item or len(item.encode("utf-8")) > 4096:
+                raise ValueError("argv items must be at most 4096 bytes and contain no NUL")
+            normalized_argv.append(item)
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, int)
+            or not 1 <= timeout_seconds <= 900
+        ):
+            raise ValueError("timeout_seconds must be between 1 and 900")
+        if (
+            isinstance(max_output_bytes, bool)
+            or not isinstance(max_output_bytes, int)
+            or not 1024 <= max_output_bytes <= 262_144
+        ):
+            raise ValueError("max_output_bytes must be between 1024 and 262144")
+        request_body: dict[str, Any] = {
+            "argv": normalized_argv,
+            "timeout_seconds": int(timeout_seconds),
+            "max_output_bytes": int(max_output_bytes),
+        }
+        normalized_cwd = _optional_non_empty_string(cwd)
+        if normalized_cwd is not None:
+            request_body["cwd"] = normalized_cwd
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/exec",
+                    json_body=request_body,
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-exec-v1",
+                label="exec_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        return cast(CloudDeploymentExecResult, payload)
+
+    def get_cloud_deployment_logs(
+        self,
+        *,
+        deployment_id: str,
+        service_id: str,
+        tail: int = 200,
+    ) -> CloudDeploymentLogs:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        service_id = _require_non_empty_string(service_id, field_name="service_id")
+        if isinstance(tail, bool) or not isinstance(tail, int) or not 1 <= tail <= 5000:
+            raise ValueError("tail must be between 1 and 5000")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/logs",
+                params=build_query_params(service_id=service_id, tail=int(tail)),
+            ),
+            expected_schema="cloud-deployment-logs-v1",
+            label="get_cloud_deployment_logs",
+        )
+        return cast(CloudDeploymentLogs, payload)
 
     def deploy_cloud_deployment(
         self,
