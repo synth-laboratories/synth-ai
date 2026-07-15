@@ -264,14 +264,14 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                         "minLength": 1,
                         "maxLength": 120,
                         "description": (
-                            "Optional declared root id; omit to inspect " "root availability."
+                            "Optional declared root id; omit to inspect root availability."
                         ),
                     },
                     "relative_prefix": {
                         "type": "string",
                         "maxLength": 512,
                         "description": (
-                            "Optional repository-relative directory prefix " "within the root."
+                            "Optional repository-relative directory prefix within the root."
                         ),
                     },
                     "after": {
@@ -293,8 +293,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_get_cloud_deployment_artifact_content",
             description=(
-                "Read one bounded base64 chunk from a file under a "
-                "topology-declared artifact root."
+                "Read one bounded base64 chunk from a file under a topology-declared artifact root."
             ),
             input_schema=tool_schema(
                 {
