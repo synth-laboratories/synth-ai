@@ -10,6 +10,7 @@ from synth_ai.managed_research.mcp.registry import (
     ToolDefinition,
     tool_schema,
 )
+from synth_ai.managed_research.models.tag import TagSessionCreateRequest
 
 
 def _client(server: Any, args: dict[str, Any]):
@@ -71,7 +72,7 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
                 required=["request", "factory_id", "effort_id"],
             ),
             handler=lambda args: _client(server, args).tag.create_session(
-                _tool_body(args, exclude=set())
+                TagSessionCreateRequest(**_tool_body(args, exclude=set()))
             ),
             required_scopes=WRITE_SCOPES,
         ),
