@@ -368,6 +368,7 @@ from synth_ai.managed_research.models import (
 from synth_ai.managed_research.models.smr_agent_harnesses import SmrAgentHarness
 from synth_ai.managed_research.sdk import (
     ACTIVE_RUN_STATES,
+    CLOUD_SLOT_IDENTITIES,
     DEFAULT_TIMEOUT_SECONDS,
     MISC_PROJECT_ID,
     OPENAI_TRANSPORT_MODE_AUTO,
@@ -375,7 +376,6 @@ from synth_ai.managed_research.sdk import (
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
     ApprovalsAPI,
     BillingAPI,
-    CLOUD_SLOT_IDENTITIES,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
     CloudSlotIdentity,
