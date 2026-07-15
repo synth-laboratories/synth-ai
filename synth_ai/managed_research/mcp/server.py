@@ -1637,9 +1637,7 @@ class ManagedResearchMcpServer:
     def _tool_get_cloud_deployment_claims(self, args: JSONDict) -> Any:
         deployment_id = require_string(args, "deployment_id")
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.cloud_deployments.get_claims(deployment_id=deployment_id)
-            )
+            return _mcp_jsonable(client.cloud_deployments.get_claims(deployment_id=deployment_id))
 
     def _tool_get_project_notes(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")
