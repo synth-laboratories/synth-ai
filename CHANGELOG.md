@@ -7,6 +7,7 @@ All notable changes to the `synth-ai` package are documented here.
 ### Added
 
 - **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
+- **Canonical cloud slots** — CloudDeployment creation accepts the typed `slot1-cloud` / `slot2-cloud` identity through the SDK and MCP. The `cloud-slot` CLI now addresses deployments by that identity and exposes status, health, claim, heartbeat, fenced deploy/retire, release, and claim-truth workflows. The MCP live proof records the slot, claim id, fencing token, lifecycle, and release receipts.
 
 ## 0.15.0 — 2026-07-13
 

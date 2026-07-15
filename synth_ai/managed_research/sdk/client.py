@@ -166,8 +166,10 @@ from synth_ai.managed_research.models.types import (
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
+    CLOUD_SLOT_IDENTITIES,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
+    CloudSlotIdentity,
 )
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
@@ -315,6 +317,18 @@ def _optional_cloud_deployment_source(
         field_name="source.instance_id",
     )
     return normalized
+
+
+def _optional_cloud_slot(value: CloudSlotIdentity | str | None) -> CloudSlotIdentity | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    if normalized not in CLOUD_SLOT_IDENTITIES:
+        supported = ", ".join(CLOUD_SLOT_IDENTITIES)
+        raise ValueError(f"cloud_slot must be one of: {supported}")
+    return cast(CloudSlotIdentity, normalized)
 
 
 def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
@@ -3900,6 +3914,7 @@ class ManagedResearchClient:
         host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
+        cloud_slot: CloudSlotIdentity | None = None,
     ) -> dict[str, Any]:
         request_body: dict[str, Any] = {
             "project_id": _require_non_empty_string(
@@ -3921,6 +3936,9 @@ class ManagedResearchClient:
         normalized_source = _optional_cloud_deployment_source(source)
         if normalized_source is not None:
             request_body["source"] = normalized_source
+        normalized_cloud_slot = _optional_cloud_slot(cloud_slot)
+        if normalized_cloud_slot is not None:
+            request_body["cloud_slot"] = normalized_cloud_slot
         return _coerce_dict(
             self._request_json(
                 "POST",

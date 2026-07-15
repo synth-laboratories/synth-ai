@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer
+from synth_ai.managed_research.sdk.cloud_deployments import CLOUD_SLOT_IDENTITIES
 
 RUNNING_STATES = {"running"}
 RETRYABLE_FAILURE_STATES = {"failed"}
@@ -24,6 +25,10 @@ CLOUD_DEPLOYMENT_TOOLS = {
     "smr_observe_cloud_deployment",
     "smr_deploy_cloud_deployment",
     "smr_retire_cloud_deployment",
+    "smr_acquire_cloud_deployment_claim",
+    "smr_heartbeat_cloud_deployment_claim",
+    "smr_release_cloud_deployment_claim",
+    "smr_get_cloud_deployment_claims",
 }
 
 
@@ -64,6 +69,7 @@ def _deployment_summary(payload: Any) -> dict[str, Any]:
         return {"raw": payload}
     return {
         "deployment_id": payload.get("deployment_id"),
+        "cloud_slot": payload.get("cloud_slot"),
         "name": payload.get("name"),
         "state": payload.get("state"),
         "vm_name": payload.get("vm_name"),
@@ -183,6 +189,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deployment-id", default=None)
     parser.add_argument("--create", action="store_true")
     parser.add_argument("--registry-only", action="store_true")
+    parser.add_argument("--cloud-slot", choices=CLOUD_SLOT_IDENTITIES, default=None)
     parser.add_argument(
         "--name",
         default=os.environ.get("DEPLOYMENT_NAME") or f"synth-dev-mcp-p8-{int(time.time())}",
@@ -195,6 +202,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--poll-seconds", type=float, default=10.0)
     parser.add_argument("--health-path", default="/health")
     parser.add_argument("--redeploy", action="store_true")
+    parser.add_argument("--claim-holder", default="cloud-deployment-mcp-proof")
+    parser.add_argument("--claim-purpose", default="cloud slot lifecycle proof")
+    parser.add_argument("--claim-ttl-seconds", type=int, default=3600)
     parser.add_argument("--retire-at-end", action="store_true")
     parser.add_argument("--delete-vm", action="store_true")
     parser.add_argument("--confirm-vm-name", default=None)
@@ -210,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
         "proof": "cloud_deployment_mcp_p8",
         "backend_base": args.backend_base,
         "deployment_id": args.deployment_id,
+        "cloud_slot": args.cloud_slot,
         "topology_id": args.topology_id,
         "host_kind": args.host_kind,
         "steps": [],
@@ -238,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("--deployment-id or --create is required")
         if args.create and deployment_id:
             raise RuntimeError("--create cannot be combined with --deployment-id")
+        if args.create and not args.cloud_slot:
+            raise RuntimeError("--create requires --cloud-slot slot1-cloud|slot2-cloud")
         if args.delete_vm and not args.retire_at_end:
             raise RuntimeError("--delete-vm requires --retire-at-end")
         if args.delete_vm and not str(args.confirm_vm_name or "").strip():
@@ -266,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
                     "topology_id": args.topology_id,
                     "topology_version": args.topology_version,
                     "host_kind": args.host_kind,
+                    "cloud_slot": args.cloud_slot,
                     "metadata": metadata,
                 },
             )
@@ -298,6 +312,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         current_deployment = running
 
+        claim = server.call_tool(
+            "smr_acquire_cloud_deployment_claim",
+            {
+                "deployment_id": deployment_id,
+                "holder": args.claim_holder,
+                "purpose": args.claim_purpose,
+                "ttl_seconds": args.claim_ttl_seconds,
+            },
+        )
+        claim_id = str(claim.get("claim_id") or "")
+        fencing_token = claim.get("fencing_token")
+        if not claim_id or not isinstance(fencing_token, int):
+            raise RuntimeError(f"claim response omitted claim_id/fencing_token: {claim}")
+        receipt["claim_id"] = claim_id
+        receipt["fencing_token"] = fencing_token
+        receipt["steps"].append({"step": "claim", "claim": claim})
+
         service_url = str(running.get("service_url") or "").strip()
         if not service_url:
             raise RuntimeError("running deployment did not include service_url")
@@ -317,7 +348,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.redeploy:
             queued = server.call_tool(
                 "smr_deploy_cloud_deployment",
-                {"deployment_id": deployment_id, "reason": "mcp p8 proof idempotent redeploy"},
+                {
+                    "deployment_id": deployment_id,
+                    "reason": "mcp p8 proof idempotent redeploy",
+                    "fencing_token": fencing_token,
+                },
             )
             receipt["steps"].append(
                 {"step": "redeploy_queue", "deployment": _deployment_summary(queued)}
@@ -336,6 +371,11 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
             current_deployment = redeployed
+            heartbeat = server.call_tool(
+                "smr_heartbeat_cloud_deployment_claim",
+                {"deployment_id": deployment_id, "claim_id": claim_id},
+            )
+            receipt["steps"].append({"step": "claim_heartbeat", "heartbeat": heartbeat})
 
         if args.retire_at_end:
             vm_name = str(current_deployment.get("vm_name") or "").strip()
@@ -352,9 +392,16 @@ def main(argv: list[str] | None = None) -> int:
                     "reason": args.retire_reason,
                     "delete_vm": bool(args.delete_vm),
                     "confirm_vm_name": confirmed_vm_name if args.delete_vm else None,
+                    "fencing_token": fencing_token,
                 },
             )
             receipt["steps"].append({"step": "retire", "deployment": _deployment_summary(retired)})
+
+        released = server.call_tool(
+            "smr_release_cloud_deployment_claim",
+            {"deployment_id": deployment_id, "claim_id": claim_id},
+        )
+        receipt["steps"].append({"step": "claim_release", "claim": released})
 
         receipt["completed_at"] = _utc_now()
         receipt["ok"] = True
