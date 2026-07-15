@@ -256,9 +256,9 @@ paths:
       description: "Get usage summary for the authenticated organization.\n\nThis\
         \ endpoint provides a summary of token and GPU usage for the current month\n\
         and last 30 days.\n\nArgs:\n    api_key: Validated API key containing organization\
-        \ information\n\nReturns:\n    UsageSummaryResponse: Usage summary with token\
-        \ and GPU statistics\n\nRaises:\n    HTTPException: If usage data cannot be\
-        \ retrieved"
+        \ information\n\nReturns:\n    BalanceUsageSummaryResponse: Usage summary\
+        \ with token and GPU statistics\n\nRaises:\n    HTTPException: If usage data\
+        \ cannot be retrieved"
       operationId: get_usage_summary_api_v1_balance_usage_get
       responses:
         '200':
@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__routes_balance__UsageSummaryResponse'
+                $ref: '#/components/schemas/BalanceUsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -23244,11 +23244,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/GeloLaunchPromoStatusResponse'
   /s/{route_token}/{path}:
-    post:
+    get:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post
+      operationId: synthtunnel_gateway_s__route_token___path__get
       parameters:
       - name: route_token
         in: path
@@ -23274,11 +23274,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    get:
+    post:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__get__1
+      operationId: synthtunnel_gateway_s__route_token___path__get__post__1
       parameters:
       - name: route_token
         in: path
@@ -23308,7 +23308,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__put__2
+      operationId: synthtunnel_gateway_s__route_token___path__get__put__2
       parameters:
       - name: route_token
         in: path
@@ -23338,7 +23338,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__patch__3
+      operationId: synthtunnel_gateway_s__route_token___path__get__patch__3
       parameters:
       - name: route_token
         in: path
@@ -23368,7 +23368,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__delete__4
+      operationId: synthtunnel_gateway_s__route_token___path__get__delete__4
       parameters:
       - name: route_token
         in: path
@@ -23398,7 +23398,7 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__post__options__5
+      operationId: synthtunnel_gateway_s__route_token___path__get__options__5
       parameters:
       - name: route_token
         in: path
@@ -23662,7 +23662,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                  $ref: '#/components/schemas/SessionLimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -23696,7 +23696,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23729,14 +23729,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__core__session_usage__models__UpdateLimitRequest'
+              $ref: '#/components/schemas/SessionUpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23801,7 +23801,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -24157,7 +24157,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
+                $ref: '#/components/schemas/AdminUsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -27312,6 +27312,35 @@ components:
       - balance_after_cents
       - transaction_id
       title: AddUserCreditsResponse
+    AdminUsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
+          type: number
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
+          type: number
+          title: Total Gpu Seconds
+      type: object
+      required:
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
+      title: AdminUsageSummaryResponse
     AgentConnectInfo:
       properties:
         transport:
@@ -27542,6 +27571,26 @@ components:
       - last_updated
       title: BalanceResponse
       description: Response model for balance queries.
+    BalanceUsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        current_month:
+          additionalProperties: true
+          type: object
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
+          type: object
+          title: Last 30 Days
+      type: object
+      required:
+      - org_id
+      - current_month
+      - last_30_days
+      title: BalanceUsageSummaryResponse
+      description: Response model for usage summary.
     BillingEntitlementAssetSnapshot:
       properties:
         asset_id:
@@ -28027,6 +28076,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/CloudDeploymentProjectGitSourceRequest'
           - type: 'null'
+        cloud_slot:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cloud Slot
       type: object
       required:
       - project_id
@@ -34145,6 +34199,103 @@ components:
       - steer
       - control
       title: RuntimeMessageMode
+    SessionLimitResponse:
+      properties:
+        limit_id:
+          type: string
+          format: uuid
+          title: Limit Id
+        session_id:
+          type: string
+          title: Session Id
+        limit_type:
+          type: string
+          title: Limit Type
+        metric_type:
+          type: string
+          title: Metric Type
+        limit_value:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
+        warning_threshold:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
+      title: SessionLimitResponse
+      description: Response model for a limit.
+    SessionUpdateLimitRequest:
+      properties:
+        limit_value:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Limit Value
+        warning_threshold:
+          anyOf:
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      title: SessionUpdateLimitRequest
+      description: Request to update a limit.
     SmrActorControlRequest:
       properties:
         action:
@@ -56072,152 +56223,6 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__admin__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
-      type: object
-      required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
-      title: UsageSummaryResponse
-    app__api__v1__routes_balance__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        current_month:
-          additionalProperties: true
-          type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
-          type: object
-          title: Last 30 Days
-      type: object
-      required:
-      - org_id
-      - current_month
-      - last_30_days
-      title: UsageSummaryResponse
-      description: Response model for usage summary.
-    app__core__session_usage__models__LimitResponse:
-      properties:
-        limit_id:
-          type: string
-          format: uuid
-          title: Limit Id
-        session_id:
-          type: string
-          title: Session Id
-        limit_type:
-          type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
-        limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
-        warning_threshold:
-          anyOf:
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        window_seconds:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Window Seconds
-        exceeded_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Exceeded Reason
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
-      type: object
-      required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
-      title: LimitResponse
-      description: Response model for a limit.
-    app__core__session_usage__models__UpdateLimitRequest:
-      properties:
-        limit_value:
-          anyOf:
-          - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Limit Value
-        warning_threshold:
-          anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
-      type: object
-      title: UpdateLimitRequest
-      description: Request to update a limit.
   securitySchemes:
     HTTPBearer:
       type: http
