@@ -279,13 +279,11 @@ class ClaimProjection:
             for field_name, expected_value in projection_authority.items():
                 if getattr(active_claim, field_name) != expected_value:
                     raise ValueError(
-                        "active_claim authority does not match claim projection "
-                        f"for {field_name}"
+                        f"active_claim authority does not match claim projection for {field_name}"
                     )
             if active_claim.fencing_token != last_fencing_token:
                 raise ValueError(
-                    "active_claim fencing_token does not match claim projection "
-                    "last_fencing_token"
+                    "active_claim fencing_token does not match claim projection last_fencing_token"
                 )
         return cls(
             deployment_id=deployment_id,

@@ -439,7 +439,7 @@ class ImageReleasesAPI(_ClientNamespace):
                 ) from upload_error
         if response.is_error:
             raise RuntimeError(
-                "image release archive upload failed " f"with HTTP {response.status_code}"
+                f"image release archive upload failed with HTTP {response.status_code}"
             )
         try:
             finalized = self.finalize(

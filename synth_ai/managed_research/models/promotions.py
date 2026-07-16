@@ -275,7 +275,7 @@ class SmrPromotionDiscountPreview:
         )
         if enforcement_status != "not_implemented":
             raise ValueError(
-                "SMR promotion discount preview.enforcement_status must be " "not_implemented"
+                "SMR promotion discount preview.enforcement_status must be not_implemented"
             )
         eligible_usage = _string_list(
             _require_array(mapping, "eligible_usage", label="eligible_usage"),
@@ -289,8 +289,7 @@ class SmrPromotionDiscountPreview:
         )
         if not 1 <= customer_discount_percent <= 100:
             raise ValueError(
-                "SMR promotion discount preview.customer_discount_percent must be "
-                "between 1 and 100"
+                "SMR promotion discount preview.customer_discount_percent must be between 1 and 100"
             )
         amounts = {
             field_name: _int_value(mapping, field_name)
