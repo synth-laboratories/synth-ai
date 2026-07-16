@@ -12,6 +12,11 @@ the up / run / down loop against remote branches:
     uv run scripts/cloud_slot.py artifacts --cloud-slot slot1-cloud
     uv run scripts/cloud_slot.py artifact --cloud-slot slot1-cloud \
         --root-id reportbench-readme-smoke --path run.json --output run.json
+    uv run scripts/cloud_slot.py image-upload --archive scorer.oci.tar \
+        --declaration-json scorer-release.json
+    uv run scripts/cloud_slot.py image-status --release-id imgrel_<sha256>
+    uv run scripts/cloud_slot.py image-materialize --cloud-slot slot1-cloud \
+        --release-id imgrel_<sha256> --fencing-token <n>
     uv run scripts/cloud_slot.py ls                              # what sltop CLOUD shows
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud    # retire (keep VM)
     uv run scripts/cloud_slot.py down --cloud-slot slot1-cloud --delete-vm --confirm-vm-name <vm>
@@ -175,6 +180,29 @@ def _emit(payload: object) -> None:
     print(json.dumps(_jsonable(payload), default=str, indent=2, sort_keys=True))
 
 
+def _load_exact_json_object(path_value: str) -> dict[str, object]:
+    path = Path(path_value).expanduser().resolve()
+
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise CloudSlotError(f"duplicate JSON key in {path}: {key}")
+            result[key] = value
+        return result
+
+    try:
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise CloudSlotError(f"invalid JSON file {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise CloudSlotError(f"JSON file must contain one object: {path}")
+    return payload
+
+
 # ---- verbs ------------------------------------------------------------------
 
 def cmd_up(args: argparse.Namespace) -> int:
@@ -312,6 +340,45 @@ def cmd_materialize(args: argparse.Namespace) -> int:
         fencing_token=args.fencing_token,
     )
     _emit({"action": "materialize", "deployment": _summary(deployment), "receipt": receipt})
+    return 0
+
+
+def cmd_image_upload(args: argparse.Namespace) -> int:
+    client = _client(args)
+    declaration = _load_exact_json_object(args.declaration_json)
+    receipt = client.image_releases.upload_archive(
+        args.archive,
+        declaration=declaration,
+        expires_in=args.expires_in,
+        upload_timeout_seconds=args.upload_timeout,
+    )
+    _emit({"action": "image-upload", "receipt": receipt})
+    return 0
+
+
+def cmd_image_status(args: argparse.Namespace) -> int:
+    client = _client(args)
+    receipt = client.image_releases.status(release_id=args.release_id)
+    _emit({"action": "image-status", "receipt": receipt})
+    return 0
+
+
+def cmd_image_materialize(args: argparse.Namespace) -> int:
+    client = _client(args)
+    deployment = _resolve_deployment(client, args)
+    receipt = client.cloud_deployments.materialize_image_release(
+        deployment_id=str(deployment["deployment_id"]),
+        release_id=args.release_id,
+        fencing_token=args.fencing_token,
+        transfer_timeout_seconds=args.transfer_timeout,
+    )
+    _emit(
+        {
+            "action": "image-materialize",
+            "deployment": _summary(deployment),
+            "receipt": receipt,
+        }
+    )
     return 0
 
 
@@ -614,6 +681,33 @@ def _build_parser() -> argparse.ArgumentParser:
     p_materialize.add_argument("--source-commit-sha", required=True)
     p_materialize.add_argument("--fencing-token", type=int, required=True)
     p_materialize.set_defaults(func=cmd_materialize)
+
+    p_image_upload = sub.add_parser(
+        "image-upload",
+        help="upload and finalize one immutable OCI archive in Synth storage",
+    )
+    p_image_upload.add_argument("--archive", required=True)
+    p_image_upload.add_argument("--declaration-json", required=True)
+    p_image_upload.add_argument("--expires-in", type=int, default=3600)
+    p_image_upload.add_argument("--upload-timeout", type=float, default=1800.0)
+    p_image_upload.set_defaults(func=cmd_image_upload)
+
+    p_image_status = sub.add_parser(
+        "image-status",
+        help="read and validate one immutable Synth image release receipt",
+    )
+    p_image_status.add_argument("--release-id", required=True)
+    p_image_status.set_defaults(func=cmd_image_status)
+
+    p_image_materialize = sub.add_parser(
+        "image-materialize",
+        help="load and tag a Synth image release under active claim fencing",
+    )
+    add_address_flags(p_image_materialize)
+    p_image_materialize.add_argument("--release-id", required=True)
+    p_image_materialize.add_argument("--fencing-token", type=int, required=True)
+    p_image_materialize.add_argument("--transfer-timeout", type=int, default=900)
+    p_image_materialize.set_defaults(func=cmd_image_materialize)
 
     p_logs = sub.add_parser("logs", help="read bounded logs for a declared service")
     add_address_flags(p_logs)

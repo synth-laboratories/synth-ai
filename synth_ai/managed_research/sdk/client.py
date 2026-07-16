@@ -174,6 +174,7 @@ from synth_ai.managed_research.sdk.cloud_deployments import (
     CloudDeploymentArtifactContent,
     CloudDeploymentArtifacts,
     CloudDeploymentExecResult,
+    CloudDeploymentImageMaterialization,
     CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
@@ -207,6 +208,17 @@ from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.image_releases import (
+    ImageRelease,
+    ImageReleaseDeclaration,
+    ImageReleaseFinalize,
+    ImageReleasesAPI,
+    ImageReleaseUpload,
+    _image_release_finalize_from_wire,
+    _image_release_from_wire,
+    _image_release_upload_from_wire,
+    image_release_declaration,
+)
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -1206,6 +1218,11 @@ class ManagedResearchClient:
         default=None,
         repr=False,
     )
+    _image_releases_api: ImageReleasesAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _dev_environments_api: DevEnvironmentsAPI | None = field(
         init=False,
         default=None,
@@ -1387,6 +1404,12 @@ class ManagedResearchClient:
         if self._cloud_deployments_api is None:
             self._cloud_deployments_api = CloudDeploymentsAPI(self)
         return self._cloud_deployments_api
+
+    @property
+    def image_releases(self) -> ImageReleasesAPI:
+        if self._image_releases_api is None:
+            self._image_releases_api = ImageReleasesAPI(self)
+        return self._image_releases_api
 
     @property
     def dev_environments(self) -> DevEnvironmentsAPI:
@@ -4052,6 +4075,72 @@ class ManagedResearchClient:
     # Cloud deployments (service lane: durable stacks on persistent VMs)
     # ------------------------------------------------------------------
 
+    def create_image_release_upload(
+        self,
+        *,
+        declaration: ImageReleaseDeclaration | Mapping[str, object],
+        expires_in: int = 3600,
+    ) -> ImageReleaseUpload:
+        if (
+            isinstance(expires_in, bool)
+            or not isinstance(expires_in, int)
+            or not 60 <= expires_in <= 86400
+        ):
+            raise ValueError("expires_in must be between 60 and 86400 seconds")
+        normalized = image_release_declaration(declaration)
+        payload = _image_release_upload_from_wire(
+            self._request_json(
+                "POST",
+                "/smr/v1/image-releases/upload-url",
+                json_body={
+                    "declaration": dict(normalized),
+                    "expires_in": expires_in,
+                },
+            )
+        )
+        if payload["declaration"] != normalized or payload["expires_in"] != expires_in:
+            raise ValueError("image release upload response did not bind the request")
+        return payload
+
+    def finalize_image_release(
+        self,
+        *,
+        upload_id: str,
+        declaration: ImageReleaseDeclaration | Mapping[str, object],
+    ) -> ImageReleaseFinalize:
+        normalized_upload_id = _require_non_empty_string(
+            upload_id,
+            field_name="upload_id",
+        )
+        normalized = image_release_declaration(declaration)
+        payload = _image_release_finalize_from_wire(
+            self._request_json(
+                "POST",
+                "/smr/v1/image-releases/finalize",
+                json_body={
+                    "upload_id": normalized_upload_id,
+                    "declaration": dict(normalized),
+                },
+            )
+        )
+        if payload["release"]["declaration"] != normalized:
+            raise ValueError("image release finalize response did not bind the request")
+        if payload["staging_cleanup"]["upload_id"] != normalized_upload_id:
+            raise ValueError("image release finalize cleaned a different upload_id")
+        return payload
+
+    def get_image_release(self, *, release_id: str) -> ImageRelease:
+        normalized_release_id = _require_non_empty_string(
+            release_id,
+            field_name="release_id",
+        )
+        return _image_release_from_wire(
+            self._request_json(
+                "GET",
+                f"/smr/v1/image-releases/{normalized_release_id}",
+            )
+        )
+
     def create_cloud_deployment(
         self,
         *,
@@ -4244,6 +4333,111 @@ class ManagedResearchClient:
             raise_cloud_deployment_claim_error(exc)
             raise
         return cast(CloudDeploymentWorkspaceMaterialization, payload)
+
+    def materialize_cloud_deployment_image_release(
+        self,
+        *,
+        deployment_id: str,
+        release_id: str,
+        fencing_token: int,
+        transfer_timeout_seconds: int = 900,
+    ) -> CloudDeploymentImageMaterialization:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        release_id = _require_non_empty_string(
+            release_id,
+            field_name="release_id",
+        )
+        if (
+            isinstance(transfer_timeout_seconds, bool)
+            or not isinstance(transfer_timeout_seconds, int)
+            or not 1 <= transfer_timeout_seconds <= 1800
+        ):
+            raise ValueError("transfer_timeout_seconds must be between 1 and 1800")
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/image-releases/materialize",
+                    json_body={
+                        "release_id": release_id,
+                        "transfer_timeout_seconds": transfer_timeout_seconds,
+                    },
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-image-materialization-v1",
+                label="materialize_cloud_deployment_image_release",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        if payload.get("deployment_id") != deployment_id or payload.get(
+            "release_id"
+        ) != release_id:
+            raise ValueError("image materialization response did not bind the request")
+        expected_fields = {
+            "schema_version",
+            "deployment_id",
+            "vm_name",
+            "release_id",
+            "operation_id",
+            "artifact",
+            "declaration",
+            "transfer",
+            "loaded_identity",
+        }
+        if set(payload) != expected_fields:
+            raise ValueError("image materialization response fields are invalid")
+        operation_id = payload.get("operation_id")
+        if not isinstance(operation_id, str) or not re.fullmatch(
+            r"imgmat_[0-9a-f]{32}", operation_id
+        ):
+            raise ValueError("image materialization operation_id is invalid")
+        declaration = image_release_declaration(
+            cast(Mapping[str, object], payload.get("declaration"))
+        )
+        artifact = payload.get("artifact")
+        loaded = payload.get("loaded_identity")
+        transfer = payload.get("transfer")
+        if not isinstance(artifact, dict) or set(artifact) != {
+            "artifact_id",
+            "archive_sha256",
+            "archive_size_bytes",
+        }:
+            raise ValueError("image materialization artifact is invalid")
+        if artifact != {
+            "artifact_id": f"imgobj_{declaration['archive_sha256']}",
+            "archive_sha256": declaration["archive_sha256"],
+            "archive_size_bytes": declaration["archive_size_bytes"],
+        }:
+            raise ValueError("image materialization artifact does not bind declaration")
+        if not isinstance(loaded, dict) or set(loaded) != {
+            "image_manifest_digest",
+            "image_config_digest",
+            "image_ref",
+            "platform_os",
+            "platform_architecture",
+        }:
+            raise ValueError("image materialization loaded identity is invalid")
+        for field_name in (
+            "image_manifest_digest",
+            "image_ref",
+            "platform_os",
+            "platform_architecture",
+        ):
+            if loaded.get(field_name) != declaration[field_name]:
+                raise ValueError(
+                    f"image materialization {field_name} does not bind declaration"
+                )
+        if not isinstance(loaded.get("image_config_digest"), str) or not re.fullmatch(
+            r"sha256:[0-9a-f]{64}", loaded["image_config_digest"]
+        ):
+            raise ValueError("image materialization config digest is invalid")
+        if not isinstance(transfer, dict):
+            raise ValueError("image materialization transfer receipt is invalid")
+        return cast(CloudDeploymentImageMaterialization, payload)
 
     def exec_cloud_deployment(
         self,

@@ -341,6 +341,8 @@ from synth_ai.managed_research.sdk.cloud_deployments import (
     CloudDeploymentArtifactRoot,
     CloudDeploymentArtifacts,
     CloudDeploymentExecResult,
+    CloudDeploymentImageMaterialization,
+    CloudDeploymentLoadedImageIdentity,
     CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
@@ -362,6 +364,17 @@ from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.image_releases import (
+    ImageRelease,
+    ImageReleaseArtifact,
+    ImageReleaseDeclaration,
+    ImageReleaseFinalize,
+    ImageReleaseInspection,
+    ImageReleasesAPI,
+    ImageReleaseStagingCleanup,
+    ImageReleaseUpload,
+    image_release_declaration,
+)
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
@@ -401,6 +414,8 @@ __all__ = [
     "CloudDeploymentArtifactRoot",
     "CloudDeploymentArtifacts",
     "CloudDeploymentExecResult",
+    "CloudDeploymentImageMaterialization",
+    "CloudDeploymentLoadedImageIdentity",
     "CloudDeploymentLogs",
     "CloudDeploymentProjectGitSource",
     "CloudDeploymentService",
@@ -462,6 +477,15 @@ __all__ = [
     "RecurrencePolicy",
     "FilesAPI",
     "GithubAPI",
+    "ImageRelease",
+    "ImageReleaseArtifact",
+    "ImageReleaseDeclaration",
+    "ImageReleaseFinalize",
+    "ImageReleaseInspection",
+    "ImageReleasesAPI",
+    "ImageReleaseStagingCleanup",
+    "ImageReleaseUpload",
+    "image_release_declaration",
     "GitHubInstallation",
     "IntegrationsAPI",
     "OPENAI_TRANSPORT_MODE_AUTO",
