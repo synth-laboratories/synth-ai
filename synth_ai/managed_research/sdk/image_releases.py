@@ -422,7 +422,6 @@ class ImageReleasesAPI(_ClientNamespace):
                             upload["upload_url"],
                             content=handle,
                             headers={
-                                "Content-Type": "application/x-tar",
                                 "Content-Length": str(normalized["archive_size_bytes"]),
                             },
                         )
