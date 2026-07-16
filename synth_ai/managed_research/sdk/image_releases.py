@@ -107,7 +107,8 @@ def _exact_fields(
     if actual != expected:
         raise ValueError(
             f"{label} fields do not match the contract "
-            f"(missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)})"
+            f"(missing={sorted(expected - actual)}, "
+            f"unexpected={sorted(actual - expected)})"
         )
 
 
@@ -160,7 +161,9 @@ def image_release_declaration(
         or not isinstance(archive_size_bytes, int)
         or not 1 <= archive_size_bytes <= 16 * 1024**3
     ):
-        raise ValueError("declaration.archive_size_bytes must be between 1 byte and 16 GiB")
+        raise ValueError(
+            "declaration.archive_size_bytes must be between 1 byte and 16 GiB"
+        )
     if not _DIGEST.fullmatch(image_manifest_digest):
         raise ValueError("declaration.image_manifest_digest must be a sha256 digest")
     if not _IMAGE_REF.fullmatch(image_ref):
@@ -170,7 +173,9 @@ def image_release_declaration(
     if not source_repository.startswith("https://github.com/"):
         raise ValueError("declaration.source_repository must be an HTTPS GitHub URL")
     if not _GIT_SHA.fullmatch(source_commit_sha):
-        raise ValueError("declaration.source_commit_sha must be a lowercase full Git SHA")
+        raise ValueError(
+            "declaration.source_commit_sha must be a lowercase full Git SHA"
+        )
     if not _SHA256.fullmatch(fixture_manifest_sha256) or not _SHA256.fullmatch(
         fixture_binary_sha256
     ):
@@ -210,7 +215,10 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
         ),
         label="image_release",
     )
-    if _text(payload, "schema_version", label="image_release") != "smr-image-release-v1":
+    if (
+        _text(payload, "schema_version", label="image_release")
+        != "smr-image-release-v1"
+    ):
         raise ValueError("image release schema_version is unsupported")
     release_id = _text(payload, "release_id", label="image_release")
     if not _RELEASE_ID.fullmatch(release_id):
@@ -260,7 +268,9 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
         "platform_architecture",
     ):
         if inspection_payload.get(key) != declaration[key]:
-            raise ValueError(f"image release inspection.{key} does not bind declaration")
+            raise ValueError(
+                f"image release inspection.{key} does not bind declaration"
+            )
     image_config_digest = _text(
         inspection_payload,
         "image_config_digest",
@@ -300,9 +310,7 @@ def _image_release_upload_from_wire(payload: object) -> ImageReleaseUpload:
     expires_in = payload.get("expires_in")
     if isinstance(expires_in, bool) or not isinstance(expires_in, int):
         raise ValueError("image release upload expires_in must be an integer")
-    image_release_declaration(
-        cast(Mapping[str, object], payload.get("declaration"))
-    )
+    image_release_declaration(cast(Mapping[str, object], payload.get("declaration")))
     return cast(ImageReleaseUpload, dict(payload))
 
 
