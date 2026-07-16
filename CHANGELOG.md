@@ -6,6 +6,11 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Added
 
+- **Fail-closed promotion discount preview** — `client.billing.preview_promotion_discount(...)`
+  returns typed backend-authored draft economics, including the draft terms,
+  preview inputs, charge/subsidy values, caps, and explicit
+  `enforcement_status="not_implemented"`. The SDK adds no activation, debit,
+  grant, or retirement path for this launch-readiness surface.
 - **Public Research launch authority models** — `synth_ai.research` now exports
   typed agent harness/model, role bindings, worker palette, configured-run
   request, and canonical authority-readout aliases so evals and customer code

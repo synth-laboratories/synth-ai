@@ -1940,6 +1940,117 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/health:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Scorer Health
+      operationId: scorer_health_v1_gamebench_scorers_craftax_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/info:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Scorer Info
+      operationId: scorer_info_v1_gamebench_scorers_craftax_info_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/jobs:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Submit Score
+      operationId: submit_score_v1_gamebench_scorers_craftax_jobs_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/jobs/{job_id}:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Read Score
+      operationId: read_score_v1_gamebench_scorers_craftax_jobs__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/jobs/{job_id}/cancel:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Cancel Score
+      operationId: cancel_score_v1_gamebench_scorers_craftax_jobs__job_id__cancel_post
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/jobs/{job_id}/cleanup:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Cleanup Score
+      operationId: cleanup_score_v1_gamebench_scorers_craftax_jobs__job_id__cleanup_post
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/optimizers/startup:
     get:
       tags:
@@ -6716,6 +6827,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CloudDeploymentWorkspaceMaterializeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/image-releases/materialize:
+    post:
+      tags:
+      - smr
+      summary: Materialize Cloud Deployment Image Release
+      operationId: materialize_cloud_deployment_image_release_smr_v1_deployments__deployment_id__image_releases_materialize_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentImageMaterializeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentImageMaterializeResponse'
         '422':
           description: Validation Error
           content:
@@ -13710,6 +13861,134 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/visuals:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Publish Run Visual
+      operationId: publish_run_visual_smr_runs__run_id__visuals_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_publish_run_visual_smr_runs__run_id__visuals_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Publish Run Visual Smr Runs  Run Id  Visuals Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: List Visuals
+      operationId: list_visuals_smr_visuals_get
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Visuals Smr Visuals Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Visual
+      operationId: get_visual_smr_visuals__visual_id__get
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Visual Smr Visuals  Visual Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/content:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Visual Content
+      operationId: get_visual_content_smr_visuals__visual_id__content_get
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/hosted-artifacts:
     get:
       tags:
@@ -15565,6 +15844,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrApprovalResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/upload-url:
+    post:
+      tags:
+      - smr
+      summary: Create Image Release Upload
+      operationId: create_image_release_upload_smr_v1_image_releases_upload_url_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageReleaseUploadRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseUploadResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/finalize:
+    post:
+      tags:
+      - smr
+      summary: Finalize Image Release
+      operationId: finalize_image_release_smr_v1_image_releases_finalize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageReleaseFinalizeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseFinalizeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/{release_id}:
+    get:
+      tags:
+      - smr
+      summary: Get Image Release
+      operationId: get_image_release_smr_v1_image_releases__release_id__get
+      parameters:
+      - name: release_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Release Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseResponse'
         '422':
           description: Validation Error
           content:
@@ -18805,6 +19160,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrPromotionCampaignPublicResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/promotions/admin/discount-preview:
+    post:
+      tags:
+      - smr
+      - promotions
+      summary: Preview Admin Promotion Discount
+      description: Return a backend-owned draft economics preview without mutation.
+      operationId: preview_admin_promotion_discount_smr_promotions_admin_discount_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPromotionDiscountPreviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionDiscountPreviewResponse'
         '422':
           description: Validation Error
           content:
@@ -28078,6 +28460,40 @@ components:
       - code
       - display_name
       title: BillingProfileSnapshot
+    Body_publish_run_visual_smr_runs__run_id__visuals_post:
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Title
+        html:
+          type: string
+          format: binary
+          title: Html
+        visual_kind:
+          type: string
+          maxLength: 100
+          title: Visual Kind
+          default: research_visual
+        visibility:
+          type: string
+          pattern: ^(private|org|public)$
+          title: Visibility
+          default: org
+        source_run_ids_json:
+          type: string
+          title: Source Run Ids Json
+          default: '[]'
+        metadata_json:
+          type: string
+          title: Metadata Json
+          default: '{}'
+      type: object
+      required:
+      - title
+      - html
+      title: Body_publish_run_visual_smr_runs__run_id__visuals_post
     Body_worker_upload_artifact_smr_internal_runs__run_id__artifacts_upload_post:
       properties:
         file:
@@ -28864,6 +29280,70 @@ components:
       - stdout_truncated
       - stderr_truncated
       title: CloudDeploymentExecResponse
+    CloudDeploymentImageMaterializeRequest:
+      properties:
+        release_id:
+          type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
+          title: Release Id
+        transfer_timeout_seconds:
+          type: integer
+          maximum: 1800.0
+          minimum: 1.0
+          title: Transfer Timeout Seconds
+          default: 900
+      additionalProperties: false
+      type: object
+      required:
+      - release_id
+      title: CloudDeploymentImageMaterializeRequest
+    CloudDeploymentImageMaterializeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-image-materialization-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        release_id:
+          type: string
+          title: Release Id
+        operation_id:
+          type: string
+          title: Operation Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        transfer:
+          additionalProperties: true
+          type: object
+          title: Transfer
+        loaded_identity:
+          additionalProperties: true
+          type: object
+          title: Loaded Identity
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - release_id
+      - operation_id
+      - artifact
+      - declaration
+      - transfer
+      - loaded_identity
+      title: CloudDeploymentImageMaterializeResponse
     CloudDeploymentLogsResponse:
       properties:
         schema_version:
@@ -31329,6 +31809,201 @@ components:
       type: object
       title: HeartbeatResponse
       description: Response for lease heartbeat.
+    ImageReleaseDeclarationRequest:
+      properties:
+        kind:
+          type: string
+          const: craftax_scorer
+          title: Kind
+        archive_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Archive Sha256
+        archive_size_bytes:
+          type: integer
+          maximum: 17179869184.0
+          exclusiveMinimum: 0.0
+          title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        fixture_manifest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Manifest Sha256
+        fixture_binary_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Binary Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - archive_sha256
+      - archive_size_bytes
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      - fixture_manifest_sha256
+      - fixture_binary_sha256
+      title: ImageReleaseDeclarationRequest
+    ImageReleaseFinalizeRequest:
+      properties:
+        upload_id:
+          type: string
+          pattern: ^imgup_[0-9a-f]{32}$
+          title: Upload Id
+        declaration:
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+      additionalProperties: false
+      type: object
+      required:
+      - upload_id
+      - declaration
+      title: ImageReleaseFinalizeRequest
+    ImageReleaseFinalizeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-finalize-v1
+          title: Schema Version
+        release:
+          $ref: '#/components/schemas/ImageReleaseResponse'
+        staging_cleanup:
+          $ref: '#/components/schemas/ImageReleaseStagingCleanupResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release
+      - staging_cleanup
+      title: ImageReleaseFinalizeResponse
+    ImageReleaseResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
+          type: string
+          title: Release Id
+        org_id:
+          type: string
+          title: Org Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        inspection:
+          additionalProperties: true
+          type: object
+          title: Inspection
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - declaration
+      - inspection
+      title: ImageReleaseResponse
+    ImageReleaseStagingCleanupResponse:
+      properties:
+        upload_id:
+          type: string
+          title: Upload Id
+        status:
+          type: string
+          enum:
+          - deleted
+          - absent
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - upload_id
+      - status
+      title: ImageReleaseStagingCleanupResponse
+    ImageReleaseUploadRequest:
+      properties:
+        declaration:
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+        expires_in:
+          type: integer
+          maximum: 86400.0
+          minimum: 60.0
+          title: Expires In
+          default: 3600
+      additionalProperties: false
+      type: object
+      required:
+      - declaration
+      title: ImageReleaseUploadRequest
+    ImageReleaseUploadResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-upload-v1
+          title: Schema Version
+        upload_id:
+          type: string
+          title: Upload Id
+        release_id:
+          type: string
+          title: Release Id
+        upload_url:
+          type: string
+          title: Upload Url
+        expires_in:
+          type: integer
+          title: Expires In
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - upload_id
+      - release_id
+      - upload_url
+      - expires_in
+      - declaration
+      title: ImageReleaseUploadResponse
     IncreaseLimitRequest:
       properties:
         metric_type:
@@ -45472,6 +46147,158 @@ components:
       - grant_ttl_days
       - benefits_summary
       title: SmrPromotionCampaignPublicResponse
+    SmrPromotionDiscountContractRequest:
+      properties:
+        customer_discount_percent:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Customer Discount Percent
+        global_subsidy_cap_microcents:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Global Subsidy Cap Microcents
+        org_subsidy_cap_microcents:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Org Subsidy Cap Microcents
+        price_source:
+          type: string
+          minLength: 1
+          title: Price Source
+        eligible_usage:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Eligible Usage
+        stacking_policy:
+          type: string
+          enum:
+          - replace_existing
+          - mutually_exclusive
+          title: Stacking Policy
+        provider_model_exclusions:
+          items:
+            type: string
+          type: array
+          title: Provider Model Exclusions
+      type: object
+      required:
+      - customer_discount_percent
+      - global_subsidy_cap_microcents
+      - org_subsidy_cap_microcents
+      - price_source
+      - eligible_usage
+      - stacking_policy
+      - provider_model_exclusions
+      title: SmrPromotionDiscountContractRequest
+    SmrPromotionDiscountPreviewRequest:
+      properties:
+        campaign_id:
+          type: string
+          minLength: 1
+          title: Campaign Id
+        nominal_customer_debit_microcents:
+          type: integer
+          minimum: 0.0
+          title: Nominal Customer Debit Microcents
+        provider_cost_pico_usd:
+          type: integer
+          minimum: 0.0
+          title: Provider Cost Pico Usd
+      type: object
+      required:
+      - campaign_id
+      - nominal_customer_debit_microcents
+      - provider_cost_pico_usd
+      title: SmrPromotionDiscountPreviewRequest
+    SmrPromotionDiscountPreviewResponse:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        campaign_status:
+          type: string
+          title: Campaign Status
+        claim_window_start_at:
+          type: string
+          title: Claim Window Start At
+        claim_window_end_at:
+          type: string
+          title: Claim Window End At
+        price_source:
+          type: string
+          title: Price Source
+        eligible_usage:
+          items:
+            type: string
+          type: array
+          title: Eligible Usage
+        stacking_policy:
+          type: string
+          title: Stacking Policy
+        provider_model_exclusions:
+          items:
+            type: string
+          type: array
+          title: Provider Model Exclusions
+        generated_at:
+          type: string
+          title: Generated At
+        preview_formula_version:
+          type: string
+          title: Preview Formula Version
+        enforcement_status:
+          type: string
+          const: not_implemented
+          title: Enforcement Status
+        customer_discount_percent:
+          type: integer
+          title: Customer Discount Percent
+        nominal_customer_debit_microcents:
+          type: integer
+          title: Nominal Customer Debit Microcents
+        customer_discount_microcents:
+          type: integer
+          title: Customer Discount Microcents
+        customer_charge_microcents:
+          type: integer
+          title: Customer Charge Microcents
+        provider_cost_pico_usd:
+          type: integer
+          title: Provider Cost Pico Usd
+        synth_subsidy_microcents:
+          type: integer
+          title: Synth Subsidy Microcents
+        global_subsidy_cap_microcents:
+          type: integer
+          title: Global Subsidy Cap Microcents
+        org_subsidy_cap_microcents:
+          type: integer
+          title: Org Subsidy Cap Microcents
+      type: object
+      required:
+      - campaign_id
+      - campaign_status
+      - claim_window_start_at
+      - claim_window_end_at
+      - price_source
+      - eligible_usage
+      - stacking_policy
+      - provider_model_exclusions
+      - generated_at
+      - preview_formula_version
+      - enforcement_status
+      - customer_discount_percent
+      - nominal_customer_debit_microcents
+      - customer_discount_microcents
+      - customer_charge_microcents
+      - provider_cost_pico_usd
+      - synth_subsidy_microcents
+      - global_subsidy_cap_microcents
+      - org_subsidy_cap_microcents
+      title: SmrPromotionDiscountPreviewResponse
     SmrPromotionGrantViewResponse:
       properties:
         grant_id:
@@ -45574,16 +46401,19 @@ components:
           title: Claim Window End At
         grant_ttl_days:
           type: integer
+          exclusiveMinimum: 0.0
           title: Grant Ttl Days
           default: 7
         campaign_credit_ceiling_cents:
           anyOf:
           - type: integer
+            minimum: 0.0
           - type: 'null'
           title: Campaign Credit Ceiling Cents
         concurrency_limit:
           anyOf:
           - type: integer
+            exclusiveMinimum: 0.0
           - type: 'null'
           title: Concurrency Limit
         eligibility_kind:
@@ -45595,6 +46425,10 @@ components:
           - type: string
           - type: 'null'
           title: Autumn Product Id
+        discount_contract:
+          anyOf:
+          - $ref: '#/components/schemas/SmrPromotionDiscountContractRequest'
+          - type: 'null'
       type: object
       required:
       - campaign_id
