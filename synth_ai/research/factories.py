@@ -368,9 +368,7 @@ class ResearchFactoriesAPI:
             confirmed_preview_token=preview.preview_token,
         )
         if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
-            raise RuntimeError(
-                "wake receipt is not durably bound to the confirmed preview"
-            )
+            raise RuntimeError("wake receipt is not durably bound to the confirmed preview")
         return result
 
 
