@@ -2062,6 +2062,11 @@ class FactoryWakeDueResult:
     factory_id: str
     evaluated_at: datetime | None
     dry_run: bool
+    launched: int = 0
+    skipped: int = 0
+    failed: int = 0
+    efforts: tuple[FactoryWakeDueEffort, ...] = ()
+    raw: dict[str, object] = field(default_factory=dict, repr=False)
     preview_id: str | None = None
     preview_token: str | None = field(default=None, repr=False)
     preview_expires_at: datetime | None = None
@@ -2071,11 +2076,6 @@ class FactoryWakeDueResult:
     receipt_id: str | None = None
     executed_at: datetime | None = None
     ready: int = 0
-    launched: int = 0
-    skipped: int = 0
-    failed: int = 0
-    efforts: tuple[FactoryWakeDueEffort, ...] = ()
-    raw: dict[str, object] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryWakeDueResult:
