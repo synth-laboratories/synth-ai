@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from synth_ai.research.async_client import AsyncResearchClient
 from synth_ai.research.client import ResearchClient
+from synth_ai.research.economics import ResearchEconomicsAPI
 from synth_ai.research.enums import ResearchHostKind, ResearchWorkMode
 from synth_ai.research.errors import (
     ResearchApiError,
@@ -19,10 +20,24 @@ from synth_ai.research.errors import (
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
+    ResearchAgentProfileBindings,
+    ResearchArtifact,
+    ResearchArtifactManifest,
+    ResearchBillingCatalog,
+    ResearchBillingDrawdown,
+    ResearchBillingEntitlements,
+    ResearchBillingPlan,
     ResearchCreateProjectResult,
+    ResearchEnvironmentKind,
+    ResearchOrgLimits,
     ResearchProject,
+    ResearchProjectEconomics,
     ResearchRun,
+    ResearchRunProgress,
     ResearchRunbookPreset,
+    ResearchRunnableProjectRequest,
+    ResearchRuntimeKind,
+    ResearchTagSessionCreateRequest,
     ResearchWorkProduct,
 )
 from synth_ai.research.projects import ResearchProjectsAPI
@@ -31,22 +46,37 @@ from synth_ai.research.secrets import ResearchSecretsAPI
 
 __all__ = [
     "AsyncResearchClient",
+    "ResearchArtifact",
+    "ResearchArtifactManifest",
+    "ResearchAgentProfileBindings",
+    "ResearchBillingCatalog",
+    "ResearchBillingDrawdown",
+    "ResearchBillingEntitlements",
+    "ResearchBillingPlan",
     "ResearchApiError",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchCreateProjectResult",
+    "ResearchEconomicsAPI",
+    "ResearchEnvironmentKind",
     "ResearchHostKind",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
+    "ResearchOrgLimits",
     "ResearchProject",
+    "ResearchProjectEconomics",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchFactoriesAPI",
     "ResearchLimitsAPI",
     "ResearchProjectsAPI",
     "ResearchRun",
+    "ResearchRunProgress",
     "ResearchRunHandle",
     "ResearchRunSession",
     "ResearchRunbookPreset",
+    "ResearchRunnableProjectRequest",
+    "ResearchRuntimeKind",
+    "ResearchTagSessionCreateRequest",
     "ResearchRunsAPI",
     "ResearchSecretsAPI",
     "ResearchStructuredDenialError",

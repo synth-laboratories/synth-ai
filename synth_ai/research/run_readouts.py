@@ -17,6 +17,12 @@ from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunCostSummary,
 )
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
+from synth_ai.research.models import (
+    ResearchArtifact,
+    ResearchArtifactManifest,
+    ResearchRunProgress,
+    ResearchWorkProduct,
+)
 from synth_ai.sdk.pagination import SyncPage
 
 
@@ -92,10 +98,16 @@ class ResearchRunProgressAPI(_RunReadoutBound):
     """High-level progress summary for dashboards and polling loops."""
 
     def get(self) -> dict[str, Any]:
-        """Return coarse progress fields (phase, percent, status text)."""
+        """Return the backward-compatible raw progress payload."""
         return self._handle._client.get_run_progress(
             self._handle.project_id,
             self._handle.run_id,
+        )
+
+    def get_typed(self) -> ResearchRunProgress:
+        """Return typed state, phase, stalls, tasks, and recommended actions."""
+        return ResearchRunProgress.from_wire(
+            self.get()
         )
 
 
@@ -478,7 +490,7 @@ class ResearchRunWorkProductsAPI(_RunReadoutBound):
             self._eval_packages = ResearchRunWorkProductsEvalPackagesAPI(self._handle)
         return self._eval_packages
 
-    def list(self) -> List[Any]:
+    def list(self) -> List[ResearchWorkProduct]:
         """List work product metadata for the run."""
         return self._handle._client.work_products.list_for_run(
             self._handle.project_id,
@@ -569,7 +581,7 @@ class ResearchRunHostedArtifactsAPI(_RunReadoutBound):
 class ResearchRunArtifactsManifestAPI(_RunReadoutBound):
     """Artifact manifest for a run."""
 
-    def get(self) -> Any:
+    def get(self) -> ResearchArtifactManifest:
         """Return the artifact manifest describing available run outputs."""
         return self._handle._client.get_run_artifact_manifest(
             self._handle.run_id,
@@ -626,7 +638,7 @@ class ResearchRunArtifactsAPI(_RunReadoutBound):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> List[Any]:
+    ) -> List[ResearchArtifact]:
         """List artifacts for the run with optional type filter."""
         return self._handle._client.list_run_artifacts(
             self._handle.run_id,
