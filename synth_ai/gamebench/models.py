@@ -138,10 +138,7 @@ class GameBenchCandidateScoreIdentity(_StrictModel):
         if len(set(self.seeds)) != len(self.seeds):
             raise ValueError("seeds must be unique and preserve the requested order")
         if any(
-            isinstance(seed, bool)
-            or not isinstance(seed, int)
-            or seed < 0
-            or seed > 2_147_483_647
+            isinstance(seed, bool) or not isinstance(seed, int) or seed < 0 or seed > 2_147_483_647
             for seed in self.seeds
         ):
             raise ValueError("seeds must contain only non-negative signed 32-bit integers")
