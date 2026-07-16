@@ -77,6 +77,13 @@ research = client.research
 # Org limits
 limits = research.limits.get()
 
+# Async Research Factory: inspect the experiment floor before launching work
+factory = research.factories.get(factory_id)
+floor = research.factories.status(factory.factory_id)
+preview = research.factories.preview_wake(factory.factory_id)
+# After reviewing preview.efforts:
+receipt = research.factories.wake_due(factory.factory_id)
+
 # Factory Tag loop
 session = research.factories.tag.sessions.create(
     TagSessionCreateRequest(

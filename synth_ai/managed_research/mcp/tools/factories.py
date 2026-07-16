@@ -693,6 +693,44 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
+            name="smr_preview_factory_wake",
+            description=(
+                "Preview which due Factory experiments would launch, including "
+                "backend-owned decisions and launch context, without starting runs."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "launch_request": {
+                        "type": "object",
+                        "description": "Optional default launch request for due Efforts.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum due Efforts to evaluate.",
+                    },
+                    "allow_overlap": {
+                        "type": "boolean",
+                        "description": "Preview overlap decisions for active Efforts.",
+                    },
+                    "continue_on_error": {
+                        "type": "boolean",
+                        "description": "Continue evaluating later Efforts after a preview failure.",
+                    },
+                },
+                required=["factory_id"],
+            ),
+            handler=lambda args: server._client_from_args(args).factories.wake_due(
+                str(args["factory_id"]),
+                launch_request=args.get("launch_request"),
+                limit=int(args.get("limit") or 10),
+                allow_overlap=bool(args.get("allow_overlap") or False),
+                dry_run=True,
+                continue_on_error=bool(args.get("continue_on_error", True)),
+            ).raw,
+            required_scopes=READ_SCOPES,
+        ),
+        ToolDefinition(
             name="smr_wake_due_factory_efforts",
             description=(
                 "Evaluate due persistent Factory Efforts and launch cloud research "
