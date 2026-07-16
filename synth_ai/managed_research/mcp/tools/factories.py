@@ -715,7 +715,9 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "continue_on_error": {
                         "type": "boolean",
-                        "description": "Continue evaluating later Efforts after a preview failure.",
+                        "description": (
+                            "Continue evaluating later Efforts after a preview failure."
+                        ),
                     },
                 },
                 required=["factory_id"],

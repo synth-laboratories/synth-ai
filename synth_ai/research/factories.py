@@ -310,9 +310,7 @@ class ResearchFactoriesAPI:
 
     def list(self, *, include_archived: bool = False) -> tuple[Factory, ...]:
         """List Research Factories visible to the authenticated organization."""
-        return tuple(
-            self._session.factories.list(include_archived=include_archived)
-        )
+        return tuple(self._session.factories.list(include_archived=include_archived))
 
     def get(self, factory_id: str) -> Factory:
         """Fetch one Research Factory."""
