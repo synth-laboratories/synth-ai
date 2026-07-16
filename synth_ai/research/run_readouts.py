@@ -97,13 +97,17 @@ class ResearchRunUsageAPI(_RunReadoutBound):
 class ResearchRunProgressAPI(_RunReadoutBound):
     """High-level progress summary for dashboards and polling loops."""
 
-    def get(self) -> ResearchRunProgress:
-        """Return coarse progress fields (phase, percent, status text)."""
+    def get(self) -> dict[str, Any]:
+        """Return the backward-compatible raw progress payload."""
+        return self._handle._client.get_run_progress(
+            self._handle.project_id,
+            self._handle.run_id,
+        )
+
+    def get_typed(self) -> ResearchRunProgress:
+        """Return typed state, phase, stalls, tasks, and recommended actions."""
         return ResearchRunProgress.from_wire(
-            self._handle._client.get_run_progress(
-                self._handle.project_id,
-                self._handle.run_id,
-            )
+            self.get()
         )
 
 

@@ -272,20 +272,19 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         objective: str | None = None,
         **kwargs: Any,
-    ) -> ResearchRunHandle:
+    ) -> ResearchRunHandle | dict[str, Any]:
         """Launch a Managed Research run.
 
-        Always returns a :class:`ResearchRunHandle`. When ``objective`` is omitted,
-        the backend starts the project's configured run and the hero client parses
-        the response into the same typed handle. Legacy callers that require the
-        raw trigger response can use the deprecated :meth:`trigger` method.
+        When ``objective`` is provided, returns a :class:`ResearchRunHandle`.
+        Objective-less calls retain their historical raw response. Use
+        :meth:`create_configured` for a typed configured-run launch.
 
         Args:
             project_id: Owning project id.
             objective: Primary operator message for the run (preferred launch path).
 
         Returns:
-            A typed :class:`ResearchRunHandle` for both launch forms.
+            A typed handle for objective launches, otherwise the legacy raw payload.
 
         Example:
             handle = research.runs.create(
@@ -303,10 +302,24 @@ class ResearchRunsAPI:
                 **run_kwargs,
             )
             return ResearchRunHandle(handle)
-        wire = self._session.runs.trigger(
+        return self._session.runs.trigger(
             project_id,
             project=project,
             **run_kwargs,
+        )
+
+    def create_configured(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        **kwargs: Any,
+    ) -> ResearchRunHandle:
+        """Launch the project's configured run and return a typed handle."""
+        wire = self._session.runs.trigger(
+            project_id,
+            project=project,
+            **_research_run_kwargs(kwargs),
         )
         run = ResearchRun.from_wire(wire)
         return ResearchRunHandle(self._session.run(run.project_id, run.run_id))

@@ -156,9 +156,9 @@ class ResearchClient:
         return self._tag
 
     def get_limits(self) -> dict[str, Any]:
-        """Return the legacy raw limits payload; use typed ``limits.get()`` instead."""
+        """Return the legacy raw payload; use typed ``limits.get_typed()`` instead."""
         warnings.warn(
-            "research.get_limits() is deprecated; use research.limits.get() instead.",
+            "research.get_limits() is deprecated; use research.limits.get_typed() instead.",
             DeprecationWarning,
             stacklevel=2,
         )

@@ -53,7 +53,7 @@ from synth_ai import SynthClient
 
 client = SynthClient()
 
-print(client.research.limits.get().plan)
+print(client.research.limits.get_typed().plan)
 ```
 
 ## Managed Research (hero SDK)
@@ -79,10 +79,12 @@ effort_id = os.environ["SYNTH_FACTORY_EFFORT_ID"]
 project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]  # An existing, prepared project.
 
 # Org limits
-limits = research.limits.get()
+limits = research.limits.get_typed()
 print(limits.plan)
 
 # Authoritative economics reads; the client does not recompute allowances or discounts.
+plan = research.economics.plan()
+catalog = research.economics.catalog()
 entitlements = research.economics.entitlements()
 
 # Factory Tag loop
@@ -107,7 +109,7 @@ session = research.runs.create(
 
 # Run readouts (nested namespaces — never ``manderqueue`` on hero)
 session.snapshots.get(detail="control")
-progress = session.progress.get()
+progress = session.progress.get_typed()
 usage = session.usage.get()
 work_products = session.work_products.list()
 artifacts = session.artifacts.list()
@@ -163,9 +165,11 @@ The canonical backend surfaces are `GET /smr/billing/catalog`,
 `GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
 `GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
 SDK, use `client.research.economics.entitlements()` for the organization snapshot
-and `client.research.economics.project(project_id)` for project usage, budgets,
-and entitlements. Do not infer allowance from legacy Autumn balances or local
-spend summaries, and do not recompute discounts in the client.
+and `client.research.economics.plan()`, `.catalog()`, `.run_drawdown(run_id)`, or
+`.factory_effort_drawdown(factory_effort_id)` for canonical billing reads. Use
+`.project(project_id)` for project usage, budgets, and entitlements. Do not infer
+allowance from legacy Autumn balances or local spend summaries, and do not
+recompute discounts in the client.
 
 ## Links
 

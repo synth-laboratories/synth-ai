@@ -9,9 +9,12 @@ Import these names from ``synth_ai.research.models`` in customer code.
 | ``ResearchRun`` | Run state model returned by ``runs.wait`` / ``runs.state`` |
 | ``ResearchRunbookPreset`` | Named runbook preset for ``runs.create`` |
 | ``ResearchOrgLimits`` | Organization plan limits and usage windows |
+| ``ResearchBillingCatalog`` | Canonical billing plans and allowances catalog |
+| ``ResearchBillingPlan`` | Organization billing plan snapshot |
+| ``ResearchBillingDrawdown`` | Run or Factory-effort billing drawdown |
 | ``ResearchBillingEntitlements`` | Organization billing entitlement snapshot |
 | ``ResearchProjectEconomics`` | Project usage, entitlements, and budgets |
-| ``ResearchRunProgress`` | Coarse typed progress returned by ``handle.progress.get`` |
+| ``ResearchRunProgress`` | Typed progress returned by ``handle.progress.get_typed`` |
 | ``ResearchWorkProduct`` | Work product metadata |
 | ``ResearchArtifact`` | Run artifact metadata |
 | ``ResearchArtifactManifest`` | Typed run artifact manifest |
@@ -24,6 +27,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from synth_ai.managed_research.models.billing import (
+    SmrBillingCatalog as ResearchBillingCatalog,
+    SmrBillingDrawdown as ResearchBillingDrawdown,
+    SmrBillingPlanSnapshot as ResearchBillingPlan,
+)
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementSnapshot as ResearchBillingEntitlements,
 )
@@ -70,10 +78,14 @@ class ResearchRunProgress(RunProgress):
             raise ValueError("run progress public_state must be a string or null")
         return cls(**vars(parsed), public_state=public_state)
 
+
 __all__ = [
     "ResearchArtifact",
     "ResearchArtifactManifest",
+    "ResearchBillingCatalog",
+    "ResearchBillingDrawdown",
     "ResearchBillingEntitlements",
+    "ResearchBillingPlan",
     "ResearchCreateProjectResult",
     "ResearchOrgLimits",
     "ResearchProject",
