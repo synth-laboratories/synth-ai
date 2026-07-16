@@ -23,6 +23,10 @@ from synth_ai.managed_research.models.cloud_deployments import (
     CloudDeploymentTopologySource,
 )
 from synth_ai.managed_research.sdk._base import _ClientNamespace
+from synth_ai.managed_research.sdk.image_releases import (
+    ImageReleaseArtifact,
+    ImageReleaseDeclaration,
+)
 
 _RETRYABLE_FAILURE_STATES = frozenset({"failed"})
 _TERMINAL_STATES = frozenset({"retired"})
@@ -132,6 +136,28 @@ class CloudDeploymentWorkspaceMaterialization(TypedDict):
     source_commit_sha: str
     clean: bool
     detached: bool
+
+
+class CloudDeploymentLoadedImageIdentity(TypedDict):
+    image_manifest_digest: str
+    image_config_digest: str
+    image_ref: str
+    platform_os: Literal["linux"]
+    platform_architecture: Literal["amd64", "arm64"]
+
+
+class CloudDeploymentImageMaterialization(TypedDict):
+    """Claim-fenced immutable image materialization receipt."""
+
+    schema_version: Literal["cloud-deployment-image-materialization-v1"]
+    deployment_id: str
+    vm_name: str
+    release_id: str
+    operation_id: str
+    artifact: ImageReleaseArtifact
+    declaration: ImageReleaseDeclaration
+    transfer: dict[str, Any]
+    loaded_identity: CloudDeploymentLoadedImageIdentity
 
 
 class CloudDeploymentExecResult(TypedDict):
@@ -293,6 +319,22 @@ class CloudDeploymentsAPI(_ClientNamespace):
             branch=branch,
             source_commit_sha=source_commit_sha,
             fencing_token=fencing_token,
+        )
+
+    def materialize_image_release(
+        self,
+        *,
+        deployment_id: str,
+        release_id: str,
+        fencing_token: int,
+        transfer_timeout_seconds: int = 900,
+    ) -> CloudDeploymentImageMaterialization:
+        """Load and tag an immutable Synth image release under a live claim."""
+        return self._client.materialize_cloud_deployment_image_release(
+            deployment_id=deployment_id,
+            release_id=release_id,
+            fencing_token=fencing_token,
+            transfer_timeout_seconds=transfer_timeout_seconds,
         )
 
     def exec(
