@@ -14,6 +14,7 @@ from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
+from synth_ai.research.visuals import ResearchVisualsAPI
 
 
 class ResearchClient:
@@ -47,6 +48,7 @@ class ResearchClient:
         self._limits: ResearchLimitsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
         self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
+        self._visuals: ResearchVisualsAPI | None = None
         self._tag: TagAPI | None = None
 
     def _open_session(self) -> ManagedResearchClient:
@@ -126,6 +128,13 @@ class ResearchClient:
         return self._hosted_artifacts
 
     @property
+    def visuals(self) -> ResearchVisualsAPI:
+        """Publish and browse first-class blob-backed Synth Visuals."""
+        if self._visuals is None:
+            self._visuals = ResearchVisualsAPI(self._open_session())
+        return self._visuals
+
+    @property
     def tag(self) -> TagAPI:
         """Deprecated — use ``factories.tag`` instead."""
         warnings.warn(
@@ -158,6 +167,7 @@ class ResearchClient:
         self._limits = None
         self._secrets = None
         self._hosted_artifacts = None
+        self._visuals = None
         self._tag = None
 
 
