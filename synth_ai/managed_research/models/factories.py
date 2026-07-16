@@ -1955,7 +1955,11 @@ class FactoryWakeDueRequest:
                 + ", ".join(unknown_keys)
             )
         contract = cls.from_wire(mapping)
-        if dict(mapping) != contract.to_contract_wire():
+        canonical_contract = contract.to_contract_wire()
+        replayed_fields = {
+            str(key): canonical_contract[str(key)] for key in mapping
+        }
+        if dict(mapping) != replayed_fields:
             raise ValueError(
                 "factory wake request contract must be replayed exactly as returned"
             )
