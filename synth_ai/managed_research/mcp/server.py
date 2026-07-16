@@ -1866,13 +1866,9 @@ class ManagedResearchMcpServer:
             return asdict(result) if is_dataclass(result) else result
 
     def _tool_preview_admin_promotion_discount(self, args: JSONDict) -> Any:
-        request = SmrPromotionDiscountPreviewRequest.from_wire(
-            _tool_body(args, exclude=set())
-        )
+        request = SmrPromotionDiscountPreviewRequest.from_wire(_tool_body(args, exclude=set()))
         with self._client_from_args(args) as client:
-            return _mcp_jsonable(
-                client.billing.preview_promotion_discount(request)
-            )
+            return _mcp_jsonable(client.billing.preview_promotion_discount(request))
 
     def _tool_get_run_usage(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")

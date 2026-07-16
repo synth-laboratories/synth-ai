@@ -236,9 +236,7 @@ class SmrPromotionDiscountPreviewRequest:
     def to_wire(self) -> dict[str, object]:
         return {
             "campaign_id": self.campaign_id.strip(),
-            "nominal_customer_debit_microcents": (
-                self.nominal_customer_debit_microcents
-            ),
+            "nominal_customer_debit_microcents": (self.nominal_customer_debit_microcents),
             "provider_cost_pico_usd": self.provider_cost_pico_usd,
         }
 
@@ -277,17 +275,14 @@ class SmrPromotionDiscountPreview:
         )
         if enforcement_status != "not_implemented":
             raise ValueError(
-                "SMR promotion discount preview.enforcement_status must be "
-                "not_implemented"
+                "SMR promotion discount preview.enforcement_status must be " "not_implemented"
             )
         eligible_usage = _string_list(
             _require_array(mapping, "eligible_usage", label="eligible_usage"),
             label="eligible_usage",
         )
         if not eligible_usage:
-            raise ValueError(
-                "SMR promotion discount preview.eligible_usage is required"
-            )
+            raise ValueError("SMR promotion discount preview.eligible_usage is required")
         customer_discount_percent = _int_value(
             mapping,
             "customer_discount_percent",
@@ -310,16 +305,12 @@ class SmrPromotionDiscountPreview:
             )
         }
         if any(value < 0 for value in amounts.values()):
-            raise ValueError(
-                "SMR promotion discount preview amounts must be non-negative"
-            )
+            raise ValueError("SMR promotion discount preview amounts must be non-negative")
         if (
             amounts["global_subsidy_cap_microcents"] == 0
             or amounts["org_subsidy_cap_microcents"] == 0
         ):
-            raise ValueError(
-                "SMR promotion discount preview subsidy caps must be positive"
-            )
+            raise ValueError("SMR promotion discount preview subsidy caps must be positive")
         return cls(
             campaign_id=_require_string(
                 mapping,
@@ -372,18 +363,12 @@ class SmrPromotionDiscountPreview:
             ),
             enforcement_status=enforcement_status,
             customer_discount_percent=customer_discount_percent,
-            nominal_customer_debit_microcents=amounts[
-                "nominal_customer_debit_microcents"
-            ],
-            customer_discount_microcents=amounts[
-                "customer_discount_microcents"
-            ],
+            nominal_customer_debit_microcents=amounts["nominal_customer_debit_microcents"],
+            customer_discount_microcents=amounts["customer_discount_microcents"],
             customer_charge_microcents=amounts["customer_charge_microcents"],
             provider_cost_pico_usd=amounts["provider_cost_pico_usd"],
             synth_subsidy_microcents=amounts["synth_subsidy_microcents"],
-            global_subsidy_cap_microcents=amounts[
-                "global_subsidy_cap_microcents"
-            ],
+            global_subsidy_cap_microcents=amounts["global_subsidy_cap_microcents"],
             org_subsidy_cap_microcents=amounts["org_subsidy_cap_microcents"],
         )
 
