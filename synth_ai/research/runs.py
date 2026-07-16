@@ -272,19 +272,20 @@ class ResearchRunsAPI:
         project: ProjectSelector | str | None = None,
         objective: str | None = None,
         **kwargs: Any,
-    ) -> ResearchRunHandle | dict[str, Any]:
+    ) -> ResearchRunHandle:
         """Launch a Managed Research run.
 
-        When ``objective`` is provided, starts a run with that primary message and
-        returns a :class:`ResearchRunHandle`. Otherwise triggers a configured run
-        and may return a wire dict (legacy drivers).
+        Always returns a :class:`ResearchRunHandle`. When ``objective`` is omitted,
+        the backend starts the project's configured run and the hero client parses
+        the response into the same typed handle. Legacy callers that require the
+        raw trigger response can use the deprecated :meth:`trigger` method.
 
         Args:
             project_id: Owning project id.
             objective: Primary operator message for the run (preferred launch path).
 
         Returns:
-            :class:`ResearchRunHandle` when ``objective`` is set; otherwise a wire dict.
+            A typed :class:`ResearchRunHandle` for both launch forms.
 
         Example:
             handle = research.runs.create(
@@ -302,11 +303,13 @@ class ResearchRunsAPI:
                 **run_kwargs,
             )
             return ResearchRunHandle(handle)
-        return self._session.runs.trigger(
+        wire = self._session.runs.trigger(
             project_id,
             project=project,
             **run_kwargs,
         )
+        run = ResearchRun.from_wire(wire)
+        return ResearchRunHandle(self._session.run(run.project_id, run.run_id))
 
     def start(
         self,

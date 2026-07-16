@@ -6,7 +6,8 @@
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted containers.
+Python SDK and CLI for Managed Research, Research Factory, and the infrastructure
+surfaces that support them.
 
 **Documentation:** https://docs.usesynth.ai/sdk/overview
 
@@ -49,13 +50,10 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.managed_research.models import TagSessionCreateRequest
 
 client = SynthClient()
 
-print(client.containers.list())
-print(client.tunnels.health())
-print(client.pools.list())
+print(client.research.limits.get().plan)
 ```
 
 ## Managed Research (hero SDK)
@@ -70,16 +68,21 @@ Hero entrypoint — **`SynthClient().research`** only (no standalone control cli
 
 ```python
 from synth_ai import SynthClient
+from synth_ai.research import ResearchTagSessionCreateRequest
 
 client = SynthClient()
 research = client.research
 
 # Org limits
 limits = research.limits.get()
+print(limits.plan)
+
+# Authoritative economics reads; the client does not recompute allowances or discounts.
+entitlements = research.economics.entitlements()
 
 # Factory Tag loop
 session = research.factories.tag.sessions.create(
-    TagSessionCreateRequest(
+    ResearchTagSessionCreateRequest(
         request="Improve rollout throughput",
         factory_id=factory_id,
         effort_id=effort_id,
@@ -92,13 +95,20 @@ scope = research.factories.tag.scopes.get_default()
 project = research.projects.create({"name": "demo", "work_mode": "standard"})
 research.projects.setup.prepare(project.project_id)
 preflight = research.runs.check_preflight(project.project_id)
-run = research.runs.create(project.project_id, work_mode="standard")
-session = research.runs.get(project.project_id, run["run_id"])
+session = research.runs.create(
+    project.project_id,
+    objective="Produce a bounded repository assessment and a readable report.",
+    work_mode="standard",
+)
 
 # Run readouts (nested namespaces — never ``manderqueue`` on hero)
 session.snapshots.get(detail="control")
-session.progress.get()
-session.usage.get()
+progress = session.progress.get()
+usage = session.usage.get()
+work_products = session.work_products.list()
+artifacts = session.artifacts.list()
+if work_products:
+    report = session.work_products.content.get(work_products[0].work_product_id)
 session.message_queue.messages.list()
 research.projects.objectives.list(project.project_id, run_id=session.run_id)
 ```
@@ -148,10 +158,10 @@ override grants are manual audit events rather than automatic resets.
 The canonical backend surfaces are `GET /smr/billing/catalog`,
 `GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
 `GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
-SDK, use `client.research.session.billing.catalog()` and related billing
-namespace helpers for advanced billing reads. Prefer hero namespaces for new
-integrations; do not infer allowance from legacy Autumn balances or local spend
-summaries.
+SDK, use `client.research.economics.entitlements()` for the organization snapshot
+and `client.research.economics.project(project_id)` for project usage, budgets,
+and entitlements. Do not infer allowance from legacy Autumn balances or local
+spend summaries, and do not recompute discounts in the client.
 
 ## Links
 
