@@ -706,18 +706,13 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_preview_factory_wake",
-            description=(
-                "Preview which due Factory experiments would launch, including "
-                "backend-owned decisions and launch context, without starting runs."
-            ),
+            description="Preview due Factory experiments without starting runs.",
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     "launch_request": {
                         "type": "object",
-                        "description": (
-                            "Optional default launch request for due Efforts."
-                        ),
+                        "description": "Optional default launch request.",
                     },
                     "limit": {
                         "type": "integer",
@@ -729,9 +724,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "continue_on_error": {
                         "type": "boolean",
-                        "description": (
-                            "Continue evaluating later Efforts after a preview failure."
-                        ),
+                        "description": "Continue after a preview failure.",
                     },
                 },
                 required=["factory_id"],
