@@ -41,6 +41,12 @@ from synth_ai.managed_research.models.canonical_usage import (
 from synth_ai.managed_research.models.canonical_usage import (
     SmrProjectEconomics as ResearchProjectEconomics,
 )
+from synth_ai.managed_research.models.smr_environment_kinds import (
+    SmrEnvironmentKind as ResearchEnvironmentKind,
+)
+from synth_ai.managed_research.models.smr_runtime_kinds import (
+    SmrRuntimeKind as ResearchRuntimeKind,
+)
 from synth_ai.managed_research.models.project import (
     CreateRunnableResult as ResearchCreateProjectResult,
 )
@@ -55,11 +61,17 @@ from synth_ai.managed_research.models.tag import (
 from synth_ai.managed_research.models.work_products import (
     ManagedResearchRunWorkProduct as ResearchWorkProduct,
 )
-from synth_ai.managed_research.models.types import RunArtifact as ResearchArtifact
+from synth_ai.managed_research.models.types import (
+    RunArtifact as ResearchArtifact,
+)
 from synth_ai.managed_research.models.types import (
     RunArtifactManifest as ResearchArtifactManifest,
 )
-from synth_ai.managed_research.models.types import RunProgress
+from synth_ai.managed_research.models.types import (
+    RunProgress,
+    SmrAgentProfileBindings as ResearchAgentProfileBindings,
+    SmrRunnableProjectRequest as ResearchRunnableProjectRequest,
+)
 
 
 @dataclass(frozen=True)
@@ -82,17 +94,21 @@ class ResearchRunProgress(RunProgress):
 __all__ = [
     "ResearchArtifact",
     "ResearchArtifactManifest",
+    "ResearchAgentProfileBindings",
     "ResearchBillingCatalog",
     "ResearchBillingDrawdown",
     "ResearchBillingEntitlements",
     "ResearchBillingPlan",
     "ResearchCreateProjectResult",
+    "ResearchEnvironmentKind",
     "ResearchOrgLimits",
     "ResearchProject",
     "ResearchProjectEconomics",
     "ResearchRun",
     "ResearchRunProgress",
     "ResearchRunbookPreset",
+    "ResearchRunnableProjectRequest",
+    "ResearchRuntimeKind",
     "ResearchTagSessionCreateRequest",
     "ResearchWorkProduct",
 ]

@@ -20,6 +20,7 @@ from synth_ai.research.errors import (
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
+    ResearchAgentProfileBindings,
     ResearchArtifact,
     ResearchArtifactManifest,
     ResearchBillingCatalog,
@@ -27,12 +28,15 @@ from synth_ai.research.models import (
     ResearchBillingEntitlements,
     ResearchBillingPlan,
     ResearchCreateProjectResult,
+    ResearchEnvironmentKind,
     ResearchOrgLimits,
     ResearchProject,
     ResearchProjectEconomics,
     ResearchRun,
     ResearchRunProgress,
     ResearchRunbookPreset,
+    ResearchRunnableProjectRequest,
+    ResearchRuntimeKind,
     ResearchTagSessionCreateRequest,
     ResearchWorkProduct,
 )
@@ -44,6 +48,7 @@ __all__ = [
     "AsyncResearchClient",
     "ResearchArtifact",
     "ResearchArtifactManifest",
+    "ResearchAgentProfileBindings",
     "ResearchBillingCatalog",
     "ResearchBillingDrawdown",
     "ResearchBillingEntitlements",
@@ -53,6 +58,7 @@ __all__ = [
     "ResearchConcurrentRunLimitExceededError",
     "ResearchCreateProjectResult",
     "ResearchEconomicsAPI",
+    "ResearchEnvironmentKind",
     "ResearchHostKind",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
@@ -68,6 +74,8 @@ __all__ = [
     "ResearchRunHandle",
     "ResearchRunSession",
     "ResearchRunbookPreset",
+    "ResearchRunnableProjectRequest",
+    "ResearchRuntimeKind",
     "ResearchTagSessionCreateRequest",
     "ResearchRunsAPI",
     "ResearchSecretsAPI",
