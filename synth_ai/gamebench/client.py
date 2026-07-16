@@ -80,9 +80,7 @@ class GameBenchScorersClient(SynthBaseClient):
             "GET",
             f"{_SCORER_JOBS_PATH}/{job_id}",
             timeout_seconds=(
-                timeout_seconds
-                if timeout_seconds is not None
-                else self.timeout_seconds
+                timeout_seconds if timeout_seconds is not None else self.timeout_seconds
             ),
         )
         if not isinstance(payload, dict) or "status" not in payload:

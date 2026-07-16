@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
@@ -36,7 +36,7 @@ class ResearchVisualsAPI:
             metadata=metadata,
         )
 
-    def list(self, *, project_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+    def list(self, *, project_id: str | None = None, limit: int = 100) -> List[dict[str, Any]]:
         payload = self._session.list_visuals(project_id=project_id, limit=limit)
         return [dict(item) for item in payload.get("visuals") or [] if isinstance(item, Mapping)]
 

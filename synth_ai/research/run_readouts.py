@@ -106,9 +106,7 @@ class ResearchRunProgressAPI(_RunReadoutBound):
 
     def get_typed(self) -> ResearchRunProgress:
         """Return typed state, phase, stalls, tasks, and recommended actions."""
-        return ResearchRunProgress.from_wire(
-            self.get()
-        )
+        return ResearchRunProgress.from_wire(self.get())
 
 
 class ResearchRunSnapshotsAPI(_RunReadoutBound):

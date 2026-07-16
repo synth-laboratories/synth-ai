@@ -82,6 +82,7 @@ class ResearchRunProgress(RunProgress):
 
     @classmethod
     def from_wire(cls, payload: object) -> ResearchRunProgress:
+        """Decode backend run progress into the public progress model."""
         parsed = RunProgress.from_wire(payload)
         if not isinstance(payload, Mapping):
             raise ValueError("run progress must be an object")
