@@ -69,9 +69,7 @@ def _optional_datetime(payload: Mapping[str, object], key: str) -> datetime | No
     raise ValueError(f"{key} must be null, a datetime, or an ISO-8601 string")
 
 
-def _required_datetime(
-    payload: Mapping[str, object], key: str, *, label: str
-) -> datetime:
+def _required_datetime(payload: Mapping[str, object], key: str, *, label: str) -> datetime:
     value = _optional_datetime(payload, key)
     if value is None:
         raise ValueError(f"{label} is required")
@@ -127,13 +125,9 @@ def _validate_topology_source_binding(
     if topology_source is None:
         return
     if topology_source["topology_id"] != topology_id:
-        raise ValueError(
-            f"{label}.topology_source topology_id does not match authority"
-        )
+        raise ValueError(f"{label}.topology_source topology_id does not match authority")
     if topology_source["topology_version"] != topology_version:
-        raise ValueError(
-            f"{label}.topology_source topology_version does not match authority"
-        )
+        raise ValueError(f"{label}.topology_source topology_version does not match authority")
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,14 +198,10 @@ class CloudDeploymentClaim:
         )
         return cls(
             claim_id=_required_text(mapping, "claim_id", label="claim_id"),
-            deployment_id=_required_text(
-                mapping, "deployment_id", label="deployment_id"
-            ),
+            deployment_id=_required_text(mapping, "deployment_id", label="deployment_id"),
             holder=_required_text(mapping, "holder", label="holder"),
             purpose=_required_text(mapping, "purpose", label="purpose"),
-            fencing_token=_required_int(
-                mapping, "fencing_token", label="fencing_token"
-            ),
+            fencing_token=_required_int(mapping, "fencing_token", label="fencing_token"),
             acquired_at=_required_datetime(mapping, "acquired_at", label="acquired_at"),
             expires_at=_required_datetime(mapping, "expires_at", label="expires_at"),
             cloud_slot=_optional_cloud_slot(mapping),
@@ -233,9 +223,7 @@ class ClaimHeartbeat:
     @classmethod
     def from_wire(cls, payload: Mapping[str, object] | object) -> ClaimHeartbeat:
         mapping = _require_mapping(payload, label="claim heartbeat")
-        return cls(
-            expires_at=_required_datetime(mapping, "expires_at", label="expires_at")
-        )
+        return cls(expires_at=_required_datetime(mapping, "expires_at", label="expires_at"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -277,9 +265,7 @@ class ClaimProjection:
             label="claim projection",
         )
         raw_active = mapping.get("active_claim")
-        active_claim = (
-            None if raw_active is None else CloudDeploymentClaim.from_wire(raw_active)
-        )
+        active_claim = None if raw_active is None else CloudDeploymentClaim.from_wire(raw_active)
         last_fencing_token = _optional_int(mapping, "last_fencing_token")
         if active_claim is not None:
             projection_authority = {
