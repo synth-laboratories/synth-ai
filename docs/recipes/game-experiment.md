@@ -2,7 +2,7 @@
 
 **Prerequisites:** `synth-ai[research]`, `SYNTH_API_KEY`, and
 `SYNTH_GAME_PROJECT_ID` for a prepared project whose workspace already contains
-the game environment and evaluation harness.
+the game environment and an evaluation harness bounded to finish within 30 minutes.
 
 **Duration:** About 10 minutes of setup; experiment runtime depends on the
 harness and rollout budget. **Cost:** Game rollouts and model calls are billable.
@@ -33,7 +33,7 @@ handle = research.runs.create(
     work_mode=work_mode,
 )
 try:
-    research.runs.wait(project_id, handle.run_id, timeout=3600, raise_if_failed=True)
+    research.runs.wait(project_id, handle.run_id, timeout=1800, raise_if_failed=True)
     print(handle.artifacts.list())
     print(research.economics.run_drawdown(handle.run_id))
 except (KeyboardInterrupt, TimeoutError):

@@ -29,7 +29,7 @@ async def main() -> None:
     if plan.blocked or preflight.clear_to_trigger is not True:
         raise RuntimeError(f"handoff denied: {plan.blocked_detail}; {preflight.blockers}")
 
-    handle = research.runs.create(
+    handle = await async_research.runs.create(
         project_id,
         objective="Produce a bounded handoff report for the next operator.",
         work_mode=work_mode,
