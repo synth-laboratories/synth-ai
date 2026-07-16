@@ -343,19 +343,28 @@ class ResearchFactoriesAPI:
         self,
         factory_id: str,
         *,
-        launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
-        limit: int = 10,
-        allow_overlap: bool = False,
-        continue_on_error: bool = True,
+        preview: FactoryWakeDueResult,
     ) -> FactoryWakeDueResult:
-        """Launch due Factory experiments after callers inspect ``preview_wake``."""
+        """Launch exactly the due experiments bound to a reviewed preview."""
+        if preview.factory_id != factory_id:
+            raise ValueError("preview factory_id does not match the requested Factory")
+        if not preview.dry_run or not preview.confirmation_required:
+            raise ValueError("wake_due requires a confirmation-ready dry-run preview")
+        if preview.preview_id is None or preview.preview_token is None:
+            raise ValueError("preview must include preview_id and preview_token")
+        if preview.request_contract is None:
+            raise ValueError("preview must include its resolved request contract")
+        contract = preview.request_contract
+        if contract.confirmed_preview_token is not None:
+            raise ValueError("preview request_contract is not confirmation-ready")
         return self._session.factories.wake_due(
             factory_id,
-            launch_request=launch_request,
-            limit=limit,
-            allow_overlap=allow_overlap,
+            launch_request=contract.launch_request,
+            limit=contract.limit,
+            allow_overlap=contract.allow_overlap,
             dry_run=False,
-            continue_on_error=continue_on_error,
+            continue_on_error=contract.continue_on_error,
+            confirmed_preview_token=preview.preview_token,
         )
 
 

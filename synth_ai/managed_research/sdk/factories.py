@@ -770,7 +770,16 @@ class FactoriesAPI(_ClientNamespace):
         allow_overlap: bool = False,
         dry_run: bool = False,
         continue_on_error: bool = True,
+        confirmed_preview_token: str | None = None,
     ) -> FactoryWakeDueResult:
+        """Preview due work or execute it with the corresponding signed token."""
+        if dry_run and confirmed_preview_token is not None:
+            raise ValueError("Factory wake previews do not accept a confirmation token")
+        if not dry_run and confirmed_preview_token is None:
+            raise ValueError(
+                "Factory wake execution requires the preview_token returned by a "
+                "dry-run preview"
+            )
         return FactoryWakeDueResult.from_wire(
             self._client.wake_due_factory_efforts(
                 factory_id,
@@ -780,6 +789,7 @@ class FactoriesAPI(_ClientNamespace):
                     allow_overlap=allow_overlap,
                     dry_run=dry_run,
                     continue_on_error=continue_on_error,
+                    confirmed_preview_token=confirmed_preview_token,
                 ),
             )
         )

@@ -706,7 +706,10 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_preview_factory_wake",
-            description="Preview due Factory experiments without starting runs.",
+            description=(
+                "Preview due Factory experiments without starting runs. Returns the "
+                "exact request_contract and opaque preview_token required to confirm."
+            ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
@@ -735,34 +738,30 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_wake_due_factory_efforts",
             description=(
-                "Evaluate due persistent Factory Efforts and launch cloud research "
-                "engineering Runs through the managed run-start boundary."
+                "Launch the exact due Factory experiments bound to a reviewed "
+                "smr_preview_factory_wake result."
             ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
-                    "launch_request": {
+                    "request_contract": {
                         "type": "object",
-                        "description": "Default run launch request for due Efforts.",
+                        "description": (
+                            "Exact request_contract returned by smr_preview_factory_wake."
+                        ),
                     },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum due Efforts to evaluate.",
-                    },
-                    "allow_overlap": {
-                        "type": "boolean",
-                        "description": "Launch even when an Effort already has a nonterminal run.",
-                    },
-                    "dry_run": {
-                        "type": "boolean",
-                        "description": "Return launch decisions without starting runs.",
-                    },
-                    "continue_on_error": {
-                        "type": "boolean",
-                        "description": "Continue evaluating later Efforts after a launch failure.",
+                    "confirmed_preview_token": {
+                        "type": "string",
+                        "description": (
+                            "Opaque preview_token returned by smr_preview_factory_wake."
+                        ),
                     },
                 },
-                required=["factory_id"],
+                required=[
+                    "factory_id",
+                    "request_contract",
+                    "confirmed_preview_token",
+                ],
             ),
             handler=server._tool_wake_due_factory_efforts,
             required_scopes=WRITE_SCOPES,
