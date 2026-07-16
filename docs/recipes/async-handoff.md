@@ -1,32 +1,60 @@
-# Async handoff
+# Async research handoff
 
-**Prerequisites:** `synth-ai[research]`, `SYNTH_API_KEY`, and
-`SYNTH_RESEARCH_PROJECT_ID` for an existing prepared project. This uses the
-public async adapter over the same `SynthClient().research` session.
+**Prerequisites:** Install an exact published release with
+`uv add "synth-ai[research]==<version>"`, then set `SYNTH_AI_VERSION` to that
+same version. Set `SYNTH_API_KEY` and `SYNTH_RESEARCH_PROJECT_ID` for a prepared
+project with a positive backend-owned per-run cost cap and server-side task
+deadline. This recipe deliberately uses two processes: start-and-leave, then
+return-by-ID.
 
-**Duration:** About 5 minutes to integrate; the example waits at most 30 minutes.
-**Cost:** The handed-off run is billable while it executes. Read the canonical
-plan and drawdown rather than assuming free use.
+**Duration:** About 5 minutes to integrate. The creating process does not wait;
+the returning process may wait up to 30 minutes. The server-side project
+deadline remains runtime authority. **Cost:** Work is billable after handoff;
+both processes fail early when the project has no positive per-run cap.
+
+Start the run, persist its ID, and close the client:
 
 ```python
 import asyncio
 import os
+from importlib.metadata import version
+from pathlib import Path
 
 from synth_ai import SynthClient
 from synth_ai.research import AsyncResearchClient, ResearchWorkMode
 
 
-async def main() -> None:
-    project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]
-    research = SynthClient().research
-    async_research = AsyncResearchClient(research)
-    work_mode = ResearchWorkMode.DIRECTED_EFFORT
+async def start_and_leave() -> None:
+    if version("synth-ai") != os.environ["SYNTH_AI_VERSION"]:
+        raise RuntimeError("installed synth-ai does not match SYNTH_AI_VERSION")
 
+    project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]
+    async_research = AsyncResearchClient(SynthClient().research)
     handle = None
     try:
+        economics = await async_research.economics.project(project_id)
+        run_cap_cents = next(
+            (
+                economics.budgets.get(key)
+                for key in (
+                    "run_usd_cents",
+                    "per_run_usd_cents",
+                    "per_run_max_usd_cents",
+                )
+                if economics.budgets.get(key) is not None
+            ),
+            None,
+        )
+        if (
+            isinstance(run_cap_cents, bool)
+            or not isinstance(run_cap_cents, int)
+            or run_cap_cents <= 0
+        ):
+            raise RuntimeError("project has no positive backend-owned per-run cost cap")
+
         plan = await async_research.economics.plan()
         preflight = await async_research.runs.check_preflight(
-            project_id, work_mode=work_mode
+            project_id, work_mode=ResearchWorkMode.DIRECTED_EFFORT
         )
         clear_to_trigger = preflight.get(
             "clear_to_trigger", preflight.get("allowed")
@@ -39,14 +67,23 @@ async def main() -> None:
         handle = await async_research.runs.create(
             project_id,
             objective="Produce a bounded handoff report for the next operator.",
-            work_mode=work_mode,
+            work_mode=ResearchWorkMode.DIRECTED_EFFORT,
         )
-        final = await async_research.runs.wait(
-            project_id, handle.run_id, timeout=1800, raise_if_failed=True
+        limits = await asyncio.to_thread(handle.resource_limits)
+        wallclock = next(
+            (item for item in limits.items if item.metric == "wallclock_seconds"),
+            None,
         )
-        drawdown = await async_research.economics.run_drawdown(handle.run_id)
-        print(final.public_state.value, drawdown)
-    except (asyncio.CancelledError, TimeoutError):
+        if (
+            wallclock is None
+            or not wallclock.blocks_at_limit
+            or wallclock.limit_value is None
+            or not 0 < wallclock.limit_value <= 1800
+        ):
+            raise RuntimeError("run has no blocking server wallclock limit <= 1800 seconds")
+        Path("research-run-id.txt").write_text(handle.run_id + "\n", encoding="utf-8")
+        print(handle.run_id, run_cap_cents, wallclock)
+    except BaseException:
         if handle is not None:
             await async_research.runs.stop(handle.run_id, project_id=project_id)
         raise
@@ -54,11 +91,109 @@ async def main() -> None:
         await async_research.close()
 
 
-asyncio.run(main())
+asyncio.run(start_and_leave())
 ```
 
-**Output:** A terminal typed run state and canonical billing drawdown available
-to the awaiting coroutine. **Recovery:** Cancellation requests a graceful stop;
-inspect the run through a new `SynthClient().research.runs.get(...)` handle before
-deciding to resume. **Cleanup:** The async adapter closes the shared research
-session, while the pre-existing project remains intact.
+Later, in a new process, reopen the run by ID and explicitly wait or stop:
+
+```python
+import asyncio
+import os
+from importlib.metadata import version
+from pathlib import Path
+
+from synth_ai import SynthClient
+from synth_ai.research import AsyncResearchClient
+
+
+async def return_by_id() -> None:
+    if version("synth-ai") != os.environ["SYNTH_AI_VERSION"]:
+        raise RuntimeError("installed synth-ai does not match SYNTH_AI_VERSION")
+
+    project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]
+    run_id = Path("research-run-id.txt").read_text(encoding="utf-8").strip()
+    action = os.environ.get("SYNTH_HANDOFF_ACTION", "wait")
+    if action not in {"wait", "stop"}:
+        raise ValueError("SYNTH_HANDOFF_ACTION must be wait or stop")
+
+    async_research = AsyncResearchClient(SynthClient().research)
+    handle = None
+    try:
+        economics = await async_research.economics.project(project_id)
+        run_cap_cents = next(
+            (
+                economics.budgets.get(key)
+                for key in (
+                    "run_usd_cents",
+                    "per_run_usd_cents",
+                    "per_run_max_usd_cents",
+                )
+                if economics.budgets.get(key) is not None
+            ),
+            None,
+        )
+        if (
+            isinstance(run_cap_cents, bool)
+            or not isinstance(run_cap_cents, int)
+            or run_cap_cents <= 0
+        ):
+            raise RuntimeError("project has no positive backend-owned per-run cost cap")
+
+        handle = await async_research.runs.open(project_id, run_id)
+        limits = await asyncio.to_thread(handle.resource_limits)
+        wallclock = next(
+            (item for item in limits.items if item.metric == "wallclock_seconds"),
+            None,
+        )
+        if (
+            wallclock is None
+            or not wallclock.blocks_at_limit
+            or wallclock.limit_value is None
+            or not 0 < wallclock.limit_value <= 1800
+        ):
+            raise RuntimeError("run has no blocking server wallclock limit <= 1800 seconds")
+        progress = await asyncio.to_thread(handle.progress.get_typed)
+        print(progress.public_state, run_cap_cents, wallclock)
+        if action == "stop":
+            await async_research.runs.stop(run_id, project_id=project_id)
+            return
+
+        final = await async_research.runs.wait(
+            project_id, run_id, timeout=1800, raise_if_failed=True
+        )
+        work_products = await asyncio.to_thread(handle.work_products.list)
+        if not work_products:
+            raise RuntimeError("terminal handoff run published no WorkProduct")
+        reports = [
+            item
+            for item in work_products
+            if item.kind in {"report", "research_report"}
+        ]
+        if not reports:
+            raise RuntimeError("terminal handoff run published no report WorkProduct")
+        report = reports[0]
+        report_text = await asyncio.to_thread(
+            handle.work_products.content.get, report.work_product_id, as_text=True
+        )
+        drawdown = await async_research.economics.run_drawdown(run_id)
+        print(final.public_state.value)
+        print(report_text)
+        print(drawdown)
+    except BaseException:
+        if handle is not None:
+            await async_research.runs.stop(run_id, project_id=project_id)
+        raise
+    finally:
+        await async_research.close()
+
+
+asyncio.run(return_by_id())
+```
+
+**Output:** A persisted run ID and `SmrResourceLimit` from the first process,
+then `ResearchRunProgress`, an explicit stop-or-wait decision,
+`ResearchWorkProduct`, readable `str` content, the exact integer cost cap, and
+`ResearchBillingDrawdown` from the second. **Recovery:** Re-run only the return step with the same
+ID. Any failure after reopening requests stop before it is re-raised.
+**Cleanup:** `stop` is explicit; successful `wait` reaches terminal state. The
+client sessions close in both processes, while the prepared project is retained.

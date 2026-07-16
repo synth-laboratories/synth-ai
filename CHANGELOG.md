@@ -6,6 +6,17 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Added
 
+- **Fail-closed promotion discount preview** — `client.billing.preview_promotion_discount(...)`
+  returns typed backend-authored draft economics, including the draft terms,
+  preview inputs, charge/subsidy values, caps, and explicit
+  `enforcement_status="not_implemented"`. The SDK adds no activation, debit,
+  grant, or retirement path for this launch-readiness surface. The read-scoped
+  `smr_preview_admin_promotion_discount` MCP tool and its `research_*` alias
+  expose the same typed preview without adding a mutation path.
+- **Public Research launch authority models** — `synth_ai.research` now exports
+  typed agent harness/model, role bindings, worker palette, configured-run
+  request, and canonical authority-readout aliases so evals and customer code
+  do not import `synth_ai.managed_research.models` internals.
 - **Typed Tag Factory interface** — Tag session creation now requires `TagSessionCreateRequest`; session, watch, receipt, steering, and artifact payloads parse into typed models; and `get_factory_context(scope_id=… | session_id=…)` exposes the current champion, last decision, and candidate counts without raw `/smr/*` reads.
 - **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
 - **Canonical cloud slots** — CloudDeployment creation accepts the typed `slot1-cloud` / `slot2-cloud` identity through the SDK and MCP. The `cloud-slot` CLI now addresses deployments by that identity and exposes status, health, claim, heartbeat, fenced deploy/retire, release, and claim-truth workflows. The MCP live proof records the slot, claim id, fencing token, lifecycle, and release receipts.

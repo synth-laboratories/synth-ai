@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 from synth_ai.managed_research.models.types import (
     _int_value,
@@ -182,6 +183,196 @@ class SmrPromotionMineResponse:
 
 
 @dataclass(frozen=True)
+class SmrPromotionDiscountPreviewRequest:
+    """Inputs for a backend-owned draft promotion economics preview."""
+
+    campaign_id: str
+    nominal_customer_debit_microcents: int
+    provider_cost_pico_usd: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.campaign_id, str) or not self.campaign_id.strip():
+            raise ValueError("campaign_id is required")
+        for field_name, value in (
+            (
+                "nominal_customer_debit_microcents",
+                self.nominal_customer_debit_microcents,
+            ),
+            ("provider_cost_pico_usd", self.provider_cost_pico_usd),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError(f"{field_name} must be a non-negative integer")
+
+    @classmethod
+    def from_wire(cls, payload: object) -> SmrPromotionDiscountPreviewRequest:
+        mapping = _require_mapping(
+            payload,
+            label="SMR promotion discount preview request",
+        )
+        expected_fields = {
+            "campaign_id",
+            "nominal_customer_debit_microcents",
+            "provider_cost_pico_usd",
+        }
+        unknown_fields = sorted(key for key in mapping if key not in expected_fields)
+        if unknown_fields:
+            raise ValueError(
+                "unknown SMR promotion discount preview request fields: "
+                + ", ".join(unknown_fields)
+            )
+        return cls(
+            campaign_id=_require_string(
+                mapping,
+                "campaign_id",
+                label="SMR promotion discount preview request.campaign_id",
+            ),
+            nominal_customer_debit_microcents=_int_value(
+                mapping,
+                "nominal_customer_debit_microcents",
+            ),
+            provider_cost_pico_usd=_int_value(mapping, "provider_cost_pico_usd"),
+        )
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "campaign_id": self.campaign_id.strip(),
+            "nominal_customer_debit_microcents": (self.nominal_customer_debit_microcents),
+            "provider_cost_pico_usd": self.provider_cost_pico_usd,
+        }
+
+
+@dataclass(frozen=True)
+class SmrPromotionDiscountPreview:
+    """Backend-authored draft economics; never an enforcement or activation receipt."""
+
+    campaign_id: str
+    campaign_status: str
+    claim_window_start_at: str
+    claim_window_end_at: str
+    price_source: str
+    eligible_usage: list[str]
+    stacking_policy: str
+    provider_model_exclusions: list[str]
+    generated_at: str
+    preview_formula_version: str
+    enforcement_status: Literal["not_implemented"]
+    customer_discount_percent: int
+    nominal_customer_debit_microcents: int
+    customer_discount_microcents: int
+    customer_charge_microcents: int
+    provider_cost_pico_usd: int
+    synth_subsidy_microcents: int
+    global_subsidy_cap_microcents: int
+    org_subsidy_cap_microcents: int
+
+    @classmethod
+    def from_wire(cls, payload: object) -> SmrPromotionDiscountPreview:
+        mapping = _require_mapping(payload, label="SMR promotion discount preview")
+        enforcement_status = _require_string(
+            mapping,
+            "enforcement_status",
+            label="SMR promotion discount preview.enforcement_status",
+        )
+        if enforcement_status != "not_implemented":
+            raise ValueError(
+                "SMR promotion discount preview.enforcement_status must be not_implemented"
+            )
+        eligible_usage = _string_list(
+            _require_array(mapping, "eligible_usage", label="eligible_usage"),
+            label="eligible_usage",
+        )
+        if not eligible_usage:
+            raise ValueError("SMR promotion discount preview.eligible_usage is required")
+        customer_discount_percent = _int_value(
+            mapping,
+            "customer_discount_percent",
+        )
+        if not 1 <= customer_discount_percent <= 100:
+            raise ValueError(
+                "SMR promotion discount preview.customer_discount_percent must be between 1 and 100"
+            )
+        amounts = {
+            field_name: _int_value(mapping, field_name)
+            for field_name in (
+                "nominal_customer_debit_microcents",
+                "customer_discount_microcents",
+                "customer_charge_microcents",
+                "provider_cost_pico_usd",
+                "synth_subsidy_microcents",
+                "global_subsidy_cap_microcents",
+                "org_subsidy_cap_microcents",
+            )
+        }
+        if any(value < 0 for value in amounts.values()):
+            raise ValueError("SMR promotion discount preview amounts must be non-negative")
+        if (
+            amounts["global_subsidy_cap_microcents"] == 0
+            or amounts["org_subsidy_cap_microcents"] == 0
+        ):
+            raise ValueError("SMR promotion discount preview subsidy caps must be positive")
+        return cls(
+            campaign_id=_require_string(
+                mapping,
+                "campaign_id",
+                label="SMR promotion discount preview.campaign_id",
+            ),
+            campaign_status=_require_string(
+                mapping,
+                "campaign_status",
+                label="SMR promotion discount preview.campaign_status",
+            ),
+            claim_window_start_at=_require_string(
+                mapping,
+                "claim_window_start_at",
+                label="SMR promotion discount preview.claim_window_start_at",
+            ),
+            claim_window_end_at=_require_string(
+                mapping,
+                "claim_window_end_at",
+                label="SMR promotion discount preview.claim_window_end_at",
+            ),
+            price_source=_require_string(
+                mapping,
+                "price_source",
+                label="SMR promotion discount preview.price_source",
+            ),
+            eligible_usage=eligible_usage,
+            stacking_policy=_require_string(
+                mapping,
+                "stacking_policy",
+                label="SMR promotion discount preview.stacking_policy",
+            ),
+            provider_model_exclusions=_string_list(
+                _require_array(
+                    mapping,
+                    "provider_model_exclusions",
+                    label="provider_model_exclusions",
+                ),
+                label="provider_model_exclusions",
+            ),
+            generated_at=_require_string(
+                mapping,
+                "generated_at",
+                label="SMR promotion discount preview.generated_at",
+            ),
+            preview_formula_version=_require_string(
+                mapping,
+                "preview_formula_version",
+                label="SMR promotion discount preview.preview_formula_version",
+            ),
+            enforcement_status=enforcement_status,
+            customer_discount_percent=customer_discount_percent,
+            nominal_customer_debit_microcents=amounts["nominal_customer_debit_microcents"],
+            customer_discount_microcents=amounts["customer_discount_microcents"],
+            customer_charge_microcents=amounts["customer_charge_microcents"],
+            provider_cost_pico_usd=amounts["provider_cost_pico_usd"],
+            synth_subsidy_microcents=amounts["synth_subsidy_microcents"],
+            global_subsidy_cap_microcents=amounts["global_subsidy_cap_microcents"],
+            org_subsidy_cap_microcents=amounts["org_subsidy_cap_microcents"],
+        )
+
+
+@dataclass(frozen=True)
 class SmrPromotionUpsertRequest:
     campaign_id: str
     display_name: str
@@ -250,6 +441,8 @@ __all__ = [
     "SmrOrgPromotionView",
     "SmrPromotionBenefitSummary",
     "SmrPromotionCampaignPublic",
+    "SmrPromotionDiscountPreview",
+    "SmrPromotionDiscountPreviewRequest",
     "SmrPromotionGrantView",
     "SmrPromotionMineResponse",
     "SmrPromotionPublicCatalog",

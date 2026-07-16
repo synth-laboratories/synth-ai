@@ -73,9 +73,7 @@ def cloud_deployment_topology_source_from_wire(
         )
     topology_digest_sha256 = _required_text(payload, "topology_digest_sha256")
     if not _SHA256.fullmatch(topology_digest_sha256):
-        raise ValueError(
-            "topology_source.topology_digest_sha256 must be a lowercase SHA-256"
-        )
+        raise ValueError("topology_source.topology_digest_sha256 must be a lowercase SHA-256")
 
     return cast(
         CloudDeploymentTopologySource,

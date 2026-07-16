@@ -85,7 +85,10 @@ from synth_ai.managed_research.models.run_diagnostics import (
 )
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
-from synth_ai.managed_research.models.run_launch import RunLaunchRequest, RunLaunchResult
+from synth_ai.managed_research.models.run_launch import (
+    RunLaunchRequest,
+    RunLaunchResult,
+)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     MessageQueueInteraction,
@@ -138,7 +141,10 @@ from synth_ai.managed_research.models.smr_horizons import (
     SmrIntendedHorizonHours,
     coerce_intended_horizon_hours,
 )
-from synth_ai.managed_research.models.smr_host_kinds import SmrHostKind, coerce_smr_host_kind
+from synth_ai.managed_research.models.smr_host_kinds import (
+    SmrHostKind,
+    coerce_smr_host_kind,
+)
 from synth_ai.managed_research.models.smr_providers import (
     ProviderBinding,
     ProviderPolicy,
@@ -151,13 +157,19 @@ from synth_ai.managed_research.models.smr_roles import (
     SmrRoleBindings,
     coerce_smr_role_bindings,
 )
-from synth_ai.managed_research.models.smr_run_policy import SmrRunPolicy, coerce_smr_run_policy
+from synth_ai.managed_research.models.smr_run_policy import (
+    SmrRunPolicy,
+    coerce_smr_run_policy,
+)
 from synth_ai.managed_research.models.smr_runbooks import (
     SmrRunbookKind,
     SmrRunbookPreset,
     coerce_smr_runbook_kind,
 )
-from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode, coerce_smr_work_mode
+from synth_ai.managed_research.models.smr_work_modes import (
+    SmrWorkMode,
+    coerce_smr_work_mode,
+)
 from synth_ai.managed_research.models.types import (
     KickoffContract,
     RequiredWorkProductSpec,
@@ -238,10 +250,20 @@ from synth_ai.managed_research.sdk.transport import build_http_transport
 from synth_ai.managed_research.sdk.usage import UsageAPI
 from synth_ai.managed_research.sdk.work_products import WorkProductsAPI
 from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
-from synth_ai.managed_research.transport.http import SmrHttpTransport, _raise_for_error_response
+from synth_ai.managed_research.transport.http import (
+    SmrHttpTransport,
+    _raise_for_error_response,
+)
 from synth_ai.managed_research.transport.pagination import build_query_params
 
-ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
+ACTIVE_RUN_STATES = {
+    "queued",
+    "planning",
+    "executing",
+    "blocked",
+    "finalizing",
+    "running",
+}
 _FULL_GIT_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = [
@@ -342,7 +364,9 @@ def _optional_cloud_deployment_source(
     return normalized
 
 
-def _optional_cloud_slot(value: CloudSlotIdentity | str | None) -> CloudSlotIdentity | None:
+def _optional_cloud_slot(
+    value: CloudSlotIdentity | str | None,
+) -> CloudSlotIdentity | None:
     if value is None:
         return None
     normalized = str(value).strip()
@@ -413,8 +437,7 @@ def _coerce_cloud_deployment(payload: Any, *, label: str) -> CloudDeployment:
 def _coerce_cloud_deployment_list(payload: Any, *, label: str) -> list[CloudDeployment]:
     rows = _coerce_dict_list(payload, label=label)
     return [
-        _coerce_cloud_deployment(row, label=f"{label}[{index}]")
-        for index, row in enumerate(rows)
+        _coerce_cloud_deployment(row, label=f"{label}[{index}]") for index, row in enumerate(rows)
     ]
 
 
@@ -538,8 +561,9 @@ def _runnable_project_request_payload(
 def _merge_execution_actor_model_assignments(
     payload: Mapping[str, Any] | dict[str, Any],
     *,
-    actor_model_assignments: Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]]
-    | None,
+    actor_model_assignments: (
+        Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+    ),
 ) -> dict[str, Any]:
     normalized_payload = dict(payload)
     assignment_payloads = _normalized_actor_model_assignment_payloads(
@@ -704,8 +728,9 @@ def _build_project_run_payload(
     agent_harness: SmrAgentHarness | None = None,
     agent_kind: SmrAgentKind | None = None,
     agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-    actor_model_overrides: Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]]
-    | None = None,
+    actor_model_overrides: (
+        Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+    ) = None,
     roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
     workflow: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -717,8 +742,9 @@ def _build_project_run_payload(
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
     directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-    required_work_products: Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]]
-    | None = None,
+    required_work_products: (
+        Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+    ) = None,
     require_report: bool = True,
     ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_objective_id: str | None = None,
@@ -1809,12 +1835,14 @@ class ManagedResearchClient:
             cursor=cursor,
         )
         return _coerce_dict_list(
-            self._request_json("GET", "/smr/projects", params=params), label="list_projects"
+            self._request_json("GET", "/smr/projects", params=params),
+            label="list_projects",
         )
 
     def get_project(self, project_id: str) -> dict[str, Any]:
         return _coerce_dict(
-            self._request_json("GET", f"/smr/projects/{project_id}"), label="get_project"
+            self._request_json("GET", f"/smr/projects/{project_id}"),
+            label="get_project",
         )
 
     def create_factory(
@@ -2291,10 +2319,9 @@ class ManagedResearchClient:
         project_id: str,
         payload: dict[str, Any],
         *,
-        actor_model_assignments: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_assignments: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
     ) -> dict[str, Any]:
         normalized_payload = _merge_execution_actor_model_assignments(
             payload,
@@ -3369,7 +3396,9 @@ class ManagedResearchClient:
         """Upload a self-contained HTML blob and publish it as a Synth Visual."""
         run_id = _require_non_empty_string(run_id, field_name="run_id")
         title = _require_non_empty_string(title, field_name="title")
-        content = html_content.encode("utf-8") if isinstance(html_content, str) else bytes(html_content)
+        content = (
+            html_content.encode("utf-8") if isinstance(html_content, str) else bytes(html_content)
+        )
         response = self._transport.client.request(
             "POST",
             f"/smr/runs/{run_id}/visuals",
@@ -3383,7 +3412,9 @@ class ManagedResearchClient:
             files={"html": ("index.html", content, "text/html")},
         )
         if response.is_error:
-            from synth_ai.managed_research.transport.http import _raise_for_error_response
+            from synth_ai.managed_research.transport.http import (
+                _raise_for_error_response,
+            )
 
             _raise_for_error_response(response)
         try:
@@ -3395,9 +3426,7 @@ class ManagedResearchClient:
                 response_text=response.text,
             ) from exc
 
-    def list_visuals(
-        self, *, project_id: str | None = None, limit: int = 100
-    ) -> dict[str, Any]:
+    def list_visuals(self, *, project_id: str | None = None, limit: int = 100) -> dict[str, Any]:
         params: dict[str, Any] = {"limit": limit}
         if project_id is not None:
             params["project_id"] = project_id
@@ -4373,9 +4402,7 @@ class ManagedResearchClient:
         except SmrApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
-        if payload.get("deployment_id") != deployment_id or payload.get(
-            "release_id"
-        ) != release_id:
+        if payload.get("deployment_id") != deployment_id or payload.get("release_id") != release_id:
             raise ValueError("image materialization response did not bind the request")
         expected_fields = {
             "schema_version",
@@ -4428,9 +4455,7 @@ class ManagedResearchClient:
             "platform_architecture",
         ):
             if loaded.get(field_name) != declaration[field_name]:
-                raise ValueError(
-                    f"image materialization {field_name} does not bind declaration"
-                )
+                raise ValueError(f"image materialization {field_name} does not bind declaration")
         if not isinstance(loaded.get("image_config_digest"), str) or not re.fullmatch(
             r"sha256:[0-9a-f]{64}", loaded["image_config_digest"]
         ):
@@ -5398,8 +5423,9 @@ class ManagedResearchClient:
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
         intended_horizon_hours: SmrIntendedHorizonHours | int | None = None,
-        providers: Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]]
-        | None = None,
+        providers: (
+            Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -5414,10 +5440,9 @@ class ManagedResearchClient:
         agent_harness: SmrAgentHarness | None = None,
         agent_kind: SmrAgentKind | None = None,
         agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-        actor_model_overrides: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_overrides: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5429,10 +5454,9 @@ class ManagedResearchClient:
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-        required_work_products: Iterable[
-            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        required_work_products: (
+            Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,
@@ -5547,8 +5571,9 @@ class ManagedResearchClient:
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
         intended_horizon_hours: SmrIntendedHorizonHours | int | None = None,
-        providers: Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]]
-        | None = None,
+        providers: (
+            Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -5563,10 +5588,9 @@ class ManagedResearchClient:
         agent_harness: SmrAgentHarness | None = None,
         agent_kind: SmrAgentKind | None = None,
         agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-        actor_model_overrides: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_overrides: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5578,10 +5602,9 @@ class ManagedResearchClient:
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-        required_work_products: Iterable[
-            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        required_work_products: (
+            Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,

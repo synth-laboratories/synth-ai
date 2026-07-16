@@ -63,6 +63,9 @@ from synth_ai.managed_research.mcp.tools.trained_models import build_trained_mod
 from synth_ai.managed_research.mcp.tools.usage import build_usage_tools
 from synth_ai.managed_research.mcp.tools.workspace_inputs import build_workspace_input_tools
 from synth_ai.managed_research.models.factories import FactoryWakeDueRequest
+from synth_ai.managed_research.models.promotions import (
+    SmrPromotionDiscountPreviewRequest,
+)
 from synth_ai.managed_research.models.run_control import ManagedResearchActorControlAction
 from synth_ai.managed_research.open_research import (
     OpenResearchClient,
@@ -1877,6 +1880,11 @@ class ManagedResearchMcpServer:
         with self._client_from_args(args) as client:
             result = client.get_billing_entitlements()
             return asdict(result) if is_dataclass(result) else result
+
+    def _tool_preview_admin_promotion_discount(self, args: JSONDict) -> Any:
+        request = SmrPromotionDiscountPreviewRequest.from_wire(_tool_body(args, exclude=set()))
+        with self._client_from_args(args) as client:
+            return _mcp_jsonable(client.billing.preview_promotion_discount(request))
 
     def _tool_get_run_usage(self, args: JSONDict) -> Any:
         run_id = require_string(args, "run_id")

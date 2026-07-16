@@ -6,7 +6,7 @@ import hashlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Literal, TypedDict, cast
 
 import httpx
 
@@ -439,7 +439,7 @@ class ImageReleasesAPI(_ClientNamespace):
                 ) from upload_error
         if response.is_error:
             raise RuntimeError(
-                "image release archive upload failed " f"with HTTP {response.status_code}"
+                f"image release archive upload failed with HTTP {response.status_code}"
             )
         try:
             finalized = self.finalize(
