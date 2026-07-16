@@ -703,7 +703,9 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     "launch_request": {
                         "type": "object",
-                        "description": "Optional default launch request for due Efforts.",
+                        "description": (
+                            "Optional default launch request for due Efforts."
+                        ),
                     },
                     "limit": {
                         "type": "integer",
