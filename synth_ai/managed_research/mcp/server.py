@@ -1097,14 +1097,10 @@ class ManagedResearchMcpServer:
                 dry_run=False,
                 continue_on_error=contract.continue_on_error,
                 confirmed_preview_id=preview_id,
-                confirmed_preview_token=require_string(
-                    args, "confirmed_preview_token"
-                ),
+                confirmed_preview_token=require_string(args, "confirmed_preview_token"),
             )
             if result.confirmed_preview_id != preview_id or result.receipt_id is None:
-                raise RuntimeError(
-                    "wake receipt is not durably bound to the confirmed preview"
-                )
+                raise RuntimeError("wake receipt is not durably bound to the confirmed preview")
             return result.raw
 
     def _tool_list_factory_efforts(self, args: JSONDict) -> Any:

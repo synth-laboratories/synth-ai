@@ -1259,9 +1259,7 @@ def _confirm_wake_preview(
         confirmed_preview_token=preview.preview_token,
     )
     if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
-        raise RuntimeError(
-            "wake receipt is not durably bound to the confirmed preview"
-        )
+        raise RuntimeError("wake receipt is not durably bound to the confirmed preview")
     return result
 
 
@@ -1338,14 +1336,8 @@ def execute_factory_standup(
             factory.factory_id,
             **_wake_due_preview_kwargs(plan),
         )
-        if (
-            wake_due_launch
-            and wake_preview.ready > 0
-            and not wake_preview.confirmation_required
-        ):
-            raise RuntimeError(
-                "wake preview has ready work but is not confirmation-ready"
-            )
+        if wake_due_launch and wake_preview.ready > 0 and not wake_preview.confirmation_required:
+            raise RuntimeError("wake preview has ready work but is not confirmation-ready")
         wake_result = (
             _confirm_wake_preview(
                 client=client,
@@ -1365,9 +1357,7 @@ def execute_factory_standup(
         "created_project": _jsonable(created_project),
         "project_link": _jsonable(link),
         "efforts": _jsonable(efforts),
-        "wake_due_preview": (
-            _wake_result_proof(wake_preview) if wake_due_launch else None
-        ),
+        "wake_due_preview": (_wake_result_proof(wake_preview) if wake_due_launch else None),
         "wake_due": _wake_result_proof(wake_result),
         "status": _jsonable(client.factories.status(factory.factory_id)),
     }

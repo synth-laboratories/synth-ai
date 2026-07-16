@@ -702,10 +702,9 @@ class FactoriesAPI(_ClientNamespace):
         decision_note: str | None = None,
         budget_policy: Mapping[str, Any] | dict[str, Any] | None = None,
         publication_policy: Mapping[str, Any] | dict[str, Any] | None = None,
-        authorization_policy: AuthorizationPolicy
-        | Mapping[str, Any]
-        | dict[str, Any]
-        | None = None,
+        authorization_policy: (
+            AuthorizationPolicy | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
         actor_notes: Mapping[str, Any] | dict[str, Any] | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
@@ -774,13 +773,9 @@ class FactoriesAPI(_ClientNamespace):
         confirmed_preview_token: str | None = None,
     ) -> FactoryWakeDueResult:
         """Preview due work or execute it with the corresponding signed token."""
-        if dry_run and (
-            confirmed_preview_id is not None or confirmed_preview_token is not None
-        ):
+        if dry_run and (confirmed_preview_id is not None or confirmed_preview_token is not None):
             raise ValueError("Factory wake previews do not accept confirmation fields")
-        if not dry_run and (
-            confirmed_preview_id is None or confirmed_preview_token is None
-        ):
+        if not dry_run and (confirmed_preview_id is None or confirmed_preview_token is None):
             raise ValueError(
                 "Factory wake execution requires the preview_id and preview_token "
                 "returned by a dry-run preview"

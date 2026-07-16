@@ -1951,18 +1951,13 @@ class FactoryWakeDueRequest:
         unknown_keys = sorted(str(key) for key in set(mapping) - allowed_keys)
         if unknown_keys:
             raise ValueError(
-                "factory wake request contract contains unknown fields: "
-                + ", ".join(unknown_keys)
+                "factory wake request contract contains unknown fields: " + ", ".join(unknown_keys)
             )
         contract = cls.from_wire(mapping)
         canonical_contract = contract.to_contract_wire()
-        replayed_fields = {
-            str(key): canonical_contract[str(key)] for key in mapping
-        }
+        replayed_fields = {str(key): canonical_contract[str(key)] for key in mapping}
         if dict(mapping) != replayed_fields:
-            raise ValueError(
-                "factory wake request contract must be replayed exactly as returned"
-            )
+            raise ValueError("factory wake request contract must be replayed exactly as returned")
         return contract
 
     @classmethod
@@ -1982,27 +1977,23 @@ class FactoryWakeDueRequest:
         continue_on_error = _optional_bool(mapping, "continue_on_error")
         return cls(
             launch_request=(
-                dict(launch_request) if isinstance(launch_request, Mapping) else None
+                _optional_object_dict(launch_request, label="factory wake launch_request")
+                if launch_request is not None
+                else None
             ),
             limit=limit,
             allow_overlap=bool(_optional_bool(mapping, "allow_overlap")),
             dry_run=bool(_optional_bool(mapping, "dry_run")),
-            continue_on_error=(
-                True if continue_on_error is None else continue_on_error
-            ),
+            continue_on_error=(True if continue_on_error is None else continue_on_error),
             confirmed_preview_id=_optional_string(mapping, "confirmed_preview_id"),
-            confirmed_preview_token=_optional_string(
-                mapping, "confirmed_preview_token"
-            ),
+            confirmed_preview_token=_optional_string(mapping, "confirmed_preview_token"),
         )
 
     def to_contract_wire(self) -> dict[str, Any]:
         """Return the token-bound request fields, excluding transport controls."""
         payload: dict[str, Any] = {
             "launch_request": (
-                dict(self.launch_request)
-                if self.launch_request is not None
-                else None
+                dict(self.launch_request) if self.launch_request is not None else None
             ),
             "limit": self.limit,
             "allow_overlap": self.allow_overlap,
@@ -2092,13 +2083,9 @@ class FactoryWakeDueResult:
             preview_token=_optional_string(mapping, "preview_token"),
             preview_expires_at=_optional_datetime(mapping, "preview_expires_at"),
             confirmed_preview_id=_optional_string(mapping, "confirmed_preview_id"),
-            confirmation_required=bool(
-                _optional_bool(mapping, "confirmation_required")
-            ),
+            confirmation_required=bool(_optional_bool(mapping, "confirmation_required")),
             request_contract=(
-                FactoryWakeDueRequest.from_contract_wire(
-                    mapping.get("request_contract")
-                )
+                FactoryWakeDueRequest.from_contract_wire(mapping.get("request_contract"))
                 if mapping.get("request_contract") is not None
                 else None
             ),

@@ -746,9 +746,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     "preview_id": {
                         "type": "string",
-                        "description": (
-                            "preview_id returned by smr_preview_factory_wake."
-                        ),
+                        "description": ("preview_id returned by smr_preview_factory_wake."),
                     },
                     "request_contract": {
                         "type": "object",
