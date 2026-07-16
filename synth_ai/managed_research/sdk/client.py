@@ -3332,6 +3332,68 @@ class ManagedResearchClient:
             label="list_hosted_artifacts",
         )
 
+    def publish_run_visual(
+        self,
+        run_id: str,
+        *,
+        title: str,
+        html_content: str | bytes,
+        visual_kind: str = "research_visual",
+        visibility: str = "org",
+        source_run_ids: Iterable[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Upload a self-contained HTML blob and publish it as a Synth Visual."""
+        run_id = _require_non_empty_string(run_id, field_name="run_id")
+        title = _require_non_empty_string(title, field_name="title")
+        content = html_content.encode("utf-8") if isinstance(html_content, str) else bytes(html_content)
+        response = self._transport.client.request(
+            "POST",
+            f"/smr/runs/{run_id}/visuals",
+            data={
+                "title": title,
+                "visual_kind": visual_kind,
+                "visibility": visibility,
+                "source_run_ids_json": _json.dumps(list(source_run_ids)),
+                "metadata_json": _json.dumps(dict(metadata or {})),
+            },
+            files={"html": ("index.html", content, "text/html")},
+        )
+        if response.is_error:
+            from synth_ai.managed_research.transport.http import _raise_for_error_response
+
+            _raise_for_error_response(response)
+        try:
+            return _coerce_dict(response.json(), label="publish_run_visual")
+        except _json.JSONDecodeError as exc:
+            raise SmrApiError(
+                "POST Visual returned a non-JSON response",
+                status_code=response.status_code,
+                response_text=response.text,
+            ) from exc
+
+    def list_visuals(
+        self, *, project_id: str | None = None, limit: int = 100
+    ) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
+        if project_id is not None:
+            params["project_id"] = project_id
+        return _coerce_dict(
+            self._request_json("GET", "/smr/visuals", params=params),
+            label="list_visuals",
+        )
+
+    def get_visual(self, visual_id: str) -> dict[str, Any]:
+        visual_id = _require_non_empty_string(visual_id, field_name="visual_id")
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/visuals/{visual_id}"),
+            label="get_visual",
+        )
+
+    def get_visual_content(self, visual_id: str) -> dict[str, Any]:
+        visual_id = _require_non_empty_string(visual_id, field_name="visual_id")
+        return self._request_content("GET", f"/smr/visuals/{visual_id}/content")
+
     def list_project_hosted_artifacts(
         self,
         project_id: str,
