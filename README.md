@@ -87,6 +87,18 @@ plan = research.economics.plan()
 catalog = research.economics.catalog()
 entitlements = research.economics.entitlements()
 
+# Async Research Factory: inspect the experiment floor before launching work
+factory = research.factories.get(factory_id)
+floor = research.factories.status(factory.factory_id)
+preview = research.factories.preview_wake(factory.factory_id)
+# After reviewing preview.efforts, the SDK replays the resolved request_contract
+# with its opaque preview_token; callers do not reconstruct the write request.
+if preview.confirmation_required:
+    receipt = research.factories.wake_due(
+        factory.factory_id,
+        preview=preview,
+    )
+
 # Factory Tag loop
 session = research.factories.tag.sessions.create(
     ResearchTagSessionCreateRequest(

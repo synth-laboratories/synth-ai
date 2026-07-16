@@ -41451,6 +41451,32 @@ components:
       - name
       - status
       title: SmrFactoryVitalResponse
+    SmrFactoryWakeDueContract:
+      properties:
+        launch_request:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Launch Request
+        limit:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Limit
+          default: 10
+        allow_overlap:
+          type: boolean
+          title: Allow Overlap
+          default: false
+        continue_on_error:
+          type: boolean
+          title: Continue On Error
+          default: true
+      additionalProperties: false
+      type: object
+      title: SmrFactoryWakeDueContract
+      description: Exact launch inputs bound to a signed Factory wake preview.
     SmrFactoryWakeDueEffortResponse:
       properties:
         effort_id:
@@ -41462,6 +41488,7 @@ components:
         status:
           type: string
           enum:
+          - ready
           - launched
           - skipped
           - failed
@@ -41528,6 +41555,25 @@ components:
           type: boolean
           title: Continue On Error
           default: true
+        confirmed_preview_id:
+          anyOf:
+          - type: string
+            maxLength: 44
+            minLength: 44
+          - type: 'null'
+          title: Confirmed Preview Id
+          description: Preview identity shown to the operator. Required with confirmed_preview_token
+            and verified against its signed claims before execution.
+        confirmed_preview_token:
+          anyOf:
+          - type: string
+            maxLength: 16384
+            minLength: 32
+          - type: 'null'
+          title: Confirmed Preview Token
+          description: Opaque signed token returned by a prior dry-run. Required for
+            operator-triggered launches and bound to the organization, Factory, resolved
+            request, consequences, evaluation time, and expiry.
       additionalProperties: false
       type: object
       title: SmrFactoryWakeDueRequest
@@ -41544,6 +41590,48 @@ components:
           type: boolean
           title: Dry Run
           default: false
+        preview_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Id
+        preview_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Token
+        preview_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Preview Expires At
+        confirmed_preview_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Confirmed Preview Id
+        confirmation_required:
+          type: boolean
+          title: Confirmation Required
+          default: false
+        request_contract:
+          $ref: '#/components/schemas/SmrFactoryWakeDueContract'
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        executed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Executed At
+        ready:
+          type: integer
+          title: Ready
+          default: 0
         launched:
           type: integer
           title: Launched

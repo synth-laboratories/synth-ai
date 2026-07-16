@@ -17,6 +17,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
+from synth_ai.managed_research.models.factories import FactoryWakeDueResult
 from synth_ai.managed_research.models.types import SmrRunnableProjectRequest
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
@@ -1215,9 +1216,8 @@ def _effort_kwargs(effort: Mapping[str, Any], *, default_project_id: str) -> dic
     }
 
 
-def _wake_due_kwargs(plan: Mapping[str, Any], *, launch: bool) -> dict[str, Any]:
+def _wake_due_preview_kwargs(plan: Mapping[str, Any]) -> dict[str, Any]:
     wake_due = _mapping(plan.get("wake_due"), field="wake_due")
-    dry_run = wake_due.get("dry_run")
     return {
         "launch_request": _mapping(
             wake_due.get("launch_request"),
@@ -1227,8 +1227,53 @@ def _wake_due_kwargs(plan: Mapping[str, Any], *, launch: bool) -> dict[str, Any]
         "limit": int(wake_due.get("limit") or 10),
         "allow_overlap": bool(wake_due.get("allow_overlap") or False),
         "continue_on_error": bool(wake_due.get("continue_on_error", True)),
-        "dry_run": bool(dry_run) if dry_run is not None else not launch,
+        "dry_run": True,
     }
+
+
+def _confirm_wake_preview(
+    *,
+    client: ManagedResearchClient,
+    factory_id: str,
+    preview: FactoryWakeDueResult,
+) -> FactoryWakeDueResult:
+    if preview.factory_id != factory_id:
+        raise RuntimeError("wake preview factory_id does not match the created Factory")
+    if not preview.dry_run or not preview.confirmation_required:
+        raise RuntimeError("wake preview is not confirmation-ready")
+    if preview.preview_id is None or preview.preview_token is None:
+        raise RuntimeError("wake preview omitted its preview_id or preview_token")
+    contract = preview.request_contract
+    if contract is None:
+        raise RuntimeError("wake preview omitted its resolved request_contract")
+    if contract.confirmed_preview_token is not None:
+        raise RuntimeError("wake preview request_contract is not confirmation-ready")
+    result = client.factories.wake_due(
+        factory_id,
+        launch_request=contract.launch_request,
+        limit=contract.limit,
+        allow_overlap=contract.allow_overlap,
+        dry_run=False,
+        continue_on_error=contract.continue_on_error,
+        confirmed_preview_id=preview.preview_id,
+        confirmed_preview_token=preview.preview_token,
+    )
+    if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
+        raise RuntimeError(
+            "wake receipt is not durably bound to the confirmed preview"
+        )
+    return result
+
+
+def _wake_result_proof(result: FactoryWakeDueResult | None) -> Any:
+    payload = _jsonable(result)
+    if not isinstance(payload, dict):
+        return payload
+    payload.pop("preview_token", None)
+    raw = payload.get("raw")
+    if isinstance(raw, dict):
+        raw.pop("preview_token", None)
+    return payload
 
 
 def execute_factory_standup(
@@ -1248,6 +1293,7 @@ def execute_factory_standup(
     project_id = _optional_string(project.get("project_id"))
     effort_plans = _effort_plans(plan)
     link_payload = _project_link_payload(plan)
+    should_wake = wake_due or wake_due_launch or bool(plan.get("wake_due"))
 
     if project_id is None and not create_project:
         raise ValueError("project.project_id or create_project is required")
@@ -1262,11 +1308,7 @@ def execute_factory_standup(
             "create_project": create_project or None,
             "project_link": link_payload,
             "efforts": effort_plans,
-            "wake_due": (
-                _wake_due_kwargs(plan, launch=wake_due_launch)
-                if wake_due or plan.get("wake_due")
-                else None
-            ),
+            "wake_due": _wake_due_preview_kwargs(plan) if should_wake else None,
         }
 
     created_project: dict[str, Any] | None = None
@@ -1289,11 +1331,29 @@ def execute_factory_standup(
         )
         for effort in effort_plans
     ]
+    wake_preview = None
     wake_result = None
-    if wake_due or plan.get("wake_due"):
-        wake_result = client.factories.wake_due(
+    if should_wake:
+        wake_preview = client.factories.wake_due(
             factory.factory_id,
-            **_wake_due_kwargs(plan, launch=wake_due_launch),
+            **_wake_due_preview_kwargs(plan),
+        )
+        if (
+            wake_due_launch
+            and wake_preview.ready > 0
+            and not wake_preview.confirmation_required
+        ):
+            raise RuntimeError(
+                "wake preview has ready work but is not confirmation-ready"
+            )
+        wake_result = (
+            _confirm_wake_preview(
+                client=client,
+                factory_id=factory.factory_id,
+                preview=wake_preview,
+            )
+            if wake_due_launch and wake_preview.confirmation_required
+            else wake_preview
         )
 
     return {
@@ -1305,7 +1365,10 @@ def execute_factory_standup(
         "created_project": _jsonable(created_project),
         "project_link": _jsonable(link),
         "efforts": _jsonable(efforts),
-        "wake_due": _jsonable(wake_result),
+        "wake_due_preview": (
+            _wake_result_proof(wake_preview) if wake_due_launch else None
+        ),
+        "wake_due": _wake_result_proof(wake_result),
         "status": _jsonable(client.factories.status(factory.factory_id)),
     }
 
@@ -1338,7 +1401,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--wake-due-launch",
         action="store_true",
-        help="allow wake-due to launch real runs instead of dry-run previews",
+        help="preview wake-due, then confirm that exact preview and launch its runs",
     )
     parser.add_argument("--output", default=None, help="optional proof JSON path")
     parser.add_argument("--indent", type=int, default=2)

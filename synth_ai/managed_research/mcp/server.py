@@ -62,6 +62,7 @@ from synth_ai.managed_research.mcp.tools.tag import build_tag_tools
 from synth_ai.managed_research.mcp.tools.trained_models import build_trained_model_tools
 from synth_ai.managed_research.mcp.tools.usage import build_usage_tools
 from synth_ai.managed_research.mcp.tools.workspace_inputs import build_workspace_input_tools
+from synth_ai.managed_research.models.factories import FactoryWakeDueRequest
 from synth_ai.managed_research.models.promotions import (
     SmrPromotionDiscountPreviewRequest,
 )
@@ -1080,16 +1081,31 @@ class ManagedResearchMcpServer:
 
     def _tool_wake_due_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
-        launch_request = args.get("launch_request")
+        preview_id = require_string(args, "preview_id")
+        request_contract = args.get("request_contract")
+        if not isinstance(request_contract, dict):
+            raise ValueError("request_contract must be the object returned by preview")
+        contract = FactoryWakeDueRequest.from_contract_wire(request_contract)
+        if contract.confirmed_preview_token is not None:
+            raise ValueError("request_contract is not a confirmation-ready preview")
         with self._client_from_args(args) as client:
-            return client.factories.wake_due(
+            result = client.factories.wake_due(
                 factory_id,
-                launch_request=launch_request if isinstance(launch_request, dict) else None,
-                limit=optional_int(args, "limit") or 10,
-                allow_overlap=bool(args.get("allow_overlap")),
-                dry_run=bool(args.get("dry_run")),
-                continue_on_error=bool(args.get("continue_on_error", True)),
-            ).raw
+                launch_request=contract.launch_request,
+                limit=contract.limit,
+                allow_overlap=contract.allow_overlap,
+                dry_run=False,
+                continue_on_error=contract.continue_on_error,
+                confirmed_preview_id=preview_id,
+                confirmed_preview_token=require_string(
+                    args, "confirmed_preview_token"
+                ),
+            )
+            if result.confirmed_preview_id != preview_id or result.receipt_id is None:
+                raise RuntimeError(
+                    "wake receipt is not durably bound to the confirmed preview"
+                )
+            return result.raw
 
     def _tool_list_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
