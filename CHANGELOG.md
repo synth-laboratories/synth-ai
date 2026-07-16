@@ -10,7 +10,9 @@ All notable changes to the `synth-ai` package are documented here.
   returns typed backend-authored draft economics, including the draft terms,
   preview inputs, charge/subsidy values, caps, and explicit
   `enforcement_status="not_implemented"`. The SDK adds no activation, debit,
-  grant, or retirement path for this launch-readiness surface.
+  grant, or retirement path for this launch-readiness surface. The read-scoped
+  `smr_preview_admin_promotion_discount` MCP tool and its `research_*` alias
+  expose the same typed preview without adding a mutation path.
 - **Public Research launch authority models** — `synth_ai.research` now exports
   typed agent harness/model, role bindings, worker palette, configured-run
   request, and canonical authority-readout aliases so evals and customer code

@@ -161,6 +161,7 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "smr_objectives": READ_SCOPES,
     "smr_list_run_log_archives": READ_SCOPES,
     "smr_get_billing_entitlements": READ_SCOPES,
+    "smr_preview_admin_promotion_discount": READ_SCOPES,
     "smr_get_run_usage": READ_SCOPES,
     "smr_get_run_resource_limits": READ_SCOPES,
     "smr_get_run_progress_toward_resource_limits": READ_SCOPES,
