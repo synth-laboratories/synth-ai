@@ -15,6 +15,10 @@ from synth_ai.managed_research.models.billing import (
     SmrManualBillingGrantPreview,
     SmrManualBillingGrantPreviewRequest,
 )
+from synth_ai.managed_research.models.promotions import (
+    SmrPromotionDiscountPreview,
+    SmrPromotionDiscountPreviewRequest,
+)
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 _PREFLIGHT_REQUEST_FIELDS = frozenset(
@@ -328,6 +332,25 @@ class BillingAPI(_ClientNamespace):
                 "POST",
                 "/smr/billing/admin/grants/preview",
                 json_body=payload,
+            )
+        )
+
+    def preview_promotion_discount(
+        self,
+        request: SmrPromotionDiscountPreviewRequest | Mapping[str, Any],
+    ) -> SmrPromotionDiscountPreview:
+        """Preview draft promotion economics without mutation or enforcement."""
+
+        typed_request = (
+            request
+            if isinstance(request, SmrPromotionDiscountPreviewRequest)
+            else SmrPromotionDiscountPreviewRequest.from_wire(request)
+        )
+        return SmrPromotionDiscountPreview.from_wire(
+            self._client._request_json(
+                "POST",
+                "/smr/promotions/admin/discount-preview",
+                json_body=typed_request.to_wire(),
             )
         )
 
