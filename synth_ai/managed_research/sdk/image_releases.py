@@ -13,7 +13,6 @@ import httpx
 from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
-
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -439,9 +438,7 @@ class ImageReleasesAPI(_ClientNamespace):
                             content=handle,
                             headers={
                                 "Content-Type": "application/x-tar",
-                                "Content-Length": str(
-                                    normalized["archive_size_bytes"]
-                                ),
+                                "Content-Length": str(normalized["archive_size_bytes"]),
                             },
                         )
                     upload_error = None
