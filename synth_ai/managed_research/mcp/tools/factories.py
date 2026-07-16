@@ -744,6 +744,12 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
+                    "preview_id": {
+                        "type": "string",
+                        "description": (
+                            "preview_id returned by smr_preview_factory_wake."
+                        ),
+                    },
                     "request_contract": {
                         "type": "object",
                         "description": (
@@ -759,6 +765,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 },
                 required=[
                     "factory_id",
+                    "preview_id",
                     "request_contract",
                     "confirmed_preview_token",
                 ],

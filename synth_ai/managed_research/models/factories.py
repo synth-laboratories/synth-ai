@@ -1935,6 +1935,7 @@ class FactoryWakeDueRequest:
     allow_overlap: bool = False
     dry_run: bool = False
     continue_on_error: bool = True
+    confirmed_preview_id: str | None = None
     confirmed_preview_token: str | None = field(default=None, repr=False)
 
     @classmethod
@@ -1985,6 +1986,7 @@ class FactoryWakeDueRequest:
             continue_on_error=(
                 True if continue_on_error is None else continue_on_error
             ),
+            confirmed_preview_id=_optional_string(mapping, "confirmed_preview_id"),
             confirmed_preview_token=_optional_string(
                 mapping, "confirmed_preview_token"
             ),
@@ -1993,12 +1995,15 @@ class FactoryWakeDueRequest:
     def to_contract_wire(self) -> dict[str, Any]:
         """Return the token-bound request fields, excluding transport controls."""
         payload: dict[str, Any] = {
+            "launch_request": (
+                dict(self.launch_request)
+                if self.launch_request is not None
+                else None
+            ),
             "limit": self.limit,
             "allow_overlap": self.allow_overlap,
             "continue_on_error": self.continue_on_error,
         }
-        if self.launch_request is not None:
-            payload["launch_request"] = dict(self.launch_request)
         return payload
 
     def to_wire(self) -> dict[str, Any]:
@@ -2010,6 +2015,8 @@ class FactoryWakeDueRequest:
         }
         if self.launch_request is not None:
             payload["launch_request"] = dict(self.launch_request)
+        if self.confirmed_preview_id is not None:
+            payload["confirmed_preview_id"] = self.confirmed_preview_id
         if self.confirmed_preview_token is not None:
             payload["confirmed_preview_token"] = self.confirmed_preview_token
         return payload
@@ -2068,7 +2075,7 @@ class FactoryWakeDueResult:
     skipped: int = 0
     failed: int = 0
     efforts: tuple[FactoryWakeDueEffort, ...] = ()
-    raw: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryWakeDueResult:

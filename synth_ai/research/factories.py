@@ -357,15 +357,21 @@ class ResearchFactoriesAPI:
         contract = preview.request_contract
         if contract.confirmed_preview_token is not None:
             raise ValueError("preview request_contract is not confirmation-ready")
-        return self._session.factories.wake_due(
+        result = self._session.factories.wake_due(
             factory_id,
             launch_request=contract.launch_request,
             limit=contract.limit,
             allow_overlap=contract.allow_overlap,
             dry_run=False,
             continue_on_error=contract.continue_on_error,
+            confirmed_preview_id=preview.preview_id,
             confirmed_preview_token=preview.preview_token,
         )
+        if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
+            raise RuntimeError(
+                "wake receipt is not durably bound to the confirmed preview"
+            )
+        return result
 
 
 __all__ = [

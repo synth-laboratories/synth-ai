@@ -1078,6 +1078,7 @@ class ManagedResearchMcpServer:
 
     def _tool_wake_due_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
+        preview_id = require_string(args, "preview_id")
         request_contract = args.get("request_contract")
         if not isinstance(request_contract, dict):
             raise ValueError("request_contract must be the object returned by preview")
@@ -1085,17 +1086,23 @@ class ManagedResearchMcpServer:
         if contract.confirmed_preview_token is not None:
             raise ValueError("request_contract is not a confirmation-ready preview")
         with self._client_from_args(args) as client:
-            return client.factories.wake_due(
+            result = client.factories.wake_due(
                 factory_id,
                 launch_request=contract.launch_request,
                 limit=contract.limit,
                 allow_overlap=contract.allow_overlap,
                 dry_run=False,
                 continue_on_error=contract.continue_on_error,
+                confirmed_preview_id=preview_id,
                 confirmed_preview_token=require_string(
                     args, "confirmed_preview_token"
                 ),
-            ).raw
+            )
+            if result.confirmed_preview_id != preview_id or result.receipt_id is None:
+                raise RuntimeError(
+                    "wake receipt is not durably bound to the confirmed preview"
+                )
+            return result.raw
 
     def _tool_list_factory_efforts(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")

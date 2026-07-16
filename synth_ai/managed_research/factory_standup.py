@@ -1248,15 +1248,21 @@ def _confirm_wake_preview(
         raise RuntimeError("wake preview omitted its resolved request_contract")
     if contract.confirmed_preview_token is not None:
         raise RuntimeError("wake preview request_contract is not confirmation-ready")
-    return client.factories.wake_due(
+    result = client.factories.wake_due(
         factory_id,
         launch_request=contract.launch_request,
         limit=contract.limit,
         allow_overlap=contract.allow_overlap,
         dry_run=False,
         continue_on_error=contract.continue_on_error,
+        confirmed_preview_id=preview.preview_id,
         confirmed_preview_token=preview.preview_token,
     )
+    if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
+        raise RuntimeError(
+            "wake receipt is not durably bound to the confirmed preview"
+        )
+    return result
 
 
 def _wake_result_proof(result: FactoryWakeDueResult | None) -> Any:
@@ -1332,6 +1338,14 @@ def execute_factory_standup(
             factory.factory_id,
             **_wake_due_preview_kwargs(plan),
         )
+        if (
+            wake_due_launch
+            and wake_preview.ready > 0
+            and not wake_preview.confirmation_required
+        ):
+            raise RuntimeError(
+                "wake preview has ready work but is not confirmation-ready"
+            )
         wake_result = (
             _confirm_wake_preview(
                 client=client,
