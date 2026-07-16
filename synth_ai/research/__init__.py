@@ -20,9 +20,12 @@ from synth_ai.research.errors import (
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
+    ResearchAgentHarness,
+    ResearchAgentModel,
     ResearchAgentProfileBindings,
     ResearchArtifact,
     ResearchArtifactManifest,
+    ResearchAuthorityReadouts,
     ResearchBillingCatalog,
     ResearchBillingDrawdown,
     ResearchBillingEntitlements,
@@ -33,12 +36,16 @@ from synth_ai.research.models import (
     ResearchProject,
     ResearchProjectEconomics,
     ResearchRun,
+    ResearchRunLaunchRequest,
     ResearchRunProgress,
     ResearchRunbookPreset,
     ResearchRunnableProjectRequest,
+    ResearchRoleBinding,
+    ResearchRoleBindings,
     ResearchRuntimeKind,
     ResearchTagSessionCreateRequest,
     ResearchWorkProduct,
+    ResearchWorkerRolePalette,
 )
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunHandle, ResearchRunsAPI, ResearchRunSession
@@ -48,7 +55,10 @@ __all__ = [
     "AsyncResearchClient",
     "ResearchArtifact",
     "ResearchArtifactManifest",
+    "ResearchAgentHarness",
+    "ResearchAgentModel",
     "ResearchAgentProfileBindings",
+    "ResearchAuthorityReadouts",
     "ResearchBillingCatalog",
     "ResearchBillingDrawdown",
     "ResearchBillingEntitlements",
@@ -70,11 +80,14 @@ __all__ = [
     "ResearchLimitsAPI",
     "ResearchProjectsAPI",
     "ResearchRun",
+    "ResearchRunLaunchRequest",
     "ResearchRunProgress",
     "ResearchRunHandle",
     "ResearchRunSession",
     "ResearchRunbookPreset",
     "ResearchRunnableProjectRequest",
+    "ResearchRoleBinding",
+    "ResearchRoleBindings",
     "ResearchRuntimeKind",
     "ResearchTagSessionCreateRequest",
     "ResearchRunsAPI",
@@ -82,4 +95,5 @@ __all__ = [
     "ResearchStructuredDenialError",
     "ResearchWorkMode",
     "ResearchWorkProduct",
+    "ResearchWorkerRolePalette",
 ]

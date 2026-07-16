@@ -5,6 +5,10 @@ Import these names from ``synth_ai.research.models`` in customer code.
 
 | Public name | Role |
 | --- | --- |
+| ``ResearchAgentHarness`` / ``ResearchAgentModel`` | Typed agent launch selectors |
+| ``ResearchRoleBinding`` / ``ResearchRoleBindings`` / ``ResearchWorkerRolePalette`` | Typed role launch policy |
+| ``ResearchRunLaunchRequest`` | Validated configured-run request |
+| ``ResearchAuthorityReadouts`` | Canonical run/task authority projection |
 | ``ResearchProject`` | Project record |
 | ``ResearchRun`` | Run state model returned by ``runs.wait`` / ``runs.state`` |
 | ``ResearchRunbookPreset`` | Named runbook preset for ``runs.create`` |
@@ -44,6 +48,17 @@ from synth_ai.managed_research.models.canonical_usage import (
 from synth_ai.managed_research.models.smr_environment_kinds import (
     SmrEnvironmentKind as ResearchEnvironmentKind,
 )
+from synth_ai.managed_research.models.smr_agent_harnesses import (
+    SmrAgentHarness as ResearchAgentHarness,
+)
+from synth_ai.managed_research.models.smr_agent_models import (
+    SmrAgentModel as ResearchAgentModel,
+)
+from synth_ai.managed_research.models.smr_roles import (
+    RoleBinding as ResearchRoleBinding,
+    SmrRoleBindings as ResearchRoleBindings,
+    WorkerRolePalette as ResearchWorkerRolePalette,
+)
 from synth_ai.managed_research.models.smr_runtime_kinds import (
     SmrRuntimeKind as ResearchRuntimeKind,
 )
@@ -54,6 +69,12 @@ from synth_ai.managed_research.models.project import (
     ManagedResearchProject as ResearchProject,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchRun
+from synth_ai.managed_research.models.run_launch import (
+    RunLaunchRequest as ResearchRunLaunchRequest,
+)
+from synth_ai.managed_research.models.run_timeline import (
+    SmrAuthorityReadouts as ResearchAuthorityReadouts,
+)
 from synth_ai.managed_research.models.smr_runbooks import SmrRunbookPreset as ResearchRunbookPreset
 from synth_ai.managed_research.models.tag import (
     TagSessionCreateRequest as ResearchTagSessionCreateRequest,
@@ -94,7 +115,10 @@ class ResearchRunProgress(RunProgress):
 __all__ = [
     "ResearchArtifact",
     "ResearchArtifactManifest",
+    "ResearchAgentHarness",
+    "ResearchAgentModel",
     "ResearchAgentProfileBindings",
+    "ResearchAuthorityReadouts",
     "ResearchBillingCatalog",
     "ResearchBillingDrawdown",
     "ResearchBillingEntitlements",
@@ -105,10 +129,14 @@ __all__ = [
     "ResearchProject",
     "ResearchProjectEconomics",
     "ResearchRun",
+    "ResearchRunLaunchRequest",
     "ResearchRunProgress",
     "ResearchRunbookPreset",
     "ResearchRunnableProjectRequest",
+    "ResearchRoleBinding",
+    "ResearchRoleBindings",
     "ResearchRuntimeKind",
     "ResearchTagSessionCreateRequest",
     "ResearchWorkProduct",
+    "ResearchWorkerRolePalette",
 ]
