@@ -35,20 +35,24 @@ from synth_ai.research.models import (
     ResearchOrgLimits,
     ResearchProject,
     ResearchProjectEconomics,
-    ResearchRun,
-    ResearchRunLaunchRequest,
-    ResearchRunProgress,
-    ResearchRunbookPreset,
-    ResearchRunnableProjectRequest,
     ResearchRoleBinding,
     ResearchRoleBindings,
+    ResearchRun,
+    ResearchRunbookPreset,
+    ResearchRunLaunchRequest,
+    ResearchRunnableProjectRequest,
+    ResearchRunProgress,
     ResearchRuntimeKind,
     ResearchTagSessionCreateRequest,
-    ResearchWorkProduct,
     ResearchWorkerRolePalette,
+    ResearchWorkProduct,
 )
 from synth_ai.research.projects import ResearchProjectsAPI
-from synth_ai.research.runs import ResearchRunHandle, ResearchRunsAPI, ResearchRunSession
+from synth_ai.research.runs import (
+    ResearchRunHandle,
+    ResearchRunsAPI,
+    ResearchRunSession,
+)
 from synth_ai.research.secrets import ResearchSecretsAPI
 
 __all__ = [

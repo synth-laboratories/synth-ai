@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Any
 
 from synth_ai.gamebench.models import (
     GameBenchCandidateScoreCancellation,
@@ -15,7 +14,6 @@ from synth_ai.gamebench.models import (
     GameBenchCandidateScoreSubmission,
 )
 from synth_ai.sdk.base import SynthBaseClient
-
 
 _SCORER_JOBS_PATH = "/v1/gamebench/scorers/craftax/jobs"
 

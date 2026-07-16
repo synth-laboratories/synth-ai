@@ -33,7 +33,11 @@ from dataclasses import dataclass
 
 from synth_ai.managed_research.models.billing import (
     SmrBillingCatalog as ResearchBillingCatalog,
+)
+from synth_ai.managed_research.models.billing import (
     SmrBillingDrawdown as ResearchBillingDrawdown,
+)
+from synth_ai.managed_research.models.billing import (
     SmrBillingPlanSnapshot as ResearchBillingPlan,
 )
 from synth_ai.managed_research.models.canonical_usage import (
@@ -45,8 +49,18 @@ from synth_ai.managed_research.models.canonical_usage import (
 from synth_ai.managed_research.models.canonical_usage import (
     SmrProjectEconomics as ResearchProjectEconomics,
 )
-from synth_ai.managed_research.models.smr_environment_kinds import (
-    SmrEnvironmentKind as ResearchEnvironmentKind,
+from synth_ai.managed_research.models.project import (
+    CreateRunnableResult as ResearchCreateProjectResult,
+)
+from synth_ai.managed_research.models.project import (
+    ManagedResearchProject as ResearchProject,
+)
+from synth_ai.managed_research.models.run_launch import (
+    RunLaunchRequest as ResearchRunLaunchRequest,
+)
+from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchRun
+from synth_ai.managed_research.models.run_timeline import (
+    SmrAuthorityReadouts as ResearchAuthorityReadouts,
 )
 from synth_ai.managed_research.models.smr_agent_harnesses import (
     SmrAgentHarness as ResearchAgentHarness,
@@ -54,44 +68,42 @@ from synth_ai.managed_research.models.smr_agent_harnesses import (
 from synth_ai.managed_research.models.smr_agent_models import (
     SmrAgentModel as ResearchAgentModel,
 )
+from synth_ai.managed_research.models.smr_environment_kinds import (
+    SmrEnvironmentKind as ResearchEnvironmentKind,
+)
 from synth_ai.managed_research.models.smr_roles import (
     RoleBinding as ResearchRoleBinding,
+)
+from synth_ai.managed_research.models.smr_roles import (
     SmrRoleBindings as ResearchRoleBindings,
+)
+from synth_ai.managed_research.models.smr_roles import (
     WorkerRolePalette as ResearchWorkerRolePalette,
+)
+from synth_ai.managed_research.models.smr_runbooks import (
+    SmrRunbookPreset as ResearchRunbookPreset,
 )
 from synth_ai.managed_research.models.smr_runtime_kinds import (
     SmrRuntimeKind as ResearchRuntimeKind,
 )
-from synth_ai.managed_research.models.project import (
-    CreateRunnableResult as ResearchCreateProjectResult,
-)
-from synth_ai.managed_research.models.project import (
-    ManagedResearchProject as ResearchProject,
-)
-from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchRun
-from synth_ai.managed_research.models.run_launch import (
-    RunLaunchRequest as ResearchRunLaunchRequest,
-)
-from synth_ai.managed_research.models.run_timeline import (
-    SmrAuthorityReadouts as ResearchAuthorityReadouts,
-)
-from synth_ai.managed_research.models.smr_runbooks import SmrRunbookPreset as ResearchRunbookPreset
 from synth_ai.managed_research.models.tag import (
     TagSessionCreateRequest as ResearchTagSessionCreateRequest,
 )
-from synth_ai.managed_research.models.work_products import (
-    ManagedResearchRunWorkProduct as ResearchWorkProduct,
-)
-from synth_ai.managed_research.models.types import (
-    RunArtifact as ResearchArtifact,
-)
+from synth_ai.managed_research.models.types import RunArtifact as ResearchArtifact
 from synth_ai.managed_research.models.types import (
     RunArtifactManifest as ResearchArtifactManifest,
 )
 from synth_ai.managed_research.models.types import (
     RunProgress,
+)
+from synth_ai.managed_research.models.types import (
     SmrAgentProfileBindings as ResearchAgentProfileBindings,
+)
+from synth_ai.managed_research.models.types import (
     SmrRunnableProjectRequest as ResearchRunnableProjectRequest,
+)
+from synth_ai.managed_research.models.work_products import (
+    ManagedResearchRunWorkProduct as ResearchWorkProduct,
 )
 
 

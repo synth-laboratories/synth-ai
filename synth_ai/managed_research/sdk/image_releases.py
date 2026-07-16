@@ -6,7 +6,7 @@ import hashlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Literal, TypedDict, cast
 
 import httpx
 
