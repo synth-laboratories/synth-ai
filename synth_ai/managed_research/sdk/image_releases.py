@@ -18,7 +18,9 @@ _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 _RELEASE_ID = re.compile(r"^imgrel_[0-9a-f]{64}$")
 _UPLOAD_ID = re.compile(r"^imgup_[0-9a-f]{32}$")
-_IMAGE_REF = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})$")
+_IMAGE_REF = re.compile(
+    r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})$"
+)
 _DECLARATION_FIELDS = frozenset(
     {
         "kind",
@@ -158,7 +160,9 @@ def image_release_declaration(
         or not isinstance(archive_size_bytes, int)
         or not 1 <= archive_size_bytes <= 16 * 1024**3
     ):
-        raise ValueError("declaration.archive_size_bytes must be between 1 byte and 16 GiB")
+        raise ValueError(
+            "declaration.archive_size_bytes must be between 1 byte and 16 GiB"
+        )
     if not _DIGEST.fullmatch(image_manifest_digest):
         raise ValueError("declaration.image_manifest_digest must be a sha256 digest")
     if not _IMAGE_REF.fullmatch(image_ref):
@@ -168,7 +172,9 @@ def image_release_declaration(
     if not source_repository.startswith("https://github.com/"):
         raise ValueError("declaration.source_repository must be an HTTPS GitHub URL")
     if not _GIT_SHA.fullmatch(source_commit_sha):
-        raise ValueError("declaration.source_commit_sha must be a lowercase full Git SHA")
+        raise ValueError(
+            "declaration.source_commit_sha must be a lowercase full Git SHA"
+        )
     if not _SHA256.fullmatch(fixture_manifest_sha256) or not _SHA256.fullmatch(
         fixture_binary_sha256
     ):
@@ -208,7 +214,10 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
         ),
         label="image_release",
     )
-    if _text(payload, "schema_version", label="image_release") != "smr-image-release-v1":
+    if (
+        _text(payload, "schema_version", label="image_release")
+        != "smr-image-release-v1"
+    ):
         raise ValueError("image release schema_version is unsupported")
     release_id = _text(payload, "release_id", label="image_release")
     if not _RELEASE_ID.fullmatch(release_id):
@@ -216,9 +225,13 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
     declaration_payload = payload.get("declaration")
     artifact_payload = payload.get("artifact")
     inspection_payload = payload.get("inspection")
-    if not isinstance(artifact_payload, Mapping) or not isinstance(inspection_payload, Mapping):
+    if not isinstance(artifact_payload, Mapping) or not isinstance(
+        inspection_payload, Mapping
+    ):
         raise ValueError("image release artifact and inspection must be objects")
-    declaration = image_release_declaration(cast(Mapping[str, object], declaration_payload))
+    declaration = image_release_declaration(
+        cast(Mapping[str, object], declaration_payload)
+    )
     _exact_fields(
         artifact_payload,
         frozenset({"artifact_id", "archive_sha256", "archive_size_bytes"}),
@@ -254,7 +267,9 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
         "platform_architecture",
     ):
         if inspection_payload.get(key) != declaration[key]:
-            raise ValueError(f"image release inspection.{key} does not bind declaration")
+            raise ValueError(
+                f"image release inspection.{key} does not bind declaration"
+            )
     image_config_digest = _text(
         inspection_payload,
         "image_config_digest",
@@ -439,7 +454,8 @@ class ImageReleasesAPI(_ClientNamespace):
                 ) from upload_error
         if response.is_error:
             raise RuntimeError(
-                "image release archive upload failed " f"with HTTP {response.status_code}"
+                "image release archive upload failed "
+                f"with HTTP {response.status_code}"
             )
         try:
             finalized = self.finalize(
