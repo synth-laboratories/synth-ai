@@ -250,6 +250,18 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         for key, value in actor_output_properties.items()
         if key not in {"actor_role", "kind", "title"}
     }
+
+    def preview_factory_wake(args: dict[str, Any]) -> dict[str, Any]:
+        preview = server._client_from_args(args).factories.wake_due(
+            str(args["factory_id"]),
+            launch_request=args.get("launch_request"),
+            limit=int(args.get("limit") or 10),
+            allow_overlap=bool(args.get("allow_overlap") or False),
+            dry_run=True,
+            continue_on_error=bool(args.get("continue_on_error", True)),
+        )
+        return preview.raw
+
     return [
         ToolDefinition(
             name="smr_create_factory",
@@ -724,16 +736,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 },
                 required=["factory_id"],
             ),
-            handler=lambda args: server._client_from_args(args)
-            .factories.wake_due(
-                str(args["factory_id"]),
-                launch_request=args.get("launch_request"),
-                limit=int(args.get("limit") or 10),
-                allow_overlap=bool(args.get("allow_overlap") or False),
-                dry_run=True,
-                continue_on_error=bool(args.get("continue_on_error", True)),
-            )
-            .raw,
+            handler=preview_factory_wake,
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
