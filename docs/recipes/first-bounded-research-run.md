@@ -17,17 +17,21 @@ project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]
 research = SynthClient().research
 work_mode = ResearchWorkMode.DIRECTED_EFFORT
 
-plan = research.economics.plan()
-preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
-if plan.blocked or preflight.clear_to_trigger is not True:
-    raise RuntimeError(f"launch denied: {plan.blocked_detail}; {preflight.blockers}")
-
-handle = research.runs.create(
-    project_id,
-    objective="Inspect the repository and produce a bounded findings report.",
-    work_mode=work_mode,
-)
+handle = None
 try:
+    plan = research.economics.plan()
+    preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
+    clear_to_trigger = preflight.get("clear_to_trigger", preflight.get("allowed"))
+    if plan.blocked or clear_to_trigger is not True:
+        raise RuntimeError(
+            f"launch denied: {plan.blocked_detail}; {preflight.get('blockers')}"
+        )
+
+    handle = research.runs.create(
+        project_id,
+        objective="Inspect the repository and produce a bounded findings report.",
+        work_mode=work_mode,
+    )
     final = research.runs.wait(
         project_id, handle.run_id, timeout=900, raise_if_failed=True
     )
@@ -35,7 +39,8 @@ try:
     print(handle.work_products.list())
     print(research.economics.run_drawdown(handle.run_id))
 except (KeyboardInterrupt, TimeoutError):
-    research.runs.stop(handle.run_id, project_id=project_id)
+    if handle is not None:
+        research.runs.stop(handle.run_id, project_id=project_id)
     raise
 finally:
     research.close()
