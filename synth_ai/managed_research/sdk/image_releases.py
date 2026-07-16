@@ -10,6 +10,7 @@ from typing import Any, Literal, TypedDict, cast
 
 import httpx
 
+from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 
@@ -417,27 +418,62 @@ class ImageReleasesAPI(_ClientNamespace):
         upload = self.create_upload(normalized, expires_in=expires_in)
         if upload["declaration"] != normalized:
             raise ValueError("image release upload response changed the declaration")
-        with path.open("rb") as handle, httpx.Client(
+        upload_error: httpx.TransportError | None = None
+        with httpx.Client(
             timeout=upload_timeout_seconds,
             follow_redirects=False,
         ) as upload_client:
-            response = upload_client.put(
-                upload["upload_url"],
-                content=handle,
-                headers={
-                    "Content-Type": "application/x-tar",
-                    "Content-Length": str(normalized["archive_size_bytes"]),
-                },
-            )
+            for _attempt in range(2):
+                try:
+                    with path.open("rb") as handle:
+                        response = upload_client.put(
+                            upload["upload_url"],
+                            content=handle,
+                            headers={
+                                "Content-Type": "application/x-tar",
+                                "Content-Length": str(
+                                    normalized["archive_size_bytes"]
+                                ),
+                            },
+                        )
+                    upload_error = None
+                    break
+                except httpx.TransportError as exc:
+                    # Exact-key PUT is idempotent. One replay reconciles the only
+                    # ambiguous outcome without crossing the Synth storage boundary.
+                    upload_error = exc
+            else:
+                raise RuntimeError(
+                    "image release archive upload outcome is uncertain "
+                    f"(upload_id={upload['upload_id']}, "
+                    f"release_id={upload['release_id']})"
+                ) from upload_error
         if response.is_error:
             raise RuntimeError(
                 "image release archive upload failed "
                 f"with HTTP {response.status_code}"
             )
-        finalized = self.finalize(
-            upload_id=upload["upload_id"],
-            declaration=normalized,
-        )
+        try:
+            finalized = self.finalize(
+                upload_id=upload["upload_id"],
+                declaration=normalized,
+            )
+        except SmrApiError as exc:
+            if exc.status_code is not None:
+                raise
+            # The backend finalize operation is idempotent and always proves
+            # staging disposal, so replay exactly once after response loss.
+            try:
+                finalized = self.reconcile(
+                    upload_id=upload["upload_id"],
+                    declaration=normalized,
+                )
+            except Exception as reconcile_exc:
+                raise RuntimeError(
+                    "image release finalize outcome is uncertain "
+                    f"(upload_id={upload['upload_id']}, "
+                    f"release_id={upload['release_id']})"
+                ) from reconcile_exc
         if finalized["staging_cleanup"]["upload_id"] != upload["upload_id"]:
             raise ValueError("image release finalize cleaned a different upload_id")
         if finalized["release"]["release_id"] != upload["release_id"]:
