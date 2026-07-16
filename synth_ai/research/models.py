@@ -21,6 +21,9 @@ Import these names from ``synth_ai.research.models`` in customer code.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+
 from synth_ai.managed_research.models.canonical_usage import (
     BillingEntitlementSnapshot as ResearchBillingEntitlements,
 )
@@ -48,7 +51,24 @@ from synth_ai.managed_research.models.types import RunArtifact as ResearchArtifa
 from synth_ai.managed_research.models.types import (
     RunArtifactManifest as ResearchArtifactManifest,
 )
-from synth_ai.managed_research.models.types import RunProgress as ResearchRunProgress
+from synth_ai.managed_research.models.types import RunProgress
+
+
+@dataclass(frozen=True)
+class ResearchRunProgress(RunProgress):
+    """Public progress model including the backend-owned run state projection."""
+
+    public_state: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ResearchRunProgress:
+        parsed = RunProgress.from_wire(payload)
+        if not isinstance(payload, Mapping):
+            raise ValueError("run progress must be an object")
+        public_state = payload.get("public_state")
+        if public_state is not None and not isinstance(public_state, str):
+            raise ValueError("run progress public_state must be a string or null")
+        return cls(**vars(parsed), public_state=public_state)
 
 __all__ = [
     "ResearchArtifact",

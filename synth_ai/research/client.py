@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.tag import TagAPI
@@ -11,7 +12,6 @@ from synth_ai.research.efforts import ResearchEffortsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
 from synth_ai.research.limits import ResearchLimitsAPI
-from synth_ai.research.models import ResearchOrgLimits
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
@@ -155,14 +155,14 @@ class ResearchClient:
             self._tag = self._open_session().tag
         return self._tag
 
-    def get_limits(self) -> ResearchOrgLimits:
-        """Deprecated — use ``limits.get()`` instead."""
+    def get_limits(self) -> dict[str, Any]:
+        """Return the legacy raw limits payload; use typed ``limits.get()`` instead."""
         warnings.warn(
             "research.get_limits() is deprecated; use research.limits.get() instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.limits.get()
+        return self._open_session().get_limits()
 
     def close(self) -> None:
         """Close the underlying HTTP session and cached namespace clients."""

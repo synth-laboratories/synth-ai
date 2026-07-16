@@ -67,11 +67,16 @@ uv add "synth-ai[research]"
 Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
 
 ```python
+import os
+
 from synth_ai import SynthClient
-from synth_ai.research import ResearchTagSessionCreateRequest
+from synth_ai.research import ResearchTagSessionCreateRequest, ResearchWorkMode
 
 client = SynthClient()
 research = client.research
+factory_id = os.environ["SYNTH_FACTORY_ID"]
+effort_id = os.environ["SYNTH_FACTORY_EFFORT_ID"]
+project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]  # An existing, prepared project.
 
 # Org limits
 limits = research.limits.get()
@@ -91,14 +96,13 @@ session = research.factories.tag.sessions.create(
 research.factories.tag.sessions.messages.send(session.session_id, "Status update")
 scope = research.factories.tag.scopes.get_default()
 
-# Launch path
-project = research.projects.create({"name": "demo", "work_mode": "standard"})
-research.projects.setup.prepare(project.project_id)
-preflight = research.runs.check_preflight(project.project_id)
+# Launch against the explicitly selected pre-existing project.
+work_mode = ResearchWorkMode.DIRECTED_EFFORT
+preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
 session = research.runs.create(
-    project.project_id,
+    project_id,
     objective="Produce a bounded repository assessment and a readable report.",
-    work_mode="standard",
+    work_mode=work_mode,
 )
 
 # Run readouts (nested namespaces — never ``manderqueue`` on hero)
@@ -110,7 +114,7 @@ artifacts = session.artifacts.list()
 if work_products:
     report = session.work_products.content.get(work_products[0].work_product_id)
 session.message_queue.messages.list()
-research.projects.objectives.list(project.project_id, run_id=session.run_id)
+research.projects.objectives.list(project_id, run_id=session.run_id)
 ```
 
 CLI smoke:
