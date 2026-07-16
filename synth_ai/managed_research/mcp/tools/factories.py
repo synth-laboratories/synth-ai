@@ -252,15 +252,15 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
     }
 
     def preview_factory_wake(args: dict[str, Any]) -> dict[str, Any]:
-        preview = server._client_from_args(args).factories.wake_due(
-            str(args["factory_id"]),
-            launch_request=args.get("launch_request"),
-            limit=int(args.get("limit") or 10),
-            allow_overlap=bool(args.get("allow_overlap") or False),
-            dry_run=True,
-            continue_on_error=bool(args.get("continue_on_error", True)),
-        )
-        return preview.raw
+        with server._client_from_args(args) as client:
+            return client.factories.wake_due(
+                str(args["factory_id"]),
+                launch_request=args.get("launch_request"),
+                limit=int(args.get("limit") or 10),
+                allow_overlap=bool(args.get("allow_overlap") or False),
+                dry_run=True,
+                continue_on_error=bool(args.get("continue_on_error", True)),
+            ).raw
 
     return [
         ToolDefinition(
