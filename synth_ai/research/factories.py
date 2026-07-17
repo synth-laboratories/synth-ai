@@ -14,6 +14,9 @@ from synth_ai.managed_research.models.factories import (
     FactoryChampionEvent,
     FactoryChampionRollbackRequest,
     FactoryChampionSelectRequest,
+    FactoryResult,
+    FactoryResultSelectionDecision,
+    FactoryResultSelectionEvent,
     FactoryStatus,
     FactoryWakeDueResult,
 )
@@ -273,6 +276,123 @@ class ResearchFactoryChampionsAPI:
         return tuple(self._session.factories.list_champion_events(factory_id, limit=limit))
 
 
+class ResearchFactoryResultsAPI:
+    """Factory Results — the public objects a Factory produces.
+
+    A Result is anything directly valuable a Factory produces: a report,
+    prompt, policy, dataset, model, artifact, or draft code change. Evaluation
+    and current-best selection are optional; ordinary Results carry neither.
+    These methods resolve to the same backend authority as the legacy
+    candidate/champion surfaces, so there is never a second source of truth.
+    """
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        kind: str | None = None,
+        readiness: str | None = None,
+        evaluation_status: str | None = None,
+        current_best: bool | None = None,
+        limit: int = 100,
+    ) -> tuple[FactoryResult, ...]:
+        """List Results for a Factory, optionally filtered.
+
+        Filter by Effort, Run, kind, readiness, evaluation status, or
+        current-best state. Ordinary Results without evaluation are included.
+        """
+        return tuple(
+            self._session.factories.results.list(
+                factory_id,
+                effort_id=effort_id,
+                run_id=run_id,
+                kind=kind,
+                readiness=readiness,
+                evaluation_status=evaluation_status,
+                current_best=current_best,
+                limit=limit,
+            )
+        )
+
+    def get(self, factory_id: str, result_id: str) -> FactoryResult:
+        """Fetch one Result by its result id (the WorkProduct id)."""
+        return self._session.factories.results.get(factory_id, result_id)
+
+    def evaluate(
+        self,
+        factory_id: str,
+        result_id: str,
+        *,
+        evaluation: Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryResult:
+        """Attach a benchmark-owned grading record to a Result.
+
+        Only candidate-backed Results accept evaluation; the backend stores
+        exactly what the grader proved and never grades itself.
+        """
+        return self._session.factories.results.evaluate(
+            factory_id,
+            result_id,
+            evaluation=evaluation,
+        )
+
+    def select_current_best(
+        self,
+        factory_id: str,
+        *,
+        result_id: str,
+        reason: str,
+        scope: str | None = None,
+        effort_id: str | None = None,
+    ) -> FactoryResultSelectionDecision:
+        """Select a passing Result as current best for a named objective/scope.
+
+        Idempotent and historical: it appends a selection event and never
+        deletes or rewrites the prior Result.
+        """
+        return self._session.factories.results.select_current_best(
+            factory_id,
+            result_id=result_id,
+            reason=reason,
+            scope=scope,
+            effort_id=effort_id,
+        )
+
+    def restore_current_best(
+        self,
+        factory_id: str,
+        *,
+        result_id: str,
+        reason: str,
+        scope: str | None = None,
+        effort_id: str | None = None,
+    ) -> FactoryResultSelectionDecision:
+        """Restore a prior Result as current best for a named objective/scope."""
+        return self._session.factories.results.restore_current_best(
+            factory_id,
+            result_id=result_id,
+            reason=reason,
+            scope=scope,
+            effort_id=effort_id,
+        )
+
+    def selection_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> tuple[FactoryResultSelectionEvent, ...]:
+        """List the append-only current-best selection history, newest first."""
+        return tuple(
+            self._session.factories.results.selection_events(factory_id, limit=limit)
+        )
+
+
 class ResearchFactoriesAPI:
     """Research Factory workflow API.
 
@@ -286,6 +406,18 @@ class ResearchFactoriesAPI:
         self._tag: ResearchFactoriesTagAPI | None = None
         self._candidates: ResearchFactoryCandidatesAPI | None = None
         self._champions: ResearchFactoryChampionsAPI | None = None
+        self._results: ResearchFactoryResultsAPI | None = None
+
+    @property
+    def results(self) -> ResearchFactoryResultsAPI:
+        """Factory Results — the public objects a Factory produces.
+
+        The hero surface: ``research.factories.results.list(factory_id)``.
+        Evaluation and current-best selection are optional metadata.
+        """
+        if self._results is None:
+            self._results = ResearchFactoryResultsAPI(self._session)
+        return self._results
 
     @property
     def candidates(self) -> ResearchFactoryCandidatesAPI:
