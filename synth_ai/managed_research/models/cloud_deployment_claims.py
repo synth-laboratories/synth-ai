@@ -23,7 +23,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal, cast
 
 from synth_ai.managed_research.models.cloud_deployments import (
     CloudDeploymentTopologySource,
@@ -95,17 +94,6 @@ def _required_int(payload: Mapping[str, object], key: str, *, label: str) -> int
     return value
 
 
-def _optional_cloud_slot(
-    payload: Mapping[str, object],
-) -> Literal["slot1-cloud", "slot2-cloud"] | None:
-    value = _optional_text(payload, "cloud_slot")
-    if value is None:
-        return None
-    if value not in {"slot1-cloud", "slot2-cloud"}:
-        raise ValueError("cloud_slot must be slot1-cloud or slot2-cloud")
-    return cast(Literal["slot1-cloud", "slot2-cloud"], value)
-
-
 def _optional_topology_source(
     payload: Mapping[str, object],
 ) -> CloudDeploymentTopologySource | None:
@@ -172,7 +160,6 @@ class CloudDeploymentClaim:
     fencing_token: int
     acquired_at: datetime
     expires_at: datetime
-    cloud_slot: Literal["slot1-cloud", "slot2-cloud"] | None
     topology_id: str
     topology_version: str
     topology_source: CloudDeploymentTopologySource | None
@@ -204,7 +191,6 @@ class CloudDeploymentClaim:
             fencing_token=_required_int(mapping, "fencing_token", label="fencing_token"),
             acquired_at=_required_datetime(mapping, "acquired_at", label="acquired_at"),
             expires_at=_required_datetime(mapping, "expires_at", label="expires_at"),
-            cloud_slot=_optional_cloud_slot(mapping),
             topology_id=topology_id,
             topology_version=topology_version,
             topology_source=topology_source,
@@ -237,7 +223,6 @@ class ClaimProjection:
     """
 
     deployment_id: str
-    cloud_slot: Literal["slot1-cloud", "slot2-cloud"] | None
     topology_id: str
     topology_version: str
     topology_source: CloudDeploymentTopologySource | None
@@ -249,7 +234,6 @@ class ClaimProjection:
     def from_wire(cls, payload: Mapping[str, object] | object) -> ClaimProjection:
         mapping = _require_mapping(payload, label="claim projection")
         deployment_id = _required_text(mapping, "deployment_id", label="deployment_id")
-        cloud_slot = _optional_cloud_slot(mapping)
         topology_id = _required_text(mapping, "topology_id", label="topology_id")
         topology_version = _required_text(
             mapping,
@@ -270,7 +254,6 @@ class ClaimProjection:
         if active_claim is not None:
             projection_authority = {
                 "deployment_id": deployment_id,
-                "cloud_slot": cloud_slot,
                 "topology_id": topology_id,
                 "topology_version": topology_version,
                 "topology_source": topology_source,
@@ -287,7 +270,6 @@ class ClaimProjection:
                 )
         return cls(
             deployment_id=deployment_id,
-            cloud_slot=cloud_slot,
             topology_id=topology_id,
             topology_version=topology_version,
             topology_source=topology_source,

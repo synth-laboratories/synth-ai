@@ -30,8 +30,6 @@ from synth_ai.managed_research.sdk.image_releases import (
 
 _RETRYABLE_FAILURE_STATES = frozenset({"failed"})
 _TERMINAL_STATES = frozenset({"retired"})
-CLOUD_SLOT_IDENTITIES = ("slot1-cloud", "slot2-cloud")
-CloudSlotIdentity = Literal["slot1-cloud", "slot2-cloud"]
 
 
 class CloudDeploymentProjectGitSource(TypedDict):
@@ -54,7 +52,6 @@ class CloudDeployment(TypedDict):
     topology_version: str
     host_kind: str
     state: str
-    cloud_slot: CloudSlotIdentity | None
     topology_source: CloudDeploymentTopologySource | None
     vm_name: str | None
     service_url: str | None
@@ -252,11 +249,10 @@ class CloudDeploymentsAPI(_ClientNamespace):
         project_id: str,
         name: str,
         topology_id: str,
+        host_kind: str,
         topology_version: str | None = None,
-        host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
-        cloud_slot: CloudSlotIdentity | None = None,
     ) -> CloudDeployment:
         return self._client.create_cloud_deployment(
             project_id=project_id,
@@ -266,7 +262,6 @@ class CloudDeploymentsAPI(_ClientNamespace):
             host_kind=host_kind,
             metadata=metadata,
             source=source,
-            cloud_slot=cloud_slot,
         )
 
     def list(
@@ -636,7 +631,6 @@ class CloudDeploymentsAPI(_ClientNamespace):
 
 
 __all__ = [
-    "CLOUD_SLOT_IDENTITIES",
     "CloudDeploymentArtifactContent",
     "CloudDeploymentArtifactDescriptor",
     "CloudDeploymentArtifactRoot",
@@ -653,5 +647,4 @@ __all__ = [
     "CloudDeploymentWorkspaceLiveState",
     "CloudDeploymentWorkspaceMaterialization",
     "CloudDeploymentWorkspaceRepository",
-    "CloudSlotIdentity",
 ]

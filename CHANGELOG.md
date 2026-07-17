@@ -4,6 +4,8 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.15.1 — 2026-07-17
+
 ### Added
 
 - **Fail-closed promotion discount preview** — `client.billing.preview_promotion_discount(...)`
@@ -19,7 +21,21 @@ All notable changes to the `synth-ai` package are documented here.
   do not import `synth_ai.managed_research.models` internals.
 - **Typed Tag Factory interface** — Tag session creation now requires `TagSessionCreateRequest`; session, watch, receipt, steering, and artifact payloads parse into typed models; and `get_factory_context(scope_id=… | session_id=…)` exposes the current champion, last decision, and candidate counts without raw `/smr/*` reads.
 - **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
-- **Canonical cloud slots** — CloudDeployment creation accepts the typed `slot1-cloud` / `slot2-cloud` identity through the SDK and MCP. The `cloud-slot` CLI now addresses deployments by that identity and exposes status, health, claim, heartbeat, fenced deploy/retire, release, and claim-truth workflows. The MCP live proof records the slot, claim id, fencing token, lifecycle, and release receipts.
+- **Research Factory preview-confirm wake** — `ResearchFactoriesAPI` adds
+  `list`, `get`, `status`, `preview_wake`, and `wake_due`. Confirmation replays
+  the backend-authored request contract with its opaque preview token rather
+  than reconstructing a launch request in the client.
+
+### Changed
+
+- **Wake preview requires write authority** — `smr_preview_factory_wake` is
+  WRITE-scoped because the current backend dry-run route can persist scheduler
+  and admission metadata. The SDK does not describe that POST as a read-only
+  capability.
+- **Product CloudDeployments are provider-neutral** — creation requires an
+  explicit product `host_kind` and no longer exposes internal `slot1-cloud` /
+  `slot2-cloud` identities, claim fencing, or cdev artifact operations. Internal
+  CloudDevSlot tooling belongs to `synth-dev`.
 
 ## 0.15.0 — 2026-07-13
 
