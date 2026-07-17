@@ -29270,14 +29270,6 @@ components:
         deployment_id:
           type: string
           title: Deployment Id
-        cloud_slot:
-          anyOf:
-          - type: string
-            enum:
-            - slot1-cloud
-            - slot2-cloud
-          - type: 'null'
-          title: Cloud Slot
         topology_id:
           type: string
           title: Topology Id
@@ -29306,7 +29298,6 @@ components:
       type: object
       required:
       - deployment_id
-      - cloud_slot
       - topology_id
       - topology_version
       - topology_source
@@ -29365,14 +29356,6 @@ components:
           - type: string
           - type: 'null'
           title: Updated At
-        cloud_slot:
-          anyOf:
-          - type: string
-            enum:
-            - slot1-cloud
-            - slot2-cloud
-          - type: 'null'
-          title: Cloud Slot
         topology_id:
           type: string
           title: Topology Id
@@ -29404,7 +29387,6 @@ components:
       - released_at
       - created_at
       - updated_at
-      - cloud_slot
       - topology_id
       - topology_version
       - topology_source
@@ -29462,15 +29444,14 @@ components:
         topology_id:
           type: string
           title: Topology Id
+        host_kind:
+          type: string
+          title: Host Kind
         topology_version:
           anyOf:
           - type: string
           - type: 'null'
           title: Topology Version
-        host_kind:
-          type: string
-          title: Host Kind
-          default: exe_dev
         metadata:
           additionalProperties: true
           type: object
@@ -29479,16 +29460,13 @@ components:
           anyOf:
           - $ref: '#/components/schemas/CloudDeploymentProjectGitSourceRequest'
           - type: 'null'
-        cloud_slot:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Cloud Slot
+      additionalProperties: false
       type: object
       required:
       - project_id
       - name
       - topology_id
+      - host_kind
       title: CloudDeploymentCreateRequest
     CloudDeploymentDeployRequest:
       properties:
@@ -29746,14 +29724,6 @@ components:
         state:
           type: string
           title: State
-        cloud_slot:
-          anyOf:
-          - type: string
-            enum:
-            - slot1-cloud
-            - slot2-cloud
-          - type: 'null'
-          title: Cloud Slot
         topology_source:
           anyOf:
           - $ref: '#/components/schemas/CloudDeploymentTopologySourceResponse'
@@ -29823,7 +29793,6 @@ components:
       - topology_version
       - host_kind
       - state
-      - cloud_slot
       - topology_source
       - vm_name
       - service_url
@@ -37714,6 +37683,11 @@ components:
         source_authority_version:
           type: string
           title: Source Authority Version
+        runtime_authority_source_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Authority Source Version
         public_status:
           anyOf:
           - additionalProperties: true

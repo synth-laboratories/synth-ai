@@ -23,6 +23,12 @@ recursive-exclude synth_ai *.pth
 recursive-exclude synth_ai *.bin
 recursive-exclude synth_ai *.zip
 recursive-exclude synth_ai *.tar
+# The built-in Factory standup plans are lightweight runtime resources. Keep
+# them in source and wheel distributions after excluding other JSON datasets.
+recursive-include synth_ai/managed_research/factory_plans *.json
+# The backend-authored public model registry is part of the vendored Research
+# contract and must remain inspectable from an installed SDK.
+include synth_ai/managed_research/schemas/public_models.json
 global-exclude *.pyc
 global-exclude __pycache__
 global-exclude .DS_Store

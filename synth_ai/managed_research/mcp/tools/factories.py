@@ -733,7 +733,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 required=["factory_id"],
             ),
             handler=preview_factory_wake,
-            required_scopes=READ_SCOPES,
+            required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
             name="smr_wake_due_factory_efforts",
