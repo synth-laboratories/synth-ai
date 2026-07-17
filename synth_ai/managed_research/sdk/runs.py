@@ -18,6 +18,7 @@ from synth_ai.managed_research.models.canonical_usage import (
     SmrRunUsage,
 )
 from synth_ai.managed_research.models.checkpoints import Checkpoint
+from synth_ai.managed_research.models.factories import Effort, FactoryResult
 from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.managed_research.models.run_authority import (
     ManagedResearchAuthorityTask,
@@ -187,6 +188,45 @@ def _dev_environment_launch_kwargs(
     return payload
 
 
+class RunResultsAPI:
+    """Result surface scoped to one run: ``run.results.list()``.
+
+    A run's Results are the Factory Results produced by that run. The run is
+    resolved to its Effort and Factory, then the factory-scoped Result listing
+    is filtered by ``run_id``. A run that does not belong to a Factory Effort
+    has no Factory Results and returns an empty list.
+    """
+
+    def __init__(self, run: RunHandle) -> None:
+        self._run = run
+        self._client = run._client
+
+    def list(
+        self,
+        *,
+        kind: str | None = None,
+        readiness: str | None = None,
+        evaluation_status: str | None = None,
+        current_best: bool | None = None,
+        limit: int = 100,
+    ) -> List[FactoryResult]:
+        run = self._run.get()
+        effort_id = getattr(run, "effort_id", None)
+        if not effort_id:
+            return []
+        effort = Effort.from_wire(self._client.get_effort(str(effort_id)))
+        return self._client.factories.results.list(
+            effort.factory_id,
+            effort_id=effort_id,
+            run_id=self._run.run_id,
+            kind=kind,
+            readiness=readiness,
+            evaluation_status=evaluation_status,
+            current_best=current_best,
+            limit=limit,
+        )
+
+
 class RunHandle:
     """Project-scoped handle for one managed-research run."""
 
@@ -209,6 +249,12 @@ class RunHandle:
     @property
     def ref(self) -> RunRef:
         return RunRef(project_id=self.project_id, run_id=self.run_id)
+
+    @property
+    def results(self) -> RunResultsAPI:
+        """Factory Results produced by this run: ``run.results.list()``."""
+
+        return RunResultsAPI(self)
 
     def public_state(self) -> ManagedResearchRun:
         return self._client.get_run_public_state(
