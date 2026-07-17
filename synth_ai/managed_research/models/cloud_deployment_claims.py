@@ -23,7 +23,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
 
 from synth_ai.managed_research.models.cloud_deployments import (
     CloudDeploymentTopologySource,

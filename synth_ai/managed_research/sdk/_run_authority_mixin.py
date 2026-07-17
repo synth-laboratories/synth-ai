@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json as _json
 import os
-import re
 import time
 from collections.abc import Iterable, Mapping
 from pathlib import Path
