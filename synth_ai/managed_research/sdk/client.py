@@ -37,6 +37,9 @@ from synth_ai.managed_research.models import (
     FactoryPatchRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
+    FactoryResultEvaluateRequest,
+    FactoryResultRestoreRequest,
+    FactoryResultSelectRequest,
     FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
@@ -45,6 +48,12 @@ from synth_ai.managed_research.models import (
     SmrResourceLimits,
     SmrResourceLimitSelector,
     SmrRunUsage,
+)
+from synth_ai.managed_research.models.actor_images import (
+    ActorImageBinding,
+    ActorImageBindings,
+    actor_image_overrides_payload,
+    image_override_payload,
 )
 from synth_ai.managed_research.models.cloud_deployment_claims import ClaimAcquireRequest
 from synth_ai.managed_research.models.cloud_deployments import (
@@ -65,6 +74,9 @@ from synth_ai.managed_research.models.factories import (
     factory_patch_payload,
     factory_project_link_payload,
     factory_project_patch_payload,
+    factory_result_evaluate_payload,
+    factory_result_restore_payload,
+    factory_result_select_payload,
     factory_wake_due_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
@@ -206,6 +218,7 @@ from synth_ai.managed_research.sdk.image_releases import (
     _image_release_upload_from_wire,
     image_release_declaration,
 )
+from synth_ai.managed_research.sdk.images import ImagesAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -612,6 +625,8 @@ def assert_hosted_launch_surface(
 def _build_project_run_payload(
     *,
     objective: str | None = None,
+    actor_image_overrides: ActorImageBindings | Mapping[str, Any] | None = None,
+    image_override: ActorImageBinding | str | Mapping[str, Any] | None = None,
     host_kind: SmrHostKind | str | None = None,
     work_mode: SmrWorkMode | str | None = None,
     mode: SmrWorkMode | str | None = None,
@@ -896,6 +911,12 @@ def _build_project_run_payload(
     normalized_ai_cache = _optional_mapping(ai_cache, field_name="ai_cache")
     if normalized_ai_cache:
         payload["ai_cache"] = normalized_ai_cache
+    normalized_actor_image_overrides = actor_image_overrides_payload(actor_image_overrides)
+    if normalized_actor_image_overrides:
+        payload["actor_image_overrides"] = normalized_actor_image_overrides
+    normalized_image_override = image_override_payload(image_override)
+    if normalized_image_override:
+        payload["image_override"] = normalized_image_override
     primary_objective_ref = _primary_objective_ref_payload(
         primary_objective_id=primary_objective_id,
         primary_objective_kind=primary_objective_kind,
@@ -1152,6 +1173,11 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         default=None,
         repr=False,
     )
+    _images_api: ImagesAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _dev_environments_api: DevEnvironmentsAPI | None = field(
         init=False,
         default=None,
@@ -1349,6 +1375,12 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         if self._image_releases_api is None:
             self._image_releases_api = ImageReleasesAPI(self)
         return self._image_releases_api
+
+    @property
+    def images(self) -> ImagesAPI:
+        if self._images_api is None:
+            self._images_api = ImagesAPI(self)
+        return self._images_api
 
     @property
     def dev_environments(self) -> DevEnvironmentsAPI:
@@ -1878,6 +1910,106 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
                 params=build_query_params(limit=limit),
             ),
             label="list_factory_champion_events",
+        )
+
+    def list_factory_results(
+        self,
+        factory_id: str,
+        *,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        kind: str | None = None,
+        readiness: str | None = None,
+        evaluation_status: str | None = None,
+        current_best: bool | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/results",
+                params=build_query_params(
+                    effort_id=effort_id,
+                    run_id=run_id,
+                    kind=kind,
+                    readiness=readiness,
+                    evaluation_status=evaluation_status,
+                    current_best=current_best,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_results",
+        )
+
+    def get_factory_result(
+        self,
+        factory_id: str,
+        result_id: str,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/results/{result_id}",
+            ),
+            label="get_factory_result",
+        )
+
+    def evaluate_factory_result(
+        self,
+        factory_id: str,
+        result_id: str,
+        request: FactoryResultEvaluateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/results/{result_id}/evaluate",
+                json_body=factory_result_evaluate_payload(request),
+            ),
+            label="evaluate_factory_result",
+        )
+
+    def select_factory_result_current_best(
+        self,
+        factory_id: str,
+        request: FactoryResultSelectRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/results/select-current-best",
+                json_body=factory_result_select_payload(request),
+            ),
+            label="select_factory_result_current_best",
+        )
+
+    def restore_factory_result_current_best(
+        self,
+        factory_id: str,
+        request: FactoryResultRestoreRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/results/restore-current-best",
+                json_body=factory_result_restore_payload(request),
+            ),
+            label="restore_factory_result_current_best",
+        )
+
+    def list_factory_result_selection_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/results/selection-events",
+                params=build_query_params(limit=limit),
+            ),
+            label="list_factory_result_selection_events",
         )
 
     def link_factory_project(
@@ -5347,6 +5479,8 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         actor_model_overrides: (
             Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
         ) = None,
+        actor_image_overrides: ActorImageBindings | Mapping[str, Any] | None = None,
+        image_override: ActorImageBinding | str | Mapping[str, Any] | None = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5393,6 +5527,8 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             agent_kind=agent_kind,
             agent_model_params=agent_model_params,
             actor_model_overrides=actor_model_overrides,
+            actor_image_overrides=actor_image_overrides,
+            image_override=image_override,
             roles=roles,
             initial_runtime_messages=initial_runtime_messages,
             workflow=workflow,
@@ -5470,6 +5606,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         self,
         project_id: str,
         *,
+        request: RunLaunchRequest | None = None,
         objective: str | None = None,
         host_kind: SmrHostKind | str | None = None,
         work_mode: SmrWorkMode | str | None = None,
@@ -5495,6 +5632,8 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         actor_model_overrides: (
             Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
         ) = None,
+        actor_image_overrides: ActorImageBindings | Mapping[str, Any] | None = None,
+        image_override: ActorImageBinding | str | Mapping[str, Any] | None = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
@@ -5520,6 +5659,21 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         idempotency_key_run_create: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        if request is not None:
+            if objective is not None:
+                raise ValueError(
+                    "request carries the full launch payload; do not combine it "
+                    "with launch keyword arguments"
+                )
+            payload = _build_project_run_payload(**request.to_client_kwargs())
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/projects/{project_id}/trigger",
+                    json_body=payload,
+                ),
+                label="trigger_run",
+            )
         payload = _build_project_run_payload(
             objective=objective,
             host_kind=host_kind,
@@ -5542,6 +5696,8 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             agent_kind=agent_kind,
             agent_model_params=agent_model_params,
             actor_model_overrides=actor_model_overrides,
+            actor_image_overrides=actor_image_overrides,
+            image_override=image_override,
             roles=roles,
             initial_runtime_messages=initial_runtime_messages,
             workflow=workflow,

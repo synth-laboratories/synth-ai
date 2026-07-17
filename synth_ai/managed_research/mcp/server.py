@@ -45,6 +45,9 @@ from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.dev_environments import build_dev_environment_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
+from synth_ai.managed_research.mcp.tools.factory_results import (
+    build_factory_result_tools,
+)
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
 from synth_ai.managed_research.mcp.tools.integrations import build_integration_tools
 from synth_ai.managed_research.mcp.tools.logs import build_log_tools
@@ -295,6 +298,7 @@ class ManagedResearchMcpServer:
         return [
             *build_project_tools(self),
             *build_factory_tools(self),
+            *build_factory_result_tools(self),
             *build_dev_environment_tools(self),
             *build_cloud_deployment_tools(self),
             *build_workspace_input_tools(self),

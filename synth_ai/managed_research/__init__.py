@@ -27,6 +27,8 @@ from synth_ai.managed_research.errors import (
 from synth_ai.managed_research.models import (
     ActorCollectionSnapshot,
     ActorContainerRunBinding,
+    ActorImageBinding,
+    ActorImageBindings,
     ActorImageId,
     ActorResourceCapability,
     ActorSnapshot,
@@ -871,6 +873,8 @@ __all__ = [
     "RuntimeImageError",
     "RuntimePackageId",
     "RunLaunchRequest",
+    "ActorImageBinding",
+    "ActorImageBindings",
     "RunLaunchResult",
     "RunReadRequest",
     "RunRef",

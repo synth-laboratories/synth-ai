@@ -2281,6 +2281,316 @@ class FactoryChampionDecision:
         )
 
 
+# ---------------------------------------------------------------------------
+# Result — the public product noun a Factory produces (report, prompt, policy,
+# dataset, model, artifact, code change). A Result projects over a WorkProduct;
+# evaluation and current-best selection are optional metadata. Legacy candidate
+# and champion models above remain for the compatibility window.
+# ---------------------------------------------------------------------------
+
+
+class FactoryResultEvaluationStatus(StrEnum):
+    PENDING = "pending"
+    PASSED = "passed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+
+
+@dataclass(frozen=True)
+class FactoryResultEvaluation:
+    """Optional benchmark-owned grading conserved from the candidate record."""
+
+    status: FactoryResultEvaluationStatus = FactoryResultEvaluationStatus.PENDING
+    evaluator: str | None = None
+    objective: str | None = None
+    score: float | None = None
+    baseline_score: float | None = None
+    verdict: str | None = None
+    record: dict[str, object] = field(default_factory=dict)
+    evaluated_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResultEvaluation:
+        mapping = _require_mapping(payload, label="factory result evaluation")
+        status_value = _optional_string(mapping, "status") or "pending"
+        return cls(
+            status=FactoryResultEvaluationStatus(status_value),
+            evaluator=_optional_string(mapping, "evaluator"),
+            objective=_optional_string(mapping, "objective"),
+            score=_optional_float(mapping, "score"),
+            baseline_score=_optional_float(mapping, "baseline_score"),
+            verdict=_optional_string(mapping, "verdict"),
+            record=_optional_object_dict(mapping.get("record"), label="evaluation.record"),
+            evaluated_at=_optional_datetime(mapping, "evaluated_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResultSelection:
+    """Optional current-best selection state for a named objective/scope."""
+
+    is_current_best: bool = False
+    scope: str | None = None
+    selected_at: datetime | None = None
+    reason: str | None = None
+    event_id: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResultSelection:
+        mapping = _require_mapping(payload, label="factory result selection")
+        return cls(
+            is_current_best=bool(_optional_bool(mapping, "is_current_best")),
+            scope=_optional_string(mapping, "scope"),
+            selected_at=_optional_datetime(mapping, "selected_at"),
+            reason=_optional_string(mapping, "reason"),
+            event_id=_optional_string(mapping, "event_id"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResultCompatibility:
+    """Legacy candidate identity for a candidate-backed Result."""
+
+    candidate_id: str | None = None
+    candidate_key: str | None = None
+    git_remote: str | None = None
+    git_sha: str | None = None
+    entrypoint: str | None = None
+    is_legacy_projection: bool = False
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResultCompatibility:
+        mapping = _require_mapping(payload, label="factory result compatibility")
+        return cls(
+            candidate_id=_optional_string(mapping, "candidate_id"),
+            candidate_key=_optional_string(mapping, "candidate_key"),
+            git_remote=_optional_string(mapping, "git_remote"),
+            git_sha=_optional_string(mapping, "git_sha"),
+            entrypoint=_optional_string(mapping, "entrypoint"),
+            is_legacy_projection=bool(_optional_bool(mapping, "is_legacy_projection")),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResult:
+    result_id: str
+    org_id: str
+    factory_id: str
+    kind: str
+    title: str
+    status: str
+    readiness: str
+    created_at: datetime
+    updated_at: datetime
+    project_id: str | None = None
+    effort_id: str | None = None
+    run_id: str | None = None
+    subtype_kind: str | None = None
+    summary: str | None = None
+    work_product_id: str | None = None
+    content_url: str | None = None
+    artifact_id: str | None = None
+    artifact_links: tuple[object, ...] = ()
+    evaluation: FactoryResultEvaluation | None = None
+    selection: FactoryResultSelection | None = None
+    compatibility: FactoryResultCompatibility | None = None
+    blocker: dict[str, object] | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResult:
+        mapping = _require_mapping(payload, label="factory result")
+        created_at = _optional_datetime(mapping, "created_at")
+        updated_at = _optional_datetime(mapping, "updated_at")
+        if created_at is None or updated_at is None:
+            raise ValueError("factory result requires created_at and updated_at")
+        evaluation = mapping.get("evaluation")
+        selection = mapping.get("selection")
+        compatibility = mapping.get("compatibility")
+        blocker = mapping.get("blocker")
+        return cls(
+            result_id=_require_string(mapping, "result_id", label="result.result_id"),
+            org_id=_require_string(mapping, "org_id", label="result.org_id"),
+            factory_id=_require_string(mapping, "factory_id", label="result.factory_id"),
+            project_id=_optional_string(mapping, "project_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            run_id=_optional_string(mapping, "run_id"),
+            kind=_require_string(mapping, "kind", label="result.kind"),
+            subtype_kind=_optional_string(mapping, "subtype_kind"),
+            title=_require_string(mapping, "title", label="result.title"),
+            summary=_optional_string(mapping, "summary"),
+            status=_require_string(mapping, "status", label="result.status"),
+            readiness=_require_string(mapping, "readiness", label="result.readiness"),
+            work_product_id=_optional_string(mapping, "work_product_id"),
+            content_url=_optional_string(mapping, "content_url"),
+            artifact_id=_optional_string(mapping, "artifact_id"),
+            artifact_links=tuple(mapping.get("artifact_links") or ()),
+            evaluation=(
+                FactoryResultEvaluation.from_wire(evaluation) if evaluation is not None else None
+            ),
+            selection=(
+                FactoryResultSelection.from_wire(selection) if selection is not None else None
+            ),
+            compatibility=(
+                FactoryResultCompatibility.from_wire(compatibility)
+                if compatibility is not None
+                else None
+            ),
+            blocker=(
+                _optional_object_dict(blocker, label="result.blocker")
+                if blocker is not None
+                else None
+            ),
+            metadata=_optional_object_dict(mapping.get("metadata"), label="result.metadata"),
+            created_at=created_at,
+            updated_at=updated_at,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResultSelectionEvent:
+    event_id: str
+    org_id: str
+    factory_id: str
+    action: FactoryChampionEventAction
+    created_at: datetime
+    effort_id: str | None = None
+    result_id: str | None = None
+    candidate_id: str | None = None
+    scope: str | None = None
+    score: float | None = None
+    baseline_score: float | None = None
+    reason: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResultSelectionEvent:
+        mapping = _require_mapping(payload, label="factory result selection event")
+        created_at = _optional_datetime(mapping, "created_at")
+        if created_at is None:
+            raise ValueError("factory result selection event requires created_at")
+        return cls(
+            event_id=_require_string(mapping, "event_id", label="event.event_id"),
+            org_id=_require_string(mapping, "org_id", label="event.org_id"),
+            factory_id=_require_string(mapping, "factory_id", label="event.factory_id"),
+            effort_id=_optional_string(mapping, "effort_id"),
+            result_id=_optional_string(mapping, "result_id"),
+            candidate_id=_optional_string(mapping, "candidate_id"),
+            action=FactoryChampionEventAction(
+                _require_string(mapping, "action", label="event.action")
+            ),
+            scope=_optional_string(mapping, "scope"),
+            score=_optional_float(mapping, "score"),
+            baseline_score=_optional_float(mapping, "baseline_score"),
+            reason=_optional_string(mapping, "reason"),
+            created_at=created_at,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResultSelectionDecision:
+    action: FactoryChampionEventAction
+    reason: str
+    changed: bool
+    result: FactoryResult | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryResultSelectionDecision:
+        mapping = _require_mapping(payload, label="factory result selection decision")
+        result = mapping.get("result")
+        return cls(
+            action=FactoryChampionEventAction(
+                _require_string(mapping, "action", label="decision.action")
+            ),
+            reason=_require_string(mapping, "reason", label="decision.reason"),
+            changed=bool(_optional_bool(mapping, "changed")),
+            result=FactoryResult.from_wire(result) if result is not None else None,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryResultEvaluateRequest:
+    """Benchmark-owned grading record submitted for one Result (WorkProduct id)."""
+
+    evaluation: dict[str, Any]
+
+    def to_wire(self) -> dict[str, Any]:
+        return {"evaluation": dict(self.evaluation)}
+
+
+@dataclass(frozen=True)
+class FactoryResultSelectRequest:
+    result_id: str
+    reason: str
+    scope: str | None = None
+    effort_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "result_id": self.result_id,
+            "reason": self.reason,
+        }
+        if self.scope is not None:
+            payload["scope"] = self.scope
+        if self.effort_id is not None:
+            payload["effort_id"] = self.effort_id
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryResultRestoreRequest:
+    result_id: str
+    reason: str
+    scope: str | None = None
+    effort_id: str | None = None
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "result_id": self.result_id,
+            "reason": self.reason,
+        }
+        if self.scope is not None:
+            payload["scope"] = self.scope
+        if self.effort_id is not None:
+            payload["effort_id"] = self.effort_id
+        return payload
+
+
+def factory_result_evaluate_payload(
+    request: FactoryResultEvaluateRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryResultEvaluateRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_result_select_payload(
+    request: FactoryResultSelectRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryResultSelectRequest):
+        return request.to_wire()
+    return dict(request)
+
+
+def factory_result_restore_payload(
+    request: FactoryResultRestoreRequest | Mapping[str, Any] | dict[str, Any],
+) -> dict[str, Any]:
+    if isinstance(request, FactoryResultRestoreRequest):
+        return request.to_wire()
+    return dict(request)
+
+
 def factory_create_payload(
     request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
 ) -> dict[str, Any]:
@@ -2463,6 +2773,16 @@ __all__ = [
     "FactoryChampionEventAction",
     "FactoryChampionRollbackRequest",
     "FactoryChampionSelectRequest",
+    "FactoryResult",
+    "FactoryResultCompatibility",
+    "FactoryResultEvaluateRequest",
+    "FactoryResultEvaluation",
+    "FactoryResultEvaluationStatus",
+    "FactoryResultRestoreRequest",
+    "FactoryResultSelectRequest",
+    "FactoryResultSelection",
+    "FactoryResultSelectionDecision",
+    "FactoryResultSelectionEvent",
     "FactoryHealth",
     "FactoryMaintenanceAction",
     "FactoryOperatingWindow",
@@ -2503,6 +2823,9 @@ __all__ = [
     "factory_create_payload",
     "factory_candidate_grading_payload",
     "factory_champion_rollback_payload",
+    "factory_result_evaluate_payload",
+    "factory_result_restore_payload",
+    "factory_result_select_payload",
     "factory_champion_select_payload",
     "factory_idea_create_payload",
     "factory_idea_patch_payload",

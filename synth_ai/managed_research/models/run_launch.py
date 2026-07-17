@@ -8,6 +8,10 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Self, TypeAlias
 
+from synth_ai.managed_research.models.actor_images import (
+    ActorImageBinding,
+    ActorImageBindings,
+)
 from synth_ai.managed_research.models.local_execution_profile import LocalExecutionProfile
 from synth_ai.managed_research.models.run_events import (
     RunRuntimeStreamEvent,
@@ -212,6 +216,8 @@ class RunLaunchRequest(CommandRequest):
     agent_kind: SmrAgentKind | None = None
     agent_model_params: WireMapping | None = None
     actor_model_overrides: Sequence[SmrActorModelAssignment | WireMapping] = ()
+    actor_image_overrides: ActorImageBindings | WireMapping | None = None
+    image_override: ActorImageBinding | str | WireMapping | None = None
     roles: SmrRoleBindings | WireMapping | None = None
     kickoff: Kickoff | None = None
     open_ended_question: WireMapping | None = None
@@ -280,6 +286,8 @@ class RunLaunchRequest(CommandRequest):
             actor_model_overrides=tuple(self.actor_model_overrides)
             if self.actor_model_overrides
             else None,
+            actor_image_overrides=self.actor_image_overrides,
+            image_override=self.image_override,
             roles=self.roles,
             open_ended_question=self.open_ended_question,
             directed_effort_outcome=self.directed_effort_outcome,

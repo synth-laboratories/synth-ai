@@ -6374,6 +6374,268 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Factory Results
+      operationId: list_factory_results_smr_factories__factory_id__results_get
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+      - name: kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Kind
+      - name: readiness
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Readiness
+      - name: evaluation_status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evaluation Status
+      - name: current_best
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Current Best
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryResultResponse'
+                title: Response List Factory Results Smr Factories  Factory Id  Results
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/selection-events:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Factory Result Selection Events
+      operationId: list_factory_result_selection_events_smr_factories__factory_id__results_selection_events_get
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryResultSelectionEventResponse'
+                title: Response List Factory Result Selection Events Smr Factories  Factory
+                  Id  Results Selection Events Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/select-current-best:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Select Factory Result Current Best
+      operationId: select_factory_result_current_best_smr_factories__factory_id__results_select_current_best_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryResultSelectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryResultSelectionDecisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/restore-current-best:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Restore Factory Result Current Best
+      operationId: restore_factory_result_current_best_smr_factories__factory_id__results_restore_current_best_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryResultRestoreRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryResultSelectionDecisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/{result_id}:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: Get Factory Result
+      operationId: get_factory_result_smr_factories__factory_id__results__result_id__get
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Result Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/{result_id}/evaluate:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Evaluate Factory Result
+      operationId: evaluate_factory_result_smr_factories__factory_id__results__result_id__evaluate_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Result Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryResultEvaluateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/managed_research/efforts/proposals:
     get:
       tags:
@@ -15894,6 +16156,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImageReleaseFinalizeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases:
+    get:
+      tags:
+      - smr
+      summary: List Customer Actor Images
+      operationId: list_customer_actor_images_smr_v1_image_releases_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeImageReleaseListResponse'
+  /smr/v1/image-releases/{runtime_image_release_id}/archive:
+    post:
+      tags:
+      - smr
+      summary: Archive Customer Actor Image
+      operationId: archive_customer_actor_image_smr_v1_image_releases__runtime_image_release_id__archive_post
+      parameters:
+      - name: runtime_image_release_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Runtime Image Release Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeImageReleaseArchiveResponse'
         '422':
           description: Validation Error
           content:
@@ -31782,7 +32083,9 @@ components:
       properties:
         kind:
           type: string
-          const: craftax_scorer
+          enum:
+          - craftax_scorer
+          - actor_runtime
           title: Kind
         archive_sha256:
           type: string
@@ -31822,13 +32125,37 @@ components:
           pattern: ^[0-9a-f]{40}$
           title: Source Commit Sha
         fixture_manifest_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
           title: Fixture Manifest Sha256
         fixture_binary_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
           title: Fixture Binary Sha256
+        actor_role:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Actor Role
+        interface_mode:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Interface Mode
+        capabilities:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 32
+          - type: 'null'
+          title: Capabilities
       additionalProperties: false
       type: object
       required:
@@ -31841,8 +32168,6 @@ components:
       - platform_architecture
       - source_repository
       - source_commit_sha
-      - fixture_manifest_sha256
-      - fixture_binary_sha256
       title: ImageReleaseDeclarationRequest
     ImageReleaseFinalizeRequest:
       properties:
@@ -31899,6 +32224,12 @@ components:
           additionalProperties: true
           type: object
           title: Inspection
+        runtime_image_release:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Runtime Image Release
       additionalProperties: false
       type: object
       required:
@@ -35829,6 +36160,40 @@ components:
       title: RuntimeImageRef
       description: Resolved runtime image reference accepted by the current sandbox
         contract.
+    RuntimeImageReleaseArchiveResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-actor-image-archive-v1
+          title: Schema Version
+        runtime_image_release:
+          additionalProperties: true
+          type: object
+          title: Runtime Image Release
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - runtime_image_release
+      title: RuntimeImageReleaseArchiveResponse
+    RuntimeImageReleaseListResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-actor-image-list-v1
+          title: Schema Version
+        releases:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Releases
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - releases
+      title: RuntimeImageReleaseListResponse
     RuntimeIntent:
       properties:
         kind:
@@ -41221,6 +41586,412 @@ components:
       - created_at
       - updated_at
       title: SmrFactoryResponse
+    SmrFactoryResultCompatibility:
+      properties:
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        candidate_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Key
+        git_remote:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git Remote
+        git_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git Sha
+        entrypoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Entrypoint
+        is_legacy_projection:
+          type: boolean
+          title: Is Legacy Projection
+          default: false
+      type: object
+      title: SmrFactoryResultCompatibility
+      description: 'Legacy optimization-terminology identity for a candidate-backed
+        Result.
+
+
+        Populated only when the Result projects a registered Factory candidate. A
+
+        historical candidate with no WorkProduct is exposed as a clearly labelled
+
+        legacy projection (``is_legacy_projection=True``) rather than fabricated
+
+        content.'
+    SmrFactoryResultEvaluateRequest:
+      properties:
+        evaluation:
+          additionalProperties: true
+          type: object
+          title: Evaluation
+      type: object
+      required:
+      - evaluation
+      title: SmrFactoryResultEvaluateRequest
+      description: 'Typed intake for a benchmark-owned grading record attached to
+        a Result.
+
+
+        ``result_id`` is the WorkProduct id; the backend resolves the registered
+
+        candidate joined by that id and stores exactly what the grader proved.'
+    SmrFactoryResultEvaluation:
+      properties:
+        status:
+          type: string
+          enum:
+          - pending
+          - passed
+          - failed
+          - timeout
+          title: Status
+          default: pending
+        evaluator:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evaluator
+        objective:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        verdict:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verdict
+        record:
+          additionalProperties: true
+          type: object
+          title: Record
+        evaluated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Evaluated At
+      type: object
+      title: SmrFactoryResultEvaluation
+      description: 'Optional benchmark-owned grading, conserved from the candidate
+        record.
+
+
+        The backend never grades; it surfaces the typed grading record an external
+
+        grader posted back, plus the registry-computed score fields.'
+    SmrFactoryResultResponse:
+      properties:
+        result_id:
+          type: string
+          title: Result Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        kind:
+          type: string
+          title: Kind
+        subtype_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtype Kind
+        title:
+          type: string
+          title: Title
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        status:
+          type: string
+          title: Status
+        readiness:
+          type: string
+          title: Readiness
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        content_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Url
+        artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Id
+        artifact_links:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Artifact Links
+        evaluation:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryResultEvaluation'
+          - type: 'null'
+        selection:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryResultSelection'
+          - type: 'null'
+        compatibility:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryResultCompatibility'
+          - type: 'null'
+        blocker:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Blocker
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      type: object
+      required:
+      - result_id
+      - org_id
+      - factory_id
+      - kind
+      - title
+      - status
+      - readiness
+      - created_at
+      - updated_at
+      title: SmrFactoryResultResponse
+    SmrFactoryResultRestoreRequest:
+      properties:
+        result_id:
+          type: string
+          title: Result Id
+        scope:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Scope
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      additionalProperties: false
+      type: object
+      required:
+      - result_id
+      - reason
+      title: SmrFactoryResultRestoreRequest
+    SmrFactoryResultSelectRequest:
+      properties:
+        result_id:
+          type: string
+          title: Result Id
+        scope:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Scope
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      additionalProperties: false
+      type: object
+      required:
+      - result_id
+      - reason
+      title: SmrFactoryResultSelectRequest
+    SmrFactoryResultSelection:
+      properties:
+        is_current_best:
+          type: boolean
+          title: Is Current Best
+          default: false
+        scope:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scope
+        selected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Selected At
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        event_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Event Id
+      type: object
+      title: SmrFactoryResultSelection
+      description: 'Optional current-best selection state for a named objective/scope.
+
+
+        Selection is historical state, not Result identity: a Result stays the same
+
+        Result after another Result becomes current best.'
+    SmrFactoryResultSelectionDecisionResponse:
+      properties:
+        action:
+          type: string
+          enum:
+          - promote
+          - rollback
+          - no_lift
+          title: Action
+        reason:
+          type: string
+          title: Reason
+        changed:
+          type: boolean
+          title: Changed
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryResultResponse'
+          - type: 'null'
+      type: object
+      required:
+      - action
+      - reason
+      - changed
+      title: SmrFactoryResultSelectionDecisionResponse
+    SmrFactoryResultSelectionEventResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        result_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        action:
+          type: string
+          enum:
+          - promote
+          - rollback
+          - no_lift
+          title: Action
+        scope:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Scope
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - event_id
+      - org_id
+      - factory_id
+      - action
+      - created_at
+      title: SmrFactoryResultSelectionEventResponse
     SmrFactoryRunSummaryResponse:
       properties:
         run_id:
