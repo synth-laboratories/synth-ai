@@ -197,7 +197,7 @@ class RunResultsAPI:
     has no Factory Results and returns an empty list.
     """
 
-    def __init__(self, run: "RunHandle") -> None:
+    def __init__(self, run: RunHandle) -> None:
         self._run = run
         self._client = run._client
 
