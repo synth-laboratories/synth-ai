@@ -169,7 +169,12 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     ),
 )
 
-_SMR_AGENT_MODEL_COMPATIBILITY_VALUES: tuple[str, ...] = ("gpt-5.4",)
+_SMR_AGENT_MODEL_COMPATIBILITY_VALUES: tuple[str, ...] = (
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "cursor/grok-4.5",
+    "gpt-5.4",
+)
 
 
 def _render_static_enum_module(

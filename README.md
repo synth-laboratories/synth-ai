@@ -1,12 +1,13 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.15.0-orange synth-ai==0.15.0 -->
+<!-- CI release pins: PyPI-0.15.1-orange synth-ai==0.15.1 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![Python versions](https://img.shields.io/pypi/pyversions/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 
-Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted containers.
+Python SDK and CLI for Managed Research, Research Factory, and the infrastructure
+surfaces that support them.
 
 **Documentation:** https://docs.usesynth.ai/sdk/overview
 
@@ -14,12 +15,6 @@ Python SDK and CLI for Synth infrastructure surfaces: tunnels, pools, and hosted
 
 ```bash
 uv add synth-ai
-```
-
-Or install with pip:
-
-```bash
-pip install synth-ai
 ```
 
 ## Authenticate
@@ -58,9 +53,7 @@ from synth_ai import SynthClient
 
 client = SynthClient()
 
-print(client.containers.list())
-print(client.tunnels.health())
-print(client.pools.list())
+print(client.research.limits.get_typed().plan)
 ```
 
 ## Managed Research (hero SDK)
@@ -68,38 +61,74 @@ print(client.pools.list())
 Install the research extra when you need hosted runs, projects, Factory Tag, or MCP:
 
 ```bash
-pip install "synth-ai[research]"
+uv add "synth-ai[research]"
 ```
 
 Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
 
 ```python
+import os
+
 from synth_ai import SynthClient
+from synth_ai.research import ResearchTagSessionCreateRequest, ResearchWorkMode
 
 client = SynthClient()
 research = client.research
+factory_id = os.environ["SYNTH_FACTORY_ID"]
+effort_id = os.environ["SYNTH_FACTORY_EFFORT_ID"]
+project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]  # An existing, prepared project.
 
 # Org limits
-limits = research.limits.get()
+limits = research.limits.get_typed()
+print(limits.plan)
+
+# Authoritative economics reads; the client does not recompute allowances or discounts.
+plan = research.economics.plan()
+catalog = research.economics.catalog()
+entitlements = research.economics.entitlements()
+
+# Async Research Factory: inspect the experiment floor before launching work
+factory = research.factories.get(factory_id)
+floor = research.factories.status(factory.factory_id)
+preview = research.factories.preview_wake(factory.factory_id)
+# After reviewing preview.efforts, the SDK replays the resolved request_contract
+# with its opaque preview_token; callers do not reconstruct the write request.
+if preview.confirmation_required:
+    receipt = research.factories.wake_due(
+        factory.factory_id,
+        preview=preview,
+    )
 
 # Factory Tag loop
-session = research.factories.tag.sessions.create("Improve rollout throughput")
+session = research.factories.tag.sessions.create(
+    ResearchTagSessionCreateRequest(
+        request="Improve rollout throughput",
+        factory_id=factory_id,
+        effort_id=effort_id,
+    )
+)
 research.factories.tag.sessions.messages.send(session.session_id, "Status update")
 scope = research.factories.tag.scopes.get_default()
 
-# Launch path
-project = research.projects.create({"name": "demo", "work_mode": "standard"})
-research.projects.setup.prepare(project.project_id)
-preflight = research.runs.check_preflight(project.project_id)
-run = research.runs.create(project.project_id, work_mode="standard")
-session = research.runs.get(project.project_id, run["run_id"])
+# Launch against the explicitly selected pre-existing project.
+work_mode = ResearchWorkMode.DIRECTED_EFFORT
+preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
+session = research.runs.create(
+    project_id,
+    objective="Produce a bounded repository assessment and a readable report.",
+    work_mode=work_mode,
+)
 
 # Run readouts (nested namespaces — never ``manderqueue`` on hero)
 session.snapshots.get(detail="control")
-session.progress.get()
-session.usage.get()
+progress = session.progress.get_typed()
+usage = session.usage.get()
+work_products = session.work_products.list()
+artifacts = session.artifacts.list()
+if work_products:
+    report = session.work_products.content.get(work_products[0].work_product_id)
 session.message_queue.messages.list()
-research.projects.objectives.list(project.project_id, run_id=session.run_id)
+research.projects.objectives.list(project_id, run_id=session.run_id)
 ```
 
 CLI smoke:
@@ -147,10 +176,12 @@ override grants are manual audit events rather than automatic resets.
 The canonical backend surfaces are `GET /smr/billing/catalog`,
 `GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
 `GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
-SDK, use `client.research.session.billing.catalog()` and related billing
-namespace helpers for advanced billing reads. Prefer hero namespaces for new
-integrations; do not infer allowance from legacy Autumn balances or local spend
-summaries.
+SDK, use `client.research.economics.entitlements()` for the organization snapshot
+and `client.research.economics.plan()`, `.catalog()`, `.run_drawdown(run_id)`, or
+`.factory_effort_drawdown(factory_effort_id)` for canonical billing reads. Use
+`.project(project_id)` for project usage, budgets, and entitlements. Do not infer
+allowance from legacy Autumn balances or local spend summaries, and do not
+recompute discounts in the client.
 
 ## Links
 

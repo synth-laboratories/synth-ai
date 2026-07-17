@@ -217,6 +217,10 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                         "type": "object",
                         "description": "Optional Environment v1 reference, e.g. {'schema_version': '2026-05-14-environment-v1', 'name': 'symbolic-craftax-py311'}.",
                     },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Optional live DevEnvironment id to bind this launch preflight to.",
+                    },
                     "local_execution": {
                         "type": "object",
                         "description": "Explicit synth-dev local lane identity for slot-backed launches.",

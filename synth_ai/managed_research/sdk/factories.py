@@ -702,10 +702,9 @@ class FactoriesAPI(_ClientNamespace):
         decision_note: str | None = None,
         budget_policy: Mapping[str, Any] | dict[str, Any] | None = None,
         publication_policy: Mapping[str, Any] | dict[str, Any] | None = None,
-        authorization_policy: AuthorizationPolicy
-        | Mapping[str, Any]
-        | dict[str, Any]
-        | None = None,
+        authorization_policy: (
+            AuthorizationPolicy | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
         actor_notes: Mapping[str, Any] | dict[str, Any] | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
@@ -770,7 +769,17 @@ class FactoriesAPI(_ClientNamespace):
         allow_overlap: bool = False,
         dry_run: bool = False,
         continue_on_error: bool = True,
+        confirmed_preview_id: str | None = None,
+        confirmed_preview_token: str | None = None,
     ) -> FactoryWakeDueResult:
+        """Preview due work or execute it with the corresponding signed token."""
+        if dry_run and (confirmed_preview_id is not None or confirmed_preview_token is not None):
+            raise ValueError("Factory wake previews do not accept confirmation fields")
+        if not dry_run and (confirmed_preview_id is None or confirmed_preview_token is None):
+            raise ValueError(
+                "Factory wake execution requires the preview_id and preview_token "
+                "returned by a dry-run preview"
+            )
         return FactoryWakeDueResult.from_wire(
             self._client.wake_due_factory_efforts(
                 factory_id,
@@ -780,6 +789,8 @@ class FactoriesAPI(_ClientNamespace):
                     allow_overlap=allow_overlap,
                     dry_run=dry_run,
                     continue_on_error=continue_on_error,
+                    confirmed_preview_id=confirmed_preview_id,
+                    confirmed_preview_token=confirmed_preview_token,
                 ),
             )
         )

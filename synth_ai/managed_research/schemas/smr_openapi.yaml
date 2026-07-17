@@ -256,9 +256,9 @@ paths:
       description: "Get usage summary for the authenticated organization.\n\nThis\
         \ endpoint provides a summary of token and GPU usage for the current month\n\
         and last 30 days.\n\nArgs:\n    api_key: Validated API key containing organization\
-        \ information\n\nReturns:\n    UsageSummaryResponse: Usage summary with token\
-        \ and GPU statistics\n\nRaises:\n    HTTPException: If usage data cannot be\
-        \ retrieved"
+        \ information\n\nReturns:\n    BalanceUsageSummaryResponse: Usage summary\
+        \ with token and GPU statistics\n\nRaises:\n    HTTPException: If usage data\
+        \ cannot be retrieved"
       operationId: get_usage_summary_api_v1_balance_usage_get
       responses:
         '200':
@@ -266,7 +266,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageSummaryResponse'
+                $ref: '#/components/schemas/BalanceUsageSummaryResponse'
   /api/v1/balance/autumn-current:
     get:
       tags:
@@ -1940,6 +1940,117 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/health:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Scorer Health
+      operationId: scorer_health_v1_gamebench_scorers_craftax_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/info:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Scorer Info
+      operationId: scorer_info_v1_gamebench_scorers_craftax_info_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/jobs:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Submit Score
+      operationId: submit_score_v1_gamebench_scorers_craftax_jobs_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /v1/gamebench/scorers/craftax/jobs/{job_id}:
+    get:
+      tags:
+      - gamebench-scorer
+      summary: Read Score
+      operationId: read_score_v1_gamebench_scorers_craftax_jobs__job_id__get
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/jobs/{job_id}/cancel:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Cancel Score
+      operationId: cancel_score_v1_gamebench_scorers_craftax_jobs__job_id__cancel_post
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/gamebench/scorers/craftax/jobs/{job_id}/cleanup:
+    post:
+      tags:
+      - gamebench-scorer
+      summary: Cleanup Score
+      operationId: cleanup_score_v1_gamebench_scorers_craftax_jobs__job_id__cleanup_post
+      parameters:
+      - name: job_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Job Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/optimizers/startup:
     get:
       tags:
@@ -3054,6 +3165,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/exe-credentials/issue:
+    post:
+      tags:
+      - exe-credentials
+      summary: Issue Exe Credentials
+      description: Return one short-lived credential envelope for an exact repository
+        binding.
+      operationId: issue_exe_credentials_api_v1_exe_credentials_issue_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialBrokerIssueRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialBrokerIssueResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - HTTPBearer: []
   /api/v1/horizons/runtime/mcp/healthz:
     get:
       tags:
@@ -6529,9 +6669,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Create Cloud Deployment Smr V1 Deployments Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -6569,8 +6707,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  additionalProperties: true
+                  $ref: '#/components/schemas/CloudDeploymentResponse'
                 title: Response List Cloud Deployments Smr V1 Deployments Get
         '422':
           description: Validation Error
@@ -6597,10 +6734,351 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Get
+                $ref: '#/components/schemas/CloudDeploymentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/services:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Services
+      operationId: get_cloud_deployment_services_smr_v1_deployments__deployment_id__services_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentServicesResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/workspace:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Workspace
+      operationId: get_cloud_deployment_workspace_smr_v1_deployments__deployment_id__workspace_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentWorkspaceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/workspace/materialize:
+    post:
+      tags:
+      - smr
+      summary: Materialize Cloud Deployment Workspace
+      operationId: materialize_cloud_deployment_workspace_smr_v1_deployments__deployment_id__workspace_materialize_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentWorkspaceMaterializeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentWorkspaceMaterializeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/image-releases/materialize:
+    post:
+      tags:
+      - smr
+      summary: Materialize Cloud Deployment Image Release
+      operationId: materialize_cloud_deployment_image_release_smr_v1_deployments__deployment_id__image_releases_materialize_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentImageMaterializeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentImageMaterializeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/exec:
+    post:
+      tags:
+      - smr
+      summary: Exec Cloud Deployment Command
+      operationId: exec_cloud_deployment_command_smr_v1_deployments__deployment_id__exec_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentExecRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentExecResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/logs:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Logs
+      operationId: get_cloud_deployment_logs_smr_v1_deployments__deployment_id__logs_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: service_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 120
+          title: Service Id
+      - name: tail
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 200
+          title: Tail
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentLogsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/artifacts:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Artifacts
+      operationId: get_cloud_deployment_artifacts_smr_v1_deployments__deployment_id__artifacts_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: root_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+            maxLength: 120
+          - type: 'null'
+          title: Root Id
+      - name: relative_prefix
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Relative Prefix
+      - name: after
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: After
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentArtifactsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/artifacts/content:
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Artifact Content
+      operationId: get_cloud_deployment_artifact_content_smr_v1_deployments__deployment_id__artifacts_content_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: root_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 120
+          title: Root Id
+      - name: relative_path
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 512
+          title: Relative Path
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: max_bytes
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 131072
+          minimum: 1
+          default: 65536
+          title: Max Bytes
+      - name: include_sha256
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Sha256
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentArtifactContentResponse'
         '422':
           description: Validation Error
           content:
@@ -6620,16 +7098,21 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Observe Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Observe Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -6657,6 +7140,14 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       requestBody:
         required: true
         content:
@@ -6669,10 +7160,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Deploy Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Deploy Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
         '422':
           description: Validation Error
           content:
@@ -6692,6 +7180,14 @@ paths:
         schema:
           type: string
           title: Deployment Id
+      - name: X-Fencing-Token
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Fencing-Token
       requestBody:
         required: true
         content:
@@ -6704,10 +7200,131 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Retire Cloud Deployment Smr V1 Deployments  Deployment
-                  Id  Retire Post
+                $ref: '#/components/schemas/CloudDeploymentResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims:
+    post:
+      tags:
+      - smr
+      summary: Acquire Cloud Deployment Claim
+      operationId: acquire_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloudDeploymentClaimAcquireRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      summary: Get Cloud Deployment Claims
+      description: 'Typed ownership projection: the active claim or explicit none.'
+      operationId: get_cloud_deployment_claims_smr_v1_deployments__deployment_id__claims_get
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentClaimProjectionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims/{claim_id}/heartbeat:
+    post:
+      tags:
+      - smr
+      summary: Heartbeat Cloud Deployment Claim
+      operationId: heartbeat_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims__claim_id__heartbeat_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/deployments/{deployment_id}/claims/{claim_id}/release:
+    post:
+      tags:
+      - smr
+      summary: Release Cloud Deployment Claim
+      description: "Explicit release; idempotent \u2014 released/expired claims report\
+        \ state."
+      operationId: release_cloud_deployment_claim_smr_v1_deployments__deployment_id__claims__claim_id__release_post
+      parameters:
+      - name: deployment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Deployment Id
+      - name: claim_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Claim Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudDeploymentClaimResponse'
         '422':
           description: Validation Error
           content:
@@ -13244,6 +13861,134 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/visuals:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Publish Run Visual
+      operationId: publish_run_visual_smr_runs__run_id__visuals_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_publish_run_visual_smr_runs__run_id__visuals_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Publish Run Visual Smr Runs  Run Id  Visuals Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: List Visuals
+      operationId: list_visuals_smr_visuals_get
+      parameters:
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response List Visuals Smr Visuals Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Visual
+      operationId: get_visual_smr_visuals__visual_id__get
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Get Visual Smr Visuals  Visual Id  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/content:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Visual Content
+      operationId: get_visual_content_smr_visuals__visual_id__content_get
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/hosted-artifacts:
     get:
       tags:
@@ -14300,7 +15045,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/app__api__v1__managed_research__limits__UpdateLimitRequest'
+              $ref: '#/components/schemas/UpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
@@ -15099,6 +15844,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrApprovalResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/upload-url:
+    post:
+      tags:
+      - smr
+      summary: Create Image Release Upload
+      operationId: create_image_release_upload_smr_v1_image_releases_upload_url_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageReleaseUploadRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseUploadResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/finalize:
+    post:
+      tags:
+      - smr
+      summary: Finalize Image Release
+      operationId: finalize_image_release_smr_v1_image_releases_finalize_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageReleaseFinalizeRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseFinalizeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/{release_id}:
+    get:
+      tags:
+      - smr
+      summary: Get Image Release
+      operationId: get_image_release_smr_v1_image_releases__release_id__get
+      parameters:
+      - name: release_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Release Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseResponse'
         '422':
           description: Validation Error
           content:
@@ -18339,6 +19160,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrPromotionCampaignPublicResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/promotions/admin/discount-preview:
+    post:
+      tags:
+      - smr
+      - promotions
+      summary: Preview Admin Promotion Discount
+      description: Return a backend-owned draft economics preview without mutation.
+      operationId: preview_admin_promotion_discount_smr_promotions_admin_discount_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPromotionDiscountPreviewRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPromotionDiscountPreviewResponse'
         '422':
           description: Validation Error
           content:
@@ -22039,6 +22887,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/tag/v1/sessions/{session_id}/factory-context:
+    get:
+      tags:
+      - tag
+      summary: Get Session Factory Context
+      operationId: get_tag_session_factory_context
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagFactoryContextResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}/control:
     post:
       tags:
@@ -22116,6 +22990,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TagScopeResponse'
+  /api/tag/v1/scopes/{scope_id}/factory-context:
+    get:
+      tags:
+      - tag
+      summary: Get Scope Factory Context
+      operationId: get_tag_scope_factory_context
+      parameters:
+      - name: scope_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Scope Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagFactoryContextResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/tunnels/health:
     get:
       tags:
@@ -22645,7 +23545,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get
       responses:
         '200':
           description: Successful Response
@@ -22656,7 +23556,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments
-      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_post__post__1
+      operationId: proxy_environments_api_managed_agents_anthropic_v1_environments_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22668,7 +23568,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get
       responses:
         '200':
           description: Successful Response
@@ -22679,7 +23579,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Environments Environment Id
-      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__post__post__1
+      operationId: proxy_environments_environment_id_api_managed_agents_anthropic_v1_environments__environment_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22703,7 +23603,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get
       responses:
         '200':
           description: Successful Response
@@ -22714,7 +23614,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents
-      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_post__post__1
+      operationId: proxy_agents_api_managed_agents_anthropic_v1_agents_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22726,7 +23626,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get
       responses:
         '200':
           description: Successful Response
@@ -22737,7 +23637,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Agents Agent Id
-      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__post__post__1
+      operationId: proxy_agents_agent_id_api_managed_agents_anthropic_v1_agents__agent_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22761,7 +23661,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get
       responses:
         '200':
           description: Successful Response
@@ -22772,7 +23672,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions
-      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_post__post__1
+      operationId: proxy_sessions_api_managed_agents_anthropic_v1_sessions_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22784,7 +23684,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get
       responses:
         '200':
           description: Successful Response
@@ -22795,7 +23695,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id
-      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__post__post__1
+      operationId: proxy_sessions_session_id_api_managed_agents_anthropic_v1_sessions__session_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22819,7 +23719,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get
       responses:
         '200':
           description: Successful Response
@@ -22830,7 +23730,7 @@ paths:
       tags:
       - managed-agents-anthropic-proxy
       summary: Proxy Sessions Session Id Events
-      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_post__post__1
+      operationId: proxy_sessions_session_id_events_api_managed_agents_anthropic_v1_sessions__session_id__events_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22961,7 +23861,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get
       responses:
         '200':
           description: Successful Response
@@ -22972,7 +23872,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__post__1
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__post__1
       responses:
         '200':
           description: Successful Response
@@ -22983,7 +23883,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id
-      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__post__delete__2
+      operationId: proxy_openai_conversations_conversation_id_api_managed_agents_openai_v1_conversations__conversation_id__get__delete__2
       responses:
         '200':
           description: Successful Response
@@ -22995,7 +23895,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get
       responses:
         '200':
           description: Successful Response
@@ -23006,7 +23906,7 @@ paths:
       tags:
       - managed-agents-openai-proxy
       summary: Proxy Openai Conversations Conversation Id Items
-      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_post__post__1
+      operationId: proxy_openai_conversations_conversation_id_items_api_managed_agents_openai_v1_conversations__conversation_id__items_get__post__1
       responses:
         '200':
           description: Successful Response
@@ -23093,41 +23993,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-      - synthtunnel-public
-      summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__patch__1
-      parameters:
-      - name: route_token
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Route Token
-      - name: path
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Path
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__post__2
+      operationId: synthtunnel_gateway_s__route_token___path__get__post__1
       parameters:
       - name: route_token
         in: path
@@ -23157,7 +24027,37 @@ paths:
       tags:
       - synthtunnel-public
       summary: Synthtunnel Gateway
-      operationId: synthtunnel_gateway_s__route_token___path__get__put__3
+      operationId: synthtunnel_gateway_s__route_token___path__get__put__2
+      parameters:
+      - name: route_token
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Route Token
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Path
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - synthtunnel-public
+      summary: Synthtunnel Gateway
+      operationId: synthtunnel_gateway_s__route_token___path__get__patch__3
       parameters:
       - name: route_token
         in: path
@@ -23481,7 +24381,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                  $ref: '#/components/schemas/SessionLimitResponse'
                 title: Response Get Session Limits Api V1 Sessions  Session Id  Limits
                   Get
         '422':
@@ -23515,7 +24415,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23548,14 +24448,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateLimitRequest'
+              $ref: '#/components/schemas/SessionUpdateLimitRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23620,7 +24520,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__core__session_usage__models__LimitResponse'
+                $ref: '#/components/schemas/SessionLimitResponse'
         '422':
           description: Validation Error
           content:
@@ -23976,7 +24876,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/app__api__v1__admin__UsageSummaryResponse'
+                $ref: '#/components/schemas/AdminUsageSummaryResponse'
         '422':
           description: Validation Error
           content:
@@ -27131,6 +28031,35 @@ components:
       - balance_after_cents
       - transaction_id
       title: AddUserCreditsResponse
+    AdminUsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        date_range:
+          type: string
+          title: Date Range
+        total_cost_cents:
+          type: integer
+          title: Total Cost Cents
+        total_cost_dollars:
+          type: number
+          title: Total Cost Dollars
+        gpu_events_count:
+          type: integer
+          title: Gpu Events Count
+        total_gpu_seconds:
+          type: number
+          title: Total Gpu Seconds
+      type: object
+      required:
+      - org_id
+      - date_range
+      - total_cost_cents
+      - total_cost_dollars
+      - gpu_events_count
+      - total_gpu_seconds
+      title: AdminUsageSummaryResponse
     AgentConnectInfo:
       properties:
         transport:
@@ -27361,6 +28290,26 @@ components:
       - last_updated
       title: BalanceResponse
       description: Response model for balance queries.
+    BalanceUsageSummaryResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        current_month:
+          additionalProperties: true
+          type: object
+          title: Current Month
+        last_30_days:
+          additionalProperties: true
+          type: object
+          title: Last 30 Days
+      type: object
+      required:
+      - org_id
+      - current_month
+      - last_30_days
+      title: BalanceUsageSummaryResponse
+      description: Response model for usage summary.
     BillingEntitlementAssetSnapshot:
       properties:
         asset_id:
@@ -27511,6 +28460,40 @@ components:
       - code
       - display_name
       title: BillingProfileSnapshot
+    Body_publish_run_visual_smr_runs__run_id__visuals_post:
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Title
+        html:
+          type: string
+          format: binary
+          title: Html
+        visual_kind:
+          type: string
+          maxLength: 100
+          title: Visual Kind
+          default: research_visual
+        visibility:
+          type: string
+          pattern: ^(private|org|public)$
+          title: Visibility
+          default: org
+        source_run_ids_json:
+          type: string
+          title: Source Run Ids Json
+          default: '[]'
+        metadata_json:
+          type: string
+          title: Metadata Json
+          default: '{}'
+      type: object
+      required:
+      - title
+      - html
+      title: Body_publish_run_visual_smr_runs__run_id__visuals_post
     Body_worker_upload_artifact_smr_internal_runs__run_id__artifacts_upload_post:
       properties:
         file:
@@ -27551,6 +28534,21 @@ components:
       - file
       - artifact_type
       title: Body_worker_upload_artifact_smr_internal_runs__run_id__artifacts_upload_post
+    BrokeredRepositoryToken:
+      properties:
+        kind:
+          type: string
+          const: token
+          title: Kind
+          default: token
+        token:
+          type: string
+          minLength: 1
+          title: Token
+      type: object
+      required:
+      - token
+      title: BrokeredRepositoryToken
     CancelSubscriptionResponse:
       properties:
         cancelled_at:
@@ -27777,6 +28775,361 @@ components:
       - session_id
       title: CheckoutSessionResponse
       description: Response with checkout session URL.
+    CloudDeploymentArtifactContentResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-artifact-content-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        root_id:
+          type: string
+          title: Root Id
+        relative_path:
+          type: string
+          title: Relative Path
+        size_bytes:
+          type: integer
+          title: Size Bytes
+        sha256:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Sha256
+        modified_at_ns:
+          type: integer
+          title: Modified At Ns
+        content_type:
+          type: string
+          title: Content Type
+        encoding:
+          type: string
+          const: base64
+          title: Encoding
+        offset:
+          type: integer
+          title: Offset
+        bytes_returned:
+          type: integer
+          title: Bytes Returned
+        eof:
+          type: boolean
+          title: Eof
+        content_base64:
+          type: string
+          title: Content Base64
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - root_id
+      - relative_path
+      - size_bytes
+      - modified_at_ns
+      - content_type
+      - encoding
+      - offset
+      - bytes_returned
+      - eof
+      - content_base64
+      title: CloudDeploymentArtifactContentResponse
+    CloudDeploymentArtifactDescriptor:
+      properties:
+        root_id:
+          type: string
+          title: Root Id
+        relative_path:
+          type: string
+          title: Relative Path
+        size_bytes:
+          type: integer
+          title: Size Bytes
+        modified_at_epoch_seconds:
+          type: number
+          title: Modified At Epoch Seconds
+      type: object
+      required:
+      - root_id
+      - relative_path
+      - size_bytes
+      - modified_at_epoch_seconds
+      title: CloudDeploymentArtifactDescriptor
+    CloudDeploymentArtifactRoot:
+      properties:
+        root_id:
+          type: string
+          title: Root Id
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        relative_path:
+          type: string
+          title: Relative Path
+        description:
+          type: string
+          title: Description
+        authority:
+          type: string
+          title: Authority
+        available:
+          type: boolean
+          title: Available
+        prefix_available:
+          type: boolean
+          title: Prefix Available
+      type: object
+      required:
+      - root_id
+      - repository
+      - path
+      - relative_path
+      - description
+      - authority
+      - available
+      - prefix_available
+      title: CloudDeploymentArtifactRoot
+    CloudDeploymentArtifactsResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-artifacts-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        relative_prefix:
+          type: string
+          title: Relative Prefix
+        roots:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentArtifactRoot'
+          type: array
+          title: Roots
+        artifacts:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentArtifactDescriptor'
+          type: array
+          title: Artifacts
+        truncated:
+          type: boolean
+          title: Truncated
+        next_after:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next After
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - relative_prefix
+      - roots
+      - artifacts
+      - truncated
+      title: CloudDeploymentArtifactsResponse
+    CloudDeploymentClaimAcquireRequest:
+      properties:
+        holder:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Holder
+        purpose:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Purpose
+        ttl_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 1.0
+          title: Ttl Seconds
+      additionalProperties: false
+      type: object
+      required:
+      - holder
+      - purpose
+      - ttl_seconds
+      title: CloudDeploymentClaimAcquireRequest
+    CloudDeploymentClaimProjectionResponse:
+      properties:
+        deployment_id:
+          type: string
+          title: Deployment Id
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+        active_claim:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimResponse'
+          - type: 'null'
+        last_fencing_token:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Last Fencing Token
+      additionalProperties: false
+      type: object
+      required:
+      - deployment_id
+      - topology_id
+      - topology_version
+      - topology_source
+      - vm_name
+      - active_claim
+      - last_fencing_token
+      title: CloudDeploymentClaimProjectionResponse
+    CloudDeploymentClaimResponse:
+      properties:
+        claim_id:
+          type: string
+          title: Claim Id
+        deployment_id:
+          type: string
+          title: Deployment Id
+        org_id:
+          type: string
+          title: Org Id
+        holder:
+          type: string
+          title: Holder
+        purpose:
+          type: string
+          title: Purpose
+        ttl_seconds:
+          type: integer
+          title: Ttl Seconds
+        fencing_token:
+          type: integer
+          title: Fencing Token
+        state:
+          type: string
+          title: State
+        acquired_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Acquired At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        released_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Released At
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentClaimTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+      additionalProperties: false
+      type: object
+      required:
+      - claim_id
+      - deployment_id
+      - org_id
+      - holder
+      - purpose
+      - ttl_seconds
+      - fencing_token
+      - state
+      - acquired_at
+      - expires_at
+      - released_at
+      - created_at
+      - updated_at
+      - topology_id
+      - topology_version
+      - topology_source
+      - vm_name
+      title: CloudDeploymentClaimResponse
+    CloudDeploymentClaimTopologySourceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-topology-source-v1
+          title: Schema Version
+        kind:
+          type: string
+          const: backend_git
+          title: Kind
+        repository:
+          type: string
+          const: https://github.com/synth-laboratories/backend.git
+          title: Repository
+        implementation_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Implementation Commit Sha
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Topology Digest Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - kind
+      - repository
+      - implementation_commit_sha
+      - topology_id
+      - topology_version
+      - topology_digest_sha256
+      title: CloudDeploymentClaimTopologySourceResponse
     CloudDeploymentCreateRequest:
       properties:
         project_id:
@@ -27798,7 +29151,6 @@ components:
         host_kind:
           type: string
           title: Host Kind
-          default: exe_dev
         metadata:
           additionalProperties: true
           type: object
@@ -27807,11 +29159,13 @@ components:
           anyOf:
           - $ref: '#/components/schemas/CloudDeploymentProjectGitSourceRequest'
           - type: 'null'
+      additionalProperties: false
       type: object
       required:
       - project_id
       - name
       - topology_id
+      - host_kind
       title: CloudDeploymentCreateRequest
     CloudDeploymentDeployRequest:
       properties:
@@ -27822,6 +29176,198 @@ components:
           title: Reason
       type: object
       title: CloudDeploymentDeployRequest
+    CloudDeploymentExecRequest:
+      properties:
+        argv:
+          items:
+            type: string
+          type: array
+          maxItems: 128
+          minItems: 1
+          title: Argv
+        cwd:
+          anyOf:
+          - type: string
+            maxLength: 512
+          - type: 'null'
+          title: Cwd
+        timeout_seconds:
+          type: integer
+          maximum: 900.0
+          minimum: 1.0
+          title: Timeout Seconds
+          default: 300
+        max_output_bytes:
+          type: integer
+          maximum: 262144.0
+          minimum: 1024.0
+          title: Max Output Bytes
+          default: 65536
+      additionalProperties: false
+      type: object
+      required:
+      - argv
+      title: CloudDeploymentExecRequest
+    CloudDeploymentExecResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-exec-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        working_directory:
+          type: string
+          title: Working Directory
+        argv_count:
+          type: integer
+          title: Argv Count
+        timeout_seconds:
+          type: number
+          title: Timeout Seconds
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout:
+          type: string
+          title: Stdout
+        stderr:
+          type: string
+          title: Stderr
+        stdout_truncated:
+          type: boolean
+          title: Stdout Truncated
+        stderr_truncated:
+          type: boolean
+          title: Stderr Truncated
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - working_directory
+      - argv_count
+      - timeout_seconds
+      - exit_code
+      - stdout
+      - stderr
+      - stdout_truncated
+      - stderr_truncated
+      title: CloudDeploymentExecResponse
+    CloudDeploymentImageMaterializeRequest:
+      properties:
+        release_id:
+          type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
+          title: Release Id
+        transfer_timeout_seconds:
+          type: integer
+          maximum: 1800.0
+          minimum: 1.0
+          title: Transfer Timeout Seconds
+          default: 900
+      additionalProperties: false
+      type: object
+      required:
+      - release_id
+      title: CloudDeploymentImageMaterializeRequest
+    CloudDeploymentImageMaterializeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-image-materialization-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        release_id:
+          type: string
+          title: Release Id
+        operation_id:
+          type: string
+          title: Operation Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        transfer:
+          additionalProperties: true
+          type: object
+          title: Transfer
+        loaded_identity:
+          additionalProperties: true
+          type: object
+          title: Loaded Identity
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - release_id
+      - operation_id
+      - artifact
+      - declaration
+      - transfer
+      - loaded_identity
+      title: CloudDeploymentImageMaterializeResponse
+    CloudDeploymentLogsResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-logs-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        service_id:
+          type: string
+          title: Service Id
+        tail:
+          type: integer
+          title: Tail
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout:
+          type: string
+          title: Stdout
+        stderr:
+          type: string
+          title: Stderr
+        stdout_truncated:
+          type: boolean
+          title: Stdout Truncated
+        stderr_truncated:
+          type: boolean
+          title: Stderr Truncated
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - service_id
+      - tail
+      - exit_code
+      - stdout
+      - stderr
+      - stdout_truncated
+      - stderr_truncated
+      title: CloudDeploymentLogsResponse
     CloudDeploymentProjectGitSourceRequest:
       properties:
         kind:
@@ -27851,6 +29397,115 @@ components:
       - evidence_commit_sha
       - instance_id
       title: CloudDeploymentProjectGitSourceRequest
+    CloudDeploymentResponse:
+      properties:
+        deployment_id:
+          type: string
+          title: Deployment Id
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        host_kind:
+          type: string
+          title: Host Kind
+        state:
+          type: string
+          title: State
+        topology_source:
+          anyOf:
+          - $ref: '#/components/schemas/CloudDeploymentTopologySourceResponse'
+          - type: 'null'
+        vm_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vm Name
+        service_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Url
+        failure_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Reason
+        provisioned_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provisioned At
+        retired_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Retired At
+        vm_deleted:
+          type: boolean
+          title: Vm Deleted
+        request_payload:
+          additionalProperties: true
+          type: object
+          title: Request Payload
+        provision_receipts:
+          additionalProperties: true
+          type: object
+          title: Provision Receipts
+        health:
+          additionalProperties: true
+          type: object
+          title: Health
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Created At
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - deployment_id
+      - org_id
+      - project_id
+      - name
+      - topology_id
+      - topology_version
+      - host_kind
+      - state
+      - topology_source
+      - vm_name
+      - service_url
+      - failure_reason
+      - provisioned_at
+      - retired_at
+      - vm_deleted
+      - request_payload
+      - provision_receipts
+      - health
+      - metadata
+      - created_at
+      - updated_at
+      title: CloudDeploymentResponse
     CloudDeploymentRetireRequest:
       properties:
         reason:
@@ -27869,6 +29524,265 @@ components:
           title: Confirm Vm Name
       type: object
       title: CloudDeploymentRetireRequest
+    CloudDeploymentServiceDescriptor:
+      properties:
+        service_id:
+          type: string
+          title: Service Id
+        kind:
+          type: string
+          title: Kind
+        required:
+          type: boolean
+          title: Required
+        endpoint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Endpoint
+        health_checks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Health Checks
+        logs_supported:
+          type: boolean
+          title: Logs Supported
+      type: object
+      required:
+      - service_id
+      - kind
+      - required
+      - health_checks
+      - logs_supported
+      title: CloudDeploymentServiceDescriptor
+    CloudDeploymentServicesResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-services-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        service_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service Url
+        services:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentServiceDescriptor'
+          type: array
+          title: Services
+        deployment_health:
+          additionalProperties: true
+          type: object
+          title: Deployment Health
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - services
+      - deployment_health
+      title: CloudDeploymentServicesResponse
+    CloudDeploymentTopologySourceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-topology-source-v1
+          title: Schema Version
+        kind:
+          type: string
+          const: backend_git
+          title: Kind
+        repository:
+          type: string
+          const: https://github.com/synth-laboratories/backend.git
+          title: Repository
+        implementation_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Implementation Commit Sha
+        topology_id:
+          type: string
+          title: Topology Id
+        topology_version:
+          type: string
+          title: Topology Version
+        topology_digest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Topology Digest Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - kind
+      - repository
+      - implementation_commit_sha
+      - topology_id
+      - topology_version
+      - topology_digest_sha256
+      title: CloudDeploymentTopologySourceResponse
+    CloudDeploymentWorkspaceLiveState:
+      properties:
+        available:
+          type: boolean
+          title: Available
+        head_commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Head Commit Sha
+        branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Branch
+        detached:
+          type: boolean
+          title: Detached
+        dirty_path_count:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Dirty Path Count
+      type: object
+      required:
+      - available
+      - detached
+      title: CloudDeploymentWorkspaceLiveState
+    CloudDeploymentWorkspaceMaterializeRequest:
+      properties:
+        repository:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Repository
+        branch:
+          type: string
+          maxLength: 240
+          minLength: 1
+          title: Branch
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-fA-F]{40}$
+          title: Source Commit Sha
+      additionalProperties: false
+      type: object
+      required:
+      - repository
+      - branch
+      - source_commit_sha
+      title: CloudDeploymentWorkspaceMaterializeRequest
+    CloudDeploymentWorkspaceMaterializeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-workspace-materialization-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        branch:
+          type: string
+          title: Branch
+        source_commit_sha:
+          type: string
+          title: Source Commit Sha
+        detached:
+          type: boolean
+          title: Detached
+        clean:
+          type: boolean
+          title: Clean
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - repository
+      - path
+      - branch
+      - source_commit_sha
+      - detached
+      - clean
+      title: CloudDeploymentWorkspaceMaterializeResponse
+    CloudDeploymentWorkspaceRepository:
+      properties:
+        repository:
+          type: string
+          title: Repository
+        path:
+          type: string
+          title: Path
+        remote_repo:
+          type: string
+          title: Remote Repo
+        declared_branch:
+          type: string
+          title: Declared Branch
+        declared_source_commit_sha:
+          type: string
+          title: Declared Source Commit Sha
+        authority:
+          type: string
+          title: Authority
+        live:
+          $ref: '#/components/schemas/CloudDeploymentWorkspaceLiveState'
+      type: object
+      required:
+      - repository
+      - path
+      - remote_repo
+      - declared_branch
+      - declared_source_commit_sha
+      - authority
+      - live
+      title: CloudDeploymentWorkspaceRepository
+    CloudDeploymentWorkspaceResponse:
+      properties:
+        schema_version:
+          type: string
+          const: cloud-deployment-workspace-v1
+          title: Schema Version
+        deployment_id:
+          type: string
+          title: Deployment Id
+        vm_name:
+          type: string
+          title: Vm Name
+        workspace_root:
+          type: string
+          title: Workspace Root
+        repositories:
+          items:
+            $ref: '#/components/schemas/CloudDeploymentWorkspaceRepository'
+          type: array
+          title: Repositories
+      type: object
+      required:
+      - schema_version
+      - deployment_id
+      - vm_name
+      - workspace_root
+      - repositories
+      title: CloudDeploymentWorkspaceResponse
     CompleteTrainedModelAdapterUploadBody:
       properties:
         bucket:
@@ -28202,6 +30116,57 @@ components:
       - subdomain
       title: CreateTunnelRequest
       description: Request payload for creating a managed tunnel.
+    CredentialBrokerIssueRequest:
+      properties:
+        session_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Session Id
+        repository_registration_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Repository Registration Id
+        repository_credential_reference_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Repository Credential Reference Id
+        codex_credential_reference_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          title: Codex Credential Reference Id
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - repository_registration_id
+      - repository_credential_reference_id
+      - codex_credential_reference_id
+      title: CredentialBrokerIssueRequest
+    CredentialBrokerIssueResponse:
+      properties:
+        session_id:
+          type: string
+          title: Session Id
+        codex_auth_json:
+          type: string
+          title: Codex Auth Json
+        repository_credential:
+          $ref: '#/components/schemas/BrokeredRepositoryToken'
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      type: object
+      required:
+      - session_id
+      - codex_auth_json
+      - repository_credential
+      - expires_at
+      title: CredentialBrokerIssueResponse
     CredentialResponse:
       properties:
         id:
@@ -29813,6 +31778,201 @@ components:
       type: object
       title: HeartbeatResponse
       description: Response for lease heartbeat.
+    ImageReleaseDeclarationRequest:
+      properties:
+        kind:
+          type: string
+          const: craftax_scorer
+          title: Kind
+        archive_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Archive Sha256
+        archive_size_bytes:
+          type: integer
+          maximum: 17179869184.0
+          exclusiveMinimum: 0.0
+          title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        fixture_manifest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Manifest Sha256
+        fixture_binary_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Binary Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - archive_sha256
+      - archive_size_bytes
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      - fixture_manifest_sha256
+      - fixture_binary_sha256
+      title: ImageReleaseDeclarationRequest
+    ImageReleaseFinalizeRequest:
+      properties:
+        upload_id:
+          type: string
+          pattern: ^imgup_[0-9a-f]{32}$
+          title: Upload Id
+        declaration:
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+      additionalProperties: false
+      type: object
+      required:
+      - upload_id
+      - declaration
+      title: ImageReleaseFinalizeRequest
+    ImageReleaseFinalizeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-finalize-v1
+          title: Schema Version
+        release:
+          $ref: '#/components/schemas/ImageReleaseResponse'
+        staging_cleanup:
+          $ref: '#/components/schemas/ImageReleaseStagingCleanupResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release
+      - staging_cleanup
+      title: ImageReleaseFinalizeResponse
+    ImageReleaseResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
+          type: string
+          title: Release Id
+        org_id:
+          type: string
+          title: Org Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        inspection:
+          additionalProperties: true
+          type: object
+          title: Inspection
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - declaration
+      - inspection
+      title: ImageReleaseResponse
+    ImageReleaseStagingCleanupResponse:
+      properties:
+        upload_id:
+          type: string
+          title: Upload Id
+        status:
+          type: string
+          enum:
+          - deleted
+          - absent
+          title: Status
+      additionalProperties: false
+      type: object
+      required:
+      - upload_id
+      - status
+      title: ImageReleaseStagingCleanupResponse
+    ImageReleaseUploadRequest:
+      properties:
+        declaration:
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+        expires_in:
+          type: integer
+          maximum: 86400.0
+          minimum: 60.0
+          title: Expires In
+          default: 3600
+      additionalProperties: false
+      type: object
+      required:
+      - declaration
+      title: ImageReleaseUploadRequest
+    ImageReleaseUploadResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-upload-v1
+          title: Schema Version
+        upload_id:
+          type: string
+          title: Upload Id
+        release_id:
+          type: string
+          title: Release Id
+        upload_url:
+          type: string
+          title: Upload Url
+        expires_in:
+          type: integer
+          title: Expires In
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - upload_id
+      - release_id
+      - upload_url
+      - expires_in
+      - declaration
+      title: ImageReleaseUploadResponse
     IncreaseLimitRequest:
       properties:
         metric_type:
@@ -33874,6 +36034,103 @@ components:
       - steer
       - control
       title: RuntimeMessageMode
+    SessionLimitResponse:
+      properties:
+        limit_id:
+          type: string
+          format: uuid
+          title: Limit Id
+        session_id:
+          type: string
+          title: Session Id
+        limit_type:
+          type: string
+          title: Limit Type
+        metric_type:
+          type: string
+          title: Metric Type
+        limit_value:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Limit Value
+        current_usage:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Current Usage
+        remaining:
+          type: string
+          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          title: Remaining
+        warning_threshold:
+          anyOf:
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        window_seconds:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Window Seconds
+        exceeded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Exceeded At
+        exceeded_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exceeded Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - limit_id
+      - session_id
+      - limit_type
+      - metric_type
+      - limit_value
+      - current_usage
+      - remaining
+      - created_at
+      title: SessionLimitResponse
+      description: Response model for a limit.
+    SessionUpdateLimitRequest:
+      properties:
+        limit_value:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0.0
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Limit Value
+        warning_threshold:
+          anyOf:
+          - type: number
+          - type: string
+            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: 'null'
+          title: Warning Threshold
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      type: object
+      title: SessionUpdateLimitRequest
+      description: Request to update a limit.
     SmrActorControlRequest:
       properties:
         action:
@@ -37778,7 +40035,11 @@ components:
       title: SmrFactoryCandidateGradingRequest
       description: 'Typed intake for a benchmark-owned factorybench.candidate_grading.v1
 
-        record. The backend never grades; it stores what the grader proved.'
+        record. The record must carry the same candidate_id and git_sha as the
+
+        route-owned registry row. The backend never grades; it stores what the
+
+        grader proved.'
     SmrFactoryCandidateResponse:
       properties:
         candidate_id:
@@ -39159,6 +41420,32 @@ components:
       - name
       - status
       title: SmrFactoryVitalResponse
+    SmrFactoryWakeDueContract:
+      properties:
+        launch_request:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Launch Request
+        limit:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Limit
+          default: 10
+        allow_overlap:
+          type: boolean
+          title: Allow Overlap
+          default: false
+        continue_on_error:
+          type: boolean
+          title: Continue On Error
+          default: true
+      additionalProperties: false
+      type: object
+      title: SmrFactoryWakeDueContract
+      description: Exact launch inputs bound to a signed Factory wake preview.
     SmrFactoryWakeDueEffortResponse:
       properties:
         effort_id:
@@ -39170,6 +41457,7 @@ components:
         status:
           type: string
           enum:
+          - ready
           - launched
           - skipped
           - failed
@@ -39236,6 +41524,25 @@ components:
           type: boolean
           title: Continue On Error
           default: true
+        confirmed_preview_id:
+          anyOf:
+          - type: string
+            maxLength: 44
+            minLength: 44
+          - type: 'null'
+          title: Confirmed Preview Id
+          description: Preview identity shown to the operator. Required with confirmed_preview_token
+            and verified against its signed claims before execution.
+        confirmed_preview_token:
+          anyOf:
+          - type: string
+            maxLength: 16384
+            minLength: 32
+          - type: 'null'
+          title: Confirmed Preview Token
+          description: Opaque signed token returned by a prior dry-run. Required for
+            operator-triggered launches and bound to the organization, Factory, resolved
+            request, consequences, evaluation time, and expiry.
       additionalProperties: false
       type: object
       title: SmrFactoryWakeDueRequest
@@ -39252,6 +41559,48 @@ components:
           type: boolean
           title: Dry Run
           default: false
+        preview_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Id
+        preview_token:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Token
+        preview_expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Preview Expires At
+        confirmed_preview_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Confirmed Preview Id
+        confirmation_required:
+          type: boolean
+          title: Confirmation Required
+          default: false
+        request_contract:
+          $ref: '#/components/schemas/SmrFactoryWakeDueContract'
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        executed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Executed At
+        ready:
+          type: integer
+          title: Ready
+          default: 0
         launched:
           type: integer
           title: Launched
@@ -43855,6 +46204,158 @@ components:
       - grant_ttl_days
       - benefits_summary
       title: SmrPromotionCampaignPublicResponse
+    SmrPromotionDiscountContractRequest:
+      properties:
+        customer_discount_percent:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Customer Discount Percent
+        global_subsidy_cap_microcents:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Global Subsidy Cap Microcents
+        org_subsidy_cap_microcents:
+          type: integer
+          exclusiveMinimum: 0.0
+          title: Org Subsidy Cap Microcents
+        price_source:
+          type: string
+          minLength: 1
+          title: Price Source
+        eligible_usage:
+          items:
+            type: string
+          type: array
+          minItems: 1
+          title: Eligible Usage
+        stacking_policy:
+          type: string
+          enum:
+          - replace_existing
+          - mutually_exclusive
+          title: Stacking Policy
+        provider_model_exclusions:
+          items:
+            type: string
+          type: array
+          title: Provider Model Exclusions
+      type: object
+      required:
+      - customer_discount_percent
+      - global_subsidy_cap_microcents
+      - org_subsidy_cap_microcents
+      - price_source
+      - eligible_usage
+      - stacking_policy
+      - provider_model_exclusions
+      title: SmrPromotionDiscountContractRequest
+    SmrPromotionDiscountPreviewRequest:
+      properties:
+        campaign_id:
+          type: string
+          minLength: 1
+          title: Campaign Id
+        nominal_customer_debit_microcents:
+          type: integer
+          minimum: 0.0
+          title: Nominal Customer Debit Microcents
+        provider_cost_pico_usd:
+          type: integer
+          minimum: 0.0
+          title: Provider Cost Pico Usd
+      type: object
+      required:
+      - campaign_id
+      - nominal_customer_debit_microcents
+      - provider_cost_pico_usd
+      title: SmrPromotionDiscountPreviewRequest
+    SmrPromotionDiscountPreviewResponse:
+      properties:
+        campaign_id:
+          type: string
+          title: Campaign Id
+        campaign_status:
+          type: string
+          title: Campaign Status
+        claim_window_start_at:
+          type: string
+          title: Claim Window Start At
+        claim_window_end_at:
+          type: string
+          title: Claim Window End At
+        price_source:
+          type: string
+          title: Price Source
+        eligible_usage:
+          items:
+            type: string
+          type: array
+          title: Eligible Usage
+        stacking_policy:
+          type: string
+          title: Stacking Policy
+        provider_model_exclusions:
+          items:
+            type: string
+          type: array
+          title: Provider Model Exclusions
+        generated_at:
+          type: string
+          title: Generated At
+        preview_formula_version:
+          type: string
+          title: Preview Formula Version
+        enforcement_status:
+          type: string
+          const: not_implemented
+          title: Enforcement Status
+        customer_discount_percent:
+          type: integer
+          title: Customer Discount Percent
+        nominal_customer_debit_microcents:
+          type: integer
+          title: Nominal Customer Debit Microcents
+        customer_discount_microcents:
+          type: integer
+          title: Customer Discount Microcents
+        customer_charge_microcents:
+          type: integer
+          title: Customer Charge Microcents
+        provider_cost_pico_usd:
+          type: integer
+          title: Provider Cost Pico Usd
+        synth_subsidy_microcents:
+          type: integer
+          title: Synth Subsidy Microcents
+        global_subsidy_cap_microcents:
+          type: integer
+          title: Global Subsidy Cap Microcents
+        org_subsidy_cap_microcents:
+          type: integer
+          title: Org Subsidy Cap Microcents
+      type: object
+      required:
+      - campaign_id
+      - campaign_status
+      - claim_window_start_at
+      - claim_window_end_at
+      - price_source
+      - eligible_usage
+      - stacking_policy
+      - provider_model_exclusions
+      - generated_at
+      - preview_formula_version
+      - enforcement_status
+      - customer_discount_percent
+      - nominal_customer_debit_microcents
+      - customer_discount_microcents
+      - customer_charge_microcents
+      - provider_cost_pico_usd
+      - synth_subsidy_microcents
+      - global_subsidy_cap_microcents
+      - org_subsidy_cap_microcents
+      title: SmrPromotionDiscountPreviewResponse
     SmrPromotionGrantViewResponse:
       properties:
         grant_id:
@@ -43957,16 +46458,19 @@ components:
           title: Claim Window End At
         grant_ttl_days:
           type: integer
+          exclusiveMinimum: 0.0
           title: Grant Ttl Days
           default: 7
         campaign_credit_ceiling_cents:
           anyOf:
           - type: integer
+            minimum: 0.0
           - type: 'null'
           title: Campaign Credit Ceiling Cents
         concurrency_limit:
           anyOf:
           - type: integer
+            exclusiveMinimum: 0.0
           - type: 'null'
           title: Concurrency Limit
         eligibility_kind:
@@ -43978,6 +46482,10 @@ components:
           - type: string
           - type: 'null'
           title: Autumn Product Id
+        discount_contract:
+          anyOf:
+          - $ref: '#/components/schemas/SmrPromotionDiscountContractRequest'
+          - type: 'null'
       type: object
       required:
       - campaign_id
@@ -48188,6 +50696,11 @@ components:
         run_id:
           type: string
           title: Run Id
+        code_factory_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code Factory Session Id
         org_id:
           type: string
           title: Org Id
@@ -49930,6 +52443,13 @@ components:
           maxLength: 128
           minLength: 1
           title: Environment Kind
+        runtime_artifact_release_id:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Runtime Artifact Release Id
         orchestrator_profile_id:
           type: string
           maxLength: 200
@@ -52983,6 +55503,11 @@ components:
           - type: string
           - type: 'null'
           title: Default Branch
+        commit_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Commit Sha
       type: object
       required:
       - url
@@ -53568,6 +56093,180 @@ components:
       - google
       title: SupportedProvider
       description: Supported LLM providers for encrypted provider-key storage.
+    TagArtifactLink:
+      properties:
+        schema_version:
+          type: string
+          const: tag_artifact_link.v1
+          title: Schema Version
+          default: tag_artifact_link.v1
+        kind:
+          type: string
+          enum:
+          - run_record
+          - run_summary
+          - work_product
+          title: Kind
+        url:
+          type: string
+          title: Url
+        artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Id
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        readiness:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Readiness
+      type: object
+      required:
+      - kind
+      - url
+      title: TagArtifactLink
+    TagFactoryCandidateCounts:
+      properties:
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+        graded:
+          type: integer
+          minimum: 0.0
+          title: Graded
+        pending:
+          type: integer
+          minimum: 0.0
+          title: Pending
+      type: object
+      required:
+      - total
+      - graded
+      - pending
+      title: TagFactoryCandidateCounts
+    TagFactoryChampion:
+      properties:
+        candidate_id:
+          type: string
+          title: Candidate Id
+        git_sha:
+          type: string
+          title: Git Sha
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        selected_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Selected At
+      type: object
+      required:
+      - candidate_id
+      - git_sha
+      title: TagFactoryChampion
+    TagFactoryChampionEvent:
+      properties:
+        action:
+          type: string
+          enum:
+          - promote
+          - no_lift
+          - rollback
+          title: Action
+        at:
+          type: string
+          format: date-time
+          title: At
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        git_sha:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Git Sha
+        held_out_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Held Out Score
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      type: object
+      required:
+      - action
+      - at
+      title: TagFactoryChampionEvent
+    TagFactoryContextResponse:
+      properties:
+        schema_version:
+          type: string
+          const: tag_factory_context.v1
+          title: Schema Version
+          default: tag_factory_context.v1
+        factory_id:
+          type: string
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        experiment_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Ref
+        champion:
+          anyOf:
+          - $ref: '#/components/schemas/TagFactoryChampion'
+          - type: 'null'
+        last_champion_event:
+          anyOf:
+          - $ref: '#/components/schemas/TagFactoryChampionEvent'
+          - type: 'null'
+        candidates:
+          $ref: '#/components/schemas/TagFactoryCandidateCounts'
+        as_of:
+          type: string
+          format: date-time
+          title: As Of
+      type: object
+      required:
+      - factory_id
+      - candidates
+      - as_of
+      title: TagFactoryContextResponse
     TagMessageRequest:
       properties:
         message:
@@ -53766,6 +56465,11 @@ components:
       title: TagSessionCreateRequest
     TagSessionReceipt:
       properties:
+        schema_version:
+          type: string
+          const: tag_receipt.v1
+          title: Schema Version
+          default: tag_receipt.v1
         run_id:
           anyOf:
           - type: string
@@ -53784,6 +56488,11 @@ components:
             type: string
           type: array
           title: Artifact Urls
+        artifacts:
+          items:
+            $ref: '#/components/schemas/TagArtifactLink'
+          type: array
+          title: Artifacts
         artifact_empty_reason:
           anyOf:
           - type: string
@@ -53826,8 +56535,7 @@ components:
           title: Git Urls
         steering_receipts:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/TagSteeringReceipt'
           type: array
           title: Steering Receipts
       type: object
@@ -53946,6 +56654,109 @@ components:
       required:
       - session
       title: TagSessionWatchResponse
+    TagSteeringReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: tag_steering_receipt.v1
+          title: Schema Version
+          default: tag_steering_receipt.v1
+        receipt_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Id
+        session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+        org_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Org Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        candidate_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Candidate Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        steering_target:
+          anyOf:
+          - type: string
+            enum:
+            - active_run
+            - next_cycle
+          - type: 'null'
+          title: Steering Target
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        idempotency_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Idempotency Key
+        transport_ref:
+          additionalProperties: true
+          type: object
+          title: Transport Ref
+        accepted_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Accepted At
+        wiki:
+          anyOf:
+          - $ref: '#/components/schemas/TagSteeringWikiLink'
+          - type: 'null'
+      type: object
+      title: TagSteeringReceipt
+    TagSteeringWikiLink:
+      properties:
+        changeset_id:
+          type: string
+          title: Changeset Id
+        proposal_id:
+          type: string
+          title: Proposal Id
+        url:
+          type: string
+          title: Url
+      type: object
+      required:
+      - changeset_id
+      - proposal_id
+      - url
+      title: TagSteeringWikiLink
     TagTaskResponse:
       properties:
         task_id:
@@ -54507,30 +57318,20 @@ components:
       title: UpdateCredentialRequest
     UpdateLimitRequest:
       properties:
-        limit_value:
+        cap_amount:
           anyOf:
           - type: number
-            exclusiveMinimum: 0.0
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - type: integer
           - type: 'null'
-          title: Limit Value
-        warning_threshold:
+          title: Cap Amount
+        policy:
           anyOf:
-          - type: number
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
+          - additionalProperties: true
+            type: object
           - type: 'null'
-          title: Warning Threshold
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
+          title: Policy
       type: object
       title: UpdateLimitRequest
-      description: Request to update a limit.
     UpdateTrainedModelBody:
       properties:
         tuned_metric:
@@ -55006,7 +57807,7 @@ components:
         entitlements:
           $ref: '#/components/schemas/BillingEntitlementSnapshot'
         usage_summary:
-          $ref: '#/components/schemas/app__api__v1__routes_usage_overview__UsageSummaryResponse'
+          $ref: '#/components/schemas/UsageSummaryResponse'
         spend_summary:
           $ref: '#/components/schemas/SpendSummaryResponse'
         sources:
@@ -55219,24 +58020,87 @@ components:
             used: 2400
     UsageSummaryResponse:
       properties:
-        org_id:
-          type: string
-          title: Org Id
-        current_month:
-          additionalProperties: true
+        total_nominal_usd:
+          type: number
+          title: Total Nominal Usd
+        total_cost_usd:
+          type: number
+          title: Total Cost Usd
+        total_charged_usd:
+          type: number
+          title: Total Charged Usd
+        total_internal_cost_usd:
+          type: number
+          title: Total Internal Cost Usd
+        by_type:
+          items:
+            $ref: '#/components/schemas/UsageByTypeResponse'
+          type: array
+          title: By Type
+        by_job:
+          items:
+            additionalProperties:
+              type: string
+            type: object
+          type: array
+          title: By Job
+        by_project:
+          items:
+            $ref: '#/components/schemas/UsageByProjectResponse'
+          type: array
+          title: By Project
+        by_factory:
+          items:
+            $ref: '#/components/schemas/UsageByFactoryResponse'
+          type: array
+          title: By Factory
+        by_source_type:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
           type: object
-          title: Current Month
-        last_30_days:
-          additionalProperties: true
+          title: By Source Type
+        by_source_subtype:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
           type: object
-          title: Last 30 Days
+          title: By Source Subtype
+        by_source_provider:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Source Provider
+        by_funding_lane:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Funding Lane
+        by_execution_path:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Execution Path
+        by_actor:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Actor
+        by_billing_route:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Billing Route
+        by_pricing_policy:
+          additionalProperties:
+            $ref: '#/components/schemas/UsageBreakdownValueResponse'
+          type: object
+          title: By Pricing Policy
       type: object
       required:
-      - org_id
-      - current_month
-      - last_30_days
+      - total_nominal_usd
+      - total_cost_usd
+      - total_charged_usd
+      - total_internal_cost_usd
       title: UsageSummaryResponse
-      description: Response model for usage summary.
     UsageType:
       type: string
       enum:
@@ -55727,205 +58591,6 @@ components:
           title: Fingerprint
       type: object
       title: _SubmitterIn
-    app__api__v1__admin__UsageSummaryResponse:
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-        date_range:
-          type: string
-          title: Date Range
-        total_cost_cents:
-          type: integer
-          title: Total Cost Cents
-        total_cost_dollars:
-          type: number
-          title: Total Cost Dollars
-        gpu_events_count:
-          type: integer
-          title: Gpu Events Count
-        total_gpu_seconds:
-          type: number
-          title: Total Gpu Seconds
-      type: object
-      required:
-      - org_id
-      - date_range
-      - total_cost_cents
-      - total_cost_dollars
-      - gpu_events_count
-      - total_gpu_seconds
-      title: UsageSummaryResponse
-    app__api__v1__managed_research__limits__UpdateLimitRequest:
-      properties:
-        cap_amount:
-          anyOf:
-          - type: number
-          - type: integer
-          - type: 'null'
-          title: Cap Amount
-        policy:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Policy
-      type: object
-      title: UpdateLimitRequest
-    app__api__v1__routes_usage_overview__UsageSummaryResponse:
-      properties:
-        total_nominal_usd:
-          type: number
-          title: Total Nominal Usd
-        total_cost_usd:
-          type: number
-          title: Total Cost Usd
-        total_charged_usd:
-          type: number
-          title: Total Charged Usd
-        total_internal_cost_usd:
-          type: number
-          title: Total Internal Cost Usd
-        by_type:
-          items:
-            $ref: '#/components/schemas/UsageByTypeResponse'
-          type: array
-          title: By Type
-        by_job:
-          items:
-            additionalProperties:
-              type: string
-            type: object
-          type: array
-          title: By Job
-        by_project:
-          items:
-            $ref: '#/components/schemas/UsageByProjectResponse'
-          type: array
-          title: By Project
-        by_factory:
-          items:
-            $ref: '#/components/schemas/UsageByFactoryResponse'
-          type: array
-          title: By Factory
-        by_source_type:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Type
-        by_source_subtype:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Subtype
-        by_source_provider:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Source Provider
-        by_funding_lane:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Funding Lane
-        by_execution_path:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Execution Path
-        by_actor:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Actor
-        by_billing_route:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Billing Route
-        by_pricing_policy:
-          additionalProperties:
-            $ref: '#/components/schemas/UsageBreakdownValueResponse'
-          type: object
-          title: By Pricing Policy
-      type: object
-      required:
-      - total_nominal_usd
-      - total_cost_usd
-      - total_charged_usd
-      - total_internal_cost_usd
-      title: UsageSummaryResponse
-    app__core__session_usage__models__LimitResponse:
-      properties:
-        limit_id:
-          type: string
-          format: uuid
-          title: Limit Id
-        session_id:
-          type: string
-          title: Session Id
-        limit_type:
-          type: string
-          title: Limit Type
-        metric_type:
-          type: string
-          title: Metric Type
-        limit_value:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Limit Value
-        current_usage:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Current Usage
-        remaining:
-          type: string
-          pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          title: Remaining
-        warning_threshold:
-          anyOf:
-          - type: string
-            pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
-          - type: 'null'
-          title: Warning Threshold
-        window_seconds:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Window Seconds
-        exceeded_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Exceeded At
-        exceeded_reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Exceeded Reason
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        expires_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Expires At
-      type: object
-      required:
-      - limit_id
-      - session_id
-      - limit_type
-      - metric_type
-      - limit_value
-      - current_usage
-      - remaining
-      - created_at
-      title: LimitResponse
-      description: Response model for a limit.
   securitySchemes:
     HTTPBearer:
       type: http

@@ -17,6 +17,12 @@ from synth_ai.managed_research.models.run_diagnostics import (
     SmrRunCostSummary,
 )
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
+from synth_ai.research.models import (
+    ResearchArtifact,
+    ResearchArtifactManifest,
+    ResearchRunProgress,
+    ResearchWorkProduct,
+)
 from synth_ai.sdk.pagination import SyncPage
 
 
@@ -92,11 +98,15 @@ class ResearchRunProgressAPI(_RunReadoutBound):
     """High-level progress summary for dashboards and polling loops."""
 
     def get(self) -> dict[str, Any]:
-        """Return coarse progress fields (phase, percent, status text)."""
+        """Return the backward-compatible raw progress payload."""
         return self._handle._client.get_run_progress(
             self._handle.project_id,
             self._handle.run_id,
         )
+
+    def get_typed(self) -> ResearchRunProgress:
+        """Return typed state, phase, stalls, tasks, and recommended actions."""
+        return ResearchRunProgress.from_wire(self.get())
 
 
 class ResearchRunSnapshotsAPI(_RunReadoutBound):
@@ -478,7 +488,7 @@ class ResearchRunWorkProductsAPI(_RunReadoutBound):
             self._eval_packages = ResearchRunWorkProductsEvalPackagesAPI(self._handle)
         return self._eval_packages
 
-    def list(self) -> List[Any]:
+    def list(self) -> List[ResearchWorkProduct]:
         """List work product metadata for the run."""
         return self._handle._client.work_products.list_for_run(
             self._handle.project_id,
@@ -486,10 +496,90 @@ class ResearchRunWorkProductsAPI(_RunReadoutBound):
         )
 
 
+class ResearchRunHostedArtifactsAPI(_RunReadoutBound):
+    """Hosted artifact receipt and operator actions for a run."""
+
+    def get(self) -> dict[str, Any]:
+        """Return hosted artifact status for this run."""
+        return self._handle._client.get_run_hosted_artifact(self._handle.run_id)
+
+    def content(
+        self,
+        hosted_artifact_id: str | None = None,
+        *,
+        as_text: bool = True,
+    ) -> str | bytes:
+        """Fetch hosted HTML for this run's artifact."""
+        artifact_id = hosted_artifact_id
+        if artifact_id is None:
+            status = self.get()
+            artifact_id = str(status.get("hosted_artifact_id") or "").strip()
+            if not artifact_id:
+                raise ValueError("run has no hosted_artifact_id yet")
+        payload = self._handle._client.get_hosted_artifact_content(artifact_id)
+        encoding = str(payload.get("encoding") or "utf-8")
+        content = payload["content"]
+        if encoding == "base64":
+            import base64
+
+            raw = base64.b64decode(str(content))
+            return raw.decode("utf-8") if as_text else raw
+        text = str(content)
+        return text if as_text else text.encode("utf-8")
+
+    def publish_public(
+        self,
+        slug: str,
+        *,
+        hosted_artifact_id: str | None = None,
+        kind: str = "result",
+        theme: str | None = None,
+        summary: str | None = None,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Promote this run's hosted artifact to the public index."""
+        artifact_id = hosted_artifact_id
+        if artifact_id is None:
+            status = self.get()
+            artifact_id = str(status.get("hosted_artifact_id") or "").strip()
+            if not artifact_id:
+                raise ValueError("run has no hosted_artifact_id yet")
+        return self._handle._client.publish_hosted_artifact_public(
+            artifact_id,
+            slug=slug,
+            kind=kind,
+            theme=theme,
+            summary=summary,
+            factory_id=factory_id,
+            effort_id=effort_id,
+        )
+
+    def assign_reviewer(
+        self,
+        reason: str,
+        *,
+        hosted_artifact_id: str | None = None,
+        summary: str | None = None,
+    ) -> dict[str, Any]:
+        """Dispatch an artifact_reviewer for this run's hosted artifact."""
+        artifact_id = hosted_artifact_id
+        if artifact_id is None:
+            status = self.get()
+            artifact_id = str(status.get("hosted_artifact_id") or "").strip()
+            if not artifact_id:
+                raise ValueError("run has no hosted_artifact_id yet")
+        return self._handle._client.assign_hosted_artifact_reviewer(
+            artifact_id,
+            reason=reason,
+            summary=summary,
+        )
+
+
 class ResearchRunArtifactsManifestAPI(_RunReadoutBound):
     """Artifact manifest for a run."""
 
-    def get(self) -> Any:
+    def get(self) -> ResearchArtifactManifest:
         """Return the artifact manifest describing available run outputs."""
         return self._handle._client.get_run_artifact_manifest(
             self._handle.run_id,
@@ -546,7 +636,7 @@ class ResearchRunArtifactsAPI(_RunReadoutBound):
         artifact_type: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
-    ) -> List[Any]:
+    ) -> List[ResearchArtifact]:
         """List artifacts for the run with optional type filter."""
         return self._handle._client.list_run_artifacts(
             self._handle.run_id,
@@ -711,6 +801,7 @@ class ResearchRunReadoutsMixin:
     _messages_api: ResearchRunRuntimeMessagesAPI | None = None
     _transcript_api: ResearchRunTranscriptAPI | None = None
     _work_products_api: ResearchRunWorkProductsAPI | None = None
+    _hosted_artifact_api: ResearchRunHostedArtifactsAPI | None = None
     _trained_models_api: ResearchRunTrainedModelsAPI | None = None
     _artifacts_api: ResearchRunArtifactsAPI | None = None
     _results_api: ResearchRunResultsAPI | None = None
@@ -787,6 +878,13 @@ class ResearchRunReadoutsMixin:
         if self._work_products_api is None:
             self._work_products_api = ResearchRunWorkProductsAPI(self)  # type: ignore[arg-type]
         return self._work_products_api
+
+    @property
+    def hosted_artifact(self) -> ResearchRunHostedArtifactsAPI:
+        """Hosted Open Research artifact receipt for the run."""
+        if self._hosted_artifact_api is None:
+            self._hosted_artifact_api = ResearchRunHostedArtifactsAPI(self)  # type: ignore[arg-type]
+        return self._hosted_artifact_api
 
     @property
     def trained_models(self) -> ResearchRunTrainedModelsAPI:

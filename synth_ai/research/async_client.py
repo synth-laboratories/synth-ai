@@ -63,6 +63,11 @@ class AsyncResearchClient:
         return _AsyncNamespaceProxy(self._client.limits)
 
     @property
+    def economics(self) -> _AsyncNamespaceProxy:
+        """Async proxy for typed ``client.research.economics`` reads."""
+        return _AsyncNamespaceProxy(self._client.economics)
+
+    @property
     def secrets(self) -> _AsyncNamespaceProxy:
         """Async proxy for ``client.research.secrets``."""
         return _AsyncNamespaceProxy(self._client.secrets)

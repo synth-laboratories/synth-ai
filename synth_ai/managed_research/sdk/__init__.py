@@ -284,6 +284,13 @@ from synth_ai.managed_research.models.smr_runtime_kinds import SmrRuntimeKind
 from synth_ai.managed_research.models.smr_tool_providers import SmrToolProvider
 from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode
 from synth_ai.managed_research.models.types import (
+    DevEnvironment,
+    DevEnvironmentCollection,
+    DevEnvironmentMaterializationQueue,
+    DevEnvironmentMaterializationWorkItem,
+    DevEnvironmentPreflight,
+    DevEnvironmentTopology,
+    DevEnvironmentUsage,
     Environment,
     EnvironmentPreflight,
     GitHubInstallation,
@@ -315,6 +322,7 @@ from synth_ai.managed_research.models.work_products import (
     ManagedResearchWorkProductExport,
 )
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
+from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.client import (
     ACTIVE_RUN_STATES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -326,17 +334,45 @@ from synth_ai.managed_research.sdk.client import (
     first_id,
 )
 from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeployment,
+    CloudDeploymentArtifactContent,
+    CloudDeploymentArtifactDescriptor,
+    CloudDeploymentArtifactRoot,
+    CloudDeploymentArtifacts,
+    CloudDeploymentExecResult,
+    CloudDeploymentImageMaterialization,
+    CloudDeploymentLoadedImageIdentity,
+    CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
+    CloudDeploymentService,
+    CloudDeploymentServices,
+    CloudDeploymentTopologySource,
+    CloudDeploymentWorkspace,
+    CloudDeploymentWorkspaceLiveState,
+    CloudDeploymentWorkspaceMaterialization,
+    CloudDeploymentWorkspaceRepository,
 )
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
+from synth_ai.managed_research.sdk.dev_environments import DevEnvironmentsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.image_releases import (
+    ImageRelease,
+    ImageReleaseArtifact,
+    ImageReleaseDeclaration,
+    ImageReleaseFinalize,
+    ImageReleaseInspection,
+    ImageReleasesAPI,
+    ImageReleaseStagingCleanup,
+    ImageReleaseUpload,
+    image_release_declaration,
+)
 from synth_ai.managed_research.sdk.integrations import IntegrationsAPI
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
@@ -358,11 +394,36 @@ from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
 __all__ = [
     "ACTIVE_RUN_STATES",
     "ApprovalsAPI",
-    "CloudDeploymentsAPI",
+    "BillingAPI",
     "CredentialsAPI",
     "DatasetsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
+    "DevEnvironment",
+    "DevEnvironmentCollection",
+    "DevEnvironmentMaterializationQueue",
+    "DevEnvironmentMaterializationWorkItem",
+    "DevEnvironmentPreflight",
+    "DevEnvironmentTopology",
+    "DevEnvironmentUsage",
+    "CloudDeploymentsAPI",
+    "CloudDeployment",
+    "CloudDeploymentArtifactContent",
+    "CloudDeploymentArtifactDescriptor",
+    "CloudDeploymentArtifactRoot",
+    "CloudDeploymentArtifacts",
+    "CloudDeploymentExecResult",
+    "CloudDeploymentImageMaterialization",
+    "CloudDeploymentLoadedImageIdentity",
+    "CloudDeploymentLogs",
     "CloudDeploymentProjectGitSource",
+    "CloudDeploymentService",
+    "CloudDeploymentServices",
+    "CloudDeploymentTopologySource",
+    "CloudDeploymentWorkspace",
+    "CloudDeploymentWorkspaceLiveState",
+    "CloudDeploymentWorkspaceMaterialization",
+    "CloudDeploymentWorkspaceRepository",
+    "DevEnvironmentsAPI",
     "Environment",
     "EnvironmentPreflight",
     "EnvironmentsAPI",
@@ -412,6 +473,15 @@ __all__ = [
     "RecurrencePolicy",
     "FilesAPI",
     "GithubAPI",
+    "ImageRelease",
+    "ImageReleaseArtifact",
+    "ImageReleaseDeclaration",
+    "ImageReleaseFinalize",
+    "ImageReleaseInspection",
+    "ImageReleasesAPI",
+    "ImageReleaseStagingCleanup",
+    "ImageReleaseUpload",
+    "image_release_declaration",
     "GitHubInstallation",
     "IntegrationsAPI",
     "OPENAI_TRANSPORT_MODE_AUTO",

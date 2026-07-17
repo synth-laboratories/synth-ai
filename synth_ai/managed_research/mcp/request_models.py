@@ -374,6 +374,7 @@ class RunLaunchRequest:
     workflow: dict[str, Any] | None = None
     sandbox_override: dict[str, Any] | None = None
     environment: dict[str, Any] | None = None
+    dev_environment_id: str | None = None
     local_execution: dict[str, Any] | None = None
     execution_profile: dict[str, Any] | None = None
     run_policy: dict[str, Any] | None = None
@@ -445,6 +446,7 @@ class RunLaunchRequest:
             workflow=_optional_object(payload, "workflow"),
             sandbox_override=_optional_object(payload, "sandbox_override"),
             environment=_optional_object(payload, "environment"),
+            dev_environment_id=optional_string(payload, "dev_environment_id"),
             local_execution=_optional_object(payload, "local_execution"),
             execution_profile=_optional_object(payload, "execution_profile"),
             run_policy=optional_smr_run_policy(payload, "run_policy"),
@@ -488,6 +490,7 @@ class RunLaunchRequest:
             "workflow": self.workflow,
             "sandbox_override": self.sandbox_override,
             "environment": self.environment,
+            "dev_environment_id": self.dev_environment_id,
             "local_execution": self.local_execution,
             "execution_profile": self.execution_profile,
             "run_policy": self.run_policy,
@@ -532,6 +535,7 @@ class OneOffRunLaunchRequest:
     workflow: dict[str, Any] | None = None
     sandbox_override: dict[str, Any] | None = None
     environment: dict[str, Any] | None = None
+    dev_environment_id: str | None = None
     local_execution: dict[str, Any] | None = None
     execution_profile: dict[str, Any] | None = None
     run_policy: dict[str, Any] | None = None
@@ -602,6 +606,7 @@ class OneOffRunLaunchRequest:
             workflow=_optional_object(payload, "workflow"),
             sandbox_override=_optional_object(payload, "sandbox_override"),
             environment=_optional_object(payload, "environment"),
+            dev_environment_id=optional_string(payload, "dev_environment_id"),
             local_execution=_optional_object(payload, "local_execution"),
             execution_profile=_optional_object(payload, "execution_profile"),
             run_policy=optional_smr_run_policy(payload, "run_policy"),
@@ -645,6 +650,7 @@ class OneOffRunLaunchRequest:
             "workflow": self.workflow,
             "sandbox_override": self.sandbox_override,
             "environment": self.environment,
+            "dev_environment_id": self.dev_environment_id,
             "local_execution": self.local_execution,
             "execution_profile": self.execution_profile,
             "run_policy": self.run_policy,
