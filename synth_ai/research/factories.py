@@ -388,9 +388,7 @@ class ResearchFactoryResultsAPI:
         limit: int = 100,
     ) -> tuple[FactoryResultSelectionEvent, ...]:
         """List the append-only current-best selection history, newest first."""
-        return tuple(
-            self._session.factories.results.selection_events(factory_id, limit=limit)
-        )
+        return tuple(self._session.factories.results.selection_events(factory_id, limit=limit))
 
 
 class ResearchFactoriesAPI:
