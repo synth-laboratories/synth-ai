@@ -4062,14 +4062,14 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return payload
 
     def get_image_release(self, *, release_id: str) -> ImageRelease:
-        normalized_release_id = _require_non_empty_string(
+        release_id = _require_non_empty_string(
             release_id,
             field_name="release_id",
         )
         return _image_release_from_wire(
             self._request_json(
                 "GET",
-                f"/smr/v1/image-releases/{normalized_release_id}",
+                f"/smr/v1/image-releases/{release_id}",
             )
         )
 

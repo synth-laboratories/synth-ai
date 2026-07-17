@@ -29143,14 +29143,14 @@ components:
         topology_id:
           type: string
           title: Topology Id
+        host_kind:
+          type: string
+          title: Host Kind
         topology_version:
           anyOf:
           - type: string
           - type: 'null'
           title: Topology Version
-        host_kind:
-          type: string
-          title: Host Kind
         metadata:
           additionalProperties: true
           type: object
@@ -37318,6 +37318,11 @@ components:
         source_authority_version:
           type: string
           title: Source Authority Version
+        runtime_authority_source_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Runtime Authority Source Version
         public_status:
           anyOf:
           - additionalProperties: true
