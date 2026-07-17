@@ -7,7 +7,6 @@ import json as _json
 import mimetypes
 import os
 import re
-import time
 import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -20,10 +19,10 @@ import httpx
 from synth_ai.managed_research.errors import (
     SmrApiError,
     SmrHostedModelOverridesError,
+    raise_cloud_deployment_claim_error,
 )
 from synth_ai.managed_research.models import (
     BillingEntitlementSnapshot,
-    Checkpoint,
     EffortCreateRequest,
     EffortFromRunsRequest,
     EffortPatchRequest,
@@ -47,6 +46,10 @@ from synth_ai.managed_research.models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
+from synth_ai.managed_research.models.cloud_deployment_claims import ClaimAcquireRequest
+from synth_ai.managed_research.models.cloud_deployments import (
+    cloud_deployment_topology_source_from_wire,
+)
 from synth_ai.managed_research.models.factories import (
     effort_create_payload,
     effort_from_runs_payload,
@@ -67,46 +70,19 @@ from synth_ai.managed_research.models.factories import (
 from synth_ai.managed_research.models.local_execution_profile import (
     LocalExecutionProfile,
 )
-from synth_ai.managed_research.models.operator_evidence import SmrRunOperatorEvidence
-from synth_ai.managed_research.models.run_authority import ManagedResearchRunTask
-from synth_ai.managed_research.models.run_control import ManagedResearchRunControlError
-from synth_ai.managed_research.models.run_diagnostics import (
-    SmrRunActorLogs,
-    SmrRunActorUsage,
-    SmrRunArtifactProgress,
-    SmrRunCostSummary,
-    SmrRunParticipants,
-    SmrRunTraces,
-)
-from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
-from synth_ai.managed_research.models.run_launch import RunLaunchRequest, RunLaunchResult
+from synth_ai.managed_research.models.run_launch import (
+    RunLaunchRequest,
+    RunLaunchResult,
+)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
-    MessageQueueInteraction,
-    MessageQueueMessage,
-    MessageQueueThread,
     RunObservabilitySnapshot,
-    RunObservationCursor,
     RunTickingStatus,
     RunTickingUpdate,
     RunTickMode,
-    TaskSummary,
 )
 from synth_ai.managed_research.models.run_state import ManagedResearchRun
-from synth_ai.managed_research.models.run_timeline import (
-    SmrAuthorityReadouts,
-    SmrBranchMode,
-    SmrLogicalTimeline,
-    SmrRunBranchRequest,
-    SmrRunBranchResponse,
-    SmrRunEventLog,
-)
-from synth_ai.managed_research.models.runtime_intent import (
-    RuntimeIntent,
-    RuntimeIntentReceipt,
-    RuntimeIntentView,
-)
 from synth_ai.managed_research.models.smr_actor_models import (
     SmrActorModelAssignment,
     normalize_actor_model_assignments,
@@ -133,7 +109,10 @@ from synth_ai.managed_research.models.smr_horizons import (
     SmrIntendedHorizonHours,
     coerce_intended_horizon_hours,
 )
-from synth_ai.managed_research.models.smr_host_kinds import SmrHostKind, coerce_smr_host_kind
+from synth_ai.managed_research.models.smr_host_kinds import (
+    SmrHostKind,
+    coerce_smr_host_kind,
+)
 from synth_ai.managed_research.models.smr_providers import (
     ProviderBinding,
     ProviderPolicy,
@@ -146,13 +125,19 @@ from synth_ai.managed_research.models.smr_roles import (
     SmrRoleBindings,
     coerce_smr_role_bindings,
 )
-from synth_ai.managed_research.models.smr_run_policy import SmrRunPolicy, coerce_smr_run_policy
+from synth_ai.managed_research.models.smr_run_policy import (
+    SmrRunPolicy,
+    coerce_smr_run_policy,
+)
 from synth_ai.managed_research.models.smr_runbooks import (
     SmrRunbookKind,
     SmrRunbookPreset,
     coerce_smr_runbook_kind,
 )
-from synth_ai.managed_research.models.smr_work_modes import SmrWorkMode, coerce_smr_work_mode
+from synth_ai.managed_research.models.smr_work_modes import (
+    SmrWorkMode,
+    coerce_smr_work_mode,
+)
 from synth_ai.managed_research.models.types import (
     KickoffContract,
     RequiredWorkProductSpec,
@@ -161,11 +146,29 @@ from synth_ai.managed_research.models.types import (
     RunResourceBindings,
     SmrRunnableProjectRequest,
 )
+from synth_ai.managed_research.sdk._client_helpers import (
+    _coerce_dict,
+    _coerce_dict_list,
+    _optional_mapping,
+    _require_non_empty_string,
+)
+from synth_ai.managed_research.sdk._run_authority_mixin import (
+    ManagedResearchRunAuthorityMixin,
+)
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
+    CloudDeployment,
+    CloudDeploymentArtifactContent,
+    CloudDeploymentArtifacts,
+    CloudDeploymentExecResult,
+    CloudDeploymentImageMaterialization,
+    CloudDeploymentLogs,
     CloudDeploymentProjectGitSource,
     CloudDeploymentsAPI,
+    CloudDeploymentServices,
+    CloudDeploymentWorkspace,
+    CloudDeploymentWorkspaceMaterialization,
 )
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
@@ -185,12 +188,24 @@ from synth_ai.managed_research.sdk.config import (
 from synth_ai.managed_research.sdk.cost import RunCostAPI
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
+from synth_ai.managed_research.sdk.dev_environments import DevEnvironmentsAPI
 from synth_ai.managed_research.sdk.environments import EnvironmentsAPI
 from synth_ai.managed_research.sdk.exports import ExportsAPI
 from synth_ai.managed_research.sdk.factories import EffortsAPI, FactoriesAPI
 from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
+from synth_ai.managed_research.sdk.image_releases import (
+    ImageRelease,
+    ImageReleaseDeclaration,
+    ImageReleaseFinalize,
+    ImageReleasesAPI,
+    ImageReleaseUpload,
+    _image_release_finalize_from_wire,
+    _image_release_from_wire,
+    _image_release_upload_from_wire,
+    image_release_declaration,
+)
 from synth_ai.managed_research.sdk.logs import LogsAPI
 from synth_ai.managed_research.sdk.models import ModelsAPI
 from synth_ai.managed_research.sdk.outputs import OutputsAPI
@@ -210,10 +225,20 @@ from synth_ai.managed_research.sdk.transport import build_http_transport
 from synth_ai.managed_research.sdk.usage import UsageAPI
 from synth_ai.managed_research.sdk.work_products import WorkProductsAPI
 from synth_ai.managed_research.sdk.workspace_inputs import WorkspaceInputsAPI
-from synth_ai.managed_research.transport.http import SmrHttpTransport, _raise_for_error_response
+from synth_ai.managed_research.transport.http import (
+    SmrHttpTransport,
+    _raise_for_error_response,
+)
 from synth_ai.managed_research.transport.pagination import build_query_params
 
-ACTIVE_RUN_STATES = {"queued", "planning", "executing", "blocked", "finalizing", "running"}
+ACTIVE_RUN_STATES = {
+    "queued",
+    "planning",
+    "executing",
+    "blocked",
+    "finalizing",
+    "running",
+}
 _FULL_GIT_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 __all__ = [
@@ -229,42 +254,9 @@ __all__ = [
 ]
 
 
-def _coerce_dict(payload: Any, *, label: str) -> dict[str, Any]:
-    if isinstance(payload, dict):
-        return payload
-    raise SmrApiError(f"Expected object response for {label}, received {type(payload).__name__}")
-
-
-def _coerce_dict_list(payload: Any, *, label: str) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        if not all(isinstance(item, dict) for item in payload):
-            raise SmrApiError(f"Expected {label} entries to be objects")
-        return cast(list[dict[str, Any]], payload)
-    raise SmrApiError(f"Expected list response for {label}, received {type(payload).__name__}")
-
-
-def _require_non_empty_string(value: str | None, *, field_name: str) -> str:
-    text = str(value or "").strip()
-    if not text:
-        raise ValueError(f"{field_name} is required")
-    return text
-
-
 def _optional_non_empty_string(value: str | None) -> str | None:
     text = str(value or "").strip()
     return text or None
-
-
-def _optional_mapping(
-    payload: Mapping[str, Any] | dict[str, Any] | None,
-    *,
-    field_name: str,
-) -> dict[str, Any] | None:
-    if payload is None:
-        return None
-    if not isinstance(payload, Mapping):
-        raise ValueError(f"{field_name} must be a mapping when provided")
-    return dict(payload)
 
 
 def _optional_cloud_deployment_source(
@@ -314,28 +306,66 @@ def _optional_cloud_deployment_source(
     return normalized
 
 
-def _coerce_branch_request(
+def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
+    """``X-Fencing-Token`` header for mutating CloudDeployment ops, or None."""
+    if fencing_token is None:
+        return None
+    if isinstance(fencing_token, bool):
+        raise ValueError("fencing_token must be an integer when provided")
+    return {"X-Fencing-Token": str(int(fencing_token))}
+
+
+def _require_fencing_headers(fencing_token: int) -> dict[str, str]:
+    if isinstance(fencing_token, bool) or not isinstance(fencing_token, int):
+        raise ValueError("fencing_token must be a positive integer")
+    if fencing_token < 1:
+        raise ValueError("fencing_token must be a positive integer")
+    return {"X-Fencing-Token": str(fencing_token)}
+
+
+def _coerce_cloud_deployment_schema(
+    payload: Any,
     *,
-    checkpoint_id: str | None = None,
-    checkpoint_record_id: str | None = None,
-    checkpoint_uri: str | None = None,
-    mode: SmrBranchMode | str = SmrBranchMode.EXACT,
-    message: str | None = None,
-    reason: str | None = None,
-    title: str | None = None,
-    source_node_id: str | None = None,
-) -> SmrRunBranchRequest:
-    normalized_mode = mode if isinstance(mode, SmrBranchMode) else SmrBranchMode(str(mode).strip())
-    return SmrRunBranchRequest(
-        checkpoint_id=checkpoint_id,
-        checkpoint_record_id=checkpoint_record_id,
-        checkpoint_uri=checkpoint_uri,
-        mode=normalized_mode,
-        message=message,
-        reason=reason,
-        title=title,
-        source_node_id=source_node_id,
+    expected_schema: str,
+    label: str,
+) -> dict[str, Any]:
+    result = _coerce_dict(payload, label=label)
+    schema_version = str(result.get("schema_version") or "").strip()
+    if schema_version != expected_schema:
+        raise ValueError(
+            f"{label} returned schema_version {schema_version!r}; expected {expected_schema!r}"
+        )
+    return result
+
+
+def _coerce_cloud_deployment(payload: Any, *, label: str) -> CloudDeployment:
+    result = _coerce_dict(payload, label=label)
+    if "topology_source" not in result:
+        raise ValueError(f"{label} omitted immutable topology source authority")
+    topology_id = _require_non_empty_string(
+        result.get("topology_id"),
+        field_name=f"{label}.topology_id",
     )
+    topology_version = _require_non_empty_string(
+        result.get("topology_version"),
+        field_name=f"{label}.topology_version",
+    )
+    raw_topology_source = result.get("topology_source")
+    if raw_topology_source is not None:
+        topology_source = cloud_deployment_topology_source_from_wire(raw_topology_source)
+        if topology_source["topology_id"] != topology_id:
+            raise ValueError(f"{label} topology_source.topology_id does not match deployment")
+        if topology_source["topology_version"] != topology_version:
+            raise ValueError(f"{label} topology_source.topology_version does not match deployment")
+        result["topology_source"] = topology_source
+    return cast(CloudDeployment, result)
+
+
+def _coerce_cloud_deployment_list(payload: Any, *, label: str) -> list[CloudDeployment]:
+    rows = _coerce_dict_list(payload, label=label)
+    return [
+        _coerce_cloud_deployment(row, label=f"{label}[{index}]") for index, row in enumerate(rows)
+    ]
 
 
 def _optional_mapping_list(
@@ -434,8 +464,9 @@ def _runnable_project_request_payload(
 def _merge_execution_actor_model_assignments(
     payload: Mapping[str, Any] | dict[str, Any],
     *,
-    actor_model_assignments: Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]]
-    | None,
+    actor_model_assignments: (
+        Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+    ),
 ) -> dict[str, Any]:
     normalized_payload = dict(payload)
     assignment_payloads = _normalized_actor_model_assignment_payloads(
@@ -600,20 +631,23 @@ def _build_project_run_payload(
     agent_harness: SmrAgentHarness | None = None,
     agent_kind: SmrAgentKind | None = None,
     agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-    actor_model_overrides: Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]]
-    | None = None,
+    actor_model_overrides: (
+        Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+    ) = None,
     roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
     workflow: Mapping[str, Any] | dict[str, Any] | None = None,
     sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
     environment: Mapping[str, Any] | dict[str, Any] | None = None,
+    dev_environment_id: str | None = None,
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
     directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-    required_work_products: Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]]
-    | None = None,
+    required_work_products: (
+        Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+    ) = None,
     require_report: bool = True,
     ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
     primary_objective_id: str | None = None,
@@ -805,6 +839,9 @@ def _build_project_run_payload(
     )
     if normalized_environment:
         payload["environment"] = normalized_environment
+    normalized_dev_environment_id = _optional_non_empty_string(dev_environment_id)
+    if normalized_dev_environment_id is not None:
+        payload["dev_environment_id"] = normalized_dev_environment_id
     normalized_run_policy = coerce_smr_run_policy(run_policy, field_name="run_policy")
     if normalized_run_policy is not None:
         payload["run_policy"] = normalized_run_policy.to_dict()
@@ -1077,7 +1114,7 @@ def _code_bundle_upload_payload(
 
 
 @dataclass
-class ManagedResearchClient:
+class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
     """Managed Research client implementation."""
 
     api_key: str | None = None
@@ -1110,14 +1147,24 @@ class ManagedResearchClient:
         default=None,
         repr=False,
     )
+    _image_releases_api: ImageReleasesAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
+    _dev_environments_api: DevEnvironmentsAPI | None = field(
+        init=False,
+        default=None,
+        repr=False,
+    )
     _environments_api: EnvironmentsAPI | None = field(init=False, default=None, repr=False)
     _logs_api: LogsAPI | None = field(init=False, default=None, repr=False)
     _usage_api: UsageAPI | None = field(init=False, default=None, repr=False)
-    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
     _trained_models_api: TrainedModelsAPI | None = field(init=False, default=None, repr=False)
     _run_cost_api: RunCostAPI | None = field(init=False, default=None, repr=False)
     _work_products_api: WorkProductsAPI | None = field(init=False, default=None, repr=False)
     _tag_api: TagAPI | None = field(init=False, default=None, repr=False)
+    _billing_api: BillingAPI | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         resolved_api_key = _resolve_api_key(self.api_key)
@@ -1288,6 +1335,18 @@ class ManagedResearchClient:
         return self._cloud_deployments_api
 
     @property
+    def image_releases(self) -> ImageReleasesAPI:
+        if self._image_releases_api is None:
+            self._image_releases_api = ImageReleasesAPI(self)
+        return self._image_releases_api
+
+    @property
+    def dev_environments(self) -> DevEnvironmentsAPI:
+        if self._dev_environments_api is None:
+            self._dev_environments_api = DevEnvironmentsAPI(self)
+        return self._dev_environments_api
+
+    @property
     def logs(self) -> LogsAPI:
         if self._logs_api is None:
             self._logs_api = LogsAPI(self)
@@ -1304,12 +1363,6 @@ class ManagedResearchClient:
         if self._usage_api is None:
             self._usage_api = UsageAPI(self)
         return self._usage_api
-
-    @property
-    def billing(self) -> BillingAPI:
-        if self._billing_api is None:
-            self._billing_api = BillingAPI(self)
-        return self._billing_api
 
     @property
     def trained_models(self) -> TrainedModelsAPI:
@@ -1334,6 +1387,12 @@ class ManagedResearchClient:
         if self._tag_api is None:
             self._tag_api = TagAPI(self)
         return self._tag_api
+
+    @property
+    def billing(self) -> BillingAPI:
+        if self._billing_api is None:
+            self._billing_api = BillingAPI(self)
+        return self._billing_api
 
     def create_tag_session(self, request: Mapping[str, Any] | dict[str, Any]) -> dict[str, Any]:
         return _coerce_dict(
@@ -1411,6 +1470,26 @@ class ManagedResearchClient:
         return _coerce_dict(
             self._request_json("GET", "/api/tag/v1/scopes/default"),
             label="get_default_tag_scope",
+        )
+
+    def get_tag_scope_factory_context(self, scope_id: str) -> dict[str, Any]:
+        scope_id_value = _require_non_empty_string(scope_id, field_name="scope_id")
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/scopes/{scope_id_value}/factory-context",
+            ),
+            label="get_tag_scope_factory_context",
+        )
+
+    def get_tag_session_factory_context(self, session_id: str) -> dict[str, Any]:
+        session_id_value = _require_non_empty_string(session_id, field_name="session_id")
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/tag/v1/sessions/{session_id_value}/factory-context",
+            ),
+            label="get_tag_session_factory_context",
         )
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
@@ -1561,6 +1640,7 @@ class ManagedResearchClient:
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
     ) -> Any:
         try:
@@ -1569,6 +1649,7 @@ class ManagedResearchClient:
                 path,
                 params=params,
                 json_body=json_body,
+                headers=headers,
                 allow_not_found=allow_not_found,
             )
         except SmrApiError as exc:
@@ -1657,12 +1738,14 @@ class ManagedResearchClient:
             cursor=cursor,
         )
         return _coerce_dict_list(
-            self._request_json("GET", "/smr/projects", params=params), label="list_projects"
+            self._request_json("GET", "/smr/projects", params=params),
+            label="list_projects",
         )
 
     def get_project(self, project_id: str) -> dict[str, Any]:
         return _coerce_dict(
-            self._request_json("GET", f"/smr/projects/{project_id}"), label="get_project"
+            self._request_json("GET", f"/smr/projects/{project_id}"),
+            label="get_project",
         )
 
     def create_factory(
@@ -2139,10 +2222,9 @@ class ManagedResearchClient:
         project_id: str,
         payload: dict[str, Any],
         *,
-        actor_model_assignments: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_assignments: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
     ) -> dict[str, Any]:
         normalized_payload = _merge_execution_actor_model_assignments(
             payload,
@@ -3083,6 +3165,273 @@ class ManagedResearchClient:
             label="get_artifact_content",
         )
 
+    def get_run_hosted_artifact(self, run_id: str) -> dict[str, Any]:
+        """Return hosted artifact receipt for a run."""
+        run_id = _require_non_empty_string(run_id, field_name="run_id")
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/runs/{run_id}/hosted-artifact",
+            ),
+            label="get_run_hosted_artifact",
+        )
+
+    def get_hosted_artifact_content(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Return hosted HTML bytes/text wrapper for an artifact id."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        return _coerce_dict(
+            self._request_content(
+                "GET",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/content",
+            ),
+            label="get_hosted_artifact_content",
+        )
+
+    def publish_hosted_artifact_public(
+        self,
+        hosted_artifact_id: str,
+        *,
+        slug: str,
+        kind: str = "result",
+        theme: str | None = None,
+        summary: str | None = None,
+        factory_id: str | None = None,
+        effort_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Promote a hosted artifact to the public Open Research index."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        body: dict[str, Any] = {
+            "slug": _require_non_empty_string(slug, field_name="slug"),
+            "kind": kind,
+        }
+        if theme is not None:
+            body["theme"] = theme
+        if summary is not None:
+            body["summary"] = summary
+        if factory_id is not None:
+            body["factory_id"] = factory_id
+        if effort_id is not None:
+            body["effort_id"] = effort_id
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/publish-public",
+                json_body=body,
+            ),
+            label="publish_hosted_artifact_public",
+        )
+
+    def assign_hosted_artifact_reviewer(
+        self,
+        hosted_artifact_id: str,
+        *,
+        reason: str,
+        summary: str | None = None,
+    ) -> dict[str, Any]:
+        """Dispatch an artifact_reviewer for a hosted artifact."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        body: dict[str, Any] = {
+            "reason": _require_non_empty_string(reason, field_name="reason"),
+        }
+        if summary is not None:
+            body["summary"] = summary
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}/assign-reviewer",
+                json_body=body,
+            ),
+            label="assign_hosted_artifact_reviewer",
+        )
+
+    def list_public_hosted_artifacts(self) -> dict[str, Any]:
+        """List public Open Research hosted artifacts."""
+        return _coerce_dict(
+            self._request_json("GET", "/api/open-research/v1/artifacts"),
+            label="list_public_hosted_artifacts",
+        )
+
+    def get_public_hosted_artifact(self, slug: str) -> dict[str, Any]:
+        """Read one public hosted artifact bundle by slug."""
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/api/open-research/v1/artifacts/{_require_non_empty_string(slug, field_name='slug')}",
+            ),
+            label="get_public_hosted_artifact",
+        )
+
+    def list_hosted_artifacts(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """List hosted artifacts for the authenticated org."""
+        params: dict[str, Any] = {"limit": limit}
+        if project_id is not None:
+            params["project_id"] = project_id
+        return _coerce_dict(
+            self._request_json("GET", "/smr/hosted-artifacts", params=params),
+            label="list_hosted_artifacts",
+        )
+
+    def publish_run_visual(
+        self,
+        run_id: str,
+        *,
+        title: str,
+        html_content: str | bytes,
+        visual_kind: str = "research_visual",
+        visibility: str = "org",
+        source_run_ids: Iterable[str] = (),
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Upload a self-contained HTML blob and publish it as a Synth Visual."""
+        run_id = _require_non_empty_string(run_id, field_name="run_id")
+        title = _require_non_empty_string(title, field_name="title")
+        content = (
+            html_content.encode("utf-8") if isinstance(html_content, str) else bytes(html_content)
+        )
+        response = self._transport.client.request(
+            "POST",
+            f"/smr/runs/{run_id}/visuals",
+            data={
+                "title": title,
+                "visual_kind": visual_kind,
+                "visibility": visibility,
+                "source_run_ids_json": _json.dumps(list(source_run_ids)),
+                "metadata_json": _json.dumps(dict(metadata or {})),
+            },
+            files={"html": ("index.html", content, "text/html")},
+        )
+        if response.is_error:
+            from synth_ai.managed_research.transport.http import (
+                _raise_for_error_response,
+            )
+
+            _raise_for_error_response(response)
+        try:
+            return _coerce_dict(response.json(), label="publish_run_visual")
+        except _json.JSONDecodeError as exc:
+            raise SmrApiError(
+                "POST Visual returned a non-JSON response",
+                status_code=response.status_code,
+                response_text=response.text,
+            ) from exc
+
+    def list_visuals(self, *, project_id: str | None = None, limit: int = 100) -> dict[str, Any]:
+        params: dict[str, Any] = {"limit": limit}
+        if project_id is not None:
+            params["project_id"] = project_id
+        return _coerce_dict(
+            self._request_json("GET", "/smr/visuals", params=params),
+            label="list_visuals",
+        )
+
+    def get_visual(self, visual_id: str) -> dict[str, Any]:
+        visual_id = _require_non_empty_string(visual_id, field_name="visual_id")
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/visuals/{visual_id}"),
+            label="get_visual",
+        )
+
+    def get_visual_content(self, visual_id: str) -> dict[str, Any]:
+        visual_id = _require_non_empty_string(visual_id, field_name="visual_id")
+        return self._request_content("GET", f"/smr/visuals/{visual_id}/content")
+
+    def list_project_hosted_artifacts(
+        self,
+        project_id: str,
+        *,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """List hosted artifacts materialized for one project."""
+        project_id = _require_non_empty_string(project_id, field_name="project_id")
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/hosted-artifacts",
+                params={"limit": limit},
+            ),
+            label="list_project_hosted_artifacts",
+        )
+
+    def get_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Read one hosted artifact receipt with hosted and public URLs."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
+            ),
+            label="get_hosted_artifact",
+        )
+
+    def patch_hosted_artifact(
+        self,
+        hosted_artifact_id: str,
+        *,
+        title: str | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        theme: str | None = None,
+        summary: str | None = None,
+        kind: str | None = None,
+        visibility: str | None = None,
+    ) -> dict[str, Any]:
+        """Patch hosted artifact metadata and optional public shell fields."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        body: dict[str, Any] = {}
+        if title is not None:
+            body["title"] = title
+        if metadata is not None:
+            body["metadata"] = dict(metadata)
+        if theme is not None:
+            body["theme"] = theme
+        if summary is not None:
+            body["summary"] = summary
+        if kind is not None:
+            body["kind"] = kind
+        if visibility is not None:
+            body["visibility"] = visibility
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
+                json_body=body or None,
+            ),
+            label="patch_hosted_artifact",
+        )
+
+    def delete_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
+        """Delete a hosted artifact, its public shell, and stored HTML."""
+        hosted_artifact_id = _require_non_empty_string(
+            hosted_artifact_id,
+            field_name="hosted_artifact_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "DELETE",
+                f"/smr/hosted-artifacts/{hosted_artifact_id}",
+            ),
+            label="delete_hosted_artifact",
+        )
+
     def download_artifact(
         self,
         artifact_id: str,
@@ -3228,6 +3577,22 @@ class ManagedResearchClient:
             label="list_environments",
         )
 
+    def create_environment(self, *, manifest: Mapping[str, Any]) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/environments",
+                json_body={
+                    "manifest": _optional_mapping(
+                        manifest,
+                        field_name="manifest",
+                    )
+                    or {},
+                },
+            ),
+            label="create_environment",
+        )
+
     def get_environment(self, *, name: str, digest: str | None = None) -> dict[str, Any]:
         name = _require_non_empty_string(name, field_name="name")
         return _coerce_dict(
@@ -3255,47 +3620,7 @@ class ManagedResearchClient:
             label="preflight_environment",
         )
 
-    def create_cloud_deployment(
-        self,
-        *,
-        project_id: str,
-        name: str,
-        topology_id: str,
-        topology_version: str | None = None,
-        host_kind: str = "exe_dev",
-        metadata: Mapping[str, Any] | None = None,
-        source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        request_body: dict[str, Any] = {
-            "project_id": _require_non_empty_string(
-                project_id,
-                field_name="project_id",
-            ),
-            "name": _require_non_empty_string(name, field_name="name"),
-            "topology_id": _require_non_empty_string(
-                topology_id,
-                field_name="topology_id",
-            ),
-            "topology_version": _optional_non_empty_string(topology_version),
-            "host_kind": _require_non_empty_string(
-                host_kind,
-                field_name="host_kind",
-            ),
-            "metadata": _optional_mapping(metadata, field_name="metadata") or {},
-        }
-        normalized_source = _optional_cloud_deployment_source(source)
-        if normalized_source is not None:
-            request_body["source"] = normalized_source
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                "/smr/v1/deployments",
-                json_body=request_body,
-            ),
-            label="create_cloud_deployment",
-        )
-
-    def list_cloud_deployments(
+    def list_dev_environments(
         self,
         *,
         project_id: str | None = None,
@@ -3304,41 +3629,922 @@ class ManagedResearchClient:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
+                "/smr/dev-environments",
+                params=build_query_params(project_id=project_id, limit=limit),
+            ),
+            label="list_dev_environments",
+        )
+
+    def list_dev_environment_topologies(self) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                "/smr/dev-environments/topologies",
+            ),
+            label="list_dev_environment_topologies",
+        )
+
+    def get_dev_environment_topology(
+        self,
+        *,
+        topology_id: str,
+        version: str | None = None,
+    ) -> dict[str, Any]:
+        topology_id = _require_non_empty_string(
+            topology_id,
+            field_name="topology_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/topologies/{topology_id}",
+                params=build_query_params(version=version),
+            ),
+            label="get_dev_environment_topology",
+        )
+
+    def list_dev_environment_materialization_queue(
+        self,
+        *,
+        project_id: str | None = None,
+        host_kind: str | None = None,
+        backend_target: str | None = None,
+        worker_id: str | None = None,
+        include_leased: bool | None = None,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                "/smr/dev-environments/materialization-queue",
+                params=build_query_params(
+                    project_id=project_id,
+                    host_kind=host_kind,
+                    backend_target=backend_target,
+                    worker_id=worker_id,
+                    include_leased=include_leased,
+                    limit=limit,
+                ),
+            ),
+            label="list_dev_environment_materialization_queue",
+        )
+
+    def create_dev_environment(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        environment_name: str,
+        backend_target: str = "dev",
+        topology_id: str = "synth-dev",
+        topology_version: str | None = None,
+        environment_digest: str | None = None,
+        host_kind: str = "daytona",
+        quota_class: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                "/smr/dev-environments",
+                json_body={
+                    "project_id": _require_non_empty_string(
+                        project_id,
+                        field_name="project_id",
+                    ),
+                    "name": _require_non_empty_string(name, field_name="name"),
+                    "environment_name": _require_non_empty_string(
+                        environment_name,
+                        field_name="environment_name",
+                    ),
+                    "backend_target": _require_non_empty_string(
+                        backend_target,
+                        field_name="backend_target",
+                    ),
+                    "topology_id": _require_non_empty_string(
+                        topology_id,
+                        field_name="topology_id",
+                    ),
+                    "topology_version": _optional_non_empty_string(topology_version),
+                    "environment_digest": _optional_non_empty_string(environment_digest),
+                    "host_kind": _require_non_empty_string(
+                        host_kind,
+                        field_name="host_kind",
+                    ),
+                    "quota_class": _optional_non_empty_string(quota_class),
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                },
+            ),
+            label="create_dev_environment",
+        )
+
+    def get_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json("GET", f"/smr/dev-environments/{dev_environment_id}"),
+            label="get_dev_environment",
+        )
+
+    def claim_dev_environment_materialization(
+        self,
+        *,
+        dev_environment_id: str,
+        worker_id: str,
+        lease_seconds: int | None = None,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/materialization-lease",
+                json_body={
+                    "worker_id": _require_non_empty_string(
+                        worker_id,
+                        field_name="worker_id",
+                    ),
+                    "lease_seconds": lease_seconds,
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                },
+            ),
+            label="claim_dev_environment_materialization",
+        )
+
+    def preflight_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/preflight",
+            ),
+            label="preflight_dev_environment",
+        )
+
+    def _dev_environment_action(
+        self,
+        *,
+        dev_environment_id: str,
+        route_path: str,
+        label: str,
+        metadata: Mapping[str, Any] | None = None,
+        extra_body: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        body = {"metadata": _optional_mapping(metadata, field_name="metadata") or {}}
+        if extra_body:
+            body.update(dict(extra_body))
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                route_path,
+                json_body=body,
+            ),
+            label=label,
+        )
+
+    def deploy_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            route_path=f"/smr/dev-environments/{dev_environment_id}/deploy",
+            label="deploy_dev_environment",
+            metadata=metadata,
+        )
+
+    def start_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            route_path=f"/smr/dev-environments/{dev_environment_id}/start",
+            label="start_dev_environment",
+            metadata=metadata,
+        )
+
+    def stop_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        decision: str = "retain",
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            route_path=f"/smr/dev-environments/{dev_environment_id}/stop",
+            label="stop_dev_environment",
+            metadata=metadata,
+            extra_body={
+                "decision": _require_non_empty_string(
+                    decision,
+                    field_name="decision",
+                )
+            },
+        )
+
+    def snapshot_dev_environment(
+        self,
+        *,
+        dev_environment_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self._dev_environment_action(
+            dev_environment_id=dev_environment_id,
+            route_path=f"/smr/dev-environments/{dev_environment_id}/snapshot",
+            label="snapshot_dev_environment",
+            metadata=metadata,
+        )
+
+    def report_dev_environment_materialization(
+        self,
+        *,
+        dev_environment_id: str,
+        result: str = "succeeded",
+        lifecycle_state: str | None = None,
+        service_summary: Mapping[str, Any] | None = None,
+        log_entries: list[Mapping[str, Any]] | None = None,
+        receipt_refs: list[Mapping[str, Any]] | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        error: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/dev-environments/{dev_environment_id}/materialization",
+                json_body={
+                    "result": _require_non_empty_string(
+                        result,
+                        field_name="result",
+                    ),
+                    "lifecycle_state": _optional_non_empty_string(lifecycle_state),
+                    "service_summary": (None if service_summary is None else dict(service_summary)),
+                    "log_entries": [dict(item) for item in (log_entries or [])],
+                    "receipt_refs": [dict(item) for item in (receipt_refs or [])],
+                    "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+                    "error": None if error is None else dict(error),
+                },
+            ),
+            label="report_dev_environment_materialization",
+        )
+
+    def delete_dev_environment(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json("DELETE", f"/smr/dev-environments/{dev_environment_id}"),
+            label="delete_dev_environment",
+        )
+
+    def get_dev_environment_services(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/services",
+            ),
+            label="get_dev_environment_services",
+        )
+
+    def get_dev_environment_attach(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/attach",
+            ),
+            label="get_dev_environment_attach",
+        )
+
+    def get_dev_environment_logs(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/logs",
+            ),
+            label="get_dev_environment_logs",
+        )
+
+    def get_dev_environment_runs(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/runs",
+            ),
+            label="get_dev_environment_runs",
+        )
+
+    def get_dev_environment_usage(
+        self,
+        *,
+        dev_environment_id: str,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/usage",
+                params=build_query_params(limit=limit),
+            ),
+            label="get_dev_environment_usage",
+        )
+
+    def get_dev_environment_receipts(self, *, dev_environment_id: str) -> dict[str, Any]:
+        dev_environment_id = _require_non_empty_string(
+            dev_environment_id,
+            field_name="dev_environment_id",
+        )
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/dev-environments/{dev_environment_id}/receipts",
+            ),
+            label="get_dev_environment_receipts",
+        )
+
+    # ------------------------------------------------------------------
+    # Cloud deployments (service lane: durable stacks on persistent VMs)
+    # ------------------------------------------------------------------
+
+    def create_image_release_upload(
+        self,
+        *,
+        declaration: ImageReleaseDeclaration | Mapping[str, object],
+        expires_in: int = 3600,
+    ) -> ImageReleaseUpload:
+        if (
+            isinstance(expires_in, bool)
+            or not isinstance(expires_in, int)
+            or not 60 <= expires_in <= 86400
+        ):
+            raise ValueError("expires_in must be between 60 and 86400 seconds")
+        normalized = image_release_declaration(declaration)
+        payload = _image_release_upload_from_wire(
+            self._request_json(
+                "POST",
+                "/smr/v1/image-releases/upload-url",
+                json_body={
+                    "declaration": dict(normalized),
+                    "expires_in": expires_in,
+                },
+            )
+        )
+        if payload["declaration"] != normalized or payload["expires_in"] != expires_in:
+            raise ValueError("image release upload response did not bind the request")
+        return payload
+
+    def finalize_image_release(
+        self,
+        *,
+        upload_id: str,
+        declaration: ImageReleaseDeclaration | Mapping[str, object],
+    ) -> ImageReleaseFinalize:
+        normalized_upload_id = _require_non_empty_string(
+            upload_id,
+            field_name="upload_id",
+        )
+        normalized = image_release_declaration(declaration)
+        payload = _image_release_finalize_from_wire(
+            self._request_json(
+                "POST",
+                "/smr/v1/image-releases/finalize",
+                json_body={
+                    "upload_id": normalized_upload_id,
+                    "declaration": dict(normalized),
+                },
+            )
+        )
+        if payload["release"]["declaration"] != normalized:
+            raise ValueError("image release finalize response did not bind the request")
+        if payload["staging_cleanup"]["upload_id"] != normalized_upload_id:
+            raise ValueError("image release finalize cleaned a different upload_id")
+        return payload
+
+    def get_image_release(self, *, release_id: str) -> ImageRelease:
+        normalized_release_id = _require_non_empty_string(
+            release_id,
+            field_name="release_id",
+        )
+        return _image_release_from_wire(
+            self._request_json(
+                "GET",
+                f"/smr/v1/image-releases/{normalized_release_id}",
+            )
+        )
+
+    def create_cloud_deployment(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        topology_id: str,
+        host_kind: str,
+        topology_version: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
+    ) -> CloudDeployment:
+        normalized_project_id = _require_non_empty_string(
+            project_id,
+            field_name="project_id",
+        )
+        normalized_name = _require_non_empty_string(name, field_name="name")
+        normalized_topology_id = _require_non_empty_string(
+            topology_id,
+            field_name="topology_id",
+        )
+        normalized_topology_version = _optional_non_empty_string(topology_version)
+        normalized_host_kind = _require_non_empty_string(
+            host_kind,
+            field_name="host_kind",
+        )
+        request_body: dict[str, Any] = {
+            "project_id": normalized_project_id,
+            "name": normalized_name,
+            "topology_id": normalized_topology_id,
+            "topology_version": normalized_topology_version,
+            "host_kind": normalized_host_kind,
+            "metadata": _optional_mapping(metadata, field_name="metadata") or {},
+        }
+        normalized_source = _optional_cloud_deployment_source(source)
+        if normalized_source is not None:
+            request_body["source"] = normalized_source
+        created = _coerce_cloud_deployment(
+            self._request_json(
+                "POST",
+                "/smr/v1/deployments",
+                json_body=request_body,
+            ),
+            label="create_cloud_deployment",
+        )
+        expected_identity = {
+            "project_id": normalized_project_id,
+            "name": normalized_name,
+            "topology_id": normalized_topology_id,
+            "host_kind": normalized_host_kind,
+        }
+        if normalized_topology_version is not None:
+            expected_identity["topology_version"] = normalized_topology_version
+        for field_name, expected_value in expected_identity.items():
+            if created.get(field_name) != expected_value:
+                raise ValueError(
+                    "create_cloud_deployment response did not bind the request "
+                    f"({field_name}={created.get(field_name)!r}, expected={expected_value!r})"
+                )
+        if created["topology_source"] is None:
+            raise ValueError("create_cloud_deployment response omitted immutable topology_source")
+        return created
+
+    def list_cloud_deployments(
+        self,
+        *,
+        project_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[CloudDeployment]:
+        return _coerce_cloud_deployment_list(
+            self._request_json(
+                "GET",
                 "/smr/v1/deployments",
                 params=build_query_params(project_id=project_id, limit=limit),
             ),
             label="list_cloud_deployments",
         )
 
-    def get_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
-        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
-        return _coerce_dict(
+    def get_cloud_deployment(self, *, deployment_id: str) -> CloudDeployment:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        return _coerce_cloud_deployment(
             self._request_json("GET", f"/smr/v1/deployments/{deployment_id}"),
             label="get_cloud_deployment",
         )
 
-    def observe_cloud_deployment(self, *, deployment_id: str) -> dict[str, Any]:
-        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
-        return _coerce_dict(
-            self._request_json("POST", f"/smr/v1/deployments/{deployment_id}/observe"),
-            label="observe_cloud_deployment",
+    def observe_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        fencing_token: int | None = None,
+    ) -> CloudDeployment:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
         )
+        try:
+            return _coerce_cloud_deployment(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/observe",
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="observe_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def get_cloud_deployment_services(
+        self,
+        *,
+        deployment_id: str,
+    ) -> CloudDeploymentServices:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/services"),
+            expected_schema="cloud-deployment-services-v1",
+            label="get_cloud_deployment_services",
+        )
+        return cast(CloudDeploymentServices, payload)
+
+    def get_cloud_deployment_workspace(
+        self,
+        *,
+        deployment_id: str,
+    ) -> CloudDeploymentWorkspace:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json("GET", f"/smr/v1/deployments/{deployment_id}/workspace"),
+            expected_schema="cloud-deployment-workspace-v1",
+            label="get_cloud_deployment_workspace",
+        )
+        return cast(CloudDeploymentWorkspace, payload)
+
+    def materialize_cloud_deployment_workspace(
+        self,
+        *,
+        deployment_id: str,
+        repository: str,
+        branch: str,
+        source_commit_sha: str,
+        fencing_token: int,
+    ) -> CloudDeploymentWorkspaceMaterialization:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        request_body = {
+            "repository": _require_non_empty_string(
+                repository,
+                field_name="repository",
+            ),
+            "branch": _require_non_empty_string(branch, field_name="branch"),
+            "source_commit_sha": _require_non_empty_string(
+                source_commit_sha,
+                field_name="source_commit_sha",
+            ).lower(),
+        }
+        if not _FULL_GIT_COMMIT_SHA.fullmatch(request_body["source_commit_sha"]):
+            raise ValueError("source_commit_sha must be a full 40-character Git commit SHA")
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/workspace/materialize",
+                    json_body=request_body,
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-workspace-materialization-v1",
+                label="materialize_cloud_deployment_workspace",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        return cast(CloudDeploymentWorkspaceMaterialization, payload)
+
+    def materialize_cloud_deployment_image_release(
+        self,
+        *,
+        deployment_id: str,
+        release_id: str,
+        fencing_token: int,
+        transfer_timeout_seconds: int = 900,
+    ) -> CloudDeploymentImageMaterialization:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        release_id = _require_non_empty_string(
+            release_id,
+            field_name="release_id",
+        )
+        if (
+            isinstance(transfer_timeout_seconds, bool)
+            or not isinstance(transfer_timeout_seconds, int)
+            or not 1 <= transfer_timeout_seconds <= 1800
+        ):
+            raise ValueError("transfer_timeout_seconds must be between 1 and 1800")
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/image-releases/materialize",
+                    json_body={
+                        "release_id": release_id,
+                        "transfer_timeout_seconds": transfer_timeout_seconds,
+                    },
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-image-materialization-v1",
+                label="materialize_cloud_deployment_image_release",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        if payload.get("deployment_id") != deployment_id or payload.get("release_id") != release_id:
+            raise ValueError("image materialization response did not bind the request")
+        expected_fields = {
+            "schema_version",
+            "deployment_id",
+            "vm_name",
+            "release_id",
+            "operation_id",
+            "artifact",
+            "declaration",
+            "transfer",
+            "loaded_identity",
+        }
+        if set(payload) != expected_fields:
+            raise ValueError("image materialization response fields are invalid")
+        operation_id = payload.get("operation_id")
+        if not isinstance(operation_id, str) or not re.fullmatch(
+            r"imgmat_[0-9a-f]{32}", operation_id
+        ):
+            raise ValueError("image materialization operation_id is invalid")
+        declaration = image_release_declaration(
+            cast(Mapping[str, object], payload.get("declaration"))
+        )
+        artifact = payload.get("artifact")
+        loaded = payload.get("loaded_identity")
+        transfer = payload.get("transfer")
+        if not isinstance(artifact, dict) or set(artifact) != {
+            "artifact_id",
+            "archive_sha256",
+            "archive_size_bytes",
+        }:
+            raise ValueError("image materialization artifact is invalid")
+        if artifact != {
+            "artifact_id": f"imgobj_{declaration['archive_sha256']}",
+            "archive_sha256": declaration["archive_sha256"],
+            "archive_size_bytes": declaration["archive_size_bytes"],
+        }:
+            raise ValueError("image materialization artifact does not bind declaration")
+        if not isinstance(loaded, dict) or set(loaded) != {
+            "image_manifest_digest",
+            "image_config_digest",
+            "image_ref",
+            "platform_os",
+            "platform_architecture",
+        }:
+            raise ValueError("image materialization loaded identity is invalid")
+        for field_name in (
+            "image_manifest_digest",
+            "image_ref",
+            "platform_os",
+            "platform_architecture",
+        ):
+            if loaded.get(field_name) != declaration[field_name]:
+                raise ValueError(f"image materialization {field_name} does not bind declaration")
+        if not isinstance(loaded.get("image_config_digest"), str) or not re.fullmatch(
+            r"sha256:[0-9a-f]{64}", loaded["image_config_digest"]
+        ):
+            raise ValueError("image materialization config digest is invalid")
+        if not isinstance(transfer, dict):
+            raise ValueError("image materialization transfer receipt is invalid")
+        return cast(CloudDeploymentImageMaterialization, payload)
+
+    def exec_cloud_deployment(
+        self,
+        *,
+        deployment_id: str,
+        argv: list[str],
+        fencing_token: int,
+        cwd: str | None = None,
+        timeout_seconds: int = 300,
+        max_output_bytes: int = 65_536,
+    ) -> CloudDeploymentExecResult:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        if not isinstance(argv, list) or not argv or len(argv) > 128:
+            raise ValueError("argv must be a list with 1 to 128 items")
+        normalized_argv: list[str] = []
+        for item in argv:
+            if not isinstance(item, str):
+                raise ValueError("argv items must be strings")
+            if "\x00" in item or len(item.encode("utf-8")) > 4096:
+                raise ValueError("argv items must be at most 4096 bytes and contain no NUL")
+            normalized_argv.append(item)
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, int)
+            or not 1 <= timeout_seconds <= 900
+        ):
+            raise ValueError("timeout_seconds must be between 1 and 900")
+        if (
+            isinstance(max_output_bytes, bool)
+            or not isinstance(max_output_bytes, int)
+            or not 1024 <= max_output_bytes <= 262_144
+        ):
+            raise ValueError("max_output_bytes must be between 1024 and 262144")
+        request_body: dict[str, Any] = {
+            "argv": normalized_argv,
+            "timeout_seconds": int(timeout_seconds),
+            "max_output_bytes": int(max_output_bytes),
+        }
+        normalized_cwd = _optional_non_empty_string(cwd)
+        if normalized_cwd is not None:
+            request_body["cwd"] = normalized_cwd
+        try:
+            payload = _coerce_cloud_deployment_schema(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/exec",
+                    json_body=request_body,
+                    headers=_require_fencing_headers(fencing_token),
+                ),
+                expected_schema="cloud-deployment-exec-v1",
+                label="exec_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+        return cast(CloudDeploymentExecResult, payload)
+
+    def get_cloud_deployment_logs(
+        self,
+        *,
+        deployment_id: str,
+        service_id: str,
+        tail: int = 200,
+    ) -> CloudDeploymentLogs:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        service_id = _require_non_empty_string(service_id, field_name="service_id")
+        if isinstance(tail, bool) or not isinstance(tail, int) or not 1 <= tail <= 5000:
+            raise ValueError("tail must be between 1 and 5000")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/logs",
+                params=build_query_params(service_id=service_id, tail=int(tail)),
+            ),
+            expected_schema="cloud-deployment-logs-v1",
+            label="get_cloud_deployment_logs",
+        )
+        return cast(CloudDeploymentLogs, payload)
+
+    def get_cloud_deployment_artifacts(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str | None = None,
+        relative_prefix: str | None = None,
+        after: str | None = None,
+        limit: int = 100,
+    ) -> CloudDeploymentArtifacts:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        normalized_root_id = _optional_non_empty_string(root_id)
+        normalized_after = _optional_non_empty_string(after)
+        if normalized_after is not None and normalized_root_id is None:
+            raise ValueError("after requires root_id")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 200:
+            raise ValueError("limit must be between 1 and 200")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/artifacts",
+                params=build_query_params(
+                    root_id=normalized_root_id,
+                    relative_prefix=_optional_non_empty_string(relative_prefix),
+                    after=normalized_after,
+                    limit=int(limit),
+                ),
+            ),
+            expected_schema="cloud-deployment-artifacts-v1",
+            label="get_cloud_deployment_artifacts",
+        )
+        return cast(CloudDeploymentArtifacts, payload)
+
+    def get_cloud_deployment_artifact_content(
+        self,
+        *,
+        deployment_id: str,
+        root_id: str,
+        relative_path: str,
+        offset: int = 0,
+        max_bytes: int = 65_536,
+        include_sha256: bool = False,
+    ) -> CloudDeploymentArtifactContent:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        root_id = _require_non_empty_string(root_id, field_name="root_id")
+        relative_path = _require_non_empty_string(
+            relative_path,
+            field_name="relative_path",
+        )
+        if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
+            raise ValueError("offset must be a non-negative integer")
+        if (
+            isinstance(max_bytes, bool)
+            or not isinstance(max_bytes, int)
+            or not 1 <= max_bytes <= 131_072
+        ):
+            raise ValueError("max_bytes must be between 1 and 131072")
+        payload = _coerce_cloud_deployment_schema(
+            self._request_json(
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/artifacts/content",
+                params=build_query_params(
+                    root_id=root_id,
+                    relative_path=relative_path,
+                    offset=int(offset),
+                    max_bytes=int(max_bytes),
+                    include_sha256=bool(include_sha256),
+                ),
+            ),
+            expected_schema="cloud-deployment-artifact-content-v1",
+            label="get_cloud_deployment_artifact_content",
+        )
+        return cast(CloudDeploymentArtifactContent, payload)
 
     def deploy_cloud_deployment(
         self,
         *,
         deployment_id: str,
         reason: str | None = None,
-    ) -> dict[str, Any]:
-        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/v1/deployments/{deployment_id}/deploy",
-                json_body={"reason": _optional_non_empty_string(reason)},
-            ),
-            label="deploy_cloud_deployment",
+        fencing_token: int | None = None,
+    ) -> CloudDeployment:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
         )
+        try:
+            return _coerce_cloud_deployment(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/deploy",
+                    json_body={"reason": _optional_non_empty_string(reason)},
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="deploy_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
 
     def retire_cloud_deployment(
         self,
@@ -3347,19 +4553,128 @@ class ManagedResearchClient:
         reason: str | None = None,
         delete_vm: bool = False,
         confirm_vm_name: str | None = None,
+        fencing_token: int | None = None,
+    ) -> CloudDeployment:
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        try:
+            return _coerce_cloud_deployment(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/retire",
+                    json_body={
+                        "reason": _optional_non_empty_string(reason),
+                        "delete_vm": bool(delete_vm),
+                        "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
+                    },
+                    headers=_fencing_headers(fencing_token),
+                ),
+                label="retire_cloud_deployment",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def acquire_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        holder: str,
+        purpose: str,
+        ttl_seconds: int,
     ) -> dict[str, Any]:
-        deployment_id = _require_non_empty_string(deployment_id, field_name="deployment_id")
+        """POST /smr/v1/deployments/{deployment_id}/claims — acquire the claim.
+
+        409 ``claim_conflict:<holder>`` surfaces as ClaimConflictError.
+        """
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        request = ClaimAcquireRequest(
+            holder=_require_non_empty_string(holder, field_name="holder"),
+            purpose=_require_non_empty_string(purpose, field_name="purpose"),
+            ttl_seconds=int(ttl_seconds),
+        )
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims",
+                    json_body=dict(request.to_wire()),
+                ),
+                label="acquire_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def heartbeat_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> dict[str, Any]:
+        """POST .../claims/{claim_id}/heartbeat — renew the claim TTL.
+
+        410 ``claim_expired`` surfaces as ClaimExpiredError; 409
+        ``claim_superseded`` as ClaimSupersededError.
+        """
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        claim_id = _require_non_empty_string(claim_id, field_name="claim_id")
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims/{claim_id}/heartbeat",
+                ),
+                label="heartbeat_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def release_cloud_deployment_claim(
+        self,
+        *,
+        deployment_id: str,
+        claim_id: str,
+    ) -> dict[str, Any]:
+        """POST .../claims/{claim_id}/release — idempotent; returns claim state."""
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
+        claim_id = _require_non_empty_string(claim_id, field_name="claim_id")
+        try:
+            return _coerce_dict(
+                self._request_json(
+                    "POST",
+                    f"/smr/v1/deployments/{deployment_id}/claims/{claim_id}/release",
+                ),
+                label="release_cloud_deployment_claim",
+            )
+        except SmrApiError as exc:
+            raise_cloud_deployment_claim_error(exc)
+            raise
+
+    def get_cloud_deployment_claims(self, *, deployment_id: str) -> dict[str, Any]:
+        """GET .../claims — active claim (or explicit none) + last fencing token issued."""
+        deployment_id = _require_non_empty_string(
+            deployment_id,
+            field_name="deployment_id",
+        )
         return _coerce_dict(
             self._request_json(
-                "POST",
-                f"/smr/v1/deployments/{deployment_id}/retire",
-                json_body={
-                    "reason": _optional_non_empty_string(reason),
-                    "delete_vm": bool(delete_vm),
-                    "confirm_vm_name": _optional_non_empty_string(confirm_vm_name),
-                },
+                "GET",
+                f"/smr/v1/deployments/{deployment_id}/claims",
             ),
-            label="retire_cloud_deployment",
+            label="get_cloud_deployment_claims",
         )
 
     def list_project_outputs(self, project_id: str) -> list[dict[str, Any]]:
@@ -4002,8 +5317,9 @@ class ManagedResearchClient:
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
         intended_horizon_hours: SmrIntendedHorizonHours | int | None = None,
-        providers: Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]]
-        | None = None,
+        providers: (
+            Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -4018,24 +5334,23 @@ class ManagedResearchClient:
         agent_harness: SmrAgentHarness | None = None,
         agent_kind: SmrAgentKind | None = None,
         agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-        actor_model_overrides: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_overrides: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
         sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
         environment: Mapping[str, Any] | dict[str, Any] | None = None,
+        dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-        required_work_products: Iterable[
-            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        required_work_products: (
+            Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,
@@ -4073,6 +5388,7 @@ class ManagedResearchClient:
             workflow=workflow,
             sandbox_override=sandbox_override,
             environment=environment,
+            dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
@@ -4149,8 +5465,9 @@ class ManagedResearchClient:
         work_mode: SmrWorkMode | str | None = None,
         mode: SmrWorkMode | str | None = None,
         intended_horizon_hours: SmrIntendedHorizonHours | int | None = None,
-        providers: Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]]
-        | None = None,
+        providers: (
+            Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -4165,24 +5482,23 @@ class ManagedResearchClient:
         agent_harness: SmrAgentHarness | None = None,
         agent_kind: SmrAgentKind | None = None,
         agent_model_params: Mapping[str, Any] | dict[str, Any] | None = None,
-        actor_model_overrides: Iterable[
-            SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        actor_model_overrides: (
+            Iterable[SmrActorModelAssignment | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         initial_runtime_messages: Iterable[Mapping[str, Any] | dict[str, Any]] | None = None,
         workflow: Mapping[str, Any] | dict[str, Any] | None = None,
         sandbox_override: Mapping[str, Any] | dict[str, Any] | None = None,
         environment: Mapping[str, Any] | dict[str, Any] | None = None,
+        dev_environment_id: str | None = None,
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
-        required_work_products: Iterable[
-            RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]
-        ]
-        | None = None,
+        required_work_products: (
+            Iterable[RequiredWorkProductSpec | Mapping[str, Any] | dict[str, Any]] | None
+        ) = None,
         require_report: bool = True,
         ai_cache: Mapping[str, Any] | dict[str, Any] | None = None,
         primary_objective_id: str | None = None,
@@ -4221,6 +5537,7 @@ class ManagedResearchClient:
             workflow=workflow,
             sandbox_override=sandbox_override,
             environment=environment,
+            dev_environment_id=dev_environment_id,
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
@@ -4535,2030 +5852,13 @@ class ManagedResearchClient:
         except ValueError as exc:
             raise SmrApiError(f"Invalid run execution projection payload: {exc}") from exc
 
-    def list_run_task_events(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {}
-        if limit is not None:
-            params["limit"] = int(limit)
-        if cursor and cursor.strip():
-            params["cursor"] = cursor.strip()
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/task-events",
-                params=params or None,
-            ),
-            label="list_run_task_events",
-        )
-
-    def list_run_objective_events(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> dict[str, Any]:
-        params: dict[str, Any] = {}
-        if limit is not None:
-            params["limit"] = int(limit)
-        if cursor and cursor.strip():
-            params["cursor"] = cursor.strip()
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/objective-events",
-                params=params or None,
-            ),
-            label="list_run_objective_events",
-        )
-
-    def get_run_progress(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/progress",
-            ),
-            label="get_run_progress",
-        )
-
-    def list_run_primary_parent_milestones(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> list[dict[str, Any]]:
-        """Eval-compat shim: milestones embedded in run progress payload."""
-        resolved_project_id = str(project_id or "").strip()
-        if not resolved_project_id:
-            run_payload = self.get_run(run_id)
-            resolved_project_id = str(run_payload.get("project_id") or "").strip()
-        if not resolved_project_id:
-            raise ValueError(f"run_id {run_id!r} missing project_id")
-        progress = self.get_run_progress(resolved_project_id, run_id)
-        milestones = progress.get("primary_parent_milestones")
-        if isinstance(milestones, list):
-            return [item for item in milestones if isinstance(item, dict)]
-        return []
-
-    def get_run_results(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/results",
-            ),
-            label="get_run_results",
-        )
-
-    def get_run_logs(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        limit: int | None = None,
-        cursor: str | None = None,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/logs",
-                params=build_query_params(limit=limit, cursor=cursor),
-            ),
-            label="get_run_logs",
-        )
-
-    def get_run_orchestrator(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/orchestrator",
-            ),
-            label="get_run_orchestrator",
-        )
-
-    def get_run_work_graph(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        limit: int | None = None,
-    ) -> dict[str, Any]:
-        params = {"limit": int(limit)} if limit is not None else None
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/work-graph",
-                params=params,
-            ),
-            label="get_run_work_graph",
-        )
-
-    def poll_run_observability_snapshot(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        cursor: RunObservationCursor | Mapping[str, Any] | None = None,
-        detail_level: str = "full",
-        event_limit: int = 100,
-        actor_limit: int = 25,
-        task_limit: int = 50,
-        question_limit: int = 25,
-        timeline_limit: int = 10,
-        message_limit: int = 10,
-    ) -> RunObservabilitySnapshot:
-        resolved_cursor = (
-            cursor
-            if isinstance(cursor, RunObservationCursor)
-            else RunObservationCursor.from_wire(cursor or {})
-        )
-        return self.get_run_observability_snapshot(
-            project_id,
-            run_id,
-            since_event_seq=resolved_cursor.latest_event_seq,
-            latest_runtime_message_seq=resolved_cursor.latest_runtime_message_seq,
-            latest_runtime_event_id=resolved_cursor.latest_runtime_event_id,
-            detail_level=detail_level,
-            event_limit=event_limit,
-            actor_limit=actor_limit,
-            task_limit=task_limit,
-            question_limit=question_limit,
-            timeline_limit=timeline_limit,
-            message_limit=message_limit,
-        )
-
-    def get_run_transcript(
-        self,
-        run_id: str,
-        *,
-        cursor: str | None = None,
-        limit: int = 200,
-        participant_session_id: str | None = None,
-        view: str | None = None,
-    ) -> dict[str, Any]:
-        params = build_query_params(
-            cursor=cursor,
-            limit=limit,
-            participant_session_id=participant_session_id,
-            view=view,
-        )
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/runs/{run_id}/runtime/transcript",
-                params=params,
-            ),
-            label="get_run_transcript",
-        )
-
-    def stream_run_events(
-        self,
-        run_id: str,
-        *,
-        transcript_cursor: str | None = None,
-        view: str = "operator",
-        last_event_id: str | None = None,
-        timeout: float | None = None,
-    ):
-        params = build_query_params(
-            transcript_cursor=transcript_cursor,
-            view=view,
-        )
-        for event in self._stream_sse(
-            f"/smr/runs/{run_id}/runtime/stream",
-            params=params,
-            last_event_id=last_event_id,
-            timeout=timeout,
-        ):
-            yield RunRuntimeStreamEvent.from_sse(event)
-
-    def list_objectives(
-        self,
-        project_id: str,
-        *,
-        kind: str | None = None,
-        run_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/objectives",
-                params=build_query_params(kind=kind, run_id=run_id, limit=limit),
-            ),
-            label="list_objectives",
-        )
-
-    def list_directed_effort_outcomes(
-        self,
-        project_id: str,
-        *,
-        run_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """Compatibility alias for eval harnesses (use ``list_objectives``)."""
-        return self.list_objectives(
-            project_id,
-            kind="directed_effort_outcome",
-            run_id=run_id,
-            limit=limit,
-        )
-
-    def get_objective_status(
-        self,
-        project_id: str,
-        objective_id: str,
-        *,
-        kind: str | None = None,
-        task_limit: int | None = None,
-        claim_limit: int | None = None,
-        event_limit: int | None = None,
-        milestone_limit: int | None = None,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/objectives/{objective_id}/status",
-                params=build_query_params(
-                    kind=kind,
-                    task_limit=task_limit,
-                    claim_limit=claim_limit,
-                    event_limit=event_limit,
-                    milestone_limit=milestone_limit,
-                ),
-            ),
-            label="get_objective_status",
-        )
-
-    def get_objective_progress(
-        self,
-        project_id: str,
-        objective_id: str,
-        *,
-        kind: str | None = None,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/objectives/{objective_id}/progress",
-                params=build_query_params(kind=kind),
-            ),
-            label="get_objective_progress",
-        )
-
-    def list_objective_progress_claims(
-        self,
-        project_id: str,
-        objective_id: str,
-        *,
-        kind: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/objectives/{objective_id}/claims",
-                params=build_query_params(kind=kind, limit=limit),
-            ),
-            label="list_objective_progress_claims",
-        )
-
-    def create_objective_progress_claim(
-        self,
-        project_id: str,
-        objective_id: str,
-        *,
-        payload: Mapping[str, Any],
-        kind: str | None = None,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/objectives/{objective_id}/claims",
-                params=build_query_params(kind=kind),
-                json_body=dict(payload),
-            ),
-            label="create_objective_progress_claim",
-        )
-
-    def list_milestones(
-        self,
-        project_id: str,
-        *,
-        run_id: str | None = None,
-        parent_kind: str | None = None,
-        parent_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/milestones",
-                params=build_query_params(
-                    run_id=run_id,
-                    parent_kind=parent_kind,
-                    parent_id=parent_id,
-                    limit=limit,
-                ),
-            ),
-            label="list_milestones",
-        )
-
-    def list_project_milestones(
-        self,
-        project_id: str,
-        *,
-        run_id: str | None = None,
-        parent_kind: str | None = None,
-        parent_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """Compatibility alias for eval harnesses (use ``list_milestones``)."""
-        return self.list_milestones(
-            project_id,
-            run_id=run_id,
-            parent_kind=parent_kind,
-            parent_id=parent_id,
-            limit=limit,
-        )
-
-    def create_milestone(
-        self,
-        project_id: str,
-        *,
-        payload: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/milestones",
-                json_body=dict(payload),
-            ),
-            label="create_milestone",
-        )
-
-    def get_milestone(self, project_id: str, milestone_id: str) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/milestones/{milestone_id}",
-            ),
-            label="get_milestone",
-        )
-
-    def patch_milestone(
-        self,
-        project_id: str,
-        milestone_id: str,
-        *,
-        payload: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "PATCH",
-                f"/smr/projects/{project_id}/milestones/{milestone_id}",
-                json_body=dict(payload),
-            ),
-            label="patch_milestone",
-        )
-
-    def transition_milestone(
-        self,
-        project_id: str,
-        milestone_id: str,
-        *,
-        payload: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/milestones/{milestone_id}/transition",
-                json_body=dict(payload),
-            ),
-            label="transition_milestone",
-        )
-
-    def list_tasks(
-        self,
-        project_id: str,
-        *,
-        run_id: str | None = None,
-        objective_id: str | None = None,
-        kind: str | None = None,
-        limit: int | None = None,
-    ) -> list[ManagedResearchRunTask]:
-        """Return project-scoped task DTOs from the backend owner route."""
-
-        if not run_id:
-            if objective_id:
-                raise SmrApiError(
-                    "Objective-scoped task listing is not available in the current "
-                    "Managed Research backend contract; use run-scoped tasks or "
-                    "run objective events instead.",
-                    failure_class="unsupported_backend_contract",
-                )
-            raise ValueError("run_id or objective_id is required")
-        tasks = [
-            ManagedResearchRunTask.from_wire(item)
-            for item in self.list_tasks_raw(
-                project_id,
-                run_id=run_id,
-                kind=kind,
-                limit=limit,
-            )
-        ]
-        for task in tasks:
-            if task.project_id != project_id or task.run_id != run_id:
-                raise SmrApiError(
-                    "Task owner-route identity does not match the requested project/run",
-                    failure_class="backend_contract_mismatch",
-                )
-        return tasks
-
-    def list_tasks_raw(
-        self,
-        project_id: str,
-        *,
-        run_id: str,
-        kind: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """Legacy serialized task rows; canonical SDK callers use ``list_tasks``."""
-
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/tasks",
-                params=build_query_params(kind=kind, limit=limit),
-            ),
-            label="list_tasks",
-        )
-
-    def list_task_summaries(
-        self,
-        project_id: str,
-        *,
-        run_id: str | None = None,
-        objective_id: str | None = None,
-        kind: str | None = None,
-        limit: int | None = None,
-    ) -> list[TaskSummary]:
-        payload = self._request_json(
-            "GET",
-            f"/smr/projects/{project_id}/sublinear/tasks",
-            params=build_query_params(limit=limit),
-        )
-        if isinstance(payload, list):
-            items = payload
-        elif isinstance(payload, Mapping):
-            raw_items = payload.get("tasks") or payload.get("items") or []
-            if not isinstance(raw_items, list):
-                raise SmrApiError("list_task_summaries response missing tasks list")
-            items = raw_items
-        else:
-            raise SmrApiError("list_task_summaries expected an object or list response")
-        summaries = [dict(item) for item in items if isinstance(item, Mapping)]
-        if run_id:
-            summaries = [
-                item for item in summaries if str(item.get("run_id") or run_id).strip() == run_id
-            ]
-        if objective_id:
-            summaries = [
-                item
-                for item in summaries
-                if str(item.get("objective_id") or objective_id).strip() == objective_id
-            ]
-        if kind:
-            summaries = [item for item in summaries if str(item.get("kind") or "").strip() == kind]
-        return [TaskSummary.from_wire(item) for item in summaries]
-
-    def create_task(
-        self,
-        run_id: str,
-        payload: Mapping[str, Any] | dict[str, Any],
-        *,
-        project_id: str,
-        mode: str = "queue",
-        body: str | None = None,
-    ) -> RuntimeIntentReceipt:
-        return self.submit_runtime_intent(
-            run_id,
-            RuntimeIntent.plan_tasks(tasks=[dict(payload)]),
-            project_id=project_id,
-            mode=mode,
-            body=body,
-        )
-
-    def update_task(
-        self,
-        run_id: str,
-        task_id: str,
-        payload: Mapping[str, Any] | dict[str, Any],
-        *,
-        project_id: str,
-        mode: str = "queue",
-        body: str | None = None,
-    ) -> RuntimeIntentReceipt:
-        task_payload = {"task_id": task_id, **dict(payload)}
-        return self.submit_runtime_intent(
-            run_id,
-            RuntimeIntent.plan_tasks(tasks=[task_payload]),
-            project_id=project_id,
-            mode=mode,
-            body=body,
-        )
-
-    def cancel_task(
-        self,
-        run_id: str,
-        task_id: str,
-        *,
-        project_id: str,
-        reason: str | None = None,
-        mode: str = "queue",
-        body: str | None = None,
-    ) -> RuntimeIntentReceipt:
-        return self.submit_runtime_intent(
-            run_id,
-            RuntimeIntent.set_task_state(
-                task_id=task_id,
-                state="stopped",
-                reason=reason,
-            ),
-            project_id=project_id,
-            mode=mode,
-            body=body,
-        )
-
-    def reassign_task(
-        self,
-        run_id: str,
-        task_id: str,
-        *,
-        project_id: str,
-        assignee: str,
-        mode: str = "queue",
-        body: str | None = None,
-    ) -> RuntimeIntentReceipt:
-        return self.update_task(
-            run_id,
-            task_id,
-            {"assignee": assignee},
-            project_id=project_id,
-            mode=mode,
-            body=body,
-        )
-
-    def _run_lifecycle_control(
-        self,
-        *,
-        method: str,
-        path: str,
-        label: str,
-    ) -> dict[str, Any]:
-        """POST a lifecycle control and translate 409 bodies to typed errors.
-
-        The backend contract for pause/resume/stop returns HTTP 409 with a
-        ``detail`` mapping of
-        ``{error_code, message, retryable, current_state, run_id}`` when
-        the transition is rejected. We surface that as
-        :class:`ManagedResearchRunControlError` so callers can discriminate
-        auth / config / transient failure modes without re-parsing strings.
-        Any other error status is left to the transport's existing mapping.
-        """
-
-        try:
-            return _coerce_dict(
-                self._request_json(method, path),
-                label=label,
-            )
-        except SmrApiError as exc:
-            if exc.status_code != 409:
-                raise
-            response_text = exc.response_text
-            if response_text is None or not response_text.strip():
-                raise ValueError(
-                    f"{label}: HTTP 409 but response body was empty; "
-                    "expected detail mapping with error_code/message/retryable/current_state/run_id"
-                ) from exc
-            try:
-                payload = _json.loads(response_text)
-            except ValueError as parse_exc:
-                raise ValueError(
-                    f"{label}: HTTP 409 body was not valid JSON: {response_text!r}"
-                ) from parse_exc
-            raise ManagedResearchRunControlError.from_response(
-                payload=payload,
-                status_code=exc.status_code,
-                response_text=response_text,
-            ) from exc
-
-    def stop_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
-        if project_id:
-            return self._run_lifecycle_control(
-                method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/stop",
-                label="stop_project_run",
-            )
-        return self._run_lifecycle_control(
-            method="POST",
-            path=f"/smr/runs/{run_id}/stop",
-            label="stop_run",
-        )
-
-    def pause_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
-        if project_id:
-            return self._run_lifecycle_control(
-                method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/pause",
-                label="pause_project_run",
-            )
-        return self._run_lifecycle_control(
-            method="POST",
-            path=f"/smr/runs/{run_id}/pause",
-            label="pause_run",
-        )
-
-    def resume_run(self, run_id: str, *, project_id: str | None = None) -> dict[str, Any]:
-        if project_id:
-            return self._run_lifecycle_control(
-                method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/resume",
-                label="resume_project_run",
-            )
-        return self._run_lifecycle_control(
-            method="POST",
-            path=f"/smr/runs/{run_id}/resume",
-            label="resume_run",
-        )
-
-    def control_project_run_actor(
-        self,
-        project_id: str,
-        run_id: str,
-        actor_id: str,
-        *,
-        action: str,
-        reason: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> dict[str, Any]:
-        body = {
-            "action": action,
-            "reason": reason,
-            "idempotency_key": idempotency_key,
-        }
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_id}/control",
-                json_body={key: value for key, value in body.items() if value is not None},
-            ),
-            label="control_project_run_actor",
-        )
-
-    def list_run_questions(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        status_filter: str | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> list[dict[str, Any]]:
-        params = build_query_params(status_filter=status_filter, limit=limit, cursor=cursor)
-        if project_id:
-            scoped = self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/questions",
-                params=params,
-                allow_not_found=True,
-            )
-            if scoped is not None:
-                return _coerce_dict_list(scoped, label="list_project_run_questions")
-        return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/questions", params=params),
-            label="list_run_questions",
-        )
-
-    def respond_to_run_question(
-        self,
-        run_id: str,
-        question_id: str,
-        *,
-        response_text: str,
-        project_id: str | None = None,
-    ) -> dict[str, Any]:
-        payload = {
-            "response_text": _require_non_empty_string(response_text, field_name="response_text")
-        }
-        if project_id:
-            scoped = self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/questions/{question_id}/respond",
-                json_body=payload,
-                allow_not_found=True,
-            )
-            if scoped is not None:
-                return _coerce_dict(scoped, label="respond_project_run_question")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/runs/{run_id}/questions/{question_id}/respond",
-                json_body=payload,
-            ),
-            label="respond_run_question",
-        )
-
-    def list_run_approvals(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        status_filter: str | None = None,
-        limit: int = 100,
-        cursor: str | None = None,
-    ) -> list[dict[str, Any]]:
-        params = build_query_params(status_filter=status_filter, limit=limit, cursor=cursor)
-        if project_id:
-            scoped = self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals",
-                params=params,
-                allow_not_found=True,
-            )
-            if scoped is not None:
-                return _coerce_dict_list(scoped, label="list_project_run_approvals")
-        return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/approvals", params=params),
-            label="list_run_approvals",
-        )
-
-    def approve_run_approval(
-        self,
-        run_id: str,
-        approval_id: str,
-        *,
-        project_id: str | None = None,
-        comment: str | None = None,
-    ) -> dict[str, Any]:
-        payload = build_query_params(comment=comment) or {}
-        if project_id:
-            scoped = self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/approve",
-                json_body=payload,
-                allow_not_found=True,
-            )
-            if scoped is not None:
-                return _coerce_dict(scoped, label="approve_project_run_approval")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/runs/{run_id}/approvals/{approval_id}/approve",
-                json_body=payload,
-            ),
-            label="approve_run_approval",
-        )
-
-    def deny_run_approval(
-        self,
-        run_id: str,
-        approval_id: str,
-        *,
-        project_id: str | None = None,
-        comment: str | None = None,
-    ) -> dict[str, Any]:
-        payload = build_query_params(comment=comment) or {}
-        if project_id:
-            scoped = self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/deny",
-                json_body=payload,
-                allow_not_found=True,
-            )
-            if scoped is not None:
-                return _coerce_dict(scoped, label="deny_project_run_approval")
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/runs/{run_id}/approvals/{approval_id}/deny",
-                json_body=payload,
-            ),
-            label="deny_run_approval",
-        )
-
-    def _run_checkpoint_path(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        checkpoint_id: str | None = None,
-    ) -> str:
-        if project_id:
-            base = f"/smr/projects/{project_id}/runs/{run_id}/checkpoints"
-        else:
-            base = f"/smr/runs/{run_id}/checkpoints"
-        if checkpoint_id and checkpoint_id.strip():
-            return f"{base}/{checkpoint_id.strip()}"
-        return base
-
-    def request_run_checkpoint(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        checkpoint_id: str | None = None,
-        reason: str | None = None,
-    ) -> dict[str, Any]:
-        payload = build_query_params(checkpoint_id=checkpoint_id, reason=reason)
-        path = self._run_checkpoint_path(run_id, project_id=project_id)
-        label = (
-            "request_project_run_checkpoint" if project_id is not None else "request_run_checkpoint"
-        )
-        return _coerce_dict(
-            self._request_json("POST", path, json_body=payload or {}),
-            label=label,
-        )
-
-    def get_run_checkpoint(
-        self,
-        run_id: str,
-        checkpoint_id: str,
-        *,
-        project_id: str | None = None,
-        allow_not_found: bool = False,
-    ) -> Checkpoint | None:
-        path = self._run_checkpoint_path(
-            run_id,
-            project_id=project_id,
-            checkpoint_id=checkpoint_id,
-        )
-        label = "get_project_run_checkpoint" if project_id is not None else "get_run_checkpoint"
-        payload = self._request_json("GET", path, allow_not_found=allow_not_found)
-        if payload is None:
-            return None
-        return Checkpoint.from_wire(_coerce_dict(payload, label=label))
-
-    def wait_for_run_checkpoint(
-        self,
-        run_id: str,
-        checkpoint_id: str,
-        *,
-        project_id: str | None = None,
-        timeout_seconds: float = 120.0,
-        poll_interval_seconds: float = 1.0,
-    ) -> Checkpoint:
-        checkpoint_id_text = _require_non_empty_string(
-            checkpoint_id,
-            field_name="checkpoint_id",
-        )
-        timeout = max(0.1, float(timeout_seconds))
-        poll_interval = max(0.1, float(poll_interval_seconds))
-        deadline = time.monotonic() + timeout
-        last_state: str | None = None
-        while True:
-            checkpoint = self.get_run_checkpoint(
-                run_id,
-                checkpoint_id_text,
-                project_id=project_id,
-                allow_not_found=True,
-            )
-            if checkpoint is not None:
-                state = str(checkpoint.state).strip().lower()
-                if state in {"ready", "failed", "pruned"}:
-                    return checkpoint
-                last_state = checkpoint.state
-            now = time.monotonic()
-            if now >= deadline:
-                break
-            time.sleep(min(poll_interval, deadline - now))
-        last_state_suffix = f" (last_state={last_state})" if last_state else ""
-        raise SmrApiError(
-            f"Timed out waiting for checkpoint '{checkpoint_id_text}' to materialize{last_state_suffix}"
-        )
-
-    def create_run_checkpoint(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        checkpoint_id: str | None = None,
-        reason: str | None = None,
-        timeout_seconds: float = 120.0,
-        poll_interval_seconds: float = 1.0,
-    ) -> Checkpoint:
-        control_ack = self.request_run_checkpoint(
-            run_id,
-            project_id=project_id,
-            checkpoint_id=checkpoint_id,
-            reason=reason,
-        )
-        resolved_checkpoint_id = _require_non_empty_string(
-            str(control_ack.get("checkpoint_id") or checkpoint_id or ""),
-            field_name="checkpoint_id",
-        )
-        return self.wait_for_run_checkpoint(
-            run_id,
-            resolved_checkpoint_id,
-            project_id=project_id,
-            timeout_seconds=timeout_seconds,
-            poll_interval_seconds=poll_interval_seconds,
-        )
-
-    def list_run_checkpoints(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> list[Checkpoint]:
-        path = self._run_checkpoint_path(run_id, project_id=project_id)
-        label = "list_project_run_checkpoints" if project_id is not None else "list_run_checkpoints"
-        return [
-            Checkpoint.from_wire(item)
-            for item in _coerce_dict_list(
-                self._request_json("GET", path),
-                label=label,
-            )
-        ]
-
-    def restore_run_checkpoint(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        checkpoint_id: str | None = None,
-        checkpoint_record_id: str | None = None,
-        checkpoint_uri: str | None = None,
-        reason: str | None = None,
-        mode: str = "in_place",
-    ) -> dict[str, Any]:
-        payload = build_query_params(
-            checkpoint_id=checkpoint_id,
-            checkpoint_record_id=checkpoint_record_id,
-            checkpoint_uri=checkpoint_uri,
-            reason=reason,
-            mode=mode,
-        )
-        if project_id:
-            return _coerce_dict(
-                self._request_json(
-                    "POST",
-                    f"/smr/projects/{project_id}/runs/{run_id}/restore",
-                    json_body=payload or {},
-                ),
-                label="restore_project_run_checkpoint",
-            )
-        return _coerce_dict(
-            self._request_json("POST", f"/smr/runs/{run_id}/restore", json_body=payload or {}),
-            label="restore_run_checkpoint",
-        )
-
-    def get_run_logical_timeline(self, project_id: str, run_id: str) -> SmrLogicalTimeline:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/timeline",
-            ),
-            label="get_run_logical_timeline",
-        )
-        return SmrLogicalTimeline.from_wire(payload)
-
-    def get_project_run_event_log(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        sources: list[str] | None = None,
-        event_kinds: list[str] | None = None,
-        statuses: list[str] | None = None,
-        limit: int | None = None,
-    ) -> SmrRunEventLog:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/event-log",
-                params=build_query_params(
-                    sources=sources,
-                    event_kinds=event_kinds,
-                    statuses=statuses,
-                    limit=limit,
-                ),
-            ),
-            label="get_project_run_event_log",
-        )
-        return SmrRunEventLog.from_wire(payload)
-
-    def get_run_authority_readouts(
-        self,
-        run_id: str,
-        *,
-        include_runtime_authority: bool = False,
-    ) -> SmrAuthorityReadouts:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/runs/{run_id}/authority-readouts",
-                params=build_query_params(include_runtime_authority=include_runtime_authority),
-            ),
-            label="get_run_authority_readouts",
-        )
-        return SmrAuthorityReadouts.from_wire(payload)
-
-    def get_project_run_authority_readouts(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        include_runtime_authority: bool = False,
-    ) -> SmrAuthorityReadouts:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/authority-readouts",
-                params=build_query_params(include_runtime_authority=include_runtime_authority),
-            ),
-            label="get_project_run_authority_readouts",
-        )
-        return SmrAuthorityReadouts.from_wire(payload)
-
-    def get_project_run_operator_evidence(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        runtime_timeline_limit: int | None = None,
-        logical_timeline_limit: int | None = None,
-        transcript_limit: int | None = None,
-        reconciliation_limit: int | None = None,
-    ) -> SmrRunOperatorEvidence:
-        """Return the canonical typed operator-evidence owner response."""
-
-        return SmrRunOperatorEvidence.from_wire(
-            self.get_project_run_operator_evidence_raw(
-                project_id,
-                run_id,
-                runtime_timeline_limit=runtime_timeline_limit,
-                logical_timeline_limit=logical_timeline_limit,
-                transcript_limit=transcript_limit,
-                reconciliation_limit=reconciliation_limit,
-            )
-        )
-
-    def get_project_run_operator_evidence_raw(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        runtime_timeline_limit: int | None = None,
-        logical_timeline_limit: int | None = None,
-        transcript_limit: int | None = None,
-        reconciliation_limit: int | None = None,
-    ) -> dict[str, Any]:
-        """Legacy serialized operator evidence; canonical callers use the DTO."""
-
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/operator-evidence",
-                params=build_query_params(
-                    runtime_timeline_limit=runtime_timeline_limit,
-                    logical_timeline_limit=logical_timeline_limit,
-                    transcript_limit=transcript_limit,
-                    reconciliation_limit=reconciliation_limit,
-                ),
-            ),
-            label="get_project_run_operator_evidence",
-        )
-
-    def get_project_run_operator_evidence_typed(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        runtime_timeline_limit: int | None = None,
-        logical_timeline_limit: int | None = None,
-        transcript_limit: int | None = None,
-        reconciliation_limit: int | None = None,
-    ) -> SmrRunOperatorEvidence:
-        """Compatibility alias for the canonical typed operator-evidence read."""
-
-        return self.get_project_run_operator_evidence(
-            project_id,
-            run_id,
-            runtime_timeline_limit=runtime_timeline_limit,
-            logical_timeline_limit=logical_timeline_limit,
-            transcript_limit=transcript_limit,
-            reconciliation_limit=reconciliation_limit,
-        )
-
-    def get_run_traces(self, run_id: str) -> SmrRunTraces:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/runs/{run_id}/traces",
-            ),
-            label="get_run_traces",
-        )
-        return SmrRunTraces.from_wire(payload)
-
-    def get_project_run_traces(self, project_id: str, run_id: str) -> SmrRunTraces:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces",
-            ),
-            label="get_project_run_traces",
-        )
-        return SmrRunTraces.from_wire(payload)
-
-    def get_project_run_actor_trace(
-        self,
-        project_id: str,
-        run_id: str,
-        actor_key: str,
-        *,
-        cursor: str | None = None,
-        live_cursor: str | None = None,
-        limit: int | None = None,
-        include_live: bool | None = None,
-        include_traces: bool | None = None,
-    ) -> dict[str, Any]:
-        params = build_query_params(
-            cursor=cursor,
-            live_cursor=live_cursor,
-            limit=limit,
-            include_live=include_live,
-            include_traces=include_traces,
-        )
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_key}/trace",
-                params=params,
-            ),
-            label="get_project_run_actor_trace",
-        )
-
-    def get_project_run_actor_trace_index(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/trace-index",
-            ),
-            label="get_project_run_actor_trace_index",
-        )
-
-    def get_project_run_actors(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> list[dict[str, Any]]:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors",
-            ),
-            label="get_project_run_actors",
-        )
-        actors = payload.get("actors")
-        if not isinstance(actors, list):
-            raise SmrApiError("get_project_run_actors response missing actors list")
-        return [dict(item) for item in actors if isinstance(item, Mapping)]
-
-    def get_project_run_actor_raw_traces(
-        self,
-        project_id: str,
-        run_id: str,
-        actor_key: str,
-    ) -> list[dict[str, Any]]:
-        payload = self._request_json(
-            "GET",
-            f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_key}/traces",
-        )
-        if not isinstance(payload, list):
-            raise ValueError("get_project_run_actor_raw_traces expected a list response")
-        return [dict(item) for item in payload if isinstance(item, Mapping)]
-
-    def get_project_run_raw_trace_events(
-        self,
-        project_id: str,
-        run_id: str,
-        artifact_id: str,
-        *,
-        cursor: str | None = None,
-        limit: int | None = None,
-        redaction_mode: str | None = None,
-        reconstruct: bool | None = None,
-        category: str | list[str] | None = None,
-        method: str | list[str] | None = None,
-    ) -> dict[str, Any]:
-        params = build_query_params(
-            cursor=cursor,
-            limit=limit,
-            redaction_mode=redaction_mode,
-            reconstruct=reconstruct,
-            category=category,
-            method=method,
-        )
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces/{artifact_id}/events",
-                params=params,
-            ),
-            label="get_project_run_raw_trace_events",
-        )
-
-    def create_project_run_raw_trace_download_url(
-        self,
-        project_id: str,
-        run_id: str,
-        artifact_id: str,
-        *,
-        expires_in: int | None = None,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces/{artifact_id}/download-url",
-                params=build_query_params(expires_in=expires_in),
-            ),
-            label="create_project_run_raw_trace_download_url",
-        )
-
-    def download_project_run_raw_trace(
-        self,
-        project_id: str,
-        run_id: str,
-        artifact_id: str,
-        destination: str | os.PathLike[str],
-        *,
-        expires_in: int | None = None,
-    ) -> dict[str, Any]:
-        url_payload = self.create_project_run_raw_trace_download_url(
-            project_id,
-            run_id,
-            artifact_id,
-            expires_in=expires_in,
-        )
-        url = str(url_payload.get("url") or "").strip()
-        if not url:
-            raise ValueError("download URL response did not include url")
-        response = httpx.get(url, timeout=self.timeout_seconds, follow_redirects=True)
-        if response.is_error:
-            _raise_for_error_response(response)
-        destination_path = Path(destination)
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        destination_path.write_bytes(response.content)
-        result = dict(url_payload)
-        result["destination"] = str(destination_path)
-        result["size_bytes"] = len(response.content)
-        return result
-
-    def get_run_actor_usage(self, run_id: str) -> SmrRunActorUsage:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/runs/{run_id}/actors/usage",
-            ),
-            label="get_run_actor_usage",
-        )
-        return SmrRunActorUsage.from_wire(payload)
-
-    def get_project_run_actor_usage(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> SmrRunActorUsage:
-        payload = _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/usage",
-            ),
-            label="get_project_run_actor_usage",
-        )
-        return SmrRunActorUsage.from_wire(payload)
-
-    def list_run_participants(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunParticipants:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/participants"
-            if project_id
-            else f"/smr/runs/{run_id}/participants"
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="list_run_participants",
-        )
-        return SmrRunParticipants.from_wire(payload)
-
-    def get_run_artifact_progress(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunArtifactProgress:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/artifact-progress"
-            if project_id
-            else f"/smr/runs/{run_id}/artifact-progress"
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path),
-            label="get_run_artifact_progress",
-        )
-        return SmrRunArtifactProgress.from_wire(payload)
-
-    def list_run_actor_logs(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        actor_id: str | None = None,
-        turn_id: str | None = None,
-        kind: str | None = None,
-        since: str | None = None,
-        cursor: str | None = None,
-        limit: int | None = None,
-    ) -> SmrRunActorLogs:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/actor-logs"
-            if project_id
-            else f"/smr/runs/{run_id}/actor-logs"
-        )
-        params = build_query_params(
-            actor_id=actor_id,
-            turn_id=turn_id,
-            kind=kind,
-            since=since,
-            cursor=cursor,
-            limit=limit,
-        )
-        payload = _coerce_dict(
-            self._request_json("GET", path, params=params),
-            label="list_run_actor_logs",
-        )
-        return SmrRunActorLogs.from_wire(payload)
-
-    def get_run_cost_summary(self, run_id: str) -> SmrRunCostSummary:
-        payload = _coerce_dict(
-            self.run_cost.summary(run_id),
-            label="get_run_cost_summary",
-        )
-        return SmrRunCostSummary.from_wire(payload)
-
-    def branch_run_from_checkpoint(
-        self,
-        run_id: str | None = None,
-        *,
-        project_id: str | None = None,
-        checkpoint_id: str | None = None,
-        checkpoint_record_id: str | None = None,
-        checkpoint_uri: str | None = None,
-        mode: SmrBranchMode | str = SmrBranchMode.EXACT,
-        message: str | None = None,
-        reason: str | None = None,
-        title: str | None = None,
-        source_node_id: str | None = None,
-    ) -> SmrRunBranchResponse:
-        request = _coerce_branch_request(
-            checkpoint_id=checkpoint_id,
-            checkpoint_record_id=checkpoint_record_id,
-            checkpoint_uri=checkpoint_uri,
-            mode=mode,
-            message=message,
-            reason=reason,
-            title=title,
-            source_node_id=source_node_id,
-        )
-        if project_id is not None and run_id is None:
-            raise ValueError("run_id is required when project_id is provided")
-        if project_id and run_id:
-            path = f"/smr/projects/{project_id}/runs/{run_id}/branches"
-            label = "branch_project_run_from_checkpoint"
-        elif run_id:
-            path = f"/smr/runs/{run_id}/branches"
-            label = "branch_run_from_checkpoint"
-        else:
-            path = "/smr/checkpoints/branches"
-            label = "branch_checkpoint_reference"
-        payload = _coerce_dict(
-            self._request_json("POST", path, json_body=request.to_wire()),
-            label=label,
-        )
-        return SmrRunBranchResponse.from_wire(payload)
-
-    def list_runtime_messages(
-        self,
-        run_id: str,
-        *,
-        status: str | None = None,
-        viewer_role: str | None = None,
-        viewer_target: str | Iterable[str] | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {}
-        if status and status.strip():
-            params["status"] = status.strip()
-        if viewer_role and viewer_role.strip():
-            params["viewer_role"] = viewer_role.strip()
-        if limit is not None:
-            params["limit"] = int(limit)
-        if isinstance(viewer_target, str) and viewer_target.strip():
-            params["viewer_target"] = [viewer_target.strip()]
-        elif viewer_target is not None:
-            cleaned_targets = [str(item).strip() for item in viewer_target if str(item).strip()]
-            if cleaned_targets:
-                params["viewer_target"] = cleaned_targets
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/runs/{run_id}/runtime/messages",
-                params=params or None,
-            ),
-            label="list_runtime_messages",
-        )
-
-    def _list_runtime_messages(
-        self,
-        run_id: str,
-        *,
-        status: str | None = None,
-        viewer_role: str | None = None,
-        viewer_target: str | Iterable[str] | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        return self.list_runtime_messages(
-            run_id,
-            status=status,
-            viewer_role=viewer_role,
-            viewer_target=viewer_target,
-            limit=limit,
-        )
-
-    def list_project_run_runtime_messages(
-        self,
-        project_id: str,
-        run_id: str,
-        *,
-        status: str | None = None,
-        viewer_role: str | None = None,
-        viewer_target: str | Iterable[str] | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {}
-        if status and status.strip():
-            params["status"] = status.strip()
-        if viewer_role and viewer_role.strip():
-            params["viewer_role"] = viewer_role.strip()
-        if limit is not None:
-            params["limit"] = int(limit)
-        if isinstance(viewer_target, str) and viewer_target.strip():
-            params["viewer_target"] = [viewer_target.strip()]
-        elif viewer_target is not None:
-            cleaned_targets = [str(item).strip() for item in viewer_target if str(item).strip()]
-            if cleaned_targets:
-                params["viewer_target"] = cleaned_targets
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/runtime/messages",
-                params=params or None,
-            ),
-            label="list_project_run_runtime_messages",
-        )
-
-    def submit_runtime_intent(
-        self,
-        run_id: str,
-        intent: RuntimeIntent | Mapping[str, Any] | dict[str, Any],
-        *,
-        project_id: str | None = None,
-        mode: str = "queue",
-        body: str | None = None,
-        causation_id: str | None = None,
-    ) -> RuntimeIntentReceipt:
-        if isinstance(intent, RuntimeIntent):
-            intent_payload = intent.to_wire()
-        elif isinstance(intent, Mapping):
-            intent_payload = dict(intent)
-        else:
-            raise ValueError("intent must be a RuntimeIntent or mapping")
-        json_body: dict[str, Any] = {
-            "intent": intent_payload,
-            "mode": str(mode or "queue").strip().lower(),
-        }
-        if body and body.strip():
-            json_body["body"] = body.strip()
-        if causation_id and causation_id.strip():
-            json_body["causation_id"] = causation_id.strip()
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents"
-            if project_id
-            else f"/smr/runs/{run_id}/runtime/intents"
-        )
-        return RuntimeIntentReceipt.from_wire(
-            _coerce_dict(
-                self._request_json("POST", path, json_body=json_body),
-                label="submit_runtime_intent",
-            )
-        )
-
-    def list_runtime_intents(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        status: str | None = None,
-        limit: int | None = None,
-    ) -> list[RuntimeIntentView]:
-        params: dict[str, Any] = {}
-        if status and status.strip():
-            params["status"] = status.strip()
-        if limit is not None:
-            params["limit"] = int(limit)
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents"
-            if project_id
-            else f"/smr/runs/{run_id}/runtime/intents"
-        )
-        return [
-            RuntimeIntentView.from_wire(item)
-            for item in _coerce_dict_list(
-                self._request_json("GET", path, params=params or None),
-                label="list_runtime_intents",
-            )
-        ]
-
-    def get_runtime_intent(
-        self,
-        run_id: str,
-        runtime_intent_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> RuntimeIntentView:
-        path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents/{runtime_intent_id}"
-            if project_id
-            else f"/smr/runs/{run_id}/runtime/intents/{runtime_intent_id}"
-        )
-        return RuntimeIntentView.from_wire(
-            _coerce_dict(
-                self._request_json("GET", path),
-                label="get_runtime_intent",
-            )
-        )
-
-    def enqueue_runtime_message(
-        self,
-        run_id: str,
-        *,
-        topic: str | None = None,
-        causation_id: str | None = None,
-        mode: str | None = None,
-        spawn_policy: str | None = None,
-        sender: str | None = None,
-        target: str | None = None,
-        participant_session_id: str | None = None,
-        action: str | None = None,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        json_body: dict[str, Any] = {}
-        for key, value in (
-            ("topic", topic),
-            ("causation_id", causation_id),
-            ("mode", mode),
-            ("spawn_policy", spawn_policy),
-            ("sender", sender),
-            ("target", target),
-            ("participant_session_id", participant_session_id),
-            ("action", action),
-            ("body", body),
-        ):
-            if value and value.strip():
-                json_body[key] = value.strip()
-        normalized_payload = _optional_mapping(payload, field_name="payload")
-        if normalized_payload:
-            json_body["payload"] = normalized_payload
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/runs/{run_id}/runtime/messages",
-                json_body=json_body,
-            ),
-            label="enqueue_runtime_message",
-        )
-
-    def publish_manderqueue_message(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        intent: str = "queue",
-        audience: Mapping[str, Any] | dict[str, Any] | None = None,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-        message_kind: str = "runtime_message",
-        thread_id: str | None = None,
-        parent_message_id: str | None = None,
-        fallback_policy: str = "block",
-        idempotency_key: str | None = None,
-        correlation_id: str | None = None,
-        causation_id: str | None = None,
-    ) -> dict[str, Any]:
-        json_body: dict[str, Any] = {
-            "intent": str(intent or "queue").strip(),
-            "audience": dict(audience or {"kind": "run"}),
-            "message_kind": str(message_kind or "runtime_message").strip(),
-            "fallback_policy": str(fallback_policy or "block").strip(),
-        }
-        for key, value in (
-            ("body", body),
-            ("thread_id", thread_id),
-            ("parent_message_id", parent_message_id),
-            ("idempotency_key", idempotency_key),
-            ("correlation_id", correlation_id),
-            ("causation_id", causation_id),
-        ):
-            if value and str(value).strip():
-                json_body[key] = str(value).strip()
-        normalized_payload = _optional_mapping(payload, field_name="payload")
-        if normalized_payload:
-            json_body["payload"] = normalized_payload
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages",
-                json_body=json_body,
-            ),
-            label="publish_manderqueue_message",
-        )
-
-    def send_message(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        intent: str = "queue",
-        audience: Mapping[str, Any] | dict[str, Any] | None = None,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-        message_kind: str = "runtime_message",
-        thread_id: str | None = None,
-        parent_message_id: str | None = None,
-        fallback_policy: str = "block",
-        idempotency_key: str | None = None,
-        correlation_id: str | None = None,
-        causation_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Send a product-level message queue message for a run."""
-
-        return self.publish_manderqueue_message(
-            run_id,
-            project_id=project_id,
-            intent=intent,
-            audience=audience,
-            body=body,
-            payload=payload,
-            message_kind=message_kind,
-            thread_id=thread_id,
-            parent_message_id=parent_message_id,
-            fallback_policy=fallback_policy,
-            idempotency_key=idempotency_key,
-            correlation_id=correlation_id,
-            causation_id=causation_id,
-        )
-
-    def publish_message_queue_message(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Publish a product-level message queue message for a run."""
-
-        return self.publish_manderqueue_message(run_id, project_id=project_id, **kwargs)
-
-    def list_manderqueue_threads(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params = {"limit": int(limit)} if limit is not None else None
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/threads",
-                params=params,
-            ),
-            label="list_manderqueue_threads",
-        )
-
-    def list_message_queue_threads(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        limit: int | None = None,
-    ) -> list[MessageQueueThread]:
-        return [
-            MessageQueueThread.from_wire(item)
-            for item in self.list_manderqueue_threads(
-                run_id,
-                project_id=project_id,
-                limit=limit,
-            )
-        ]
-
-    def list_manderqueue_messages(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        thread_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {}
-        if thread_id and thread_id.strip():
-            params["thread_id"] = thread_id.strip()
-        if limit is not None:
-            params["limit"] = int(limit)
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages",
-                params=params or None,
-            ),
-            label="list_manderqueue_messages",
-        )
-
-    def list_message_queue_messages(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        thread_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[MessageQueueMessage]:
-        return [
-            MessageQueueMessage.from_wire(item)
-            for item in self.list_manderqueue_messages(
-                run_id,
-                project_id=project_id,
-                thread_id=thread_id,
-                limit=limit,
-            )
-        ]
-
-    def list_messages(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        thread_id: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        """List product-level message queue messages for a run."""
-
-        return self.list_manderqueue_messages(
-            run_id,
-            project_id=project_id,
-            thread_id=thread_id,
-            limit=limit,
-        )
-
-    def list_manderqueue_interactions(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        status: str | None = None,
-        limit: int | None = None,
-    ) -> list[dict[str, Any]]:
-        params: dict[str, Any] = {}
-        if status and status.strip():
-            params["status"] = status.strip()
-        if limit is not None:
-            params["limit"] = int(limit)
-        return _coerce_dict_list(
-            self._request_json(
-                "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/interactions",
-                params=params or None,
-            ),
-            label="list_manderqueue_interactions",
-        )
-
-    def list_message_queue_interactions(
-        self,
-        run_id: str,
-        *,
-        project_id: str,
-        status: str | None = None,
-        limit: int | None = None,
-    ) -> list[MessageQueueInteraction]:
-        return [
-            MessageQueueInteraction.from_wire(item)
-            for item in self.list_manderqueue_interactions(
-                run_id,
-                project_id=project_id,
-                status=status,
-                limit=limit,
-            )
-        ]
-
-    def respond_to_manderqueue_interaction(
-        self,
-        run_id: str,
-        interaction_id: str,
-        *,
-        project_id: str,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        json_body: dict[str, Any] = {}
-        if body and body.strip():
-            json_body["body"] = body.strip()
-        normalized_payload = _optional_mapping(payload, field_name="payload")
-        if normalized_payload:
-            json_body["payload"] = normalized_payload
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/interactions/{interaction_id}/responses",
-                json_body=json_body,
-            ),
-            label="respond_to_manderqueue_interaction",
-        )
-
-    def respond_to_message_queue_interaction(
-        self,
-        run_id: str,
-        interaction_id: str,
-        *,
-        project_id: str,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self.respond_to_manderqueue_interaction(
-            run_id,
-            interaction_id,
-            project_id=project_id,
-            body=body,
-            payload=payload,
-        )
-
-    def edit_manderqueue_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        json_body: dict[str, Any] = {}
-        if body and body.strip():
-            json_body["body"] = body.strip()
-        normalized_payload = _optional_mapping(payload, field_name="payload")
-        if normalized_payload:
-            json_body["payload"] = normalized_payload
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages/{message_id}/edit",
-                json_body=json_body,
-            ),
-            label="edit_manderqueue_message",
-        )
-
-    def edit_message_queue_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self.edit_manderqueue_message(
-            run_id,
-            message_id,
-            project_id=project_id,
-            body=body,
-            payload=payload,
-        )
-
-    def edit_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-        body: str | None = None,
-        payload: Mapping[str, Any] | dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Edit a product-level message queue message for a run."""
-
-        return self.edit_manderqueue_message(
-            run_id,
-            message_id,
-            project_id=project_id,
-            body=body,
-            payload=payload,
-        )
-
-    def retract_manderqueue_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-    ) -> dict[str, Any]:
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages/{message_id}/retract",
-                json_body={},
-            ),
-            label="retract_manderqueue_message",
-        )
-
-    def retract_message_queue_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-    ) -> dict[str, Any]:
-        return self.retract_manderqueue_message(
-            run_id,
-            message_id,
-            project_id=project_id,
-        )
-
-    def retract_message(
-        self,
-        run_id: str,
-        message_id: str,
-        *,
-        project_id: str,
-    ) -> dict[str, Any]:
-        """Retract a product-level message queue message for a run."""
-
-        return self.retract_manderqueue_message(
-            run_id,
-            message_id,
-            project_id=project_id,
-        )
-
-    def _list_run_log_archives(
-        self,
-        project_id: str,
-        run_id: str,
-    ) -> list[dict[str, Any]]:
-        return _coerce_dict_list(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs/{run_id}/logs/archives"),
-            label="list_run_log_archives",
-        )
-
 
 class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
     """Compatibility alias that retains the legacy synth-ai bridge surface.
 
     `ManagedResearchClient` is the canonical public name. `SmrControlClient`
-    remains as a one-release alias and preserves the older default-backend +
-    synth-ai bridge behavior for migration safety.
+    remains as a one-release alias but requires callers to pass the selected
+    backend explicitly so default construction cannot silently target prod.
     """
 
     def __init__(
@@ -6571,9 +5871,16 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
         openai_project: str | None = None,
         openai_request_id: str | None = None,
     ) -> None:
+        explicit_backend_base = str(backend_base or "").strip()
+        if not explicit_backend_base:
+            raise ValueError(
+                "SmrControlClient requires an explicit backend_base. "
+                "Pass backend_base from the selected environment instead of "
+                "relying on SYNTH_BACKEND_URL or the prod SDK default."
+            )
         super().__init__(
             api_key=api_key,
-            backend_base=backend_base,
+            backend_base=explicit_backend_base,
             timeout_seconds=timeout_seconds,
         )
         self._initialize_openai_bridge(

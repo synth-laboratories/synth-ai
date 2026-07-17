@@ -1935,6 +1935,71 @@ class FactoryWakeDueRequest:
     allow_overlap: bool = False
     dry_run: bool = False
     continue_on_error: bool = True
+    confirmed_preview_id: str | None = None
+    confirmed_preview_token: str | None = field(default=None, repr=False)
+
+    @classmethod
+    def from_contract_wire(cls, payload: object) -> FactoryWakeDueRequest:
+        """Parse the exact token-bound contract returned by a wake preview."""
+        mapping = _require_mapping(payload, label="factory wake request contract")
+        allowed_keys = {
+            "launch_request",
+            "limit",
+            "allow_overlap",
+            "continue_on_error",
+        }
+        unknown_keys = sorted(str(key) for key in set(mapping) - allowed_keys)
+        if unknown_keys:
+            raise ValueError(
+                "factory wake request contract contains unknown fields: " + ", ".join(unknown_keys)
+            )
+        contract = cls.from_wire(mapping)
+        canonical_contract = contract.to_contract_wire()
+        replayed_fields = {str(key): canonical_contract[str(key)] for key in mapping}
+        if dict(mapping) != replayed_fields:
+            raise ValueError("factory wake request contract must be replayed exactly as returned")
+        return contract
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryWakeDueRequest:
+        mapping = _require_mapping(payload, label="factory wake request contract")
+        launch_request = mapping.get("launch_request")
+        if launch_request is not None and not isinstance(launch_request, Mapping):
+            raise ValueError("factory wake launch_request must be an object")
+        limit_value = mapping.get("limit")
+        if limit_value is not None and (
+            isinstance(limit_value, bool) or not isinstance(limit_value, int)
+        ):
+            raise ValueError("factory wake limit must be an integer")
+        limit = 10 if limit_value is None else limit_value
+        if not 1 <= limit <= 100:
+            raise ValueError("factory wake limit must be between 1 and 100")
+        continue_on_error = _optional_bool(mapping, "continue_on_error")
+        return cls(
+            launch_request=(
+                _optional_object_dict(launch_request, label="factory wake launch_request")
+                if launch_request is not None
+                else None
+            ),
+            limit=limit,
+            allow_overlap=bool(_optional_bool(mapping, "allow_overlap")),
+            dry_run=bool(_optional_bool(mapping, "dry_run")),
+            continue_on_error=(True if continue_on_error is None else continue_on_error),
+            confirmed_preview_id=_optional_string(mapping, "confirmed_preview_id"),
+            confirmed_preview_token=_optional_string(mapping, "confirmed_preview_token"),
+        )
+
+    def to_contract_wire(self) -> dict[str, Any]:
+        """Return the token-bound request fields, excluding transport controls."""
+        payload: dict[str, Any] = {
+            "launch_request": (
+                dict(self.launch_request) if self.launch_request is not None else None
+            ),
+            "limit": self.limit,
+            "allow_overlap": self.allow_overlap,
+            "continue_on_error": self.continue_on_error,
+        }
+        return payload
 
     def to_wire(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -1945,6 +2010,10 @@ class FactoryWakeDueRequest:
         }
         if self.launch_request is not None:
             payload["launch_request"] = dict(self.launch_request)
+        if self.confirmed_preview_id is not None:
+            payload["confirmed_preview_id"] = self.confirmed_preview_id
+        if self.confirmed_preview_token is not None:
+            payload["confirmed_preview_token"] = self.confirmed_preview_token
         return payload
 
 
@@ -1988,11 +2057,20 @@ class FactoryWakeDueResult:
     factory_id: str
     evaluated_at: datetime | None
     dry_run: bool
-    launched: int
-    skipped: int
-    failed: int
+    launched: int = 0
+    skipped: int = 0
+    failed: int = 0
     efforts: tuple[FactoryWakeDueEffort, ...] = ()
-    raw: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict, repr=False)
+    preview_id: str | None = None
+    preview_token: str | None = field(default=None, repr=False)
+    preview_expires_at: datetime | None = None
+    confirmed_preview_id: str | None = None
+    confirmation_required: bool = False
+    request_contract: FactoryWakeDueRequest | None = None
+    receipt_id: str | None = None
+    executed_at: datetime | None = None
+    ready: int = 0
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryWakeDueResult:
@@ -2001,6 +2079,19 @@ class FactoryWakeDueResult:
             factory_id=_require_string(mapping, "factory_id", label="wake.factory_id"),
             evaluated_at=_optional_datetime(mapping, "evaluated_at"),
             dry_run=bool(_optional_bool(mapping, "dry_run")),
+            preview_id=_optional_string(mapping, "preview_id"),
+            preview_token=_optional_string(mapping, "preview_token"),
+            preview_expires_at=_optional_datetime(mapping, "preview_expires_at"),
+            confirmed_preview_id=_optional_string(mapping, "confirmed_preview_id"),
+            confirmation_required=bool(_optional_bool(mapping, "confirmation_required")),
+            request_contract=(
+                FactoryWakeDueRequest.from_contract_wire(mapping.get("request_contract"))
+                if mapping.get("request_contract") is not None
+                else None
+            ),
+            receipt_id=_optional_string(mapping, "receipt_id"),
+            executed_at=_optional_datetime(mapping, "executed_at"),
+            ready=int(mapping.get("ready") or 0),
             launched=int(mapping.get("launched") or 0),
             skipped=int(mapping.get("skipped") or 0),
             failed=int(mapping.get("failed") or 0),

@@ -241,10 +241,144 @@ class SmrStructuredDenialError(SmrApiError):
         self.detail = dict(detail) if detail else {}
 
 
+class CloudDeploymentClaimError(SmrApiError):
+    """Base for typed CloudDeployment claim/fencing denials (named 409/410 reasons).
+
+    ``reason`` carries the backend's named reason string verbatim (e.g.
+    ``claim_conflict:worker-a``, ``claim_expired``, ``fencing_token_stale``).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            failure_class=reason,
+            body=detail,
+        )
+        self.reason = reason
+        self.detail = dict(detail) if detail else {}
+
+
+class ClaimConflictError(CloudDeploymentClaimError):
+    """Acquire refused: another holder owns the claim (HTTP 409, ``claim_conflict:<holder>``)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        reason: str,
+        holder: str | None = None,
+        status_code: int | None = None,
+        response_text: str | None = None,
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            message,
+            reason=reason,
+            status_code=status_code,
+            response_text=response_text,
+            detail=detail,
+        )
+        self.holder = holder
+
+
+class ClaimExpiredError(CloudDeploymentClaimError):
+    """Heartbeat refused: the claim's TTL lapsed (HTTP 410, ``claim_expired``)."""
+
+
+class ClaimSupersededError(CloudDeploymentClaimError):
+    """Heartbeat refused: a newer claim replaced this one (HTTP 409, ``claim_superseded``)."""
+
+
+class FencingTokenRequiredError(CloudDeploymentClaimError):
+    """Mutating op refused: an active claim requires ``X-Fencing-Token`` (HTTP 409, ``fencing_token_required``)."""
+
+
+class FencingTokenStaleError(CloudDeploymentClaimError):
+    """Mutating op refused: the presented fencing token was superseded (HTTP 409, ``fencing_token_stale``)."""
+
+
+_CLAIM_REASON_ERRORS: dict[str, type[CloudDeploymentClaimError]] = {
+    "claim_expired": ClaimExpiredError,
+    "claim_superseded": ClaimSupersededError,
+    "fencing_token_required": FencingTokenRequiredError,
+    "fencing_token_stale": FencingTokenStaleError,
+}
+
+_CLAIM_CONFLICT_REASON_PREFIX = "claim_conflict"
+
+
+def _claim_reason_candidates(exc: SmrApiError) -> list[str]:
+    candidates: list[Any] = [exc.failure_class]
+    for source in (exc.body, getattr(exc, "detail", None)):
+        if isinstance(source, dict):
+            candidates.extend(source.get(key) for key in ("error_code", "error", "reason"))
+            nested = source.get("detail")
+            if isinstance(nested, dict):
+                candidates.extend(nested.get(key) for key in ("error_code", "error", "reason"))
+    normalized: list[str] = []
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            normalized.append(candidate.strip())
+    return normalized
+
+
+def raise_cloud_deployment_claim_error(exc: SmrApiError) -> None:
+    """Re-raise ``exc`` as a typed claim/fencing error when its named reason is recognized.
+
+    Only 409/410 responses are inspected; unrecognized reasons return so the
+    caller can re-raise the original ``SmrApiError`` unchanged. Reasons are read
+    from the structured error body (``failure_class`` / ``error_code`` /
+    ``error`` / ``reason``), never phrase-matched from prose.
+    """
+
+    if exc.status_code not in (409, 410):
+        return
+    message = str(exc)
+    detail = dict(getattr(exc, "detail", None) or exc.body or {})
+    for reason in _claim_reason_candidates(exc):
+        if reason == _CLAIM_CONFLICT_REASON_PREFIX or reason.startswith(
+            f"{_CLAIM_CONFLICT_REASON_PREFIX}:"
+        ):
+            holder = reason.partition(":")[2].strip() or None
+            raise ClaimConflictError(
+                message,
+                reason=reason,
+                holder=holder,
+                status_code=exc.status_code,
+                response_text=exc.response_text,
+                detail=detail,
+            ) from exc
+        error_cls = _CLAIM_REASON_ERRORS.get(reason)
+        if error_cls is not None:
+            raise error_cls(
+                message,
+                reason=reason,
+                status_code=exc.status_code,
+                response_text=exc.response_text,
+                detail=detail,
+            ) from exc
+
+
 ManagedResearchError = SmrApiError
 
 
 __all__ = [
+    "ClaimConflictError",
+    "ClaimExpiredError",
+    "ClaimSupersededError",
+    "CloudDeploymentClaimError",
+    "FencingTokenRequiredError",
+    "FencingTokenStaleError",
     "ManagedResearchError",
     "SmrApiError",
     "SmrCheckpointQuotaExceededError",
@@ -255,4 +389,5 @@ __all__ = [
     "SmrManagedInferenceUnavailableError",
     "SmrProjectMonthlyBudgetExhaustedError",
     "SmrStructuredDenialError",
+    "raise_cloud_deployment_claim_error",
 ]

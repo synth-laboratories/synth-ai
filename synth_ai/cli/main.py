@@ -3,6 +3,7 @@
 import click
 
 from synth_ai.cli.containers import containers
+from synth_ai.cli.dev_envs import dev_envs
 from synth_ai.cli.pools import pools
 from synth_ai.cli.research import research
 from synth_ai.cli.tunnels import tunnels
@@ -27,6 +28,7 @@ def cli(ctx):
 
 
 cli.add_command(containers)
+cli.add_command(dev_envs)
 cli.add_command(pools)
 cli.add_command(research)
 cli.add_command(tunnels)

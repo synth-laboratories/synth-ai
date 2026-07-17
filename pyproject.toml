@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.15.0"
+version = "0.15.1"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -46,7 +46,7 @@ analytics = [
     "pandas>=2.2.3",
 ]
 research = [
-    # Compatibility extra retained so `pip install synth-ai[research]` remains valid.
+    # Compatibility extra retained so `synth-ai[research]` remains valid.
 ]
 
 [project.urls]
@@ -82,8 +82,10 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 "synth_ai" = [
+    "py.typed",
     "opencode/skill/*/SKILL.md",
     "managed_research/py.typed",
+    "managed_research/factory_plans/*.json",
     "managed_research/schemas/*",
 ]
 

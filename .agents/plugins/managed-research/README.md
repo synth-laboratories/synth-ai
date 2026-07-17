@@ -12,7 +12,7 @@ Local stdio fallback:
 
 - this plugin delegates to the sibling `synth-ai` checkout
 - the maintained stdio entrypoint is `synth-ai-managed-research-mcp`
-- the maintained package install path is `pip install "synth-ai[research]"`
+- the maintained package install path is `uv add "synth-ai[research]"`
 
 Canonical control-plane flow:
 

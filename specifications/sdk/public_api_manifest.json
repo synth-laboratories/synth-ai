@@ -63,7 +63,8 @@
       "group": "Runs",
       "pages": [
         "reference/sdk/research/synth_ai-research-runs",
-        "reference/sdk/research/synth_ai-research-run_readouts"
+        "reference/sdk/research/synth_ai-research-run_readouts",
+        "reference/sdk/research/synth_ai-research-hosted-artifacts"
       ]
     },
     {
@@ -90,6 +91,7 @@
     "synth_ai/research/secrets.py",
     "synth_ai/research/projects.py",
     "synth_ai/research/runs.py",
+    "synth_ai/research/hosted_artifacts.py",
     "synth_ai/client.py",
     "synth_ai/sdk/containers.py",
     "synth_ai/sdk/tunnels.py",

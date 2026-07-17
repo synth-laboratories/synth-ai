@@ -100,7 +100,9 @@ class UsageAPI(_ClientNamespace):
 
     def get_billing_entitlements(self) -> BillingEntitlementSnapshot:
         return BillingEntitlementSnapshot.from_wire(
-            _raise_on_error_payload(self._client._request_json("GET", "/billing/entitlements"))
+            _raise_on_error_payload(
+                self._client._request_json("GET", "/api/v1/billing/entitlements")
+            )
         )
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
