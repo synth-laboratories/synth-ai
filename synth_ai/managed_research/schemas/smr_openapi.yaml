@@ -42148,6 +42148,15 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SmrFactoryOperatingWindowResponse'
           - type: 'null'
+        results:
+          items:
+            $ref: '#/components/schemas/SmrFactoryResultResponse'
+          type: array
+          title: Results
+        current_best:
+          anyOf:
+          - $ref: '#/components/schemas/SmrFactoryResultResponse'
+          - type: 'null'
       type: object
       required:
       - factory
@@ -47084,7 +47093,7 @@ components:
           title: Preview Formula Version
         enforcement_status:
           type: string
-          const: not_implemented
+          const: implemented
           title: Enforcement Status
         customer_discount_percent:
           type: integer

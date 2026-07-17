@@ -1825,6 +1825,8 @@ class FactoryStatus:
     experiment_observability: ExperimentBundle | None = None
     judgment_state: dict[str, object] = field(default_factory=dict)
     operating_window: FactoryOperatingWindow | None = None
+    results: tuple[FactoryResult, ...] = ()
+    current_best: FactoryResult | None = None
     raw: dict[str, object] = field(default_factory=dict)
 
     @property
@@ -1922,6 +1924,14 @@ class FactoryStatus:
             operating_window=(
                 FactoryOperatingWindow.from_wire(mapping.get("operating_window"))
                 if mapping.get("operating_window") is not None
+                else None
+            ),
+            results=tuple(
+                FactoryResult.from_wire(item) for item in list(mapping.get("results") or [])
+            ),
+            current_best=(
+                FactoryResult.from_wire(mapping.get("current_best"))
+                if mapping.get("current_best") is not None
                 else None
             ),
             raw=dict(mapping),

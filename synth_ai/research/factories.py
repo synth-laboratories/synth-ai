@@ -381,7 +381,7 @@ class ResearchFactoryResultsAPI:
             effort_id=effort_id,
         )
 
-    def selection_events(
+    def list_selection_events(
         self,
         factory_id: str,
         *,
