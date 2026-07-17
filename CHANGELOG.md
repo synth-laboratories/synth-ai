@@ -4,6 +4,27 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.15.3.dev0 — 2026-07-17
+
+Prerelease. Install with `pip install --pre synth-ai` or pin
+`synth-ai==0.15.3.dev0`.
+
+### Security
+
+- **`repr(ManagedResearchClient)` no longer leaks the API key.** `api_key` was a
+  plain dataclass field that `__post_init__` overwrites with the resolved secret,
+  so the default `repr` / `%r` / traceback frame rendered the live credential
+  (also reachable via `SynthClient().research.session`). The field is now
+  `repr=False` with an explicit redacting `__repr__` (`api_key=<set|unset>`).
+
+### Fixed
+
+- **MCP denial parity across all tools.** Typed `SmrApiError` denials were mapped
+  to structured RPC errors for only the run-launch handlers; every other tool
+  flattened to a generic `-32000` text error, dropping `error_code` /
+  `http_status` / `detail`. A central mapping now surfaces the structured
+  `-32010` payload for any tool, so SDK and MCP expose the same denial contract.
+
 ## 0.15.2 — 2026-07-17
 
 ### Fixed

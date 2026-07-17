@@ -2,7 +2,9 @@ name: Auto-publish to PyPI
 
 on:
   push:
-    branches: [main]
+    # main publishes stable versions; dev publishes .dev prereleases so the
+    # latest fixes are installable (with --pre / an exact pin) before promotion.
+    branches: [main, dev]
 
 permissions:
   contents: write
@@ -34,25 +36,22 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Local version: $VERSION"
 
-      - name: Get PyPI version
-        id: pypi
-        run: |
-          PYPI_VERSION=$(curl -fsSL https://pypi.org/pypi/synth-ai/json | jq -r '.info.version // empty')
-          if [ -z "$PYPI_VERSION" ]; then PYPI_VERSION="0.0.0"; fi
-          echo "version=$PYPI_VERSION" >> $GITHUB_OUTPUT
-          echo "PyPI version: $PYPI_VERSION"
-
       - name: Check if publish needed
         id: check
         run: |
           LOCAL="${{ steps.local.outputs.version }}"
-          PYPI="${{ steps.pypi.outputs.version }}"
-          if [ "$LOCAL" != "$PYPI" ]; then
-            echo "needs_publish=true" >> $GITHUB_OUTPUT
-            echo "Version mismatch: local=$LOCAL, pypi=$PYPI - will publish"
-          else
+          # Publish when the EXACT local version is not yet on PyPI. Comparing
+          # against .info.version (the latest STABLE) would re-fire on every dev
+          # push because a .dev prerelease never becomes .info.version, so the
+          # same prerelease would be rebuilt/republished repeatedly. Checking
+          # .releases[$LOCAL] is correct for both stable and .dev versions.
+          if curl -fsSL https://pypi.org/pypi/synth-ai/json \
+               | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null 2>&1; then
             echo "needs_publish=false" >> $GITHUB_OUTPUT
-            echo "Versions match: $LOCAL - skipping publish"
+            echo "Version $LOCAL already on PyPI - skipping publish"
+          else
+            echo "needs_publish=true" >> $GITHUB_OUTPUT
+            echo "Version $LOCAL not on PyPI - will publish"
           fi
 
   build-distributions:
@@ -94,6 +93,8 @@ jobs:
 
       - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   create-release:
     needs: [check-version, publish]
