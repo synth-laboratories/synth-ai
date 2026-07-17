@@ -16,7 +16,7 @@ import tarfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 import httpx
 
@@ -73,15 +73,11 @@ def _actor_image_from_materialization(
     platform: str,
     archive_sha256: str,
 ) -> ActorImage:
-    release_id = _text(
-        materialization, "runtime_image_release_id", label="runtime_image_release"
-    )
+    release_id = _text(materialization, "runtime_image_release_id", label="runtime_image_release")
     digest = _text(materialization, "resolved_digest", label="runtime_image_release")
     if not _DIGEST.fullmatch(digest):
         raise ValueError("runtime_image_release.resolved_digest is not a sha256 digest")
-    image_release_id = _text(
-        materialization, "image_release_id", label="runtime_image_release"
-    )
+    image_release_id = _text(materialization, "image_release_id", label="runtime_image_release")
     if not _RELEASE_ID.fullmatch(image_release_id):
         raise ValueError("runtime_image_release.image_release_id is invalid")
     capabilities = materialization.get("capabilities")
@@ -132,8 +128,7 @@ def inspect_oci_archive(archive_path: Path) -> dict[str, str]:
         descriptor = manifests[0]
         if (
             isinstance(descriptor, Mapping)
-            and descriptor.get("mediaType")
-            == "application/vnd.oci.image.index.v1+json"
+            and descriptor.get("mediaType") == "application/vnd.oci.image.index.v1+json"
         ):
             # containerd-backed `docker save` nests a single-image index one
             # level below the top index; chase exactly one hop.
@@ -157,9 +152,7 @@ def inspect_oci_archive(archive_path: Path) -> dict[str, str]:
                 )
             ]
             if len(nested_manifests) != 1:
-                raise ValueError(
-                    "OCI archive nested index must contain exactly one image manifest"
-                )
+                raise ValueError("OCI archive nested index must contain exactly one image manifest")
             descriptor = nested_manifests[0]
         manifest_digest = str(descriptor.get("digest") or "")
         if not _DIGEST.fullmatch(manifest_digest):
@@ -234,12 +227,9 @@ class ImagesAPI(_ClientNamespace):
         normalized_name = str(name or "").strip()
         if not _IMAGE_NAME.fullmatch(normalized_name):
             raise ValueError(
-                "name must be a lowercase image repository name "
-                "(for example 'craftax-worker')"
+                "name must be a lowercase image repository name (for example 'craftax-worker')"
             )
-        normalized_capabilities = [
-            str(item or "").strip().lower() for item in capabilities
-        ]
+        normalized_capabilities = [str(item or "").strip().lower() for item in capabilities]
         if not normalized_capabilities or any(
             not _CAPABILITY.fullmatch(item) for item in normalized_capabilities
         ):
@@ -253,13 +243,10 @@ class ImagesAPI(_ClientNamespace):
         archive_sha256 = _sha256_file(path)
         archive_size_bytes = path.stat().st_size
         inspection = inspect_oci_archive(path)
-        actual_platform = (
-            f"{inspection['platform_os']}/{inspection['platform_architecture']}"
-        )
+        actual_platform = f"{inspection['platform_os']}/{inspection['platform_architecture']}"
         if platform is not None and platform != actual_platform:
             raise ValueError(
-                f"platform mismatch: archive is {actual_platform}, "
-                f"declaration requested {platform}"
+                f"platform mismatch: archive is {actual_platform}, declaration requested {platform}"
             )
         normalized_tag = str(tag or archive_sha256[:12]).strip()
         if not _IMAGE_TAG.fullmatch(normalized_tag):
@@ -288,9 +275,7 @@ class ImagesAPI(_ClientNamespace):
         upload_id = _text(upload, "upload_id", label="image_upload")
         upload_url = _text(upload, "upload_url", label="image_upload")
         # Loopback HTTP is the local-stack MinIO shape; anything else must be HTTPS.
-        if not upload_url.startswith(
-            ("https://", "http://localhost", "http://127.")
-        ):
+        if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
             raise ValueError("image upload_url must use HTTPS")
         self._put_archive(
             upload_url,
@@ -399,14 +384,11 @@ class ImagesAPI(_ClientNamespace):
             )
         materialization = receipt.get("runtime_image_release")
         if not isinstance(materialization, Mapping):
-            raise ValueError(
-                "image release exists but has no executable runtime image release"
-            )
+            raise ValueError("image release exists but has no executable runtime image release")
         return _actor_image_from_materialization(
             materialization,
             platform=(
-                f"{declaration.get('platform_os')}/"
-                f"{declaration.get('platform_architecture')}"
+                f"{declaration.get('platform_os')}/{declaration.get('platform_architecture')}"
             ),
             archive_sha256=str(declaration.get("archive_sha256") or ""),
         )
@@ -415,12 +397,10 @@ class ImagesAPI(_ClientNamespace):
         """Return the executable release status for an uploaded actor image."""
         return self.get(image_release_id=image_release_id).status
 
-    def list(self) -> list[dict[str, Any]]:
+    def list(self) -> List[dict[str, Any]]:
         """List this org's customer actor runtime image releases."""
         payload = self._client._request_json("GET", "/smr/v1/image-releases")
-        if not isinstance(payload, Mapping) or not isinstance(
-            payload.get("releases"), list
-        ):
+        if not isinstance(payload, Mapping) or not isinstance(payload.get("releases"), list):
             raise ValueError("image list response must include releases")
         return [dict(item) for item in payload["releases"] if isinstance(item, Mapping)]
 

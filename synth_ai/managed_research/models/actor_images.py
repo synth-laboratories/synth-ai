@@ -54,9 +54,7 @@ class ActorImageBinding:
         if isinstance(payload, Mapping):
             unexpected = set(payload) - {"release_id", "reason", "notes"}
             if unexpected:
-                raise ValueError(
-                    f"actor image binding has unexpected fields: {sorted(unexpected)}"
-                )
+                raise ValueError(f"actor image binding has unexpected fields: {sorted(unexpected)}")
             release_id = payload.get("release_id")
             if not isinstance(release_id, str):
                 raise ValueError("actor image binding release_id must be a string")
@@ -68,8 +66,7 @@ class ActorImageBinding:
                 notes=notes if isinstance(notes, str) or notes is None else None,
             )
         raise ValueError(
-            "actor image binding must be an ActorImageBinding, release id string, "
-            "or mapping"
+            "actor image binding must be an ActorImageBinding, release id string, or mapping"
         )
 
 

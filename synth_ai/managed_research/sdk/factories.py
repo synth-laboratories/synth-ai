@@ -48,9 +48,9 @@ from synth_ai.managed_research.models.factories import (
     FactoryResult,
     FactoryResultEvaluateRequest,
     FactoryResultRestoreRequest,
-    FactoryResultSelectRequest,
     FactoryResultSelectionDecision,
     FactoryResultSelectionEvent,
+    FactoryResultSelectRequest,
     FactoryStatus,
     FactoryWakeDueRequest,
     FactoryWakeDueResult,
@@ -844,9 +844,7 @@ class FactoryResultsAPI(_ClientNamespace):
         ]
 
     def get(self, factory_id: str, result_id: str) -> FactoryResult:
-        return FactoryResult.from_wire(
-            self._client.get_factory_result(factory_id, result_id)
-        )
+        return FactoryResult.from_wire(self._client.get_factory_result(factory_id, result_id))
 
     def evaluate(
         self,

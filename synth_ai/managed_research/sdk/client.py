@@ -31,15 +31,15 @@ from synth_ai.managed_research.models import (
     FactoryCandidateGradingRequest,
     FactoryChampionRollbackRequest,
     FactoryChampionSelectRequest,
-    FactoryResultEvaluateRequest,
-    FactoryResultRestoreRequest,
-    FactoryResultSelectRequest,
     FactoryCreateRequest,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
     FactoryPatchRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
+    FactoryResultEvaluateRequest,
+    FactoryResultRestoreRequest,
+    FactoryResultSelectRequest,
     FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
@@ -911,9 +911,7 @@ def _build_project_run_payload(
     normalized_ai_cache = _optional_mapping(ai_cache, field_name="ai_cache")
     if normalized_ai_cache:
         payload["ai_cache"] = normalized_ai_cache
-    normalized_actor_image_overrides = actor_image_overrides_payload(
-        actor_image_overrides
-    )
+    normalized_actor_image_overrides = actor_image_overrides_payload(actor_image_overrides)
     if normalized_actor_image_overrides:
         payload["actor_image_overrides"] = normalized_actor_image_overrides
     normalized_image_override = image_override_payload(image_override)

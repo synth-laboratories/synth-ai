@@ -2433,14 +2433,10 @@ class FactoryResult:
             artifact_id=_optional_string(mapping, "artifact_id"),
             artifact_links=tuple(mapping.get("artifact_links") or ()),
             evaluation=(
-                FactoryResultEvaluation.from_wire(evaluation)
-                if evaluation is not None
-                else None
+                FactoryResultEvaluation.from_wire(evaluation) if evaluation is not None else None
             ),
             selection=(
-                FactoryResultSelection.from_wire(selection)
-                if selection is not None
-                else None
+                FactoryResultSelection.from_wire(selection) if selection is not None else None
             ),
             compatibility=(
                 FactoryResultCompatibility.from_wire(compatibility)

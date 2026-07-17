@@ -37,9 +37,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
 
     def get_factory_result(args: dict[str, Any]) -> dict[str, Any]:
         with server._client_from_args(args) as client:
-            return client.factories.results.get(
-                str(args["factory_id"]), str(args["result_id"])
-            ).raw
+            return client.factories.results.get(str(args["factory_id"]), str(args["result_id"])).raw
 
     def evaluate_factory_result(args: dict[str, Any]) -> dict[str, Any]:
         with server._client_from_args(args) as client:
@@ -194,9 +192,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_list_factory_result_selection_events",
-            description=(
-                "List the append-only current-best selection history for a Factory."
-            ),
+            description=("List the append-only current-best selection history for a Factory."),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
