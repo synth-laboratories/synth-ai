@@ -45,6 +45,12 @@ from synth_ai.managed_research.models.factories import (
     FactoryProjectPatchRequest,
     FactoryProjectRole,
     FactoryProjectStatus,
+    FactoryResult,
+    FactoryResultEvaluateRequest,
+    FactoryResultRestoreRequest,
+    FactoryResultSelectRequest,
+    FactoryResultSelectionDecision,
+    FactoryResultSelectionEvent,
     FactoryStatus,
     FactoryWakeDueRequest,
     FactoryWakeDueResult,
@@ -156,6 +162,12 @@ class FactoriesAPI(_ClientNamespace):
                 limit=limit,
             )
         ]
+
+    @property
+    def results(self) -> FactoryResultsAPI:
+        """Public Result surface: ``research.factories.results.list(factory_id)``."""
+
+        return FactoryResultsAPI(self._client)
 
     def link_project(
         self,
@@ -796,6 +808,118 @@ class FactoriesAPI(_ClientNamespace):
         )
 
 
+class FactoryResultsAPI(_ClientNamespace):
+    """Public Result surface, accessed as ``research.factories.results``.
+
+    A Result is the canonical public object a Factory produces. Evaluation and
+    current-best selection are optional; ordinary Results carry neither. These
+    methods resolve to the same backend authority the legacy candidate/champion
+    methods on ``FactoriesAPI`` use — never a second source of truth.
+    """
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        effort_id: str | None = None,
+        run_id: str | None = None,
+        kind: str | None = None,
+        readiness: str | None = None,
+        evaluation_status: str | None = None,
+        current_best: bool | None = None,
+        limit: int = 100,
+    ) -> List[FactoryResult]:
+        return [
+            FactoryResult.from_wire(item)
+            for item in self._client.list_factory_results(
+                factory_id,
+                effort_id=effort_id,
+                run_id=run_id,
+                kind=kind,
+                readiness=readiness,
+                evaluation_status=evaluation_status,
+                current_best=current_best,
+                limit=limit,
+            )
+        ]
+
+    def get(self, factory_id: str, result_id: str) -> FactoryResult:
+        return FactoryResult.from_wire(
+            self._client.get_factory_result(factory_id, result_id)
+        )
+
+    def evaluate(
+        self,
+        factory_id: str,
+        result_id: str,
+        *,
+        evaluation: Mapping[str, Any] | dict[str, Any],
+    ) -> FactoryResult:
+        return FactoryResult.from_wire(
+            self._client.evaluate_factory_result(
+                factory_id,
+                result_id,
+                FactoryResultEvaluateRequest(evaluation=dict(evaluation)),
+            )
+        )
+
+    def select_current_best(
+        self,
+        factory_id: str,
+        *,
+        result_id: str,
+        reason: str,
+        scope: str | None = None,
+        effort_id: str | None = None,
+    ) -> FactoryResultSelectionDecision:
+        return FactoryResultSelectionDecision.from_wire(
+            self._client.select_factory_result_current_best(
+                factory_id,
+                FactoryResultSelectRequest(
+                    result_id=result_id,
+                    reason=reason,
+                    scope=scope,
+                    effort_id=effort_id,
+                ),
+            )
+        )
+
+    def restore_current_best(
+        self,
+        factory_id: str,
+        *,
+        result_id: str,
+        reason: str,
+        scope: str | None = None,
+        effort_id: str | None = None,
+    ) -> FactoryResultSelectionDecision:
+        return FactoryResultSelectionDecision.from_wire(
+            self._client.restore_factory_result_current_best(
+                factory_id,
+                FactoryResultRestoreRequest(
+                    result_id=result_id,
+                    reason=reason,
+                    scope=scope,
+                    effort_id=effort_id,
+                ),
+            )
+        )
+
+    def selection_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int = 100,
+    ) -> List[FactoryResultSelectionEvent]:
+        return [
+            FactoryResultSelectionEvent.from_wire(item)
+            for item in self._client.list_factory_result_selection_events(
+                factory_id,
+                limit=limit,
+            )
+        ]
+
+
 class EffortsAPI(_ClientNamespace):
     def create(
         self,
@@ -955,4 +1079,4 @@ class EffortsAPI(_ClientNamespace):
         )
 
 
-__all__ = ["EffortsAPI", "FactoriesAPI"]
+__all__ = ["EffortsAPI", "FactoriesAPI", "FactoryResultsAPI"]

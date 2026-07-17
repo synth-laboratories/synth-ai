@@ -45,6 +45,9 @@ from synth_ai.managed_research.mcp.tools.datasets import build_dataset_tools
 from synth_ai.managed_research.mcp.tools.dev_environments import build_dev_environment_tools
 from synth_ai.managed_research.mcp.tools.exports import build_export_tools
 from synth_ai.managed_research.mcp.tools.factories import build_factory_tools
+from synth_ai.managed_research.mcp.tools.factory_results import (
+    build_factory_result_tools,
+)
 from synth_ai.managed_research.mcp.tools.files import build_file_tools
 from synth_ai.managed_research.mcp.tools.integrations import build_integration_tools
 from synth_ai.managed_research.mcp.tools.logs import build_log_tools
@@ -295,6 +298,7 @@ class ManagedResearchMcpServer:
         return [
             *build_project_tools(self),
             *build_factory_tools(self),
+            *build_factory_result_tools(self),
             *build_dev_environment_tools(self),
             *build_cloud_deployment_tools(self),
             *build_workspace_input_tools(self),
@@ -3473,6 +3477,22 @@ class ManagedResearchMcpServer:
                 "jsonrpc": "2.0",
                 "id": request_id,
                 "error": {"code": exc.code, "message": exc.message, "data": exc.data},
+            }
+        except SmrApiError as exc:
+            # Central denial mapping: any tool (not just the run-launch handlers)
+            # that raises a typed SmrApiError must surface the structured
+            # error_code / http_status / detail so SDK↔MCP denial parity holds.
+            # Without this, non-launch tools flatten to a generic -32000 text
+            # error and drop plan/cap/current-count fields.
+            payload = _mcp_structured_trigger_error_payload(exc)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32010,
+                    "message": payload.get("message", str(exc)),
+                    "data": payload,
+                },
             }
         except Exception as exc:
             return {
