@@ -4,6 +4,17 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.15.2 — 2026-07-17
+
+### Fixed
+
+- **Research run authority schema parity** — the vendored backend OpenAPI now
+  carries the optional `runtime_authority_source_version` field returned by
+  typed run-authority readouts, keeping the published SDK contract aligned with
+  the Research Factory backend release.
+- **Installed schema completeness** — source and wheel distributions now retain
+  the backend-authored public-model registry beside the vendored OpenAPI schema.
+
 ## 0.15.1 — 2026-07-17
 
 ### Added
