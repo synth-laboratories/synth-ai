@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer
-from synth_ai.managed_research.sdk.cloud_deployments import CLOUD_SLOT_IDENTITIES
 
 RUNNING_STATES = {"running"}
 RETRYABLE_FAILURE_STATES = {"failed"}
@@ -70,7 +69,6 @@ def _deployment_summary(payload: Any) -> dict[str, Any]:
         return {"raw": payload}
     return {
         "deployment_id": payload.get("deployment_id"),
-        "cloud_slot": payload.get("cloud_slot"),
         "name": payload.get("name"),
         "state": payload.get("state"),
         "vm_name": payload.get("vm_name"),
@@ -260,12 +258,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--deployment-id", default=None)
     parser.add_argument("--create", action="store_true")
     parser.add_argument("--registry-only", action="store_true")
-    parser.add_argument("--cloud-slot", choices=CLOUD_SLOT_IDENTITIES, default=None)
     parser.add_argument(
         "--name",
-        default=os.environ.get("DEPLOYMENT_NAME") or f"synth-dev-mcp-p8-{int(time.time())}",
+        default=os.environ.get("DEPLOYMENT_NAME") or f"product-cloud-deployment-p8-{int(time.time())}",
     )
-    parser.add_argument("--topology-id", default="synth-dev")
+    parser.add_argument("--topology-id", required=False)
     parser.add_argument("--topology-version", default=None)
     parser.add_argument("--host-kind", default="exe_dev")
     parser.add_argument("--metadata", action="append", default=[])
@@ -274,7 +271,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--health-path", default="/health")
     parser.add_argument("--redeploy", action="store_true")
     parser.add_argument("--claim-holder", default="cloud-deployment-mcp-proof")
-    parser.add_argument("--claim-purpose", default="cloud slot lifecycle proof")
+    parser.add_argument("--claim-purpose", default="product deployment lifecycle proof")
     parser.add_argument("--claim-ttl-seconds", type=int, default=3600)
     parser.add_argument("--retire-at-end", action="store_true")
     parser.add_argument("--delete-vm", action="store_true")
@@ -291,7 +288,6 @@ def main(argv: list[str] | None = None) -> int:
         "proof": "cloud_deployment_mcp_p8",
         "backend_base": args.backend_base,
         "deployment_id": args.deployment_id,
-        "cloud_slot": args.cloud_slot,
         "topology_id": args.topology_id,
         "host_kind": args.host_kind,
         "steps": [],
@@ -320,8 +316,8 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("--deployment-id or --create is required")
         if args.create and deployment_id:
             raise RuntimeError("--create cannot be combined with --deployment-id")
-        if args.create and not args.cloud_slot:
-            raise RuntimeError("--create requires --cloud-slot slot1-cloud|slot2-cloud")
+        if args.create and not str(args.topology_id or "").strip():
+            raise RuntimeError("--create requires an explicit product --topology-id")
         if args.delete_vm and not args.retire_at_end:
             raise RuntimeError("--delete-vm requires --retire-at-end")
         if args.delete_vm and not str(args.confirm_vm_name or "").strip():
@@ -350,7 +346,6 @@ def main(argv: list[str] | None = None) -> int:
                     "topology_id": args.topology_id,
                     "topology_version": args.topology_version,
                     "host_kind": args.host_kind,
-                    "cloud_slot": args.cloud_slot,
                     "metadata": metadata,
                 },
             )
