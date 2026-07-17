@@ -116,7 +116,10 @@ def _raise_for_error_response(response: httpx.Response) -> None:
                         response_text=response_text,
                         detail=detail,
                     )
-                if stripped == "smr_concurrent_run_limit_exceeded":
+                if stripped in {
+                    "smr_concurrent_run_limit_exceeded",
+                    "smr_launch_promo_concurrent_limit",
+                }:
                     raise SmrConcurrentRunLimitExceededError(
                         message,
                         status_code=status_code,
@@ -204,6 +207,11 @@ class SmrHttpTransport:
             base_url=self.base_url.rstrip("/"),
             headers=self.headers,
             timeout=self.timeout,
+            # WorkProduct content resolves through the durable artifact owner.
+            # The API first redirects to its artifact route and may then redirect
+            # to presigned object storage; returning the first 3xx body would
+            # silently surface empty content instead of the stored blob.
+            follow_redirects=True,
         )
 
     def close(self) -> None:
@@ -216,6 +224,7 @@ class SmrHttpTransport:
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
     ) -> Any:
         try:
@@ -224,6 +233,7 @@ class SmrHttpTransport:
                 path,
                 params=params,
                 json=json_body,
+                headers=headers,
             )
         except httpx.TimeoutException as exc:
             raise SmrApiError(f"{method} {path} timed out") from exc

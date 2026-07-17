@@ -7,19 +7,22 @@ from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.tag import TagAPI
+from synth_ai.research.economics import ResearchEconomicsAPI
 from synth_ai.research.efforts import ResearchEffortsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
+from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import ResearchRunsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
+from synth_ai.research.visuals import ResearchVisualsAPI
 
 
 class ResearchClient:
     """Managed Research entrypoint on ``SynthClient``.
 
     Obtain via ``SynthClient().research``. Namespaces cover projects, runs,
-    limits, secrets, and Factory Tag (``factories.tag``).
+    limits, economics, secrets, and Factory Tag (``factories.tag``).
 
     Example:
         >>> client = SynthClient()
@@ -44,7 +47,10 @@ class ResearchClient:
         self._projects: ResearchProjectsAPI | None = None
         self._runs: ResearchRunsAPI | None = None
         self._limits: ResearchLimitsAPI | None = None
+        self._economics: ResearchEconomicsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
+        self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
+        self._visuals: ResearchVisualsAPI | None = None
         self._tag: TagAPI | None = None
 
     def _open_session(self) -> ManagedResearchClient:
@@ -110,11 +116,32 @@ class ResearchClient:
         return self._limits
 
     @property
+    def economics(self) -> ResearchEconomicsAPI:
+        """Read authoritative org entitlements and project economics."""
+        if self._economics is None:
+            self._economics = ResearchEconomicsAPI(self._open_session())
+        return self._economics
+
+    @property
     def secrets(self) -> ResearchSecretsAPI:
         """Manage project secret refs for providers and repos."""
         if self._secrets is None:
             self._secrets = ResearchSecretsAPI(self._open_session())
         return self._secrets
+
+    @property
+    def hosted_artifacts(self) -> ResearchHostedArtifactsAPI:
+        """Open Research hosted artifact operator API (read, promote, review)."""
+        if self._hosted_artifacts is None:
+            self._hosted_artifacts = ResearchHostedArtifactsAPI(self._open_session())
+        return self._hosted_artifacts
+
+    @property
+    def visuals(self) -> ResearchVisualsAPI:
+        """Publish and browse first-class blob-backed Synth Visuals."""
+        if self._visuals is None:
+            self._visuals = ResearchVisualsAPI(self._open_session())
+        return self._visuals
 
     @property
     def tag(self) -> TagAPI:
@@ -129,13 +156,13 @@ class ResearchClient:
         return self._tag
 
     def get_limits(self) -> dict[str, Any]:
-        """Deprecated — use ``limits.get()`` instead."""
+        """Return the legacy raw payload; use typed ``limits.get_typed()`` instead."""
         warnings.warn(
-            "research.get_limits() is deprecated; use research.limits.get() instead.",
+            "research.get_limits() is deprecated; use research.limits.get_typed() instead.",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.limits.get()
+        return self._open_session().get_limits()
 
     def close(self) -> None:
         """Close the underlying HTTP session and cached namespace clients."""
@@ -147,7 +174,10 @@ class ResearchClient:
         self._projects = None
         self._runs = None
         self._limits = None
+        self._economics = None
         self._secrets = None
+        self._hosted_artifacts = None
+        self._visuals = None
         self._tag = None
 
 

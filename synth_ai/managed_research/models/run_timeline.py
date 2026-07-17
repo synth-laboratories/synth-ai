@@ -404,6 +404,7 @@ class SmrAuthorityReadouts:
     run_id: str
     generated_at: datetime
     source_authority_version: str
+    runtime_authority_source_version: str | None = None
     public_status: dict[str, Any] | None = None
     operator_control: dict[str, Any] = field(default_factory=dict)
     diagnostic: dict[str, Any] = field(default_factory=dict)
@@ -424,7 +425,11 @@ class SmrAuthorityReadouts:
         authority = ManagedResearchRuntimeAuthority.from_wire(self.runtime_authority)
         if authority.project_id != self.project_id or authority.run_id != self.run_id:
             raise ValueError("runtime authority identity does not match its project/run readout")
-        if authority.source_authority_version != self.source_authority_version:
+        if self.runtime_authority_source_version is None:
+            raise ValueError(
+                "runtime_authority_source_version is required when runtime authority is included"
+            )
+        if authority.source_authority_version != self.runtime_authority_source_version:
             raise ValueError("runtime authority version does not match its project/run readout")
         return authority
 
@@ -444,6 +449,9 @@ class SmrAuthorityReadouts:
             source_authority_version=_require_text(
                 payload.get("source_authority_version"),
                 field_name="source_authority_version",
+            ),
+            runtime_authority_source_version=_optional_text(
+                payload.get("runtime_authority_source_version")
             ),
             public_status=_coerce_optional_any_dict(
                 payload.get("public_status"), field_name="public_status"
@@ -468,6 +476,7 @@ class SmrAuthorityReadouts:
             "run_id": self.run_id,
             "generated_at": self.generated_at.isoformat(),
             "source_authority_version": self.source_authority_version,
+            "runtime_authority_source_version": self.runtime_authority_source_version,
             "public_status": (dict(self.public_status) if self.public_status is not None else None),
             "operator_control": dict(self.operator_control),
             "diagnostic": dict(self.diagnostic),

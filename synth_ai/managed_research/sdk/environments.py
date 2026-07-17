@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List, Mapping
 
 from synth_ai.managed_research.models.types import Environment, EnvironmentPreflight
 from synth_ai.managed_research.sdk._base import _ClientNamespace
@@ -19,6 +19,9 @@ class EnvironmentsAPI(_ClientNamespace):
         return EnvironmentPreflight.from_wire(
             self._client.preflight_environment(name=name, digest=digest)
         )
+
+    def create(self, *, manifest: Mapping[str, Any]) -> Environment:
+        return Environment.from_wire(self._client.create_environment(manifest=manifest))
 
 
 __all__ = ["EnvironmentsAPI"]

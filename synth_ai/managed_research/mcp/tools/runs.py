@@ -262,11 +262,232 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "type": "integer",
                         "description": "Compatibility hard timebox. Prefer intended_horizon_hours.",
                     },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Optional live DevEnvironment id to bind this run to.",
+                    },
                 },
                 "required": [],
                 "additionalProperties": True,
             },
             handler=server._tool_start_run,
+        ),
+        ToolDefinition(
+            name="smr_get_launch_preflight_in_dev_environment",
+            description=(
+                "Preflight a project-scoped Managed Research run inside an existing "
+                "Daytona DevEnvironment. Requires project_id and dev_environment_id; "
+                "local_execution, execution_profile, sandbox_override, and environment "
+                "are intentionally not accepted."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Managed research project id.",
+                    },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Live Daytona DevEnvironment id to bind this run to.",
+                    },
+                    **_horizon_launch_properties(),
+                    "work_mode": {
+                        "type": "string",
+                        "enum": list(SMR_WORK_MODE_VALUES),
+                        "description": "Compatibility alias for mode.",
+                    },
+                    **_objective_launch_properties(),
+                    "initial_runtime_messages": {
+                        "type": "array",
+                        "description": "Optional kickoff runtime messages to enqueue durably before the run starts.",
+                        "items": {"type": "object"},
+                    },
+                    "providers": _provider_bindings_schema(),
+                    "limit": _usage_limit_schema(),
+                    "worker_pool_id": {
+                        "type": "string",
+                        "description": "Optional worker pool override.",
+                    },
+                    "runbook": {
+                        "type": "string",
+                        "description": "Optional runbook kind.",
+                    },
+                    "runbook_preset": {
+                        "type": "string",
+                        "description": "Optional runbook preset id.",
+                    },
+                    "runbook_config_id": {
+                        "type": "string",
+                        "description": "Optional runbook config id.",
+                    },
+                    "timebox_seconds": {
+                        "type": "integer",
+                        "description": "Compatibility hard timebox. Prefer intended_horizon_hours.",
+                    },
+                    "agent_profile": {
+                        "type": "string",
+                        "description": "Optional backend-managed agent profile preset.",
+                    },
+                    "workflow": {
+                        "type": "object",
+                        "description": "Optional workflow override.",
+                    },
+                    "run_policy": run_policy_input_schema(),
+                    "kickoff_contract": {
+                        "type": "object",
+                        "description": "Optional staged-run kickoff contract.",
+                    },
+                    "resource_bindings": {
+                        "type": "object",
+                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
+                    },
+                    "ai_cache": {
+                        "type": "object",
+                        "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
+                    },
+                    "primary_objective_id": {
+                        "type": "string",
+                        "description": "Optional existing project objective id to bind as this run's primary objective.",
+                    },
+                    "primary_objective_kind": {
+                        "type": "string",
+                        "description": "Optional project objective kind.",
+                    },
+                    "primary_parent_ref": {
+                        "type": "object",
+                        "description": "Optional primary parent ref.",
+                    },
+                    "primary_parent": {
+                        "type": "object",
+                        "description": "Optional primary parent payload.",
+                    },
+                    "effort_id": {
+                        "type": "string",
+                        "description": "Optional effort id to bind this run to.",
+                    },
+                    "idempotency_key_run_create": {
+                        "type": "string",
+                        "description": "Optional idempotency key for run creation.",
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "description": "Deprecated compatibility alias for idempotency_key_run_create.",
+                    },
+                },
+                required=["project_id", "dev_environment_id", "intended_horizon_hours"],
+            ),
+            handler=server._tool_get_launch_preflight_in_dev_environment,
+        ),
+        ToolDefinition(
+            name="smr_start_run_in_dev_environment",
+            description=(
+                "Start a project-scoped Managed Research run inside an existing "
+                "Daytona DevEnvironment. Requires project_id and dev_environment_id; "
+                "local_execution, execution_profile, sandbox_override, and environment "
+                "are intentionally not accepted."
+            ),
+            input_schema=tool_schema(
+                {
+                    "project_id": {
+                        "type": "string",
+                        "description": "Managed research project id.",
+                    },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Live Daytona DevEnvironment id to bind this run to.",
+                    },
+                    **_horizon_launch_properties(),
+                    "work_mode": {
+                        "type": "string",
+                        "enum": list(SMR_WORK_MODE_VALUES),
+                        "description": "Compatibility alias for mode.",
+                    },
+                    **_objective_launch_properties(),
+                    "initial_runtime_messages": {
+                        "type": "array",
+                        "description": "Optional kickoff runtime messages to enqueue durably before the run starts.",
+                        "items": {"type": "object"},
+                    },
+                    "providers": _provider_bindings_schema(),
+                    "limit": _usage_limit_schema(),
+                    "worker_pool_id": {
+                        "type": "string",
+                        "description": "Optional worker pool override.",
+                    },
+                    "runbook": {
+                        "type": "string",
+                        "description": "Optional runbook kind.",
+                    },
+                    "runbook_preset": {
+                        "type": "string",
+                        "description": "Optional runbook preset id.",
+                    },
+                    "runbook_config_id": {
+                        "type": "string",
+                        "description": "Optional runbook config id.",
+                    },
+                    "timebox_seconds": {
+                        "type": "integer",
+                        "description": "Compatibility hard timebox. Prefer intended_horizon_hours.",
+                    },
+                    "agent_profile": {
+                        "type": "string",
+                        "description": "Optional backend-managed agent profile preset.",
+                    },
+                    "workflow": {
+                        "type": "object",
+                        "description": "Optional workflow override.",
+                    },
+                    "run_policy": run_policy_input_schema(),
+                    "kickoff_contract": {
+                        "type": "object",
+                        "description": "Optional staged-run kickoff contract.",
+                    },
+                    "resource_bindings": {
+                        "type": "object",
+                        "description": "Optional Phase 3 run resource bindings for external repos and credential refs.",
+                    },
+                    "ai_cache": {
+                        "type": "object",
+                        "description": "Optional run-scoped local AI-cache request with mode and proxy base_url.",
+                    },
+                    "primary_objective_id": {
+                        "type": "string",
+                        "description": "Optional existing project objective id to bind as this run's primary objective.",
+                    },
+                    "primary_objective_kind": {
+                        "type": "string",
+                        "description": "Optional project objective kind.",
+                    },
+                    "primary_parent_ref": {
+                        "type": "object",
+                        "description": "Optional primary parent ref.",
+                    },
+                    "primary_parent": {
+                        "type": "object",
+                        "description": "Optional primary parent payload.",
+                    },
+                    "effort_id": {
+                        "type": "string",
+                        "description": "Optional effort id to bind this run to.",
+                    },
+                    "idempotency_key_run_create": {
+                        "type": "string",
+                        "description": "Optional idempotency key for run creation.",
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "description": "Deprecated compatibility alias for idempotency_key_run_create.",
+                    },
+                },
+                required=[
+                    "project_id",
+                    "dev_environment_id",
+                    "objective",
+                    "intended_horizon_hours",
+                ],
+            ),
+            handler=server._tool_start_run_in_dev_environment,
         ),
         ToolDefinition(
             name="smr_trigger_run",
@@ -343,6 +564,10 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "environment": {
                         "type": "object",
                         "description": "Optional Environment v1 reference, e.g. {'schema_version': '2026-05-14-environment-v1', 'name': 'symbolic-craftax-py311'}.",
+                    },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Optional live DevEnvironment id to bind this run to.",
                     },
                     "local_execution": {
                         "type": "object",
@@ -467,6 +692,10 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     "environment": {
                         "type": "object",
                         "description": "Optional Environment v1 reference.",
+                    },
+                    "dev_environment_id": {
+                        "type": "string",
+                        "description": "Optional live DevEnvironment id to bind this run to.",
                     },
                     "local_execution": {
                         "type": "object",

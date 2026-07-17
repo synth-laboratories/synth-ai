@@ -15,6 +15,10 @@ from synth_ai.managed_research.models.billing import (
     SmrManualBillingGrantPreview,
     SmrManualBillingGrantPreviewRequest,
 )
+from synth_ai.managed_research.models.promotions import (
+    SmrPromotionDiscountPreview,
+    SmrPromotionDiscountPreviewRequest,
+)
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 
 _PREFLIGHT_REQUEST_FIELDS = frozenset(
@@ -331,6 +335,25 @@ class BillingAPI(_ClientNamespace):
             )
         )
 
+    def preview_promotion_discount(
+        self,
+        request: SmrPromotionDiscountPreviewRequest | Mapping[str, Any],
+    ) -> SmrPromotionDiscountPreview:
+        """Preview draft promotion economics without mutation or enforcement."""
+
+        typed_request = (
+            request
+            if isinstance(request, SmrPromotionDiscountPreviewRequest)
+            else SmrPromotionDiscountPreviewRequest.from_wire(request)
+        )
+        return SmrPromotionDiscountPreview.from_wire(
+            self._client._request_json(
+                "POST",
+                "/smr/promotions/admin/discount-preview",
+                json_body=typed_request.to_wire(),
+            )
+        )
+
     def run_drawdown(self, run_id: str) -> SmrBillingDrawdown:
         return SmrBillingDrawdown.from_wire(
             self._client._request_json("GET", f"/smr/billing/runs/{run_id}/drawdown")
@@ -341,6 +364,14 @@ class BillingAPI(_ClientNamespace):
             self._client._request_json(
                 "GET",
                 f"/smr/billing/factory-efforts/{factory_effort_id}/drawdown",
+            )
+        )
+
+    def dev_environment_drawdown(self, dev_environment_id: str) -> SmrBillingDrawdown:
+        return SmrBillingDrawdown.from_wire(
+            self._client._request_json(
+                "GET",
+                f"/smr/billing/dev-environments/{dev_environment_id}/drawdown",
             )
         )
 
@@ -385,6 +416,29 @@ class BillingAPI(_ClientNamespace):
             self._client._request_json(
                 "POST",
                 f"/smr/billing/factory-efforts/{factory_effort_id}/preflight",
+                json_body=payload,
+            )
+        )
+
+    def preflight_dev_environment(
+        self,
+        dev_environment_id: str,
+        request: (
+            SmrFactoryEffortBillingPreflightRequest | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
+        *,
+        model_class: str = "value",
+        estimated_customer_debit_microcents: int = 0,
+    ) -> SmrBillingPreflight:
+        payload = _factory_effort_preflight_payload(
+            request,
+            model_class=model_class,
+            estimated_customer_debit_microcents=estimated_customer_debit_microcents,
+        )
+        return SmrBillingPreflight.from_wire(
+            self._client._request_json(
+                "POST",
+                f"/smr/billing/dev-environments/{dev_environment_id}/preflight",
                 json_body=payload,
             )
         )

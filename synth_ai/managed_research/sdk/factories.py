@@ -702,10 +702,9 @@ class FactoriesAPI(_ClientNamespace):
         decision_note: str | None = None,
         budget_policy: Mapping[str, Any] | dict[str, Any] | None = None,
         publication_policy: Mapping[str, Any] | dict[str, Any] | None = None,
-        authorization_policy: AuthorizationPolicy
-        | Mapping[str, Any]
-        | dict[str, Any]
-        | None = None,
+        authorization_policy: (
+            AuthorizationPolicy | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
         actor_notes: Mapping[str, Any] | dict[str, Any] | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
@@ -770,7 +769,17 @@ class FactoriesAPI(_ClientNamespace):
         allow_overlap: bool = False,
         dry_run: bool = False,
         continue_on_error: bool = True,
+        confirmed_preview_id: str | None = None,
+        confirmed_preview_token: str | None = None,
     ) -> FactoryWakeDueResult:
+        """Preview due work or execute it with the corresponding signed token."""
+        if dry_run and (confirmed_preview_id is not None or confirmed_preview_token is not None):
+            raise ValueError("Factory wake previews do not accept confirmation fields")
+        if not dry_run and (confirmed_preview_id is None or confirmed_preview_token is None):
+            raise ValueError(
+                "Factory wake execution requires the preview_id and preview_token "
+                "returned by a dry-run preview"
+            )
         return FactoryWakeDueResult.from_wire(
             self._client.wake_due_factory_efforts(
                 factory_id,
@@ -780,6 +789,8 @@ class FactoriesAPI(_ClientNamespace):
                     allow_overlap=allow_overlap,
                     dry_run=dry_run,
                     continue_on_error=continue_on_error,
+                    confirmed_preview_id=confirmed_preview_id,
+                    confirmed_preview_token=confirmed_preview_token,
                 ),
             )
         )
@@ -914,26 +925,19 @@ class EffortsAPI(_ClientNamespace):
         run_kind: str = "research",
         **kwargs: Any,
     ):
-        from synth_ai.managed_research.models.run_state import ManagedResearchRun
-        from synth_ai.managed_research.sdk.runs import RunHandle
-
         effort = self.get(effort_id)
-        if objective is not None:
-            return self._client.runs.start(
-                objective,
-                project_id=effort.project_id,
-                effort_id=effort.effort_id,
-                run_kind=run_kind,
-                **kwargs,
-            )
-        wire = self._client.trigger_run(
-            effort.project_id,
+        objective_text = (
+            str(effort.hypothesis_or_topic or effort.name or "").strip()
+            if objective is None
+            else str(objective).strip()
+        )
+        return self._client.runs.start(
+            objective_text,
+            project_id=effort.project_id,
             effort_id=effort.effort_id,
             run_kind=run_kind,
             **kwargs,
         )
-        run = ManagedResearchRun.from_wire(wire)
-        return RunHandle(self._client, run.project_id, run.run_id)
 
     def launch_maintenance(
         self,

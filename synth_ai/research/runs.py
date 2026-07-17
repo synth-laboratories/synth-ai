@@ -275,16 +275,16 @@ class ResearchRunsAPI:
     ) -> ResearchRunHandle | dict[str, Any]:
         """Launch a Managed Research run.
 
-        When ``objective`` is provided, starts a run with that primary message and
-        returns a :class:`ResearchRunHandle`. Otherwise triggers a configured run
-        and may return a wire dict (legacy drivers).
+        When ``objective`` is provided, returns a :class:`ResearchRunHandle`.
+        Objective-less calls retain their historical raw response. Use
+        :meth:`create_configured` for a typed configured-run launch.
 
         Args:
             project_id: Owning project id.
             objective: Primary operator message for the run (preferred launch path).
 
         Returns:
-            :class:`ResearchRunHandle` when ``objective`` is set; otherwise a wire dict.
+            A typed handle for objective launches, otherwise the legacy raw payload.
 
         Example:
             handle = research.runs.create(
@@ -307,6 +307,22 @@ class ResearchRunsAPI:
             project=project,
             **run_kwargs,
         )
+
+    def create_configured(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        **kwargs: Any,
+    ) -> ResearchRunHandle:
+        """Launch the project's configured run and return a typed handle."""
+        wire = self._session.runs.trigger(
+            project_id,
+            project=project,
+            **_research_run_kwargs(kwargs),
+        )
+        run = ResearchRun.from_wire(wire)
+        return ResearchRunHandle(self._session.run(run.project_id, run.run_id))
 
     def start(
         self,

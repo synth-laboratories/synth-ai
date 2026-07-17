@@ -250,6 +250,18 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         for key, value in actor_output_properties.items()
         if key not in {"actor_role", "kind", "title"}
     }
+
+    def preview_factory_wake(args: dict[str, Any]) -> dict[str, Any]:
+        with server._client_from_args(args) as client:
+            return client.factories.wake_due(
+                str(args["factory_id"]),
+                launch_request=args.get("launch_request"),
+                limit=int(args.get("limit") or 10),
+                allow_overlap=bool(args.get("allow_overlap") or False),
+                dry_run=True,
+                continue_on_error=bool(args.get("continue_on_error", True)),
+            ).raw
+
     return [
         ToolDefinition(
             name="smr_create_factory",
@@ -693,17 +705,17 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_wake_due_factory_efforts",
+            name="smr_preview_factory_wake",
             description=(
-                "Evaluate due persistent Factory Efforts and launch cloud research "
-                "engineering Runs through the managed run-start boundary."
+                "Preview due Factory experiments without starting runs. Returns the "
+                "exact request_contract and opaque preview_token required to confirm."
             ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     "launch_request": {
                         "type": "object",
-                        "description": "Default run launch request for due Efforts.",
+                        "description": "Optional default launch request.",
                     },
                     "limit": {
                         "type": "integer",
@@ -711,18 +723,50 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "allow_overlap": {
                         "type": "boolean",
-                        "description": "Launch even when an Effort already has a nonterminal run.",
-                    },
-                    "dry_run": {
-                        "type": "boolean",
-                        "description": "Return launch decisions without starting runs.",
+                        "description": "Preview overlap decisions for active Efforts.",
                     },
                     "continue_on_error": {
                         "type": "boolean",
-                        "description": "Continue evaluating later Efforts after a launch failure.",
+                        "description": "Continue after a preview failure.",
                     },
                 },
                 required=["factory_id"],
+            ),
+            handler=preview_factory_wake,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_wake_due_factory_efforts",
+            description=(
+                "Launch the exact due Factory experiments bound to a reviewed "
+                "smr_preview_factory_wake result."
+            ),
+            input_schema=tool_schema(
+                {
+                    "factory_id": {"type": "string", "description": "Factory ID."},
+                    "preview_id": {
+                        "type": "string",
+                        "description": ("preview_id returned by smr_preview_factory_wake."),
+                    },
+                    "request_contract": {
+                        "type": "object",
+                        "description": (
+                            "Exact request_contract returned by smr_preview_factory_wake."
+                        ),
+                    },
+                    "confirmed_preview_token": {
+                        "type": "string",
+                        "description": (
+                            "Opaque preview_token returned by smr_preview_factory_wake."
+                        ),
+                    },
+                },
+                required=[
+                    "factory_id",
+                    "preview_id",
+                    "request_contract",
+                    "confirmed_preview_token",
+                ],
             ),
             handler=server._tool_wake_due_factory_efforts,
             required_scopes=WRITE_SCOPES,

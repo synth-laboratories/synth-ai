@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from synth_ai.managed_research.models.factories import (
+    Factory,
     FactoryCandidate,
     FactoryCandidateGradingRequest,
     FactoryCandidateGradingStatus,
@@ -13,8 +14,11 @@ from synth_ai.managed_research.models.factories import (
     FactoryChampionEvent,
     FactoryChampionRollbackRequest,
     FactoryChampionSelectRequest,
+    FactoryStatus,
+    FactoryWakeDueResult,
 )
 from synth_ai.managed_research.models.tag import (
+    TagFactoryContext,
     TagMessageRequest,
     TagScope,
     TagSession,
@@ -77,55 +81,30 @@ class ResearchFactoriesTagSessionsAPI:
 
     def create(
         self,
-        request: TagSessionCreateRequest | Mapping[str, Any] | dict[str, Any] | str,
-        *,
-        definition_of_done: str | None = None,
-        scope_id: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-        experiment_id: str | None = None,
-        candidate_id: str | None = None,
-        timebox_seconds: int | None = None,
-        runbook_preset: str | None = None,
-        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+        request: TagSessionCreateRequest,
     ) -> TagSession:
         """Start a Factory Tag session for a one-off research task.
 
         Args:
-            request: ``TagSessionCreateRequest``, mapping, or primary request
-                string shown to the Tag worker.
-            definition_of_done: Optional explicit DoD text.
-            scope_id: Optional Tag scope override (defaults via ``scopes``).
-            timebox_seconds: Optional wall-clock cap for the session.
-            runbook_preset: Optional runbook preset slug.
-            metadata: Optional session metadata.
+            request: Fully typed Tag session request.
 
         Returns:
             Created ``TagSession`` with ids needed for ``messages.send``.
 
         Example:
             session = research.factories.tag.sessions.create(
-                "Summarize test failures",
-                factory_id=factory_id,
-                effort_id=effort_id,
+                TagSessionCreateRequest(
+                    request="Summarize test failures",
+                    factory_id=factory_id,
+                    effort_id=effort_id,
+                )
             )
             research.factories.tag.sessions.messages.send(
                 session.session_id,
                 "Return a bullet list of root causes.",
             )
         """
-        return self._session.tag.create_session(
-            request,
-            definition_of_done=definition_of_done,
-            scope_id=scope_id,
-            factory_id=factory_id,
-            effort_id=effort_id,
-            experiment_id=experiment_id,
-            candidate_id=candidate_id,
-            timebox_seconds=timebox_seconds,
-            runbook_preset=runbook_preset,
-            metadata=metadata,
-        )
+        return self._session.tag.create_session(request)
 
     def get(self, session_id: str) -> TagSession:
         """Fetch the current Tag session state and terminal receipt fields."""
@@ -181,6 +160,10 @@ class ResearchFactoriesTagSessionsAPI:
         """
         return self._session.tag.control_session(session_id, action)
 
+    def get_factory_context(self, session_id: str) -> TagFactoryContext:
+        """Read the Factory champion and candidate context bound to a session."""
+        return self._session.tag.get_factory_context(session_id=session_id)
+
 
 class ResearchFactoriesTagScopesAPI:
     """Resolve default Tag scopes for an organization."""
@@ -191,6 +174,10 @@ class ResearchFactoriesTagScopesAPI:
     def get_default(self) -> TagScope:
         """Return the org default Tag scope used when ``scope_id`` is omitted."""
         return self._session.tag.get_default_scope()
+
+    def get_factory_context(self, scope_id: str = "default") -> TagFactoryContext:
+        """Read Factory champion and candidate context for a Tag scope."""
+        return self._session.tag.get_factory_context(scope_id=scope_id)
 
 
 class ResearchFactoriesTagAPI:
@@ -287,7 +274,12 @@ class ResearchFactoryChampionsAPI:
 
 
 class ResearchFactoriesAPI:
-    """Factory domain namespace (Tag ships under ``factories.tag``)."""
+    """Research Factory workflow API.
+
+    The status projection is the shared workflow model for SDK, MCP, and the
+    dashboard: experiments, outputs, decisions, limits, health, and next wake
+    all come from the backend rather than being reconstructed by each client.
+    """
 
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
@@ -315,6 +307,69 @@ class ResearchFactoriesAPI:
         if self._tag is None:
             self._tag = ResearchFactoriesTagAPI(self._session)
         return self._tag
+
+    def list(self, *, include_archived: bool = False) -> tuple[Factory, ...]:
+        """List Research Factories visible to the authenticated organization."""
+        return tuple(self._session.factories.list(include_archived=include_archived))
+
+    def get(self, factory_id: str) -> Factory:
+        """Fetch one Research Factory."""
+        return self._session.factories.get(factory_id)
+
+    def status(self, factory_id: str) -> FactoryStatus:
+        """Read the backend-owned Factory workflow projection."""
+        return self._session.factories.status(factory_id)
+
+    def preview_wake(
+        self,
+        factory_id: str,
+        *,
+        launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
+        limit: int = 10,
+        allow_overlap: bool = False,
+        continue_on_error: bool = True,
+    ) -> FactoryWakeDueResult:
+        """Preview due experiments and launch consequences without starting runs."""
+        return self._session.factories.wake_due(
+            factory_id,
+            launch_request=launch_request,
+            limit=limit,
+            allow_overlap=allow_overlap,
+            dry_run=True,
+            continue_on_error=continue_on_error,
+        )
+
+    def wake_due(
+        self,
+        factory_id: str,
+        *,
+        preview: FactoryWakeDueResult,
+    ) -> FactoryWakeDueResult:
+        """Launch exactly the due experiments bound to a reviewed preview."""
+        if preview.factory_id != factory_id:
+            raise ValueError("preview factory_id does not match the requested Factory")
+        if not preview.dry_run or not preview.confirmation_required:
+            raise ValueError("wake_due requires a confirmation-ready dry-run preview")
+        if preview.preview_id is None or preview.preview_token is None:
+            raise ValueError("preview must include preview_id and preview_token")
+        if preview.request_contract is None:
+            raise ValueError("preview must include its resolved request contract")
+        contract = preview.request_contract
+        if contract.confirmed_preview_token is not None:
+            raise ValueError("preview request_contract is not confirmation-ready")
+        result = self._session.factories.wake_due(
+            factory_id,
+            launch_request=contract.launch_request,
+            limit=contract.limit,
+            allow_overlap=contract.allow_overlap,
+            dry_run=False,
+            continue_on_error=contract.continue_on_error,
+            confirmed_preview_id=preview.preview_id,
+            confirmed_preview_token=preview.preview_token,
+        )
+        if result.confirmed_preview_id != preview.preview_id or result.receipt_id is None:
+            raise RuntimeError("wake receipt is not durably bound to the confirmed preview")
+        return result
 
 
 __all__ = [

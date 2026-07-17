@@ -725,7 +725,9 @@ class ProjectCodeSource:
     kind: str
     status: str
     default_branch: str
-    upload_id: str
+    # The backend always includes this legacy field, but project-git sources
+    # legitimately carry it as an empty string rather than an upload id.
+    upload_id: str | None = None
     internal_repo_ref: dict[str, object] = field(default_factory=dict)
     head_commit_sha: str | None = None
     validation_summary: dict[str, object] = field(default_factory=dict)
@@ -745,7 +747,7 @@ class ProjectCodeSource:
                 "default_branch",
                 label="project code source.default_branch",
             ),
-            upload_id=_require_string(mapping, "upload_id", label="project code source.upload_id"),
+            upload_id=_optional_string(mapping, "upload_id"),
             internal_repo_ref=_optional_object_dict(mapping.get("internal_repo_ref")),
             head_commit_sha=_optional_string(mapping, "head_commit_sha"),
             validation_summary=_optional_object_dict(mapping.get("validation_summary")),
@@ -1007,7 +1009,11 @@ class Environment:
     environment_id: str | None
     name: str
     digest: str
+    manifest_digest: str | None = None
+    org_id: str | None = None
+    created_by_user_id: str | None = None
     spec: dict[str, object] = field(default_factory=dict)
+    manifest: dict[str, object] = field(default_factory=dict)
     created_at: str | None = None
 
     @classmethod
@@ -1017,7 +1023,11 @@ class Environment:
             environment_id=_optional_string(mapping, "environment_id"),
             name=_require_string(mapping, "name", label="environment.name"),
             digest=_require_string(mapping, "digest", label="environment.digest"),
+            manifest_digest=_optional_string(mapping, "manifest_digest"),
+            org_id=_optional_string(mapping, "org_id"),
+            created_by_user_id=_optional_string(mapping, "created_by_user_id"),
             spec=_optional_object_dict(mapping.get("spec")),
+            manifest=_optional_object_dict(mapping.get("manifest")),
             created_at=_optional_string(mapping, "created_at"),
         )
 
@@ -1044,6 +1054,385 @@ class EnvironmentPreflight:
             error=(
                 _optional_object_dict(error_payload) if isinstance(error_payload, Mapping) else None
             ),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironment:
+    dev_environment_id: str
+    environment_id: str
+    org_id: str
+    project_id: str
+    name: str
+    backend_target: str
+    lifecycle_state: str
+    topology_id: str
+    host_kind: str
+    environment_name: str
+    topology_version: str | None = None
+    environment_digest: str | None = None
+    quota_class: str | None = None
+    cost_summary: dict[str, object] = field(default_factory=dict)
+    service_summary: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    created_by_user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    deleted_at: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironment:
+        mapping = _require_mapping(payload, label="dev environment")
+        dev_environment_id = _require_string(
+            mapping,
+            "dev_environment_id",
+            label="dev_environment.dev_environment_id",
+        )
+        return cls(
+            dev_environment_id=dev_environment_id,
+            environment_id=_optional_string(mapping, "environment_id") or dev_environment_id,
+            org_id=_require_string(mapping, "org_id", label="dev_environment.org_id"),
+            project_id=_require_string(
+                mapping,
+                "project_id",
+                label="dev_environment.project_id",
+            ),
+            name=_require_string(mapping, "name", label="dev_environment.name"),
+            backend_target=_require_string(
+                mapping,
+                "backend_target",
+                label="dev_environment.backend_target",
+            ),
+            lifecycle_state=_require_string(
+                mapping,
+                "lifecycle_state",
+                label="dev_environment.lifecycle_state",
+            ),
+            topology_id=_require_string(
+                mapping,
+                "topology_id",
+                label="dev_environment.topology_id",
+            ),
+            topology_version=_optional_string(mapping, "topology_version"),
+            environment_name=_require_string(
+                mapping,
+                "environment_name",
+                label="dev_environment.environment_name",
+            ),
+            environment_digest=_optional_string(mapping, "environment_digest"),
+            host_kind=_require_string(mapping, "host_kind", label="dev_environment.host_kind"),
+            quota_class=_optional_string(mapping, "quota_class"),
+            cost_summary=_optional_object_dict(mapping.get("cost_summary")),
+            service_summary=_optional_object_dict(mapping.get("service_summary")),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+            created_by_user_id=_optional_string(mapping, "created_by_user_id"),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+            deleted_at=_optional_string(mapping, "deleted_at"),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentTopology:
+    topology_id: str
+    version: str
+    display_name: str
+    service_graph: dict[str, object] = field(default_factory=dict)
+    backing_services: list[dict[str, object]] = field(default_factory=list)
+    manifest_refs: list[dict[str, object]] = field(default_factory=list)
+    required_secrets: list[dict[str, object]] = field(default_factory=list)
+    network_surfaces: list[dict[str, object]] = field(default_factory=list)
+    health_checks: list[dict[str, object]] = field(default_factory=list)
+    allowed_substrates: list[str] = field(default_factory=list)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentTopology:
+        mapping = _require_mapping(payload, label="dev environment topology")
+
+        def object_list(key: str) -> list[dict[str, object]]:
+            return [_optional_object_dict(item) for item in _optional_array(mapping, key)]
+
+        raw_allowed = _optional_array(mapping, "allowed_substrates")
+        allowed_substrates = [
+            value.strip() for value in (str(item or "") for item in raw_allowed) if value.strip()
+        ]
+        return cls(
+            topology_id=_require_string(
+                mapping,
+                "topology_id",
+                label="dev_environment_topology.topology_id",
+            ),
+            version=_require_string(
+                mapping,
+                "version",
+                label="dev_environment_topology.version",
+            ),
+            display_name=_require_string(
+                mapping,
+                "display_name",
+                label="dev_environment_topology.display_name",
+            ),
+            service_graph=_optional_object_dict(mapping.get("service_graph")),
+            backing_services=object_list("backing_services"),
+            manifest_refs=object_list("manifest_refs"),
+            required_secrets=object_list("required_secrets"),
+            network_surfaces=object_list("network_surfaces"),
+            health_checks=object_list("health_checks"),
+            allowed_substrates=allowed_substrates,
+            metadata=_optional_object_dict(mapping.get("metadata")),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentPreflight:
+    dev_environment_id: str
+    preflight_ok: bool
+    lifecycle_state: str
+    checks: list[dict[str, object]] = field(default_factory=list)
+    error: dict[str, object] | None = None
+    manifest: dict[str, object] | None = None
+    topology: dict[str, object] | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentPreflight:
+        mapping = _require_mapping(payload, label="dev environment preflight")
+        checks = _optional_array(mapping, "checks")
+        error_payload = mapping.get("error")
+        manifest_payload = mapping.get("manifest")
+        topology_payload = mapping.get("topology")
+        return cls(
+            dev_environment_id=_require_string(
+                mapping,
+                "dev_environment_id",
+                label="dev_environment_preflight.dev_environment_id",
+            ),
+            preflight_ok=bool(mapping.get("preflight_ok")),
+            lifecycle_state=_require_string(
+                mapping,
+                "lifecycle_state",
+                label="dev_environment_preflight.lifecycle_state",
+            ),
+            checks=[_optional_object_dict(item) for item in checks],
+            error=(
+                _optional_object_dict(error_payload) if isinstance(error_payload, Mapping) else None
+            ),
+            manifest=(
+                _optional_object_dict(manifest_payload)
+                if isinstance(manifest_payload, Mapping)
+                else None
+            ),
+            topology=(
+                _optional_object_dict(topology_payload)
+                if isinstance(topology_payload, Mapping)
+                else None
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentCollection:
+    dev_environment_id: str
+    items: list[dict[str, object]] = field(default_factory=list)
+    lifecycle_state: str | None = None
+    environment: dict[str, object] = field(default_factory=dict)
+    usage: dict[str, object] = field(default_factory=dict)
+    summary: dict[str, object] = field(default_factory=dict)
+    next_cursor: str | None = None
+    projection_sources: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object, *, key: str) -> DevEnvironmentCollection:
+        mapping = _require_mapping(payload, label=f"dev environment {key}")
+        raw_items = mapping.get(key)
+        if isinstance(raw_items, Mapping):
+            items = [dict(raw_items)]
+        else:
+            items = _optional_array(mapping, key)
+        return cls(
+            dev_environment_id=_require_string(
+                mapping,
+                "dev_environment_id",
+                label=f"dev_environment_{key}.dev_environment_id",
+            ),
+            lifecycle_state=_optional_string(mapping, "lifecycle_state"),
+            environment=_optional_object_dict(mapping.get("environment")),
+            usage=_optional_object_dict(mapping.get("usage")),
+            summary=_optional_object_dict(mapping.get("summary")),
+            items=[_optional_object_dict(item) for item in items],
+            next_cursor=_optional_string(mapping, "next_cursor"),
+            projection_sources=_optional_object_dict(mapping.get("projection_sources")),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentAttach:
+    dev_environment_id: str
+    lifecycle_state: str
+    attachable: bool = False
+    attach_surfaces: list[dict[str, object]] = field(default_factory=list)
+    default_surface: dict[str, object] | None = None
+    operator_next_action: str | None = None
+    topology: dict[str, object] = field(default_factory=dict)
+    service_summary: dict[str, object] = field(default_factory=dict)
+    projection_sources: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentAttach:
+        mapping = _require_mapping(payload, label="dev environment attach")
+        default_surface = mapping.get("default_surface")
+        return cls(
+            dev_environment_id=_require_string(
+                mapping,
+                "dev_environment_id",
+                label="dev_environment_attach.dev_environment_id",
+            ),
+            lifecycle_state=_require_string(
+                mapping,
+                "lifecycle_state",
+                label="dev_environment_attach.lifecycle_state",
+            ),
+            attachable=bool(mapping.get("attachable")),
+            attach_surfaces=[
+                _optional_object_dict(item) for item in _optional_array(mapping, "attach_surfaces")
+            ],
+            default_surface=(
+                _optional_object_dict(default_surface)
+                if isinstance(default_surface, Mapping)
+                else None
+            ),
+            operator_next_action=_optional_string(mapping, "operator_next_action"),
+            topology=_optional_object_dict(mapping.get("topology")),
+            service_summary=_optional_object_dict(mapping.get("service_summary")),
+            projection_sources=_optional_object_dict(mapping.get("projection_sources")),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentUsage:
+    dev_environment_id: str
+    summary: dict[str, object] = field(default_factory=dict)
+    by_meter: list[dict[str, object]] = field(default_factory=list)
+    facts: list[dict[str, object]] = field(default_factory=list)
+    limit: int | None = None
+    next_cursor: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentUsage:
+        mapping = _require_mapping(payload, label="dev environment usage")
+        return cls(
+            dev_environment_id=_require_string(
+                mapping,
+                "dev_environment_id",
+                label="dev_environment_usage.dev_environment_id",
+            ),
+            summary=_optional_object_dict(mapping.get("summary")),
+            by_meter=[_optional_object_dict(item) for item in _optional_array(mapping, "by_meter")],
+            facts=[_optional_object_dict(item) for item in _optional_array(mapping, "facts")],
+            limit=_optional_int(mapping, "limit"),
+            next_cursor=_optional_string(mapping, "next_cursor"),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentMaterializationWorkItem:
+    dev_environment_id: str
+    environment_id: str
+    org_id: str
+    project_id: str
+    name: str
+    backend_target: str
+    lifecycle_state: str
+    materialization_action: str
+    topology_id: str
+    host_kind: str
+    topology_version: str | None = None
+    environment: dict[str, object] = field(default_factory=dict)
+    quota_class: str | None = None
+    materialization_request: dict[str, object] = field(default_factory=dict)
+    materialization_lease: dict[str, object] = field(default_factory=dict)
+    service_summary: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentMaterializationWorkItem:
+        mapping = _require_mapping(payload, label="dev environment materialization item")
+        dev_environment_id = _require_string(
+            mapping,
+            "dev_environment_id",
+            label="dev_environment_materialization.dev_environment_id",
+        )
+        return cls(
+            dev_environment_id=dev_environment_id,
+            environment_id=_optional_string(mapping, "environment_id") or dev_environment_id,
+            org_id=_require_string(
+                mapping,
+                "org_id",
+                label="dev_environment_materialization.org_id",
+            ),
+            project_id=_require_string(
+                mapping,
+                "project_id",
+                label="dev_environment_materialization.project_id",
+            ),
+            name=_require_string(
+                mapping,
+                "name",
+                label="dev_environment_materialization.name",
+            ),
+            backend_target=_require_string(
+                mapping,
+                "backend_target",
+                label="dev_environment_materialization.backend_target",
+            ),
+            lifecycle_state=_require_string(
+                mapping,
+                "lifecycle_state",
+                label="dev_environment_materialization.lifecycle_state",
+            ),
+            materialization_action=_require_string(
+                mapping,
+                "materialization_action",
+                label="dev_environment_materialization.materialization_action",
+            ),
+            topology_id=_require_string(
+                mapping,
+                "topology_id",
+                label="dev_environment_materialization.topology_id",
+            ),
+            topology_version=_optional_string(mapping, "topology_version"),
+            host_kind=_require_string(
+                mapping,
+                "host_kind",
+                label="dev_environment_materialization.host_kind",
+            ),
+            environment=_optional_object_dict(mapping.get("environment")),
+            quota_class=_optional_string(mapping, "quota_class"),
+            materialization_request=_optional_object_dict(mapping.get("materialization_request")),
+            materialization_lease=_optional_object_dict(mapping.get("materialization_lease")),
+            service_summary=_optional_object_dict(mapping.get("service_summary")),
+            metadata=_optional_object_dict(mapping.get("metadata")),
+            created_at=_optional_string(mapping, "created_at"),
+            updated_at=_optional_string(mapping, "updated_at"),
+        )
+
+
+@dataclass(frozen=True)
+class DevEnvironmentMaterializationQueue:
+    items: list[DevEnvironmentMaterializationWorkItem] = field(default_factory=list)
+    next_cursor: str | None = None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> DevEnvironmentMaterializationQueue:
+        mapping = _require_mapping(payload, label="dev environment materialization queue")
+        return cls(
+            items=[
+                DevEnvironmentMaterializationWorkItem.from_wire(item)
+                for item in _optional_array(mapping, "items")
+            ],
+            next_cursor=_optional_string(mapping, "next_cursor"),
         )
 
 
@@ -1378,6 +1767,8 @@ class SmrLaunchPreflight:
     required_capabilities: frozenset[ActorResourceCapability] = field(default_factory=frozenset)
     limit: UsageLimit | None = None
     resolved_actor_profiles: SmrResolvedActorProfiles | None = None
+    launch_mode: str | None = None
+    dev_environment: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrLaunchPreflight:
@@ -1425,6 +1816,8 @@ class SmrLaunchPreflight:
             resolved_actor_profiles=SmrResolvedActorProfiles.from_wire(
                 mapping.get("resolved_actor_profiles")
             ),
+            launch_mode=_optional_string(mapping, "launch_mode"),
+            dev_environment=_optional_object_dict(mapping.get("dev_environment")),
         )
 
 
@@ -1456,6 +1849,7 @@ class SmrRunnableProjectRequest:
     worker_profile_ids: list[str] = field(default_factory=list)
     actor_profile_id: str | None = None
     actor_model_assignments: list[SmrActorModelAssignment] = field(default_factory=list)
+    runtime_artifact_release_id: str | None = None
     budgets: dict[str, object] = field(default_factory=dict)
     key_policy: dict[str, object] = field(default_factory=dict)
     execution_policy: dict[str, object] = field(default_factory=dict)
@@ -1530,6 +1924,7 @@ class SmrRunnableProjectRequest:
                 mapping.get("actor_model_assignments"),
                 field_name="actor_model_assignments",
             ),
+            runtime_artifact_release_id=_optional_string(mapping, "runtime_artifact_release_id"),
             budgets=_optional_object_dict(mapping.get("budgets")),
             key_policy=_optional_object_dict(mapping.get("key_policy")),
             execution_policy=_optional_object_dict(mapping.get("execution_policy")),
@@ -1575,6 +1970,8 @@ class SmrRunnableProjectRequest:
             ]
         if self.actor_profile_id is not None:
             payload["actor_profile_id"] = self.actor_profile_id
+        if self.runtime_artifact_release_id is not None:
+            payload["runtime_artifact_release_id"] = self.runtime_artifact_release_id
         if self.scenario is not None:
             payload["scenario"] = self.scenario
         if self.notes is not None:
@@ -1925,6 +2322,14 @@ LaunchPreflight = SmrLaunchPreflight
 
 __all__ = [
     "CredentialRef",
+    "DevEnvironment",
+    "DevEnvironmentAttach",
+    "DevEnvironmentCollection",
+    "DevEnvironmentMaterializationQueue",
+    "DevEnvironmentMaterializationWorkItem",
+    "DevEnvironmentPreflight",
+    "DevEnvironmentTopology",
+    "DevEnvironmentUsage",
     "DirectedEffortOutcome",
     "ExperimentProgress",
     "ExternalRepository",
