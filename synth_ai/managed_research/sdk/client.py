@@ -1117,7 +1117,7 @@ def _code_bundle_upload_payload(
 class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
     """Managed Research client implementation."""
 
-    api_key: str | None = None
+    api_key: str | None = field(default=None, repr=False)
     backend_base: str | None = None
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
     _transport: SmrHttpTransport = field(init=False, repr=False)
@@ -1175,6 +1175,16 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
             timeout_seconds=self.timeout_seconds,
+        )
+
+    def __repr__(self) -> str:
+        # Never render the raw API key: the resolved secret lives on self.api_key
+        # after __post_init__, so the default dataclass repr / %r / traceback frame
+        # would otherwise leak a live credential into logs.
+        api_key_state = "set" if self.api_key else "unset"
+        return (
+            f"ManagedResearchClient(backend_base={self.backend_base!r}, "
+            f"timeout_seconds={self.timeout_seconds!r}, api_key=<{api_key_state}>)"
         )
 
     def __enter__(self) -> ManagedResearchClient:
