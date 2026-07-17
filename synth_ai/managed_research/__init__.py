@@ -368,7 +368,6 @@ from synth_ai.managed_research.models import (
 from synth_ai.managed_research.models.smr_agent_harnesses import SmrAgentHarness
 from synth_ai.managed_research.sdk import (
     ACTIVE_RUN_STATES,
-    CLOUD_SLOT_IDENTITIES,
     DEFAULT_TIMEOUT_SECONDS,
     MISC_PROJECT_ID,
     OPENAI_TRANSPORT_MODE_AUTO,
@@ -394,7 +393,6 @@ from synth_ai.managed_research.sdk import (
     CloudDeploymentWorkspaceLiveState,
     CloudDeploymentWorkspaceMaterialization,
     CloudDeploymentWorkspaceRepository,
-    CloudSlotIdentity,
     CredentialsAPI,
     DatasetsAPI,
     DevEnvironmentsAPI,
@@ -499,8 +497,6 @@ __all__ = [
     "CloudDeploymentImageMaterialization",
     "CloudDeploymentLoadedImageIdentity",
     "CloudDeploymentLogs",
-    "CLOUD_SLOT_IDENTITIES",
-    "CloudSlotIdentity",
     "CloudDeploymentService",
     "CloudDeploymentServices",
     "CloudDeploymentTopologySource",

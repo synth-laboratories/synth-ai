@@ -334,7 +334,6 @@ from synth_ai.managed_research.sdk.client import (
     first_id,
 )
 from synth_ai.managed_research.sdk.cloud_deployments import (
-    CLOUD_SLOT_IDENTITIES,
     CloudDeployment,
     CloudDeploymentArtifactContent,
     CloudDeploymentArtifactDescriptor,
@@ -353,7 +352,6 @@ from synth_ai.managed_research.sdk.cloud_deployments import (
     CloudDeploymentWorkspaceLiveState,
     CloudDeploymentWorkspaceMaterialization,
     CloudDeploymentWorkspaceRepository,
-    CloudSlotIdentity,
 )
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI
@@ -425,8 +423,6 @@ __all__ = [
     "CloudDeploymentWorkspaceLiveState",
     "CloudDeploymentWorkspaceMaterialization",
     "CloudDeploymentWorkspaceRepository",
-    "CLOUD_SLOT_IDENTITIES",
-    "CloudSlotIdentity",
     "DevEnvironmentsAPI",
     "Environment",
     "EnvironmentPreflight",

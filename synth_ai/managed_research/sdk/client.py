@@ -181,7 +181,6 @@ from synth_ai.managed_research.models.types import (
 from synth_ai.managed_research.sdk.approvals import ApprovalsAPI
 from synth_ai.managed_research.sdk.billing import BillingAPI
 from synth_ai.managed_research.sdk.cloud_deployments import (
-    CLOUD_SLOT_IDENTITIES,
     CloudDeployment,
     CloudDeploymentArtifactContent,
     CloudDeploymentArtifacts,
@@ -193,7 +192,6 @@ from synth_ai.managed_research.sdk.cloud_deployments import (
     CloudDeploymentServices,
     CloudDeploymentWorkspace,
     CloudDeploymentWorkspaceMaterialization,
-    CloudSlotIdentity,
 )
 from synth_ai.managed_research.sdk.compat import SmrControlClientMixin
 from synth_ai.managed_research.sdk.config import (
@@ -364,20 +362,6 @@ def _optional_cloud_deployment_source(
     return normalized
 
 
-def _optional_cloud_slot(
-    value: CloudSlotIdentity | str | None,
-) -> CloudSlotIdentity | None:
-    if value is None:
-        return None
-    normalized = str(value).strip()
-    if not normalized:
-        return None
-    if normalized not in CLOUD_SLOT_IDENTITIES:
-        supported = ", ".join(CLOUD_SLOT_IDENTITIES)
-        raise ValueError(f"cloud_slot must be one of: {supported}")
-    return cast(CloudSlotIdentity, normalized)
-
-
 def _fencing_headers(fencing_token: int | None) -> dict[str, str] | None:
     """``X-Fencing-Token`` header for mutating CloudDeployment ops, or None."""
     if fencing_token is None:
@@ -412,9 +396,8 @@ def _coerce_cloud_deployment_schema(
 
 def _coerce_cloud_deployment(payload: Any, *, label: str) -> CloudDeployment:
     result = _coerce_dict(payload, label=label)
-    if "cloud_slot" not in result or "topology_source" not in result:
-        raise ValueError(f"{label} omitted cloud-slot source authority")
-    result["cloud_slot"] = _optional_cloud_slot(result.get("cloud_slot"))
+    if "topology_source" not in result:
+        raise ValueError(f"{label} omitted immutable topology source authority")
     topology_id = _require_non_empty_string(
         result.get("topology_id"),
         field_name=f"{label}.topology_id",
@@ -4176,11 +4159,10 @@ class ManagedResearchClient:
         project_id: str,
         name: str,
         topology_id: str,
+        host_kind: str,
         topology_version: str | None = None,
-        host_kind: str = "exe_dev",
         metadata: Mapping[str, Any] | None = None,
         source: CloudDeploymentProjectGitSource | Mapping[str, Any] | None = None,
-        cloud_slot: CloudSlotIdentity | None = None,
     ) -> CloudDeployment:
         normalized_project_id = _require_non_empty_string(
             project_id,
@@ -4207,9 +4189,6 @@ class ManagedResearchClient:
         normalized_source = _optional_cloud_deployment_source(source)
         if normalized_source is not None:
             request_body["source"] = normalized_source
-        normalized_cloud_slot = _optional_cloud_slot(cloud_slot)
-        if normalized_cloud_slot is not None:
-            request_body["cloud_slot"] = normalized_cloud_slot
         created = _coerce_cloud_deployment(
             self._request_json(
                 "POST",
@@ -4232,11 +4211,6 @@ class ManagedResearchClient:
                     "create_cloud_deployment response did not bind the request "
                     f"({field_name}={created.get(field_name)!r}, expected={expected_value!r})"
                 )
-        if created["cloud_slot"] != normalized_cloud_slot:
-            raise ValueError(
-                "create_cloud_deployment response did not bind requested cloud_slot "
-                f"({created['cloud_slot']!r}, expected={normalized_cloud_slot!r})"
-            )
         if created["topology_source"] is None:
             raise ValueError("create_cloud_deployment response omitted immutable topology_source")
         return created

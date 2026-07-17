@@ -62,7 +62,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_create_cloud_deployment",
-            description="Create a durable service CloudDeployment request on the exe.dev service lane.",
+            description="Create a durable product service CloudDeployment request.",
             input_schema=tool_schema(
                 {
                     "project_id": {
@@ -75,7 +75,11 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "topology_id": {
                         "type": "string",
-                        "description": "Service topology id, for example synth-dev.",
+                        "description": (
+                            "Product service topology id, for example "
+                            "research-reflexion-service. Internal synth-dev slot "
+                            "topologies are not CloudDeployments."
+                        ),
                     },
                     "topology_version": {
                         "type": "string",
@@ -83,12 +87,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "host_kind": {
                         "type": "string",
-                        "description": "Service substrate kind. Defaults to exe_dev.",
-                    },
-                    "cloud_slot": {
-                        "type": "string",
-                        "enum": ["slot1-cloud", "slot2-cloud"],
-                        "description": "Optional canonical cloud-slot identity.",
+                        "description": "Explicit product service substrate kind.",
                     },
                     "metadata": {
                         "type": "object",
@@ -131,7 +130,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
                         "additionalProperties": False,
                     },
                 },
-                required=["project_id", "name", "topology_id"],
+                required=["project_id", "name", "topology_id", "host_kind"],
             ),
             handler=server._tool_create_cloud_deployment,
         ),
