@@ -16,6 +16,38 @@ def build_usage_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_billing_entitlements,
         ),
         ToolDefinition(
+            name="smr_preview_admin_promotion_discount",
+            description=(
+                "Preview backend-authored draft promotion economics as an admin. "
+                "This read-scoped preview does not activate or enforce a campaign, "
+                "consume caps, grant benefits, or debit usage."
+            ),
+            input_schema=tool_schema(
+                {
+                    "campaign_id": {
+                        "type": "string",
+                        "description": "Draft promotion campaign id.",
+                    },
+                    "nominal_customer_debit_microcents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Nominal customer debit scenario in microcents.",
+                    },
+                    "provider_cost_pico_usd": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Provider cost scenario in pico-USD.",
+                    },
+                },
+                required=[
+                    "campaign_id",
+                    "nominal_customer_debit_microcents",
+                    "provider_cost_pico_usd",
+                ],
+            ),
+            handler=server._tool_preview_admin_promotion_discount,
+        ),
+        ToolDefinition(
             name="smr_get_run_usage",
             description="Fetch canonical nominal, billed, internal, token, and breakdown usage for a run.",
             input_schema=tool_schema(

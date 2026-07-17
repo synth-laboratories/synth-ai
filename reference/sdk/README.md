@@ -6,6 +6,7 @@ Canonical entry: `SynthClient().research`
 
 | Namespace | Methods / nested |
 | --- | --- |
+| `research.factories` | `list`, `get`, `status`, `preview_wake`, `wake_due` |
 | `research.factories.tag` | `sessions.create`, `sessions.messages.send`, `scopes.get_default` |
 | `research.limits` | `get()` |
 | `research.secrets` | `list`, `create`, `delete` |

@@ -2,6 +2,41 @@
 
 All notable changes to the `synth-ai` package are documented here.
 
+## Unreleased
+
+## 0.15.1 — 2026-07-17
+
+### Added
+
+- **Fail-closed promotion discount preview** — `client.billing.preview_promotion_discount(...)`
+  returns typed backend-authored draft economics, including the draft terms,
+  preview inputs, charge/subsidy values, caps, and explicit
+  `enforcement_status="not_implemented"`. The SDK adds no activation, debit,
+  grant, or retirement path for this launch-readiness surface. The read-scoped
+  `smr_preview_admin_promotion_discount` MCP tool and its `research_*` alias
+  expose the same typed preview without adding a mutation path.
+- **Public Research launch authority models** — `synth_ai.research` now exports
+  typed agent harness/model, role bindings, worker palette, configured-run
+  request, and canonical authority-readout aliases so evals and customer code
+  do not import `synth_ai.managed_research.models` internals.
+- **Typed Tag Factory interface** — Tag session creation now requires `TagSessionCreateRequest`; session, watch, receipt, steering, and artifact payloads parse into typed models; and `get_factory_context(scope_id=… | session_id=…)` exposes the current champion, last decision, and candidate counts without raw `/smr/*` reads.
+- **Runnable-project runtime artifact authority** — `SmrRunnableProjectRequest` preserves an optional `runtime_artifact_release_id` so callers can bind project creation to an exact backend-registered runtime release without bypassing SDK normalization.
+- **Research Factory preview-confirm wake** — `ResearchFactoriesAPI` adds
+  `list`, `get`, `status`, `preview_wake`, and `wake_due`. Confirmation replays
+  the backend-authored request contract with its opaque preview token rather
+  than reconstructing a launch request in the client.
+
+### Changed
+
+- **Wake preview requires write authority** — `smr_preview_factory_wake` is
+  WRITE-scoped because the current backend dry-run route can persist scheduler
+  and admission metadata. The SDK does not describe that POST as a read-only
+  capability.
+- **Product CloudDeployments are provider-neutral** — creation requires an
+  explicit product `host_kind` and no longer exposes internal `slot1-cloud` /
+  `slot2-cloud` identities, claim fencing, or cdev artifact operations. Internal
+  CloudDevSlot tooling belongs to `synth-dev`.
+
 ## 0.15.0 — 2026-07-13
 
 ### Added
@@ -15,10 +50,19 @@ All notable changes to the `synth-ai` package are documented here.
   - MCP tools: `smr_list/create/get/observe/deploy/retire_cloud_deployment` plus `research_*` aliases (list/get READ scope; create/observe/deploy/retire WRITE scope).
   - OpenAPI vendoring: `/smr/v1/deployments` paths and `CloudDeploymentCreateRequest`/`DeployRequest`/`RetireRequest` schemas in `schemas/smr_openapi.yaml`.
 - **P8 proof runners**: `scripts/prove_cloud_deployment_client.py`, `scripts/prove_cloud_deployment_mcp.py`.
+- **`SmrWorkerSubtype.ARTIFACT_BUILDER`** and **`SmrReviewerSubtype.ARTIFACT_REVIEWER`** — typed actor subtypes for Open Research hosted artifact build and review flows.
+- **`SynthClient().research.hosted_artifacts`** — operator API for hosted artifacts:
+  - `list(project_id=…)`, `get`, `get_for_run`, `get_content`
+  - `update` (PATCH metadata), `publish_public`, `assign_reviewer`, `delete`
+  - `list_public`, `get_public` for the Open Research index
+- **Run handle:** `handle.hosted_artifact.get()`, `.content()`, `.publish_public()`, `.assign_reviewer()`
+- **Mintlify SDK reference:** [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) (via `make docs-gen`).
 
 ### Notes
 
 - Pairs with backend Factory and CloudDeployment routes on the same release train; publish only after the backend routes are deployed for the target audience.
+- Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
+- Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
 
 ## 0.14.2 — 2026-07-10
 

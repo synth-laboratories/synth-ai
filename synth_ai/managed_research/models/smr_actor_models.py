@@ -27,6 +27,8 @@ class SmrActorSubtype(StrEnum):
     MAIN = "main"
     ENGINEER = "engineer"
     RESEARCHER = "researcher"
+    ARTIFACT_BUILDER = "artifact_builder"
+    ARTIFACT_REVIEWER = "artifact_reviewer"
     TASK_COMPLETION = "task_completion"
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
@@ -43,11 +45,13 @@ class SmrReviewerSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
+    ARTIFACT_REVIEWER = "artifact_reviewer"
 
 
 class SmrWorkerSubtype(StrEnum):
     ENGINEER = "engineer"
     RESEARCHER = "researcher"
+    ARTIFACT_BUILDER = "artifact_builder"
 
 
 SMR_ACTOR_TYPE_VALUES: tuple[str, ...] = tuple(item.value for item in SmrActorType)

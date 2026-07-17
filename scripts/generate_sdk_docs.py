@@ -150,6 +150,7 @@ Entrypoint: **`client.research`**
 | Namespace | Description | Reference |
 | --- | --- | --- |
 | `research.runs` | Launch, wait, lifecycle | [Runs](/reference/sdk/research/synth_ai-research-runs) |
+| `research.hosted_artifacts` | Open Research hosted artifact CRUD (alpha) | [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) |
 | `handle.*` | Usage, progress, queue, artifacts | [Run readouts](/reference/sdk/research/synth_ai-research-run_readouts) |
 
 ### Types
@@ -159,6 +160,7 @@ Entrypoint: **`client.research`**
 | Models | [Models](/reference/sdk/research/synth_ai-research-models) |
 | Enums | [Enums](/reference/sdk/research/synth_ai-research-enums) |
 | Errors | [Errors](/reference/sdk/research/synth_ai-research-errors) |
+| Hosted artifacts | [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) |
 """
     (OUTPUT_DIR / "index.mdx").write_text(content, encoding="utf-8")
 
@@ -175,7 +177,7 @@ sidebarTitle: Overview
 Install:
 
 ```bash
-pip install "synth-ai[research]"
+uv add "synth-ai[research]"
 ```
 
 Hero entrypoint:
@@ -195,6 +197,10 @@ limits = research.limits.get()
 | **Guides** | [docs.usesynth.ai](https://docs.usesynth.ai/managed-research/sdk) — quickstarts and concepts |
 | **Reference** | Auto-generated from docstrings — [SDK Reference](/reference/sdk/index) |
 
+## Open Research hosted artifacts (alpha)
+
+Workers with subtype `artifact_builder` publish HTML proof pages; operators promote public slugs for the Open Research index. See [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts).
+
 ## Local preview
 
 ```bash
@@ -205,6 +211,116 @@ make docs-dev
 Open the URL printed by `mint dev` (usually http://localhost:3000/overview).
 """
     (DOCS_DIR / "overview.mdx").write_text(content, encoding="utf-8")
+
+
+def _write_hosted_artifacts_mdx() -> None:
+    content = """---
+title: Hosted artifacts
+sidebarTitle: Hosted artifacts
+tag: "ALPHA"
+---
+
+# Open Research hosted artifacts
+
+<Badge color="yellow" icon="triangle-exclamation">Alpha</Badge>
+
+SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run. Operators promote a public slug for the Open Research index at `/openresearch/artifacts/{slug}`.
+
+## CRUD matrix (alpha)
+
+| Operation | Supported | How |
+| --- | --- | --- |
+| **Create** | Yes (in-run) | Worker MCP ``publish_hosted_artifact`` during an ``artifact_builder`` task |
+| **Read** | Yes | ``list``, ``get``, ``get_for_run``, ``get_content``, public index/slug |
+| **Update** | Yes | ``update`` (``PATCH`` metadata), ``publish_public``, ``assign_reviewer`` |
+| **Delete** | Yes | ``delete`` removes artifact row, public shell, and stored HTML |
+
+## Python SDK
+
+```python
+research = client.research
+
+for artifact in research.hosted_artifacts.list(project_id=project_id):
+    print(artifact["hosted_url"], artifact.get("public_url"))
+
+artifact = research.hosted_artifacts.get(hosted_artifact_id)
+research.hosted_artifacts.update(
+    hosted_artifact_id,
+    title="Revised title",
+    summary="Updated public card",
+)
+research.hosted_artifacts.delete(hosted_artifact_id)
+```
+
+Reference: [ResearchHostedArtifactsAPI](/reference/sdk/research/synth_ai-research-hosted_artifacts).
+
+## Worker subtypes (launch contract)
+
+Set `actor_subtype` on a worker task in the kickoff contract:
+
+| Subtype | Role |
+| --- | --- |
+| `artifact_builder` | Build HTML and call `publish_hosted_artifact` |
+| `artifact_reviewer` | Review hosted artifact before public promote (orchestrator dispatch) |
+
+Python enums (SDK):
+
+```python
+from synth_ai.managed_research.models.smr_actor_models import (
+    SmrWorkerSubtype,
+    SmrReviewerSubtype,
+)
+
+SmrWorkerSubtype.ARTIFACT_BUILDER  # "artifact_builder"
+SmrReviewerSubtype.ARTIFACT_REVIEWER  # "artifact_reviewer"
+```
+
+Example kickoff task snippet:
+
+```python
+{
+    "task_key": "build_hosted_artifact",
+    "kind": "worker_task",
+    "actor_subtype": "artifact_builder",
+    "instructions": "Build index.html and call publish_hosted_artifact.",
+}
+```
+
+## Operator HTTP surface (backend)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/smr/hosted-artifacts` | List org artifacts (`?project_id=` optional) |
+| `GET` | `/smr/projects/{project_id}/hosted-artifacts` | List artifacts for one project |
+| `GET` | `/smr/hosted-artifacts/{id}` | Receipt with hosted/public URLs |
+| `PATCH` | `/smr/hosted-artifacts/{id}` | Patch title, metadata, public fields, visibility |
+| `DELETE` | `/smr/hosted-artifacts/{id}` | Delete artifact + public shell + HTML |
+| `GET` | `/smr/runs/{run_id}/hosted-artifact` | Run-scoped receipt |
+| `GET` | `/smr/hosted-artifacts/{id}/content` | Serve HTML |
+| `POST` | `/smr/hosted-artifacts/{id}/publish-public` | Promote public slug |
+| `POST` | `/smr/hosted-artifacts/{id}/assign-reviewer` | Dispatch `artifact_reviewer` |
+| `GET` | `/api/open-research/v1/artifacts` | Public index JSON |
+| `GET` | `/api/open-research/v1/artifacts/{slug}` | Public slug bundle |
+
+## Local smoke
+
+```bash
+cd ~/Documents/GitHub/backend
+./.venv/bin/python scripts/run_artifact_builder_smoke.py \\
+  --base-url http://127.0.0.1:8001 \\
+  --pool-id slot2
+```
+
+Requires slot2 backend-api + smr-runtime with `artifact_builder_minimal` profile.
+
+## Stack operator
+
+- `stack_get_run_artifact_status` → same fields as `GET /smr/runs/{run_id}/hosted-artifact`
+- `stack_open_hosted_artifact` → open hosted or public shell URL in the system browser
+"""
+    (OUTPUT_DIR / "research" / "synth_ai-research-hosted-artifacts.mdx").write_text(
+        content, encoding="utf-8"
+    )
 
 
 def _write_docs_json() -> None:
@@ -301,6 +417,7 @@ def main() -> None:
     print(f"Post-processed {modified} MDX files")
     _write_index_mdx()
     _write_overview_mdx()
+    _write_hosted_artifacts_mdx()
     _write_docs_json()
 
     file_count = len(list(OUTPUT_DIR.rglob("*.mdx")))
