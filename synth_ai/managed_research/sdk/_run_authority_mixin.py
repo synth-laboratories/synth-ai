@@ -2076,4 +2076,3 @@ class ManagedResearchRunAuthorityMixin:
             self._request_json("GET", f"/smr/projects/{project_id}/runs/{run_id}/logs/archives"),
             label="list_run_log_archives",
         )
-
