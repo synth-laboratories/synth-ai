@@ -3474,6 +3474,22 @@ class ManagedResearchMcpServer:
                 "id": request_id,
                 "error": {"code": exc.code, "message": exc.message, "data": exc.data},
             }
+        except SmrApiError as exc:
+            # Central denial mapping: any tool (not just the run-launch handlers)
+            # that raises a typed SmrApiError must surface the structured
+            # error_code / http_status / detail so SDK↔MCP denial parity holds.
+            # Without this, non-launch tools flatten to a generic -32000 text
+            # error and drop plan/cap/current-count fields.
+            payload = _mcp_structured_trigger_error_payload(exc)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32010,
+                    "message": payload.get("message", str(exc)),
+                    "data": payload,
+                },
+            }
         except Exception as exc:
             return {
                 "jsonrpc": "2.0",
