@@ -640,6 +640,7 @@ def _build_project_run_payload(
     runbook_config_id: str | None = None,
     local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
     execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+    execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
     timebox_seconds: int | None = None,
     agent_profile: str | None = None,
     agent_model: SmrAgentModel | str | None = None,
@@ -674,6 +675,32 @@ def _build_project_run_payload(
     idempotency_key_run_create: str | None = None,
     idempotency_key: str | None = None,
 ) -> dict[str, Any]:
+    normalized_execution_target = _optional_mapping(
+        execution_target,
+        field_name="execution_target",
+    )
+    if normalized_execution_target:
+        target_kind = str(normalized_execution_target.get("kind") or "").strip()
+        if target_kind not in {"platform_resolved", "bound_runtime"}:
+            raise ValueError(
+                "execution_target.kind must be platform_resolved or bound_runtime"
+            )
+        duplicated_authority = [
+            field_name
+            for field_name, value in (
+                ("host_kind", host_kind),
+                ("worker_pool_id", worker_pool_id),
+                ("local_execution", local_execution),
+                ("execution_profile", execution_profile),
+                ("dev_environment_id", dev_environment_id),
+            )
+            if value is not None
+        ]
+        if duplicated_authority:
+            raise ValueError(
+                "execution_target cannot be combined with legacy placement fields: "
+                + ", ".join(duplicated_authority)
+            )
     assert_hosted_launch_surface(
         local_execution=local_execution,
         agent_model=agent_model,
@@ -695,6 +722,8 @@ def _build_project_run_payload(
         field_name="intended_horizon_hours",
     )
     payload: dict[str, Any] = {}
+    if normalized_execution_target:
+        payload["execution_target"] = normalized_execution_target
     if preset_id:
         payload["runbook_preset"] = preset_id
     if config_id:
@@ -5470,6 +5499,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         runbook_config_id: str | None = None,
         local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
         execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+        execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
         timebox_seconds: int | None = None,
         agent_profile: str | None = None,
         agent_model: SmrAgentModel | str | None = None,
@@ -5520,6 +5550,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             runbook_config_id=runbook_config_id,
             local_execution=local_execution,
             execution_profile=execution_profile,
+            execution_target=execution_target,
             timebox_seconds=timebox_seconds,
             agent_profile=agent_profile,
             agent_model=agent_model,
@@ -5623,6 +5654,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         runbook_config_id: str | None = None,
         local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
         execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+        execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
         timebox_seconds: int | None = None,
         agent_profile: str | None = None,
         agent_model: SmrAgentModel | str | None = None,
@@ -5689,6 +5721,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             runbook_config_id=runbook_config_id,
             local_execution=local_execution,
             execution_profile=execution_profile,
+            execution_target=execution_target,
             timebox_seconds=timebox_seconds,
             agent_profile=agent_profile,
             agent_model=agent_model,
