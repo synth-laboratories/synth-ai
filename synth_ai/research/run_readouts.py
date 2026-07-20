@@ -602,9 +602,20 @@ class ResearchRunArtifactsContentAPI(_RunReadoutBound):
             artifact_id: Artifact identifier from ``list`` or the manifest.
             as_text: When ``True``, decode as UTF-8 text; otherwise return bytes.
         """
-        return self._handle._client.get_artifact_content(
-            artifact_id,
-            as_text=as_text,
+        payload = self._handle._client.get_artifact_content(artifact_id)
+        encoding = str(payload.get("encoding") or "utf-8")
+        content = payload["content"]
+        if encoding == "base64":
+            import base64
+
+            raw = base64.b64decode(str(content))
+            return raw.decode("utf-8") if as_text else raw
+        if encoding == "utf-8":
+            text = str(content)
+            return text if as_text else text.encode("utf-8")
+        raise ValueError(
+            f"artifact {artifact_id} content has unsupported encoding {encoding!r}; "
+            "expected 'utf-8' or 'base64'"
         )
 
 
