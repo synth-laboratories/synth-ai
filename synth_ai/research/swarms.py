@@ -10,24 +10,37 @@ composed by Managed Factories through Efforts. The wire protocol still uses
 
 from __future__ import annotations
 
+import time
 import warnings
 from collections.abc import Iterator
-from typing import Any, List, cast
+from dataclasses import dataclass
+from typing import Any, List, Literal, cast
 
+from synth_ai.managed_research.errors import (
+    SmrApiError,
+    SmrConcurrentRunLimitExceededError,
+)
 from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimitProgress,
     SmrResourceLimits,
+    SmrRunUsage,
 )
 from synth_ai.managed_research.models.run_control import (
     ManagedResearchRunControlAck,
 )
+from synth_ai.managed_research.models.run_diagnostics import SmrRunCostSummary
 from synth_ai.managed_research.models.run_events import RunRuntimeStreamEvent
 from synth_ai.managed_research.models.run_observability import (
     RunObservabilitySnapshot,
 )
+from synth_ai.managed_research.models.run_state import RunState
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
-from synth_ai.research.models import ResearchRunbookPreset, ResearchSwarm
+from synth_ai.research.models import (
+    ResearchRunbookPreset,
+    ResearchSwarm,
+    ResearchWorkProduct,
+)
 from synth_ai.research.swarm_readouts import ResearchSwarmReadoutsMixin, _deprecated_method
 from synth_ai.sdk.pagination import SyncPage
 
@@ -126,6 +139,131 @@ def _research_run_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def _swallow_readout_errors(fetch: Any) -> Any:
+    """Best-effort readout fetch for failed swarms only; returns None on error."""
+    try:
+        return fetch()
+    except Exception:
+        return None
+
+
+def swarm_state_is_terminal(state: str) -> bool:
+    """Return whether a public swarm state string is terminal.
+
+    Reuses :class:`RunState` (the same terminal-state source the low-level
+    wait/contract path is projected from) instead of hand-authoring a string
+    set. Unknown states are non-terminal.
+    """
+    try:
+        parsed = RunState(str(state or "").strip().lower())
+    except ValueError:
+        return False
+    return parsed.is_terminal
+
+
+def classify_event_kind(kind: str) -> str:
+    """Classify a wire event ``kind`` into a coarse forward-compatible category.
+
+    Returns one of ``"tool"``, ``"message"``, ``"turn"``, ``"usage"``,
+    ``"status"``, or ``"other"``. Unknown kinds always classify as ``"other"``
+    so new backend event kinds never break consumers.
+    """
+    text = str(kind or "").strip().lower()
+    if not text:
+        return "other"
+    if text.startswith("tool"):
+        return "tool"
+    if text.startswith(("message", "operator.message", "runtime.message", "reasoning")):
+        return "message"
+    if text.startswith("turn"):
+        return "turn"
+    if text.startswith(("token", "usage")):
+        return "usage"
+    if ".state.changed" in text or text in {"heartbeat", "snapshot"}:
+        return "status"
+    return "other"
+
+
+class SwarmPreflightBlockedError(SmrApiError):
+    """Raised when ``launch_and_wait`` preflight is not clear to trigger.
+
+    Carries the structured ``blockers`` list and the full preflight payload so
+    callers can act on the class of denial rather than a bare message.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        blockers: list[dict[str, Any]],
+        preflight: dict[str, Any],
+    ) -> None:
+        super().__init__(message)
+        self.blockers = blockers
+        self.preflight = preflight
+
+
+class SwarmLaunchBackpressureError(SmrApiError):
+    """Raised when swarm launch exhausts its bounded backpressure retries."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        attempts: int,
+        last_error: SmrApiError,
+    ) -> None:
+        super().__init__(message, status_code=last_error.status_code)
+        self.attempts = attempts
+        self.last_error = last_error
+
+
+_LAUNCH_RETRY_MAX_ATTEMPTS = 5
+_LAUNCH_RETRY_MAX_SLEEP_SECONDS = 30.0
+_LAUNCH_RETRYABLE_STATUS_CODES = frozenset({502, 503, 504})
+
+
+def _is_retryable_launch_error(exc: SmrApiError) -> bool:
+    if isinstance(exc, SmrConcurrentRunLimitExceededError):
+        return True
+    return exc.status_code in _LAUNCH_RETRYABLE_STATUS_CODES
+
+
+@dataclass(frozen=True)
+class SwarmResult:
+    """Typed outcome of :meth:`ResearchSwarmsAPI.launch_and_wait`."""
+
+    swarm: ResearchSwarm
+    swarm_id: str
+    project_id: str
+    status: str
+    is_success: bool
+    usage: SmrRunUsage | None
+    cost: SmrRunCostSummary | None
+    work_products: List[ResearchWorkProduct]
+    handle: ResearchSwarmHandle
+
+    @property
+    def is_terminal(self) -> bool:
+        return swarm_state_is_terminal(self.status)
+
+
+@dataclass(frozen=True)
+class SwarmRetryResult:
+    """Typed outcome of :meth:`ResearchSwarmHandle.retry`.
+
+    Provenance (which swarm this retry came from and why) lives here
+    client-side; the launch wire has no metadata field to carry it.
+    """
+
+    source_swarm_id: str
+    new_swarm_id: str
+    mode: str
+    reason: str | None
+    checkpoint_id: str | None
+    handle: ResearchSwarmHandle
+
+
 class ResearchSwarmHandle(ResearchSwarmReadoutsMixin, RunHandle):
     """Swarm-scoped readouts and lifecycle (public hero session type).
 
@@ -141,6 +279,84 @@ class ResearchSwarmHandle(ResearchSwarmReadoutsMixin, RunHandle):
     def swarm_id(self) -> str:
         """Public swarm identifier (wire transport still calls this ``run_id``)."""
         return self.run_id
+
+    def wait_until_terminal(
+        self,
+        timeout: float,
+        poll_interval: float = 10.0,
+    ) -> ResearchSwarm:
+        """Block until the swarm reaches a terminal state (thin over ``wait``).
+
+        Args:
+            timeout: Max seconds to wait; the operator owns the wall clock.
+            poll_interval: Seconds between status polls.
+
+        Returns:
+            Final :class:`ResearchSwarm` public state model.
+        """
+        return self.wait(timeout=timeout, poll_interval=poll_interval)
+
+    def is_terminal(self) -> bool:
+        """Return whether the swarm has reached a terminal state.
+
+        Uses the backend run contract's ``terminal`` flag — the same authority
+        the low-level wait loop polls.
+        """
+        return self.contract().terminal
+
+    def retry(
+        self,
+        mode: Literal["from_checkpoint", "fresh"] = "fresh",
+        *,
+        reason: str | None = None,
+        checkpoint_id: str | None = None,
+    ) -> SwarmRetryResult:
+        """Retry a terminal swarm, either fresh or branched from a checkpoint.
+
+        Args:
+            mode: ``"fresh"`` re-launches the project's configured swarm;
+                ``"from_checkpoint"`` branches from an existing checkpoint.
+            reason: Optional operator reason, recorded client-side on the
+                result (and on the branch request for checkpoint retries).
+            checkpoint_id: Required when ``mode="from_checkpoint"``.
+
+        Returns:
+            :class:`SwarmRetryResult` with the new swarm id and handle.
+
+        Raises:
+            ValueError: If the source swarm is not terminal, or the mode /
+                checkpoint arguments are inconsistent.
+        """
+        if mode not in ("from_checkpoint", "fresh"):
+            raise ValueError(f"mode must be 'from_checkpoint' or 'fresh', got {mode!r}")
+        state = self.get().public_state
+        if not state.is_terminal:
+            raise ValueError(
+                f"swarm {self.swarm_id} is not terminal (state {state.value}); "
+                "retry requires a terminal source swarm"
+            )
+        if mode == "from_checkpoint":
+            if checkpoint_id is None:
+                raise ValueError("checkpoint_id is required when mode is 'from_checkpoint'")
+            branch = self.branch_from_checkpoint(
+                checkpoint_id=checkpoint_id,
+                reason=reason,
+            )
+            new_swarm_id = branch.child_run_id
+        else:
+            if checkpoint_id is not None:
+                raise ValueError("checkpoint_id is only valid when mode is 'from_checkpoint'")
+            wire = self._client.runs.trigger(self.project_id)
+            new_swarm_id = ResearchSwarm.from_wire(wire).run_id
+        new_handle = ResearchSwarmHandle(self._client.run(self.project_id, new_swarm_id))
+        return SwarmRetryResult(
+            source_swarm_id=self.swarm_id,
+            new_swarm_id=new_swarm_id,
+            mode=mode,
+            reason=reason,
+            checkpoint_id=checkpoint_id,
+            handle=new_handle,
+        )
 
     def progress_snapshot(
         self,
@@ -269,6 +485,156 @@ class ResearchSwarmsAPI:
             project=project,
             **_research_run_kwargs(kwargs),
         )
+
+    def launch_and_wait(
+        self,
+        project_id: str | None = None,
+        *,
+        project: ProjectSelector | str | None = None,
+        objective: str | None = None,
+        timeout: float,
+        poll_interval: float = 10.0,
+        raise_if_failed: bool = False,
+        **launch_kwargs: Any,
+    ) -> SwarmResult:
+        """Preflight, launch, and wait for a swarm in one call (hero flow).
+
+        Runs ``check_preflight`` first and fails immediately with a typed
+        :class:`SwarmPreflightBlockedError` when not clear to trigger. Launch
+        is wrapped in a bounded backpressure retry (HTTP 502/503/504 and
+        concurrent-run-limit backpressure, max 5 attempts, capped
+        backoff); other errors raise immediately. Then blocks until terminal
+        and assembles a typed :class:`SwarmResult`.
+
+        Args:
+            project_id: Owning project id.
+            objective: Primary operator message (objective launch path). When
+                omitted, the project's configured swarm is triggered.
+            timeout: REQUIRED max seconds to wait for terminal state — the
+                operator owns the wall clock; there is no wait-forever default.
+            poll_interval: Seconds between status polls.
+            raise_if_failed: Raise when the swarm ends failed/blocked.
+            **launch_kwargs: Any launch-request field the backend accepts
+                (``execution_target``, ``local_execution``, ``limit``, ...).
+
+        Returns:
+            :class:`SwarmResult` with final state, usage, cost, work products,
+            and a live handle for further readouts.
+        """
+        if timeout <= 0:
+            raise ValueError("timeout must be greater than 0")
+        run_kwargs = _research_run_kwargs(launch_kwargs)
+        preflight_kwargs = {
+            key: value for key, value in run_kwargs.items() if key != "run_kind"
+        }
+        preflight = self._session.runs.launch_preflight(
+            project_id,
+            project=project,
+            objective=objective,
+            **preflight_kwargs,
+        )
+        clear = preflight.get("clear_to_trigger")
+        if clear is None:
+            clear = preflight.get("allowed")
+        if not clear:
+            blockers_payload = preflight.get("blockers") or preflight.get("checks") or []
+            blockers = [item for item in blockers_payload if isinstance(item, dict)]
+            names = ", ".join(
+                str(item.get("blocker") or item.get("check") or item.get("kind") or "unnamed")
+                for item in blockers
+            )
+            raise SwarmPreflightBlockedError(
+                "swarm launch preflight is not clear to trigger"
+                + (f"; blockers: {names}" if names else ""),
+                blockers=blockers,
+                preflight=preflight,
+            )
+        handle = self._launch_with_backpressure_retry(
+            project_id,
+            project=project,
+            objective=objective,
+            run_kwargs=run_kwargs,
+        )
+        swarm = handle.wait(
+            timeout=timeout,
+            poll_interval=poll_interval,
+            raise_if_failed=raise_if_failed,
+        )
+        status = swarm.public_state.value
+        is_success = swarm.public_state is RunState.DONE
+        if is_success:
+            usage: SmrRunUsage | None = handle.usage.get()
+            cost: SmrRunCostSummary | None = handle.usage.cost.get()
+            work_products = list(handle.work_products.list())
+        else:
+            usage = _swallow_readout_errors(handle.usage.get)
+            cost = _swallow_readout_errors(handle.usage.cost.get)
+            work_products = _swallow_readout_errors(handle.work_products.list) or []
+        return SwarmResult(
+            swarm=swarm,
+            swarm_id=handle.swarm_id,
+            project_id=handle.project_id,
+            status=status,
+            is_success=is_success,
+            usage=usage,
+            cost=cost,
+            work_products=list(work_products),
+            handle=handle,
+        )
+
+    def _launch_handle(
+        self,
+        project_id: str | None,
+        *,
+        project: ProjectSelector | str | None,
+        objective: str | None,
+        run_kwargs: dict[str, Any],
+    ) -> ResearchSwarmHandle:
+        if objective is not None:
+            handle = self._session.runs.start(
+                objective,
+                project_id=project_id,
+                project=project,
+                **run_kwargs,
+            )
+            return ResearchSwarmHandle(handle)
+        wire = self._session.runs.trigger(
+            project_id,
+            project=project,
+            **run_kwargs,
+        )
+        run = ResearchSwarm.from_wire(wire)
+        return ResearchSwarmHandle(self._session.run(run.project_id, run.run_id))
+
+    def _launch_with_backpressure_retry(
+        self,
+        project_id: str | None,
+        *,
+        project: ProjectSelector | str | None,
+        objective: str | None,
+        run_kwargs: dict[str, Any],
+    ) -> ResearchSwarmHandle:
+        for attempt in range(1, _LAUNCH_RETRY_MAX_ATTEMPTS + 1):
+            try:
+                return self._launch_handle(
+                    project_id,
+                    project=project,
+                    objective=objective,
+                    run_kwargs=run_kwargs,
+                )
+            except SmrApiError as exc:
+                if not _is_retryable_launch_error(exc):
+                    raise
+                if attempt == _LAUNCH_RETRY_MAX_ATTEMPTS:
+                    raise SwarmLaunchBackpressureError(
+                        f"swarm launch exhausted {_LAUNCH_RETRY_MAX_ATTEMPTS} attempts on "
+                        f"retryable backpressure ({type(exc).__name__}, "
+                        f"status_code={exc.status_code}): {exc}",
+                        attempts=_LAUNCH_RETRY_MAX_ATTEMPTS,
+                        last_error=exc,
+                    ) from exc
+                time.sleep(min(2.0**attempt, _LAUNCH_RETRY_MAX_SLEEP_SECONDS))
+        raise RuntimeError("unreachable: launch retry loop must return or raise")
 
     def launch_preflight(
         self,
@@ -715,4 +1081,14 @@ class ResearchSwarmsAPI:
 
 ResearchSwarmSession = ResearchSwarmHandle
 
-__all__ = ["ResearchSwarmHandle", "ResearchSwarmSession", "ResearchSwarmsAPI"]
+__all__ = [
+    "ResearchSwarmHandle",
+    "ResearchSwarmSession",
+    "ResearchSwarmsAPI",
+    "SwarmLaunchBackpressureError",
+    "SwarmPreflightBlockedError",
+    "SwarmResult",
+    "SwarmRetryResult",
+    "classify_event_kind",
+    "swarm_state_is_terminal",
+]
