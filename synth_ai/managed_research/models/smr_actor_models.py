@@ -1,6 +1,7 @@
 """Public Managed Research actor-type/subtype model policy helpers.
 
-Source of truth: backend/config/smr_actor_model_policy.json
+Source of truth: backend/packages/smr/config/actor_configurations/actor_role_gates.py
+(synced into smr_actor_policy_data.py via python -m synth_ai.managed_research.schema_sync).
 """
 
 from __future__ import annotations
@@ -33,6 +34,8 @@ class SmrActorSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
+    SERAPH = "seraph"
+    GARDENER = "gardener"
 
 
 class SmrOrchestratorSubtype(StrEnum):
@@ -45,6 +48,8 @@ class SmrReviewerSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
+    SERAPH = "seraph"
+    GARDENER = "gardener"
     ARTIFACT_REVIEWER = "artifact_reviewer"
 
 
@@ -215,7 +220,12 @@ def coerce_smr_actor_model_assignment(
     permitted = _permitted_models_for_actor(assignment.actor_type, assignment.actor_subtype)
     if assignment.agent_model.value not in permitted:
         raise ValueError(
-            f"{field_name}.agent_model '{assignment.agent_model.value}' is not permitted for {assignment.actor_type.value}:{assignment.actor_subtype.value}; allowed values are: {', '.join(permitted)}"
+            f"{field_name}.agent_model '{assignment.agent_model.value}' is not permitted for "
+            f"{assignment.actor_type.value}:{assignment.actor_subtype.value}; "
+            f"allowed values are: {', '.join(permitted)}. "
+            "If the backend /smr/capabilities allowlist includes this model, regenerate "
+            "synth_ai.managed_research.models.smr_actor_policy_data via "
+            "`python -m synth_ai.managed_research.schema_sync` against a sibling backend checkout."
         )
     return assignment
 

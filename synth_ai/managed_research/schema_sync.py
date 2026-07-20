@@ -62,8 +62,111 @@ def _default_backend_public_models_path() -> Path:
 
 
 def _default_backend_actor_policy_path() -> Path:
+    """Legacy JSON bridge path (deleted when policy moved code-first).
+
+    Prefer `_load_actor_policy_manifest_from_backend_python()`. The JSON path remains
+    only as an explicit override for offline sync when a exported manifest is provided.
+    """
+
     workspace_root = Path(__file__).resolve().parents[3]
     return workspace_root / "backend" / "config" / "smr_actor_model_policy.json"
+
+
+def _default_backend_actor_role_gates_path() -> Path:
+    workspace_root = Path(__file__).resolve().parents[3]
+    return (
+        workspace_root
+        / "backend"
+        / "packages"
+        / "smr"
+        / "config"
+        / "actor_configurations"
+        / "actor_role_gates.py"
+    )
+
+
+def _backend_python_import_paths() -> tuple[Path, ...]:
+    workspace_root = Path(__file__).resolve().parents[3]
+    backend_root = workspace_root / "backend"
+    return (backend_root / "packages", backend_root)
+
+
+def _load_actor_policy_manifest_from_backend_python() -> dict[str, object]:
+    """Load the live actor-policy manifest from backend code-first registries.
+
+    Authority: `backend/packages/smr/config/actor_configurations/actor_role_gates.py`
+    via `smr.config.actor_model_policy.load_smr_actor_model_policy_entries`.
+    """
+
+    import sys
+
+    import_paths = _backend_python_import_paths()
+    missing = [str(path) for path in import_paths if not path.is_dir()]
+    if missing:
+        raise FileNotFoundError(
+            "Managed Research actor policy sync requires a local backend checkout; "
+            f"missing: {', '.join(missing)}"
+        )
+    inserted: list[str] = []
+    for path in reversed(import_paths):
+        path_str = str(path)
+        if path_str not in sys.path:
+            sys.path.insert(0, path_str)
+            inserted.append(path_str)
+    try:
+        from smr.config.actor_model_policy import (  # type: ignore[import-not-found]
+            SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
+            load_smr_actor_model_policy_entries,
+        )
+    except Exception as exc:  # pragma: no cover - environment-dependent
+        for path_str in inserted:
+            if path_str in sys.path:
+                sys.path.remove(path_str)
+        raise RuntimeError(
+            "Failed to import backend smr.config.actor_model_policy for actor policy sync. "
+            "Ensure backend/packages is importable (PYTHONPATH=backend/packages:backend)."
+        ) from exc
+
+    policies: list[dict[str, object]] = []
+    for entry in load_smr_actor_model_policy_entries():
+        policies.append(
+            {
+                "actor_type": entry.actor_type.value,
+                "actor_subtype": entry.actor_subtype.value,
+                "public": bool(entry.public),
+                "permitted_models": [model.value for model in entry.permitted_models],
+            }
+        )
+    if not policies:
+        raise ValueError("Backend actor model policy produced an empty policies list")
+    return {
+        "schema_version": "smr.actor_model_policy.v1",
+        "source": "backend/packages/smr/config/actor_configurations/actor_role_gates.py",
+        "shared_top_level_agent_models": list(SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES),
+        "policies": policies,
+    }
+
+
+def _load_actor_policy_manifest(source: Path | None) -> dict[str, object]:
+    if source is not None:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("Actor model policy manifest must be a JSON object")
+        return raw
+    try:
+        return _load_actor_policy_manifest_from_backend_python()
+    except Exception as primary_exc:
+        legacy = _default_backend_actor_policy_path()
+        if legacy.is_file():
+            raw = json.loads(legacy.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("Actor model policy manifest must be a JSON object") from primary_exc
+            return raw
+        raise RuntimeError(
+            "Unable to sync Managed Research actor model policy from backend Python "
+            f"({_default_backend_actor_role_gates_path()}) and no legacy JSON exists at "
+            f"{legacy}. Original error: {primary_exc}"
+        ) from primary_exc
 
 
 def _shared_top_level_model_ids(policies: list[dict[str, object]]) -> tuple[str, ...]:
@@ -353,13 +456,18 @@ def sync_smr_actor_model_policy(
     source_manifest: Path | None = None,
     destination_file: Path | None = None,
 ) -> Path:
-    """Generate actor policy constants from backend/config/smr_actor_model_policy.json."""
+    """Generate actor policy constants from backend code-first actor role gates.
 
-    source = source_manifest or _default_backend_actor_policy_path()
+    Default source: import `smr.config.actor_model_policy` from a sibling backend
+    checkout (gates live in actor_role_gates.py). Optional `source_manifest` may
+    point at an exported JSON for offline sync; the historical
+    `backend/config/smr_actor_model_policy.json` path is no longer authoritative.
+    """
+
     destination = destination_file or (
         Path(__file__).resolve().parent / "models" / "smr_actor_policy_data.py"
     )
-    raw = json.loads(source.read_text(encoding="utf-8"))
+    raw = _load_actor_policy_manifest(source_manifest)
     policies = raw.get("policies")
     if not isinstance(policies, list) or not policies:
         raise ValueError(
@@ -367,12 +475,24 @@ def sync_smr_actor_model_policy(
         )
 
     policy_entries = _normalize_actor_policy_entries(policies)
-    shared_top_level = _shared_top_level_model_ids(policies)
+    shared_raw = raw.get("shared_top_level_agent_models")
+    if isinstance(shared_raw, list) and shared_raw:
+        shared_top_level = tuple(
+            dict.fromkeys(str(model_id).strip() for model_id in shared_raw if str(model_id).strip())
+        )
+    else:
+        shared_top_level = _shared_top_level_model_ids(policies)
+
+    source_label = str(raw.get("source") or "").strip() or (
+        str(source_manifest)
+        if source_manifest is not None
+        else "backend/packages/smr/config/actor_configurations/actor_role_gates.py"
+    )
 
     lines = [
         '"""Generated Managed Research actor model policy constants.',
         "",
-        "Source of truth: backend/config/smr_actor_model_policy.json",
+        f"Source of truth: {source_label}",
         "",
         "Regenerate: python -m synth_ai.managed_research.schema_sync",
         '"""',
