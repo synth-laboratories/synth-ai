@@ -88,7 +88,9 @@ class AccountByokStatus:
             plan_type=str(mapping.get("plan_type") or ""),
             providers_with_keys={
                 str(key): bool(value)
-                for key, value in dict(providers if isinstance(providers, Mapping) else {}).items()
+                for key, value in dict(
+                    providers if isinstance(providers, Mapping) else {}
+                ).items()
             },
             supported_providers=tuple(
                 str(item) for item in list(mapping.get("supported_providers") or [])
@@ -139,9 +141,11 @@ class AccountReadinessCheck:
             ok=bool(mapping.get("ok")),
             label=str(mapping.get("label") or ""),
             cta=AccountReadinessCta.from_wire(cta) if cta is not None else None,
-            metadata=_require_account_mapping(metadata, label="account readiness metadata")
-            if isinstance(metadata, Mapping)
-            else {},
+            metadata=(
+                _require_account_mapping(metadata, label="account readiness metadata")
+                if isinstance(metadata, Mapping)
+                else {}
+            ),
             raw=dict(mapping),
         )
 
@@ -532,7 +536,9 @@ class ResearchAccountAPI:
 
         Backend route: ``GET /api/v1/me``.
         """
-        return AccountIdentity.from_wire(self._session._request_json("GET", "/api/v1/me"))
+        return AccountIdentity.from_wire(
+            self._session._request_json("GET", "/api/v1/me")
+        )
 
 
 __all__ = [
