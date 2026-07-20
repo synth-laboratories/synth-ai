@@ -33,6 +33,13 @@ from synth_ai.research.factory_handles import (
     ResearchFactoryEffortsAPI,
     ResearchFactoryHandle,
 )
+from synth_ai.research.factory_usage import (
+    FactoryEvent,
+    FactoryEventsPage,
+    FactoryUsage,
+    fetch_factory_events,
+    fetch_factory_usage,
+)
 
 
 class ResearchFactoriesTagSessionsMessagesAPI:
@@ -360,6 +367,55 @@ class ResearchFactoriesAPI:
             stop_when_idle=stop_when_idle,
         )
 
+    def usage(
+        self,
+        factory_id: str,
+        *,
+        window: str = "month_to_date",
+    ) -> FactoryUsage:
+        """Read the factory-level usage aggregate (cost, budget, per-effort drawdown).
+
+        Backend route: ``GET /smr/factories/{factory_id}/usage``
+        (query ``window``: ``month_to_date`` | ``last_7_days``).
+        """
+        return fetch_factory_usage(self._session, factory_id, window=window)
+
+    def events(
+        self,
+        factory_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> FactoryEventsPage:
+        """Read one newest-first page of durable factory events.
+
+        Backend route: ``GET /smr/factories/{factory_id}/events``
+        (query ``limit`` 1-500, ``cursor``).
+        """
+        return fetch_factory_events(self._session, factory_id, limit=limit, cursor=cursor)
+
+    def iter_events(
+        self,
+        factory_id: str,
+        *,
+        limit: int | None = None,
+    ) -> Iterator[FactoryEvent]:
+        """Yield durable factory events, paging until ``next_cursor`` drains.
+
+        Backend route: repeated ``GET /smr/factories/{factory_id}/events``.
+        Stops when ``next_cursor`` is null or repeats (bounded; no sleeps).
+        """
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        while True:
+            page = self.events(factory_id, limit=limit, cursor=cursor)
+            yield from page.events
+            next_cursor = page.next_cursor
+            if next_cursor is None or next_cursor in seen_cursors:
+                return
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+
     def preview_wake(
         self,
         factory_id: str,
@@ -413,6 +469,9 @@ class ResearchFactoriesAPI:
 
 
 __all__ = [
+    "FactoryEvent",
+    "FactoryEventsPage",
+    "FactoryUsage",
     "ResearchEffortHandle",
     "ResearchFactoriesAPI",
     "ResearchFactoryEffortsAPI",

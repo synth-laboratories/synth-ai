@@ -101,6 +101,74 @@ class AccountByokStatus:
 
 
 @dataclass(frozen=True)
+class AccountReadinessCta:
+    """Typed ``AccountReadinessCta`` (call-to-action for a failing check)."""
+
+    label: str
+    href: str
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> AccountReadinessCta:
+        mapping = _require_account_mapping(payload, label="account readiness cta")
+        return cls(
+            label=str(mapping.get("label") or ""),
+            href=str(mapping.get("href") or ""),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class AccountReadinessCheck:
+    """Typed ``AccountReadinessCheck`` (one readiness gate with optional CTA)."""
+
+    id: str
+    ok: bool
+    label: str
+    cta: AccountReadinessCta | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> AccountReadinessCheck:
+        mapping = _require_account_mapping(payload, label="account readiness check")
+        cta = mapping.get("cta")
+        metadata = mapping.get("metadata")
+        return cls(
+            id=str(mapping.get("id") or ""),
+            ok=bool(mapping.get("ok")),
+            label=str(mapping.get("label") or ""),
+            cta=AccountReadinessCta.from_wire(cta) if cta is not None else None,
+            metadata=(
+                _require_account_mapping(metadata, label="account readiness metadata")
+                if isinstance(metadata, Mapping)
+                else {}
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class AccountReadiness:
+    """Typed ``AccountReadinessResponse`` (org-level launch readiness with CTAs)."""
+
+    ready: bool
+    checks: tuple[AccountReadinessCheck, ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> AccountReadiness:
+        mapping = _require_account_mapping(payload, label="account readiness")
+        return cls(
+            ready=bool(mapping.get("ready")),
+            checks=tuple(
+                AccountReadinessCheck.from_wire(item) for item in list(mapping.get("checks") or [])
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class AccountIdentity:
     """Typed ``MeResponse`` (org and user resolution for the API key)."""
 
@@ -451,6 +519,15 @@ class ResearchAccountAPI:
             )
         )
 
+    def readiness(self) -> AccountReadiness:
+        """Read org account readiness checks (balance, runway, tier headroom, BYOK).
+
+        Backend route: ``GET /api/v1/account/readiness``.
+        """
+        return AccountReadiness.from_wire(
+            self._session._request_json("GET", "/api/v1/account/readiness")
+        )
+
     def me(self) -> AccountIdentity:
         """Resolve the org/user identity for the API key.
 
@@ -463,6 +540,9 @@ __all__ = [
     "AccountBalance",
     "AccountByokStatus",
     "AccountIdentity",
+    "AccountReadiness",
+    "AccountReadinessCheck",
+    "AccountReadinessCta",
     "AccountTierLimits",
     "ResearchAccountAPI",
     "ResearchAccountBalanceAPI",
