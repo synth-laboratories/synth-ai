@@ -1801,6 +1801,115 @@ class FactoryOperatingWindow:
 
 
 @dataclass(frozen=True)
+class FactoryPublicVisuals:
+    """Typed view over ``FactoryStatus.public_visuals``.
+
+    Mirrors the backend ``synth.open_research.factory_public_visuals.v1``
+    payload assembled by ``_open_frontier_public_visuals``. Forward-compatible:
+    unknown keys are preserved in ``raw``.
+    """
+
+    schema: str = ""
+    programme_id: str | None = None
+    current_run: dict[str, object] | None = None
+    next_scheduled_event: dict[str, object] | None = None
+    last_accepted_result: dict[str, object] | None = None
+    latest_report: dict[str, object] | None = None
+    score_trend: tuple[dict[str, object], ...] = ()
+    candidate_rejections: tuple[dict[str, object], ...] = ()
+    evidence_rejections: tuple[dict[str, object], ...] = ()
+    scheduler_decisions: tuple[dict[str, object], ...] = ()
+    public_data: tuple[str, ...] = ()
+    visualizations: tuple[dict[str, object], ...] = ()
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryPublicVisuals:
+        mapping = _require_mapping(payload, label="factory public visuals")
+
+        def _optional_mapping(key: str) -> dict[str, object] | None:
+            value = mapping.get(key)
+            if value is None:
+                return None
+            return _optional_object_dict(value, label=f"factory public visuals {key}")
+
+        return cls(
+            schema=str(mapping.get("schema") or ""),
+            programme_id=_optional_string(mapping, "programme_id"),
+            current_run=_optional_mapping("current_run"),
+            next_scheduled_event=_optional_mapping("next_scheduled_event"),
+            last_accepted_result=_optional_mapping("last_accepted_result"),
+            latest_report=_optional_mapping("latest_report"),
+            score_trend=_optional_object_tuple(
+                mapping.get("score_trend"), label="factory public visuals score_trend"
+            ),
+            candidate_rejections=_optional_object_tuple(
+                mapping.get("candidate_rejections"),
+                label="factory public visuals candidate_rejections",
+            ),
+            evidence_rejections=_optional_object_tuple(
+                mapping.get("evidence_rejections"),
+                label="factory public visuals evidence_rejections",
+            ),
+            scheduler_decisions=_optional_object_tuple(
+                mapping.get("scheduler_decisions"),
+                label="factory public visuals scheduler_decisions",
+            ),
+            public_data=_string_tuple(mapping.get("public_data")),
+            visualizations=_optional_object_tuple(
+                mapping.get("visualizations"),
+                label="factory public visuals visualizations",
+            ),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class FactoryCostsLimits:
+    """Typed view over ``FactoryStatus.costs_limits``.
+
+    Mirrors the backend factory status assembly (``costs_limits`` keys:
+    ``factory_budget_policy``, ``factory_budget_status``, ``factory_cap_policy``,
+    ``effort_budget_policies``). Unknown keys are preserved in ``raw``.
+    """
+
+    factory_budget_policy: dict[str, object] = field(default_factory=dict)
+    factory_budget_status: dict[str, object] = field(default_factory=dict)
+    factory_cap_policy: dict[str, object] = field(default_factory=dict)
+    effort_budget_policies: dict[str, dict[str, object]] = field(default_factory=dict)
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryCostsLimits:
+        mapping = _require_mapping(payload, label="factory costs limits")
+        raw_effort_policies = mapping.get("effort_budget_policies")
+        if raw_effort_policies is not None and not isinstance(raw_effort_policies, Mapping):
+            raise ValueError("factory costs limits effort_budget_policies must be an object")
+        effort_budget_policies = {
+            str(key): _optional_object_dict(
+                value, label="factory costs limits effort budget policy"
+            )
+            for key, value in dict(raw_effort_policies or {}).items()
+        }
+        return cls(
+            factory_budget_policy=_optional_object_dict(
+                mapping.get("factory_budget_policy"),
+                label="factory costs limits factory_budget_policy",
+            ),
+            factory_budget_status=_optional_object_dict(
+                mapping.get("factory_budget_status"),
+                label="factory costs limits factory_budget_status",
+            ),
+            factory_cap_policy=_optional_object_dict(
+                mapping.get("factory_cap_policy"),
+                label="factory costs limits factory_cap_policy",
+            ),
+            effort_budget_policies=effort_budget_policies,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1832,6 +1941,18 @@ class FactoryStatus:
         """Return the typed backend scheduler/reactor owner-route payload."""
 
         return FactoryRuntimeStatus.from_wire(self.runtime)
+
+    @property
+    def typed_public_visuals(self) -> FactoryPublicVisuals:
+        """Return the typed ``synth.open_research.factory_public_visuals.v1`` payload."""
+
+        return FactoryPublicVisuals.from_wire(self.public_visuals)
+
+    @property
+    def typed_costs_limits(self) -> FactoryCostsLimits:
+        """Return the typed factory budget/cap policy projection."""
+
+        return FactoryCostsLimits.from_wire(self.costs_limits)
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryStatus:
@@ -2463,12 +2584,14 @@ __all__ = [
     "FactoryChampionEventAction",
     "FactoryChampionRollbackRequest",
     "FactoryChampionSelectRequest",
+    "FactoryCostsLimits",
     "FactoryHealth",
     "FactoryMaintenanceAction",
     "FactoryOperatingWindow",
     "FactoryControlLoopFlags",
     "FactoryReactorReceipt",
     "FactoryReactorStatus",
+    "FactoryPublicVisuals",
     "FactoryRuntimeStatus",
     "FactoryIdea",
     "FactoryIdeaCreateRequest",
