@@ -309,10 +309,10 @@ class RequiredWorkProductSpec:
             "kind",
             label="kickoff contract required_work_product.kind",
         )
-        if kind not in {"report", "model", "container_eval"}:
+        if kind not in {"report", "model", "candidate", "container_eval"}:
             raise ValueError(
                 "kickoff contract required_work_product.kind must be one of "
-                "report, model, container_eval"
+                "report, model, candidate, container_eval"
             )
         required_value = mapping.get("required", True)
         if not isinstance(required_value, bool):
