@@ -38,9 +38,10 @@ from synth_ai.managed_research.models.factories import (
     FactoryIdeaPatchRequest,
     FactoryIdeaSource,
     FactoryIdeaStatus,
-    FactoryLifecycleState,
     FactoryPatchRequest,
     FactoryProjectLink,
+    FactoryTransitionRequest,
+    FactoryTransitionResponse,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryProjectRole,
@@ -364,14 +365,73 @@ class FactoriesAPI(_ClientNamespace):
                 return link
         return None
 
-    def pause(self, factory_id: str) -> Factory:
-        return self.patch(factory_id, FactoryPatchRequest(status=FactoryLifecycleState.PAUSED))
+    def start(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        return FactoryTransitionResponse.from_wire(
+            self._client.start_factory(
+                factory_id,
+                request,
+                reason=reason,
+                dry_run=dry_run,
+            )
+        )
 
-    def resume(self, factory_id: str) -> Factory:
-        return self.patch(factory_id, FactoryPatchRequest(status=FactoryLifecycleState.ACTIVE))
+    def pause(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        return FactoryTransitionResponse.from_wire(
+            self._client.pause_factory(
+                factory_id,
+                request,
+                reason=reason,
+                dry_run=dry_run,
+            )
+        )
 
-    def archive(self, factory_id: str) -> Factory:
-        return self.patch(factory_id, FactoryPatchRequest(status=FactoryLifecycleState.ARCHIVED))
+    def resume(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        return FactoryTransitionResponse.from_wire(
+            self._client.resume_factory(
+                factory_id,
+                request,
+                reason=reason,
+                dry_run=dry_run,
+            )
+        )
+
+    def archive(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        return FactoryTransitionResponse.from_wire(
+            self._client.archive_factory(
+                factory_id,
+                request,
+                reason=reason,
+                dry_run=dry_run,
+            )
+        )
 
     def status(self, factory_id: str) -> FactoryStatus:
         return FactoryStatus.from_wire(self._client.get_factory_status(factory_id))

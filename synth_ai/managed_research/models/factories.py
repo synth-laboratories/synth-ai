@@ -30,9 +30,17 @@ class FactoryKind(StrEnum):
 
 
 class FactoryLifecycleState(StrEnum):
+    CONFIGURED = "configured"
     ACTIVE = "active"
     PAUSED = "paused"
     ARCHIVED = "archived"
+
+
+class FactoryCreateStatus(StrEnum):
+    """Allowed create-time status labels (create+start when ``active``)."""
+
+    CONFIGURED = "configured"
+    ACTIVE = "active"
 
 
 class FactoryProjectRole(StrEnum):
@@ -198,7 +206,9 @@ class FactoryCreateRequest:
     name: str
     description: str | None = None
     kind: FactoryKind | str = FactoryKind.CUSTOMER
-    status: FactoryLifecycleState | str = FactoryLifecycleState.ACTIVE
+    # create inserts Configured; requesting active is create+start through the
+    # FactoryLifecycle reducer. Paused/archived can never be created.
+    status: FactoryCreateStatus | str = FactoryCreateStatus.ACTIVE
     budget_policy: BudgetPolicy | dict[str, Any] = field(default_factory=dict)
     cap_policy: CapPolicy | dict[str, Any] = field(default_factory=dict)
     homeostasis_policy: dict[str, Any] = field(default_factory=dict)
@@ -227,7 +237,7 @@ class FactoryCreateRequest:
 class FactoryPatchRequest:
     name: str | None = None
     description: str | None = None
-    status: FactoryLifecycleState | str | None = None
+    # Lifecycle is not patchable: status moves only through start/pause/resume/archive.
     budget_policy: BudgetPolicy | dict[str, Any] | None = None
     cap_policy: CapPolicy | dict[str, Any] | None = None
     homeostasis_policy: dict[str, Any] | None = None
@@ -243,8 +253,6 @@ class FactoryPatchRequest:
         ):
             if value is not None:
                 payload[key] = value
-        if self.status is not None:
-            payload["status"] = _enum_value(self.status)
         for key, value in (
             ("budget_policy", self.budget_policy),
             ("cap_policy", self.cap_policy),
@@ -256,6 +264,57 @@ class FactoryPatchRequest:
             if value is not None:
                 payload[key] = _policy_payload(value)
         return payload
+
+
+@dataclass(frozen=True)
+class FactoryTransitionRequest:
+    """Body for named lifecycle transitions (start/pause/resume/archive).
+
+    ``dry_run=True`` is the preview: the reducer answers whether the transition
+    is legal and what it would change, without applying it.
+    """
+
+    reason: str | None = None
+    dry_run: bool = False
+
+    def to_wire(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {"dry_run": bool(self.dry_run)}
+        if self.reason is not None:
+            payload["reason"] = self.reason
+        return payload
+
+
+@dataclass(frozen=True)
+class FactoryTransitionResponse:
+    factory: Factory
+    command: str
+    decision: str
+    to_status: FactoryLifecycleState
+    decision_detail: str | None = None
+    effects: tuple[str, ...] = ()
+    woken_efforts: int = 0
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryTransitionResponse:
+        mapping = _require_mapping(payload, label="factory transition")
+        effects_raw = mapping.get("effects") or []
+        if not isinstance(effects_raw, list):
+            raise ValueError("factory transition effects must be a list")
+        return cls(
+            factory=Factory.from_wire(mapping.get("factory")),
+            command=_require_string(mapping, "command", label="factory transition.command"),
+            decision=_require_string(mapping, "decision", label="factory transition.decision"),
+            decision_detail=_optional_string(mapping, "decision_detail"),
+            to_status=FactoryLifecycleState(
+                _require_string(mapping, "to_status", label="factory transition.to_status")
+            ),
+            effects=tuple(str(item) for item in effects_raw),
+            woken_efforts=_int_value(
+                mapping, "woken_efforts", label="factory transition.woken_efforts"
+            ),
+            raw=dict(mapping),
+        )
 
 
 @dataclass(frozen=True)
@@ -2639,6 +2698,22 @@ def factory_patch_payload(
 ) -> dict[str, Any]:
     if isinstance(request, FactoryPatchRequest):
         return request.to_wire()
+    payload = dict(request)
+    # Lifecycle is not a patchable field on the backend after FactoryLifecycle.
+    payload.pop("status", None)
+    return payload
+
+
+def factory_transition_payload(
+    request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    *,
+    reason: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    if request is None:
+        return FactoryTransitionRequest(reason=reason, dry_run=dry_run).to_wire()
+    if isinstance(request, FactoryTransitionRequest):
+        return request.to_wire()
     return dict(request)
 
 
@@ -2754,6 +2829,7 @@ def effort_from_runs_payload(
 
 FACTORY_KIND_VALUES = tuple(item.value for item in FactoryKind)
 FACTORY_LIFECYCLE_STATE_VALUES = tuple(item.value for item in FactoryLifecycleState)
+FACTORY_CREATE_STATUS_VALUES = tuple(item.value for item in FactoryCreateStatus)
 FACTORY_PROJECT_ROLE_VALUES = tuple(item.value for item in FactoryProjectRole)
 FACTORY_PROJECT_STATUS_VALUES = tuple(item.value for item in FactoryProjectStatus)
 FACTORY_IDEA_STATUS_VALUES = tuple(item.value for item in FactoryIdeaStatus)
@@ -2775,6 +2851,7 @@ __all__ = [
     "EFFORT_TYPE_VALUES",
     "FACTORY_KIND_VALUES",
     "FACTORY_LIFECYCLE_STATE_VALUES",
+    "FACTORY_CREATE_STATUS_VALUES",
     "FACTORY_PROJECT_ROLE_VALUES",
     "FACTORY_PROJECT_STATUS_VALUES",
     "FACTORY_IDEA_STATUS_VALUES",
@@ -2806,6 +2883,7 @@ __all__ = [
     "FactoryActorOutputStatus",
     "FactoryActorRole",
     "FactoryCreateRequest",
+    "FactoryCreateStatus",
     "FactoryCandidate",
     "FactoryCandidateGradingRequest",
     "FactoryCandidateGradingStatus",
@@ -2839,6 +2917,8 @@ __all__ = [
     "FactoryKind",
     "FactoryLifecycleState",
     "FactoryPatchRequest",
+    "FactoryTransitionRequest",
+    "FactoryTransitionResponse",
     "FactoryProjectLink",
     "FactoryProjectLinkRequest",
     "FactoryProjectPatchRequest",
@@ -2871,6 +2951,7 @@ __all__ = [
     "factory_idea_create_payload",
     "factory_idea_patch_payload",
     "factory_patch_payload",
+    "factory_transition_payload",
     "factory_project_link_payload",
     "factory_project_patch_payload",
     "factory_wake_due_payload",
