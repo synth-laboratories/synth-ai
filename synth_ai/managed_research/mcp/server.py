@@ -835,20 +835,41 @@ class ManagedResearchMcpServer:
                 _tool_body(args, exclude={"factory_id"}),
             ).raw
 
+    def _factory_transition_kwargs(self, args: JSONDict) -> dict[str, Any]:
+        kwargs: dict[str, Any] = {}
+        if "reason" in args and args["reason"] is not None:
+            kwargs["reason"] = str(args["reason"])
+        if "dry_run" in args and args["dry_run"] is not None:
+            kwargs["dry_run"] = bool(args["dry_run"])
+        return kwargs
+
+    def _tool_start_factory(self, args: JSONDict) -> Any:
+        factory_id = require_string(args, "factory_id")
+        with self._client_from_args(args) as client:
+            return client.factories.start(
+                factory_id, **self._factory_transition_kwargs(args)
+            ).raw
+
     def _tool_pause_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.pause(factory_id).raw
+            return client.factories.pause(
+                factory_id, **self._factory_transition_kwargs(args)
+            ).raw
 
     def _tool_resume_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.resume(factory_id).raw
+            return client.factories.resume(
+                factory_id, **self._factory_transition_kwargs(args)
+            ).raw
 
     def _tool_archive_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.archive(factory_id).raw
+            return client.factories.archive(
+                factory_id, **self._factory_transition_kwargs(args)
+            ).raw
 
     def _tool_get_factory_status(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")

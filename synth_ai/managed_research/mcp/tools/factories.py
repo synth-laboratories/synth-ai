@@ -16,10 +16,10 @@ from synth_ai.managed_research.models.factories import (
     FACTORY_ACTOR_OUTPUT_KIND_VALUES,
     FACTORY_ACTOR_OUTPUT_STATUS_VALUES,
     FACTORY_ACTOR_ROLE_VALUES,
+    FACTORY_CREATE_STATUS_VALUES,
     FACTORY_IDEA_SOURCE_VALUES,
     FACTORY_IDEA_STATUS_VALUES,
     FACTORY_KIND_VALUES,
-    FACTORY_LIFECYCLE_STATE_VALUES,
     FACTORY_PROJECT_ROLE_VALUES,
     FACTORY_PROJECT_STATUS_VALUES,
 )
@@ -36,8 +36,12 @@ def _factory_mutation_properties() -> dict[str, Any]:
         },
         "status": {
             "type": "string",
-            "enum": list(FACTORY_LIFECYCLE_STATE_VALUES),
-            "description": "Factory lifecycle status.",
+            "enum": list(FACTORY_CREATE_STATUS_VALUES),
+            "description": (
+                "Create-time status only (configured|active). Lifecycle after create "
+                "moves through smr_start_factory / smr_pause_factory / "
+                "smr_resume_factory / smr_archive_factory."
+            ),
         },
         "budget_policy": {"type": "object", "description": "Optional Factory budget policy."},
         "cap_policy": {"type": "object", "description": "Optional Factory cap policy."},
@@ -50,6 +54,23 @@ def _factory_mutation_properties() -> dict[str, Any]:
             "description": "Optional Factory authorization and workspace scope policy.",
         },
         "metadata": {"type": "object", "description": "Optional Factory metadata."},
+    }
+
+
+def _factory_transition_properties() -> dict[str, Any]:
+    return {
+        "factory_id": {"type": "string", "description": "Factory ID."},
+        "reason": {
+            "type": "string",
+            "description": "Optional operator reason recorded with the transition.",
+        },
+        "dry_run": {
+            "type": "boolean",
+            "description": (
+                "When true, preview the transition without applying it "
+                "(same reducer decision as a real call)."
+            ),
+        },
     }
 
 
@@ -292,14 +313,17 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_patch_factory",
-            description="Update Factory status, policies, description, or metadata.",
+            description=(
+                "Update Factory policies, description, or metadata. "
+                "Lifecycle status is not patchable — use the named transition tools."
+            ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
                     **{
                         key: value
                         for key, value in _factory_mutation_properties().items()
-                        if key != "kind"
+                        if key not in {"kind", "status"}
                     },
                 },
                 required=["factory_id"],
@@ -308,10 +332,26 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_pause_factory",
-            description="Pause a Research Factory so operators see it as not active.",
+            name="smr_start_factory",
+            description=(
+                "Start a Configured Research Factory (Configured→Active). "
+                "Pass dry_run=true to preview without applying."
+            ),
             input_schema=tool_schema(
-                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                _factory_transition_properties(),
+                required=["factory_id"],
+            ),
+            handler=server._tool_start_factory,
+            required_scopes=WRITE_SCOPES,
+        ),
+        ToolDefinition(
+            name="smr_pause_factory",
+            description=(
+                "Pause an Active Research Factory (Active→Paused; in-flight runs finish). "
+                "Pass dry_run=true to preview without applying."
+            ),
+            input_schema=tool_schema(
+                _factory_transition_properties(),
                 required=["factory_id"],
             ),
             handler=server._tool_pause_factory,
@@ -319,9 +359,12 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_resume_factory",
-            description="Resume a paused or archived Research Factory.",
+            description=(
+                "Resume a Paused Research Factory (Paused→Active). "
+                "Pass dry_run=true to preview without applying."
+            ),
             input_schema=tool_schema(
-                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                _factory_transition_properties(),
                 required=["factory_id"],
             ),
             handler=server._tool_resume_factory,
@@ -329,9 +372,12 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_archive_factory",
-            description="Archive a Research Factory.",
+            description=(
+                "Archive a Research Factory (terminal). "
+                "Pass dry_run=true to preview without applying."
+            ),
             input_schema=tool_schema(
-                {"factory_id": {"type": "string", "description": "Factory ID."}},
+                _factory_transition_properties(),
                 required=["factory_id"],
             ),
             handler=server._tool_archive_factory,

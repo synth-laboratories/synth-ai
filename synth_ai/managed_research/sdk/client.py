@@ -35,6 +35,7 @@ from synth_ai.managed_research.models import (
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
     FactoryPatchRequest,
+    FactoryTransitionRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryResultEvaluateRequest,
@@ -72,6 +73,7 @@ from synth_ai.managed_research.models.factories import (
     factory_idea_create_payload,
     factory_idea_patch_payload,
     factory_patch_payload,
+    factory_transition_payload,
     factory_project_link_payload,
     factory_project_patch_payload,
     factory_result_evaluate_payload,
@@ -1860,6 +1862,82 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
+        )
+
+    def start_factory(
+        self,
+        factory_id: str,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/start",
+                json_body=factory_transition_payload(
+                    request, reason=reason, dry_run=dry_run
+                ),
+            ),
+            label="start_factory",
+        )
+
+    def pause_factory(
+        self,
+        factory_id: str,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/pause",
+                json_body=factory_transition_payload(
+                    request, reason=reason, dry_run=dry_run
+                ),
+            ),
+            label="pause_factory",
+        )
+
+    def resume_factory(
+        self,
+        factory_id: str,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/resume",
+                json_body=factory_transition_payload(
+                    request, reason=reason, dry_run=dry_run
+                ),
+            ),
+            label="resume_factory",
+        )
+
+    def archive_factory(
+        self,
+        factory_id: str,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/archive",
+                json_body=factory_transition_payload(
+                    request, reason=reason, dry_run=dry_run
+                ),
+            ),
+            label="archive_factory",
         )
 
     def list_factory_candidates(
