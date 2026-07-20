@@ -161,132 +161,6 @@ class SmrRunTraces:
 
 
 @dataclass(frozen=True, slots=True)
-class SmrRunParticipant:
-    actor_id: str
-    role: str
-    session_id: str | None = None
-    usage_recording_status: str = "missing"
-    actor_key: str | None = None
-    participant_session_id: str | None = None
-
-    @classmethod
-    def from_wire(cls, payload: dict[str, Any]) -> SmrRunParticipant:
-        return cls(
-            actor_id=_require_text(payload.get("actor_id"), field_name="actor_id"),
-            role=_require_text(payload.get("role"), field_name="role"),
-            session_id=_optional_text(payload.get("session_id")),
-            usage_recording_status=_require_text(
-                payload.get("usage_recording_status"),
-                field_name="usage_recording_status",
-            ),
-            actor_key=_optional_text(payload.get("actor_key")),
-            participant_session_id=_optional_text(payload.get("participant_session_id")),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class SmrRunParticipants:
-    project_id: str
-    run_id: str
-    participants: tuple[SmrRunParticipant, ...]
-
-    @classmethod
-    def from_wire(cls, payload: dict[str, Any]) -> SmrRunParticipants:
-        participants = tuple(
-            SmrRunParticipant.from_wire(item)
-            for item in (payload.get("participants") or [])
-            if isinstance(item, dict)
-        )
-        return cls(
-            project_id=_require_text(payload.get("project_id"), field_name="project_id"),
-            run_id=_require_text(payload.get("run_id"), field_name="run_id"),
-            participants=participants,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class SmrRunArtifactProgress:
-    project_id: str
-    run_id: str
-    staged: int = 0
-    required: int = 0
-    missing: tuple[str, ...] = ()
-    optional_staged: int = 0
-    optional_total: int = 0
-
-    @classmethod
-    def from_wire(cls, payload: dict[str, Any]) -> SmrRunArtifactProgress:
-        return cls(
-            project_id=_require_text(payload.get("project_id"), field_name="project_id"),
-            run_id=_require_text(payload.get("run_id"), field_name="run_id"),
-            staged=int(payload.get("staged") or 0),
-            required=int(payload.get("required") or 0),
-            missing=tuple(str(item) for item in (payload.get("missing") or [])),
-            optional_staged=int(payload.get("optional_staged") or 0),
-            optional_total=int(payload.get("optional_total") or 0),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class SmrRunActorLogEvent:
-    event_id: str
-    run_id: str
-    project_id: str
-    occurred_at: datetime
-    seq: str
-    kind: str
-    payload_excerpt: str
-    actor_id: str | None = None
-    participant_session_id: str | None = None
-    turn_id: str | None = None
-    byte_count: int = 0
-    line_count: int = 0
-    truncated: bool = False
-    redacted: bool = False
-
-    @classmethod
-    def from_wire(cls, payload: dict[str, Any]) -> SmrRunActorLogEvent:
-        return cls(
-            event_id=_require_text(payload.get("event_id"), field_name="event_id"),
-            run_id=_require_text(payload.get("run_id"), field_name="run_id"),
-            project_id=_require_text(payload.get("project_id"), field_name="project_id"),
-            actor_id=_optional_text(payload.get("actor_id")),
-            participant_session_id=_optional_text(payload.get("participant_session_id")),
-            turn_id=_optional_text(payload.get("turn_id")),
-            occurred_at=_parse_datetime(payload.get("occurred_at"), field_name="occurred_at"),
-            seq=_require_text(payload.get("seq"), field_name="seq"),
-            kind=_require_text(payload.get("kind"), field_name="kind"),
-            payload_excerpt=str(payload.get("payload_excerpt") or ""),
-            byte_count=int(payload.get("byte_count") or 0),
-            line_count=int(payload.get("line_count") or 0),
-            truncated=bool(payload.get("truncated")),
-            redacted=bool(payload.get("redacted")),
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class SmrRunActorLogs:
-    project_id: str
-    run_id: str
-    events: tuple[SmrRunActorLogEvent, ...]
-    next_cursor: str | None = None
-
-    @classmethod
-    def from_wire(cls, payload: dict[str, Any]) -> SmrRunActorLogs:
-        events = tuple(
-            SmrRunActorLogEvent.from_wire(item)
-            for item in (payload.get("events") or [])
-            if isinstance(item, dict)
-        )
-        return cls(
-            project_id=_require_text(payload.get("project_id"), field_name="project_id"),
-            run_id=_require_text(payload.get("run_id"), field_name="run_id"),
-            events=events,
-            next_cursor=_optional_text(payload.get("next_cursor")),
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class SmrRunMeterCost:
     meter_kind: str
     billed_amount_cents: int = 0
@@ -496,14 +370,9 @@ class SmrRunActorUsage:
 
 __all__ = [
     "SmrActorUsageSummary",
-    "SmrRunActorLogEvent",
-    "SmrRunActorLogs",
     "SmrRunActorUsage",
-    "SmrRunArtifactProgress",
     "SmrRunCostSummary",
     "SmrRunMeterCost",
-    "SmrRunParticipant",
-    "SmrRunParticipants",
     "SmrRunTraceItem",
     "SmrRunTraces",
 ]

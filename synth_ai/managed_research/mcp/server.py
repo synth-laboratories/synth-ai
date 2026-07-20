@@ -2813,36 +2813,6 @@ class ManagedResearchMcpServer:
             )
             return asdict(result) if is_dataclass(result) else result
 
-    def _tool_list_run_participants(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_participants(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_get_run_artifact_progress(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.get_run_artifact_progress(run_id, project_id=project_id)
-            return asdict(result) if is_dataclass(result) else result
-
-    def _tool_list_run_actor_logs(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
-        project_id = optional_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            result = client.list_run_actor_logs(
-                run_id,
-                project_id=project_id,
-                actor_id=optional_string(args, "actor_id"),
-                turn_id=optional_string(args, "turn_id"),
-                kind=optional_string(args, "kind"),
-                since=optional_string(args, "since"),
-                cursor=optional_string(args, "cursor"),
-                limit=optional_int(args, "limit"),
-            )
-            return asdict(result) if is_dataclass(result) else result
-
     def _tool_branch_run_from_checkpoint(self, args: JSONDict) -> Any:
         run_id = optional_string(args, "run_id")
         project_id = optional_string(args, "project_id")
