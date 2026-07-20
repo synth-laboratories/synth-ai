@@ -524,9 +524,7 @@ class ResearchSwarmsAPI:
         if timeout <= 0:
             raise ValueError("timeout must be greater than 0")
         run_kwargs = _research_run_kwargs(launch_kwargs)
-        preflight_kwargs = {
-            key: value for key, value in run_kwargs.items() if key != "run_kind"
-        }
+        preflight_kwargs = {key: value for key, value in run_kwargs.items() if key != "run_kind"}
         preflight = self._session.runs.launch_preflight(
             project_id,
             project=project,
