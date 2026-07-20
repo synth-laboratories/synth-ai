@@ -1,11 +1,15 @@
-"""``client.research.efforts`` — graduate Runs into persistent Efforts (alpha)."""
+"""``client.research.efforts`` — persistent Factory Efforts."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import List
+from collections.abc import Iterable, Mapping
+from typing import Any, List
 
-from synth_ai.managed_research.models.factories import Effort, GraduationProposal
+from synth_ai.managed_research.models.factories import (
+    Effort,
+    EffortCreateRequest,
+    GraduationProposal,
+)
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 
 
@@ -29,9 +33,11 @@ class ResearchEffortsProposalsAPI:
 
 
 class ResearchEffortsAPI:
-    """Graduate runs into persistent Research Factory Efforts.
+    """Persistent Research Factory Efforts.
 
     Nested namespace: ``proposals`` (Gardener-authored graduation proposals).
+    Prefer ``research.factories.create_effort`` / ``list_efforts`` when the
+    Factory is already known; use this namespace for Effort-id-first workflows.
     """
 
     def __init__(self, session: ManagedResearchClient) -> None:
@@ -44,6 +50,81 @@ class ResearchEffortsAPI:
         if self._proposals is None:
             self._proposals = ResearchEffortsProposalsAPI(self._session)
         return self._proposals
+
+    def create(
+        self,
+        request: EffortCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> Effort:
+        """Create an Effort from a typed request body.
+
+        Args:
+            request: ``EffortCreateRequest`` or equivalent mapping (must include
+                ``factory_id`` / ``project_id`` as required by the backend).
+
+        Returns:
+            The created ``Effort``.
+        """
+        return self._session.efforts.create(request)
+
+    def get(self, effort_id: str) -> Effort:
+        """Fetch one Effort by id.
+
+        Args:
+            effort_id: Effort to fetch.
+
+        Returns:
+            ``Effort`` record.
+        """
+        return self._session.efforts.get(effort_id)
+
+    def pause(self, effort_id: str) -> Effort:
+        """Pause an Effort (stop new wakes for this Effort).
+
+        Args:
+            effort_id: Effort to pause.
+
+        Returns:
+            Updated ``Effort``.
+        """
+        return self._session.efforts.pause(effort_id)
+
+    def resume(self, effort_id: str) -> Effort:
+        """Resume a paused Effort.
+
+        Args:
+            effort_id: Effort to resume.
+
+        Returns:
+            Updated ``Effort``.
+        """
+        return self._session.efforts.resume(effort_id)
+
+    def launch(
+        self,
+        effort_id: str,
+        objective: str | None = None,
+        *,
+        run_kind: str = "research",
+        **kwargs: Any,
+    ):
+        """Launch a Run bound to an Effort.
+
+        Args:
+            effort_id: Effort that owns the Run.
+            objective: Optional objective override; defaults to the Effort
+                hypothesis/name.
+            run_kind: Run kind (default ``research``).
+            **kwargs: Forwarded to the Runs start path.
+
+        Returns:
+            A run handle from the backing Managed Research client.
+        """
+        return self._session.efforts.launch(
+            effort_id,
+            objective,
+            run_kind=run_kind,
+            **kwargs,
+        )
 
     def from_runs(
         self,

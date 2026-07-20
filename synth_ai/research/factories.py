@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from synth_ai.managed_research.models.factories import (
+    Effort,
+    EffortStatus,
+    EffortType,
     Factory,
     FactoryCandidate,
     FactoryCandidateGradingRequest,
@@ -14,10 +18,14 @@ from synth_ai.managed_research.models.factories import (
     FactoryChampionEvent,
     FactoryChampionRollbackRequest,
     FactoryChampionSelectRequest,
+    FactoryCreateRequest,
+    FactoryPatchRequest,
     FactoryResult,
     FactoryResultSelectionDecision,
     FactoryResultSelectionEvent,
     FactoryStatus,
+    FactoryTransitionRequest,
+    FactoryTransitionResponse,
     FactoryWakeDueResult,
 )
 from synth_ai.managed_research.models.tag import (
@@ -445,6 +453,195 @@ class ResearchFactoriesAPI:
     def get(self, factory_id: str) -> Factory:
         """Fetch one Research Factory."""
         return self._session.factories.get(factory_id)
+
+    def create(
+        self,
+        request: FactoryCreateRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> Factory:
+        """Create a Research Factory.
+
+        Args:
+            request: ``FactoryCreateRequest`` or equivalent mapping. Create
+                inserts ``configured``; requesting ``active`` is create+start
+                through the backend FactoryLifecycle reducer.
+
+        Returns:
+            The created ``Factory``.
+        """
+        return self._session.factories.create(request)
+
+    def patch(
+        self,
+        factory_id: str,
+        request: FactoryPatchRequest | Mapping[str, Any] | dict[str, Any],
+    ) -> Factory:
+        """Patch non-lifecycle Factory fields (name, policies, metadata).
+
+        Lifecycle status is not patchable — use ``start`` / ``pause`` /
+        ``resume`` / ``archive``.
+
+        Args:
+            factory_id: Factory to update.
+            request: ``FactoryPatchRequest`` or equivalent mapping.
+
+        Returns:
+            Updated ``Factory``.
+        """
+        return self._session.factories.patch(factory_id, request)
+
+    def start(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        """Start a configured Factory (Configured → Active).
+
+        Args:
+            factory_id: Factory to start.
+            reason: Optional operator reason recorded with the transition.
+            dry_run: When true, preview legality and effects without applying.
+            request: Optional full transition body; overrides reason/dry_run
+                when provided as a ``FactoryTransitionRequest``.
+
+        Returns:
+            ``FactoryTransitionResponse`` with decision, effects, and factory.
+        """
+        return self._session.factories.start(
+            factory_id,
+            reason=reason,
+            dry_run=dry_run,
+            request=request,
+        )
+
+    def pause(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        """Pause an active Factory (stop new cycles; in-flight runs finish).
+
+        Args:
+            factory_id: Factory to pause.
+            reason: Optional operator reason.
+            dry_run: Preview without applying.
+            request: Optional full transition body.
+
+        Returns:
+            ``FactoryTransitionResponse`` from the backend reducer.
+        """
+        return self._session.factories.pause(
+            factory_id,
+            reason=reason,
+            dry_run=dry_run,
+            request=request,
+        )
+
+    def resume(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        """Resume a paused Factory (Paused → Active).
+
+        Args:
+            factory_id: Factory to resume.
+            reason: Optional operator reason.
+            dry_run: Preview without applying.
+            request: Optional full transition body.
+
+        Returns:
+            ``FactoryTransitionResponse`` from the backend reducer.
+        """
+        return self._session.factories.resume(
+            factory_id,
+            reason=reason,
+            dry_run=dry_run,
+            request=request,
+        )
+
+    def archive(
+        self,
+        factory_id: str,
+        *,
+        reason: str | None = None,
+        dry_run: bool = False,
+        request: FactoryTransitionRequest | Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> FactoryTransitionResponse:
+        """Archive a Factory (terminal; refuses new wakes).
+
+        Args:
+            factory_id: Factory to archive.
+            reason: Optional operator reason.
+            dry_run: Preview without applying.
+            request: Optional full transition body.
+
+        Returns:
+            ``FactoryTransitionResponse`` from the backend reducer.
+        """
+        return self._session.factories.archive(
+            factory_id,
+            reason=reason,
+            dry_run=dry_run,
+            request=request,
+        )
+
+    def list_efforts(self, factory_id: str) -> tuple[Effort, ...]:
+        """List Efforts owned by a Factory.
+
+        Args:
+            factory_id: Owning Factory id.
+
+        Returns:
+            Tuple of ``Effort`` records.
+        """
+        return tuple(self._session.factories.list_efforts(factory_id))
+
+    def create_effort(
+        self,
+        factory_id: str,
+        *,
+        name: str,
+        project_id: str | None = None,
+        hypothesis_or_topic: str | None = None,
+        effort_type: EffortType | str = EffortType.RESEARCH,
+        status: EffortStatus | str = EffortStatus.ACTIVE,
+        next_wake_at: datetime | str | None = None,
+        metadata: Mapping[str, Any] | dict[str, Any] | None = None,
+    ) -> Effort:
+        """Create an Effort under a Factory.
+
+        Args:
+            factory_id: Owning Factory.
+            name: Human-readable Effort name.
+            project_id: Optional project; defaults to the Factory workspace project.
+            hypothesis_or_topic: Optional research hypothesis text.
+            effort_type: Effort type (default research).
+            status: Initial Effort status.
+            next_wake_at: Optional first wake time.
+            metadata: Optional metadata bag.
+
+        Returns:
+            The created ``Effort``.
+        """
+        return self._session.factories.create_effort(
+            factory_id,
+            name=name,
+            project_id=project_id,
+            hypothesis_or_topic=hypothesis_or_topic,
+            effort_type=effort_type,
+            status=status,
+            next_wake_at=next_wake_at,
+            metadata=metadata,
+        )
 
     def status(self, factory_id: str) -> FactoryStatus:
         """Read the backend-owned Factory workflow projection."""

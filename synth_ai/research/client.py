@@ -89,7 +89,7 @@ class ResearchClient:
 
     @property
     def efforts(self) -> ResearchEffortsAPI:
-        """Graduate runs into persistent Efforts (``efforts.proposals`` for proposals)."""
+        """Persistent Efforts API (create/get/pause/resume/launch + proposals)."""
         if self._efforts is None:
             self._efforts = ResearchEffortsAPI(self._open_session())
         return self._efforts
