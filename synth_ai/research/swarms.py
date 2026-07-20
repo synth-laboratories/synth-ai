@@ -129,7 +129,9 @@ def _research_run_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(
                 "pass either directed_outcome or directed_effort_outcome, not both"
             )
-        payload["directed_effort_outcome"] = _normalize_directed_outcome(directed_outcome)
+        payload["directed_effort_outcome"] = _normalize_directed_outcome(
+            directed_outcome
+        )
     elif payload.get("directed_effort_outcome") is not None:
         payload["directed_effort_outcome"] = _normalize_directed_outcome(
             payload["directed_effort_outcome"]
