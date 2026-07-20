@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 from synth_ai.managed_research.models.factories import (
@@ -28,6 +28,11 @@ from synth_ai.managed_research.models.tag import (
     TagSteeringTarget,
 )
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.research.factory_handles import (
+    ResearchEffortHandle,
+    ResearchFactoryEffortsAPI,
+    ResearchFactoryHandle,
+)
 
 
 class ResearchFactoriesTagSessionsMessagesAPI:
@@ -320,6 +325,41 @@ class ResearchFactoriesAPI:
         """Read the backend-owned Factory workflow projection."""
         return self._session.factories.status(factory_id)
 
+    def open(self, factory_id: str) -> ResearchFactoryHandle:
+        """Open a handle bound to one Factory id (no network call)."""
+        return ResearchFactoryHandle(self._session, self, factory_id)
+
+    def pause(self, factory_id: str) -> Factory:
+        """Pause a Factory. Backend route: ``PATCH /smr/factories/{factory_id}``."""
+        return self._session.factories.pause(factory_id)
+
+    def resume(self, factory_id: str) -> Factory:
+        """Resume a Factory. Backend route: ``PATCH /smr/factories/{factory_id}``."""
+        return self._session.factories.resume(factory_id)
+
+    def archive(self, factory_id: str) -> Factory:
+        """Archive a Factory. Backend route: ``PATCH /smr/factories/{factory_id}``."""
+        return self._session.factories.archive(factory_id)
+
+    def watch_status(
+        self,
+        factory_id: str,
+        *,
+        poll_interval: float = 5.0,
+        timeout: float | None = None,
+        stop_when_idle: bool = False,
+    ) -> Iterator[FactoryStatus]:
+        """Poll the status projection until idle or timeout.
+
+        Backend route: repeated ``GET /smr/factories/{factory_id}/status``.
+        """
+        return self._session.factories.watch_status(
+            factory_id,
+            poll_interval=poll_interval,
+            timeout=timeout,
+            stop_when_idle=stop_when_idle,
+        )
+
     def preview_wake(
         self,
         factory_id: str,
@@ -373,7 +413,10 @@ class ResearchFactoriesAPI:
 
 
 __all__ = [
+    "ResearchEffortHandle",
     "ResearchFactoriesAPI",
+    "ResearchFactoryEffortsAPI",
+    "ResearchFactoryHandle",
     "ResearchFactoriesTagAPI",
     "ResearchFactoriesTagScopesAPI",
     "ResearchFactoriesTagSessionsAPI",

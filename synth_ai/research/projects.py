@@ -8,6 +8,7 @@ from typing import Any, List
 
 from synth_ai.managed_research.models.types import SmrProjectSetup, SmrRunnableProjectRequest
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.research.knowledge import ResearchProjectsNotesAPI
 from synth_ai.research.models import ResearchCreateProjectResult, ResearchProject
 from synth_ai.research.project_namespaces import (
     ResearchProjectsCodeAPI,
@@ -38,6 +39,7 @@ class ResearchProjectsAPI:
         self._objectives: ResearchProjectsObjectivesAPI | None = None
         self._milestones: ResearchProjectsMilestonesAPI | None = None
         self._runs: ResearchProjectsRunsAPI | None = None
+        self._notes: ResearchProjectsNotesAPI | None = None
 
     @property
     def setup(self) -> ResearchProjectsSetupAPI:
@@ -94,6 +96,13 @@ class ResearchProjectsAPI:
         if self._runs is None:
             self._runs = ResearchProjectsRunsAPI(self._session)
         return self._runs
+
+    @property
+    def notes(self) -> ResearchProjectsNotesAPI:
+        """Durable free-form project notes."""
+        if self._notes is None:
+            self._notes = ResearchProjectsNotesAPI(self._session)
+        return self._notes
 
     def create(
         self,

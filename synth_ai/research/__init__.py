@@ -5,6 +5,8 @@ Canonical entry: ``SynthClient().research``.
 
 from __future__ import annotations
 
+# Bindings tranche namespaces (appended; keep edits above untouched).
+from synth_ai.research.account import ResearchAccountAPI
 from synth_ai.research.async_client import AsyncResearchClient
 from synth_ai.research.client import ResearchClient
 from synth_ai.research.economics import ResearchEconomicsAPI
@@ -17,7 +19,13 @@ from synth_ai.research.errors import (
     ResearchProjectMonthlyBudgetExhaustedError,
     ResearchStructuredDenialError,
 )
+from synth_ai.research.experiments import ResearchExperimentsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
+from synth_ai.research.factory_handles import (
+    ResearchEffortHandle,
+    ResearchFactoryHandle,
+)
+from synth_ai.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
     ResearchAgentHarness,
@@ -59,6 +67,7 @@ from synth_ai.research.swarms import (
     SwarmRetryResult,
     swarm_state_is_terminal,
 )
+from synth_ai.research.wiki import ResearchWikiAPI
 
 # Deprecated run-noun aliases (public noun is Swarm; import shims live in
 # synth_ai.research.runs / run_readouts for old module paths).
@@ -119,4 +128,10 @@ __all__ = [
     "SwarmResult",
     "SwarmRetryResult",
     "swarm_state_is_terminal",
+    "ResearchAccountAPI",
+    "ResearchEffortHandle",
+    "ResearchExperimentsAPI",
+    "ResearchFactoryHandle",
+    "ResearchKnowledgeAPI",
+    "ResearchWikiAPI",
 ]

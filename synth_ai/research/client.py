@@ -7,15 +7,19 @@ from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.tag import TagAPI
+from synth_ai.research.account import ResearchAccountAPI
 from synth_ai.research.economics import ResearchEconomicsAPI
 from synth_ai.research.efforts import ResearchEffortsAPI
+from synth_ai.research.experiments import ResearchExperimentsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
+from synth_ai.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
 from synth_ai.research.swarms import ResearchSwarmsAPI
 from synth_ai.research.visuals import ResearchVisualsAPI
+from synth_ai.research.wiki import ResearchWikiAPI
 
 
 class ResearchClient:
@@ -54,6 +58,10 @@ class ResearchClient:
         self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
         self._visuals: ResearchVisualsAPI | None = None
         self._tag: TagAPI | None = None
+        self._experiments: ResearchExperimentsAPI | None = None
+        self._knowledge: ResearchKnowledgeAPI | None = None
+        self._wiki: ResearchWikiAPI | None = None
+        self._account: ResearchAccountAPI | None = None
 
     def _open_session(self) -> ManagedResearchClient:
         if self._session is None:
@@ -156,6 +164,34 @@ class ResearchClient:
         return self._visuals
 
     @property
+    def experiments(self) -> ResearchExperimentsAPI:
+        """Typed experiment bundles, history, and comparisons."""
+        if self._experiments is None:
+            self._experiments = ResearchExperimentsAPI(self._open_session())
+        return self._experiments
+
+    @property
+    def knowledge(self) -> ResearchKnowledgeAPI:
+        """Org-level durable knowledge document."""
+        if self._knowledge is None:
+            self._knowledge = ResearchKnowledgeAPI(self._open_session())
+        return self._knowledge
+
+    @property
+    def wiki(self) -> ResearchWikiAPI:
+        """Project wiki reads plus proposal intake."""
+        if self._wiki is None:
+            self._wiki = ResearchWikiAPI(self._open_session())
+        return self._wiki
+
+    @property
+    def account(self) -> ResearchAccountAPI:
+        """Org account: balance, credits, usage, BYOK, members, identity."""
+        if self._account is None:
+            self._account = ResearchAccountAPI(self._open_session())
+        return self._account
+
+    @property
     def tag(self) -> TagAPI:
         """Deprecated — use ``factories.tag`` instead."""
         warnings.warn(
@@ -191,6 +227,10 @@ class ResearchClient:
         self._hosted_artifacts = None
         self._visuals = None
         self._tag = None
+        self._experiments = None
+        self._knowledge = None
+        self._wiki = None
+        self._account = None
 
 
 __all__ = ["ResearchClient"]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 from os import PathLike
 from typing import Any, List
 
@@ -163,11 +164,325 @@ class ResearchProjectsReposAPI:
         )
 
 
-class ResearchProjectsGitAPI:
-    """Project git source connection and metadata."""
+def _require_git_mapping(payload: object, *, label: str) -> dict[str, object]:
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"{label} payload must be an object")
+    return dict(payload)
+
+
+@dataclass(frozen=True)
+class GitCommitRow:
+    """One commit summary row from the project git server."""
+
+    sha: str
+    summary: str = ""
+    author_name: str = ""
+    author_email: str = ""
+    authored_at: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GitCommitRow:
+        mapping = _require_git_mapping(payload, label="git commit")
+        authored_at = mapping.get("authored_at")
+        return cls(
+            sha=str(mapping.get("sha") or ""),
+            summary=str(mapping.get("summary") or ""),
+            author_name=str(mapping.get("author_name") or ""),
+            author_email=str(mapping.get("author_email") or ""),
+            authored_at=str(authored_at) if authored_at is not None else None,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class GitBranchRow:
+    """One unmerged-branch summary row from the project git server."""
+
+    name: str
+    head_commit_sha: str = ""
+    last_authored_at: str | None = None
+    author_name: str | None = None
+    summary: str | None = None
+    merged_into_default: bool | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GitBranchRow:
+        mapping = _require_git_mapping(payload, label="git branch")
+
+        def _opt_str(key: str) -> str | None:
+            value = mapping.get(key)
+            return str(value) if value is not None else None
+
+        merged = mapping.get("merged_into_default")
+        return cls(
+            name=str(mapping.get("name") or ""),
+            head_commit_sha=str(mapping.get("head_commit_sha") or ""),
+            last_authored_at=_opt_str("last_authored_at"),
+            author_name=_opt_str("author_name"),
+            summary=_opt_str("summary"),
+            merged_into_default=bool(merged) if merged is not None else None,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class GitRepoStatus:
+    """Project git repo status: HEAD, recent commits, unmerged branches, tree."""
+
+    project_id: str
+    branch: str = ""
+    default_branch: str = ""
+    head_commit_sha: str = ""
+    recent_commits: tuple[GitCommitRow, ...] = ()
+    unmerged_branches: tuple[GitBranchRow, ...] = ()
+    tree_paths: tuple[str, ...] = ()
+    tree_truncated: bool = False
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GitRepoStatus:
+        mapping = _require_git_mapping(payload, label="git status")
+        return cls(
+            project_id=str(mapping.get("project_id") or ""),
+            branch=str(mapping.get("branch") or ""),
+            default_branch=str(mapping.get("default_branch") or ""),
+            head_commit_sha=str(mapping.get("head_commit_sha") or ""),
+            recent_commits=tuple(
+                GitCommitRow.from_wire(item)
+                for item in list(mapping.get("recent_commits") or [])
+            ),
+            unmerged_branches=tuple(
+                GitBranchRow.from_wire(item)
+                for item in list(mapping.get("unmerged_branches") or [])
+            ),
+            tree_paths=tuple(str(item) for item in list(mapping.get("tree_paths") or [])),
+            tree_truncated=bool(mapping.get("tree_truncated")),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class GitFileContent:
+    """One file read from the project git server (utf-8 or base64 content)."""
+
+    project_id: str
+    ref: str
+    path: str
+    content: str = ""
+    encoding: str = "utf-8"
+    size_bytes: int = 0
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GitFileContent:
+        mapping = _require_git_mapping(payload, label="git file")
+        return cls(
+            project_id=str(mapping.get("project_id") or ""),
+            ref=str(mapping.get("ref") or ""),
+            path=str(mapping.get("path") or ""),
+            content=str(mapping.get("content") or ""),
+            encoding=str(mapping.get("encoding") or "utf-8"),
+            size_bytes=int(mapping.get("size_bytes") or 0),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class GitPullRequestRow:
+    """One GitHub pull-request row (raw GitHub payload preserved in ``raw``)."""
+
+    number: int
+    title: str = ""
+    state: str = ""
+    html_url: str | None = None
+    user_login: str | None = None
+    head_ref: str | None = None
+    base_ref: str | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> GitPullRequestRow:
+        mapping = _require_git_mapping(payload, label="pull request")
+        user = mapping.get("user")
+        head = mapping.get("head")
+        base = mapping.get("base")
+
+        def _ref(value: object) -> str | None:
+            if isinstance(value, Mapping):
+                ref = value.get("ref")
+                return str(ref) if ref is not None else None
+            return None
+
+        html_url = mapping.get("html_url")
+        return cls(
+            number=int(mapping.get("number") or 0),
+            title=str(mapping.get("title") or ""),
+            state=str(mapping.get("state") or ""),
+            html_url=str(html_url) if html_url is not None else None,
+            user_login=(
+                str(user.get("login")) if isinstance(user, Mapping) and user.get("login") else None
+            ),
+            head_ref=_ref(head),
+            base_ref=_ref(base),
+            raw=dict(mapping),
+        )
+
+
+class ResearchProjectsGitPullRequestsAPI:
+    """Read pull requests on the project's bound GitHub repo."""
 
     def __init__(self, session: ManagedResearchClient) -> None:
         self._session = session
+
+    def list(
+        self,
+        project_id: str,
+        *,
+        repo: str | None = None,
+        state: str = "open",
+        limit: int = 30,
+    ) -> tuple[GitPullRequestRow, ...]:
+        """List pull requests (``state`` in open/closed/all, ``limit`` 1-100).
+
+        Backend route: ``GET /smr/projects/{project_id}/git/pull-requests``.
+        """
+        params: dict[str, Any] = {"state": str(state), "limit": int(limit)}
+        if repo is not None:
+            params["repo"] = str(repo)
+        payload = _require_git_mapping(
+            self._session._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/git/pull-requests",
+                params=params,
+            ),
+            label="pull requests",
+        )
+        return tuple(
+            GitPullRequestRow.from_wire(item)
+            for item in list(payload.get("pull_requests") or [])
+        )
+
+
+class ResearchProjectsGitAPI:
+    """Project git source connection, metadata, and read-only git-server views.
+
+    Read bindings cover the mounted GET routes only: status, tree, file, diff,
+    and pull-request listing. Branch/commit creation, push, file writes, and PR
+    create/comment are POST routes and are intentionally not bound here.
+    """
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+        self._pull_requests: ResearchProjectsGitPullRequestsAPI | None = None
+
+    @property
+    def pull_requests(self) -> ResearchProjectsGitPullRequestsAPI:
+        """Read pull requests on the project's bound repo."""
+        if self._pull_requests is None:
+            self._pull_requests = ResearchProjectsGitPullRequestsAPI(self._session)
+        return self._pull_requests
+
+    def status(
+        self,
+        project_id: str,
+        *,
+        branch: str | None = None,
+        max_commits: int = 20,
+        max_tree_entries: int = 200,
+        max_unmerged_branches: int = 20,
+    ) -> GitRepoStatus:
+        """Read repo status: HEAD, recent commits, unmerged branches, tree.
+
+        Backend route: ``GET /smr/projects/{project_id}/git/status``.
+        """
+        params: dict[str, Any] = {
+            "max_commits": int(max_commits),
+            "max_tree_entries": int(max_tree_entries),
+            "max_unmerged_branches": int(max_unmerged_branches),
+        }
+        if branch is not None:
+            params["branch"] = str(branch)
+        payload = self._session._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/git/status",
+            params=params,
+        )
+        return GitRepoStatus.from_wire(payload)
+
+    def tree(
+        self,
+        project_id: str,
+        *,
+        ref: str | None = None,
+        path_prefix: str | None = None,
+    ) -> tuple[str, ...]:
+        """List tree entry paths at a ref, optionally under a path prefix.
+
+        Backend route: ``GET /smr/projects/{project_id}/git/tree``.
+        """
+        params: dict[str, Any] = {}
+        if ref is not None:
+            params["ref"] = str(ref)
+        if path_prefix is not None:
+            params["path_prefix"] = str(path_prefix)
+        payload = _require_git_mapping(
+            self._session._request_json(
+                "GET",
+                f"/smr/projects/{project_id}/git/tree",
+                params=params or None,
+            ),
+            label="git tree",
+        )
+        return tuple(str(item) for item in list(payload.get("entries") or []))
+
+    def file(
+        self,
+        project_id: str,
+        path: str,
+        *,
+        ref: str | None = None,
+    ) -> GitFileContent:
+        """Read one file blob at a ref.
+
+        Backend route: ``GET /smr/projects/{project_id}/git/file``.
+        """
+        params: dict[str, Any] = {"path": str(path)}
+        if ref is not None:
+            params["ref"] = str(ref)
+        payload = self._session._request_json(
+            "GET",
+            f"/smr/projects/{project_id}/git/file",
+            params=params,
+        )
+        return GitFileContent.from_wire(payload)
+
+    def diff(
+        self,
+        project_id: str,
+        *,
+        base_ref: str,
+        head_ref: str,
+        path: str | None = None,
+    ) -> dict[str, Any]:
+        """Read the diff between two refs (optionally scoped to one path).
+
+        Backend route: ``GET /smr/projects/{project_id}/git/diff``.
+        """
+        params: dict[str, Any] = {"base_ref": str(base_ref), "head_ref": str(head_ref)}
+        if path is not None:
+            params["path"] = str(path)
+        return dict(
+            _require_git_mapping(
+                self._session._request_json(
+                    "GET",
+                    f"/smr/projects/{project_id}/git/diff",
+                    params=params,
+                ),
+                label="git diff",
+            )
+        )
 
     def get(self, project_id: str) -> dict[str, Any]:
         """Return git metadata for the project workspace."""
@@ -320,8 +635,14 @@ class ResearchProjectsRunsAPI:
 
 
 __all__ = [
+    "GitBranchRow",
+    "GitCommitRow",
+    "GitFileContent",
+    "GitPullRequestRow",
+    "GitRepoStatus",
     "ResearchProjectsCodeAPI",
     "ResearchProjectsGitAPI",
+    "ResearchProjectsGitPullRequestsAPI",
     "ResearchProjectsMilestonesAPI",
     "ResearchProjectsObjectivesAPI",
     "ResearchProjectsReposAPI",
