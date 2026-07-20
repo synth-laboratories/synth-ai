@@ -625,6 +625,7 @@ def _build_project_run_payload(
     runbook_config_id: str | None = None,
     local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
     execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+    execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
     timebox_seconds: int | None = None,
     agent_profile: str | None = None,
     agent_model: SmrAgentModel | str | None = None,
@@ -764,6 +765,12 @@ def _build_project_run_payload(
                 execution_profile,
                 field_name="execution_profile",
             )
+    normalized_execution_target = _optional_mapping(
+        execution_target,
+        field_name="execution_target",
+    )
+    if normalized_execution_target:
+        payload["execution_target"] = normalized_execution_target
     if normalized_horizon is not None:
         payload["intended_horizon_hours"] = int(normalized_horizon)
         if timebox_seconds is not None and int(timebox_seconds) != int(normalized_horizon) * 3600:
@@ -5328,6 +5335,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         runbook_config_id: str | None = None,
         local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
         execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+        execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
         timebox_seconds: int | None = None,
         agent_profile: str | None = None,
         agent_model: SmrAgentModel | str | None = None,
@@ -5376,6 +5384,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             runbook_config_id=runbook_config_id,
             local_execution=local_execution,
             execution_profile=execution_profile,
+            execution_target=execution_target,
             timebox_seconds=timebox_seconds,
             agent_profile=agent_profile,
             agent_model=agent_model,
@@ -5476,6 +5485,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         runbook_config_id: str | None = None,
         local_execution: Mapping[str, Any] | dict[str, Any] | None = None,
         execution_profile: LocalExecutionProfile | Mapping[str, Any] | dict[str, Any] | None = None,
+        execution_target: Mapping[str, Any] | dict[str, Any] | None = None,
         timebox_seconds: int | None = None,
         agent_profile: str | None = None,
         agent_model: SmrAgentModel | str | None = None,
@@ -5525,6 +5535,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             runbook_config_id=runbook_config_id,
             local_execution=local_execution,
             execution_profile=execution_profile,
+            execution_target=execution_target,
             timebox_seconds=timebox_seconds,
             agent_profile=agent_profile,
             agent_model=agent_model,

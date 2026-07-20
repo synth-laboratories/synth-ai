@@ -205,6 +205,7 @@ class RunLaunchRequest(CommandRequest):
     runbook_config_id: str | None = None
     local_execution: WireMapping | None = None
     execution_profile: LocalExecutionProfile | WireMapping | None = None
+    execution_target: WireMapping | None = None
     timebox_seconds: int | None = None
     agent_profile: str | None = None
     agent_model: SmrAgentModel | str | None = None
@@ -271,6 +272,7 @@ class RunLaunchRequest(CommandRequest):
             runbook_config_id=self.runbook_config_id,
             local_execution=self.local_execution,
             execution_profile=self.execution_profile,
+            execution_target=self.execution_target,
             timebox_seconds=self.timebox_seconds,
             agent_profile=self.agent_profile,
             agent_model=self.agent_model,
@@ -1216,6 +1218,7 @@ def _validate_launch_sequences(request: RunLaunchRequest) -> None:
 def _validate_launch_mappings(request: RunLaunchRequest) -> None:
     mapping_fields = (
         "local_execution",
+        "execution_target",
         "agent_model_params",
         "workflow",
         "primary_parent_ref",

@@ -55,6 +55,9 @@ from synth_ai.research.swarms import (
     ResearchSwarmHandle,
     ResearchSwarmsAPI,
     ResearchSwarmSession,
+    SwarmResult,
+    SwarmRetryResult,
+    swarm_state_is_terminal,
 )
 
 # Deprecated run-noun aliases (public noun is Swarm; import shims live in
@@ -113,4 +116,7 @@ __all__ = [
     "ResearchWorkMode",
     "ResearchWorkProduct",
     "ResearchWorkerRolePalette",
+    "SwarmResult",
+    "SwarmRetryResult",
+    "swarm_state_is_terminal",
 ]
