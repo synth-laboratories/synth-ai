@@ -12,6 +12,12 @@ from synth_ai.managed_research.models.factories import (
     FactoryWakeDueResult,
 )
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.research.factory_usage import (
+    FactoryEventsPage,
+    FactoryUsage,
+    fetch_factory_events,
+    fetch_factory_usage,
+)
 
 if TYPE_CHECKING:
     from synth_ai.research.factories import ResearchFactoriesAPI
@@ -99,6 +105,32 @@ class ResearchFactoryHandle:
     def archive(self) -> Factory:
         """Archive the Factory. Backend route: ``PATCH /smr/factories/{factory_id}``."""
         return self._session.factories.archive(self.factory_id)
+
+    def usage(self, *, window: str = "month_to_date") -> FactoryUsage:
+        """Read the factory usage aggregate.
+
+        Backend route: ``GET /smr/factories/{factory_id}/usage``
+        (query ``window``: ``month_to_date`` | ``last_7_days``).
+        """
+        return fetch_factory_usage(self._session, self.factory_id, window=window)
+
+    def events(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> FactoryEventsPage:
+        """Read one newest-first page of durable factory events.
+
+        Backend route: ``GET /smr/factories/{factory_id}/events``
+        (query ``limit`` 1-500, ``cursor``).
+        """
+        return fetch_factory_events(
+            self._session,
+            self.factory_id,
+            limit=limit,
+            cursor=cursor,
+        )
 
     def watch_status(
         self,

@@ -5579,7 +5579,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
     ) -> RunLaunchResult:
         return RunLaunchResult.from_wire(
             project_id=project_id,
-            payload=self.trigger_run(project_id, request=request),
+            payload=self.trigger_run(project_id, **request.to_client_kwargs()),
         )
 
     def start_run(self, project_id: str, **kwargs: Any) -> dict[str, Any]:
