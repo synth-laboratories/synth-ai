@@ -158,6 +158,7 @@ class RunAnomalyKind(StrEnum):
     RUN_TERMINAL_WITH_PENDING_RUNTIME_INTENTS = "run_terminal_with_pending_runtime_intents"
     MCP_UNREACHABLE = "mcp_unreachable"
     TERMINAL_WITHOUT_PUBLICATION_VERDICT = "terminal_without_publication_verdict"
+    ACTOR_BINDING_PROJECTION_DIVERGENCE = "actor_binding_projection_divergence"
 
 
 @dataclass(frozen=True)

@@ -441,6 +441,7 @@ class RunSnapshot:
 class OutputKind(StrEnum):
     REPORT = "report"
     MODEL = "model"
+    CANDIDATE = "candidate"
     TRAINED_MODEL = "trained_model"
     CONTAINER_EVAL = "container_eval"
     CONTAINER_EVALUATION = "container_evaluation"
