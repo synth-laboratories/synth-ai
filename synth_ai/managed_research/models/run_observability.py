@@ -158,6 +158,9 @@ class RunAnomalyKind(StrEnum):
     RUN_TERMINAL_WITH_PENDING_RUNTIME_INTENTS = "run_terminal_with_pending_runtime_intents"
     MCP_UNREACHABLE = "mcp_unreachable"
     TERMINAL_WITHOUT_PUBLICATION_VERDICT = "terminal_without_publication_verdict"
+    ACTOR_BINDING_PROJECTION_DIVERGENCE = "actor_binding_projection_divergence"
+    UNKNOWN = "unknown"
+    """Forward-compat marker: wire kind not in this pinned enum; see RunAnomaly.raw_kind."""
 
 
 @dataclass(frozen=True)
@@ -827,13 +830,31 @@ class RunTickingUpdate:
 class RunAnomaly:
     kind: RunAnomalyKind
     detail: str
+    raw_kind: str = ""
+    """Exact wire value of ``kind``. For known kinds this equals ``kind.value``;
+    when ``kind`` is ``RunAnomalyKind.UNKNOWN`` it carries the unrecognized wire string."""
+
+    def __post_init__(self) -> None:
+        if not self.raw_kind:
+            object.__setattr__(self, "raw_kind", self.kind.value)
+
+    @property
+    def is_unknown_kind(self) -> bool:
+        """True when the backend emitted an anomaly kind this SDK does not know."""
+        return self.kind is RunAnomalyKind.UNKNOWN and self.raw_kind != RunAnomalyKind.UNKNOWN.value
 
     @classmethod
     def from_wire(cls, payload: object) -> RunAnomaly:
         mapping = _require_mapping(payload, label="run anomaly")
+        raw_kind = _require_string(mapping, "kind", label="anomaly.kind")
+        try:
+            kind = RunAnomalyKind(raw_kind)
+        except ValueError:
+            kind = RunAnomalyKind.UNKNOWN
         return cls(
-            kind=RunAnomalyKind(_require_string(mapping, "kind", label="anomaly.kind")),
+            kind=kind,
             detail=_require_string(mapping, "detail", label="anomaly.detail"),
+            raw_kind=raw_kind,
         )
 
 
