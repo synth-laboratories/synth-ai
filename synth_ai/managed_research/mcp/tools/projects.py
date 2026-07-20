@@ -450,7 +450,11 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                 "Attach a normalized measured result to an SMR experiment. "
                 "Use one result row per candidate metric/split. Observable Factory "
                 "experiments include experiment_registration, synth_wiki_changeset, "
-                "git_server_receipt, and budget_receipt inside metadata."
+                "git_server_receipt, and budget_receipt inside metadata. Requires "
+                "evaluation_mode (live|mock|fixture|offline_fallback; non-live rows "
+                "are non-scientific smoke) and an intervention_receipt.v1 whose "
+                "declared fields are present in both the transmitted request and "
+                "runtime-effective readback."
             ),
             input_schema=tool_schema(
                 {
@@ -478,10 +482,52 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     "per_example_artifact_path": {"type": "string"},
                     "evidence_grade": {"type": "string"},
                     "truth_status": {"type": "string"},
+                    "evaluation_mode": {
+                        "type": "string",
+                        "enum": [
+                            "live",
+                            "mock",
+                            "fixture",
+                            "offline_fallback",
+                        ],
+                    },
+                    "intervention_receipt": {
+                        "type": "object",
+                        "properties": {
+                            "schema_version": {
+                                "type": "string",
+                                "const": "intervention_receipt.v1",
+                            },
+                            "declared_changed_fields": {"type": "object"},
+                            "transmitted_request_fields": {"type": "object"},
+                            "runtime_effective_config": {"type": "object"},
+                            "held_constant_fields": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "unexpected_differences": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": [
+                            "schema_version",
+                            "declared_changed_fields",
+                            "transmitted_request_fields",
+                            "runtime_effective_config",
+                        ],
+                    },
                     "caveats": {"type": "string"},
                     "metadata": {"type": "object"},
                 },
-                required=["project_id", "experiment_id", "metric", "value"],
+                required=[
+                    "project_id",
+                    "experiment_id",
+                    "metric",
+                    "value",
+                    "evaluation_mode",
+                    "intervention_receipt",
+                ],
             ),
             handler=server._tool_attach_project_experiment_result,
         ),

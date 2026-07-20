@@ -17,6 +17,10 @@ from synth_ai.managed_research.models.run_state import (
     _require_mapping,
     _require_string,
 )
+from synth_ai.managed_research.models.scientific_integrity import (
+    SmrEvaluationMode,
+    grading_record_evaluation_mode,
+)
 
 
 class FactoryKind(StrEnum):
@@ -2114,9 +2118,30 @@ class FactoryWakeDueResult:
 
 @dataclass(frozen=True)
 class FactoryCandidateGradingRequest:
-    """Benchmark-owned grading record submitted for one immutable candidate."""
+    """Benchmark-owned grading record submitted for one immutable candidate.
+
+    Mirrors the backend's scientific-integrity contract
+    (``services/smr/factory_candidates.py::validate_candidate_grading_record``,
+    ``services/smr/science/integrity.py``): a ``status: "graded"`` record must
+    declare ``evaluation_mode``. Validating here fails fast with the same
+    typed error class the backend would otherwise return after a round trip.
+    """
 
     grading: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        if str(self.grading.get("status") or "").strip().lower() != "graded":
+            return
+        try:
+            mode = grading_record_evaluation_mode(self.grading)
+        except ValueError as exc:
+            raise ValueError(f"grading_evaluation_mode_invalid: {exc}") from None
+        if mode is None:
+            raise ValueError(
+                "grading_evaluation_mode_missing: status 'graded' requires "
+                "evaluation_mode (one of "
+                f"{sorted(m.value for m in SmrEvaluationMode)})"
+            )
 
     def to_wire(self) -> dict[str, Any]:
         return {"grading": dict(self.grading)}
@@ -2646,6 +2671,12 @@ def factory_candidate_grading_payload(
 ) -> dict[str, Any]:
     if isinstance(request, FactoryCandidateGradingRequest):
         return request.to_wire()
+    # Route raw mappings through the typed constructor too, so the
+    # scientific-integrity evaluation_mode check runs regardless of whether
+    # the caller passed a typed request or a plain ``{"grading": {...}}`` dict.
+    grading = dict(request).get("grading")
+    if isinstance(grading, Mapping):
+        return FactoryCandidateGradingRequest(grading=dict(grading)).to_wire()
     return dict(request)
 
 

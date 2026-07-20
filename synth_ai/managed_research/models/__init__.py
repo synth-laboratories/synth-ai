@@ -406,6 +406,18 @@ from synth_ai.managed_research.models.runtime_intent import (
     RuntimeIntentView,
     RuntimeMessageMode,
 )
+from synth_ai.managed_research.models.scientific_integrity import (
+    INTERVENTION_RECEIPT_SCHEMA_VERSION,
+    InterventionReceiptV1,
+    SmrEvaluationMode,
+    SmrScientificStatus,
+    compile_intervention_receipt,
+    grading_record_evaluation_mode,
+    parse_evaluation_mode,
+    parse_intervention_receipt,
+    scientific_status_for_mode,
+    verify_intervention_receipt,
+)
 from synth_ai.managed_research.models.smr_actor_models import (
     SmrActorModelAssignment,
     SmrActorSubtype,
@@ -1025,4 +1037,14 @@ __all__ = [
     "TranscriptCoverageEvidence",
     "assemble_factory_evidence_packet",
     "assemble_factory_launch_readiness",
+    "INTERVENTION_RECEIPT_SCHEMA_VERSION",
+    "InterventionReceiptV1",
+    "SmrEvaluationMode",
+    "SmrScientificStatus",
+    "compile_intervention_receipt",
+    "grading_record_evaluation_mode",
+    "parse_evaluation_mode",
+    "parse_intervention_receipt",
+    "scientific_status_for_mode",
+    "verify_intervention_receipt",
 ]
