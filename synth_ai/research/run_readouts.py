@@ -55,6 +55,7 @@ warnings.warn(
     stacklevel=2,
 )
 
+
 def __getattr__(name: str) -> object:
     """Map any legacy ``ResearchRun*`` deep class to its ``ResearchSwarm*`` original."""
     if name.startswith("ResearchRun"):

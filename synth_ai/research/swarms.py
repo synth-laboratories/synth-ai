@@ -819,7 +819,9 @@ class ResearchSwarmsAPI:
             swarm_id = args[0]
         elif len(args) == 2:
             if project_id is not None or swarm_id is not None:
-                raise TypeError("project_id/swarm_id were provided both positionally and by keyword")
+                raise TypeError(
+                    "project_id/swarm_id were provided both positionally and by keyword"
+                )
             project_id, swarm_id = args
         if swarm_id is None:
             raise ValueError("swarm_id is required")
