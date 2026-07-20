@@ -1,6 +1,6 @@
 """Trained-model registry SDK namespace.
 
-Wraps the ``/smr/trained_models`` and ``/smr/runs/{run_id}/trained_models``
+Wraps the ``/smr/trained_models`` and ``/smr/swarms/{run_id}/trained_models``
 routes. Used by agents to register a Tinker LoRA after training, publish it
 as a model WorkProduct, update metrics once offline eval is done, queue exports
 to Hugging Face or S3-compatible storage, and deliberately tear down temporary
@@ -63,7 +63,7 @@ class TrainedModelsAPI(_ClientNamespace):
         )
 
     def list_for_run(self, run_id: str) -> list[ManagedResearchTrainedModel]:
-        result = self._client._request_json("GET", f"/smr/runs/{run_id}/trained_models")
+        result = self._client._request_json("GET", f"/smr/swarms/{run_id}/trained_models")
         return [
             ManagedResearchTrainedModel.from_wire(item)
             for item in (list(result) if isinstance(result, list) else [])

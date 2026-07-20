@@ -356,7 +356,7 @@ class BillingAPI(_ClientNamespace):
 
     def run_drawdown(self, run_id: str) -> SmrBillingDrawdown:
         return SmrBillingDrawdown.from_wire(
-            self._client._request_json("GET", f"/smr/billing/runs/{run_id}/drawdown")
+            self._client._request_json("GET", f"/smr/billing/swarms/{run_id}/drawdown")
         )
 
     def factory_effort_drawdown(self, factory_effort_id: str) -> SmrBillingDrawdown:
@@ -392,7 +392,7 @@ class BillingAPI(_ClientNamespace):
         return SmrBillingPreflight.from_wire(
             self._client._request_json(
                 "POST",
-                "/smr/billing/runs/preflight",
+                "/smr/billing/swarms/preflight",
                 json_body=payload,
             )
         )
