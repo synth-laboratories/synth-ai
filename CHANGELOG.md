@@ -4,6 +4,84 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.16.0 — 2026-07-20
+
+### Added
+
+- **Managed Swarm is the public noun for bounded executions** —
+  `client.research.swarms` is the canonical surface (`ResearchSwarmsAPI`,
+  `ResearchSwarmHandle`, `ResearchSwarmSession`), with `swarm_id` as the public
+  identifier. The wire protocol keeps `run`/`run_id`; the rename is
+  facade-level. `research.runs`, the `synth_ai.research.runs` /
+  `run_readouts` module paths, run-noun model aliases, and
+  `efforts.from_runs` all remain importable as deprecated aliases that emit a
+  single `DeprecationWarning` and return the same objects.
+- **`swarms.launch_and_wait(...) -> SwarmResult`** — one call runs preflight,
+  launch, and wait-to-terminal. A blocked preflight raises
+  `SwarmPreflightBlockedError` with the structured blocker list; launch
+  backpressure (HTTP 502/503/504, concurrent-run limit) is retried up to five
+  attempts before `SwarmLaunchBackpressureError`. `timeout` is required. The
+  frozen `SwarmResult` carries status, usage, cost, work products, and the
+  handle.
+- **`handle.retry(mode="fresh"|"from_checkpoint") -> SwarmRetryResult`** —
+  terminal-only retry; `from_checkpoint` reuses `branch_from_checkpoint`,
+  `fresh` re-triggers the project's configured swarm. Provenance
+  (`source_swarm_id`, `reason`, `checkpoint_id`) is carried on the typed
+  result.
+- **Launch expressibility** — `execution_target` flows through the typed
+  launch path (`RunLaunchRequest`, `trigger_run`, launch preflight, and the
+  swarm facade), alongside the existing `local_execution` /
+  `execution_profile` fields.
+- **Terminal and event helpers** — `handle.wait_until_terminal`,
+  `handle.is_terminal()`, `swarm_state_is_terminal(state)`, and
+  `classify_event_kind(kind)` (unknown kinds classify `other`).
+- **Factory lifecycle and handles** — `research.factories.pause/resume/archive/
+  watch_status` and `factories.open(factory_id) -> ResearchFactoryHandle` with
+  `status`, lifecycle operations, `preview_wake`/`wake_due`, and an `efforts`
+  namespace (`list`, `open(effort_id)` with `get/pause/resume`).
+- **Factory usage and events** — `factories.usage(factory_id, window=...)`
+  returns typed `FactoryUsage` (cost totals, nullable budget, per-effort
+  drawdown); `factories.events(...)` returns a typed `FactoryEventsPage` with
+  cursor pagination, and `iter_events(...)` pages until exhaustion. Both are
+  also available on `ResearchFactoryHandle`.
+- **`research.experiments`** — typed `bundle/history/compare` decoding into
+  the existing frozen experiment models.
+- **Notes and knowledge** — `projects.notes.get/set/append` and
+  `research.knowledge.get/set`, typed `ProjectNotes` / `OrgKnowledge`.
+- **`research.wiki`** — `overview`, `pages.list/get`, `search`,
+  `context_pack.preview`, `proposals.list/create`.
+- **Git server reads** — `projects.git.status/tree/file/diff` and
+  `projects.git.pull_requests.list` with typed commit, branch, and PR rows.
+- **`research.account`** — `balance`, `credits.transactions`, `usage`,
+  `tiers`, `user_limits`, `overview`, BYOK, `members.list`,
+  `subscription.cancel`, `crypto.public_key`, `me`, and
+  `account.readiness()` returning typed checks with CTA and metadata.
+- **Typed factory visuals** — `FactoryStatus.typed_public_visuals`
+  (`synth.open_research.factory_public_visuals.v1`) and
+  `typed_costs_limits`, both forward-compatible via `raw`.
+
+### Fixed
+
+- **`trigger_run_result`** — `ManagedResearchClient.trigger_run_result` passed
+  an unsupported `request=` argument to `trigger_run` and raised `TypeError`
+  on every call; it now expands `request.to_client_kwargs()`.
+
+### Changed
+
+- **Vendored backend OpenAPI refreshed** — the vendored
+  `smr_openapi.yaml` matches the backend's current export, adding run-log
+  query filters (`level`, `min_level`, `service`, `event`, `condition_code`),
+  FactoryLifecycle transition routes, and invariant runtime diagnostics.
+
+### Migration notes
+
+- Replace `client.research.runs` with `client.research.swarms` and
+  `run_id=` keyword arguments with `swarm_id=`; both old spellings keep
+  working with a `DeprecationWarning`. Positional identifiers are unaffected.
+- Imports from `synth_ai.research.runs` / `synth_ai.research.run_readouts`
+  resolve to the same classes as the `swarms` modules
+  (`ResearchRunHandle is ResearchSwarmHandle`).
+
 ## 0.15.2 — 2026-07-17
 
 ### Fixed
