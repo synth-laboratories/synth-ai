@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable
 from typing import List
 
@@ -45,19 +46,19 @@ class ResearchEffortsAPI:
             self._proposals = ResearchEffortsProposalsAPI(self._session)
         return self._proposals
 
-    def from_runs(
+    def from_swarms(
         self,
         project_id: str,
         name: str,
-        run_ids: Iterable[str],
+        swarm_ids: Iterable[str],
         factory_id: str | None = None,
     ) -> Effort:
-        """Graduate a set of Runs into a persistent Effort.
+        """Graduate a set of Managed Swarms into a persistent Effort.
 
         Args:
-            project_id: Project that owns the runs and the new Effort.
+            project_id: Project that owns the swarms and the new Effort.
             name: Human-readable Effort name.
-            run_ids: Run ids to link to the new Effort.
+            swarm_ids: Swarm ids to link to the new Effort.
             factory_id: Optional Factory to own the Effort.
 
         Returns:
@@ -65,7 +66,7 @@ class ResearchEffortsAPI:
 
         Example:
             proposals = research.efforts.proposals.list(project_id)
-            effort = research.efforts.from_runs(
+            effort = research.efforts.from_swarms(
                 project_id,
                 proposals[0].suggested_name,
                 proposals[0].run_ids,
@@ -74,7 +75,27 @@ class ResearchEffortsAPI:
         return self._session.efforts.from_runs(
             project_id=project_id,
             name=name,
-            run_ids=run_ids,
+            run_ids=swarm_ids,
+            factory_id=factory_id,
+        )
+
+    def from_runs(
+        self,
+        project_id: str,
+        name: str,
+        run_ids: Iterable[str],
+        factory_id: str | None = None,
+    ) -> Effort:
+        """Deprecated alias for :meth:`from_swarms` (the public noun is Swarm)."""
+        warnings.warn(
+            "efforts.from_runs is deprecated; use efforts.from_swarms instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.from_swarms(
+            project_id,
+            name,
+            run_ids,
             factory_id=factory_id,
         )
 

@@ -10,15 +10,15 @@ Import these names from ``synth_ai.research.models`` in customer code.
 | ``ResearchRunLaunchRequest`` | Validated configured-run request |
 | ``ResearchAuthorityReadouts`` | Canonical run/task authority projection |
 | ``ResearchProject`` | Project record |
-| ``ResearchRun`` | Run state model returned by ``runs.wait`` / ``runs.state`` |
-| ``ResearchRunbookPreset`` | Named runbook preset for ``runs.create`` |
+| ``ResearchSwarm`` | Swarm state model returned by ``swarms.wait`` / ``swarms.state`` (alias ``ResearchRun``) |
+| ``ResearchRunbookPreset`` | Named runbook preset for ``swarms.create`` |
 | ``ResearchOrgLimits`` | Organization plan limits and usage windows |
 | ``ResearchBillingCatalog`` | Canonical billing plans and allowances catalog |
 | ``ResearchBillingPlan`` | Organization billing plan snapshot |
 | ``ResearchBillingDrawdown`` | Run or Factory-effort billing drawdown |
 | ``ResearchBillingEntitlements`` | Organization billing entitlement snapshot |
 | ``ResearchProjectEconomics`` | Project usage, entitlements, and budgets |
-| ``ResearchRunProgress`` | Typed progress returned by ``handle.progress.get_typed`` |
+| ``ResearchSwarmProgress`` | Typed progress returned by ``handle.progress.get_typed`` (alias ``ResearchRunProgress``) |
 | ``ResearchWorkProduct`` | Work product metadata |
 | ``ResearchArtifact`` | Run artifact metadata |
 | ``ResearchArtifactManifest`` | Typed run artifact manifest |
@@ -58,7 +58,7 @@ from synth_ai.managed_research.models.project import (
 from synth_ai.managed_research.models.run_launch import (
     RunLaunchRequest as ResearchRunLaunchRequest,
 )
-from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchRun
+from synth_ai.managed_research.models.run_state import ManagedResearchRun as ResearchSwarm
 from synth_ai.managed_research.models.run_timeline import (
     SmrAuthorityReadouts as ResearchAuthorityReadouts,
 )
@@ -108,21 +108,26 @@ from synth_ai.managed_research.models.work_products import (
 
 
 @dataclass(frozen=True)
-class ResearchRunProgress(RunProgress):
-    """Public progress model including the backend-owned run state projection."""
+class ResearchSwarmProgress(RunProgress):
+    """Public progress model including the backend-owned swarm state projection."""
 
     public_state: str | None = None
 
     @classmethod
-    def from_wire(cls, payload: object) -> ResearchRunProgress:
-        """Decode backend run progress into the public progress model."""
+    def from_wire(cls, payload: object) -> ResearchSwarmProgress:
+        """Decode backend swarm progress into the public progress model."""
         parsed = RunProgress.from_wire(payload)
         if not isinstance(payload, Mapping):
-            raise ValueError("run progress must be an object")
+            raise ValueError("swarm progress must be an object")
         public_state = payload.get("public_state")
         if public_state is not None and not isinstance(public_state, str):
-            raise ValueError("run progress public_state must be a string or null")
+            raise ValueError("swarm progress public_state must be a string or null")
         return cls(**vars(parsed), public_state=public_state)
+
+
+# Deprecated run-noun aliases (wire protocol still says "run"; public noun is Swarm).
+ResearchRun = ResearchSwarm
+ResearchRunProgress = ResearchSwarmProgress
 
 
 __all__ = [
@@ -145,6 +150,8 @@ __all__ = [
     "ResearchRunLaunchRequest",
     "ResearchRunProgress",
     "ResearchRunbookPreset",
+    "ResearchSwarm",
+    "ResearchSwarmProgress",
     "ResearchRunnableProjectRequest",
     "ResearchRoleBinding",
     "ResearchRoleBindings",

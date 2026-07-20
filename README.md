@@ -112,14 +112,14 @@ scope = research.factories.tag.scopes.get_default()
 
 # Launch against the explicitly selected pre-existing project.
 work_mode = ResearchWorkMode.DIRECTED_EFFORT
-preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
-session = research.runs.create(
+preflight = research.swarms.check_preflight(project_id, work_mode=work_mode)
+session = research.swarms.create(
     project_id,
     objective="Produce a bounded repository assessment and a readable report.",
     work_mode=work_mode,
 )
 
-# Run readouts (nested namespaces — never ``manderqueue`` on hero)
+# Swarm readouts (nested namespaces — never ``manderqueue`` on hero)
 session.snapshots.get(detail="control")
 progress = session.progress.get_typed()
 usage = session.usage.get()
@@ -128,7 +128,7 @@ artifacts = session.artifacts.list()
 if work_products:
     report = session.work_products.content.get(work_products[0].work_product_id)
 session.message_queue.messages.list()
-research.projects.objectives.list(project_id, run_id=session.run_id)
+research.projects.objectives.list(project_id, run_id=session.swarm_id)
 ```
 
 CLI smoke:

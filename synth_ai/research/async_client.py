@@ -53,8 +53,13 @@ class AsyncResearchClient:
         return _AsyncNamespaceProxy(self._client.projects)
 
     @property
+    def swarms(self) -> _AsyncNamespaceProxy:
+        """Async proxy for ``client.research.swarms``."""
+        return _AsyncNamespaceProxy(self._client.swarms)
+
+    @property
     def runs(self) -> _AsyncNamespaceProxy:
-        """Async proxy for ``client.research.runs``."""
+        """Deprecated alias for :attr:`swarms`."""
         return _AsyncNamespaceProxy(self._client.runs)
 
     @property
