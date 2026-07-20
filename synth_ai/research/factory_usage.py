@@ -88,9 +88,7 @@ class FactoryUsageBudget:
             run_count=_optional_int(mapping, "run_count"),
             remaining_runs=_optional_int(mapping, "remaining_runs"),
             run_budget_scope=_optional_str(mapping, "run_budget_scope"),
-            run_budget_window_start=_optional_datetime(
-                mapping, "run_budget_window_start"
-            ),
+            run_budget_window_start=_optional_datetime(mapping, "run_budget_window_start"),
             limit_pico_usd=_optional_int(mapping, "limit_pico_usd"),
             used_pico_usd=_optional_int(mapping, "used_pico_usd"),
             remaining_pico_usd=_optional_int(mapping, "remaining_pico_usd"),
@@ -165,8 +163,7 @@ class FactoryUsage:
             run_count=int(mapping.get("run_count") or 0),
             effort_count=int(mapping.get("effort_count") or 0),
             by_effort=tuple(
-                FactoryEffortUsage.from_wire(item)
-                for item in list(mapping.get("by_effort") or [])
+                FactoryEffortUsage.from_wire(item) for item in list(mapping.get("by_effort") or [])
             ),
             updated_at=_optional_datetime(mapping, "updated_at"),
             raw=dict(mapping),
@@ -219,8 +216,7 @@ class FactoryEventsPage:
         return cls(
             factory_id=str(mapping.get("factory_id") or ""),
             events=tuple(
-                FactoryEvent.from_wire(item)
-                for item in list(mapping.get("events") or [])
+                FactoryEvent.from_wire(item) for item in list(mapping.get("events") or [])
             ),
             next_cursor=_optional_str(mapping, "next_cursor"),
             raw=dict(mapping),
