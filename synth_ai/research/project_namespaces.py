@@ -279,6 +279,7 @@ class GitFileContent:
 
     @classmethod
     def from_wire(cls, payload: object) -> GitFileContent:
+        """Build a typed file-content result from a git-server response."""
         mapping = _require_git_mapping(payload, label="git file")
         return cls(
             project_id=str(mapping.get("project_id") or ""),
@@ -306,6 +307,7 @@ class GitPullRequestRow:
 
     @classmethod
     def from_wire(cls, payload: object) -> GitPullRequestRow:
+        """Build a typed pull-request summary from a git-server response."""
         mapping = _require_git_mapping(payload, label="pull request")
         user = mapping.get("user")
         head = mapping.get("head")
