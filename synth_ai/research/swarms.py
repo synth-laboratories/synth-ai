@@ -28,7 +28,10 @@ from synth_ai.managed_research.models.run_observability import (
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.runs import ProjectSelector, RunHandle
 from synth_ai.research.models import ResearchRunbookPreset, ResearchSwarm
-from synth_ai.research.swarm_readouts import ResearchSwarmReadoutsMixin, _deprecated_method
+from synth_ai.research.swarm_readouts import (
+    ResearchSwarmReadoutsMixin,
+    _deprecated_method,
+)
 from synth_ai.sdk.pagination import SyncPage
 
 
@@ -74,7 +77,9 @@ def _normalize_directed_outcome(value: object) -> object:
             "directed_outcome requires outcome_text, outcome, target, description, or title"
         )
     title = _first_text(payload, "title", "name") or outcome_text[:120]
-    description = _first_text(payload, "description", "summary", "context") or outcome_text
+    description = (
+        _first_text(payload, "description", "summary", "context") or outcome_text
+    )
     scope = _first_text(payload, "scope", "context", "description") or description
     payload.setdefault("title", title)
     payload.setdefault("description", description)
@@ -100,7 +105,9 @@ def _normalize_open_ended_question(value: object) -> object:
             "open_ended_question requires question_text, question, prompt, description, or title"
         )
     title = _first_text(payload, "title", "name") or question_text[:120]
-    description = _first_text(payload, "description", "summary", "context") or question_text
+    description = (
+        _first_text(payload, "description", "summary", "context") or question_text
+    )
     scope = _first_text(payload, "scope", "context", "description") or description
     payload.setdefault("title", title)
     payload.setdefault("description", description)
@@ -114,10 +121,14 @@ def _research_run_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     directed_outcome = payload.pop("directed_outcome", None)
     open_ended_question = payload.get("open_ended_question")
     if open_ended_question is not None:
-        payload["open_ended_question"] = _normalize_open_ended_question(open_ended_question)
+        payload["open_ended_question"] = _normalize_open_ended_question(
+            open_ended_question
+        )
     if directed_outcome is not None:
         if payload.get("directed_effort_outcome") is not None:
-            raise ValueError("pass either directed_outcome or directed_effort_outcome, not both")
+            raise ValueError(
+                "pass either directed_outcome or directed_effort_outcome, not both"
+            )
         payload["directed_effort_outcome"] = _normalize_directed_outcome(directed_outcome)
     elif payload.get("directed_effort_outcome") is not None:
         payload["directed_effort_outcome"] = _normalize_directed_outcome(
@@ -169,7 +180,10 @@ class ResearchSwarmHandle(ResearchSwarmReadoutsMixin, RunHandle):
         )
 
     def full_progress(self) -> RunObservabilitySnapshot:
-        """Return the full observability snapshot (deprecated path — use ``snapshots.get(detail='full')``)."""
+        """Return the full observability snapshot (deprecated path).
+
+        Use ``snapshots.get(detail='full')`` instead.
+        """
         return self.snapshots.get(detail="full")
 
     def stream_transcript(
@@ -260,7 +274,10 @@ class ResearchSwarmsAPI:
 
         Example:
             research.projects.setup.prepare(project_id)
-            preflight = research.swarms.check_preflight(project_id, work_mode="directed_effort")
+            preflight = research.swarms.check_preflight(
+                project_id,
+                work_mode="directed_effort",
+            )
             if not preflight.get("allowed"):
                 raise RuntimeError(preflight)
         """
@@ -356,7 +373,10 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
         **kwargs: Any,
     ) -> ResearchSwarmHandle:
-        """Start a swarm with a primary objective message (deprecated — use ``create``)."""
+        """Start a swarm with a primary objective message.
+
+        Deprecated — use ``create``.
+        """
         warnings.warn(
             "swarms.start is deprecated; use swarms.create instead.",
             DeprecationWarning,
@@ -449,11 +469,15 @@ class ResearchSwarmsAPI:
             raise TypeError("get() accepts at most two positional arguments")
         if len(args) == 1:
             if swarm_id is not None:
-                raise TypeError("swarm_id was provided both positionally and by keyword")
+                raise TypeError(
+                    "swarm_id was provided both positionally and by keyword"
+                )
             swarm_id = args[0]
         elif len(args) == 2:
             if project_id is not None or swarm_id is not None:
-                raise TypeError("project_id/swarm_id were provided both positionally and by keyword")
+                raise TypeError(
+                    "project_id/swarm_id were provided both positionally and by keyword"
+                )
             project_id, swarm_id = args
         if swarm_id is None:
             raise ValueError("swarm_id is required")
@@ -508,7 +532,11 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
     ) -> ResearchSwarm:
         """Return the public swarm state model without opening a full session handle."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).public_state()
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).public_state()
 
     def list(
         self,
@@ -564,7 +592,11 @@ class ResearchSwarmsAPI:
         view: str | None = None,
     ) -> dict[str, Any]:
         """Fetch a transcript page for a swarm (prefer ``handle.transcript.get``)."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).transcript.get(
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).transcript.get(
             cursor=cursor,
             limit=limit,
             participant_session_id=participant_session_id,
@@ -583,7 +615,11 @@ class ResearchSwarmsAPI:
         timeout: float | None = None,
     ) -> Iterator[RunRuntimeStreamEvent]:
         """Stream runtime events for a swarm (prefer ``handle.events.stream``)."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).stream_events(
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).stream_events(
             transcript_cursor=transcript_cursor,
             view=view,
             last_event_id=last_event_id,
@@ -598,7 +634,11 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
     ) -> SmrResourceLimits:
         """Return configured resource limits for the swarm."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).resource_limits()
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).resource_limits()
 
     def progress_toward_resource_limits(
         self,
@@ -622,7 +662,11 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
         """Request graceful stop for a swarm."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).stop()
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).stop()
 
     def pause(
         self,
@@ -632,7 +676,11 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
         """Pause an active swarm."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).pause()
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).pause()
 
     def resume(
         self,
@@ -642,7 +690,11 @@ class ResearchSwarmsAPI:
         project: ProjectSelector | str | None = None,
     ) -> ManagedResearchRunControlAck:
         """Resume a paused swarm."""
-        return self.get(swarm_id=swarm_id, project_id=project_id, project=project).resume()
+        return self.get(
+            swarm_id=swarm_id,
+            project_id=project_id,
+            project=project,
+        ).resume()
 
     def results(
         self,
@@ -692,7 +744,9 @@ class ResearchSwarmsAPI:
             raw_items = payload["logs"]
         elif isinstance(payload, dict) and isinstance(payload.get("records"), list):
             raw_items = payload["records"]
-        normalized = [cast(dict[str, Any], item) for item in raw_items if isinstance(item, dict)]
+        normalized = [
+            cast(dict[str, Any], item) for item in raw_items if isinstance(item, dict)
+        ]
         return SyncPage(items=normalized, next_cursor=next_cursor, has_more=has_more)
 
     def execution(
