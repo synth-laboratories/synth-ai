@@ -13,7 +13,7 @@ from synth_ai.managed_research.sdk.client import ManagedResearchClient
 def _require_notes_mapping(payload: object, *, label: str) -> dict[str, object]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} payload must be an object")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 @dataclass(frozen=True)

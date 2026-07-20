@@ -167,7 +167,7 @@ class ResearchProjectsReposAPI:
 def _require_git_mapping(payload: object, *, label: str) -> dict[str, object]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} payload must be an object")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 @dataclass(frozen=True)
@@ -183,6 +183,7 @@ class GitCommitRow:
 
     @classmethod
     def from_wire(cls, payload: object) -> GitCommitRow:
+        """Build a typed commit summary from a git-server response."""
         mapping = _require_git_mapping(payload, label="git commit")
         authored_at = mapping.get("authored_at")
         return cls(
@@ -209,6 +210,7 @@ class GitBranchRow:
 
     @classmethod
     def from_wire(cls, payload: object) -> GitBranchRow:
+        """Build a typed branch summary from a git-server response."""
         mapping = _require_git_mapping(payload, label="git branch")
 
         def _opt_str(key: str) -> str | None:
@@ -243,6 +245,7 @@ class GitRepoStatus:
 
     @classmethod
     def from_wire(cls, payload: object) -> GitRepoStatus:
+        """Build a typed repository status projection from a git-server response."""
         mapping = _require_git_mapping(payload, label="git status")
         return cls(
             project_id=str(mapping.get("project_id") or ""),
@@ -250,8 +253,7 @@ class GitRepoStatus:
             default_branch=str(mapping.get("default_branch") or ""),
             head_commit_sha=str(mapping.get("head_commit_sha") or ""),
             recent_commits=tuple(
-                GitCommitRow.from_wire(item)
-                for item in list(mapping.get("recent_commits") or [])
+                GitCommitRow.from_wire(item) for item in list(mapping.get("recent_commits") or [])
             ),
             unmerged_branches=tuple(
                 GitBranchRow.from_wire(item)
@@ -360,8 +362,7 @@ class ResearchProjectsGitPullRequestsAPI:
             label="pull requests",
         )
         return tuple(
-            GitPullRequestRow.from_wire(item)
-            for item in list(payload.get("pull_requests") or [])
+            GitPullRequestRow.from_wire(item) for item in list(payload.get("pull_requests") or [])
         )
 
 

@@ -19,7 +19,7 @@ from synth_ai.managed_research.sdk.client import ManagedResearchClient
 def _require_wiki_mapping(payload: object, *, label: str) -> dict[str, object]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} payload must be an object")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 @dataclass(frozen=True)
@@ -75,8 +75,12 @@ class WikiEnvelope:
         state = mapping.get("state")
         wiki_project = mapping.get("wiki_project")
         return cls(
-            state=dict(state) if isinstance(state, Mapping) else {},
-            wiki_project=dict(wiki_project) if isinstance(wiki_project, Mapping) else {},
+            state=_require_wiki_mapping(state, label="wiki state")
+            if isinstance(state, Mapping)
+            else {},
+            wiki_project=_require_wiki_mapping(wiki_project, label="wiki project")
+            if isinstance(wiki_project, Mapping)
+            else {},
             raw=dict(mapping),
         )
 

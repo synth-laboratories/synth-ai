@@ -22,7 +22,7 @@ from synth_ai.managed_research.sdk.client import ManagedResearchClient
 def _require_account_mapping(payload: object, *, label: str) -> dict[str, object]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{label} payload must be an object")
-    return dict(payload)
+    return {str(key): value for key, value in payload.items()}
 
 
 @dataclass(frozen=True)
@@ -61,7 +61,9 @@ class AccountTierLimits:
         limits = mapping.get("limits")
         return cls(
             tier=str(mapping.get("tier") or ""),
-            limits=dict(limits) if isinstance(limits, Mapping) else {},
+            limits=_require_account_mapping(limits, label="tier limits")
+            if isinstance(limits, Mapping)
+            else {},
             raw=dict(mapping),
         )
 
