@@ -13,16 +13,18 @@ from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.projects import ResearchProjectsAPI
-from synth_ai.research.runs import ResearchRunsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
+from synth_ai.research.swarms import ResearchSwarmsAPI
 from synth_ai.research.visuals import ResearchVisualsAPI
 
 
 class ResearchClient:
     """Managed Research entrypoint on ``SynthClient``.
 
-    Obtain via ``SynthClient().research``. Namespaces cover projects, runs,
-    limits, economics, secrets, and Factory Tag (``factories.tag``).
+    SMR (Managed Research) is the product umbrella; its capabilities are
+    Managed Factories (``factories``) and Managed Swarms (``swarms``) — swarms
+    launch directly or are composed by factories. Namespaces also cover
+    projects, limits, economics, secrets, and Factory Tag (``factories.tag``).
 
     Example:
         >>> client = SynthClient()
@@ -45,7 +47,7 @@ class ResearchClient:
         self._factories: ResearchFactoriesAPI | None = None
         self._efforts: ResearchEffortsAPI | None = None
         self._projects: ResearchProjectsAPI | None = None
-        self._runs: ResearchRunsAPI | None = None
+        self._swarms: ResearchSwarmsAPI | None = None
         self._limits: ResearchLimitsAPI | None = None
         self._economics: ResearchEconomicsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
@@ -66,7 +68,7 @@ class ResearchClient:
     def session(self) -> ManagedResearchClient:
         """Low-level session client (advanced integrations and eval harnesses only).
 
-        Prefer hero namespaces (``projects``, ``runs``, ``limits``) for new code.
+        Prefer hero namespaces (``projects``, ``swarms``, ``limits``) for new code.
         """
         return self._open_session()
 
@@ -102,11 +104,21 @@ class ResearchClient:
         return self._projects
 
     @property
-    def runs(self) -> ResearchRunsAPI:
-        """Launch runs and open run-scoped readout handles."""
-        if self._runs is None:
-            self._runs = ResearchRunsAPI(self._open_session())
-        return self._runs
+    def swarms(self) -> ResearchSwarmsAPI:
+        """Launch Managed Swarms and open swarm-scoped readout handles."""
+        if self._swarms is None:
+            self._swarms = ResearchSwarmsAPI(self._open_session())
+        return self._swarms
+
+    @property
+    def runs(self) -> ResearchSwarmsAPI:
+        """Deprecated alias for :attr:`swarms` (the public noun is Swarm)."""
+        warnings.warn(
+            "research.runs is deprecated; use research.swarms instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.swarms
 
     @property
     def limits(self) -> ResearchLimitsAPI:
@@ -172,7 +184,7 @@ class ResearchClient:
         self._factories = None
         self._efforts = None
         self._projects = None
-        self._runs = None
+        self._swarms = None
         self._limits = None
         self._economics = None
         self._secrets = None

@@ -43,17 +43,25 @@ from synth_ai.research.models import (
     ResearchRunnableProjectRequest,
     ResearchRunProgress,
     ResearchRuntimeKind,
+    ResearchSwarm,
+    ResearchSwarmProgress,
     ResearchTagSessionCreateRequest,
     ResearchWorkerRolePalette,
     ResearchWorkProduct,
 )
 from synth_ai.research.projects import ResearchProjectsAPI
-from synth_ai.research.runs import (
-    ResearchRunHandle,
-    ResearchRunsAPI,
-    ResearchRunSession,
-)
 from synth_ai.research.secrets import ResearchSecretsAPI
+from synth_ai.research.swarms import (
+    ResearchSwarmHandle,
+    ResearchSwarmsAPI,
+    ResearchSwarmSession,
+)
+
+# Deprecated run-noun aliases (public noun is Swarm; import shims live in
+# synth_ai.research.runs / run_readouts for old module paths).
+ResearchRunHandle = ResearchSwarmHandle
+ResearchRunSession = ResearchSwarmSession
+ResearchRunsAPI = ResearchSwarmsAPI
 
 __all__ = [
     "AsyncResearchClient",
@@ -97,6 +105,11 @@ __all__ = [
     "ResearchRunsAPI",
     "ResearchSecretsAPI",
     "ResearchStructuredDenialError",
+    "ResearchSwarm",
+    "ResearchSwarmHandle",
+    "ResearchSwarmProgress",
+    "ResearchSwarmSession",
+    "ResearchSwarmsAPI",
     "ResearchWorkMode",
     "ResearchWorkProduct",
     "ResearchWorkerRolePalette",
