@@ -4592,9 +4592,7 @@ paths:
         in: query
         required: false
         schema:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           default: run_latest
           title: Source
       responses:
@@ -4791,6 +4789,44 @@ paths:
           - type: string
           - type: 'null'
           title: End
+      - name: level
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - debug
+            - info
+            - warning
+            - error
+            - critical
+            - fatal
+            type: string
+          - type: 'null'
+          title: Level
+      - name: min_level
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - debug
+            - info
+            - warning
+            - error
+            - critical
+            - fatal
+            type: string
+          - type: 'null'
+          title: Min Level
+      - name: service
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service
       - name: component
         in: query
         required: false
@@ -4799,6 +4835,30 @@ paths:
           - type: string
           - type: 'null'
           title: Component
+      - name: event
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Event
+      - name: condition_code
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Condition Code
+      - name: task_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
       - name: task_key
         in: query
         required: false
@@ -4807,16 +4867,38 @@ paths:
           - type: string
           - type: 'null'
           title: Task Key
+      - name: participant_session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Participant Session Id
+      - name: dedupe
+        in: query
+        required: false
+        schema:
+          enum:
+          - none
+          - fingerprint
+          type: string
+          default: none
+          title: Dedupe
+      - name: compact
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+          title: Compact
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Project Run Logs Smr Projects  Project Id  Runs  Run
-                  Id  Logs Get
+                $ref: '#/components/schemas/SmrRunLogsResponse'
         '422':
           description: Validation Error
           content:
@@ -5412,6 +5494,146 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrFactoryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/start:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Start Factory
+      operationId: start_factory_smr_factories__factory_id__start_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/SmrFactoryTransitionRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryTransitionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/pause:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Pause Factory
+      operationId: pause_factory_smr_factories__factory_id__pause_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/SmrFactoryTransitionRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryTransitionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/resume:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Resume Factory
+      operationId: resume_factory_smr_factories__factory_id__resume_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/SmrFactoryTransitionRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryTransitionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/archive:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Archive Factory
+      operationId: archive_factory_smr_factories__factory_id__archive_post
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/SmrFactoryTransitionRequest'
+              - type: 'null'
+              title: Request
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryTransitionResponse'
         '422':
           description: Validation Error
           content:
@@ -12655,6 +12877,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrRunResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/runs/{run_id}/diagnostics:
+    get:
+      tags:
+      - smr
+      summary: Get Project Run Diagnostics
+      operationId: get_project_run_diagnostics_smr_projects__project_id__runs__run_id__diagnostics_get
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunDiagnosticsResponse'
         '422':
           description: Validation Error
           content:
@@ -20925,7 +21179,7 @@ paths:
         schema:
           type: string
           description: Comma-separated run states to include.
-          default: active,blocked,paused
+          default: active,finalizing,blocked,paused
           title: States
         description: Comma-separated run states to include.
       - name: tenant_id
@@ -23188,32 +23442,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/tag/v1/sessions/{session_id}/factory-context:
-    get:
-      tags:
-      - tag
-      summary: Get Session Factory Context
-      operationId: get_tag_session_factory_context
-      parameters:
-      - name: session_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Session Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TagFactoryContextResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/tag/v1/sessions/{session_id}/control:
     post:
       tags:
@@ -23291,32 +23519,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TagScopeResponse'
-  /api/tag/v1/scopes/{scope_id}/factory-context:
-    get:
-      tags:
-      - tag
-      summary: Get Scope Factory Context
-      operationId: get_tag_scope_factory_context
-      parameters:
-      - name: scope_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Scope Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TagFactoryContextResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /v1/tunnels/health:
     get:
       tags:
@@ -26388,6 +26590,32 @@ paths:
                 type: object
                 additionalProperties: true
                 title: Response Get Public Artifact Api Open Research V1 Artifacts  Slug  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/open-research/v1/artifact-pages/{slug}:
+    get:
+      tags:
+      - open-research-public
+      summary: Get Public Artifact Page
+      operationId: get_public_artifact_page_api_open_research_v1_artifact_pages__slug__get
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
         '422':
           description: Validation Error
           content:
@@ -38561,6 +38789,20 @@ components:
       - credit_source
       - granted_microcents
       title: SmrBillingWalletSourceResponse
+    SmrBoundRuntimeTargetRequest:
+      properties:
+        kind:
+          type: string
+          const: bound_runtime
+          title: Kind
+        attestation:
+          $ref: '#/components/schemas/SmrRuntimeBindingAttestationRequest'
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - attestation
+      title: SmrBoundRuntimeTargetRequest
     SmrBranchMode:
       type: string
       enum:
@@ -38819,6 +39061,30 @@ components:
       - created_at
       - updated_at
       title: SmrCredentialRefResponse
+    SmrDependencyIdentityRequest:
+      properties:
+        jwt_issuer:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Jwt Issuer
+        jwt_audience:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Jwt Audience
+        jwt_key_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Jwt Key Id
+      additionalProperties: false
+      type: object
+      required:
+      - jwt_issuer
+      - jwt_audience
+      - jwt_key_id
+      title: SmrDependencyIdentityRequest
     SmrDevEnvironmentBillingPreflightRequest:
       properties:
         model_class:
@@ -39175,6 +39441,10 @@ components:
           additionalProperties: true
           type: object
           title: Recurrence Policy
+        maintenance_runtime_state:
+          additionalProperties: true
+          type: object
+          title: Maintenance Runtime State
         next_wake_at:
           anyOf:
           - type: string
@@ -40679,9 +40949,8 @@ components:
         status:
           type: string
           enum:
+          - configured
           - active
-          - paused
-          - archived
           title: Status
           default: active
         budget_policy:
@@ -41184,15 +41453,6 @@ components:
             maxLength: 20000
           - type: 'null'
           title: Description
-        status:
-          anyOf:
-          - type: string
-            enum:
-            - active
-            - paused
-            - archived
-          - type: 'null'
-          title: Status
         budget_policy:
           anyOf:
           - additionalProperties: true
@@ -41535,6 +41795,7 @@ components:
         status:
           type: string
           enum:
+          - configured
           - active
           - paused
           - archived
@@ -41824,6 +42085,8 @@ components:
             maxLength: 200
           - type: 'null'
           title: Scope
+          description: Reserved; non-empty values are rejected until per-scope current-best
+            persistence exists.
         reason:
           type: string
           maxLength: 2000
@@ -41851,6 +42114,8 @@ components:
             maxLength: 200
           - type: 'null'
           title: Scope
+          description: Reserved; non-empty values are rejected until per-scope current-best
+            persistence exists.
         reason:
           type: string
           maxLength: 2000
@@ -41878,6 +42143,7 @@ components:
           - type: string
           - type: 'null'
           title: Scope
+          description: Reserved; always null while current-best is factory-global.
         selected_at:
           anyOf:
           - type: string
@@ -41896,12 +42162,14 @@ components:
           title: Event Id
       type: object
       title: SmrFactoryResultSelection
-      description: 'Optional current-best selection state for a named objective/scope.
+      description: 'Optional factory-global current-best selection state.
 
 
         Selection is historical state, not Result identity: a Result stays the same
 
-        Result after another Result becomes current best.'
+        Result after another Result becomes current best. ``scope`` is reserved and
+
+        stays null until a per-scope persistence authority exists.'
     SmrFactoryResultSelectionDecisionResponse:
       properties:
         action:
@@ -41965,6 +42233,7 @@ components:
           - type: string
           - type: 'null'
           title: Scope
+          description: Reserved; always null while current-best is factory-global.
         score:
           anyOf:
           - type: number
@@ -42161,6 +42430,66 @@ components:
       required:
       - factory
       title: SmrFactoryStatusResponse
+    SmrFactoryTransitionRequest:
+      properties:
+        reason:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Reason
+        dry_run:
+          type: boolean
+          title: Dry Run
+          default: false
+      additionalProperties: false
+      type: object
+      title: SmrFactoryTransitionRequest
+      description: 'Body for the named lifecycle transitions (start/pause/resume/archive).
+
+
+        ``dry_run=True`` is the preview: the reducer answers whether the
+
+        transition is legal and what it would change, without applying it.'
+    SmrFactoryTransitionResponse:
+      properties:
+        factory:
+          $ref: '#/components/schemas/SmrFactoryResponse'
+        command:
+          type: string
+          title: Command
+        decision:
+          type: string
+          title: Decision
+        decision_detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Detail
+        to_status:
+          type: string
+          enum:
+          - configured
+          - active
+          - paused
+          - archived
+          title: To Status
+        effects:
+          items:
+            type: string
+          type: array
+          title: Effects
+        woken_efforts:
+          type: integer
+          title: Woken Efforts
+          default: 0
+      type: object
+      required:
+      - factory
+      - command
+      - decision
+      - to_status
+      title: SmrFactoryTransitionResponse
     SmrFactoryVitalResponse:
       properties:
         name:
@@ -44768,6 +45097,17 @@ components:
       required:
       - resource
       title: SmrPauseResourceResponse
+    SmrPlatformResolvedTargetRequest:
+      properties:
+        kind:
+          type: string
+          const: platform_resolved
+          title: Kind
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      title: SmrPlatformResolvedTargetRequest
     SmrPrimaryParentInlineCreateRequest:
       properties:
         kind:
@@ -46602,6 +46942,21 @@ components:
       title: SmrProjectStatusRunSummary
     SmrProjectTriggerRequest:
       properties:
+        execution_target:
+          anyOf:
+          - oneOf:
+            - $ref: '#/components/schemas/SmrPlatformResolvedTargetRequest'
+            - $ref: '#/components/schemas/SmrBoundRuntimeTargetRequest'
+            discriminator:
+              propertyName: kind
+              mapping:
+                bound_runtime: '#/components/schemas/SmrBoundRuntimeTargetRequest'
+                platform_resolved: '#/components/schemas/SmrPlatformResolvedTargetRequest'
+          - type: 'null'
+          title: Execution Target
+          description: Explicit placement authority. Platform-resolved targets delegate
+            all placement to Synth; bound-runtime targets carry one signed CloudDev
+            binding and cannot restate host, pool, or source fields elsewhere.
         runbook:
           $ref: '#/components/schemas/RunbookKind'
           description: Typed orchestration posture for this run. Runbooks control
@@ -47538,6 +47893,35 @@ components:
       - artifact_id
       - redaction_mode
       title: SmrRawTraceEventsResponse
+    SmrReadinessAttestationRequest:
+      properties:
+        ready:
+          type: boolean
+          title: Ready
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        unresolved_mutations:
+          items:
+            type: string
+          type: array
+          title: Unresolved Mutations
+        advertised_pools:
+          items:
+            type: string
+          type: array
+          title: Advertised Pools
+        required_images_ready:
+          type: boolean
+          title: Required Images Ready
+      additionalProperties: false
+      type: object
+      required:
+      - ready
+      - observed_at
+      - required_images_ready
+      title: SmrReadinessAttestationRequest
     SmrReadinessCheck:
       properties:
         id:
@@ -49405,6 +49789,39 @@ components:
       - tasks
       - execution_results
       title: SmrRunDataInfraResponse
+    SmrRunDiagnosticsResponse:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: smr.run-diagnostics.v1
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          type: string
+          title: Run Id
+        public_state:
+          type: string
+          title: Public State
+        terminal_outcome:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Terminal Outcome
+        diagnostics:
+          $ref: '#/components/schemas/SmrRunRuntimeDiagnosticsResponse'
+      type: object
+      required:
+      - org_id
+      - project_id
+      - run_id
+      - public_state
+      - diagnostics
+      title: SmrRunDiagnosticsResponse
     SmrRunDurableCheckpointAncestryResponse:
       properties:
         source_checkpoint_id:
@@ -50770,6 +51187,144 @@ components:
       - metadata
       - created_at
       title: SmrRunLogArchiveResponse
+    SmrRunLogRecordResponse:
+      properties:
+        timestamp:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Timestamp
+        level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Level
+        service:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Service
+        component:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Component
+        event:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Event
+        logger:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Logger
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        fingerprint:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fingerprint
+        condition_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Condition Code
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        task_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Key
+        participant_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Participant Session Id
+        workflow_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow Id
+        workflow_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow Run Id
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+        raw:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Raw
+      type: object
+      title: SmrRunLogRecordResponse
+    SmrRunLogsResponse:
+      properties:
+        ok:
+          type: boolean
+          title: Ok
+          default: true
+        source:
+          type: string
+          title: Source
+        query:
+          type: string
+          title: Query
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          type: string
+          title: Run Id
+        limit:
+          type: integer
+          title: Limit
+        count:
+          type: integer
+          title: Count
+        raw_count:
+          type: integer
+          title: Raw Count
+        dedupe:
+          type: string
+          title: Dedupe
+          default: none
+        compact:
+          type: boolean
+          title: Compact
+          default: true
+        filters:
+          additionalProperties: true
+          type: object
+          title: Filters
+        records:
+          items:
+            $ref: '#/components/schemas/SmrRunLogRecordResponse'
+          type: array
+          title: Records
+      type: object
+      required:
+      - source
+      - query
+      - project_id
+      - run_id
+      - limit
+      - count
+      - raw_count
+      title: SmrRunLogsResponse
     SmrRunManualTickRequestCreateRequest:
       properties:
         reason:
@@ -51988,7 +52543,105 @@ components:
         source:
           type: string
           title: Source
-          default: smr_runtime_resource_facts.v1
+          default: smr_runtime_resource_facts+conditions.v1
+        condition_source:
+          type: string
+          title: Condition Source
+          default: smr_runtime_incidents.v1
+        diagnostic_profile_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Diagnostic Profile Id
+        profile_invariant_codes:
+          items:
+            type: string
+          type: array
+          title: Profile Invariant Codes
+        profile_evaluated_codes:
+          items:
+            type: string
+          type: array
+          title: Profile Evaluated Codes
+        profile_evaluation_points:
+          items:
+            type: string
+          type: array
+          title: Profile Evaluation Points
+        profile_evaluation_complete:
+          type: boolean
+          title: Profile Evaluation Complete
+          default: false
+        profile_observation_failure_active:
+          type: boolean
+          title: Profile Observation Failure Active
+          default: false
+        profile_observation_failure_count:
+          type: integer
+          title: Profile Observation Failure Count
+          default: 0
+        profile_last_observation_failure_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Profile Last Observation Failure Type
+        profile_last_observation_failure_evaluation_point:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Profile Last Observation Failure Evaluation Point
+        profile_last_observation_failure_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Profile Last Observation Failure At
+        runtime_health:
+          type: string
+          title: Runtime Health
+          default: unknown
+        clean_terminal:
+          type: boolean
+          title: Clean Terminal
+          default: false
+        workflow_quiescent:
+          type: boolean
+          title: Workflow Quiescent
+          default: false
+        workflow_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow State
+        supervisor_authority_available:
+          type: boolean
+          title: Supervisor Authority Available
+          default: false
+        supervisor_error:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Supervisor Error
+        active_terminal_blocking_count:
+          type: integer
+          title: Active Terminal Blocking Count
+          default: 0
+        oldest_active_condition_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Oldest Active Condition At
+        active_conditions:
+          items:
+            $ref: '#/components/schemas/SmrRuntimeConditionResponse'
+          type: array
+          title: Active Conditions
+        recovered_conditions:
+          items:
+            $ref: '#/components/schemas/SmrRuntimeConditionResponse'
+          type: array
+          title: Recovered Conditions
         primary_blocker:
           anyOf:
           - $ref: '#/components/schemas/SmrRunRuntimeBlockerResponse'
@@ -53327,6 +53980,273 @@ components:
       - orchestrator_profile_id
       - default_worker_profile_id
       title: SmrRunnableProjectCreateRequest
+    SmrRuntimeBindingAttestationRequest:
+      properties:
+        schema_version:
+          type: string
+          const: smr.execution-target.v1
+          title: Schema Version
+        attestation_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Attestation Id
+        provider:
+          type: string
+          const: exe_dev
+          title: Provider
+        provider_resource_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Provider Resource Id
+        actor_host:
+          type: string
+          const: docker
+          title: Actor Host
+        capacity_authority:
+          type: string
+          const: bound_runtime
+          title: Capacity Authority
+        runtime_profile:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Runtime Profile
+        control_slot_instance_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Control Slot Instance Id
+        slot_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Slot Id
+        runtime_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Runtime Id
+        dispatch_pool:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dispatch Pool
+        claim_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Claim Id
+        fence_digest:
+          type: string
+          maxLength: 128
+          minLength: 64
+          title: Fence Digest
+        claim_expires_at:
+          type: string
+          format: date-time
+          title: Claim Expires At
+        runtime_generation:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Runtime Generation
+        source_revisions:
+          items:
+            $ref: '#/components/schemas/SmrSourceRevisionRequest'
+          type: array
+          minItems: 1
+          title: Source Revisions
+        endpoints:
+          items:
+            $ref: '#/components/schemas/SmrRuntimeEndpointRequest'
+          type: array
+          minItems: 1
+          title: Endpoints
+        readiness:
+          $ref: '#/components/schemas/SmrReadinessAttestationRequest'
+        dependency_identity:
+          $ref: '#/components/schemas/SmrDependencyIdentityRequest'
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        audience:
+          type: string
+          const: synth-smr-run-start
+          title: Audience
+        signer_key_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Signer Key Id
+        signature:
+          type: string
+          maxLength: 128
+          minLength: 64
+          title: Signature
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - attestation_id
+      - provider
+      - provider_resource_id
+      - actor_host
+      - capacity_authority
+      - runtime_profile
+      - control_slot_instance_id
+      - slot_id
+      - runtime_id
+      - dispatch_pool
+      - claim_id
+      - fence_digest
+      - claim_expires_at
+      - runtime_generation
+      - source_revisions
+      - endpoints
+      - readiness
+      - dependency_identity
+      - issued_at
+      - expires_at
+      - audience
+      - signer_key_id
+      - signature
+      title: SmrRuntimeBindingAttestationRequest
+    SmrRuntimeConditionResponse:
+      properties:
+        condition_id:
+          type: string
+          title: Condition Id
+        condition_code:
+          type: string
+          title: Condition Code
+        condition_class:
+          type: string
+          title: Condition Class
+        condition_fingerprint:
+          type: string
+          title: Condition Fingerprint
+        condition_state:
+          type: string
+          title: Condition State
+        severity:
+          type: string
+          title: Severity
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          type: string
+          title: Run Id
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        participant_session_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Participant Session Id
+        workflow_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow Id
+        workflow_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow Run Id
+        first_seen_at:
+          type: string
+          format: date-time
+          title: First Seen At
+        last_seen_at:
+          type: string
+          format: date-time
+          title: Last Seen At
+        occurrence_count:
+          type: integer
+          title: Occurrence Count
+        age_ms:
+          type: integer
+          title: Age Ms
+        terminal_blocking:
+          type: boolean
+          title: Terminal Blocking
+        retryable:
+          type: boolean
+          title: Retryable
+        owner:
+          type: string
+          title: Owner
+        summary:
+          type: string
+          title: Summary
+        observed:
+          type: string
+          title: Observed
+        expected:
+          type: string
+          title: Expected
+        evaluation_point:
+          type: string
+          title: Evaluation Point
+        deadline_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Deadline At
+        next_retry_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Retry At
+        evidence_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evidence Ref
+      type: object
+      required:
+      - condition_id
+      - condition_code
+      - condition_class
+      - condition_fingerprint
+      - condition_state
+      - severity
+      - org_id
+      - project_id
+      - run_id
+      - first_seen_at
+      - last_seen_at
+      - occurrence_count
+      - age_ms
+      - terminal_blocking
+      - retryable
+      - owner
+      - summary
+      - observed
+      - expected
+      - evaluation_point
+      title: SmrRuntimeConditionResponse
     SmrRuntimeContextMessageResponse:
       properties:
         message_id:
@@ -53517,6 +54437,24 @@ components:
       - status
       - created_at
       title: SmrRuntimeDeliveryResponse
+    SmrRuntimeEndpointRequest:
+      properties:
+        service:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Service
+        url:
+          type: string
+          maxLength: 4000
+          minLength: 1
+          title: Url
+      additionalProperties: false
+      type: object
+      required:
+      - service
+      - url
+      title: SmrRuntimeEndpointRequest
     SmrRuntimeHeartbeatRequest:
       properties:
         status:
@@ -54076,6 +55014,24 @@ components:
       additionalProperties: false
       type: object
       title: SmrRuntimeRequirementRequest
+    SmrSourceRevisionRequest:
+      properties:
+        repository:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Repository
+        commit_sha:
+          type: string
+          maxLength: 128
+          minLength: 7
+          title: Commit Sha
+      additionalProperties: false
+      type: object
+      required:
+      - repository
+      - commit_sha
+      title: SmrSourceRevisionRequest
     SmrStoredFileResponse:
       properties:
         file_id:
@@ -54653,6 +55609,11 @@ components:
           - type: string
           - type: 'null'
           title: Live Resume Cursor
+        projection_authority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Projection Authority
       type: object
       required:
       - run_id
@@ -56878,180 +57839,6 @@ components:
       - google
       title: SupportedProvider
       description: Supported LLM providers for encrypted provider-key storage.
-    TagArtifactLink:
-      properties:
-        schema_version:
-          type: string
-          const: tag_artifact_link.v1
-          title: Schema Version
-          default: tag_artifact_link.v1
-        kind:
-          type: string
-          enum:
-          - run_record
-          - run_summary
-          - work_product
-          title: Kind
-        url:
-          type: string
-          title: Url
-        artifact_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Artifact Id
-        work_product_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Work Product Id
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
-        status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Status
-        readiness:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Readiness
-      type: object
-      required:
-      - kind
-      - url
-      title: TagArtifactLink
-    TagFactoryCandidateCounts:
-      properties:
-        total:
-          type: integer
-          minimum: 0.0
-          title: Total
-        graded:
-          type: integer
-          minimum: 0.0
-          title: Graded
-        pending:
-          type: integer
-          minimum: 0.0
-          title: Pending
-      type: object
-      required:
-      - total
-      - graded
-      - pending
-      title: TagFactoryCandidateCounts
-    TagFactoryChampion:
-      properties:
-        candidate_id:
-          type: string
-          title: Candidate Id
-        git_sha:
-          type: string
-          title: Git Sha
-        work_product_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Work Product Id
-        held_out_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Held Out Score
-        selected_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Selected At
-      type: object
-      required:
-      - candidate_id
-      - git_sha
-      title: TagFactoryChampion
-    TagFactoryChampionEvent:
-      properties:
-        action:
-          type: string
-          enum:
-          - promote
-          - no_lift
-          - rollback
-          title: Action
-        at:
-          type: string
-          format: date-time
-          title: At
-        candidate_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Candidate Id
-        git_sha:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Git Sha
-        held_out_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Held Out Score
-        reason:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reason
-      type: object
-      required:
-      - action
-      - at
-      title: TagFactoryChampionEvent
-    TagFactoryContextResponse:
-      properties:
-        schema_version:
-          type: string
-          const: tag_factory_context.v1
-          title: Schema Version
-          default: tag_factory_context.v1
-        factory_id:
-          type: string
-          title: Factory Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-        experiment_ref:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Ref
-        champion:
-          anyOf:
-          - $ref: '#/components/schemas/TagFactoryChampion'
-          - type: 'null'
-        last_champion_event:
-          anyOf:
-          - $ref: '#/components/schemas/TagFactoryChampionEvent'
-          - type: 'null'
-        candidates:
-          $ref: '#/components/schemas/TagFactoryCandidateCounts'
-        as_of:
-          type: string
-          format: date-time
-          title: As Of
-      type: object
-      required:
-      - factory_id
-      - candidates
-      - as_of
-      title: TagFactoryContextResponse
     TagMessageRequest:
       properties:
         message:
@@ -57218,27 +58005,6 @@ components:
             maxLength: 128
           - type: 'null'
           title: Runbook Preset
-        host_kind:
-          anyOf:
-          - $ref: '#/components/schemas/SmrHostKind'
-          - type: 'null'
-        worker_pool_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Worker Pool Id
-        local_execution:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Local Execution
-        execution_profile:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Execution Profile
         metadata:
           additionalProperties: true
           type: object
@@ -57250,11 +58016,6 @@ components:
       title: TagSessionCreateRequest
     TagSessionReceipt:
       properties:
-        schema_version:
-          type: string
-          const: tag_receipt.v1
-          title: Schema Version
-          default: tag_receipt.v1
         run_id:
           anyOf:
           - type: string
@@ -57273,11 +58034,6 @@ components:
             type: string
           type: array
           title: Artifact Urls
-        artifacts:
-          items:
-            $ref: '#/components/schemas/TagArtifactLink'
-          type: array
-          title: Artifacts
         artifact_empty_reason:
           anyOf:
           - type: string
@@ -57320,7 +58076,8 @@ components:
           title: Git Urls
         steering_receipts:
           items:
-            $ref: '#/components/schemas/TagSteeringReceipt'
+            additionalProperties: true
+            type: object
           type: array
           title: Steering Receipts
       type: object
@@ -57439,109 +58196,6 @@ components:
       required:
       - session
       title: TagSessionWatchResponse
-    TagSteeringReceipt:
-      properties:
-        schema_version:
-          type: string
-          const: tag_steering_receipt.v1
-          title: Schema Version
-          default: tag_steering_receipt.v1
-        receipt_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Receipt Id
-        session_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Session Id
-        org_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Org Id
-        factory_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-        project_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Id
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-        candidate_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Candidate Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        steering_target:
-          anyOf:
-          - type: string
-            enum:
-            - active_run
-            - next_cycle
-          - type: 'null'
-          title: Steering Target
-        message:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Message
-        idempotency_key:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Idempotency Key
-        transport_ref:
-          additionalProperties: true
-          type: object
-          title: Transport Ref
-        accepted_at:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Accepted At
-        wiki:
-          anyOf:
-          - $ref: '#/components/schemas/TagSteeringWikiLink'
-          - type: 'null'
-      type: object
-      title: TagSteeringReceipt
-    TagSteeringWikiLink:
-      properties:
-        changeset_id:
-          type: string
-          title: Changeset Id
-        proposal_id:
-          type: string
-          title: Proposal Id
-        url:
-          type: string
-          title: Url
-      type: object
-      required:
-      - changeset_id
-      - proposal_id
-      - url
-      title: TagSteeringWikiLink
     TagTaskResponse:
       properties:
         task_id:
