@@ -32,7 +32,18 @@ _RELEASE_ID = re.compile(r"^imgrel_[0-9a-f]{64}$")
 _IMAGE_NAME = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*$")
 _IMAGE_TAG = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 _CAPABILITY = re.compile(r"^[a-z0-9][a-z0-9_]{0,63}$")
+_PACKAGE_REQUIREMENT = re.compile(
+    r"^(?P<name>[a-z0-9][a-z0-9._-]*)==(?P<version>[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127})$"
+)
 _PLATFORMS = ("linux/amd64", "linux/arm64")
+CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL = "io.synth.actor-runtime.python-packages"
+CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST = frozenset(
+    {
+        "chex", "craftax", "crafter", "distrax", "flax", "gymnasium", "gymnax",
+        "httpx", "imageio", "imageio-ffmpeg", "jax", "modal", "nle", "numpy",
+        "optax", "orbax-checkpoint", "pillow", "pydantic", "pyyaml", "synth-ai",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +63,8 @@ class ActorImage:
     actor_role: str
     capabilities: tuple[str, ...]
     archive_sha256: str
+    python_packages: tuple[str, ...] = ()
+    package_release_timestamps: Mapping[str, str] | None = None
 
     image_substrates: tuple[str, ...] = ()
     """Where the executable image lives: 'org_registry' means registry-pulling
@@ -93,6 +106,17 @@ def _actor_image_from_materialization(
         actor_role=_text(materialization, "actor_role", label="runtime_image_release"),
         capabilities=tuple(str(item) for item in capabilities),
         archive_sha256=archive_sha256,
+        python_packages=tuple(
+            str(item) for item in (materialization.get("python_packages") or ())
+        ),
+        package_release_timestamps=(
+            {
+                str(key): str(value)
+                for key, value in materialization.get("package_release_timestamps", {}).items()
+            }
+            if isinstance(materialization.get("package_release_timestamps"), Mapping)
+            else None
+        ),
         image_substrates=tuple(
             str(item) for item in (materialization.get("image_substrates") or ())
         ),
@@ -201,6 +225,24 @@ def _normalized_source(source: Mapping[str, Any]) -> tuple[str, str]:
     return repository, commit_sha
 
 
+def _normalized_python_packages(values: Sequence[str]) -> list[str]:
+    if not values or len(values) > 32:
+        raise ValueError("python_packages must list between 1 and 32 exact-pinned packages")
+    normalized: list[str] = []
+    for raw_value in values:
+        value = str(raw_value or "").strip()
+        match = _PACKAGE_REQUIREMENT.fullmatch(value)
+        if match is None:
+            raise ValueError("python_packages entries must use the exact package==version form")
+        package_name = re.sub(r"[-_.]+", "-", match.group("name").lower())
+        if package_name not in CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST:
+            raise ValueError(f"python package is not allowlisted: {package_name}")
+        normalized.append(f"{package_name}=={match.group('version')}")
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("python_packages must not repeat packages")
+    return sorted(normalized)
+
+
 class ImagesAPI(_ClientNamespace):
     """Customer actor images: upload, read, list, and archive org-owned releases."""
 
@@ -211,6 +253,7 @@ class ImagesAPI(_ClientNamespace):
         archive_path: str | Path,
         source: Mapping[str, Any],
         capabilities: Sequence[str],
+        python_packages: Sequence[str],
         kind: str = ACTOR_RUNTIME_IMAGE_KIND,
         role: str = "worker",
         platform: str | None = None,
@@ -218,7 +261,12 @@ class ImagesAPI(_ClientNamespace):
         expires_in: int = 3600,
         upload_timeout_seconds: float = 1800.0,
     ) -> ActorImage:
-        """Upload an OCI layout archive and return its executable release."""
+        """Upload a declared, allowlisted OCI runtime image and return its release.
+
+        The OCI config must set ``io.synth.actor-runtime.python-packages`` to the
+        canonical JSON list of the same exact-pinned requirements. The control
+        plane independently rejects versions published less than seven days ago.
+        """
         if kind != ACTOR_RUNTIME_IMAGE_KIND:
             raise ValueError(
                 "images.upload_archive only uploads actor_runtime images; "
@@ -234,6 +282,7 @@ class ImagesAPI(_ClientNamespace):
             not _CAPABILITY.fullmatch(item) for item in normalized_capabilities
         ):
             raise ValueError("capabilities must be nonempty lowercase snake_case slugs")
+        normalized_python_packages = _normalized_python_packages(python_packages)
         if platform is not None and platform not in _PLATFORMS:
             raise ValueError(f"platform must be one of: {', '.join(_PLATFORMS)}")
         repository, commit_sha = _normalized_source(source)
@@ -264,6 +313,7 @@ class ImagesAPI(_ClientNamespace):
             "actor_role": str(role or "").strip().lower(),
             "interface_mode": ACTOR_RUNTIME_INTERFACE_MODE,
             "capabilities": normalized_capabilities,
+            "python_packages": normalized_python_packages,
         }
         upload = self._client._request_json(
             "POST",
@@ -424,6 +474,8 @@ __all__ = [
     "ACTOR_RUNTIME_IMAGE_KIND",
     "ACTOR_RUNTIME_INTERFACE_MODE",
     "ActorImage",
+    "CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL",
+    "CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST",
     "ImagesAPI",
     "inspect_oci_archive",
 ]
