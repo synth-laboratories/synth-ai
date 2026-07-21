@@ -1,6 +1,6 @@
 """Customer actor image namespace: upload OCI archives, receive executable releases.
 
-``client.research.images`` turns a customer-built ``linux/amd64`` OCI layout
+``client.research.images`` turns a customer-built OCI layout
 archive into an immutable, org-scoped, digest-pinned runtime image release.
 The returned ``release_id`` binds a run's worker role through
 ``actor_image_overrides``; the imgrel artifact identity stays available for
@@ -17,6 +17,7 @@ import subprocess
 import tarfile
 import tempfile
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from pathlib import PurePosixPath
@@ -26,6 +27,11 @@ import httpx
 
 from synth_ai.managed_research.errors import SmrApiError
 from synth_ai.managed_research.sdk._base import _ClientNamespace
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - Craftax managed images require Unix Docker hosts.
+    fcntl = None
 
 ACTOR_RUNTIME_IMAGE_KIND = "actor_runtime"
 ACTOR_RUNTIME_INTERFACE_MODE = "synth_actor_runtime"
@@ -364,6 +370,20 @@ def _pinned_base_image_ref(recipe: ActorImageRecipe) -> str:
     return recipe.base_image.removesuffix(":latest") + "@" + recipe.base_image_id
 
 
+@contextmanager
+def _recipe_cache_lock(archive_path: Path):
+    """Serialize one local recipe build/upload across concurrent benchmark lanes."""
+    lock_path = archive_path.with_suffix(archive_path.suffix + ".lock")
+    with lock_path.open("a+", encoding="utf-8") as lock:
+        if fcntl is not None:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 def _normalized_python_packages(values: Sequence[str]) -> list[str]:
     if len(values) > 32:
         raise ValueError("python_packages must list at most 32 exact-pinned packages")
@@ -504,6 +524,33 @@ class ImagesAPI(_ClientNamespace):
         """
         recipe.validate()
         recipe_digest = recipe.recipe_digest()
+        active_release = self._active_recipe_release(recipe_digest)
+        if active_release is not None:
+            return active_release
+        cache_root = Path.home() / ".cache" / "synth-ai" / "actor-images"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        archive_path = cache_root / f"{recipe_digest.removeprefix('sha256:')}.oci.tar"
+        with _recipe_cache_lock(archive_path):
+            active_release = self._active_recipe_release(recipe_digest)
+            if active_release is not None:
+                return active_release
+            if not archive_path.is_file():
+                self._build_recipe_oci_archive(recipe, archive_path=archive_path)
+            return self.upload_archive(
+                name=recipe.name,
+                archive_path=archive_path,
+                source={
+                    "repository": recipe.source_repository,
+                    "commit_sha": recipe.source_commit_sha,
+                },
+                capabilities=recipe.capabilities,
+                python_packages=recipe.python_packages,
+                platform=recipe.platform,
+                tag=f"recipe-{recipe_digest.removeprefix('sha256:')[:12]}",
+                recipe_digest=recipe_digest,
+            )
+
+    def _active_recipe_release(self, recipe_digest: str) -> ActorImage | None:
         for item in self.list():
             if (
                 str(item.get("recipe_digest") or "").strip() == recipe_digest
@@ -512,24 +559,7 @@ class ImagesAPI(_ClientNamespace):
                 image_release_id = str(item.get("image_release_id") or "").strip()
                 if image_release_id:
                     return self.get(image_release_id=image_release_id)
-        cache_root = Path.home() / ".cache" / "synth-ai" / "actor-images"
-        cache_root.mkdir(parents=True, exist_ok=True)
-        archive_path = cache_root / f"{recipe_digest.removeprefix('sha256:')}.oci.tar"
-        if not archive_path.is_file():
-            self._build_recipe_oci_archive(recipe, archive_path=archive_path)
-        return self.upload_archive(
-            name=recipe.name,
-            archive_path=archive_path,
-            source={
-                "repository": recipe.source_repository,
-                "commit_sha": recipe.source_commit_sha,
-            },
-            capabilities=recipe.capabilities,
-            python_packages=recipe.python_packages,
-            platform=recipe.platform,
-            tag=f"recipe-{recipe_digest.removeprefix('sha256:')[:12]}",
-            recipe_digest=recipe_digest,
-        )
+        return None
 
     @staticmethod
     def _build_recipe_oci_archive(recipe: ActorImageRecipe, *, archive_path: Path) -> None:
