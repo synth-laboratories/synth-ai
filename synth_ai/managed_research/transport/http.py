@@ -207,6 +207,11 @@ class SmrHttpTransport:
             base_url=self.base_url.rstrip("/"),
             headers=self.headers,
             timeout=self.timeout,
+            # Local control-plane restarts and reverse proxies can leave an
+            # otherwise healthy keep-alive connection half-open.  The SDK is
+            # request/response oriented, so prefer a fresh connection over a
+            # second request silently waiting on that stale socket.
+            limits=httpx.Limits(max_keepalive_connections=0),
             # WorkProduct content resolves through the durable artifact owner.
             # The API first redirects to its artifact route and may then redirect
             # to presigned object storage; returning the first 3xx body would
@@ -226,6 +231,7 @@ class SmrHttpTransport:
         json_body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
+        timeout_seconds: float | None = None,
     ) -> Any:
         try:
             response = self.client.request(
@@ -234,6 +240,7 @@ class SmrHttpTransport:
                 params=params,
                 json=json_body,
                 headers=headers,
+                timeout=self.timeout if timeout_seconds is None else timeout_seconds,
             )
         except httpx.TimeoutException as exc:
             raise SmrApiError(f"{method} {path} timed out") from exc

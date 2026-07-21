@@ -488,18 +488,24 @@ class ImagesAPI(_ClientNamespace):
         if not isinstance(upload, Mapping):
             raise ValueError("image upload response must be an object")
         upload_id = _text(upload, "upload_id", label="image_upload")
-        upload_url = _text(upload, "upload_url", label="image_upload")
-        # Loopback HTTP is the local-stack MinIO shape; anything else must be HTTPS.
-        if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
-            raise ValueError("image upload_url must use HTTPS")
-        self._put_archive(
-            upload_url,
-            path,
-            archive_size_bytes=archive_size_bytes,
-            upload_timeout_seconds=upload_timeout_seconds,
+        upload_required = upload.get("upload_required") is not False
+        if upload_required:
+            upload_url = _text(upload, "upload_url", label="image_upload")
+            # Loopback HTTP is the local-stack MinIO shape; anything else must be HTTPS.
+            if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
+                raise ValueError("image upload_url must use HTTPS")
+            self._put_archive(
+                upload_url,
+                path,
+                archive_size_bytes=archive_size_bytes,
+                upload_timeout_seconds=upload_timeout_seconds,
+                upload_id=upload_id,
+            )
+        finalized = self._finalize(
             upload_id=upload_id,
+            declaration=declaration,
+            timeout_seconds=upload_timeout_seconds,
         )
-        finalized = self._finalize(upload_id=upload_id, declaration=declaration)
         release = finalized.get("release")
         if not isinstance(release, Mapping):
             raise ValueError("image finalize response must include the release")
@@ -662,23 +668,38 @@ class ImagesAPI(_ClientNamespace):
         *,
         upload_id: str,
         declaration: Mapping[str, Any],
+        timeout_seconds: float = 1800.0,
     ) -> Mapping[str, Any]:
         try:
             finalized = self._client._request_json(
                 "POST",
                 "/smr/v1/image-releases/finalize",
                 json_body={"upload_id": upload_id, "declaration": dict(declaration)},
+                timeout_seconds=timeout_seconds,
             )
         except SmrApiError as exc:
             if exc.status_code is not None:
                 raise
-            # Finalize is idempotent and proves staging disposal; replay exactly
-            # once after response loss.
-            finalized = self._client._request_json(
-                "POST",
-                "/smr/v1/image-releases/finalize",
-                json_body={"upload_id": upload_id, "declaration": dict(declaration)},
-            )
+            if isinstance(exc.__cause__, httpx.ConnectError):
+                # A failed TCP connect proves the request was not admitted.
+                finalized = self._client._request_json(
+                    "POST",
+                    "/smr/v1/image-releases/finalize",
+                    json_body={
+                        "upload_id": upload_id,
+                        "declaration": dict(declaration),
+                    },
+                    timeout_seconds=timeout_seconds,
+                )
+            else:
+                # A read timeout or disconnect can happen after the backend has
+                # begun a long registry publication.  Replaying here would run
+                # that materialization twice and multiply storage/network use.
+                raise RuntimeError(
+                    "actor image finalize outcome is uncertain; retry "
+                    "images.ensure_recipe after backend reconciliation "
+                    f"(upload_id={upload_id})"
+                ) from exc
         if not isinstance(finalized, Mapping):
             raise ValueError("image finalize response must be an object")
         return finalized
