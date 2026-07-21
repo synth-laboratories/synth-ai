@@ -12,10 +12,14 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
+import subprocess
 import tarfile
+import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, List
 
 import httpx
@@ -37,6 +41,15 @@ _PACKAGE_REQUIREMENT = re.compile(
 )
 _PLATFORMS = ("linux/amd64", "linux/arm64")
 CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL = "io.synth.actor-runtime.python-packages"
+CRAFTAX_WORKER_BASE_IMAGE = "synth-local-open-research-craftax:latest"
+CRAFTAX_WORKER_SCORER_PATH = "/opt/synth/task-assets/craftax_repl"
+CRAFTAX_WORKER_CAPABILITIES = (
+    "craftax_eval",
+    "jax_cpu",
+    "managed_research_sdk",
+    "mcp_client",
+    "synth_sdk",
+)
 CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST = frozenset(
     {
         "chex", "craftax", "crafter", "distrax", "flax", "gymnasium", "gymnax",
@@ -65,12 +78,111 @@ class ActorImage:
     archive_sha256: str
     python_packages: tuple[str, ...] = ()
     package_release_timestamps: Mapping[str, str] | None = None
+    recipe_digest: str | None = None
 
     image_substrates: tuple[str, ...] = ()
     """Where the executable image lives: 'org_registry' means registry-pulling
     hosts (Daytona) can run it; 'wasabi_artifact' means docker-load hosts can."""
 
     daytona_pullable: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ActorImageRecipe:
+    """A constrained, cacheable worker-image recipe built by the public SDK.
+
+    This deliberately exposes no Dockerfile shell commands, arbitrary base
+    references, or unchecked package resolver behavior. The resulting OCI
+    archive is uploaded through the same immutable release protocol as a
+    customer-built image.
+    """
+
+    name: str
+    base_image: str
+    source_repository: str
+    source_commit_sha: str
+    base_image_id: str
+    capabilities: tuple[str, ...]
+    python_packages: tuple[str, ...]
+    assets: tuple[tuple[Path, str], ...] = ()
+    platform: str = "linux/arm64"
+
+    @classmethod
+    def craftax_worker(
+        cls,
+        *,
+        craftax_repl_path: str | Path,
+        source: Mapping[str, Any],
+        python_packages: Sequence[str] = (),
+    ) -> "ActorImageRecipe":
+        repository, commit_sha = _normalized_source(source)
+        scorer = Path(craftax_repl_path).expanduser().resolve()
+        if not scorer.is_file():
+            raise ValueError(f"Craftax scorer asset is not a file: {scorer}")
+        header = scorer.read_bytes()[:20]
+        if header[:4] != b"\x7fELF" or header[18:20] != b"\xb7\x00":
+            raise ValueError("Craftax scorer asset must be an ELF Linux aarch64 binary")
+        return cls(
+            name="craftax-worker",
+            base_image=CRAFTAX_WORKER_BASE_IMAGE,
+            source_repository=repository,
+            source_commit_sha=commit_sha,
+            base_image_id=_local_image_id(CRAFTAX_WORKER_BASE_IMAGE),
+            capabilities=CRAFTAX_WORKER_CAPABILITIES,
+            python_packages=tuple(_normalized_python_packages(python_packages)),
+            assets=((scorer, CRAFTAX_WORKER_SCORER_PATH),),
+        )
+
+    def recipe_digest(self) -> str:
+        payload = {
+            "name": self.name,
+            "base_image": self.base_image,
+            "base_image_id": self.base_image_id,
+            "source_repository": self.source_repository,
+            "source_commit_sha": self.source_commit_sha,
+            "capabilities": sorted(self.capabilities),
+            "python_packages": sorted(self.python_packages),
+            "assets": [
+                {
+                    "sha256": _sha256_file(path),
+                    "destination": destination,
+                }
+                for path, destination in self.assets
+            ],
+            "platform": self.platform,
+        }
+        return "sha256:" + hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
+    def validate(self) -> None:
+        if self.name != "craftax-worker":
+            raise ValueError("only the craftax-worker managed recipe is currently supported")
+        if self.base_image != CRAFTAX_WORKER_BASE_IMAGE:
+            raise ValueError("craftax-worker must use the screened Craftax actor base image")
+        if not _DIGEST.fullmatch(self.base_image_id):
+            raise ValueError("craftax-worker must record a local sha256 base-image identity")
+        if self.platform != "linux/arm64":
+            raise ValueError("craftax-worker is currently available only for linux/arm64")
+        _normalized_source(
+            {"repository": self.source_repository, "commit_sha": self.source_commit_sha}
+        )
+        _normalized_python_packages(self.python_packages)
+        if tuple(sorted(self.capabilities)) != CRAFTAX_WORKER_CAPABILITIES:
+            raise ValueError("craftax-worker capabilities must match the screened recipe")
+        if not self.assets:
+            raise ValueError("craftax-worker requires the Craftax scorer asset")
+        for path, destination in self.assets:
+            if not path.is_file():
+                raise ValueError(f"managed image asset is not a file: {path}")
+            header = path.read_bytes()[:20]
+            if header[:4] != b"\x7fELF" or header[18:20] != b"\xb7\x00":
+                raise ValueError("Craftax scorer asset must be an ELF Linux aarch64 binary")
+            normalized_destination = PurePosixPath(destination)
+            if str(normalized_destination) != CRAFTAX_WORKER_SCORER_PATH:
+                raise ValueError(
+                    "managed Craftax assets may only target " + CRAFTAX_WORKER_SCORER_PATH
+                )
 
 
 def _text(payload: Mapping[str, Any], key: str, *, label: str) -> str:
@@ -116,6 +228,9 @@ def _actor_image_from_materialization(
             }
             if isinstance(materialization.get("package_release_timestamps"), Mapping)
             else None
+        ),
+        recipe_digest=(
+            str(materialization.get("recipe_digest") or "").strip() or None
         ),
         image_substrates=tuple(
             str(item) for item in (materialization.get("image_substrates") or ())
@@ -225,9 +340,33 @@ def _normalized_source(source: Mapping[str, Any]) -> tuple[str, str]:
     return repository, commit_sha
 
 
+def _local_image_id(image_ref: str) -> str:
+    """Resolve the screened local base and make tag movement cache-visible."""
+    result = subprocess.run(
+        ["docker", "image", "inspect", "--format", "{{.Id}}", image_ref],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    image_id = result.stdout.strip().lower()
+    if result.returncode or not _DIGEST.fullmatch(image_id):
+        detail = (result.stderr or result.stdout or "image was not found").strip()
+        raise RuntimeError(
+            f"screened Craftax base image is unavailable: {image_ref} ({detail[-500:]})"
+        )
+    return image_id
+
+
+def _pinned_base_image_ref(recipe: ActorImageRecipe) -> str:
+    """Return the exact local base reference used by the constrained builder."""
+    if recipe.base_image != CRAFTAX_WORKER_BASE_IMAGE:
+        raise ValueError("only the screened Craftax base image may be pinned")
+    return recipe.base_image.removesuffix(":latest") + "@" + recipe.base_image_id
+
+
 def _normalized_python_packages(values: Sequence[str]) -> list[str]:
-    if not values or len(values) > 32:
-        raise ValueError("python_packages must list between 1 and 32 exact-pinned packages")
+    if len(values) > 32:
+        raise ValueError("python_packages must list at most 32 exact-pinned packages")
     normalized: list[str] = []
     for raw_value in values:
         value = str(raw_value or "").strip()
@@ -254,6 +393,7 @@ class ImagesAPI(_ClientNamespace):
         source: Mapping[str, Any],
         capabilities: Sequence[str],
         python_packages: Sequence[str],
+        recipe_digest: str | None = None,
         kind: str = ACTOR_RUNTIME_IMAGE_KIND,
         role: str = "worker",
         platform: str | None = None,
@@ -283,6 +423,9 @@ class ImagesAPI(_ClientNamespace):
         ):
             raise ValueError("capabilities must be nonempty lowercase snake_case slugs")
         normalized_python_packages = _normalized_python_packages(python_packages)
+        normalized_recipe_digest = str(recipe_digest or "").strip() or None
+        if normalized_recipe_digest is not None and not _DIGEST.fullmatch(normalized_recipe_digest):
+            raise ValueError("recipe_digest must be sha256:<64 lowercase hex>")
         if platform is not None and platform not in _PLATFORMS:
             raise ValueError(f"platform must be one of: {', '.join(_PLATFORMS)}")
         repository, commit_sha = _normalized_source(source)
@@ -315,6 +458,8 @@ class ImagesAPI(_ClientNamespace):
             "capabilities": normalized_capabilities,
             "python_packages": normalized_python_packages,
         }
+        if normalized_recipe_digest is not None:
+            declaration["recipe_digest"] = normalized_recipe_digest
         upload = self._client._request_json(
             "POST",
             "/smr/v1/image-releases/upload-url",
@@ -349,6 +494,94 @@ class ImagesAPI(_ClientNamespace):
             platform=actual_platform,
             archive_sha256=archive_sha256,
         )
+
+    def ensure_recipe(self, recipe: ActorImageRecipe) -> ActorImage:
+        """Build once, reuse the local OCI archive, and reuse an admitted release.
+
+        A release UUID is an implementation detail.  Recipe identity is the
+        stable API: the SDK first finds a matching active release, otherwise it
+        builds a deterministic OCI archive in its user cache and uploads it.
+        """
+        recipe.validate()
+        recipe_digest = recipe.recipe_digest()
+        for item in self.list():
+            if (
+                str(item.get("recipe_digest") or "").strip() == recipe_digest
+                and str(item.get("status") or "").strip().lower() != "archived"
+            ):
+                image_release_id = str(item.get("image_release_id") or "").strip()
+                if image_release_id:
+                    return self.get(image_release_id=image_release_id)
+        cache_root = Path.home() / ".cache" / "synth-ai" / "actor-images"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        archive_path = cache_root / f"{recipe_digest.removeprefix('sha256:')}.oci.tar"
+        if not archive_path.is_file():
+            self._build_recipe_oci_archive(recipe, archive_path=archive_path)
+        return self.upload_archive(
+            name=recipe.name,
+            archive_path=archive_path,
+            source={
+                "repository": recipe.source_repository,
+                "commit_sha": recipe.source_commit_sha,
+            },
+            capabilities=recipe.capabilities,
+            python_packages=recipe.python_packages,
+            platform=recipe.platform,
+            tag=f"recipe-{recipe_digest.removeprefix('sha256:')[:12]}",
+            recipe_digest=recipe_digest,
+        )
+
+    @staticmethod
+    def _build_recipe_oci_archive(recipe: ActorImageRecipe, *, archive_path: Path) -> None:
+        """Build a constrained managed recipe as a single-image OCI archive."""
+        if _local_image_id(recipe.base_image) != recipe.base_image_id:
+            raise RuntimeError(
+                "screened Craftax base image changed while creating the managed recipe; "
+                "retry to derive a new cache key"
+            )
+        package_label = json.dumps(list(sorted(recipe.python_packages)))
+        with tempfile.TemporaryDirectory(prefix="synth-actor-image-") as temporary:
+            context = Path(temporary)
+            assets = context / "assets"
+            assets.mkdir()
+            dockerfile_lines = [
+                f"FROM {_pinned_base_image_ref(recipe)}",
+                f"LABEL {CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL}={json.dumps(package_label)}",
+            ]
+            for index, (source, destination) in enumerate(recipe.assets):
+                asset_name = f"asset-{index}"
+                shutil.copy2(source, assets / asset_name)
+                dockerfile_lines.append(
+                    f"COPY --chmod=0755 assets/{asset_name} {destination}"
+                )
+            if recipe.python_packages:
+                dockerfile_lines.append(
+                    "RUN python -m pip install --no-cache-dir --no-deps "
+                    + " ".join(recipe.python_packages)
+                )
+            (context / "Dockerfile").write_text(
+                "\n".join(dockerfile_lines) + "\n", encoding="utf-8"
+            )
+            temporary_archive = context / "image.oci.tar"
+            result = subprocess.run(
+                [
+                    "docker",
+                    "buildx",
+                    "build",
+                    "--platform",
+                    recipe.platform,
+                    "--output",
+                    f"type=oci,dest={temporary_archive}",
+                    str(context),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0 or not temporary_archive.is_file():
+                detail = (result.stderr or result.stdout or "Docker buildx produced no archive").strip()
+                raise RuntimeError(f"managed actor image build failed: {detail[-2000:]}")
+            shutil.move(str(temporary_archive), archive_path)
 
     def _put_archive(
         self,
@@ -474,6 +707,10 @@ __all__ = [
     "ACTOR_RUNTIME_IMAGE_KIND",
     "ACTOR_RUNTIME_INTERFACE_MODE",
     "ActorImage",
+    "ActorImageRecipe",
+    "CRAFTAX_WORKER_BASE_IMAGE",
+    "CRAFTAX_WORKER_CAPABILITIES",
+    "CRAFTAX_WORKER_SCORER_PATH",
     "CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL",
     "CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST",
     "ImagesAPI",
