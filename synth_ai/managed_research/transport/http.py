@@ -28,6 +28,37 @@ from synth_ai.managed_research.errors import (
 )
 from synth_ai.managed_research.transport.streaming import SseEvent, iter_sse_events
 
+# Backend billing-admission blocker codes for the wallet/allowance family
+# (services/smr/billing/preflight.py + admission.py). These arrive as HTTP 402
+# ``{"detail": {"error_code": ..., "billing_preflight": ...}}`` bodies and mean
+# the org cannot fund the request — the SDK's insufficient-credits condition.
+# ``factory_*`` budget codes are deliberately excluded: factory budget
+# exhaustion is a policy denial on the Factory effort, not an org credit state,
+# and stays a structured denial.
+_INSUFFICIENT_CREDITS_CODES = frozenset(
+    {
+        "smr_insufficient_credits",
+        "smr_allowance_and_wallet_insufficient",
+        "smr_allowance_and_wallet_exhausted",
+        "smr_wallet_exhausted",
+        "smr_allowance_manual_reset_required",
+        "smr_billing_blocked",
+    }
+)
+# Backend emits per-model-class / per-window variants (e.g.
+# ``smr_allowance_unprovisioned_premium``); its own blocker classifier
+# (admission.py::is_billing_admission_blocker) matches these prefixes.
+_INSUFFICIENT_CREDITS_CODE_PREFIXES = (
+    "smr_allowance_unprovisioned_",
+    "smr_window_exhausted_",
+)
+
+
+def _is_insufficient_credits_code(code: str) -> bool:
+    if code in _INSUFFICIENT_CREDITS_CODES:
+        return True
+    return code.startswith(_INSUFFICIENT_CREDITS_CODE_PREFIXES)
+
 
 def _error_message(response: httpx.Response) -> str:
     try:
@@ -133,7 +164,7 @@ def _raise_for_error_response(response: httpx.Response) -> None:
                         response_text=response_text,
                         detail=detail,
                     )
-                if stripped == "smr_insufficient_credits":
+                if _is_insufficient_credits_code(stripped):
                     raise SmrInsufficientCreditsError(
                         message,
                         status_code=status_code,
