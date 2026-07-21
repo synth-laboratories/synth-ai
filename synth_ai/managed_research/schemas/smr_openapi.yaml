@@ -262,87 +262,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/auth/keys/session:
-    get:
-      tags:
-      - api-keys
-      summary: List Api Keys For Clerk Session
-      description: List the current Clerk user's active key, redacted.
-      operationId: list_api_keys_for_clerk_session_api_v1_auth_keys_session_get
-      parameters:
-      - name: X-Clerk-Session-Token
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Clerk-Session-Token
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiKeyList'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - api-keys
-      summary: Mint Api Key For Clerk Session
-      description: Mint the current Clerk user's first key and return it exactly once.
-      operationId: mint_api_key_for_clerk_session_api_v1_auth_keys_session_post
-      parameters:
-      - name: X-Clerk-Session-Token
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Clerk-Session-Token
-      responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MintedApiKey'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/auth/keys/session/rotate:
-    post:
-      tags:
-      - api-keys
-      summary: Rotate Api Key For Clerk Session
-      description: Rotate the current Clerk user's active key and return it exactly
-        once.
-      operationId: rotate_api_key_for_clerk_session_api_v1_auth_keys_session_rotate_post
-      parameters:
-      - name: X-Clerk-Session-Token
-        in: header
-        required: true
-        schema:
-          type: string
-          title: X-Clerk-Session-Token
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MintedApiKey'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/auth/keys/{key_id}/rotate:
     post:
       tags:
@@ -1744,7 +1663,8 @@ paths:
       tags:
       - crypto
       summary: Read Env Key Plaintext
-      description: Return decrypted ENVIRONMENT_API_KEY values to organization admins.
+      description: Return the decrypted ENVIRONMENT_API_KEY for the authenticated
+        organization.
       operationId: read_env_key_plaintext_api_v1_env_keys_get
       parameters:
       - name: credential_id
@@ -1832,7 +1752,8 @@ paths:
       tags:
       - crypto
       summary: Read Env Key Plaintext
-      description: Return decrypted ENVIRONMENT_API_KEY values to organization admins.
+      description: Return the decrypted ENVIRONMENT_API_KEY for the authenticated
+        organization.
       operationId: read_env_key_plaintext_api_api_v1_env_keys_get
       parameters:
       - name: credential_id
@@ -64966,9 +64887,7 @@ components:
         limits:
           additionalProperties:
             additionalProperties:
-              anyOf:
-              - type: integer
-              - type: 'null'
+              type: integer
             type: object
           type: object
           title: Limits
