@@ -349,6 +349,144 @@ class ResearchAccountByokAPI:
         )
 
 
+@dataclass(frozen=True)
+class ApiKeyRedactedRow:
+    """Typed redacted key row (``prefix`` + ``last4`` only; never the secret)."""
+
+    key_id: str
+    prefix: str
+    last4: str
+    key_type: str = "synth"
+    is_active: bool = True
+    created_at: datetime | None = None
+    last_used_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ApiKeyRedactedRow:
+        mapping = _require_account_mapping(payload, label="api key row")
+        return cls(
+            key_id=str(mapping.get("key_id") or ""),
+            prefix=str(mapping.get("prefix") or ""),
+            last4=str(mapping.get("last4") or ""),
+            key_type=str(mapping.get("key_type") or "synth"),
+            is_active=bool(mapping.get("is_active", True)),
+            created_at=_optional_datetime(mapping, "created_at"),
+            last_used_at=_optional_datetime(mapping, "last_used_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class MintedApiKey:
+    """ONE-TIME mint/rotate result.
+
+    ``key`` is the full ``sk_synth_user_...`` secret and is shown exactly
+    once — the backend never returns it again (listings are redacted).
+    Store it immediately; treat this object as sensitive material.
+    """
+
+    key: str
+    key_id: str
+    prefix: str
+    last4: str
+    key_type: str = "synth"
+    created_at: datetime | None = None
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> MintedApiKey:
+        mapping = _require_account_mapping(payload, label="minted api key")
+        return cls(
+            key=str(mapping.get("key") or ""),
+            key_id=str(mapping.get("key_id") or ""),
+            prefix=str(mapping.get("prefix") or ""),
+            last4=str(mapping.get("last4") or ""),
+            key_type=str(mapping.get("key_type") or "synth"),
+            created_at=_optional_datetime(mapping, "created_at"),
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
+class ApiKeyDeactivated:
+    """Typed delete result (soft deactivation; the row is kept inactive)."""
+
+    key_id: str
+    status: str = "deactivated"
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> ApiKeyDeactivated:
+        mapping = _require_account_mapping(payload, label="api key deactivated")
+        return cls(
+            key_id=str(mapping.get("key_id") or ""),
+            status=str(mapping.get("status") or "deactivated"),
+            raw=dict(mapping),
+        )
+
+
+class ResearchAccountKeysAPI:
+    """Synth API-key lifecycle (list redacted, mint, rotate, deactivate).
+
+    Requires backend routes ``/api/v1/auth/keys`` (backend PR
+    feat/api-key-lifecycle-routes-20260720); the caller's API key is the
+    principal, and every operation is scoped to that key's (user, org).
+    """
+
+    def __init__(self, session: ManagedResearchClient) -> None:
+        self._session = session
+
+    def list(self) -> tuple[ApiKeyRedactedRow, ...]:
+        """List the caller's active keys, redacted (prefix + last4 only).
+
+        Backend route: ``GET /api/v1/auth/keys``.
+        """
+        payload = _require_account_mapping(
+            self._session._request_json("GET", "/api/v1/auth/keys"),
+            label="api keys",
+        )
+        return tuple(ApiKeyRedactedRow.from_wire(item) for item in list(payload.get("keys") or []))
+
+    def create(self, *, name: str | None = None) -> MintedApiKey:
+        """Mint a new key; the full secret is returned exactly once.
+
+        Backend route: ``POST /api/v1/auth/keys``. Returns 409 if an active
+        key already exists (use :meth:`rotate`). ``name`` is refused by the
+        backend today (no name column); pass it only once naming ships.
+        """
+        body: dict[str, Any] = {}
+        if name is not None:
+            body["name"] = str(name)
+        return MintedApiKey.from_wire(
+            self._session._request_json(
+                "POST",
+                "/api/v1/auth/keys",
+                json_body=body or None,
+            )
+        )
+
+    def rotate(self, key_id: str) -> MintedApiKey:
+        """Rotate: deactivate ``key_id`` and mint a replacement.
+
+        The old secret stops validating within the backend auth-cache TTL.
+        Backend route: ``POST /api/v1/auth/keys/{key_id}/rotate``. The new
+        secret is returned exactly once.
+        """
+        return MintedApiKey.from_wire(
+            self._session._request_json("POST", f"/api/v1/auth/keys/{key_id}/rotate")
+        )
+
+    def delete(self, key_id: str) -> ApiKeyDeactivated:
+        """Deactivate ``key_id`` (soft delete; the backend keeps the row inactive).
+
+        Backend route: ``DELETE /api/v1/auth/keys/{key_id}``.
+        """
+        return ApiKeyDeactivated.from_wire(
+            self._session._request_json("DELETE", f"/api/v1/auth/keys/{key_id}")
+        )
+
+
 class ResearchAccountMembersAPI:
     """Org member listing."""
 
@@ -420,6 +558,7 @@ class ResearchAccountAPI:
         self._credits: ResearchAccountCreditsAPI | None = None
         self._tiers: ResearchAccountTiersAPI | None = None
         self._byok: ResearchAccountByokAPI | None = None
+        self._keys: ResearchAccountKeysAPI | None = None
         self._members: ResearchAccountMembersAPI | None = None
         self._subscription: ResearchAccountSubscriptionAPI | None = None
         self._crypto: ResearchAccountCryptoAPI | None = None
@@ -451,6 +590,13 @@ class ResearchAccountAPI:
         if self._byok is None:
             self._byok = ResearchAccountByokAPI(self._session)
         return self._byok
+
+    @property
+    def keys(self) -> ResearchAccountKeysAPI:
+        """Synth API-key lifecycle (list redacted / mint / rotate / deactivate)."""
+        if self._keys is None:
+            self._keys = ResearchAccountKeysAPI(self._session)
+        return self._keys
 
     @property
     def members(self) -> ResearchAccountMembersAPI:
@@ -538,6 +684,9 @@ class ResearchAccountAPI:
 
 __all__ = [
     "AccountBalance",
+    "ApiKeyDeactivated",
+    "ApiKeyRedactedRow",
+    "MintedApiKey",
     "AccountByokStatus",
     "AccountIdentity",
     "AccountReadiness",
@@ -549,6 +698,7 @@ __all__ = [
     "ResearchAccountByokAPI",
     "ResearchAccountCreditsAPI",
     "ResearchAccountCryptoAPI",
+    "ResearchAccountKeysAPI",
     "ResearchAccountMembersAPI",
     "ResearchAccountSubscriptionAPI",
     "ResearchAccountTiersAPI",
