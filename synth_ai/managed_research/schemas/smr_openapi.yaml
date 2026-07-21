@@ -38779,6 +38779,12 @@ components:
             maxItems: 32
           - type: 'null'
           title: Python Packages
+        recipe_digest:
+          anyOf:
+          - type: string
+            pattern: ^sha256:[0-9a-f]{64}$
+          - type: 'null'
+          title: Recipe Digest
       additionalProperties: false
       type: object
       required:
