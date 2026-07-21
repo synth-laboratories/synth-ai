@@ -6,6 +6,7 @@ import warnings
 from typing import Any
 
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
+from synth_ai.managed_research.sdk.images import ImagesAPI
 from synth_ai.managed_research.sdk.tag import TagAPI
 from synth_ai.research.economics import ResearchEconomicsAPI
 from synth_ai.research.efforts import ResearchEffortsAPI
@@ -69,6 +70,11 @@ class ResearchClient:
         Prefer hero namespaces (``projects``, ``runs``, ``limits``) for new code.
         """
         return self._open_session()
+
+    @property
+    def images(self) -> ImagesAPI:
+        """Build, cache, and manage admitted customer actor-runtime images."""
+        return self._open_session().images
 
     @property
     def backing_client(self) -> ManagedResearchClient:
