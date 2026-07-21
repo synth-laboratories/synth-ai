@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RESEARCH_ROOT = ROOT / "synth_ai" / "research"
-MONOLITH_CLIENT = ROOT / "synth_ai" / "managed_research" / "sdk" / "client.py"
+MONOLITH_CLIENT = ROOT / "synth_ai" / "core" / "research" / "_legacy" / "sdk" / "client.py"
 MONOLITH_LINE_CEILING = 6150
 
 FORBIDDEN_NAME_FRAGMENTS = (

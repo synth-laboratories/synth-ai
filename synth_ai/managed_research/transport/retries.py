@@ -1,15 +1,5 @@
-"""Retry policy helpers."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class RetryPolicy:
-    attempts: int = 3
-    base_delay_seconds: float = 0.5
-    max_delay_seconds: float = 5.0
-
-
-__all__ = ["RetryPolicy"]
+from synth_ai.core.research._legacy.transport.retries import *  # noqa: F403

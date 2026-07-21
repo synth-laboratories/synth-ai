@@ -1,12 +1,5 @@
-"""Internal helpers for the rewritten package surface."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research._internal.crypto import encrypt_for_backend
-from synth_ai.managed_research._internal.env import get_api_key
-from synth_ai.managed_research._internal.urls import BACKEND_URL_BASE, normalize_backend_base
+from __future__ import annotations
 
-__all__ = [
-    "BACKEND_URL_BASE",
-    "encrypt_for_backend",
-    "get_api_key",
-    "normalize_backend_base",
-]
+from synth_ai.core.research._legacy._internal import *  # noqa: F403

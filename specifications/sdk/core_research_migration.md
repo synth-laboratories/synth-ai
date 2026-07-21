@@ -1261,6 +1261,16 @@ Implementation evidence (in progress):
 
 Exit: active eval evidence collection uses only public typed models.
 
+Implementation evidence (in progress):
+
+- Evidence/readout, artifact, control, collaboration, and project-namespace
+  implementation has moved behind `synth_ai.core.research`; matching
+  `synth_ai.research` modules are now import-only public facades.
+- Active eval code no longer imports `synth_ai.core` or
+  `synth_ai.managed_research`. Capabilities that do not yet have a stable hero
+  namespace use the documented, explicitly unstable
+  `synth_ai.research.advanced` bridge rather than a deep package path.
+
 #### Phase 5 — factories and economics
 
 - Move Factory operations, candidates, results, messages, evidence, limits,
@@ -1271,6 +1281,15 @@ Exit: active eval evidence collection uses only public typed models.
 - Keep backend-only maintenance and scheduling policy internal.
 
 Exit: SDK and MCP have parity through the same core operation registry.
+
+Implementation evidence (in progress):
+
+- The seven bounded limits/economics operations now use the shared core sync
+  transport and a native async peer; public methods decode typed contracts and
+  no longer open the legacy session client.
+- Factory and Effort facade implementation now lives beneath
+  `synth_ai.core.research`; remaining legacy-session calls must still graduate
+  to bounded operation metadata before this phase exits.
 
 #### Phase 6 — resources and deployment
 
@@ -1290,6 +1309,16 @@ Exit: no domain-specific duplicate transport or resource identity remains.
 
 Exit: Python, CLI, and MCP differ only in presentation and serialization.
 
+Implementation evidence (in progress):
+
+- The MCP delivery package is now `synth_ai.mcp.research`; backend-hosted MCP
+  imports `ResearchMcpServer` from that path, while the old class and module
+  paths resolve to the same objects through generated shims.
+- The Factory stand-up console script now targets
+  `synth_ai.cli.research_factory_standup` instead of the compatibility package.
+- Open Research SDK/MCP modules were removed as required by the frontend-only
+  product decision. MCP handlers still require operation-registry cutover.
+
 #### Phase 8 — eval cutover
 
 - Replace all active `synth_ai.managed_research` imports in evals.
@@ -1300,6 +1329,13 @@ Exit: Python, CLI, and MCP differ only in presentation and serialization.
 
 Exit: active eval code imports only documented `synth_ai` public surfaces.
 
+Implementation evidence:
+
+- The deep-consumer ratchet decreased from 42 to **0** across the backend and
+  active eval tree. Evals now import `synth_ai.research`,
+  `synth_ai.research.advanced`, or `synth_ai.config`; graveyard paths remain
+  excluded from the active inventory.
+
 #### Phase 9 — compatibility shell
 
 - Reduce `synth_ai.managed_research` to re-exports and entrypoint aliases.
@@ -1309,6 +1345,13 @@ Exit: active eval code imports only documented `synth_ai` public surfaces.
   parsing.
 
 Exit: zero implementation logic under `synth_ai.managed_research`.
+
+Implementation evidence:
+
+- `scripts/generate_managed_research_compatibility.py` generates and verifies
+  exact warning-only re-export modules. The package is currently 150 Python
+  shims / 754 lines versus the frozen 156-file / 61,081-line implementation
+  baseline; reusable code resides under core and the MCP/CLI delivery roots.
 
 #### Phase 10 — removal
 

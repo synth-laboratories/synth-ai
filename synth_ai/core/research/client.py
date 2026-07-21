@@ -5,6 +5,12 @@ from __future__ import annotations
 from synth_ai.core.auth.credentials import ApiCredential, resolve_api_credential
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
+from synth_ai.core.research.economics import (
+    AsyncResearchEconomicsAPI,
+    AsyncResearchLimitsAPI,
+    ResearchEconomicsAPI,
+    ResearchLimitsAPI,
+)
 from synth_ai.core.research.projects import AsyncResearchProjectsAPI, ResearchProjectsAPI
 from synth_ai.core.research.swarms import AsyncResearchSwarmsAPI, ResearchSwarmsAPI
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
@@ -28,6 +34,8 @@ class ResearchClient:
         )
         self.projects = ResearchProjectsAPI(self._transport)
         self.swarms = ResearchSwarmsAPI(self._transport)
+        self.economics = ResearchEconomicsAPI(self._transport)
+        self.limits = ResearchLimitsAPI(self._transport)
 
     @property
     def credential(self) -> ApiCredential:
@@ -61,6 +69,8 @@ class AsyncResearchClient:
         )
         self.projects = AsyncResearchProjectsAPI(self._transport)
         self.swarms = AsyncResearchSwarmsAPI(self._transport)
+        self.economics = AsyncResearchEconomicsAPI(self._transport)
+        self.limits = AsyncResearchLimitsAPI(self._transport)
 
     @property
     def credential(self) -> ApiCredential:

@@ -8,16 +8,15 @@ from typing import Any
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
-from synth_ai.managed_research.sdk.client import ManagedResearchClient
-from synth_ai.managed_research.sdk.images import ImagesAPI
-from synth_ai.managed_research.sdk.tag import TagAPI
-from synth_ai.research.economics import ResearchEconomicsAPI
-from synth_ai.research.efforts import ResearchEffortsAPI
-from synth_ai.research.factories import ResearchFactoriesAPI
-from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
-from synth_ai.research.limits import ResearchLimitsAPI
-from synth_ai.research.secrets import ResearchSecretsAPI
-from synth_ai.research.visuals import ResearchVisualsAPI
+from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research._legacy.sdk.images import ImagesAPI
+from synth_ai.core.research._legacy.sdk.tag import TagAPI
+from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
+from synth_ai.core.research.efforts import ResearchEffortsAPI
+from synth_ai.core.research.factories import ResearchFactoriesAPI
+from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
+from synth_ai.core.research.secrets import ResearchSecretsAPI
+from synth_ai.core.research.visuals import ResearchVisualsAPI
 
 
 class ResearchClient:
@@ -51,8 +50,6 @@ class ResearchClient:
         self._session: ManagedResearchClient | None = None
         self._factories: ResearchFactoriesAPI | None = None
         self._efforts: ResearchEffortsAPI | None = None
-        self._limits: ResearchLimitsAPI | None = None
-        self._economics: ResearchEconomicsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
         self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
         self._visuals: ResearchVisualsAPI | None = None
@@ -127,16 +124,12 @@ class ResearchClient:
     @property
     def limits(self) -> ResearchLimitsAPI:
         """Read org limits and allowance before launching work."""
-        if self._limits is None:
-            self._limits = ResearchLimitsAPI(self._open_session())
-        return self._limits
+        return self._core.limits
 
     @property
     def economics(self) -> ResearchEconomicsAPI:
         """Read authoritative org entitlements and project economics."""
-        if self._economics is None:
-            self._economics = ResearchEconomicsAPI(self._open_session())
-        return self._economics
+        return self._core.economics
 
     @property
     def secrets(self) -> ResearchSecretsAPI:
@@ -188,8 +181,6 @@ class ResearchClient:
         self._session = None
         self._factories = None
         self._efforts = None
-        self._limits = None
-        self._economics = None
         self._secrets = None
         self._hosted_artifacts = None
         self._visuals = None

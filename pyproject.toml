@@ -19,7 +19,7 @@ dependencies = [
 synth-ai = "synth_ai.cli:cli"
 synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
 synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
-synth-ai-research-factory-standup = "synth_ai.managed_research.factory_standup:main"
+synth-ai-research-factory-standup = "synth_ai.cli.research_factory_standup:main"
 
 [project.optional-dependencies]
 schemas = []

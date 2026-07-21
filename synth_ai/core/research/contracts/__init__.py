@@ -10,6 +10,14 @@ from synth_ai.core.research.contracts.common import (
     RuntimeKind,
     SwarmId,
 )
+from synth_ai.core.research.contracts.economics import (
+    ResearchBillingCatalog,
+    ResearchBillingDrawdown,
+    ResearchBillingEntitlements,
+    ResearchBillingPlan,
+    ResearchOrgLimits,
+    ResearchProjectEconomics,
+)
 from synth_ai.core.research.contracts.projects import (
     ProjectSetupState,
     ResearchProject,
@@ -69,6 +77,12 @@ __all__ = [
     "ProjectId",
     "ProjectSetupState",
     "ResearchProject",
+    "ResearchBillingCatalog",
+    "ResearchBillingDrawdown",
+    "ResearchBillingEntitlements",
+    "ResearchBillingPlan",
+    "ResearchOrgLimits",
+    "ResearchProjectEconomics",
     "ResearchProjectCreateRequest",
     "ResearchProjectPatchRequest",
     "ResearchProjectSetup",

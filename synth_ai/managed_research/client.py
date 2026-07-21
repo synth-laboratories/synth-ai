@@ -1,5 +1,5 @@
-"""Compatibility export for the public client."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research.sdk.client import ManagedResearchClient, SmrControlClient
+from __future__ import annotations
 
-__all__ = ["ManagedResearchClient", "SmrControlClient"]
+from synth_ai.core.research._legacy.client import *  # noqa: F403

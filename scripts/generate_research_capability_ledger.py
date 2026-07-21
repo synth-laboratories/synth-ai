@@ -112,7 +112,10 @@ def _public_operation_ids(backend_root: Path) -> dict[tuple[str, str], str]:
 
 def _sdk_route_literals(sdk_root: Path) -> set[str]:
     routes: set[str] = set()
-    for base in (sdk_root / "synth_ai/research", sdk_root / "synth_ai/managed_research/sdk"):
+    for base in (
+        sdk_root / "synth_ai/research",
+        sdk_root / "synth_ai/core/research/_legacy/sdk",
+    ):
         if not base.is_dir():
             continue
         for path in _python_files(base):
@@ -201,7 +204,11 @@ def _sdk_rows(sdk_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     surfaces = (
         (sdk_root / "synth_ai/research", "public_research", "public"),
-        (sdk_root / "synth_ai/managed_research/sdk", "legacy_sdk", "compatibility_migrate"),
+        (
+            sdk_root / "synth_ai/core/research/_legacy/sdk",
+            "internal_compatibility_sdk",
+            "compatibility_migrate",
+        ),
     )
     for base, surface, disposition in surfaces:
         for path in _python_files(base):
@@ -228,7 +235,7 @@ def _sdk_rows(sdk_root: Path) -> list[dict[str, Any]]:
 
 def _mcp_rows(sdk_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    base = sdk_root / "synth_ai/managed_research/mcp"
+    base = sdk_root / "synth_ai/mcp/research"
     for path in _python_files(base):
         relative = path.relative_to(sdk_root).as_posix()
         for node in ast.walk(_parse(path)):
@@ -308,8 +315,8 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
     return rows
 
 
-def _legacy_inventory(sdk_root: Path) -> tuple[list[str], int]:
-    base = sdk_root / "synth_ai/managed_research"
+def _inventory(sdk_root: Path, relative_root: str) -> tuple[list[str], int]:
+    base = sdk_root / relative_root
     files = [path.relative_to(sdk_root).as_posix() for path in _python_files(base)]
     lines = sum(len((sdk_root / path).read_text(encoding="utf-8").splitlines()) for path in files)
     return files, lines
@@ -343,7 +350,11 @@ def main() -> int:
         *_consumer_rows(evals_root, "evals"),
     ]
     rows.sort(key=lambda row: row["id"])
-    legacy_files, legacy_lines = _legacy_inventory(ROOT)
+    legacy_files, legacy_lines = _inventory(ROOT, "synth_ai/managed_research")
+    internal_files, internal_lines = _inventory(
+        ROOT,
+        "synth_ai/core/research/_legacy",
+    )
     disposition_counts = Counter(row["disposition"] for row in rows)
     surface_counts = Counter(row["surface"] for row in rows)
     deep_consumer_rows = [row for row in rows if row["disposition"] == "migrate_public"]
@@ -353,20 +364,29 @@ def main() -> int:
 
     frozen_baseline: dict[str, Any] | None = None
     frozen_legacy_files: list[str] | None = None
+    frozen_internal_files: list[str] | None = None
     if arguments.output.is_file() and not arguments.reset_baseline:
         existing = json.loads(arguments.output.read_text(encoding="utf-8"))
         existing_baseline = existing.get("baseline")
         existing_legacy_files = existing.get("legacy_files")
+        existing_internal_files = existing.get("internal_compatibility_files")
         if isinstance(existing_baseline, dict) and isinstance(existing_legacy_files, list):
             frozen_baseline = existing_baseline
             frozen_legacy_files = [str(value) for value in existing_legacy_files]
+            if isinstance(existing_internal_files, list):
+                frozen_internal_files = [str(value) for value in existing_internal_files]
 
     current = {
         "legacy_implementation_files": len(legacy_files),
         "legacy_implementation_lines": legacy_lines,
+        "internal_compatibility_files": len(internal_files),
+        "internal_compatibility_lines": internal_lines,
         "deep_consumer_imports": len(deep_consumer_rows),
         "stable_public_operation_ids": len(public_operations),
     }
+    baseline = frozen_baseline or dict(current)
+    baseline.setdefault("internal_compatibility_files", len(internal_files))
+    baseline.setdefault("internal_compatibility_lines", internal_lines)
 
     payload = {
         "schema": "synth.research-capability-ledger.v1",
@@ -381,9 +401,10 @@ def main() -> int:
             "removal_version": "0.18.0",
             "removal_not_before": "2026-09-01",
         },
-        "baseline": frozen_baseline or current,
+        "baseline": baseline,
         "current": current,
         "legacy_files": frozen_legacy_files or legacy_files,
+        "internal_compatibility_files": frozen_internal_files or internal_files,
         "summary": {
             "rows": len(rows),
             "unclassified": len(unclassified),

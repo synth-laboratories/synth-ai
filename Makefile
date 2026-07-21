@@ -16,6 +16,7 @@ test test-unit:
 	@if [ -d ../testing/backend/unit/synth_ai_sdk ]; then \
 		uv run python scripts/check_sdk_architecture.py && \
 		uv run python scripts/check_research_migration_boundaries.py && \
+		uv run python scripts/generate_managed_research_compatibility.py --check && \
 		uv run python scripts/check_research_openapi_contract.py && \
 		cd ../testing && uv run python scripts/validate_synth_ai_contract.py && \
 		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \

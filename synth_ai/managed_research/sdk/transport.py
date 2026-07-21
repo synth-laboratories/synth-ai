@@ -1,22 +1,5 @@
-"""HTTP transport helpers for the Managed Research SDK."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
 from __future__ import annotations
 
-from synth_ai.managed_research.sdk.config import auth_headers
-from synth_ai.managed_research.transport.http import SmrHttpTransport
-
-
-def build_http_transport(
-    *,
-    api_key: str,
-    backend_base: str,
-    timeout_seconds: float,
-) -> SmrHttpTransport:
-    return SmrHttpTransport(
-        base_url=backend_base,
-        headers=auth_headers(api_key),
-        timeout=timeout_seconds,
-    )
-
-
-__all__ = ["build_http_transport"]
+from synth_ai.core.research._legacy.sdk.transport import *  # noqa: F403

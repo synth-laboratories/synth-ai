@@ -1,6 +1,5 @@
-"""Allow ``synth-ai-managed-research-mcp`` or module execution to start MCP."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research.mcp.server import main
+from __future__ import annotations
 
-if __name__ == "__main__":
-    main()
+from synth_ai.mcp.research.__main__ import *  # noqa: F403
