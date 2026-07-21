@@ -62,6 +62,10 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Fixed
 
+- **Provider keys are sealed before transport** —
+  `ManagedResearchClient.set_provider_key(...)` now fetches the backend's
+  declared `libsodium.sealedbox.v1` public key and encrypts plaintext locally;
+  plaintext provider credentials no longer cross the API boundary.
 - **Insufficient-credits denials now raise the typed error** — the backend's
   real 402 ledger codes (`smr_allowance_and_wallet_insufficient`,
   `smr_wallet_exhausted`, `smr_allowance_manual_reset_required`,
