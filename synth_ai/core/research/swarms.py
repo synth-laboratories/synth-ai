@@ -13,11 +13,12 @@ from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import ProjectId, SwarmId
 from synth_ai.core.research.contracts.swarms import (
-    Swarm,
-    BranchSpec,
     BranchResult,
-    SwarmSpec,
+    BranchSpec,
+    ResolvedSwarmConfiguration,
+    Swarm,
     SwarmPreflight,
+    SwarmSpec,
 )
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
@@ -61,6 +62,10 @@ class SwarmHandle:
 
     def retrieve(self) -> Swarm:
         return self._api.retrieve(self.swarm_id)
+
+    def configuration(self) -> ResolvedSwarmConfiguration:
+        """Return the immutable resolved configuration bound to this swarm."""
+        return self._api.configuration(self.swarm_id)
 
     def wait(
         self,
@@ -154,6 +159,16 @@ class SwarmsAPI:
         )
         return Swarm.from_wire(value)
 
+    def configuration(self, swarm_id: SwarmId) -> ResolvedSwarmConfiguration:
+        """Return the versioned, redacted configuration snapshot for a swarm."""
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_configuration",
+                f"/smr/runs/{swarm_id}/configuration",
+            )
+        )
+        return ResolvedSwarmConfiguration.from_wire(value)
+
     def wait(
         self,
         swarm_id: SwarmId,
@@ -225,6 +240,10 @@ class AsyncSwarmHandle:
 
     async def retrieve(self) -> Swarm:
         return await self._api.retrieve(self.swarm_id)
+
+    async def configuration(self) -> ResolvedSwarmConfiguration:
+        """Return the immutable resolved configuration bound to this swarm."""
+        return await self._api.configuration(self.swarm_id)
 
     async def wait(
         self,
@@ -317,6 +336,16 @@ class AsyncSwarmsAPI:
             _request("retrieve_run", f"/smr/runs/{swarm_id}")
         )
         return Swarm.from_wire(value)
+
+    async def configuration(self, swarm_id: SwarmId) -> ResolvedSwarmConfiguration:
+        """Return the versioned, redacted configuration snapshot for a swarm."""
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_configuration",
+                f"/smr/runs/{swarm_id}/configuration",
+            )
+        )
+        return ResolvedSwarmConfiguration.from_wire(value)
 
     async def wait(
         self,

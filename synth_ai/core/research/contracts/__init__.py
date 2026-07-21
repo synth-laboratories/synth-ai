@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 
 from synth_ai.core.research.contracts.common import (
+    ConfigurationVersionId,
     EffortId,
     EnvironmentKind,
     FactoryId,
@@ -66,6 +67,7 @@ from synth_ai.core.research.contracts.swarms import (
     KickoffMessageMode,
     LocalExecution,
     ProviderBinding,
+    ResolvedSwarmConfiguration,
     BranchResult,
     BranchSpec,
     ResearchSwarm,
@@ -119,6 +121,7 @@ __all__ = [
     "BranchSpec",
     "BudgetPolicy",
     "CapacityPolicy",
+    "ConfigurationVersionId",
     "EnvironmentVariable",
     "Effort",
     "EffortCreateRequest",
@@ -154,6 +157,7 @@ __all__ = [
     "PoolId",
     "ProfileId",
     "ProviderBinding",
+    "ResolvedSwarmConfiguration",
     "ProjectId",
     "Project",
     "ProjectPatch",

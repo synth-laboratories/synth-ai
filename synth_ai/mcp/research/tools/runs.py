@@ -813,6 +813,23 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run,
         ),
         ToolDefinition(
+            name="smr_get_swarm_configuration",
+            description=(
+                "Fetch the immutable, versioned, secret-redacted configuration "
+                "snapshot durably bound to a Research swarm."
+            ),
+            input_schema=tool_schema(
+                {
+                    "run_id": {
+                        "type": "string",
+                        "description": "Research swarm id (backend run_id).",
+                    },
+                },
+                required=["run_id"],
+            ),
+            handler=server._tool_get_swarm_configuration,
+        ),
+        ToolDefinition(
             name="smr_get_run_contract",
             description=(
                 "Fetch the strict run_contract for a run. Use this for terminality, "

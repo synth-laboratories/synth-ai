@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+from types import MappingProxyType
+from typing import TypeAlias
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import (
@@ -16,12 +19,35 @@ from synth_ai.core.research.contracts._wire import (
     required_text,
 )
 from synth_ai.core.research.contracts.common import (
+    ConfigurationVersionId,
     EffortId,
     OrganizationId,
     ProjectId,
     SwarmId,
     require_text,
 )
+
+
+FrozenJsonScalar: TypeAlias = str | int | float | bool | None
+FrozenJsonValue: TypeAlias = (
+    FrozenJsonScalar | tuple["FrozenJsonValue", ...] | Mapping[str, "FrozenJsonValue"]
+)
+
+
+def _freeze_json(value: JsonValue) -> FrozenJsonValue:
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze_json(child) for key, child in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze_json(child) for child in value)
+    return value
+
+
+def _thaw_json(value: FrozenJsonValue) -> JsonValue:
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(child) for key, child in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(child) for child in value]
+    return value
 
 
 class ActorHarness(StrEnum):
@@ -450,6 +476,64 @@ class Swarm:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedSwarmConfiguration:
+    """Immutable, replayable configuration snapshot resolved for one swarm."""
+
+    swarm_id: SwarmId
+    project_id: ProjectId
+    config_version_id: ConfigurationVersionId
+    snapshot_sha256: str
+    snapshot: Mapping[str, FrozenJsonValue]
+    schema_version: str = "synth.research.resolved-swarm-configuration.v1"
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> ResolvedSwarmConfiguration:
+        payload = object_value(value, operation_id="retrieve_swarm_configuration")
+        schema_version = required_text(payload, "schema_version")
+        if schema_version != "synth.research.resolved-swarm-configuration.v1":
+            raise ValueError(
+                "unsupported resolved swarm configuration schema "
+                f"{schema_version!r}"
+            )
+        digest = required_text(payload, "snapshot_sha256").lower()
+        if len(digest) != 64 or any(
+            character not in "0123456789abcdef" for character in digest
+        ):
+            raise ValueError("snapshot_sha256 must be a 64-character hexadecimal digest")
+        snapshot = object_value(
+            payload.get("snapshot"),
+            operation_id="resolved swarm configuration snapshot",
+        )
+        frozen_snapshot = _freeze_json(snapshot)
+        if not isinstance(frozen_snapshot, Mapping):
+            raise ValueError("resolved swarm configuration snapshot must be an object")
+        return cls(
+            swarm_id=SwarmId(required_text(payload, "run_id")),
+            project_id=ProjectId(required_text(payload, "project_id")),
+            config_version_id=ConfigurationVersionId(
+                required_text(payload, "config_version_id")
+            ),
+            snapshot_sha256=digest,
+            snapshot=frozen_snapshot,
+            schema_version=schema_version,
+        )
+
+    def to_wire(self) -> JsonObject:
+        """Return a JSON-serializable copy suitable for CLI and MCP adapters."""
+        snapshot = _thaw_json(self.snapshot)
+        if not isinstance(snapshot, dict):
+            raise ValueError("resolved swarm configuration snapshot must be an object")
+        return {
+            "schema_version": self.schema_version,
+            "run_id": self.swarm_id,
+            "project_id": self.project_id,
+            "config_version_id": self.config_version_id,
+            "snapshot_sha256": self.snapshot_sha256,
+            "snapshot": snapshot,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
@@ -561,6 +645,7 @@ __all__ = [
     "KickoffMessageMode",
     "LocalExecution",
     "ProviderBinding",
+    "ResolvedSwarmConfiguration",
     "Swarm",
     "BranchSpec",
     "BranchResult",

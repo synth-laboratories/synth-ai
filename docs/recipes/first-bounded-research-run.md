@@ -27,6 +27,8 @@ with SynthClient() as client:
             poll_interval_seconds=2,
         )
         print(terminal.swarm_id, terminal.state)
+        resolved = handle.configuration()
+        print(resolved.config_version_id, resolved.snapshot_sha256)
     except Error as error:
         if handle is not None:
             handle.cancel()
@@ -44,6 +46,12 @@ with SynthClient() as client:
 To attach the swarm to a prepared project, pass
 `project_id=ProjectId("...")` to `swarms.create`. The same `SwarmSpec` is used
 for one-off and project-bound work; there is no separate overrides payload.
+
+`handle.configuration()` reads the exact backend-owned configuration version
+bound at launch. The returned snapshot is recursively immutable and
+secret-redacted, and `snapshot_sha256` provides the stable replay/audit
+identity. Historical runs without a configuration version fail explicitly;
+the SDK never substitutes the project's current configuration.
 
 Stream typed events when live progress is needed:
 

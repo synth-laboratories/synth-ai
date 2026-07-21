@@ -11,6 +11,10 @@ class SwarmId(str):
     """Backend-owned Research swarm identifier."""
 
 
+class ConfigurationVersionId(str):
+    """Immutable backend configuration-snapshot identifier."""
+
+
 class EffortId(str):
     """Backend-owned Factory Effort identifier."""
 
@@ -47,6 +51,7 @@ def require_text(value: str, *, field_name: str) -> str:
 
 
 __all__ = [
+    "ConfigurationVersionId",
     "EffortId",
     "EnvironmentKind",
     "FactoryId",

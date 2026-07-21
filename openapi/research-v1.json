@@ -394,6 +394,7 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "JsonValue": {},
       "ParentObjectiveKind": {
         "enum": [
           "open_ended_question",
@@ -5233,6 +5234,52 @@
           "agent_kind"
         ],
         "title": "SmrResolvedProfileResponse",
+        "type": "object"
+      },
+      "SmrResolvedRunConfigurationResponse": {
+        "additionalProperties": false,
+        "description": "Immutable, redacted configuration snapshot bound to one Research run.",
+        "properties": {
+          "config_version_id": {
+            "title": "Config Version Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.resolved-swarm-configuration.v1",
+            "default": "synth.research.resolved-swarm-configuration.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Snapshot",
+            "type": "object"
+          },
+          "snapshot_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Snapshot Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "config_version_id",
+          "snapshot_sha256",
+          "snapshot"
+        ],
+        "title": "SmrResolvedRunConfigurationResponse",
         "type": "object"
       },
       "SmrReviewerSubtype": {
@@ -10991,6 +11038,49 @@
           }
         },
         "summary": "Branch Run From Checkpoint",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/configuration": {
+      "get": {
+        "description": "Return the versioned, secret-redacted configuration snapshot durably bound to this Research swarm. The snapshot digest is stable for replay and audit; historical unversioned runs fail explicitly.",
+        "operationId": "retrieve_swarm_configuration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrResolvedRunConfigurationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a swarm's immutable resolved configuration",
         "tags": [
           "smr"
         ]

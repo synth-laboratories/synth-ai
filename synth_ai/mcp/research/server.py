@@ -9,6 +9,8 @@ from typing import Any
 
 from synth_ai.core.research._legacy.auth import get_api_key
 from synth_ai.core.research._legacy.errors import SmrApiError
+from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.contracts.common import SwarmId
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
     objective_tool_operation_from_wire,
@@ -95,6 +97,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_project_setup",
         "research_get_run",
         "research_get_run_transcript",
+        "research_get_swarm_configuration",
         "research_list_active_runs",
         "research_list_factories",
         "research_list_factory_efforts",
@@ -311,6 +314,15 @@ class ResearchMcpServer:
         return ManagedResearchClient(
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
+        )
+
+    def _core_client_from_args(self, args: JSONDict) -> CoreResearchClient:
+        """Build the stable typed client for noun-first MCP tools."""
+        return CoreResearchClient(
+            api_key=optional_string(args, "api_key") or self._default_api_key,
+            base_url=(
+                optional_string(args, "backend_base") or self._default_backend_base
+            ),
         )
 
     @staticmethod
@@ -2550,6 +2562,11 @@ class ResearchMcpServer:
         with self._client_from_args(args) as client:
             result = client.runs.get(run_id, project_id=project_id)
             return asdict(result) if is_dataclass(result) else result
+
+    def _tool_get_swarm_configuration(self, args: JSONDict) -> JSONDict:
+        swarm_id = SwarmId(require_string(args, "run_id"))
+        with self._core_client_from_args(args) as client:
+            return client.swarms.configuration(swarm_id).to_wire()
 
     def _tool_get_run_contract(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

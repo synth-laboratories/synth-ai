@@ -48,6 +48,8 @@ async def return_by_id() -> None:
     )
     async with AsyncSynthClient() as client:
         try:
+            resolved = await client.research.swarms.configuration(swarm_id)
+            print(resolved.config_version_id, resolved.snapshot_sha256)
             terminal = await client.research.swarms.wait(
                 swarm_id,
                 timeout_seconds=1800,

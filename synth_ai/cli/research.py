@@ -167,6 +167,27 @@ def swarms_start(
         )
 
 
+@swarms.command("configuration")
+@click.argument("swarm_id")
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_configuration(
+    swarm_id: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Print the immutable resolved configuration bound to a swarm."""
+    from synth_ai import SynthClient
+    from synth_ai.research import SwarmId
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        configuration = client.research.swarms.configuration(SwarmId(swarm_id))
+        click.echo(json.dumps(configuration.to_wire(), indent=2, sort_keys=True))
+
+
 @research.group()
 def factories() -> None:
     """Inspect stable Research Factories."""

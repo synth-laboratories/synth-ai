@@ -60,11 +60,16 @@ with SynthClient() as client:
         print(event.kind, event.telemetry.sequence)
     result = swarm.wait(timeout_seconds=900)
     print(result.swarm_id, result.state)
+    resolved = swarm.configuration()
+    print(resolved.config_version_id, resolved.snapshot_sha256)
 ```
 
 `create` returns a durable handle immediately. `events()` yields typed events,
 including an explicit `UnknownSwarmEvent` for forward-compatible server events;
 `wait()` uses a monotonic deadline and returns the terminal typed `Swarm`.
+`configuration()` returns the immutable, versioned, secret-redacted launch
+snapshot bound to that swarm, so replay and audit do not depend on the
+project's current mutable configuration.
 
 ## Research SDK
 
