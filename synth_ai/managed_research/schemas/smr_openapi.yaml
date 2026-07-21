@@ -32384,6 +32384,14 @@ components:
             maxItems: 32
           - type: 'null'
           title: Capabilities
+        python_packages:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 32
+          - type: 'null'
+          title: Python Packages
       additionalProperties: false
       type: object
       required:
@@ -32452,6 +32460,11 @@ components:
           additionalProperties: true
           type: object
           title: Inspection
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+          type: object
+          title: Package Release Timestamps
         runtime_image_release:
           anyOf:
           - additionalProperties: true
@@ -32522,6 +32535,11 @@ components:
           additionalProperties: true
           type: object
           title: Declaration
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+          type: object
+          title: Package Release Timestamps
       additionalProperties: false
       type: object
       required:
