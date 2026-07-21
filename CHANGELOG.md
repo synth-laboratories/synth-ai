@@ -56,6 +56,16 @@ All notable changes to the `synth-ai` package are documented here.
   `tiers`, `user_limits`, `overview`, BYOK, `members.list`,
   `subscription.cancel`, `crypto.public_key`, `me`, and
   `account.readiness()` returning typed checks with CTA and metadata.
+- **`research.account.keys`** — typed API-key lifecycle binding over the
+  backend's `/api/v1/auth/keys` routes: `keys.list()` returns redacted rows
+  (`prefix` + `last4`; the secret is never present), `keys.create()` mints a
+  key and `keys.rotate(key_id)` replaces one — both return `MintedApiKey`,
+  whose `key` field carries the full secret exactly once and is never
+  retrievable again — and `keys.delete(key_id)` returns a typed soft
+  deactivation. Rotating or deleting the session's own key invalidates that
+  credential within the backend auth-cache TTL (~30s); re-instantiate the
+  client with the new key. Requires backend deployments serving the API-key
+  routes.
 - **Typed factory visuals** — `FactoryStatus.typed_public_visuals`
   (`synth.open_research.factory_public_visuals.v1`) and
   `typed_costs_limits`, both forward-compatible via `raw`.
