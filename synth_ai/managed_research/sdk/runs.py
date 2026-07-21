@@ -30,11 +30,8 @@ from synth_ai.managed_research.models.run_control import (
     ManagedResearchRunControlAck,
 )
 from synth_ai.managed_research.models.run_diagnostics import (
-    SmrRunActorLogs,
     SmrRunActorUsage,
-    SmrRunArtifactProgress,
     SmrRunCostSummary,
-    SmrRunParticipants,
     SmrRunTraces,
 )
 from synth_ai.managed_research.models.run_execution import RunExecutionProjection
@@ -1063,25 +1060,6 @@ class RunHandle:
 
     def datasets(self) -> List[dict[str, Any]]:
         return self._client.list_run_datasets(self.run_id, project_id=self.project_id)
-
-    def participants(self) -> SmrRunParticipants:
-        return self._client.list_run_participants(
-            self.run_id,
-            project_id=self.project_id,
-        )
-
-    def artifact_progress(self) -> SmrRunArtifactProgress:
-        return self._client.get_run_artifact_progress(
-            self.run_id,
-            project_id=self.project_id,
-        )
-
-    def actor_logs(self, **kwargs: Any) -> SmrRunActorLogs:
-        return self._client.list_run_actor_logs(
-            self.run_id,
-            project_id=self.project_id,
-            **kwargs,
-        )
 
     def control_actor(
         self,
@@ -2153,35 +2131,6 @@ class RunsAPI(_ClientNamespace):
         if project_id:
             return self._client.get_project_run_actor_usage(project_id, run_id)
         return self._client.get_run_actor_usage(run_id)
-
-    def participants(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunParticipants:
-        return self._client.list_run_participants(run_id, project_id=project_id)
-
-    def artifact_progress(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-    ) -> SmrRunArtifactProgress:
-        return self._client.get_run_artifact_progress(run_id, project_id=project_id)
-
-    def actor_logs(
-        self,
-        run_id: str,
-        *,
-        project_id: str | None = None,
-        **kwargs: Any,
-    ) -> SmrRunActorLogs:
-        return self._client.list_run_actor_logs(
-            run_id,
-            project_id=project_id,
-            **kwargs,
-        )
 
     def actor_trace(
         self,

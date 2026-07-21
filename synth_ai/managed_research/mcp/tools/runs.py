@@ -1323,62 +1323,6 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_control_project_run_actor,
         ),
         ToolDefinition(
-            name="smr_list_run_participants",
-            description=(
-                "List participant sessions for a run from actor/session records, including whether usage recording is present or missing."
-            ),
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_list_run_participants,
-        ),
-        ToolDefinition(
-            name="smr_get_run_artifact_progress",
-            description="Read live required/optional artifact progress for a run.",
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_get_run_artifact_progress,
-        ),
-        ToolDefinition(
-            name="smr_list_run_actor_logs",
-            description="List redacted exec stdout/stderr actor log events for a run.",
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "project_id": {
-                        "type": "string",
-                        "description": "Optional project-scoped route enforcement.",
-                    },
-                    "actor_id": {"type": "string", "description": "Optional actor id filter."},
-                    "turn_id": {"type": "string", "description": "Optional turn id filter."},
-                    "kind": {
-                        "type": "string",
-                        "description": "Optional kind filter: exec.stdout, exec.stderr, stdout, or stderr.",
-                    },
-                    "since": {"type": "string", "description": "Optional ISO-8601 lower bound."},
-                    "cursor": {"type": "string", "description": "Optional pagination cursor."},
-                    "limit": {"type": "integer", "minimum": 1, "maximum": 500},
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_list_run_actor_logs,
-        ),
-        ToolDefinition(
             name="smr_get_run_primary_parent",
             description="Fetch the bound primary parent objective for a run.",
             input_schema=tool_schema(
