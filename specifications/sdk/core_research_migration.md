@@ -1,6 +1,6 @@
 # Synth SDK Research migration and refactor plan
 
-- **Status:** engineer review required — partial implementation checkpoint exists
+- **Status:** engineer review required — unmerged implementation candidate exists
 - **Date:** 2026-07-21
 - **Scope:** `synth-ai`, `backend`, and `evals`
 - **Quality bar:** `strong_option`
@@ -22,21 +22,42 @@ The document deliberately separates three kinds of statement:
 | **Proposal** | Recommended product/API/package design | Approve, amend, or reject explicitly |
 | **Evidence** | Current-tree measurement, external SDK comparison, or quality proof | Verify material claims and use them to judge the proposal |
 
-An implementation checkpoint now exists, but it is not an approved final API.
+An implementation candidate now exists, but it is not an approved final API.
 The reviewing engineer must use [Part VII](#part-vii--engineer-review-and-handoff)
 to compare the landed shape with the product and protocol decisions here,
-resolve the remaining gaps, and amend this plan before further broad migration.
+resolve the remaining gaps, and amend this plan before integration.
+
+### Consolidated source map
+
+This document supersedes the separate working notes. It preserves their useful
+content as named sections rather than asking the reviewer to reconcile several
+documents:
+
+| Source material | Consolidated here |
+|---|---|
+| Original `synth-ai` / `backend` / `evals` refactor guide | Parts I–IV: authority, target graph, source dispositions, public API |
+| Tinker, OpenAI, Claude, and Modal SDK review | Part V: comparative guarantees and post-migration failure analysis |
+| Synth Style type critique | Parts I, IV, and V: typed boundaries, invalid states, failures, concurrency, naming |
+| Repeatable Gemini/Jesterky proposal | Part VI: 11-dimension rubric, thresholds, evidence selection, scan log |
+| Phase 0–9 implementation notes | Parts VI–VII: ratchets, commits, deterministic evidence, open defects |
+| Engineer handoff | Part VII: review order, decision table, exact worktrees, integration constraints |
+
+The original attachment that established the dedicated worktree and mandatory
+before/after scan is implementation provenance, not a second plan. The
+capability ledger, OpenAPI artifact, quality manifests, and Jstack goal record
+are evidence attachments to this document.
 
 ### Executive handoff snapshot
 
 | Area | Current checkpoint | Review implication |
 |---|---|---|
-| `synth-ai` | Typed core, bounded operations, compatibility generation, and implementation relocation landed in `9e992da0` and `1a050cef` | Review whether relocation produced the right public product model; do not equate zero legacy implementation with SDK completion |
-| `backend` | Bounded 32-operation Research OpenAPI contract and MCP adapter cutover landed in `713b6db59` and `f734def19` | Decide which additional factory/effort/resource operations graduate into the stable contract |
-| `evals` | Active consumers were cut from deep SDK imports in `7708aafa`; a small follow-on public-facade cleanup is uncommitted | Verify representative eval workflows, not merely import paths |
-| Compatibility | `synth_ai.managed_research` is generated warning-only re-exports; relocated implementation remains temporarily under `core/research/_legacy` | Approve the deletion schedule and prevent `_legacy` from becoming permanent architecture |
-| Public surface | `SynthClient().research` exists with projects, swarms, factories, and an experimental `advanced` grouping in progress | Finalize the smallest hero lifecycle and which namespaces are stable versus advanced |
-| Quality | Baseline 5.64; checkpoint 6.45; required mean 7.0, minimum dimension 5.0, no holds | Naming and conceptual compression remain release failures at 4/10 |
+| `synth-ai` | Committed typed-core/relocation checkpoints plus an uncommitted candidate with concise projects/swarms/factories APIs, typed failures/events, native async parity, and stable-versus-advanced discovery | Review the product/API contract in the candidate; do not equate passing structure checks with release readiness |
+| `backend` | Committed Research contract/MCP cutover plus an uncommitted 12-operation Factory/Effort extension; bounded artifact now contains 44 operations | Approve the exact Factory/Effort lifecycle and confirm each operation remains backend-owned |
+| `evals` | Committed removal of deep imports plus seven uncommitted call-site cutovers to stable or explicit `advanced` APIs | Verify real workflow behavior and decide whether each advanced dependency is acceptable or must graduate |
+| Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
+| Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
+| Delivery | MCP defaults to 35 stable noun-first tools while 280 advanced tools remain explicitly discoverable; CLI places legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
+| Quality | Baseline 5.64 → relocation 6.45 → candidate 7.09; latest minimum 6, no holds | Qualitative threshold now passes, but compatibility, naming, and reach at 6/10 still identify release debt |
 
 The implementation worktrees and exact review order are recorded in
 [Current handoff state](#current-handoff-state). This document is the only
@@ -1493,24 +1514,54 @@ Phase 10 acceptance additionally requires the release thresholds above
 |---|---|---:|---|---|
 | 2026-07-21 | Baseline (before migration) | 5.64 | naming 3, compression 4, concurrency 4 | `.quality/runs/sdk-design-proof-20260721T211647Z/summary.md` |
 | 2026-07-21 | Core relocation checkpoint | 6.45 | naming 4, compression 4, failure 6, observability 6, reach 6 | `.quality/runs/migration-sdk-design/manifest.json` |
+| 2026-07-21 | Stable API candidate | **7.09** | compatibility 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v2/manifest.json` |
 
-The checkpoint improved native concurrency from 4 to 8 and documentation and
-compatibility to 8, but it still fails the declared release bar. Its complete
-dimension breakdown is:
+The candidate completes all 11 dimensions, has no holds, and clears the declared
+qualitative bar: mean **7.09**, minimum **6**, maximum **8**. The direct Gemini
+3.5 Flash Lite scan streamed live, completed in approximately 12 seconds, and
+used approximately 90k tokens (84k input / 5.5k output). It is evidence for the
+API review, not a substitute for deterministic or vertical integration proof.
+The manifest predates the final lazy-loading tweak in `research/client.py` and
+this documentation refresh; rerun it after the reviewer resolves stable import
+isolation so the accepted source tree has its own receipt.
 
-| Dimension | Score | Principal remaining gap |
-|---|---:|---|
-| Compatibility | 8 | Enforce the 0.18.0 shim-removal deadline in automation |
-| Conceptual compression | 4 | Users still see too many resource namespaces and manual preflight/economics choreography |
-| Concurrency contract | 8 | Propagate consistent deadlines and cancellation through every async helper |
-| Documentation | 8 | Consolidate one five-minute hero quickstart with expected outputs |
-| Failure contract | 6 | Add stable request/correlation IDs, retry directives, and timeout metadata to typed errors |
-| Lifecycle guarantees | 7 | Specify immutable resolved-configuration versions and idempotency scopes |
-| Naming | 4 | Remove public `SMR`, `run`, and redundant `Research*` vocabulary where compatibility does not require it |
-| Observability | 6 | Define one correlation and telemetry envelope across handles, events, artifacts, and readouts |
-| Parameter design | 7 | Remove raw mapping alternatives at typed public seams such as Tag messages |
-| Reach | 6 | Make CLI/MCP and future generated clients conform to the stable protocol without legacy Python paths |
-| Type contract | 7 | Remove compatibility methods that return untyped dictionaries from the documented surface |
+Its complete scorecard is:
+
+| Dimension | Score | Severity | Principal remaining gap |
+|---|---:|---|---|
+| Compatibility | 6 | medium | Remove the relocated `_legacy` implementation on schedule and enforce the public manifest/deprecation contract |
+| Conceptual compression | 7 | low | Remove residual low-level economics/preflight choreography from stable recipes and discovery |
+| Concurrency contract | 8 | low | Document and preserve deadline, cancellation, resume, and cursor behavior for every wait/stream helper |
+| Documentation | 7 | low | Add one troubleshooting path for auth, timeout, preflight, and quota failures and ensure generated reference parity |
+| Failure contract | 8 | low | Use the stable typed error hierarchy consistently in all public examples and adapters |
+| Lifecycle guarantees | 8 | low | Specify immutable resolved-configuration/version identity for swarm and Factory rehydration |
+| Naming | 6 | medium | Keep `SMR`, `run`, `Research*`, and `*API` noise out of stable discovery; retain only time-bounded aliases |
+| Observability | 7 | medium | Migrate rich readouts from legacy projections into one correlation-aware event/artifact/usage protocol |
+| Parameter design | 7 | medium | Split creation intent from patch policy where `ResourceLimit`, `BudgetPolicy`, and `CapacityPolicy` remain optional soups |
+| Reach | 6 | medium | Remove Python-legacy model dependence from CLI/MCP and make the bounded contract sufficient for non-Python clients |
+| Type contract | 8 | low | Eliminate remaining loose fallback parsing at typed preflight and compatibility seams |
+
+The score moved in the intended direction at every measurement:
+
+| Dimension | Baseline | Relocation | Candidate | Net |
+|---|---:|---:|---:|---:|
+| Compatibility | 6 | 8 | 6 | 0 |
+| Conceptual compression | 4 | 4 | 7 | +3 |
+| Concurrency contract | 4 | 8 | 8 | +4 |
+| Documentation | 6 | 8 | 7 | +1 |
+| Failure contract | 6 | 6 | 8 | +2 |
+| Lifecycle guarantees | 8 | 7 | 8 | 0 |
+| Naming | 3 | 4 | 6 | +3 |
+| Observability | 7 | 6 | 7 | 0 |
+| Parameter design | 6 | 7 | 7 | +1 |
+| Reach | 6 | 6 | 6 | 0 |
+| Type contract | 6 | 7 | 8 | +2 |
+
+Compatibility dropped from the relocation checkpoint's optimistic 8 to 6
+because the stronger candidate evidence exposed the still-live `_legacy`
+substrate and stable-import coupling. That is a useful correction, not a reason
+to hide the candidate result: the aggregate rose by 0.64 and no dimension fell
+below the release minimum.
 
 #### Required proof per vertical set
 
@@ -1576,7 +1627,7 @@ The migration is complete when:
 
 ### Review objective
 
-Turn this draft and its partial implementation checkpoint into an approved
+Turn this draft and its unmerged implementation candidate into an approved
 migration contract before further broad implementation. The review is
 successful only when it resolves the product and protocol questions, not when
 it merely agrees that files belong under `core`.
@@ -1641,22 +1692,33 @@ design conclusion solely because the exact count moved.
 ### Next engineering action
 
 Phases 0–3 and the structural portions of Phases 7–9 now have an implementation
-checkpoint. The next engineer should review and amend rather than repeat them:
+candidate. The next engineer should review and amend rather than repeat them:
 
-1. Review the committed diffs and the uncommitted facade follow-up before making
-   further edits. Preserve unrelated main-worktree changes.
-2. Finalize the public hero example and stable/advanced boundary. The present
-   follow-up proposes `projects`, `swarms`, `factories`, and `advanced`, but that
-   grouping is not yet an approved contract.
-3. Decide the next bounded backend vertical set. Prefer one complete Factory or
-   effort lifecycle over adding a broad collection of thin route wrappers.
-4. Close the two 4/10 scan failures: concise public naming and conceptual
-   compression. Treat directory relocation as evidence, not the remedy.
-5. Define the typed failure and telemetry envelopes before graduating more
-   operations, so new methods do not replicate weak error/observability seams.
-6. Re-run the deterministic boundary/contract checks and Gemini quality scan,
-   then append the new score and evidence path to Part VI.
-7. Request the required user-triggered `/ultrareview` before integrating this
+1. Review the committed checkpoints and all three uncommitted diffs before
+   making further edits. Preserve unrelated main-worktree changes.
+2. Approve or amend the candidate public tree: `projects`, `swarms`, and
+   `factories` are stable; `advanced` contains operator breadth; `runs`,
+   `Research*`, `Smr*`, and `smr_*` are compatibility only.
+3. Resolve the highest-priority boundary defect before accepting that split:
+   importing the stable Research client still imports `_legacy` because
+   `core/research/client.py` and `contracts/__init__.py` eagerly import the
+   legacy-backed economics contracts. Stable imports must load no advanced or
+   legacy implementation; deliberately accessing `.advanced` may load it.
+4. Review the 12-operation Factory/Effort addition as one bounded backend
+   vertical. Confirm create/list/retrieve/update, lifecycle transitions, and
+   Effort CRUD are the intended stable set and that no backend policy moved
+   into the SDK.
+5. Review the stable `SynthFailure`/typed HTTP hierarchy and versioned
+   `SwarmEvent` telemetry union as protocol contracts. Require operation,
+   request, correlation, retry, unknown-event, cursor, and cancellation
+   behavior to remain observable through Python, CLI, and MCP.
+6. Classify the seven eval call-site dependencies. Each use of
+   `research.advanced` is either an accepted operator-only dependency with an
+   owner or evidence that a typed stable capability is still missing.
+7. Re-run the deterministic boundary/contract checks after review edits and
+   use the same bounded Gemini scan evidence. Do not lower the 7.0/5.0/no-hold
+   thresholds; investigate any regression from the 7.09 candidate.
+8. Request the required user-triggered `/ultrareview` before integrating this
    high-blast-radius change into `dev`.
 
 Do not perform another mass move. Finish one customer-visible vertical with its
@@ -1695,47 +1757,92 @@ eval consumer, documentation, and failure behavior.
 - `evals` worktree:
   `/Users/joshpurtell/Documents/GitHub/evals-worktrees/sdk-core-research-migration`
   on `sdk-core-research-migration-20260721`.
-- Committed Synth checkpoints: `9e992da0` (typed Research core) and `1a050cef`
-  (implementation consolidation and compatibility shell).
+- Committed Synth checkpoints: `9e992da0` (typed Research core), `1a050cef`
+  (implementation consolidation and compatibility shell), and `462b83dc`
+  (first consolidated plan/handoff).
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
   and `f734def19` (Research MCP delivery adapter).
 - Committed eval checkpoint: `7708aafa` (active consumer cutover to public SDK).
-- The committed capability ledger classifies 2,094 rows with zero unclassified
-  rows. It reports zero active backend/eval deep imports, 32 stable operations,
-  150 generated compatibility-shim files / 754 lines, and 117 relocated
-  `_legacy` implementation files / 46,288 lines. Re-measure these figures if
-  the review changes the branch.
-- `synth-ai` has an uncommitted follow-on that introduces
-  `core/research/advanced.py`, concise/lazy public aliases, and Factory contract
-  aliases. `evals` has seven corresponding uncommitted call-site cleanups.
-  These changes are review material, not final API decisions.
-- Backend is clean at the checkpoint. Main worktrees may contain unrelated user
-  changes and must not be reset, stashed, or folded into this migration.
+- The current capability ledger classifies **2,084** rows with zero unclassified
+  rows. It reports zero active backend/eval deep imports, **44** stable
+  operations, 150 generated compatibility-shim files / 754 lines, and 117
+  relocated `_legacy` implementation files / 46,295 lines. Re-measure these
+  figures if review changes the branch.
+- Current candidate magnitude (physical Python lines, including compatibility
+  code) is **402 files / 76,787 lines** under `synth_ai`; **145 / 52,912** under
+  `synth_ai/core/research`; **20 / 482** in the thin `synth_ai/research` facade;
+  and **150 / 754** in the generated `synth_ai/managed_research` shims. The
+  largest remaining file is `_legacy/sdk/client.py` at 6,124 lines, followed by
+  the Research MCP server at 3,438 lines. These are magnitude indicators, not
+  permission to split files without a concern boundary.
+- `synth-ai` has an uncommitted candidate implementing concise stable contracts
+  and clients, the Factory/Effort vertical, native sync/async parity, typed
+  failures and correlated events, a thin advanced bridge, revised docs and CLI,
+  35-tool stable MCP discovery, the 44-operation artifact, and the refreshed
+  ledger. These changes are review material, not an approved final API.
+- `backend` has one uncommitted change adding the 12 Factory/Effort operation
+  IDs that produced the 44-operation bounded artifact.
+- `evals` has seven uncommitted consumer cleanups using either the stable
+  facade or explicit `research.advanced` access.
+- Main worktrees may contain unrelated user changes and must not be reset,
+  stashed, or folded into this migration.
 - Baseline SDK-design verdict: **FAIL, 5.64/10**, 11/11 dimensions, two holds,
   30 findings, 16 seconds, Gemini 3.5 Flash Lite.
 - Relocation checkpoint verdict: **FAIL, 6.45/10**, 11/11 dimensions, no holds,
-  13 seconds, approximately 89k tokens. Naming and conceptual compression are
+  13 seconds, approximately 89k tokens. Naming and conceptual compression were
   both **4/10**.
+- Stable API candidate verdict: **PASS, 7.09/10**, 11/11 dimensions, minimum
+  6, maximum 8, no holds, approximately 12 seconds and 90k tokens. The complete
+  scorecard and findings are in Part VI.
 - Repeatable command: `./synth-dev/quality ./synth-ai` from the workspace root.
 - Baseline proof:
   `synth-ai/.quality/runs/sdk-design-proof-20260721T211647Z/summary.md`.
 - Checkpoint Jesterky manifest:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design/manifest.json`.
-- Deterministic checkpoint checks already passed: generated compatibility-shim
-  conformance, architecture boundary, migration boundary, 32-operation OpenAPI
-  byte/operation parity, source compilation, import/identity smoke, and diff
-  integrity. They must be rerun after review-driven changes.
+- Candidate Jesterky manifest:
+  `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v2/manifest.json`.
+- Deterministic candidate checks already passed: generated compatibility-shim
+  conformance, architecture boundary, cross-repository migration boundary,
+  44-operation OpenAPI byte/operation parity, targeted source compilation,
+  public symbol/identity smoke, typed failure smoke, unknown-event protocol
+  smoke, and diff integrity. They must be rerun after review-driven changes.
+- One additional clean-process boundary smoke failed: stable Research import
+  eagerly loads `_legacy`. This is recorded in Jstack and must be green before
+  the stable/advanced split is accepted.
 - Ruff, `ty`, and tests were not run in this handoff pass. Workspace policy
   prohibits Ruff/`ty` unless the user asks for those validations, and prohibits
   tests during normal development unless requested. This is an explicit
   validation gap, not a green result.
 - The canonical full quality wrapper currently includes Ruff and `ty`; the
-  checkpoint qualitative scan was therefore run directly through Jesterky with
+  candidate qualitative scan was therefore run directly through Jesterky with
   Gemini 3.5 Flash Lite. Release evidence still requires the user-authorized
   deterministic lanes plus the qualitative lane.
 
 The next owner is the reviewing engineer. Their deliverable is an edited,
 decision-complete version of this document, named owners, and a review verdict
-on the existing checkpoint. Implementation should resume only from those
+on the existing candidate. Implementation should resume only from those
 resolved decisions; completion still requires the release gates, user-triggered
 ultrareview, `dev` integration, worktree cleanup, and compatibility follow-through.
+
+### Handoff scorecard
+
+**Overall verdict: REVIEW REQUIRED — NOT READY TO MERGE.** The qualitative SDK
+design bar passes; the migration and release bar do not yet pass.
+
+| Gate | Status | Current evidence / required next proof |
+|---|---:|---|
+| Authority and source disposition | PASS | 2,084 ledger rows, zero unclassified; backend owns policy/state/persistence; evals owns benchmark behavior |
+| Bounded backend contract | PASS | 44 stable operation IDs and byte/operation parity against `openapi/research-v1.json` |
+| Active deep-import boundary | PASS | Zero active backend/eval deep imports in the generated migration ledger |
+| Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
+| Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
+| Stable import isolation | **FAIL** | Importing stable Research still loads `_legacy` through eager economics imports; make stable import load zero legacy/advanced modules |
+| Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.09 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds |
+| Compatibility / naming / reach quality | WARN | Each is 6/10; enforce alias removal and detach CLI/MCP from Python-legacy contracts |
+| Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
+| Factory/Effort vertical | REVIEW | 12-operation candidate is typed and bounded; owner must approve lifecycle semantics and prove representative backend behavior |
+| Eval consumer cutover | REVIEW | Seven candidate call sites compile; classify every `research.advanced` dependency and run representative workflows when authorized |
+| Package/docs/live vertical proof | NOT RUN | Required before release; no wheel/import matrix, generated docs proof, or live local/staging Factory/Swarm proof in this handoff |
+| Ruff / `ty` / tests | NOT RUN | Explicitly skipped under workspace policy because the user did not request those validations |
+| User-triggered `/ultrareview` | PENDING | Mandatory before integration for this high-blast-radius migration |
+| `dev` integration and worktree cleanup | PENDING | Merge only after review; prove commits reachable from `dev`, then remove all three worktrees and feature branches |
