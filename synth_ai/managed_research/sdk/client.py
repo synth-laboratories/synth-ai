@@ -1724,6 +1724,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         json_body: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         allow_not_found: bool = False,
+        timeout_seconds: float | None = None,
     ) -> Any:
         try:
             return self._transport.request_json(
@@ -1733,6 +1734,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
                 json_body=json_body,
                 headers=headers,
                 allow_not_found=allow_not_found,
+                timeout_seconds=timeout_seconds,
             )
         except SmrApiError as exc:
             if not getattr(exc, "request_context", None):
