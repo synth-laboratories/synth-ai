@@ -107,7 +107,9 @@ class UsageAPI(_ClientNamespace):
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return SmrRunUsage.from_wire(
-            _raise_on_error_payload(self._client._request_json("GET", f"/smr/swarms/{run_id}/usage"))
+            _raise_on_error_payload(
+                self._client._request_json("GET", f"/smr/swarms/{run_id}/usage")
+            )
         )
 
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:
