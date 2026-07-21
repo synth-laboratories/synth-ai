@@ -12,6 +12,10 @@ from synth_ai.managed_research.models.smr_actor_models import (
 )
 from synth_ai.managed_research.models.smr_agent_kinds import SMR_AGENT_KIND_VALUES
 from synth_ai.managed_research.models.smr_agent_models import SMR_AGENT_MODEL_VALUES
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EVIDENCE_OBLIGATION_KIND_VALUES,
+    EVIDENCE_OBLIGATIONS_SCHEMA,
+)
 from synth_ai.managed_research.models.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
 from synth_ai.managed_research.models.smr_host_kinds import SMR_HOST_KIND_VALUES
 from synth_ai.managed_research.models.smr_providers import PROVIDER_VALUES
@@ -111,6 +115,30 @@ def _objective_launch_properties() -> dict[str, Any]:
         "require_report": {
             "type": "boolean",
             "description": "When objective is provided, require a default final report work product.",
+        },
+        "evidence_obligations": {
+            "type": "object",
+            "description": (
+                "Explicit opt-in terminal evidence requirements for proof-bearing run lanes. "
+                "Ordinary runs should leave this unset."
+            ),
+            "properties": {
+                "schema": {
+                    "type": "string",
+                    "const": EVIDENCE_OBLIGATIONS_SCHEMA,
+                    "default": EVIDENCE_OBLIGATIONS_SCHEMA,
+                },
+                "required": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string",
+                        "enum": list(EVIDENCE_OBLIGATION_KIND_VALUES),
+                    },
+                },
+            },
+            "required": ["required"],
+            "additionalProperties": False,
         },
     }
 
