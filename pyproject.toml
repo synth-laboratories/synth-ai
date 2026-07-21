@@ -83,7 +83,6 @@ include-package-data = true
 [tool.setuptools.package-data]
 "synth_ai" = [
     "py.typed",
-    "opencode/skill/*/SKILL.md",
     "managed_research/py.typed",
     "managed_research/factory_plans/*.json",
     "managed_research/schemas/*",
