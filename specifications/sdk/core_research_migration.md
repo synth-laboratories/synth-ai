@@ -1365,6 +1365,21 @@ The 2026-07-21 baseline proof completed 11/11 dimensions in 16 seconds with
 the concurrency contract **4/10**; those results reinforce the migration's
 public-noun and native-async release conditions rather than replacing them.
 
+The scan is also this migration's before/after instrument. The implementing
+engineer must treat the 2026-07-21 baseline as the "before" measurement,
+re-run `./synth-dev/quality ./synth-ai` at every phase exit, and append the
+date, aggregate, per-dimension scores, and manifest path to the scan log
+below. The aggregate must not decrease across consecutive phase exits; a
+decrease blocks the phase from being accepted until explained and fixed.
+Phase 10 acceptance additionally requires the release thresholds above
+(mean ≥ 7.0, every dimension ≥ 5.0, no holds).
+
+##### Scan log
+
+| Date | Milestone | Aggregate | Weakest dimensions | Manifest |
+|---|---|---:|---|---|
+| 2026-07-21 | Baseline (before migration) | 5.64 | naming 3, compression 4, concurrency 4 | `.quality/runs/sdk-design-proof-20260721T211647Z/summary.md` |
+
 #### Required proof per vertical set
 
 Each vertical set records:
@@ -1500,6 +1515,8 @@ Start with **Phase 0**, not a mass file move:
 4. Record the approved public noun map and compatibility dates.
 5. Select one bounded vertical set: project creation plus one swarm
    create/retrieve/wait/event/result path.
+6. Re-run the quality scan at every phase exit and append the result to the
+   scan log in Part VI, confirming improvement over the 5.64 baseline.
 
 The first implementation PR should establish contract foundations and the
 small vertical proof. It should not attempt to relocate the monolith wholesale.
