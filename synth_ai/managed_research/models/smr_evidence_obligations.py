@@ -15,6 +15,8 @@ EVIDENCE_OBLIGATIONS_SCHEMA = "smr.evidence_obligations.v1"
 
 class EvidenceObligationKind(StrEnum):
     TRANSCRIPT_ROWS = "transcript_rows"
+    TASK_TURN_ROWS = "task_turn_rows"
+    RAW_TRACE_ROWS = "raw_trace_rows"
     EVIDENCE_PACKET = "evidence_packet"
     TERMINAL_TASK_ROWS = "terminal_task_rows"
 
