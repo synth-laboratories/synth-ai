@@ -1,4 +1,4 @@
-"""OpenAI Agents SDK compatibility client with dual transport support."""
+"""OpenAI Agents SDK compatibility client for explicit Horizons Private access."""
 
 from __future__ import annotations
 
@@ -9,20 +9,15 @@ from typing import Any
 
 import httpx
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.core.utils.urls import join_url, normalize_backend_base
 
 TRANSPORT_MODE_BACKEND_BFF = "backend_bff"
 TRANSPORT_MODE_DIRECT_HP = "direct_hp"
 TRANSPORT_MODE_AUTO = "auto"
 VALID_TRANSPORT_MODES = {
-    TRANSPORT_MODE_BACKEND_BFF,
     TRANSPORT_MODE_DIRECT_HP,
-    TRANSPORT_MODE_AUTO,
 }
-FALLBACK_STATUS_CODES = {404, 405, 501}
 
-BACKEND_BFF_PREFIX = "/api/managed-agents/openai/v1"
 DIRECT_HP_PREFIX = "/openai/v1"
 
 
@@ -35,28 +30,66 @@ class OpenAIAgentsSdkClient:
         api_key: str | None = None,
         backend_base: str | None = None,
         timeout: float = 30.0,
-        transport_mode: str = TRANSPORT_MODE_AUTO,
+        transport_mode: str | None = None,
         openai_organization: str | None = None,
         openai_project: str | None = None,
         request_id: str | None = None,
     ) -> None:
-        self._api_key = (api_key or get_api_key(required=False) or "").strip()
-        if not self._api_key:
-            raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-        self._backend_base = normalize_backend_base(backend_base or BACKEND_URL_BASE)
-        self._timeout = timeout
         self._transport_mode = self._validate_transport_mode(transport_mode)
+        explicit_base = str(backend_base or "").strip()
+        if not explicit_base:
+            raise ValueError(
+                "backend_base must be an explicit Horizons Private base URL for direct_hp"
+            )
+        self._api_key = str(api_key or "").strip()
+        if not self._api_key:
+            raise ValueError(
+                "api_key must be an explicit Horizons Private credential for direct_hp; "
+                "SYNTH_API_KEY is not reused across this authority boundary"
+            )
+        self._backend_base = normalize_backend_base(explicit_base)
+        self._timeout = timeout
         self._openai_organization = str(openai_organization or "").strip() or None
         self._openai_project = str(openai_project or "").strip() or None
         self._request_id = str(request_id or "").strip() or None
 
     @staticmethod
-    def _validate_transport_mode(value: str) -> str:
+    def _validate_transport_mode(value: str | None) -> str:
         normalized = str(value or "").strip().lower()
+        if normalized in {TRANSPORT_MODE_AUTO, TRANSPORT_MODE_BACKEND_BFF}:
+            raise ValueError(
+                f"transport_mode={normalized!r} was retired with the backend managed-agents "
+                "proxy; use direct_hp only with an explicit Horizons Private base URL and "
+                "credential"
+            )
         if normalized not in VALID_TRANSPORT_MODES:
-            allowed = ", ".join(sorted(VALID_TRANSPORT_MODES))
-            raise ValueError(f"transport_mode must be one of: {allowed}")
+            raise ValueError(
+                "transport_mode must be explicitly set to direct_hp with an explicit "
+                "Horizons Private base URL and credential"
+            )
         return normalized
+
+    @classmethod
+    def from_horizons_private(
+        cls,
+        *,
+        base_url: str,
+        api_key: str,
+        timeout: float = 30.0,
+        openai_organization: str | None = None,
+        openai_project: str | None = None,
+        request_id: str | None = None,
+    ) -> OpenAIAgentsSdkClient:
+        """Build a client for an explicit Horizons Private endpoint and credential."""
+        return cls(
+            api_key=api_key,
+            backend_base=base_url,
+            timeout=timeout,
+            transport_mode=TRANSPORT_MODE_DIRECT_HP,
+            openai_organization=openai_organization,
+            openai_project=openai_project,
+            request_id=request_id,
+        )
 
     @staticmethod
     def _normalize_path(path: str) -> str:
@@ -75,15 +108,9 @@ class OpenAIAgentsSdkClient:
         return {"content": response.text}
 
     @staticmethod
-    def _should_fallback(exc: Exception) -> bool:
-        if not isinstance(exc, httpx.HTTPStatusError):
-            return False
-        return exc.response.status_code in FALLBACK_STATUS_CODES
-
-    @staticmethod
     def _prefix_for_mode(mode: str) -> str:
-        if mode == TRANSPORT_MODE_BACKEND_BFF:
-            return BACKEND_BFF_PREFIX
+        if mode != TRANSPORT_MODE_DIRECT_HP:
+            raise ValueError(f"unsupported transport mode: {mode}")
         return DIRECT_HP_PREFIX
 
     def _headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -128,35 +155,14 @@ class OpenAIAgentsSdkClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> Any:
-        if self._transport_mode != TRANSPORT_MODE_AUTO:
-            return self._request_once(
-                prefix=self._prefix_for_mode(self._transport_mode),
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            )
-        try:
-            return self._request_once(
-                prefix=BACKEND_BFF_PREFIX,
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            )
-        except Exception as exc:
-            if not self._should_fallback(exc):
-                raise
-            return self._request_once(
-                prefix=DIRECT_HP_PREFIX,
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            )
+        return self._request_once(
+            prefix=self._prefix_for_mode(self._transport_mode),
+            method=method,
+            path=path,
+            json_body=json_body,
+            params=params,
+            headers=headers,
+        )
 
     @staticmethod
     def _parse_sse_data(payload: str) -> Any:
@@ -264,39 +270,14 @@ class OpenAIAgentsSdkClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        if self._transport_mode != TRANSPORT_MODE_AUTO:
-            return self._stream_once(
-                prefix=self._prefix_for_mode(self._transport_mode),
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            )
-
-        def _iter_auto() -> Iterator[dict[str, Any]]:
-            try:
-                yield from self._stream_once(
-                    prefix=BACKEND_BFF_PREFIX,
-                    method=method,
-                    path=path,
-                    json_body=json_body,
-                    params=params,
-                    headers=headers,
-                )
-            except Exception as exc:
-                if not self._should_fallback(exc):
-                    raise
-                yield from self._stream_once(
-                    prefix=DIRECT_HP_PREFIX,
-                    method=method,
-                    path=path,
-                    json_body=json_body,
-                    params=params,
-                    headers=headers,
-                )
-
-        return _iter_auto()
+        return self._stream_once(
+            prefix=self._prefix_for_mode(self._transport_mode),
+            method=method,
+            path=path,
+            json_body=json_body,
+            params=params,
+            headers=headers,
+        )
 
     # /responses family
     def create_response(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -500,43 +481,15 @@ class AsyncOpenAIAgentsSdkClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
-        if self._sync._transport_mode != TRANSPORT_MODE_AUTO:
-            async for frame in self._async_stream_once(
-                prefix=self._sync._prefix_for_mode(self._sync._transport_mode),
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            ):
-                yield frame
-            return
-
-        # auto mode: BFF first; fallback to direct HP only on FALLBACK_STATUS_CODES.
-        # raise_for_status() fires before any frames are yielded, so the fallback
-        # is safe — no frames have been emitted when the exception propagates.
-        try:
-            async for frame in self._async_stream_once(
-                prefix=BACKEND_BFF_PREFIX,
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            ):
-                yield frame
-        except Exception as exc:
-            if not self._sync._should_fallback(exc):
-                raise
-            async for frame in self._async_stream_once(
-                prefix=DIRECT_HP_PREFIX,
-                method=method,
-                path=path,
-                json_body=json_body,
-                params=params,
-                headers=headers,
-            ):
-                yield frame
+        async for frame in self._async_stream_once(
+            prefix=self._sync._prefix_for_mode(self._sync._transport_mode),
+            method=method,
+            path=path,
+            json_body=json_body,
+            params=params,
+            headers=headers,
+        ):
+            yield frame
 
     # ------------------------------------------------------------------
     # Public async API
@@ -651,9 +604,7 @@ class AsyncOpenAIAgentsSdkClient:
 
 __all__ = [
     "AsyncOpenAIAgentsSdkClient",
-    "BACKEND_BFF_PREFIX",
     "DIRECT_HP_PREFIX",
-    "FALLBACK_STATUS_CODES",
     "OpenAIAgentsSdkClient",
     "TRANSPORT_MODE_AUTO",
     "TRANSPORT_MODE_BACKEND_BFF",
