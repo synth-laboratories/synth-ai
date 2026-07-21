@@ -57,7 +57,7 @@ are evidence attachments to this document.
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
 | Delivery | MCP defaults to 35 stable noun-first tools while 280 advanced tools remain explicitly discoverable; CLI places legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
-| Quality | Baseline 5.64 → relocation 6.45 → candidate 7.09 → accepted candidate 7.27; latest minimum 6, no holds | Qualitative threshold passes; conceptual compression, failure contract, naming, and reach at 6/10 still identify release debt |
+| Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → current candidate 7.18; latest minimum 6, no holds | Qualitative threshold passes; conceptual compression, naming, and reach at 6/10 still identify release debt |
 
 The implementation worktrees and exact review order are recorded in
 [Current handoff state](#current-handoff-state). This document is the only
@@ -1535,15 +1535,17 @@ Phase 10 acceptance additionally requires the release thresholds above
 | 2026-07-21 | Baseline (before migration) | 5.64 | naming 3, compression 4, concurrency 4 | `.quality/runs/sdk-design-proof-20260721T211647Z/summary.md` |
 | 2026-07-21 | Core relocation checkpoint | 6.45 | naming 4, compression 4, failure 6, observability 6, reach 6 | `.quality/runs/migration-sdk-design/manifest.json` |
 | 2026-07-21 | Stable API candidate | **7.09** | compatibility 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v2/manifest.json` |
-| 2026-07-21 | Accepted candidate after stable-import isolation | **7.27** | compression 6, failure 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v6/manifest.json` |
+| 2026-07-21 | Candidate after stable-import isolation | **7.09** | compression 6, failure 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v6/manifest.json` |
+| 2026-07-21 | Current candidate after GameBench ownership and contract parity fixes | **7.18** | compression 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v8/manifest.json` |
 
-The accepted candidate completes all 11 dimensions, has no holds, and clears
-the declared qualitative bar: mean **7.27**, minimum **6**, maximum **8**. The
-direct Gemini 3.5 Flash Lite scan streamed live, completed in approximately 18
-seconds, and used approximately 90k tokens (85k input / 5.5k output). The
-strict manifest validator passed. This receipt includes the stable-import
-isolation fix and is evidence for API review, not a substitute for deterministic
-or vertical integration proof.
+The current candidate completes all 11 dimensions, has no holds, and clears the
+declared qualitative bar: mean **7.18**, minimum **6**, maximum **8**. The direct
+Gemini 3.5 Flash Lite scan streamed live, completed in 15 seconds, and used
+approximately 87k tokens (83k input / 4.5k output). The strict manifest
+validator passed. This receipt includes stable-import isolation, GameBench
+ownership correction, the explicit completion audit, and backend/SDK contract
+parity. It is evidence for API review, not a substitute for deterministic or
+vertical integration proof.
 
 Its complete scorecard is:
 
@@ -1551,37 +1553,39 @@ Its complete scorecard is:
 |---|---:|---|---|
 | Compatibility | 8 | low | Automate enforcement of the public compatibility manifest and versioned deprecation contract |
 | Conceptual compression | 6 | medium | Hide residual economics, runs, and complex project-spec choreography behind the project/swarm lifecycle |
-| Concurrency contract | 8 | low | Unify deadline propagation and backpressure across async transport, waits, and streams |
-| Documentation | 8 | low | Add explicit Python-version constraints and expected output blocks to core recipes |
-| Failure contract | 6 | medium | Publish per-operation typed failures and guarantee causal exception chaining across all public methods |
-| Lifecycle guarantees | 8 | low | Specify archive/delete idempotency scope on Factory handles |
+| Concurrency contract | 8 | low | Document resume-token persistence and cancellation deadline propagation in the async handoff |
+| Documentation | 7 | low | Consolidate generated reference output paths with the documentation overview links |
+| Failure contract | 8 | low | Make every async Research method document and raise the typed hierarchy with request identity |
+| Lifecycle guarantees | 8 | low | Specify repeated-cancellation idempotency and immutable resolved-version snapshots |
 | Naming | 6 | medium | Keep `Smr*`, `ManagedResearch*`, and verbose `*API` names confined to time-bounded compatibility modules |
 | Observability | 7 | medium | Consolidate legacy usage/readout projections into the correlation-aware event protocol |
 | Parameter design | 7 | medium | Reduce optional-state combinations and separate configuration boundaries in public contracts |
-| Reach | 6 | medium | Make OpenAPI the sufficient cross-language contract for Python, CLI, and MCP and remove Python-only positioning |
-| Type contract | 8 | low | Remove the remaining raw-dictionary fallback in preflight blocker decoding |
+| Reach | 6 | medium | Generate and publish a non-Python conformance client from the bounded OpenAPI artifact |
+| Type contract | 8 | low | Reject lenient preflight blocker shapes and remove dynamic legacy error imports |
 
 The score moved in the intended direction at every measurement:
 
-| Dimension | Baseline | Relocation | First candidate | Accepted | Net |
-|---|---:|---:|---:|---:|---:|
-| Compatibility | 6 | 8 | 6 | 8 | +2 |
-| Conceptual compression | 4 | 4 | 7 | 6 | +2 |
-| Concurrency contract | 4 | 8 | 8 | 8 | +4 |
-| Documentation | 6 | 8 | 7 | 8 | +2 |
-| Failure contract | 6 | 6 | 8 | 6 | 0 |
-| Lifecycle guarantees | 8 | 7 | 8 | 8 | 0 |
-| Naming | 3 | 4 | 6 | 6 | +3 |
-| Observability | 7 | 6 | 7 | 7 | 0 |
-| Parameter design | 6 | 7 | 7 | 7 | +1 |
-| Reach | 6 | 6 | 6 | 6 | 0 |
-| Type contract | 6 | 7 | 8 | 8 | +2 |
+| Dimension | Baseline | Relocation | First candidate | Import-isolated | Current | Net |
+|---|---:|---:|---:|---:|---:|---:|
+| Compatibility | 6 | 8 | 6 | 8 | 8 | +2 |
+| Conceptual compression | 4 | 4 | 7 | 6 | 6 | +2 |
+| Concurrency contract | 4 | 8 | 8 | 8 | 8 | +4 |
+| Documentation | 6 | 8 | 7 | 8 | 7 | +1 |
+| Failure contract | 6 | 6 | 8 | 6 | 8 | +2 |
+| Lifecycle guarantees | 8 | 7 | 8 | 8 | 8 | 0 |
+| Naming | 3 | 4 | 6 | 6 | 6 | +3 |
+| Observability | 7 | 6 | 7 | 7 | 7 | 0 |
+| Parameter design | 6 | 7 | 7 | 7 | 7 | +1 |
+| Reach | 6 | 6 | 6 | 6 | 6 | 0 |
+| Type contract | 6 | 7 | 8 | 8 | 8 | +2 |
 
-The accepted rerun restored compatibility to 8 after stable imports stopped
-loading `_legacy`. Conceptual compression and failure-contract scores moved to
-6 under the stronger accepted evidence, so those remain explicit review work.
-The aggregate is 1.63 points above baseline and no dimension falls below the
-release minimum.
+The import-isolated rerun restored compatibility to 8 after stable imports
+stopped loading `_legacy`. The current rerun restores the failure contract to 8
+while documentation moves from 8 to 7 under the refreshed evidence. The
+aggregate rises from 7.09 to 7.18, is 1.54 points above baseline, and no
+dimension falls below the release minimum. All aggregates above are computed
+directly from the eleven manifest scores; no hand-entered aggregate is accepted
+as evidence.
 
 #### Required proof per vertical set
 
@@ -1761,7 +1765,7 @@ candidate. The next engineer should review and amend rather than repeat them:
    owner or evidence that a typed stable capability is still missing.
 7. Re-run the deterministic boundary/contract checks after review edits and
    use the same bounded Gemini scan evidence. Do not lower the 7.0/5.0/no-hold
-   thresholds; investigate any regression from the accepted 7.27 candidate.
+   thresholds; investigate any regression from the current 7.18 candidate.
 8. Request the required user-triggered `/ultrareview` before integrating this
    high-blast-radius change into `dev`.
 
@@ -1809,7 +1813,8 @@ eval consumer, documentation, and failure behavior.
   GameBench-specific SDK package).
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
   and `f734def19` (Research MCP delivery adapter), plus `6b5944bb9` (the
-  12-operation Factory/Effort contract extension).
+  12-operation Factory/Effort contract extension) and `23533208c` (regenerated
+  44-operation / 135-schema authoritative artifact).
 - Committed eval checkpoints: `7708aafa` (active consumer cutover to public
   SDK), `c3164c5f` (seven stable/advanced boundary cleanups), and `e16d0bf2`
   (GameBench scorer ownership moved to evals).
@@ -1844,8 +1849,8 @@ eval consumer, documentation, and failure behavior.
 - Relocation checkpoint verdict: **FAIL, 6.45/10**, 11/11 dimensions, no holds,
   13 seconds, approximately 89k tokens. Naming and conceptual compression were
   both **4/10**.
-- Accepted stable API candidate verdict: **PASS, 7.27/10**, 11/11 dimensions,
-  minimum 6, maximum 8, no holds, 18 seconds and approximately 90k tokens. The
+- Current stable API candidate verdict: **PASS, 7.18/10**, 11/11 dimensions,
+  minimum 6, maximum 8, no holds, 15 seconds and approximately 87k tokens. The
   complete scorecard and findings are in Part VI.
 - Repeatable command: `./synth-dev/quality ./synth-ai` from the workspace root.
 - Repeatable-scan tooling is not yet committed: `synth-dev/quality` and
@@ -1862,6 +1867,8 @@ eval consumer, documentation, and failure behavior.
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v2/manifest.json`.
 - Accepted Jesterky manifest after stable-import isolation:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v6/manifest.json`.
+- Current Jesterky manifest after GameBench ownership and contract-parity fixes:
+  `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v8/manifest.json`.
 - Deterministic candidate checks already passed: generated compatibility-shim
   conformance, architecture boundary, cross-repository migration boundary,
   44-operation OpenAPI byte/operation parity, targeted source compilation,
@@ -1898,7 +1905,7 @@ design bar passes; the migration and release bar do not yet pass.
 | Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
 | Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
 | Stable import isolation | PASS | Clean stable manifest import loads zero `_legacy` modules; explicit `.advanced` access loads the compatibility implementation |
-| Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.27 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds; strict manifest validation passed |
+| Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.18 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds; strict manifest validation passed |
 | Compression / failure / naming / reach quality | WARN | Each is 6/10; simplify nouns, publish complete failure guarantees, enforce alias removal, and make OpenAPI sufficient for CLI/MCP |
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
 | GameBench ownership | PASS | No `synth_ai/gamebench` package or SDK recipe remains; scorer contracts/client/recipe and the active grader live under `evals/swarmbench/gamebench` |

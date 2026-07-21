@@ -22592,7 +22592,7 @@
   "schema": "synth.research-capability-ledger.v1",
   "sources": {
     "backend": {
-      "commit": "6b5944bb9892058647293878556532164196659e",
+      "commit": "23533208c28ef6305be1a743504d1149aa788bab",
       "repository": "backend"
     },
     "evals": {
@@ -22600,7 +22600,7 @@
       "repository": "evals"
     },
     "synth_ai": {
-      "commit": "7088c78f6871cec6a81c8ed0a274662bda97978f",
+      "commit": "d229636d97e2076851dda4ae54844712a55d79b2",
       "repository": "synth-ai"
     }
   },
