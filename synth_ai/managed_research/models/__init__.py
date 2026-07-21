@@ -259,13 +259,6 @@ from synth_ai.managed_research.models.run_execution import (
     RunExecutionTask,
     RunExecutionWorkProductRef,
 )
-from synth_ai.managed_research.models.smr_evidence_obligations import (
-    EVIDENCE_OBLIGATION_KIND_VALUES,
-    EVIDENCE_OBLIGATIONS_SCHEMA,
-    EvidenceObligationKind,
-    EvidenceObligations,
-    coerce_evidence_obligations,
-)
 from synth_ai.managed_research.models.run_launch import (
     ActorStateChangedEvent,
     AsyncEventStream,
@@ -409,6 +402,13 @@ from synth_ai.managed_research.models.smr_agent_kinds import SmrAgentKind
 from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel
 from synth_ai.managed_research.models.smr_credential_providers import SmrCredentialProvider
 from synth_ai.managed_research.models.smr_environment_kinds import SmrEnvironmentKind
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EVIDENCE_OBLIGATION_KIND_VALUES,
+    EVIDENCE_OBLIGATIONS_SCHEMA,
+    EvidenceObligationKind,
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.smr_funding_sources import SmrFundingSource
 from synth_ai.managed_research.models.smr_horizons import (
     SMR_INTENDED_HORIZON_HOURS_VALUES,

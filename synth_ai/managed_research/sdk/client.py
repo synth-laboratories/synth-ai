@@ -76,10 +76,6 @@ from synth_ai.managed_research.models.run_launch import (
     RunLaunchRequest,
     RunLaunchResult,
 )
-from synth_ai.managed_research.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
-)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
@@ -105,6 +101,10 @@ from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel
 from synth_ai.managed_research.models.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
+)
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
 )
 from synth_ai.managed_research.models.smr_funding_sources import (
     SmrFundingSource,
