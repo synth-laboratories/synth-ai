@@ -1,8 +1,13 @@
 """Typed public Research wire contracts."""
 
+from __future__ import annotations
+
+import importlib
+
 from synth_ai.core.research.contracts.common import (
     EffortId,
     EnvironmentKind,
+    FactoryId,
     OrganizationId,
     PoolId,
     ProfileId,
@@ -10,15 +15,36 @@ from synth_ai.core.research.contracts.common import (
     RuntimeKind,
     SwarmId,
 )
-from synth_ai.core.research.contracts.economics import (
-    ResearchBillingCatalog,
-    ResearchBillingDrawdown,
-    ResearchBillingEntitlements,
-    ResearchBillingPlan,
-    ResearchOrgLimits,
-    ResearchProjectEconomics,
+from synth_ai.core.research.contracts.factories import (
+    BudgetPolicy,
+    CapacityPolicy,
+    Effort,
+    EffortCreateRequest,
+    EffortPatch,
+    EffortPatchRequest,
+    EffortRecurrence,
+    EffortSpec,
+    EffortStatus,
+    EffortType,
+    Factory,
+    FactoryCreateRequest,
+    FactoryCreateState,
+    FactoryKind,
+    FactoryLifecycleState,
+    FactoryPatch,
+    FactoryPatchRequest,
+    FactorySpec,
+    FactoryTransition,
+    FactoryTransitionDecision,
+    FactoryTransitionRequest,
+    FactoryTransitionResponse,
+    FactoryTransitionResult,
 )
 from synth_ai.core.research.contracts.projects import (
+    Project,
+    ProjectPatch,
+    ProjectSetup,
+    ProjectSpec,
     ProjectSetupState,
     ResearchProject,
     ResearchProjectCreateRequest,
@@ -40,6 +66,8 @@ from synth_ai.core.research.contracts.swarms import (
     KickoffMessageMode,
     LocalExecution,
     ProviderBinding,
+    BranchResult,
+    BranchSpec,
     ResearchSwarm,
     ResearchSwarmBranchRequest,
     ResearchSwarmBranchResult,
@@ -49,10 +77,36 @@ from synth_ai.core.research.contracts.swarms import (
     ResourceLimit,
     ResourceProvider,
     Runbook,
+    Swarm,
+    SwarmPreflight,
+    SwarmSpec,
+    SwarmState,
     WorkMode,
 )
 
 ResearchRunLaunchRequest = ResearchSwarmLaunchRequest
+
+_ECONOMICS_EXPORTS = frozenset(
+    {
+        "ResearchBillingCatalog",
+        "ResearchBillingDrawdown",
+        "ResearchBillingEntitlements",
+        "ResearchBillingPlan",
+        "ResearchOrgLimits",
+        "ResearchProjectEconomics",
+    }
+)
+
+
+def __getattr__(name: str) -> object:
+    if name not in _ECONOMICS_EXPORTS:
+        raise AttributeError(name)
+    value = getattr(
+        importlib.import_module("synth_ai.core.research.contracts.economics"),
+        name,
+    )
+    globals()[name] = value
+    return value
 
 __all__ = [
     "ActorHarness",
@@ -61,10 +115,36 @@ __all__ = [
     "ActorSubtype",
     "ActorType",
     "BranchMode",
+    "BranchResult",
+    "BranchSpec",
+    "BudgetPolicy",
+    "CapacityPolicy",
     "EnvironmentVariable",
+    "Effort",
+    "EffortCreateRequest",
+    "EffortPatch",
+    "EffortPatchRequest",
+    "EffortRecurrence",
+    "EffortSpec",
+    "EffortStatus",
+    "EffortType",
     "ExecutionCapability",
     "ExecutionProfile",
     "HostKind",
+    "Factory",
+    "FactoryCreateRequest",
+    "FactoryCreateState",
+    "FactoryId",
+    "FactoryKind",
+    "FactoryLifecycleState",
+    "FactoryPatch",
+    "FactoryPatchRequest",
+    "FactorySpec",
+    "FactoryTransition",
+    "FactoryTransitionDecision",
+    "FactoryTransitionRequest",
+    "FactoryTransitionResponse",
+    "FactoryTransitionResult",
     "EffortId",
     "EnvironmentKind",
     "OrganizationId",
@@ -75,6 +155,10 @@ __all__ = [
     "ProfileId",
     "ProviderBinding",
     "ProjectId",
+    "Project",
+    "ProjectPatch",
+    "ProjectSetup",
+    "ProjectSpec",
     "ProjectSetupState",
     "ResearchProject",
     "ResearchBillingCatalog",
@@ -98,5 +182,9 @@ __all__ = [
     "Runbook",
     "RuntimeKind",
     "SwarmId",
+    "Swarm",
+    "SwarmPreflight",
+    "SwarmSpec",
+    "SwarmState",
     "WorkMode",
 ]

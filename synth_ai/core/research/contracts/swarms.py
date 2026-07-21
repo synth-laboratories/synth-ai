@@ -112,7 +112,7 @@ class KickoffMessageMode(StrEnum):
     STEER = "steer"
 
 
-class ResearchSwarmState(StrEnum):
+class SwarmState(StrEnum):
     QUEUED = "queued"
     PLANNING = "planning"
     EXECUTING = "executing"
@@ -130,11 +130,11 @@ class ResearchSwarmState(StrEnum):
     @property
     def is_terminal(self) -> bool:
         return self in {
-            ResearchSwarmState.DONE,
-            ResearchSwarmState.PARTIAL,
-            ResearchSwarmState.FAILED,
-            ResearchSwarmState.STOPPED,
-            ResearchSwarmState.CANCELED,
+            SwarmState.DONE,
+            SwarmState.PARTIAL,
+            SwarmState.FAILED,
+            SwarmState.STOPPED,
+            SwarmState.CANCELED,
         }
 
 
@@ -329,7 +329,7 @@ class KickoffMessage:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchSwarmLaunchRequest:
+class SwarmSpec:
     objective: str
     work_mode: WorkMode | None = None
     runbook: Runbook | None = None
@@ -410,11 +410,11 @@ class ResearchSwarmLaunchRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchSwarm:
+class Swarm:
     swarm_id: SwarmId
     project_id: ProjectId
     organization_id: OrganizationId
-    state: ResearchSwarmState
+    state: SwarmState
     runbook: str
     trigger: str
     created_at: datetime
@@ -427,7 +427,7 @@ class ResearchSwarm:
     work_completed: bool = False
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ResearchSwarm:
+    def from_wire(cls, value: JsonValue) -> Swarm:
         payload = object_value(value, operation_id="swarm")
         work_mode = optional_text(payload, "work_mode")
         effort_id = optional_text(payload, "effort_id")
@@ -435,7 +435,7 @@ class ResearchSwarm:
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
             organization_id=OrganizationId(required_text(payload, "org_id")),
-            state=ResearchSwarmState(required_text(payload, "public_state")),
+            state=SwarmState(required_text(payload, "public_state")),
             runbook=required_text(payload, "runbook"),
             trigger=required_text(payload, "trigger"),
             created_at=required_datetime(payload, "created_at"),
@@ -450,13 +450,13 @@ class ResearchSwarm:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchSwarmPreflight:
+class SwarmPreflight:
     project_id: ProjectId
     clear_to_trigger: bool
     blockers: tuple[str, ...]
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ResearchSwarmPreflight:
+    def from_wire(cls, value: JsonValue) -> SwarmPreflight:
         payload = object_value(value, operation_id="swarm preflight")
         raw_blockers = payload.get("blockers", [])
         if not isinstance(raw_blockers, list):
@@ -480,7 +480,7 @@ class ResearchSwarmPreflight:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchSwarmBranchRequest:
+class BranchSpec:
     checkpoint_id: str | None = None
     checkpoint_record_id: str | None = None
     checkpoint_uri: str | None = None
@@ -511,7 +511,7 @@ class ResearchSwarmBranchRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchSwarmBranchResult:
+class BranchResult:
     accepted: bool
     parent_swarm_id: SwarmId
     child_swarm_id: SwarmId
@@ -519,7 +519,7 @@ class ResearchSwarmBranchResult:
     created_at: datetime
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ResearchSwarmBranchResult:
+    def from_wire(cls, value: JsonValue) -> BranchResult:
         payload = object_value(value, operation_id="branch swarm")
         return cls(
             required_bool(payload, "accepted"),
@@ -538,6 +538,14 @@ def _optional_datetime(payload: JsonObject, name: str) -> datetime | None:
     return required_datetime(probe, name)
 
 
+ResearchSwarm = Swarm
+ResearchSwarmBranchRequest = BranchSpec
+ResearchSwarmBranchResult = BranchResult
+ResearchSwarmLaunchRequest = SwarmSpec
+ResearchSwarmPreflight = SwarmPreflight
+ResearchSwarmState = SwarmState
+
+
 __all__ = [
     "ActorHarness",
     "ActorModel",
@@ -553,6 +561,12 @@ __all__ = [
     "KickoffMessageMode",
     "LocalExecution",
     "ProviderBinding",
+    "Swarm",
+    "BranchSpec",
+    "BranchResult",
+    "SwarmSpec",
+    "SwarmPreflight",
+    "SwarmState",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",
     "ResearchSwarmBranchResult",

@@ -40,7 +40,7 @@ def _resolve_base_url(base_url: str | None) -> str:
 class SynthClient:
     """Sync client for containers, tunnels, pools, and Managed Research.
 
-    Use ``research`` for hosted runs, projects, limits, and Factory Tag.
+    Use ``research`` for hosted projects, swarms, and Factory lifecycles.
     Infrastructure namespaces: ``containers``, ``tunnels``, ``pools``.
     """
 
@@ -104,7 +104,7 @@ class SynthClient:
 
     @property
     def research(self) -> ResearchClient:
-        """Research hero namespace (projects, swarms, limits, factories)."""
+        """Research hero namespace (projects, swarms, and factories)."""
         if self._research_client is None:
             from synth_ai.research.client import ResearchClient
 

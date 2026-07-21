@@ -95,7 +95,10 @@ def _structured_body_fields(response: httpx.Response) -> dict[str, Any]:
     return {"raw_body": payload, **out}
 
 
-def _raise_for_error_response(response: httpx.Response) -> None:
+def _raise_for_error_response(
+    response: httpx.Response,
+    operation_id: str | None = None,
+) -> None:
     """Map FastAPI ``{"detail": {"error_code": ...}}`` bodies to typed SDK errors."""
     try:
         payload = response.json()
@@ -198,6 +201,7 @@ def _raise_for_transport_exception(
     method: str,
     path: str,
     error: httpx.HTTPError,
+    operation_id: str | None = None,
 ) -> None:
     if isinstance(error, httpx.TimeoutException):
         raise SmrApiError(f"{method} {path} timed out") from error
@@ -211,6 +215,7 @@ def _raise_for_decode_error(
     path: str,
     response: httpx.Response,
     error: Exception,
+    operation_id: str | None = None,
 ) -> None:
     raise SmrApiError(
         f"{method} {path} returned a non-JSON response",

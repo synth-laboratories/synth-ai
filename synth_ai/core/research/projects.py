@@ -9,10 +9,10 @@ from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import ProjectId
 from synth_ai.core.research.contracts.projects import (
-    ResearchProject,
-    ResearchProjectCreateRequest,
-    ResearchProjectPatchRequest,
-    ResearchProjectSetup,
+    Project,
+    ProjectSpec,
+    ProjectPatch,
+    ProjectSetup,
 )
 from synth_ai.core.research.operations import research_operation
 
@@ -32,46 +32,46 @@ def _request(
     )
 
 
-def _projects(value: object) -> tuple[ResearchProject, ...]:
+def _projects(value: object) -> tuple[Project, ...]:
     return tuple(
-        ResearchProject.from_wire(item)
+        Project.from_wire(item)
         for item in array_value(value, operation_id="list_projects")
     )
 
 
-class ResearchProjectSetupAPI:
+class ProjectSetupAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
-    def retrieve(self, project_id: ProjectId) -> ResearchProjectSetup:
+    def retrieve(self, project_id: ProjectId) -> ProjectSetup:
         value = self._transport.execute(
             _request(
                 "retrieve_project_setup",
                 f"/smr/projects/{project_id}/setup",
             )
         )
-        return ResearchProjectSetup.from_wire(value)
+        return ProjectSetup.from_wire(value)
 
-    def prepare(self, project_id: ProjectId) -> ResearchProjectSetup:
+    def prepare(self, project_id: ProjectId) -> ProjectSetup:
         value = self._transport.execute(
             _request(
                 "prepare_project_setup",
                 f"/smr/projects/{project_id}/setup/prepare",
             )
         )
-        return ResearchProjectSetup.from_wire(value)
+        return ProjectSetup.from_wire(value)
 
 
-class ResearchProjectsAPI:
+class ProjectsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
-        self.setup = ResearchProjectSetupAPI(transport)
+        self.setup = ProjectSetupAPI(transport)
 
-    def create(self, request: ResearchProjectCreateRequest) -> ResearchProject:
+    def create(self, request: ProjectSpec) -> Project:
         value = self._transport.execute(
             _request("create_project", "/smr/projects:runnable", body=request.to_wire())
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
     def list(
         self,
@@ -79,24 +79,24 @@ class ResearchProjectsAPI:
         include_archived: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[ResearchProject, ...]:
+    ) -> tuple[Project, ...]:
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
         value = self._transport.execute(_request("list_projects", "/smr/projects", query=query))
         return _projects(value)
 
-    def retrieve(self, project_id: ProjectId) -> ResearchProject:
+    def retrieve(self, project_id: ProjectId) -> Project:
         value = self._transport.execute(
             _request("retrieve_project", f"/smr/projects/{project_id}")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
     def update(
         self,
         project_id: ProjectId,
-        request: ResearchProjectPatchRequest,
-    ) -> ResearchProject:
+        request: ProjectPatch,
+    ) -> Project:
         value = self._transport.execute(
             _request(
                 "update_project",
@@ -104,48 +104,48 @@ class ResearchProjectsAPI:
                 body=request.to_wire(),
             )
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
-    def archive(self, project_id: ProjectId) -> ResearchProject:
+    def archive(self, project_id: ProjectId) -> Project:
         value = self._transport.execute(
             _request("archive_project", f"/smr/projects/{project_id}/archive")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
-    def unarchive(self, project_id: ProjectId) -> ResearchProject:
+    def unarchive(self, project_id: ProjectId) -> Project:
         value = self._transport.execute(
             _request("unarchive_project", f"/smr/projects/{project_id}/unarchive")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
 
-class AsyncResearchProjectSetupAPI:
+class AsyncProjectSetupAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
-    async def retrieve(self, project_id: ProjectId) -> ResearchProjectSetup:
+    async def retrieve(self, project_id: ProjectId) -> ProjectSetup:
         value = await self._transport.execute(
             _request("retrieve_project_setup", f"/smr/projects/{project_id}/setup")
         )
-        return ResearchProjectSetup.from_wire(value)
+        return ProjectSetup.from_wire(value)
 
-    async def prepare(self, project_id: ProjectId) -> ResearchProjectSetup:
+    async def prepare(self, project_id: ProjectId) -> ProjectSetup:
         value = await self._transport.execute(
             _request("prepare_project_setup", f"/smr/projects/{project_id}/setup/prepare")
         )
-        return ResearchProjectSetup.from_wire(value)
+        return ProjectSetup.from_wire(value)
 
 
-class AsyncResearchProjectsAPI:
+class AsyncProjectsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
-        self.setup = AsyncResearchProjectSetupAPI(transport)
+        self.setup = AsyncProjectSetupAPI(transport)
 
-    async def create(self, request: ResearchProjectCreateRequest) -> ResearchProject:
+    async def create(self, request: ProjectSpec) -> Project:
         value = await self._transport.execute(
             _request("create_project", "/smr/projects:runnable", body=request.to_wire())
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
     async def list(
         self,
@@ -153,7 +153,7 @@ class AsyncResearchProjectsAPI:
         include_archived: bool = False,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[ResearchProject, ...]:
+    ) -> tuple[Project, ...]:
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -162,36 +162,46 @@ class AsyncResearchProjectsAPI:
         )
         return _projects(value)
 
-    async def retrieve(self, project_id: ProjectId) -> ResearchProject:
+    async def retrieve(self, project_id: ProjectId) -> Project:
         value = await self._transport.execute(
             _request("retrieve_project", f"/smr/projects/{project_id}")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
     async def update(
         self,
         project_id: ProjectId,
-        request: ResearchProjectPatchRequest,
-    ) -> ResearchProject:
+        request: ProjectPatch,
+    ) -> Project:
         value = await self._transport.execute(
             _request("update_project", f"/smr/projects/{project_id}", body=request.to_wire())
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
-    async def archive(self, project_id: ProjectId) -> ResearchProject:
+    async def archive(self, project_id: ProjectId) -> Project:
         value = await self._transport.execute(
             _request("archive_project", f"/smr/projects/{project_id}/archive")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
 
-    async def unarchive(self, project_id: ProjectId) -> ResearchProject:
+    async def unarchive(self, project_id: ProjectId) -> Project:
         value = await self._transport.execute(
             _request("unarchive_project", f"/smr/projects/{project_id}/unarchive")
         )
-        return ResearchProject.from_wire(value)
+        return Project.from_wire(value)
+
+
+ResearchProjectSetupAPI = ProjectSetupAPI
+ResearchProjectsAPI = ProjectsAPI
+AsyncResearchProjectSetupAPI = AsyncProjectSetupAPI
+AsyncResearchProjectsAPI = AsyncProjectsAPI
 
 
 __all__ = [
+    "AsyncProjectSetupAPI",
+    "AsyncProjectsAPI",
+    "ProjectSetupAPI",
+    "ProjectsAPI",
     "AsyncResearchProjectSetupAPI",
     "AsyncResearchProjectsAPI",
     "ResearchProjectSetupAPI",

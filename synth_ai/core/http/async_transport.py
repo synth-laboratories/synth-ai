@@ -60,6 +60,7 @@ class AsyncHttpTransport:
         headers: Mapping[str, str] | None = None,
         allow_not_found: bool = False,
         timeout_seconds: float | None = None,
+        operation_id: str | None = None,
     ) -> JsonValue:
         try:
             response = await self.client.request(
@@ -71,19 +72,19 @@ class AsyncHttpTransport:
                 timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
             )
         except httpx.TimeoutException as exc:
-            self.exception_handler(method, path, exc)
+            self.exception_handler(method, path, exc, operation_id)
         except httpx.TransportError as exc:
-            self.exception_handler(method, path, exc)
+            self.exception_handler(method, path, exc, operation_id)
         if allow_not_found and response.status_code == 404:
             return None
         if response.is_error:
-            self.error_handler(response)
+            self.error_handler(response, operation_id)
         if not response.content:
             return {}
         try:
             return _decode_json_value(response.json(), context=f"{method} {path} response")
         except (json.JSONDecodeError, ValueError) as exc:
-            self.decode_error_handler(method, path, response, exc)
+            self.decode_error_handler(method, path, response, exc, operation_id)
 
     async def execute(self, request: HttpRequest) -> JsonValue:
         return await self.request_json(
@@ -93,6 +94,7 @@ class AsyncHttpTransport:
             json_body=request.body,
             headers=request.headers,
             timeout_seconds=request.timeout_seconds,
+            operation_id=str(request.operation.operation_id),
         )
 
     async def request_bytes(
@@ -109,11 +111,11 @@ class AsyncHttpTransport:
                 params=cast(Mapping[str, object] | None, params),
             )
         except httpx.TimeoutException as exc:
-            self.exception_handler(method, path, exc)
+            self.exception_handler(method, path, exc, None)
         except httpx.TransportError as exc:
-            self.exception_handler(method, path, exc)
+            self.exception_handler(method, path, exc, None)
         if response.is_error:
-            self.error_handler(response)
+            self.error_handler(response, None)
         return bytes(response.content)
 
     async def stream_sse(
@@ -123,6 +125,7 @@ class AsyncHttpTransport:
         params: Mapping[str, JsonValue] | None = None,
         last_event_id: str | None = None,
         timeout_seconds: float | None = None,
+        operation_id: str | None = None,
     ) -> AsyncIterator[SseEvent]:
         headers = {"Accept": "text/event-stream"}
         if last_event_id is not None:
@@ -137,13 +140,13 @@ class AsyncHttpTransport:
             ) as response:
                 if response.is_error:
                     await response.aread()
-                    self.error_handler(response)
+                    self.error_handler(response, operation_id)
                 async for event in iter_sse_events_async(response.aiter_lines()):
                     yield event
         except httpx.TimeoutException as exc:
-            self.exception_handler("GET", path, exc)
+            self.exception_handler("GET", path, exc, operation_id)
         except httpx.TransportError as exc:
-            self.exception_handler("GET", path, exc)
+            self.exception_handler("GET", path, exc, operation_id)
 
 
 __all__ = ["AsyncHttpTransport"]

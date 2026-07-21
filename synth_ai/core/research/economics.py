@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from synth_ai.core.contracts.json_value import JsonObject
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -23,7 +20,7 @@ def _request(operation_id: str, path: str) -> HttpRequest:
     return HttpRequest(research_operation(operation_id), path)
 
 
-class ResearchLimitsAPI:
+class LimitsAPI:
     """Read the authenticated organization's typed Research limits."""
 
     def __init__(self, transport: HttpTransport) -> None:
@@ -34,19 +31,7 @@ class ResearchLimitsAPI:
             self._transport.execute(_request("retrieve_research_limits", "/smr/limits"))
         )
 
-    def get_typed(self) -> ResearchOrgLimits:
-        """Compatibility verb for :meth:`retrieve`."""
-        return self.retrieve()
-
-    def get(self) -> JsonObject:
-        """Compatibility raw view; new code should use :meth:`retrieve`."""
-        return cast(
-            JsonObject,
-            self._transport.execute(_request("retrieve_research_limits", "/smr/limits")),
-        )
-
-
-class AsyncResearchLimitsAPI:
+class AsyncLimitsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
@@ -57,7 +42,7 @@ class AsyncResearchLimitsAPI:
         return ResearchOrgLimits.from_wire(value)
 
 
-class ResearchEconomicsAPI:
+class EconomicsAPI:
     """Read backend-owned billing and budget projections without client policy."""
 
     def __init__(self, transport: HttpTransport) -> None:
@@ -115,7 +100,7 @@ class ResearchEconomicsAPI:
         return self.effort_drawdown(factory_effort_id)
 
 
-class AsyncResearchEconomicsAPI:
+class AsyncEconomicsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
@@ -165,7 +150,17 @@ class AsyncResearchEconomicsAPI:
         return ResearchBillingDrawdown.from_wire(value)
 
 
+ResearchLimitsAPI = LimitsAPI
+AsyncResearchLimitsAPI = AsyncLimitsAPI
+ResearchEconomicsAPI = EconomicsAPI
+AsyncResearchEconomicsAPI = AsyncEconomicsAPI
+
+
 __all__ = [
+    "AsyncEconomicsAPI",
+    "AsyncLimitsAPI",
+    "EconomicsAPI",
+    "LimitsAPI",
     "AsyncResearchEconomicsAPI",
     "AsyncResearchLimitsAPI",
     "ResearchEconomicsAPI",

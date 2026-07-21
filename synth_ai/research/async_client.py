@@ -1,5 +1,7 @@
 """Native asynchronous public Research client."""
 
-from synth_ai.core.research.client import AsyncResearchClient
+from synth_ai.core.research.client import AsyncClient
 
-__all__ = ["AsyncResearchClient"]
+AsyncResearchClient = AsyncClient
+
+__all__ = ["AsyncClient", "AsyncResearchClient"]

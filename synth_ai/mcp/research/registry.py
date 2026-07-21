@@ -215,21 +215,35 @@ def tool_schema(properties: JSONDict, *, required: list[str]) -> JSONDict:
 
 
 def build_tool_registry(tools: list[ToolDefinition]) -> dict[str, ToolDefinition]:
+    """Build the advertised noun-first registry without duplicate legacy names.
+
+    Legacy ``smr_*`` names remain callable through :func:`resolve_tool` but are
+    intentionally absent from discovery. This preserves compatibility without
+    doubling the public tool surface.
+    """
     registry: dict[str, ToolDefinition] = {}
     for raw_tool in tools:
         tool = _normalized_tool_definition(raw_tool)
+        if tool.name.startswith("smr_"):
+            tool = _normalized_tool_definition(
+                replace(tool, name=f"research_{tool.name[4:]}")
+            )
         if tool.name in registry:
             raise ValueError(f"duplicate MCP tool definition: {tool.name}")
         registry[tool.name] = tool
-    for tool in list(registry.values()):
-        if not tool.name.startswith("smr_"):
-            continue
-        alias_name = f"research_{tool.name[4:]}"
-        if alias_name in registry:
-            continue
-        alias_tool = replace(tool, name=alias_name)
-        registry[alias_name] = _normalized_tool_definition(alias_tool)
     return registry
+
+
+def resolve_tool(
+    tools: dict[str, ToolDefinition],
+    name: str,
+) -> ToolDefinition | None:
+    tool = tools.get(name)
+    if tool is not None:
+        return tool
+    if name.startswith("smr_"):
+        return tools.get(f"research_{name[4:]}")
+    return None
 
 
 def list_tool_payload(
@@ -257,7 +271,7 @@ def call_tool(
     name: str,
     arguments: JSONDict | None = None,
 ) -> Any:
-    tool = tools.get(name)
+    tool = resolve_tool(tools, name)
     if tool is None:
         raise KeyError(name)
     if arguments is None:
@@ -277,5 +291,6 @@ __all__ = [
     "build_tool_registry",
     "call_tool",
     "list_tool_payload",
+    "resolve_tool",
     "tool_schema",
 ]

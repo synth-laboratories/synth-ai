@@ -15,6 +15,10 @@ class EffortId(str):
     """Backend-owned Factory Effort identifier."""
 
 
+class FactoryId(str):
+    """Backend-owned Research Factory identifier."""
+
+
 class OrganizationId(str):
     """Backend-owned organization identifier."""
 
@@ -45,6 +49,7 @@ def require_text(value: str, *, field_name: str) -> str:
 __all__ = [
     "EffortId",
     "EnvironmentKind",
+    "FactoryId",
     "OrganizationId",
     "PoolId",
     "ProfileId",

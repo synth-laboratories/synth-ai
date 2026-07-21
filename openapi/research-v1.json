@@ -2017,6 +2017,560 @@
         "title": "SmrDirectedEffortOutcomeInlineCreateRequest",
         "type": "object"
       },
+      "SmrEffortCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_notes": {
+            "additionalProperties": true,
+            "title": "Actor Notes",
+            "type": "object"
+          },
+          "allow_implicit_project_link": {
+            "default": true,
+            "title": "Allow Implicit Project Link",
+            "type": "boolean"
+          },
+          "authorization_policy": {
+            "additionalProperties": true,
+            "title": "Authorization Policy",
+            "type": "object"
+          },
+          "budget_policy": {
+            "additionalProperties": true,
+            "title": "Budget Policy",
+            "type": "object"
+          },
+          "decision_needed": {
+            "default": false,
+            "title": "Decision Needed",
+            "type": "boolean"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "effort_type": {
+            "default": "research",
+            "enum": [
+              "research",
+              "eval_factory",
+              "optimizer",
+              "open_research"
+            ],
+            "title": "Effort Type",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "hypothesis_or_topic": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Or Topic"
+          },
+          "latest_report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Report Id"
+          },
+          "latest_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Run Id"
+          },
+          "latest_work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Work Product Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "next_wake_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Wake At"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "publication_policy": {
+            "additionalProperties": true,
+            "title": "Publication Policy",
+            "type": "object"
+          },
+          "recurrence_policy": {
+            "additionalProperties": true,
+            "title": "Recurrence Policy",
+            "type": "object"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "active",
+              "paused",
+              "waiting",
+              "blocked",
+              "ready_for_review",
+              "archived_reference"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "project_id",
+          "name"
+        ],
+        "title": "SmrEffortCreateRequest",
+        "type": "object"
+      },
+      "SmrEffortPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_notes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Notes"
+          },
+          "authorization_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Policy"
+          },
+          "budget_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Policy"
+          },
+          "decision_needed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Needed"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "effort_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "research",
+                  "eval_factory",
+                  "optimizer",
+                  "open_research"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Type"
+          },
+          "hypothesis_or_topic": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Or Topic"
+          },
+          "latest_report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Report Id"
+          },
+          "latest_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Run Id"
+          },
+          "latest_work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Work Product Id"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "next_wake_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Wake At"
+          },
+          "publication_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Policy"
+          },
+          "recurrence_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence Policy"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "active",
+                  "paused",
+                  "waiting",
+                  "blocked",
+                  "ready_for_review",
+                  "archived_reference"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "SmrEffortPatchRequest",
+        "type": "object"
+      },
+      "SmrEffortResponse": {
+        "properties": {
+          "actor_notes": {
+            "additionalProperties": true,
+            "title": "Actor Notes",
+            "type": "object"
+          },
+          "authorization_policy": {
+            "additionalProperties": true,
+            "title": "Authorization Policy",
+            "type": "object"
+          },
+          "budget_policy": {
+            "additionalProperties": true,
+            "title": "Budget Policy",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "decision_needed": {
+            "default": false,
+            "title": "Decision Needed",
+            "type": "boolean"
+          },
+          "decision_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Note"
+          },
+          "effort_id": {
+            "title": "Effort Id",
+            "type": "string"
+          },
+          "effort_type": {
+            "enum": [
+              "research",
+              "eval_factory",
+              "optimizer",
+              "open_research"
+            ],
+            "title": "Effort Type",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "hypothesis_or_topic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hypothesis Or Topic"
+          },
+          "latest_report_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Report Id"
+          },
+          "latest_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Run Id"
+          },
+          "latest_work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Work Product Id"
+          },
+          "maintenance_runtime_state": {
+            "additionalProperties": true,
+            "title": "Maintenance Runtime State",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_wake_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Wake At"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "publication_policy": {
+            "additionalProperties": true,
+            "title": "Publication Policy",
+            "type": "object"
+          },
+          "recurrence_policy": {
+            "additionalProperties": true,
+            "title": "Recurrence Policy",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "paused",
+              "waiting",
+              "blocked",
+              "ready_for_review",
+              "archived_reference"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "effort_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "name",
+          "status",
+          "effort_type",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrEffortResponse",
+        "type": "object"
+      },
       "SmrEnvironmentRefRequest": {
         "properties": {
           "cpus": {
@@ -2217,6 +2771,376 @@
           "required_runtime_kind"
         ],
         "title": "SmrExecutionProfileRequest",
+        "type": "object"
+      },
+      "SmrFactoryCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_policy": {
+            "additionalProperties": true,
+            "title": "Authorization Policy",
+            "type": "object"
+          },
+          "budget_policy": {
+            "additionalProperties": true,
+            "title": "Budget Policy",
+            "type": "object"
+          },
+          "cap_policy": {
+            "additionalProperties": true,
+            "title": "Cap Policy",
+            "type": "object"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "homeostasis_policy": {
+            "additionalProperties": true,
+            "title": "Homeostasis Policy",
+            "type": "object"
+          },
+          "kind": {
+            "default": "customer",
+            "enum": [
+              "customer",
+              "internal",
+              "open_research"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "publication_policy": {
+            "additionalProperties": true,
+            "title": "Publication Policy",
+            "type": "object"
+          },
+          "status": {
+            "default": "active",
+            "enum": [
+              "configured",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SmrFactoryCreateRequest",
+        "type": "object"
+      },
+      "SmrFactoryPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorization Policy"
+          },
+          "budget_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Policy"
+          },
+          "cap_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Policy"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "homeostasis_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Homeostasis Policy"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "publication_policy": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Policy"
+          }
+        },
+        "title": "SmrFactoryPatchRequest",
+        "type": "object"
+      },
+      "SmrFactoryResponse": {
+        "properties": {
+          "authorization_policy": {
+            "additionalProperties": true,
+            "title": "Authorization Policy",
+            "type": "object"
+          },
+          "budget_policy": {
+            "additionalProperties": true,
+            "title": "Budget Policy",
+            "type": "object"
+          },
+          "cap_policy": {
+            "additionalProperties": true,
+            "title": "Cap Policy",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "homeostasis_policy": {
+            "additionalProperties": true,
+            "title": "Homeostasis Policy",
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "customer",
+              "internal",
+              "open_research"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "publication_policy": {
+            "additionalProperties": true,
+            "title": "Publication Policy",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "configured",
+              "active",
+              "paused",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "org_id",
+          "name",
+          "kind",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrFactoryResponse",
+        "type": "object"
+      },
+      "SmrFactoryTransitionRequest": {
+        "additionalProperties": false,
+        "description": "Body for the named lifecycle transitions (start/pause/resume/archive).\n\n``dry_run=True`` is the preview: the reducer answers whether the\ntransition is legal and what it would change, without applying it.",
+        "properties": {
+          "dry_run": {
+            "default": false,
+            "title": "Dry Run",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "SmrFactoryTransitionRequest",
+        "type": "object"
+      },
+      "SmrFactoryTransitionResponse": {
+        "properties": {
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "decision_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Detail"
+          },
+          "effects": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effects",
+            "type": "array"
+          },
+          "factory": {
+            "$ref": "#/components/schemas/SmrFactoryResponse"
+          },
+          "to_status": {
+            "enum": [
+              "configured",
+              "active",
+              "paused",
+              "archived"
+            ],
+            "title": "To Status",
+            "type": "string"
+          },
+          "woken_efforts": {
+            "default": 0,
+            "title": "Woken Efforts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "factory",
+          "command",
+          "decision",
+          "to_status"
+        ],
+        "title": "SmrFactoryTransitionResponse",
         "type": "object"
       },
       "SmrFundingSource": {
@@ -8240,6 +9164,611 @@
         "tags": [
           "smr",
           "billing"
+        ]
+      }
+    },
+    "/smr/efforts": {
+      "post": {
+        "operationId": "create_effort",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrEffortCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEffortResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Effort",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/efforts/{effort_id}": {
+      "get": {
+        "operationId": "retrieve_effort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "effort_id",
+            "required": true,
+            "schema": {
+              "title": "Effort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEffortResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Effort",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      },
+      "patch": {
+        "operationId": "update_effort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "effort_id",
+            "required": true,
+            "schema": {
+              "title": "Effort Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrEffortPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEffortResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Effort",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories": {
+      "get": {
+        "operationId": "list_factories",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrFactoryResponse"
+                  },
+                  "title": "Response List Factories Smr Factories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factories",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      },
+      "post": {
+        "operationId": "create_factory",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}": {
+      "get": {
+        "operationId": "retrieve_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      },
+      "patch": {
+        "operationId": "update_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/archive": {
+      "post": {
+        "operationId": "archive_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SmrFactoryTransitionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryTransitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/efforts": {
+      "get": {
+        "operationId": "list_factory_efforts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrEffortResponse"
+                  },
+                  "title": "Response List Efforts For Factory Smr Factories  Factory Id  Efforts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Efforts For Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/pause": {
+      "post": {
+        "operationId": "pause_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SmrFactoryTransitionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryTransitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pause Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/resume": {
+      "post": {
+        "operationId": "resume_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SmrFactoryTransitionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryTransitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/start": {
+      "post": {
+        "operationId": "start_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SmrFactoryTransitionRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryTransitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Factory",
+        "tags": [
+          "smr",
+          "factories"
         ]
       }
     },

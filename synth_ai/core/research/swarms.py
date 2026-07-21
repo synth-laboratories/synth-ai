@@ -13,13 +13,13 @@ from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import ProjectId, SwarmId
 from synth_ai.core.research.contracts.swarms import (
-    ResearchSwarm,
-    ResearchSwarmBranchRequest,
-    ResearchSwarmBranchResult,
-    ResearchSwarmLaunchRequest,
-    ResearchSwarmPreflight,
+    Swarm,
+    BranchSpec,
+    BranchResult,
+    SwarmSpec,
+    SwarmPreflight,
 )
-from synth_ai.core.research.events import ResearchSwarmEvent
+from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
 
 
@@ -38,9 +38,9 @@ def _request(
     )
 
 
-def _swarms(value: JsonValue, *, operation_id: str) -> tuple[ResearchSwarm, ...]:
+def _swarms(value: JsonValue, *, operation_id: str) -> tuple[Swarm, ...]:
     return tuple(
-        ResearchSwarm.from_wire(item)
+        Swarm.from_wire(item)
         for item in array_value(value, operation_id=operation_id)
     )
 
@@ -52,14 +52,14 @@ def _wait_arguments(timeout_seconds: float, poll_interval_seconds: float) -> Non
         raise ValueError("poll_interval_seconds must be positive")
 
 
-class ResearchSwarmHandle:
-    def __init__(self, api: ResearchSwarmsAPI, swarm: ResearchSwarm) -> None:
+class SwarmHandle:
+    def __init__(self, api: SwarmsAPI, swarm: Swarm) -> None:
         self._api = api
         self.swarm_id = swarm.swarm_id
         self.project_id = swarm.project_id
         self.initial = swarm
 
-    def retrieve(self) -> ResearchSwarm:
+    def retrieve(self) -> Swarm:
         return self._api.retrieve(self.swarm_id)
 
     def wait(
@@ -67,40 +67,40 @@ class ResearchSwarmHandle:
         *,
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
-    ) -> ResearchSwarm:
+    ) -> Swarm:
         return self._api.wait(
             self.swarm_id,
             timeout_seconds=timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
         )
 
-    def pause(self) -> ResearchSwarm:
+    def pause(self) -> Swarm:
         return self._api.pause(self.swarm_id)
 
-    def resume(self) -> ResearchSwarm:
+    def resume(self) -> Swarm:
         return self._api.resume(self.swarm_id)
 
-    def cancel(self) -> ResearchSwarm:
+    def cancel(self) -> Swarm:
         return self._api.cancel(self.swarm_id)
 
     def events(
         self,
         *,
         last_event_id: str | None = None,
-    ) -> Iterator[ResearchSwarmEvent]:
+    ) -> Iterator[SwarmEvent]:
         yield from self._api.events(self.swarm_id, last_event_id=last_event_id)
 
 
-class ResearchSwarmsAPI:
+class SwarmsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
     def preflight(
         self,
-        request: ResearchSwarmLaunchRequest,
+        request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
-    ) -> ResearchSwarmPreflight:
+    ) -> SwarmPreflight:
         if project_id is None:
             operation_id = "preflight_one_off_run"
             path = "/smr/runs:one-off/launch-preflight"
@@ -110,14 +110,14 @@ class ResearchSwarmsAPI:
         value = self._transport.execute(
             _request(operation_id, path, body=request.to_wire())
         )
-        return ResearchSwarmPreflight.from_wire(value)
+        return SwarmPreflight.from_wire(value)
 
     def create(
         self,
-        request: ResearchSwarmLaunchRequest,
+        request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
-    ) -> ResearchSwarmHandle:
+    ) -> SwarmHandle:
         if project_id is None:
             operation_id = "trigger_one_off_run"
             path = "/smr/runs:one-off"
@@ -127,7 +127,7 @@ class ResearchSwarmsAPI:
         value = self._transport.execute(
             _request(operation_id, path, body=request.to_wire())
         )
-        return ResearchSwarmHandle(self, ResearchSwarm.from_wire(value))
+        return SwarmHandle(self, Swarm.from_wire(value))
 
     def list(
         self,
@@ -135,7 +135,7 @@ class ResearchSwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[ResearchSwarm, ...]:
+    ) -> tuple[Swarm, ...]:
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -148,11 +148,11 @@ class ResearchSwarmsAPI:
         )
         return _swarms(value, operation_id="list_project_runs")
 
-    def retrieve(self, swarm_id: SwarmId) -> ResearchSwarm:
+    def retrieve(self, swarm_id: SwarmId) -> Swarm:
         value = self._transport.execute(
             _request("retrieve_run", f"/smr/runs/{swarm_id}")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
     def wait(
         self,
@@ -160,7 +160,7 @@ class ResearchSwarmsAPI:
         *,
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
-    ) -> ResearchSwarm:
+    ) -> Swarm:
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
@@ -171,27 +171,27 @@ class ResearchSwarmsAPI:
                 raise TimeoutError(f"swarm {swarm_id} did not reach a terminal state")
             time.sleep(poll_interval_seconds)
 
-    def pause(self, swarm_id: SwarmId) -> ResearchSwarm:
+    def pause(self, swarm_id: SwarmId) -> Swarm:
         value = self._transport.execute(
             _request("pause_run", f"/smr/runs/{swarm_id}/pause")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
-    def resume(self, swarm_id: SwarmId) -> ResearchSwarm:
+    def resume(self, swarm_id: SwarmId) -> Swarm:
         value = self._transport.execute(
             _request("resume_run", f"/smr/runs/{swarm_id}/resume")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
-    def cancel(self, swarm_id: SwarmId) -> ResearchSwarm:
+    def cancel(self, swarm_id: SwarmId) -> Swarm:
         self._transport.execute(_request("stop_run", f"/smr/runs/{swarm_id}/stop"))
         return self.retrieve(swarm_id)
 
     def branch(
         self,
         swarm_id: SwarmId,
-        request: ResearchSwarmBranchRequest,
-    ) -> ResearchSwarmBranchResult:
+        request: BranchSpec,
+    ) -> BranchResult:
         value = self._transport.execute(
             _request(
                 "branch_run",
@@ -199,30 +199,31 @@ class ResearchSwarmsAPI:
                 body=request.to_wire(),
             )
         )
-        return ResearchSwarmBranchResult.from_wire(value)
+        return BranchResult.from_wire(value)
 
     def events(
         self,
         swarm_id: SwarmId,
         *,
         last_event_id: str | None = None,
-    ) -> Iterator[ResearchSwarmEvent]:
+    ) -> Iterator[SwarmEvent]:
         for event in self._transport.stream_sse(
             f"/smr/runs/{swarm_id}/runtime/stream",
             last_event_id=last_event_id,
             timeout_seconds=None,
+            operation_id="stream_run_events",
         ):
-            yield ResearchSwarmEvent.from_sse(event)
+            yield decode_swarm_event(event)
 
 
-class AsyncResearchSwarmHandle:
-    def __init__(self, api: AsyncResearchSwarmsAPI, swarm: ResearchSwarm) -> None:
+class AsyncSwarmHandle:
+    def __init__(self, api: AsyncSwarmsAPI, swarm: Swarm) -> None:
         self._api = api
         self.swarm_id = swarm.swarm_id
         self.project_id = swarm.project_id
         self.initial = swarm
 
-    async def retrieve(self) -> ResearchSwarm:
+    async def retrieve(self) -> Swarm:
         return await self._api.retrieve(self.swarm_id)
 
     async def wait(
@@ -230,27 +231,27 @@ class AsyncResearchSwarmHandle:
         *,
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
-    ) -> ResearchSwarm:
+    ) -> Swarm:
         return await self._api.wait(
             self.swarm_id,
             timeout_seconds=timeout_seconds,
             poll_interval_seconds=poll_interval_seconds,
         )
 
-    async def pause(self) -> ResearchSwarm:
+    async def pause(self) -> Swarm:
         return await self._api.pause(self.swarm_id)
 
-    async def resume(self) -> ResearchSwarm:
+    async def resume(self) -> Swarm:
         return await self._api.resume(self.swarm_id)
 
-    async def cancel(self) -> ResearchSwarm:
+    async def cancel(self) -> Swarm:
         return await self._api.cancel(self.swarm_id)
 
     async def events(
         self,
         *,
         last_event_id: str | None = None,
-    ) -> AsyncIterator[ResearchSwarmEvent]:
+    ) -> AsyncIterator[SwarmEvent]:
         async for event in self._api.events(
             self.swarm_id,
             last_event_id=last_event_id,
@@ -258,16 +259,16 @@ class AsyncResearchSwarmHandle:
             yield event
 
 
-class AsyncResearchSwarmsAPI:
+class AsyncSwarmsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
     async def preflight(
         self,
-        request: ResearchSwarmLaunchRequest,
+        request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
-    ) -> ResearchSwarmPreflight:
+    ) -> SwarmPreflight:
         if project_id is None:
             operation_id = "preflight_one_off_run"
             path = "/smr/runs:one-off/launch-preflight"
@@ -277,14 +278,14 @@ class AsyncResearchSwarmsAPI:
         value = await self._transport.execute(
             _request(operation_id, path, body=request.to_wire())
         )
-        return ResearchSwarmPreflight.from_wire(value)
+        return SwarmPreflight.from_wire(value)
 
     async def create(
         self,
-        request: ResearchSwarmLaunchRequest,
+        request: SwarmSpec,
         *,
         project_id: ProjectId | None = None,
-    ) -> AsyncResearchSwarmHandle:
+    ) -> AsyncSwarmHandle:
         if project_id is None:
             operation_id = "trigger_one_off_run"
             path = "/smr/runs:one-off"
@@ -294,7 +295,7 @@ class AsyncResearchSwarmsAPI:
         value = await self._transport.execute(
             _request(operation_id, path, body=request.to_wire())
         )
-        return AsyncResearchSwarmHandle(self, ResearchSwarm.from_wire(value))
+        return AsyncSwarmHandle(self, Swarm.from_wire(value))
 
     async def list(
         self,
@@ -302,7 +303,7 @@ class AsyncResearchSwarmsAPI:
         *,
         limit: int = 100,
         cursor: str | None = None,
-    ) -> tuple[ResearchSwarm, ...]:
+    ) -> tuple[Swarm, ...]:
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -311,11 +312,11 @@ class AsyncResearchSwarmsAPI:
         )
         return _swarms(value, operation_id="list_project_runs")
 
-    async def retrieve(self, swarm_id: SwarmId) -> ResearchSwarm:
+    async def retrieve(self, swarm_id: SwarmId) -> Swarm:
         value = await self._transport.execute(
             _request("retrieve_run", f"/smr/runs/{swarm_id}")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
     async def wait(
         self,
@@ -323,7 +324,7 @@ class AsyncResearchSwarmsAPI:
         *,
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
-    ) -> ResearchSwarm:
+    ) -> Swarm:
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
@@ -334,47 +335,58 @@ class AsyncResearchSwarmsAPI:
                 raise TimeoutError(f"swarm {swarm_id} did not reach a terminal state")
             await asyncio.sleep(poll_interval_seconds)
 
-    async def pause(self, swarm_id: SwarmId) -> ResearchSwarm:
+    async def pause(self, swarm_id: SwarmId) -> Swarm:
         value = await self._transport.execute(
             _request("pause_run", f"/smr/runs/{swarm_id}/pause")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
-    async def resume(self, swarm_id: SwarmId) -> ResearchSwarm:
+    async def resume(self, swarm_id: SwarmId) -> Swarm:
         value = await self._transport.execute(
             _request("resume_run", f"/smr/runs/{swarm_id}/resume")
         )
-        return ResearchSwarm.from_wire(value)
+        return Swarm.from_wire(value)
 
-    async def cancel(self, swarm_id: SwarmId) -> ResearchSwarm:
+    async def cancel(self, swarm_id: SwarmId) -> Swarm:
         await self._transport.execute(_request("stop_run", f"/smr/runs/{swarm_id}/stop"))
         return await self.retrieve(swarm_id)
 
     async def branch(
         self,
         swarm_id: SwarmId,
-        request: ResearchSwarmBranchRequest,
-    ) -> ResearchSwarmBranchResult:
+        request: BranchSpec,
+    ) -> BranchResult:
         value = await self._transport.execute(
             _request("branch_run", f"/smr/runs/{swarm_id}/branches", body=request.to_wire())
         )
-        return ResearchSwarmBranchResult.from_wire(value)
+        return BranchResult.from_wire(value)
 
     async def events(
         self,
         swarm_id: SwarmId,
         *,
         last_event_id: str | None = None,
-    ) -> AsyncIterator[ResearchSwarmEvent]:
+    ) -> AsyncIterator[SwarmEvent]:
         async for event in self._transport.stream_sse(
             f"/smr/runs/{swarm_id}/runtime/stream",
             last_event_id=last_event_id,
             timeout_seconds=None,
+            operation_id="stream_run_events",
         ):
-            yield ResearchSwarmEvent.from_sse(event)
+            yield decode_swarm_event(event)
+
+
+ResearchSwarmHandle = SwarmHandle
+ResearchSwarmsAPI = SwarmsAPI
+AsyncResearchSwarmHandle = AsyncSwarmHandle
+AsyncResearchSwarmsAPI = AsyncSwarmsAPI
 
 
 __all__ = [
+    "AsyncSwarmHandle",
+    "AsyncSwarmsAPI",
+    "SwarmHandle",
+    "SwarmsAPI",
     "AsyncResearchSwarmHandle",
     "AsyncResearchSwarmsAPI",
     "ResearchSwarmHandle",

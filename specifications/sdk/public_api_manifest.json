@@ -30,8 +30,44 @@
     {
       "module": "synth_ai.research",
       "output": "reference/sdk/research",
-      "all_modules": true,
+      "all_modules": false,
       "title": "Research API"
+    },
+    {
+      "module": "synth_ai.research.client",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Research Client"
+    },
+    {
+      "module": "synth_ai.research.async_client",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Async Research Client"
+    },
+    {
+      "module": "synth_ai.research.projects",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Projects"
+    },
+    {
+      "module": "synth_ai.research.swarms",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Swarms"
+    },
+    {
+      "module": "synth_ai.research.factories",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Factories and Efforts"
+    },
+    {
+      "module": "synth_ai.research.errors",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Failures"
     }
   ],
   "exclude_patterns": [
@@ -47,58 +83,34 @@
       "group": "Research core",
       "pages": [
         "reference/sdk/research/synth_ai-research-client",
-        "reference/sdk/research/synth_ai-research-factories",
-        "reference/sdk/research/synth_ai-research-limits",
-        "reference/sdk/research/synth_ai-research-secrets"
+        "reference/sdk/research/synth_ai-research-async_client"
       ]
     },
     {
-      "group": "Projects",
+      "group": "Resources",
       "pages": [
         "reference/sdk/research/synth_ai-research-projects",
-        "reference/sdk/research/synth_ai-research-project_namespaces"
-      ]
-    },
-    {
-      "group": "Runs",
-      "pages": [
-        "reference/sdk/research/synth_ai-research-runs",
-        "reference/sdk/research/synth_ai-research-run_readouts",
-        "reference/sdk/research/synth_ai-research-hosted-artifacts"
+        "reference/sdk/research/synth_ai-research-swarms",
+        "reference/sdk/research/synth_ai-research-factories"
       ]
     },
     {
       "group": "Types and errors",
       "pages": [
-        "reference/sdk/research/synth_ai-research-models",
-        "reference/sdk/research/synth_ai-research-enums",
         "reference/sdk/research/synth_ai-research-errors"
-      ]
-    },
-    {
-      "group": "Advanced",
-      "pages": [
-        "reference/sdk/research/synth_ai-research-async_client"
       ]
     }
   ],
   "docstring_coverage_required": [
-    "synth_ai/research/run_readouts.py",
-    "synth_ai/research/project_namespaces.py",
     "synth_ai/research/factories.py",
     "synth_ai/research/client.py",
-    "synth_ai/research/limits.py",
-    "synth_ai/research/secrets.py",
     "synth_ai/research/projects.py",
-    "synth_ai/research/runs.py",
-    "synth_ai/research/hosted_artifacts.py",
+    "synth_ai/research/swarms.py",
     "synth_ai/client.py",
     "synth_ai/sdk/containers.py",
     "synth_ai/sdk/tunnels.py",
     "synth_ai/sdk/pools.py",
-    "synth_ai/research/models.py",
     "synth_ai/research/errors.py",
-    "synth_ai/research/enums.py",
     "synth_ai/research/async_client.py"
   ]
 }

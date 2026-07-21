@@ -21,6 +21,7 @@ from synth_ai.mcp.research.registry import (
     build_tool_registry,
     call_tool,
     list_tool_payload,
+    resolve_tool,
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import (
@@ -74,7 +75,47 @@ from synth_ai.core.research._legacy.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
-SERVER_NAME = "managed-research"
+SERVER_NAME = "synth-research"
+
+_STABLE_TOOL_NAMES = frozenset(
+    {
+        "research_archive_factory",
+        "research_archive_project",
+        "research_branch_run_from_checkpoint",
+        "research_create_effort",
+        "research_create_factory",
+        "research_create_runnable_project",
+        "research_get_billing_entitlements",
+        "research_get_effort",
+        "research_get_factory",
+        "research_get_launch_preflight",
+        "research_get_limits",
+        "research_get_project",
+        "research_get_project_economics",
+        "research_get_project_setup",
+        "research_get_run",
+        "research_get_run_transcript",
+        "research_list_active_runs",
+        "research_list_factories",
+        "research_list_factory_efforts",
+        "research_list_projects",
+        "research_list_runs",
+        "research_patch_effort",
+        "research_patch_factory",
+        "research_patch_project",
+        "research_pause_factory",
+        "research_pause_run",
+        "research_prepare_project_setup",
+        "research_resume_factory",
+        "research_resume_run",
+        "research_start_factory",
+        "research_start_one_off_run",
+        "research_stop_run",
+        "research_trigger_run",
+        "research_unarchive_project",
+        "research_watch_run_events",
+    }
+)
 
 
 def _mcp_structured_trigger_error_payload(exc: SmrApiError) -> dict[str, Any]:
@@ -229,26 +270,37 @@ class ResearchMcpServer:
         *,
         api_key: str | None = None,
         backend_base: str | None = None,
+        include_advanced_tools: bool = False,
     ) -> None:
         self._default_api_key = api_key
         self._default_backend_base = backend_base
+        self._include_advanced_tools = include_advanced_tools
         self._tools = build_tool_registry(self._build_tools())
 
+    def _advertised_tools(self) -> dict[str, ToolDefinition]:
+        if self._include_advanced_tools:
+            return self._tools
+        return {
+            name: tool
+            for name, tool in self._tools.items()
+            if name in _STABLE_TOOL_NAMES
+        }
+
     def available_tool_names(self) -> list[str]:
-        names = sorted(self._tools.keys())
+        names = sorted(self._advertised_tools())
         research_names = [name for name in names if name.startswith("research_")]
         smr_names = [name for name in names if name.startswith("smr_")]
         other_names = [name for name in names if not name.startswith(("research_", "smr_"))]
         return research_names + other_names + smr_names
 
     def tool_definitions(self) -> list[ToolDefinition]:
-        return list(self._tools.values())
+        return list(self._advertised_tools().values())
 
     def get_tool_definition(self, name: str) -> ToolDefinition | None:
-        return self._tools.get(name)
+        return resolve_tool(self._tools, name)
 
     def list_tool_payload(self) -> list[JSONDict]:
-        return list_tool_payload(self._tools)
+        return list_tool_payload(self._advertised_tools())
 
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
         return call_tool(self._tools, name, arguments)

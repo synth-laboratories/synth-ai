@@ -3,33 +3,32 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING
 
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.factories import FactoriesAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-from synth_ai.core.research._legacy.sdk.images import ImagesAPI
-from synth_ai.core.research._legacy.sdk.tag import TagAPI
-from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
-from synth_ai.core.research.efforts import ResearchEffortsAPI
-from synth_ai.core.research.factories import ResearchFactoriesAPI
-from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
-from synth_ai.core.research.secrets import ResearchSecretsAPI
-from synth_ai.core.research.visuals import ResearchVisualsAPI
+
+if TYPE_CHECKING:
+    from synth_ai.core.research.advanced import (
+        ManagedResearchClient,
+        ResearchAdvancedAPI,
+    )
 
 
-class ResearchClient:
+class Client:
     """Research entrypoint on ``SynthClient``.
 
-    Obtain via ``SynthClient().research``. Namespaces cover projects, swarms,
-    limits, economics, secrets, and Factory Tag (``factories.tag``).
+    Obtain via ``SynthClient().research``. The three hero namespaces are
+    projects, swarms, and factories.
 
     Example:
         >>> client = SynthClient()
         >>> research = client.research
-        >>> research.limits.get()
-        >>> research.swarms.list(project_id)
+        >>> project = research.projects.create(request)
+        >>> swarm = research.swarms.create(project.project_id, request=launch)
+        >>> swarm.wait()
     """
 
     def __init__(
@@ -48,58 +47,36 @@ class ResearchClient:
             timeout_seconds=timeout_seconds,
         )
         self._session: ManagedResearchClient | None = None
-        self._factories: ResearchFactoriesAPI | None = None
-        self._efforts: ResearchEffortsAPI | None = None
-        self._secrets: ResearchSecretsAPI | None = None
-        self._hosted_artifacts: ResearchHostedArtifactsAPI | None = None
-        self._visuals: ResearchVisualsAPI | None = None
-        self._tag: TagAPI | None = None
+        self._advanced: ResearchAdvancedAPI | None = None
 
     def _open_session(self) -> ManagedResearchClient:
         if self._session is None:
-            self._session = ManagedResearchClient(
+            from synth_ai.core.research.advanced import open_advanced_session
+
+            self._session = open_advanced_session(
                 api_key=self.api_key,
-                backend_base=self.base_url,
+                base_url=self.base_url,
                 timeout_seconds=self.timeout_seconds,
             )
         return self._session
 
     @property
-    def session(self) -> ManagedResearchClient:
-        """Low-level session client (advanced integrations and eval harnesses only).
+    def advanced(self) -> ResearchAdvancedAPI:
+        """Explicitly unstable operator capabilities outside the hero workflow."""
+        if self._advanced is None:
+            from synth_ai.core.research.advanced import ResearchAdvancedAPI
 
-        Prefer hero namespaces (``projects``, ``swarms``, ``limits``) for new code.
-        """
-        return self._open_session()
-
-    @property
-    def images(self) -> ImagesAPI:
-        """Build, cache, and manage admitted customer actor-runtime images."""
-        return self._open_session().images
-
-    @property
-    def backing_client(self) -> ManagedResearchClient:
-        """Deprecated alias for :attr:`session`."""
-        warnings.warn(
-            "research.backing_client is deprecated; use research.session instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._open_session()
+            self._advanced = ResearchAdvancedAPI(
+                open_session=self._open_session,
+                limits=self._core.limits,
+                economics=self._core.economics,
+            )
+        return self._advanced
 
     @property
-    def factories(self) -> ResearchFactoriesAPI:
-        """Factory domain APIs (Tag at ``factories.tag``)."""
-        if self._factories is None:
-            self._factories = ResearchFactoriesAPI(self._open_session())
-        return self._factories
-
-    @property
-    def efforts(self) -> ResearchEffortsAPI:
-        """Persistent Efforts API (create/get/pause/resume/launch + proposals)."""
-        if self._efforts is None:
-            self._efforts = ResearchEffortsAPI(self._open_session())
-        return self._efforts
+    def factories(self) -> FactoriesAPI:
+        """Stable Factory lifecycle and typed Efforts."""
+        return self._core.factories
 
     @property
     def projects(self) -> ResearchProjectsAPI:
@@ -121,57 +98,35 @@ class ResearchClient:
         )
         return self._core.swarms
 
-    @property
-    def limits(self) -> ResearchLimitsAPI:
-        """Read org limits and allowance before launching work."""
-        return self._core.limits
-
-    @property
-    def economics(self) -> ResearchEconomicsAPI:
-        """Read authoritative org entitlements and project economics."""
-        return self._core.economics
-
-    @property
-    def secrets(self) -> ResearchSecretsAPI:
-        """Manage project secret refs for providers and repos."""
-        if self._secrets is None:
-            self._secrets = ResearchSecretsAPI(self._open_session())
-        return self._secrets
-
-    @property
-    def hosted_artifacts(self) -> ResearchHostedArtifactsAPI:
-        """Open Research hosted artifact operator API (read, promote, review)."""
-        if self._hosted_artifacts is None:
-            self._hosted_artifacts = ResearchHostedArtifactsAPI(self._open_session())
-        return self._hosted_artifacts
-
-    @property
-    def visuals(self) -> ResearchVisualsAPI:
-        """Publish and browse first-class blob-backed Synth Visuals."""
-        if self._visuals is None:
-            self._visuals = ResearchVisualsAPI(self._open_session())
-        return self._visuals
-
-    @property
-    def tag(self) -> TagAPI:
-        """Deprecated — use ``factories.tag`` instead."""
-        warnings.warn(
-            "client.research.tag is deprecated; use client.research.factories.tag instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if self._tag is None:
-            self._tag = self._open_session().tag
-        return self._tag
-
-    def get_limits(self) -> dict[str, Any]:
-        """Return the legacy raw payload; use typed ``limits.get_typed()`` instead."""
-        warnings.warn(
-            "research.get_limits() is deprecated; use research.limits.get_typed() instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self._open_session().get_limits()
+    def __getattr__(self, name: str) -> object:
+        compatibility = {
+            "session": "session",
+            "backing_client": "session",
+            "efforts": "efforts",
+            "limits": "limits",
+            "economics": "economics",
+            "secrets": "secrets",
+            "hosted_artifacts": "artifacts",
+            "visuals": "visuals",
+            "images": "images",
+            "tag": "tag",
+        }
+        target = compatibility.get(name)
+        if target is not None:
+            warnings.warn(
+                f"research.{name} is deprecated; use research.advanced.{target}.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return getattr(self.advanced, target)
+        if name == "get_limits":
+            warnings.warn(
+                "research.get_limits is deprecated; use research.advanced.limits.retrieve.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return self.advanced.limits.retrieve
+        raise AttributeError(name)
 
     def close(self) -> None:
         """Close the underlying HTTP session and cached namespace clients."""
@@ -179,12 +134,10 @@ class ResearchClient:
         if self._session is not None:
             self._session.close()
         self._session = None
-        self._factories = None
-        self._efforts = None
-        self._secrets = None
-        self._hosted_artifacts = None
-        self._visuals = None
-        self._tag = None
+        self._advanced = None
 
 
-__all__ = ["ResearchClient"]
+ResearchClient = Client
+
+
+__all__ = ["Client", "ResearchClient"]

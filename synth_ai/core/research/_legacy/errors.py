@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from synth_ai.core.errors import SynthError
 
-class SmrApiError(RuntimeError):
+
+class SmrApiError(SynthError, RuntimeError):
     """Raised when the Managed Research API returns an error response.
 
     When the backend returns a structured body (``{failure_class, remediation,

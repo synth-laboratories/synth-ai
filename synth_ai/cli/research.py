@@ -26,7 +26,7 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 @click.group()
 def research() -> None:
-    """Managed Research hero SDK smoke commands."""
+    """Typed Research projects, swarms, and factories."""
 
 
 @research.group()
@@ -38,14 +38,14 @@ def limits() -> None:
 @click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
 @click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
 def limits_get(api_key: str | None, backend_url: str | None) -> None:
-    """Fetch org limits via ``client.research.limits.get()``."""
+    """Fetch the advanced organization limits projection."""
     from synth_ai import SynthClient
 
     client = SynthClient(
         api_key=_resolve_api_key(api_key),
         base_url=_resolve_backend_url(backend_url),
     )
-    payload = client.research.limits.get()
+    payload = client.research.advanced.limits.retrieve()
     click.echo(json.dumps(payload, indent=2, sort_keys=True, default=str))
 
 
@@ -77,16 +77,16 @@ def tag_smoke(
         api_key=_resolve_api_key(api_key),
         base_url=_resolve_backend_url(backend_url),
     )
-    tag_api = client.research.factories.tag
-    session = tag_api.sessions.create(
+    tag_api = client.research.advanced.tag
+    session = tag_api.create_session(
         TagSessionCreateRequest(
             request=request,
             factory_id=factory_id,
             effort_id=effort_id,
         )
     )
-    tag_api.sessions.messages.send(session.session_id, "Smoke check-in")
-    scope = tag_api.scopes.get_default()
+    tag_api.send_message(session.session_id, "Smoke check-in")
+    scope = tag_api.get_default_scope()
     click.echo(
         json.dumps(
             {
@@ -123,3 +123,79 @@ def research_smoke(
         api_key=api_key,
         backend_url=backend_url,
     )
+
+
+@research.group()
+def swarms() -> None:
+    """Create and observe stable Research swarms."""
+
+
+@swarms.command("start")
+@click.option("--objective", required=True, help="Bounded objective for the swarm.")
+@click.option("--timebox-seconds", type=int, default=900, show_default=True)
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_start(
+    objective: str,
+    timebox_seconds: int,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Create one swarm and print its durable identity."""
+    from synth_ai import SynthClient
+    from synth_ai.research import SwarmSpec
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        handle = client.research.swarms.create(
+            SwarmSpec(
+                objective=objective,
+                timebox_seconds=timebox_seconds,
+            )
+        )
+        click.echo(
+            json.dumps(
+                {
+                    "swarm_id": handle.swarm_id,
+                    "state": handle.initial.state.value,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+
+
+@research.group()
+def factories() -> None:
+    """Inspect stable Research Factories."""
+
+
+@factories.command("list")
+@click.option("--include-archived", is_flag=True)
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def factories_list(
+    include_archived: bool,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """List Factories through the bounded operation contract."""
+    from synth_ai import SynthClient
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        payload = [
+            {
+                "factory_id": factory.factory_id,
+                "name": factory.name,
+                "state": factory.state.value,
+            }
+            for factory in client.research.factories.list(
+                include_archived=include_archived
+            )
+        ]
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))

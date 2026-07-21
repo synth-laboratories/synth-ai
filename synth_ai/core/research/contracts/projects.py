@@ -34,7 +34,7 @@ class ProjectSetupState(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchProjectCreateRequest:
+class ProjectSpec:
     name: str
     pool_id: PoolId
     runtime_kind: RuntimeKind
@@ -83,7 +83,7 @@ class ResearchProjectCreateRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchProjectPatchRequest:
+class ProjectPatch:
     name: str | None = None
     timezone: str | None = None
     archived: bool | None = None
@@ -108,7 +108,7 @@ class ResearchProjectPatchRequest:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchProject:
+class Project:
     project_id: ProjectId
     organization_id: OrganizationId
     name: str
@@ -122,7 +122,7 @@ class ResearchProject:
     latest_swarm_id: SwarmId | None = None
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ResearchProject:
+    def from_wire(cls, value: JsonValue) -> Project:
         payload = object_value(value, operation_id="project")
         active_swarm = optional_text(payload, "active_run_id")
         latest_swarm = optional_text(payload, "latest_run_id")
@@ -142,13 +142,13 @@ class ResearchProject:
 
 
 @dataclass(frozen=True, slots=True)
-class ResearchProjectSetup:
+class ProjectSetup:
     project_id: ProjectId
     state: ProjectSetupState
     blockers: tuple[str, ...]
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ResearchProjectSetup:
+    def from_wire(cls, value: JsonValue) -> ProjectSetup:
         payload = object_value(value, operation_id="project setup")
         blockers_value = payload.get("blockers", [])
         if not isinstance(blockers_value, list) or not all(
@@ -162,8 +162,18 @@ class ResearchProjectSetup:
         )
 
 
+ResearchProject = Project
+ResearchProjectCreateRequest = ProjectSpec
+ResearchProjectPatchRequest = ProjectPatch
+ResearchProjectSetup = ProjectSetup
+
+
 __all__ = [
     "ProjectSetupState",
+    "Project",
+    "ProjectSpec",
+    "ProjectPatch",
+    "ProjectSetup",
     "ResearchProject",
     "ResearchProjectCreateRequest",
     "ResearchProjectPatchRequest",

@@ -124,7 +124,10 @@ class SynthBaseClient:
         self.close()
 
 
-def _raise_infra_error(response: httpx.Response) -> NoReturn:
+def _raise_infra_error(
+    response: httpx.Response,
+    operation_id: str | None = None,
+) -> NoReturn:
     response.raise_for_status()
     raise RuntimeError("unreachable: successful response passed to error handler")
 
@@ -133,6 +136,7 @@ def _raise_infra_transport_exception(
     method: str,
     path: str,
     error: httpx.HTTPError,
+    operation_id: str | None = None,
 ) -> NoReturn:
     raise error
 

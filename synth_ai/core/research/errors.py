@@ -14,41 +14,66 @@ Catch these typed exceptions from ``SynthClient().research`` call sites.
 
 from __future__ import annotations
 
-from synth_ai.core.research._legacy.errors import (
-    SmrApiError,
-    SmrConcurrentRunLimitExceededError,
-    SmrInsufficientCreditsError,
-    SmrLimitExceededError,
-    SmrProjectMonthlyBudgetExhaustedError,
-    SmrStructuredDenialError,
+import importlib
+
+from synth_ai.core.errors import (
+    AuthorizationError,
+    ConflictError,
+    ContractMismatchError,
+    RateLimitedError,
+    ResearchOperationError,
+    ResourceExhaustedError,
+    RetryDirective,
+    SynthError,
+    SynthErrorCategory,
+    SynthErrorCode,
+    SynthFailure,
+    TransientServiceError,
 )
-
-ResearchApiError = SmrApiError
-ResearchStructuredDenialError = SmrStructuredDenialError
-ResearchLimitExceededError = SmrLimitExceededError
-ResearchConcurrentRunLimitExceededError = SmrConcurrentRunLimitExceededError
-ResearchInsufficientCreditsError = SmrInsufficientCreditsError
-ResearchProjectMonthlyBudgetExhaustedError = SmrProjectMonthlyBudgetExhaustedError
-
-# Compatibility aliases for migration from managed-research imports.
+ResearchApiError = SynthError
 SmrApiError = ResearchApiError
-SmrStructuredDenialError = ResearchStructuredDenialError
-SmrLimitExceededError = ResearchLimitExceededError
-SmrConcurrentRunLimitExceededError = ResearchConcurrentRunLimitExceededError
-SmrInsufficientCreditsError = ResearchInsufficientCreditsError
-SmrProjectMonthlyBudgetExhaustedError = ResearchProjectMonthlyBudgetExhaustedError
+
+_COMPATIBILITY_ERRORS = {
+    "ResearchConcurrentRunLimitExceededError": "SmrConcurrentRunLimitExceededError",
+    "ResearchInsufficientCreditsError": "SmrInsufficientCreditsError",
+    "ResearchLimitExceededError": "SmrLimitExceededError",
+    "ResearchProjectMonthlyBudgetExhaustedError": (
+        "SmrProjectMonthlyBudgetExhaustedError"
+    ),
+    "ResearchStructuredDenialError": "SmrStructuredDenialError",
+    "SmrConcurrentRunLimitExceededError": "SmrConcurrentRunLimitExceededError",
+    "SmrInsufficientCreditsError": "SmrInsufficientCreditsError",
+    "SmrLimitExceededError": "SmrLimitExceededError",
+    "SmrProjectMonthlyBudgetExhaustedError": (
+        "SmrProjectMonthlyBudgetExhaustedError"
+    ),
+    "SmrStructuredDenialError": "SmrStructuredDenialError",
+}
+
+
+def __getattr__(name: str) -> object:
+    legacy_name = _COMPATIBILITY_ERRORS.get(name)
+    if legacy_name is None:
+        raise AttributeError(name)
+    value = getattr(
+        importlib.import_module("synth_ai.core.research._legacy.errors"),
+        legacy_name,
+    )
+    globals()[name] = value
+    return value
 
 __all__ = [
     "ResearchApiError",
-    "ResearchConcurrentRunLimitExceededError",
-    "ResearchInsufficientCreditsError",
-    "ResearchLimitExceededError",
-    "ResearchProjectMonthlyBudgetExhaustedError",
-    "ResearchStructuredDenialError",
+    "AuthorizationError",
+    "ConflictError",
+    "ContractMismatchError",
+    "RateLimitedError",
+    "ResearchOperationError",
+    "ResourceExhaustedError",
+    "RetryDirective",
+    "SynthErrorCategory",
+    "SynthErrorCode",
+    "SynthFailure",
+    "TransientServiceError",
     "SmrApiError",
-    "SmrConcurrentRunLimitExceededError",
-    "SmrInsufficientCreditsError",
-    "SmrLimitExceededError",
-    "SmrProjectMonthlyBudgetExhaustedError",
-    "SmrStructuredDenialError",
 ]
