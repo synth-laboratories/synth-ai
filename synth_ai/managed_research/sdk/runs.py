@@ -83,6 +83,18 @@ from synth_ai.managed_research.models.work_products import ManagedResearchRunWor
 from synth_ai.managed_research.sdk._base import _ClientNamespace
 from synth_ai.managed_research.sdk.config import DEFAULT_MISC_PROJECT_ALIAS
 
+
+def _is_transient_control_plane_hydration(exc: SmrApiError) -> bool:
+    if exc.status_code != 503:
+        return False
+    detail = exc.body.get("detail")
+    payload = detail if isinstance(detail, Mapping) else exc.body
+    return (
+        str(payload.get("error_code") or payload.get("error") or "").strip()
+        == "control_plane_task_missing_kind"
+    )
+
+
 MISC_PROJECT_ID = DEFAULT_MISC_PROJECT_ALIAS
 
 
@@ -230,6 +242,15 @@ class RunHandle:
                 contract = self.contract()
             except httpx.TransportError as exc:
                 raise SmrApiError(f"Network error while polling run {self.run_id}: {exc}") from exc
+            except SmrApiError as exc:
+                if not _is_transient_control_plane_hydration(exc):
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"run {self.run_id} did not complete within {timeout}s"
+                    ) from exc
+                time.sleep(poll_interval)
+                continue
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     msg = self.explain_blocker() or (
@@ -1624,7 +1645,15 @@ class RunsAPI(_ClientNamespace):
             raise ValueError("timeout must be non-negative when provided")
         deadline = time.monotonic() + timeout if timeout is not None else None
         while True:
-            contract = self.get_run_contract(project_id, run_id)
+            try:
+                contract = self.get_run_contract(project_id, run_id)
+            except SmrApiError as exc:
+                if not _is_transient_control_plane_hydration(exc):
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(f"run {run_id} did not complete within {timeout}s") from exc
+                time.sleep(poll_interval)
+                continue
             if contract.terminal:
                 return contract
             if deadline is not None and time.monotonic() >= deadline:
