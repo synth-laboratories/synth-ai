@@ -51,13 +51,13 @@ are evidence attachments to this document.
 
 | Area | Current checkpoint | Review implication |
 |---|---|---|
-| `synth-ai` | Committed typed-core/relocation checkpoints plus an uncommitted candidate with concise projects/swarms/factories APIs, typed failures/events, native async parity, and stable-versus-advanced discovery | Review the product/API contract in the candidate; do not equate passing structure checks with release readiness |
-| `backend` | Committed Research contract/MCP cutover plus an uncommitted 12-operation Factory/Effort extension; bounded artifact now contains 44 operations | Approve the exact Factory/Effort lifecycle and confirm each operation remains backend-owned |
-| `evals` | Committed removal of deep imports plus seven uncommitted call-site cutovers to stable or explicit `advanced` APIs | Verify real workflow behavior and decide whether each advanced dependency is acceptable or must graduate |
+| `synth-ai` | Committed candidate with concise projects/swarms/factories APIs, typed failures/events, native async parity, and stable-versus-advanced discovery | Review the product/API contract in the candidate; do not equate passing structure checks with release readiness |
+| `backend` | Committed Research contract/MCP cutover and 12-operation Factory/Effort extension; bounded artifact now contains 44 operations | Approve the exact Factory/Effort lifecycle and confirm each operation remains backend-owned |
+| `evals` | Committed removal of deep imports and seven call-site cutovers to stable or explicit `advanced` APIs | Verify real workflow behavior and decide whether each advanced dependency is acceptable or must graduate |
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
 | Delivery | MCP defaults to 35 stable noun-first tools while 280 advanced tools remain explicitly discoverable; CLI places legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
-| Quality | Baseline 5.64 → relocation 6.45 → candidate 7.09; latest minimum 6, no holds | Qualitative threshold now passes, but compatibility, naming, and reach at 6/10 still identify release debt |
+| Quality | Baseline 5.64 → relocation 6.45 → candidate 7.09 → accepted candidate 7.27; latest minimum 6, no holds | Qualitative threshold passes; conceptual compression, failure contract, naming, and reach at 6/10 still identify release debt |
 
 The implementation worktrees and exact review order are recorded in
 [Current handoff state](#current-handoff-state). This document is the only
@@ -1469,6 +1469,15 @@ The canonical one-line local review is:
 ./synth-dev/quality ./synth-ai
 ```
 
+The wrapper and SDK-design configuration currently exist as untracked files in
+the `synth-dev` main worktree: `quality` and `config/quality/`. They could not be
+committed during this migration because that worktree already contains an
+unrelated unresolved merge in `local_dev/sltop-rs/src/main.rs`. The next
+`synth-dev` owner must resolve that merge without absorbing these migration
+changes, then review and commit the quality wrapper/configuration as a separate
+tooling change. The accepted v6 receipt was produced with those exact local
+files, including the strict verdict schema and validator.
+
 For repositories with a `synth_ai/research` surface, that command includes a
 `jesterky-sdk-design` lane driven by Gemini 3.5 Flash Lite. The lane creates one
 parallel audit job for each of the 11 benchmark dimensions above. Its evidence
@@ -1515,53 +1524,53 @@ Phase 10 acceptance additionally requires the release thresholds above
 | 2026-07-21 | Baseline (before migration) | 5.64 | naming 3, compression 4, concurrency 4 | `.quality/runs/sdk-design-proof-20260721T211647Z/summary.md` |
 | 2026-07-21 | Core relocation checkpoint | 6.45 | naming 4, compression 4, failure 6, observability 6, reach 6 | `.quality/runs/migration-sdk-design/manifest.json` |
 | 2026-07-21 | Stable API candidate | **7.09** | compatibility 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v2/manifest.json` |
+| 2026-07-21 | Accepted candidate after stable-import isolation | **7.27** | compression 6, failure 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v6/manifest.json` |
 
-The candidate completes all 11 dimensions, has no holds, and clears the declared
-qualitative bar: mean **7.09**, minimum **6**, maximum **8**. The direct Gemini
-3.5 Flash Lite scan streamed live, completed in approximately 12 seconds, and
-used approximately 90k tokens (84k input / 5.5k output). It is evidence for the
-API review, not a substitute for deterministic or vertical integration proof.
-The manifest predates the final lazy-loading tweak in `research/client.py` and
-this documentation refresh; rerun it after the reviewer resolves stable import
-isolation so the accepted source tree has its own receipt.
+The accepted candidate completes all 11 dimensions, has no holds, and clears
+the declared qualitative bar: mean **7.27**, minimum **6**, maximum **8**. The
+direct Gemini 3.5 Flash Lite scan streamed live, completed in approximately 18
+seconds, and used approximately 90k tokens (85k input / 5.5k output). The
+strict manifest validator passed. This receipt includes the stable-import
+isolation fix and is evidence for API review, not a substitute for deterministic
+or vertical integration proof.
 
 Its complete scorecard is:
 
 | Dimension | Score | Severity | Principal remaining gap |
 |---|---:|---|---|
-| Compatibility | 6 | medium | Remove the relocated `_legacy` implementation on schedule and enforce the public manifest/deprecation contract |
-| Conceptual compression | 7 | low | Remove residual low-level economics/preflight choreography from stable recipes and discovery |
-| Concurrency contract | 8 | low | Document and preserve deadline, cancellation, resume, and cursor behavior for every wait/stream helper |
-| Documentation | 7 | low | Add one troubleshooting path for auth, timeout, preflight, and quota failures and ensure generated reference parity |
-| Failure contract | 8 | low | Use the stable typed error hierarchy consistently in all public examples and adapters |
-| Lifecycle guarantees | 8 | low | Specify immutable resolved-configuration/version identity for swarm and Factory rehydration |
-| Naming | 6 | medium | Keep `SMR`, `run`, `Research*`, and `*API` noise out of stable discovery; retain only time-bounded aliases |
-| Observability | 7 | medium | Migrate rich readouts from legacy projections into one correlation-aware event/artifact/usage protocol |
-| Parameter design | 7 | medium | Split creation intent from patch policy where `ResourceLimit`, `BudgetPolicy`, and `CapacityPolicy` remain optional soups |
-| Reach | 6 | medium | Remove Python-legacy model dependence from CLI/MCP and make the bounded contract sufficient for non-Python clients |
-| Type contract | 8 | low | Eliminate remaining loose fallback parsing at typed preflight and compatibility seams |
+| Compatibility | 8 | low | Automate enforcement of the public compatibility manifest and versioned deprecation contract |
+| Conceptual compression | 6 | medium | Hide residual economics, runs, and complex project-spec choreography behind the project/swarm lifecycle |
+| Concurrency contract | 8 | low | Unify deadline propagation and backpressure across async transport, waits, and streams |
+| Documentation | 8 | low | Add explicit Python-version constraints and expected output blocks to core recipes |
+| Failure contract | 6 | medium | Publish per-operation typed failures and guarantee causal exception chaining across all public methods |
+| Lifecycle guarantees | 8 | low | Specify archive/delete idempotency scope on Factory handles |
+| Naming | 6 | medium | Keep `Smr*`, `ManagedResearch*`, and verbose `*API` names confined to time-bounded compatibility modules |
+| Observability | 7 | medium | Consolidate legacy usage/readout projections into the correlation-aware event protocol |
+| Parameter design | 7 | medium | Reduce optional-state combinations and separate configuration boundaries in public contracts |
+| Reach | 6 | medium | Make OpenAPI the sufficient cross-language contract for Python, CLI, and MCP and remove Python-only positioning |
+| Type contract | 8 | low | Remove the remaining raw-dictionary fallback in preflight blocker decoding |
 
 The score moved in the intended direction at every measurement:
 
-| Dimension | Baseline | Relocation | Candidate | Net |
-|---|---:|---:|---:|---:|
-| Compatibility | 6 | 8 | 6 | 0 |
-| Conceptual compression | 4 | 4 | 7 | +3 |
-| Concurrency contract | 4 | 8 | 8 | +4 |
-| Documentation | 6 | 8 | 7 | +1 |
-| Failure contract | 6 | 6 | 8 | +2 |
-| Lifecycle guarantees | 8 | 7 | 8 | 0 |
-| Naming | 3 | 4 | 6 | +3 |
-| Observability | 7 | 6 | 7 | 0 |
-| Parameter design | 6 | 7 | 7 | +1 |
-| Reach | 6 | 6 | 6 | 0 |
-| Type contract | 6 | 7 | 8 | +2 |
+| Dimension | Baseline | Relocation | First candidate | Accepted | Net |
+|---|---:|---:|---:|---:|---:|
+| Compatibility | 6 | 8 | 6 | 8 | +2 |
+| Conceptual compression | 4 | 4 | 7 | 6 | +2 |
+| Concurrency contract | 4 | 8 | 8 | 8 | +4 |
+| Documentation | 6 | 8 | 7 | 8 | +2 |
+| Failure contract | 6 | 6 | 8 | 6 | 0 |
+| Lifecycle guarantees | 8 | 7 | 8 | 8 | 0 |
+| Naming | 3 | 4 | 6 | 6 | +3 |
+| Observability | 7 | 6 | 7 | 7 | 0 |
+| Parameter design | 6 | 7 | 7 | 7 | +1 |
+| Reach | 6 | 6 | 6 | 6 | 0 |
+| Type contract | 6 | 7 | 8 | 8 | +2 |
 
-Compatibility dropped from the relocation checkpoint's optimistic 8 to 6
-because the stronger candidate evidence exposed the still-live `_legacy`
-substrate and stable-import coupling. That is a useful correction, not a reason
-to hide the candidate result: the aggregate rose by 0.64 and no dimension fell
-below the release minimum.
+The accepted rerun restored compatibility to 8 after stable imports stopped
+loading `_legacy`. Conceptual compression and failure-contract scores moved to
+6 under the stronger accepted evidence, so those remain explicit review work.
+The aggregate is 1.63 points above baseline and no dimension falls below the
+release minimum.
 
 #### Required proof per vertical set
 
@@ -1694,16 +1703,15 @@ design conclusion solely because the exact count moved.
 Phases 0–3 and the structural portions of Phases 7–9 now have an implementation
 candidate. The next engineer should review and amend rather than repeat them:
 
-1. Review the committed checkpoints and all three uncommitted diffs before
+1. Review the committed checkpoints in all three dedicated worktrees before
    making further edits. Preserve unrelated main-worktree changes.
 2. Approve or amend the candidate public tree: `projects`, `swarms`, and
    `factories` are stable; `advanced` contains operator breadth; `runs`,
    `Research*`, `Smr*`, and `smr_*` are compatibility only.
-3. Resolve the highest-priority boundary defect before accepting that split:
-   importing the stable Research client still imports `_legacy` because
-   `core/research/client.py` and `contracts/__init__.py` eagerly import the
-   legacy-backed economics contracts. Stable imports must load no advanced or
-   legacy implementation; deliberately accessing `.advanced` may load it.
+3. Preserve the now-green stable/advanced import boundary. A clean stable
+   Research import loads zero `_legacy` modules; deliberately accessing
+   `.advanced` loads the compatibility implementation. Reject any change that
+   makes stable discovery eager again.
 4. Review the 12-operation Factory/Effort addition as one bounded backend
    vertical. Confirm create/list/retrieve/update, lifecycle transitions, and
    Effort CRUD are the intended stable set and that no backend policy moved
@@ -1717,7 +1725,7 @@ candidate. The next engineer should review and amend rather than repeat them:
    owner or evidence that a typed stable capability is still missing.
 7. Re-run the deterministic boundary/contract checks after review edits and
    use the same bounded Gemini scan evidence. Do not lower the 7.0/5.0/no-hold
-   thresholds; investigate any regression from the 7.09 candidate.
+   thresholds; investigate any regression from the accepted 7.27 candidate.
 8. Request the required user-triggered `/ultrareview` before integrating this
    high-blast-radius change into `dev`.
 
@@ -1758,11 +1766,14 @@ eval consumer, documentation, and failure behavior.
   `/Users/joshpurtell/Documents/GitHub/evals-worktrees/sdk-core-research-migration`
   on `sdk-core-research-migration-20260721`.
 - Committed Synth checkpoints: `9e992da0` (typed Research core), `1a050cef`
-  (implementation consolidation and compatibility shell), and `462b83dc`
-  (first consolidated plan/handoff).
+  (implementation consolidation and compatibility shell), `462b83dc` and
+  `b2284f1b` (consolidated plan/handoff), and `adc56a5b` (stable Research SDK
+  candidate with import isolation and accepted qualitative evidence).
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
-  and `f734def19` (Research MCP delivery adapter).
-- Committed eval checkpoint: `7708aafa` (active consumer cutover to public SDK).
+  and `f734def19` (Research MCP delivery adapter), plus `6b5944bb9` (the
+  12-operation Factory/Effort contract extension).
+- Committed eval checkpoints: `7708aafa` (active consumer cutover to public
+  SDK) and `c3164c5f` (seven stable/advanced boundary cleanups).
 - The current capability ledger classifies **2,084** rows with zero unclassified
   rows. It reports zero active backend/eval deep imports, **44** stable
   operations, 150 generated compatibility-shim files / 754 lines, and 117
@@ -1775,15 +1786,15 @@ eval consumer, documentation, and failure behavior.
   largest remaining file is `_legacy/sdk/client.py` at 6,124 lines, followed by
   the Research MCP server at 3,438 lines. These are magnitude indicators, not
   permission to split files without a concern boundary.
-- `synth-ai` has an uncommitted candidate implementing concise stable contracts
-  and clients, the Factory/Effort vertical, native sync/async parity, typed
+- `synth-ai` commit `adc56a5b` implements concise stable contracts and clients,
+  the Factory/Effort vertical, native sync/async parity, typed
   failures and correlated events, a thin advanced bridge, revised docs and CLI,
   35-tool stable MCP discovery, the 44-operation artifact, and the refreshed
   ledger. These changes are review material, not an approved final API.
-- `backend` has one uncommitted change adding the 12 Factory/Effort operation
-  IDs that produced the 44-operation bounded artifact.
-- `evals` has seven uncommitted consumer cleanups using either the stable
-  facade or explicit `research.advanced` access.
+- `backend` commit `6b5944bb9` adds the 12 Factory/Effort operation IDs that
+  produced the 44-operation bounded artifact.
+- `evals` commit `c3164c5f` contains seven consumer cleanups using either the
+  stable facade or explicit `research.advanced` access.
 - Main worktrees may contain unrelated user changes and must not be reset,
   stashed, or folded into this migration.
 - Baseline SDK-design verdict: **FAIL, 5.64/10**, 11/11 dimensions, two holds,
@@ -1791,24 +1802,32 @@ eval consumer, documentation, and failure behavior.
 - Relocation checkpoint verdict: **FAIL, 6.45/10**, 11/11 dimensions, no holds,
   13 seconds, approximately 89k tokens. Naming and conceptual compression were
   both **4/10**.
-- Stable API candidate verdict: **PASS, 7.09/10**, 11/11 dimensions, minimum
-  6, maximum 8, no holds, approximately 12 seconds and 90k tokens. The complete
-  scorecard and findings are in Part VI.
+- Accepted stable API candidate verdict: **PASS, 7.27/10**, 11/11 dimensions,
+  minimum 6, maximum 8, no holds, 18 seconds and approximately 90k tokens. The
+  complete scorecard and findings are in Part VI.
 - Repeatable command: `./synth-dev/quality ./synth-ai` from the workspace root.
+- Repeatable-scan tooling is not yet committed: `synth-dev/quality` and
+  `synth-dev/config/quality/` remain untracked because the `synth-dev` main
+  worktree has a pre-existing unresolved merge in
+  `local_dev/sltop-rs/src/main.rs`. The `synth-dev` owner must resolve that
+  independently and commit the reviewed tooling; do not stage the unrelated
+  slot-UI conflict with it.
 - Baseline proof:
   `synth-ai/.quality/runs/sdk-design-proof-20260721T211647Z/summary.md`.
 - Checkpoint Jesterky manifest:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design/manifest.json`.
 - Candidate Jesterky manifest:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v2/manifest.json`.
+- Accepted Jesterky manifest after stable-import isolation:
+  `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v6/manifest.json`.
 - Deterministic candidate checks already passed: generated compatibility-shim
   conformance, architecture boundary, cross-repository migration boundary,
   44-operation OpenAPI byte/operation parity, targeted source compilation,
   public symbol/identity smoke, typed failure smoke, unknown-event protocol
   smoke, and diff integrity. They must be rerun after review-driven changes.
-- One additional clean-process boundary smoke failed: stable Research import
-  eagerly loads `_legacy`. This is recorded in Jstack and must be green before
-  the stable/advanced split is accepted.
+- Clean-process import isolation now passes: all stable manifest modules load
+  zero `_legacy` modules, while deliberately accessing `.advanced` loads the
+  compatibility implementation. Compatibility-only error aliases remain lazy.
 - Ruff, `ty`, and tests were not run in this handoff pass. Workspace policy
   prohibits Ruff/`ty` unless the user asks for those validations, and prohibits
   tests during normal development unless requested. This is an explicit
@@ -1836,9 +1855,9 @@ design bar passes; the migration and release bar do not yet pass.
 | Active deep-import boundary | PASS | Zero active backend/eval deep imports in the generated migration ledger |
 | Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
 | Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
-| Stable import isolation | **FAIL** | Importing stable Research still loads `_legacy` through eager economics imports; make stable import load zero legacy/advanced modules |
-| Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.09 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds |
-| Compatibility / naming / reach quality | WARN | Each is 6/10; enforce alias removal and detach CLI/MCP from Python-legacy contracts |
+| Stable import isolation | PASS | Clean stable manifest import loads zero `_legacy` modules; explicit `.advanced` access loads the compatibility implementation |
+| Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.27 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds; strict manifest validation passed |
+| Compression / failure / naming / reach quality | WARN | Each is 6/10; simplify nouns, publish complete failure guarantees, enforce alias removal, and make OpenAPI sufficient for CLI/MCP |
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
 | Factory/Effort vertical | REVIEW | 12-operation candidate is typed and bounded; owner must approve lifecycle semantics and prove representative backend behavior |
 | Eval consumer cutover | REVIEW | Seven candidate call sites compile; classify every `research.advanced` dependency and run representative workflows when authorized |
