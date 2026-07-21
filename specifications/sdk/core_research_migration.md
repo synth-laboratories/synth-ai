@@ -153,10 +153,10 @@ It also applies the July 8 product decisions and the July 20 public-noun cutover
   OpenAPI may keep run vocabulary; the public SDK, CLI, MCP, and docs must use
   `swarm` / `swarm_id`. `research.runs` and `run_id=` remain temporary
   compatibility aliases only.
-- `Effort` remains reserved to its existing cloud-side meaning (it is the
-  canonical cloud noun; `Stack` is deprecated as of 2026-07-20). The hosted
-  Factory unit keeps its internal name until it receives an approved product
-  name. Do not create a new public synonym during this refactor.
+- `Effort` is the approved public noun for the hosted Factory unit of work
+  (it is also the canonical cloud noun; `Stack` is deprecated as of
+  2026-07-20). Factories produce and manage Efforts. Do not create a new
+  public synonym during this refactor.
 - Prefer `evidence`, `evidence packet`, `artifact`, and `usage record` according
   to meaning. Do not introduce new public `receipt` names.
 
@@ -413,9 +413,9 @@ No operation is migrated merely because it exists. This prevents the current
 3. **Evidence and artifacts:** manifests, content, work products, trained
    models, hosted artifacts, evaluations, source identity, and lineage.
 4. **Factories:** factories, projects, candidates, results, champion state,
-   messages, wake operations, and the legacy hosted-unit noun behind an
-   approved public facade. Factories compose or graduate swarms; they do not
-   reintroduce `run` as a public product noun.
+   messages, wake operations, and **Efforts** — the hosted Factory unit of
+   work, exported under that approved noun. Factories compose or graduate
+   swarms and Efforts; they do not reintroduce `run` as a public product noun.
 5. **Economics:** preflight, limits, budgets, usage, costs, allowance, and
    typed denial details.
 6. **Resources:** environments, dev environments, runtime images, image
@@ -1217,7 +1217,9 @@ Exit: active eval evidence collection uses only public typed models.
 
 - Move Factory operations, candidates, results, messages, evidence, limits,
   budgets, costs, and denial errors.
-- Resolve the hosted Factory-unit public noun before exporting it.
+- Export the hosted Factory unit under its approved public noun, `Effort`
+  (typed `EffortId`, contracts under `core/research/contracts/factories.py`
+  or a sibling `efforts.py`).
 - Keep backend-only maintenance and scheduling policy internal.
 
 Exit: SDK and MCP have parity through the same core operation registry.
@@ -1447,7 +1449,7 @@ The final reviewer should edit this document in place:
 |---|---|---|---|---|
 | R1 | Minimal customer lifecycle | `project → swarm → typed events/result`; hide administrative route breadth | SDK/product, backend | open |
 | R2 | Public Factory timing | Keep the noun, but admit it to the stable surface only after the swarm loop is small and complete | SDK/product, factory owner | open |
-| R3 | Public vocabulary | Use projects, swarms, factories; keep `run`/`smr` at wire or migration boundaries only | SDK/product, docs | open |
+| R3 | Public vocabulary | Use projects, swarms, factories, and efforts (the hosted Factory unit — decided 2026-07-21); keep `run`/`smr` at wire or migration boundaries only | SDK/product, docs | open |
 | R4 | Public operation ledger | Explicit allowlist; everything else is operator-only, adapter-only, deprecated, or removed | SDK, backend, MCP | open |
 | R5 | Contract authority | Backend-authored bounded OpenAPI/protocol artifact with stable operation, error, state, event, and pagination identities | Backend, SDK | open |
 | R6 | Python contract generation | Generate or conformance-check boundary models; preserve hand-authored ergonomic domain types only where they add semantics | SDK, backend | open |
