@@ -1203,9 +1203,11 @@ Exit: no unclassified operation and no new legacy growth.
 
 Implementation evidence:
 
-- `specifications/sdk/research_capability_ledger.json` records 2,339 current
+- `specifications/sdk/research_capability_ledger.json` now records 2,084
   backend-route, SDK-method, MCP-tool, and backend/eval-consumer rows with zero
-  unclassified dispositions and source commit identities.
+  unclassified dispositions and exact source commit identities. The original
+  Phase 0 inventory contained 2,339 rows; row count may decrease as retired
+  surfaces disappear while the frozen architecture magnitudes remain ratchets.
 - The baseline freezes 156 legacy implementation files / 61,081 lines, 42
   deep backend/eval consumer imports, and 11 stable public operation IDs.
 - `scripts/check_research_migration_boundaries.py` rejects new legacy files,
@@ -1249,8 +1251,8 @@ Implementation evidence (in progress):
 - Backend `scripts/export_research_openapi.py` filters the real application
   OpenAPI graph by explicit `PUBLIC_OPERATION_IDS`, verifies operation ID drift,
   and emits the transitive schema closure.
-- `openapi/research-v1.json` currently vendors 32 backend-authored operations and
-  127 required schemas. `scripts/check_research_openapi_contract.py` proves byte
+- `openapi/research-v1.json` currently vendors 44 backend-authored operations and
+  135 required schemas. `scripts/check_research_openapi_contract.py` proves byte
   parity with a supplied backend artifact and exact method/path/operation-ID
   parity with `core/research/operations.py`.
 
@@ -1287,7 +1289,9 @@ Implementation evidence (in progress):
 - Sync and native-async project/swarm APIs support create, retrieve/list,
   setup/preflight, wait, pause/resume/cancel, branch, and typed live events.
   `research.runs` warns and returns the exact same swarm API object.
-- Active eval import cutover remains required before this phase exits.
+- The deep-import cutover is complete, but active eval launch drivers still use
+  compatibility names and explicit `research.advanced` capabilities; those
+  remaining dependencies are tracked under Phase 8 rather than hidden here.
 
 #### Phase 4 — evidence, observability, and collaboration
 
@@ -1321,12 +1325,13 @@ Exit: SDK and MCP have parity through the same core operation registry.
 
 Implementation evidence (in progress):
 
-- The seven bounded limits/economics operations now use the shared core sync
-  transport and a native async peer; public methods decode typed contracts and
-  no longer open the legacy session client.
-- Factory and Effort facade implementation now lives beneath
-  `synth_ai.core.research`; remaining legacy-session calls must still graduate
-  to bounded operation metadata before this phase exits.
+- Seven bounded limits/economics operations and twelve Factory/Effort operations
+  now use shared core sync/native-async transports and typed contracts. Stable
+  Factory lifecycle and Effort CRUD no longer open the legacy session client.
+- Operator-only Factory projections still use `advanced_factories.py` and the
+  compatibility session. Each must either graduate to bounded operation
+  metadata or receive an explicit adapter-only/backend-only disposition before
+  this phase exits.
 
 #### Phase 6 — resources and deployment
 
@@ -1354,7 +1359,9 @@ Implementation evidence (in progress):
 - The Factory stand-up console script now targets
   `synth_ai.cli.research_factory_standup` instead of the compatibility package.
 - Open Research SDK/MCP modules were removed as required by the frontend-only
-  product decision. MCP handlers still require operation-registry cutover.
+  product decision. Stable MCP discovery is limited to 35 noun-first tools;
+  280 explicitly advanced tools and their legacy-backed request models still
+  require operation-registry cutover or removal.
 
 #### Phase 8 — eval cutover
 
@@ -1372,6 +1379,10 @@ Implementation evidence:
   active eval tree. Evals now import `synth_ai.research`,
   `synth_ai.research.advanced`, or `synth_ai.config`; graveyard paths remain
   excluded from the active inventory.
+- GameBench-specific scorer models, client, and recipe now live under
+  `evals/swarmbench/gamebench`; `synth_ai/gamebench` has been removed. Remaining
+  compatibility client imports and advanced dependencies still require an
+  owner and stable-or-advanced disposition before the phase is complete.
 
 #### Phase 9 — compatibility shell
 
@@ -1632,6 +1643,31 @@ The migration is complete when:
 - No operation depends on route guessing, loose-shape fallback, swallowed
   errors, or a second authority path.
 
+### Current completion audit
+
+This matrix is the requirement-by-requirement state of the committed candidate,
+not a projection from the intended design. `PARTIAL` means current evidence
+proves some exit conditions and contradicts or cannot prove the rest.
+
+| Phase | Status | Evidence proved now | Evidence still required |
+|---|---:|---|---|
+| 0 — freeze and ledger | PASS | 2,084 rows, zero unclassified, frozen growth/deep-import ratchets, dated compatibility policy | Keep ratchets green after every later edit |
+| 1 — core foundations | PARTIAL | Shared credential, sync/async HTTP, retry, JSON, pagination, and error primitives exist; Research uses native async | Prove every container/pool/Research path uses one behaviorally identical error/retry/auth boundary and no domain transport remains |
+| 2 — bounded backend contract | PARTIAL | Backend-authored 44-operation / 135-schema artifact has exact byte and operation parity | Put the checker in authoritative CI and prove enum, requiredness, error, event, pagination, and state drift—not only operation metadata |
+| 3 — projects and swarms | PARTIAL | Stable typed sync/async project and swarm APIs, same-object run aliases, event protocol, zero deep eval imports | Replace remaining active compatibility launch names, prove the hero loop against a real backend, and prove resolved configuration identity |
+| 4 — evidence and collaboration | PARTIAL | Implementation is under core and active callers use public or explicit advanced paths | Replace legacy-backed readout models, mapping probes, and `Any` returns with one typed freshness/event/artifact protocol; prove an eval evidence vertical |
+| 5 — factories and economics | PARTIAL | Seven economics plus twelve Factory/Effort operations are bounded and typed with sync/async peers | Classify or graduate every legacy-session Factory projection and prove lifecycle/idempotency semantics against backend |
+| 6 — resources and deployment | NOT PROVED | Existing resource code is reachable through the explicit advanced bridge | Graduate general environments/images/deployments/repositories/datasets/workspace-input operations to typed core contracts or classify them non-public; remove duplicate transport/identity paths |
+| 7 — CLI and MCP | PARTIAL | MCP package moved, stable discovery is 35 noun-first tools, CLI uses the new Research command root | Replace or remove 280 advanced legacy-backed MCP tools and legacy request models; prove Python/CLI/MCP operation and failure parity |
+| 8 — eval cutover | PARTIAL | Deep imports are zero; GameBench scorer ownership moved to evals | Eliminate direct compatibility-client imports, assign every `research.advanced` dependency, and run representative project/swarm/Factory eval workflows |
+| 9 — compatibility shell | PASS | 150 generated warning-only re-export files / 754 lines; no implementation under `synth_ai.managed_research` | Preserve exact aliases and warnings through the declared window |
+| 10 — removal | NOT DUE | Version/date matrix is recorded | After supported-consumer and published-package proof, remove compatibility in 0.18.0 no earlier than 2026-09-01 |
+
+Accordingly, the migration is not complete merely because the stable discovery
+surface and qualitative threshold pass. Phases 1–8 require the proofs or source
+closures above, Phase 10 is intentionally date-gated, and integration still
+requires the user-triggered `/ultrareview`.
+
 ## Part VII — Engineer review and handoff
 
 ### Review objective
@@ -1768,20 +1804,23 @@ eval consumer, documentation, and failure behavior.
 - Committed Synth checkpoints: `9e992da0` (typed Research core), `1a050cef`
   (implementation consolidation and compatibility shell), `462b83dc` and
   `b2284f1b` (consolidated plan/handoff), and `adc56a5b` (stable Research SDK
-  candidate with import isolation and accepted qualitative evidence).
+  candidate with import isolation and accepted qualitative evidence), followed
+  by `6e5b4782` (final review packet) and `7088c78f` (removal of the
+  GameBench-specific SDK package).
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
   and `f734def19` (Research MCP delivery adapter), plus `6b5944bb9` (the
   12-operation Factory/Effort contract extension).
 - Committed eval checkpoints: `7708aafa` (active consumer cutover to public
-  SDK) and `c3164c5f` (seven stable/advanced boundary cleanups).
+  SDK), `c3164c5f` (seven stable/advanced boundary cleanups), and `e16d0bf2`
+  (GameBench scorer ownership moved to evals).
 - The current capability ledger classifies **2,084** rows with zero unclassified
   rows. It reports zero active backend/eval deep imports, **44** stable
   operations, 150 generated compatibility-shim files / 754 lines, and 117
   relocated `_legacy` implementation files / 46,295 lines. Re-measure these
   figures if review changes the branch.
 - Current candidate magnitude (physical Python lines, including compatibility
-  code) is **402 files / 76,787 lines** under `synth_ai`; **145 / 52,912** under
-  `synth_ai/core/research`; **20 / 482** in the thin `synth_ai/research` facade;
+  code) is **399 files / 76,122 lines** under `synth_ai`; **145 / 52,984** under
+  `synth_ai/core/research`; **20 / 493** in the thin `synth_ai/research` facade;
   and **150 / 754** in the generated `synth_ai/managed_research` shims. The
   largest remaining file is `_legacy/sdk/client.py` at 6,124 lines, followed by
   the Research MCP server at 3,438 lines. These are magnitude indicators, not
@@ -1795,6 +1834,9 @@ eval consumer, documentation, and failure behavior.
   produced the 44-operation bounded artifact.
 - `evals` commit `c3164c5f` contains seven consumer cleanups using either the
   stable facade or explicit `research.advanced` access.
+- Cross-repository commits `7088c78f` (synth-ai) and `e16d0bf2` (evals) remove
+  `synth_ai/gamebench` and place the exact scorer contracts, client, and recipe
+  under `evals/swarmbench/gamebench`.
 - Main worktrees may contain unrelated user changes and must not be reset,
   stashed, or folded into this migration.
 - Baseline SDK-design verdict: **FAIL, 5.64/10**, 11/11 dimensions, two holds,
@@ -1859,8 +1901,9 @@ design bar passes; the migration and release bar do not yet pass.
 | Public API qualitative design | PASS | Gemini 3.5 Flash Lite: 7.27 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds; strict manifest validation passed |
 | Compression / failure / naming / reach quality | WARN | Each is 6/10; simplify nouns, publish complete failure guarantees, enforce alias removal, and make OpenAPI sufficient for CLI/MCP |
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
+| GameBench ownership | PASS | No `synth_ai/gamebench` package or SDK recipe remains; scorer contracts/client/recipe and the active grader live under `evals/swarmbench/gamebench` |
 | Factory/Effort vertical | REVIEW | 12-operation candidate is typed and bounded; owner must approve lifecycle semantics and prove representative backend behavior |
-| Eval consumer cutover | REVIEW | Seven candidate call sites compile; classify every `research.advanced` dependency and run representative workflows when authorized |
+| Eval consumer cutover | REVIEW | Deep imports are zero and GameBench ownership is corrected; classify every compatibility/`research.advanced` dependency and run representative workflows when authorized |
 | Package/docs/live vertical proof | NOT RUN | Required before release; no wheel/import matrix, generated docs proof, or live local/staging Factory/Swarm proof in this handoff |
 | Ruff / `ty` / tests | NOT RUN | Explicitly skipped under workspace policy because the user did not request those validations |
 | User-triggered `/ultrareview` | PENDING | Mandatory before integration for this high-blast-radius migration |

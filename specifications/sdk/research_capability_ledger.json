@@ -8281,16 +8281,6 @@
     {
       "canonical_noun": "swarms",
       "disposition": "supported_public",
-      "id": "consumer:evals:product/runs/swarmgamebench/grading.py:558",
-      "line": 558,
-      "reason": "already uses a supported public import boundary",
-      "source_path": "product/runs/swarmgamebench/grading.py",
-      "surface": "evals_consumer",
-      "symbol": "synth_ai.gamebench.models.GameBenchCandidateScoreCancellation,synth_ai.gamebench.models.GameBenchCandidateScoreCleanupReceipt,synth_ai.gamebench.models.GameBenchCandidateScoreRequest,synth_ai.gamebench.models.GameBenchCandidateScoreResult,synth_ai.gamebench.models.GameBenchCandidateScoreSubmission"
-    },
-    {
-      "canonical_noun": "swarms",
-      "disposition": "supported_public",
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:1828",
       "line": 1828,
       "reason": "already uses a supported public import boundary",
@@ -9027,6 +9017,16 @@
       "source_path": "standard/smr/control_plane/product_evals/mcp_use/tasks/codex_mcp_interactive_project/run_local_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.sdk.pools.ContainerPoolsClient"
+    },
+    {
+      "canonical_noun": "swarms",
+      "disposition": "supported_public",
+      "id": "consumer:evals:swarmbench/gamebench/scorer_client.py:16",
+      "line": 16,
+      "reason": "already uses a supported public import boundary",
+      "source_path": "swarmbench/gamebench/scorer_client.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.sdk.base.SynthBaseClient"
     },
     {
       "canonical_noun": "swarms",
@@ -19582,7 +19582,7 @@
       "canonical_noun": "research",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_capabilities_get",
-      "line": 342,
+      "line": 394,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19592,7 +19592,7 @@
       "canonical_noun": "research",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_jobs_list",
-      "line": 445,
+      "line": 497,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19602,7 +19602,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_changeset_create",
-      "line": 394,
+      "line": 446,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19612,7 +19612,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_changeset_decide",
-      "line": 420,
+      "line": 472,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19622,7 +19622,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_changeset_get",
-      "line": 407,
+      "line": 459,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19632,7 +19632,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_changesets_list",
-      "line": 374,
+      "line": 426,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19642,7 +19642,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_run_actor_control",
-      "line": 491,
+      "line": 543,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19652,7 +19652,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_status_get",
-      "line": 356,
+      "line": 408,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19662,7 +19662,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_trigger_run",
-      "line": 460,
+      "line": 512,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19672,7 +19672,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_project_workspace_get",
-      "line": 363,
+      "line": 415,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19682,7 +19682,7 @@
       "canonical_noun": "projects",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_projects_list",
-      "line": 349,
+      "line": 401,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19692,7 +19692,7 @@
       "canonical_noun": "swarms",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_run_get",
-      "line": 481,
+      "line": 533,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -19702,7 +19702,7 @@
       "canonical_noun": "swarms",
       "disposition": "adapter_migrate",
       "id": "mcp:synth_ai/mcp/research/server.py:smr_run_stop",
-      "line": 514,
+      "line": 566,
       "reason": "move to the thin MCP adapter over the core operation registry",
       "source_path": "synth_ai/mcp/research/server.py",
       "surface": "mcp_tool",
@@ -22531,76 +22531,76 @@
     {
       "canonical_noun": "research",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.advanced",
-      "line": 61,
+      "id": "public_research:synth_ai/research/client.py:Client.advanced",
+      "line": 64,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.advanced"
+      "symbol": "Client.advanced"
     },
     {
       "canonical_noun": "research",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.close",
-      "line": 120,
+      "id": "public_research:synth_ai/research/client.py:Client.close",
+      "line": 131,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.close"
+      "symbol": "Client.close"
     },
     {
       "canonical_noun": "collaboration",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.factories",
-      "line": 66,
+      "id": "public_research:synth_ai/research/client.py:Client.factories",
+      "line": 77,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.factories"
+      "symbol": "Client.factories"
     },
     {
       "canonical_noun": "projects",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.projects",
-      "line": 71,
+      "id": "public_research:synth_ai/research/client.py:Client.projects",
+      "line": 82,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.projects"
+      "symbol": "Client.projects"
     },
     {
       "canonical_noun": "swarms",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.runs",
-      "line": 81,
+      "id": "public_research:synth_ai/research/client.py:Client.runs",
+      "line": 92,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.runs"
+      "symbol": "Client.runs"
     },
     {
       "canonical_noun": "swarms",
       "disposition": "public",
-      "id": "public_research:synth_ai/research/client.py:ResearchClient.swarms",
-      "line": 76,
+      "id": "public_research:synth_ai/research/client.py:Client.swarms",
+      "line": 87,
       "reason": "documented Research facade",
       "source_path": "synth_ai/research/client.py",
       "surface": "public_research",
-      "symbol": "ResearchClient.swarms"
+      "symbol": "Client.swarms"
     }
   ],
   "schema": "synth.research-capability-ledger.v1",
   "sources": {
     "backend": {
-      "commit": "f734def1908e4c9b4bdb0d5e92c1f151c2cb7231",
+      "commit": "6b5944bb9892058647293878556532164196659e",
       "repository": "backend"
     },
     "evals": {
-      "commit": "7708aafa96e6b2d3f5a014065795c8ac51e9d2d0",
+      "commit": "e16d0bf22df637ed233b6493711020a82d0afa78",
       "repository": "evals"
     },
     "synth_ai": {
-      "commit": "462b83dc1e5ef3825f8318fc0b753a92b76dc840",
+      "commit": "7088c78f6871cec6a81c8ed0a274662bda97978f",
       "repository": "synth-ai"
     }
   },
