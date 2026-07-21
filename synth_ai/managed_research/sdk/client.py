@@ -5899,7 +5899,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
 
 class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
-    """Compatibility alias that retains the legacy synth-ai bridge surface.
+    """Compatibility alias with retired managed-agents bridge surfaces.
 
     `ManagedResearchClient` is the canonical public name. `SmrControlClient`
     remains as a one-release alias but requires callers to pass the selected
@@ -5911,10 +5911,6 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
         api_key: str | None = None,
         backend_base: str | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        openai_transport_mode: str = OPENAI_TRANSPORT_MODE_AUTO,
-        openai_organization: str | None = None,
-        openai_project: str | None = None,
-        openai_request_id: str | None = None,
     ) -> None:
         explicit_backend_base = str(backend_base or "").strip()
         if not explicit_backend_base:
@@ -5927,12 +5923,6 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
             api_key=api_key,
             backend_base=explicit_backend_base,
             timeout_seconds=timeout_seconds,
-        )
-        self._initialize_openai_bridge(
-            openai_transport_mode=openai_transport_mode,
-            openai_organization=openai_organization,
-            openai_project=openai_project,
-            openai_request_id=openai_request_id,
         )
 
     def close(self) -> None:
