@@ -8150,70 +8150,70 @@
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:27",
       "line": 27,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:28",
       "line": 28,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:29",
       "line": 29,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:35",
       "line": 35,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.build_local_launch_payload,synth_ai.research.advanced.load_local_eval_contract"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:39",
       "line": 39,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchRun"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:factorybench/craftax_factory_eval.py:40",
       "line": 40,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "factorybench/craftax_factory_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.RunHandle"
     },
     {
       "canonical_noun": "research",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:product/behavioral/dcrbench/live_harness.py:1380",
       "line": 1380,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "product/behavioral/dcrbench/live_harness.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
@@ -8230,13 +8230,13 @@
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:product/factory/effortbench/run.py:2657",
       "line": 2657,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "product/factory/effortbench/run.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "swarms",
@@ -8360,140 +8360,140 @@
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2151",
       "line": 2151,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2225",
       "line": 2225,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2337",
       "line": 2337,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.load_local_eval_contract"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2345",
       "line": 2345,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.default_local_eval_contract_path"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2387",
       "line": 2387,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.local_execution_payload"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:2474",
       "line": 2474,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:3065",
       "line": 3065,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.KickoffContract"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:824",
       "line": 824,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchRunControlEnqueueStatus,synth_ai.research.advanced.ManagedResearchRunControlError,synth_ai.research.advanced.RunLifecycleControlErrorCode"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory.py:925",
       "line": 925,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrStructuredDenialError"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory_e2e_staging.py:460",
       "line": 460,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory_e2e_staging.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory_e2e_staging.py:535",
       "line": 535,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory_e2e_staging.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.__version__"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory_e2e_staging.py:671",
       "line": 671,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory_e2e_staging.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.FactoryControlLoopFlags"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory_projects/craftax_cybernetics_effort/launch_readiness.py:14",
       "line": 14,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory_projects/craftax_cybernetics_effort/launch_readiness.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.FactoryEvidencePacket"
     },
     {
       "canonical_noun": "factories",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:projectbench/factory_projects/craftax_cybernetics_effort/live_evidence_packet.py:25",
       "line": 25,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "projectbench/factory_projects/craftax_cybernetics_effort/live_evidence_packet.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.FactoryEvidencePacket,synth_ai.research.advanced.FactoryEvidenceTier,synth_ai.research.advanced.FactoryStatus,synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.RuntimeImageIdentity,synth_ai.research.advanced.SmrAuthorityReadouts,synth_ai.research.advanced.SourceIdentity"
@@ -8507,6 +8507,16 @@
       "source_path": "projectbench/tag_sdk_smoke.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.SynthClient"
+    },
+    {
+      "canonical_noun": "projects",
+      "disposition": "advanced_explicit",
+      "id": "consumer:evals:projectbench/tools/objective_orchestration_agent.py:11",
+      "line": 11,
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
+      "source_path": "projectbench/tools/objective_orchestration_agent.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.Provider,synth_ai.research.advanced.ProviderBinding,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrHostKind,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind,synth_ai.research.advanced.SmrWorkMode,synth_ai.research.advanced.UsageLimit"
     },
     {
       "canonical_noun": "research",
@@ -8540,10 +8550,10 @@
     },
     {
       "canonical_noun": "research",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/hero_driver.py:9",
       "line": 9,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/hero_driver.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
@@ -8660,13 +8670,13 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py:19",
       "line": 19,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.ResearchApiError"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "swarms",
@@ -8680,23 +8690,23 @@
     },
     {
       "canonical_noun": "projects",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py:22",
       "line": 22,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py:20",
       "line": 20,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.ResearchApiError"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "swarms",
@@ -8710,23 +8720,23 @@
     },
     {
       "canonical_noun": "projects",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py:23",
       "line": 23,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py:19",
       "line": 19,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.ResearchApiError"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "swarms",
@@ -8740,33 +8750,33 @@
     },
     {
       "canonical_noun": "projects",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py:22",
       "line": 22,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentModel,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/collect_smr_run_traces.py:31",
       "line": 31,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/collect_smr_run_traces.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "research",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/reportbench_sdk_driver.py:35",
       "line": 35,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/reportbench_sdk_driver.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.ResearchApiError"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "research",
@@ -8780,20 +8790,20 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/reportbench_sdk_driver.py:39",
       "line": 39,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/reportbench_sdk_driver.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_RUNBOOK_KIND_VALUES,synth_ai.research.advanced.SmrRunbookKind"
     },
     {
       "canonical_noun": "research",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/reportbench_sdk_driver.py:43",
       "line": 43,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/reportbench_sdk_driver.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_WORK_MODE_VALUES"
@@ -8810,23 +8820,23 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/run_readme_smoke_via_managed_research.py:118",
       "line": 118,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/run_readme_smoke_via_managed_research.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SmrApiError,synth_ai.research.advanced.SmrControlClient,synth_ai.research.advanced.SmrHostKind,synth_ai.research.advanced.SmrWorkMode"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:44",
       "line": 44,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/run_reportbench_via_managed_research.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.ResearchApiError"
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError"
     },
     {
       "canonical_noun": "swarms",
@@ -8840,20 +8850,20 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:48",
       "line": 48,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/run_reportbench_via_managed_research.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_RUNBOOK_KIND_VALUES,synth_ai.research.advanced.SmrRunbookKind"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:52",
       "line": 52,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/run_reportbench_via_managed_research.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_WORK_MODE_VALUES"
@@ -8870,10 +8880,10 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/smr_sdk_harness/crafter_deo_run.py:63",
       "line": 63,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/smr_sdk_harness/crafter_deo_run.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ActorImageId,synth_ai.research.advanced.RunLaunchRequest,synth_ai.research.advanced.RuntimeImage,synth_ai.research.advanced.RuntimeImageError"
@@ -8891,8 +8901,8 @@
     {
       "canonical_noun": "research",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1591",
-      "line": 1591,
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1592",
+      "line": 1592,
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
@@ -8901,8 +8911,8 @@
     {
       "canonical_noun": "secrets",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1889",
-      "line": 1889,
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1890",
+      "line": 1890,
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
@@ -8911,8 +8921,8 @@
     {
       "canonical_noun": "research",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1890",
-      "line": 1890,
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1891",
+      "line": 1891,
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
@@ -8926,13 +8936,23 @@
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.ManagedResearchClient,synth_ai.SynthClient"
+      "symbol": "synth_ai.SynthClient"
+    },
+    {
+      "canonical_noun": "research",
+      "disposition": "advanced_explicit",
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:38",
+      "line": 38,
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
+      "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient"
     },
     {
       "canonical_noun": "research",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:38",
-      "line": 38,
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:39",
+      "line": 39,
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
@@ -8941,8 +8961,8 @@
     {
       "canonical_noun": "projects",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:44",
-      "line": 44,
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:45",
+      "line": 45,
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/smr_sdk_harness/readme_smoke.py",
       "surface": "evals_consumer",
@@ -8950,10 +8970,10 @@
     },
     {
       "canonical_noun": "research",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:scripts/smr_sdk_harness/smr_slot_client.py:10",
       "line": 10,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "scripts/smr_sdk_harness/smr_slot_client.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.ManagedResearchClient"
@@ -9010,6 +9030,16 @@
     },
     {
       "canonical_noun": "projects",
+      "disposition": "advanced_explicit",
+      "id": "consumer:evals:standard/smr/control_plane/product_evals/mcp_use/tasks/codex_mcp_interactive_project/run_local_eval.py:44",
+      "line": 44,
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
+      "source_path": "standard/smr/control_plane/product_evals/mcp_use/tasks/codex_mcp_interactive_project/run_local_eval.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.advanced.SmrControlClient"
+    },
+    {
+      "canonical_noun": "projects",
       "disposition": "supported_public",
       "id": "consumer:evals:standard/smr/control_plane/product_evals/mcp_use/tasks/codex_mcp_interactive_project/run_local_eval.py:45",
       "line": 45,
@@ -9017,6 +9047,16 @@
       "source_path": "standard/smr/control_plane/product_evals/mcp_use/tasks/codex_mcp_interactive_project/run_local_eval.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.sdk.pools.ContainerPoolsClient"
+    },
+    {
+      "canonical_noun": "swarms",
+      "disposition": "advanced_explicit",
+      "id": "consumer:evals:standard/smr/control_plane/product_evals/mcp_use/tasks/nanoprogram_submission/workspace/run_nanoprogram_submission_task.py:31",
+      "line": 31,
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
+      "source_path": "standard/smr/control_plane/product_evals/mcp_use/tasks/nanoprogram_submission/workspace/run_nanoprogram_submission_task.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.advanced.load_local_execution_profile"
     },
     {
       "canonical_noun": "swarms",
@@ -9050,20 +9090,20 @@
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:swarmbench/reportbench/run.py:229",
       "line": 229,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "swarmbench/reportbench/run.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_RUNBOOK_KIND_VALUES,synth_ai.research.advanced.SmrRunbookKind"
     },
     {
       "canonical_noun": "swarms",
-      "disposition": "supported_public",
+      "disposition": "advanced_explicit",
       "id": "consumer:evals:swarmbench/reportbench/run.py:233",
       "line": 233,
-      "reason": "already uses a supported public import boundary",
+      "reason": "explicit unstable Research dependency requires a named owner and graduation, retention, or removal decision",
       "source_path": "swarmbench/reportbench/run.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.research.advanced.SMR_WORK_MODE_VALUES"
@@ -22596,32 +22636,33 @@
       "repository": "backend"
     },
     "evals": {
-      "commit": "e16d0bf22df637ed233b6493711020a82d0afa78",
+      "commit": "65b9387ca38cda34df5de8a50f37907d597e15ef",
       "repository": "evals"
     },
     "synth_ai": {
-      "commit": "d229636d97e2076851dda4ae54844712a55d79b2",
+      "commit": "828c5192f795e229f05ff997ccb47bcdd4520b21",
       "repository": "synth-ai"
     }
   },
   "summary": {
     "by_disposition": {
       "adapter_migrate": 295,
+      "advanced_explicit": 45,
       "advanced_public_candidate": 45,
       "backend_only": 382,
       "compatibility_migrate": 1051,
       "public": 49,
-      "supported_public": 262
+      "supported_public": 221
     },
     "by_surface": {
       "backend_consumer": 25,
       "backend_route": 470,
-      "evals_consumer": 237,
+      "evals_consumer": 241,
       "internal_compatibility_sdk": 1051,
       "mcp_tool": 295,
       "public_research": 6
     },
-    "rows": 2084,
+    "rows": 2088,
     "unclassified": 0
   }
 }

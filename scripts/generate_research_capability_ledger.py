@@ -296,6 +296,19 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
                 name.startswith("synth_ai.managed_research") or name.startswith("synth_ai.core")
                 for name in names
             )
+            advanced = any(name.startswith("synth_ai.research.advanced") for name in names)
+            if deep:
+                disposition = "migrate_public"
+                reason = "deep/legacy SDK import must move to documented synth_ai.research surfaces"
+            elif advanced:
+                disposition = "advanced_explicit"
+                reason = (
+                    "explicit unstable Research dependency requires a named owner and "
+                    "graduation, retention, or removal decision"
+                )
+            else:
+                disposition = "supported_public"
+                reason = "already uses a supported public import boundary"
             rows.append(
                 {
                     "id": f"consumer:{repository}:{relative}:{node.lineno}",
@@ -303,13 +316,9 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
                     "source_path": relative,
                     "line": node.lineno,
                     "symbol": ",".join(names),
-                    "disposition": "migrate_public" if deep else "supported_public",
+                    "disposition": disposition,
                     "canonical_noun": _canonical_noun(relative, *names),
-                    "reason": (
-                        "deep/legacy SDK import must move to documented synth_ai.research surfaces"
-                        if deep
-                        else "already uses a supported public import boundary"
-                    ),
+                    "reason": reason,
                 }
             )
     return rows
