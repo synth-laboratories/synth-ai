@@ -646,8 +646,15 @@ class ImagesAPI(_ClientNamespace):
                     f"actor image archive upload outcome is uncertain (upload_id={upload_id})"
                 ) from upload_error
         if response.is_error:
+            # Object stores put the actionable SigV4 failure code in the
+            # response body (for example, a signed-header mismatch). Keep a
+            # bounded, whitespace-normalized diagnostic so launch receipts
+            # identify a deterministic storage-contract failure without
+            # dumping a potentially large provider error document.
+            detail = " ".join(response.text.split())[:600]
+            suffix = f": {detail}" if detail else ""
             raise RuntimeError(
-                f"actor image archive upload failed with HTTP {response.status_code}"
+                f"actor image archive upload failed with HTTP {response.status_code}{suffix}"
             )
 
     def _finalize(
