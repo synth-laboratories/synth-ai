@@ -1,6 +1,6 @@
 # Synth SDK Research migration and refactor plan
 
-- **Status:** final draft — ready for engineering review (R1–R12 open)
+- **Status:** implementation in progress — R1–R12 adopted as working decisions
 - **Date:** 2026-07-21
 - **Scope:** `synth-ai`, `backend`, and `evals`
 - **Quality bar:** `strong_option`
@@ -1164,6 +1164,19 @@ redesign.
 
 Exit: no unclassified operation and no new legacy growth.
 
+Implementation evidence:
+
+- `specifications/sdk/research_capability_ledger.json` records 2,339 current
+  backend-route, SDK-method, MCP-tool, and backend/eval-consumer rows with zero
+  unclassified dispositions and source commit identities.
+- The baseline freezes 156 legacy implementation files / 61,081 lines, 42
+  deep backend/eval consumer imports, and 11 stable public operation IDs.
+- `scripts/check_research_migration_boundaries.py` rejects new legacy files,
+  increased legacy lines/files, increased deep consumer imports, forbidden
+  core imports, or an incomplete ledger.
+- `scripts/generate_research_capability_ledger.py` refreshes the ledger from
+  explicit synth-ai, backend, and eval worktrees.
+
 #### Phase 1 — core foundations
 
 - Establish `core/auth`, `core/http`, and general contracts.
@@ -1174,6 +1187,17 @@ Exit: no unclassified operation and no new legacy growth.
 
 Exit: one transport/error/auth path; no behavior fallback.
 
+Implementation evidence (in progress):
+
+- `synth_ai/core/auth`, `core/contracts`, and `core/http` now own credential
+  resolution, request metadata, recursive JSON, resource identities, cursor
+  pagination, sync/async transports, strict SSE decoding, and retry policy.
+- Infrastructure `SynthBaseClient` and the deprecated Managed Research transport
+  both delegate to the same core transport while retaining their declared error
+  compatibility at the adapter boundary.
+- `AsyncResearchClient` uses `httpx.AsyncClient` directly; the prior dynamic
+  `asyncio.to_thread` namespace proxy has been removed.
+
 #### Phase 2 — bounded backend contract
 
 - Add stable backend operation IDs for approved public and advanced operations.
@@ -1182,6 +1206,16 @@ Exit: one transport/error/auth path; no behavior fallback.
 - Fail CI on route, enum, requiredness, or error-code drift.
 
 Exit: every migrated operation has a single backend-authored contract.
+
+Implementation evidence (in progress):
+
+- Backend `scripts/export_research_openapi.py` filters the real application
+  OpenAPI graph by explicit `PUBLIC_OPERATION_IDS`, verifies operation ID drift,
+  and emits the transitive schema closure.
+- `openapi/research-v1.json` currently vendors 32 backend-authored operations and
+  127 required schemas. `scripts/check_research_openapi_contract.py` proves byte
+  parity with a supplied backend artifact and exact method/path/operation-ID
+  parity with `core/research/operations.py`.
 
 #### Phase 3 — projects and swarms vertical set
 
@@ -1203,6 +1237,20 @@ Exit: every migrated operation has a single backend-authored contract.
 Exit: the primary create-project to terminal-swarm workflow never imports
 legacy implementation; new code uses `swarm` / `swarm_id` only; evals can
 express model/harness/role/limit overrides only through typed launch fields.
+
+Implementation evidence (in progress):
+
+- `core/research/contracts` defines opaque IDs, closed model/harness/work-mode/
+  lifecycle enums, typed project create/patch/setup models, and the sole
+  `ResearchSwarmLaunchRequest`. `ResearchRunLaunchRequest` is the same class
+  object as the temporary compatibility alias.
+- Typed launch intent covers actor model assignments, providers, resource
+  limits, kickoff messages, local execution identity, and execution profiles;
+  no public launch mapping is accepted by the core API.
+- Sync and native-async project/swarm APIs support create, retrieve/list,
+  setup/preflight, wait, pause/resume/cancel, branch, and typed live events.
+  `research.runs` warns and returns the exact same swarm API object.
+- Active eval import cutover remains required before this phase exits.
 
 #### Phase 4 — evidence, observability, and collaboration
 
@@ -1294,6 +1342,12 @@ swarm types.
 The compatibility window ends only after published-package telemetry and
 workspace grep show no supported consumers. The removal deadline is set before
 Phase 3, not after migration work becomes inconvenient.
+
+| State | Package line | Date | Contract |
+|---|---|---|---|
+| Deprecated | `synth-ai` 0.16.0 | 2026-07-21 | New code uses `synth_ai.research`; no new legacy implementation |
+| Last compatibility line | 0.17.x | Through 2026-08-31 | Exact aliases and legacy entrypoint delegation only |
+| Removed | 0.18.0 | Not before 2026-09-01 | `synth_ai.managed_research` and standalone shim removed after consumer proof |
 
 ### Enforcement and acceptance
 
@@ -1448,32 +1502,33 @@ Turn this draft into an approved migration contract before implementation. The
 review is successful only when it resolves the product and protocol questions,
 not when it merely agrees that files should move into `core`.
 
-The final reviewer should edit this document in place:
+The implementing engineer should edit this document in place:
 
-1. Change each decision below from `open` to `approved` or `rejected`.
-2. Record the chosen contract and rationale, not only the outcome.
-3. Amend the target tree and phases to match those decisions.
+1. Treat each adopted recommendation below as the working implementation
+   decision authorized by the user on 2026-07-21.
+2. Record any deviation and rationale before implementing it.
+3. Amend the target tree and phases when current code proves the recommendation
+   incomplete.
 4. Name an owner for every cross-repository contract and migration phase.
-5. Change the document status from `final draft — ready for engineering
-   review` to `approved` only after SDK, backend, and eval owners have
-   signed off.
+5. Change the document status to `complete` only after SDK, backend, and eval
+   integration evidence proves the completion definition.
 
 ### Decisions requiring explicit closure
 
 | ID | Decision | Current recommendation | Required reviewers | Status |
 |---|---|---|---|---|
-| R1 | Minimal customer lifecycle | `project → swarm → typed events/result`; hide administrative route breadth | SDK/product, backend | open |
-| R2 | Public Factory timing | Keep the noun, but admit it to the stable surface only after the swarm loop is small and complete | SDK/product, factory owner | open |
-| R3 | Public vocabulary | Use projects, swarms, factories, and efforts (the hosted Factory unit — decided 2026-07-21); keep `run`/`smr` at wire or migration boundaries only | SDK/product, docs | open |
-| R4 | Public operation ledger | Explicit allowlist; everything else is operator-only, adapter-only, deprecated, or removed | SDK, backend, MCP | open |
-| R5 | Contract authority | Backend-authored bounded OpenAPI/protocol artifact with stable operation, error, state, event, and pagination identities | Backend, SDK | open |
-| R6 | Python contract generation | Generate or conformance-check boundary models; preserve hand-authored ergonomic domain types only where they add semantics | SDK, backend | open |
-| R7 | Async and streaming | Native async transport with typed cursors, ordering, duplicate/gap semantics, deadlines, cancellation, and behavioral sync parity | SDK, backend runtime | open |
-| R8 | Resolved swarm identity | Persist and return an immutable, versioned resolved configuration snapshot for replay and audit | Backend, SDK, evals | open |
-| R9 | Compatibility window | Publish an exact package/version/date matrix and delete aliases on schedule; no indefinite shims | SDK release owner, docs | open |
-| R10 | Language-neutral reach | Make the protocol suitable for conformance clients now; decide separately which additional language SDK ships first | SDK, backend | open |
-| R11 | Quality release bar | Require Jesterky mean ≥7.0, every dimension ≥5.0, no holds, plus deterministic and vertical proof gates | SDK, release engineering | open |
-| R12 | `core` boundary | Allow only typed contracts, codecs, transport, operations, and lifecycle handles; reject policy/orchestration and generic utility dumping | SDK architecture | open |
+| R1 | Minimal customer lifecycle | `project → swarm → typed events/result`; hide administrative route breadth | SDK/product, backend | adopted |
+| R2 | Public Factory timing | Keep the noun, but admit it to the stable surface only after the swarm loop is small and complete | SDK/product, factory owner | adopted |
+| R3 | Public vocabulary | Use projects, swarms, factories, and efforts (the hosted Factory unit — decided 2026-07-21); keep `run`/`smr` at wire or migration boundaries only | SDK/product, docs | adopted |
+| R4 | Public operation ledger | Explicit allowlist; everything else is operator-only, adapter-only, deprecated, or removed | SDK, backend, MCP | adopted |
+| R5 | Contract authority | Backend-authored bounded OpenAPI/protocol artifact with stable operation, error, state, event, and pagination identities | Backend, SDK | adopted |
+| R6 | Python contract generation | Generate or conformance-check boundary models; preserve hand-authored ergonomic domain types only where they add semantics | SDK, backend | adopted |
+| R7 | Async and streaming | Native async transport with typed cursors, ordering, duplicate/gap semantics, deadlines, cancellation, and behavioral sync parity | SDK, backend runtime | adopted |
+| R8 | Resolved swarm identity | Persist and return an immutable, versioned resolved configuration snapshot for replay and audit | Backend, SDK, evals | adopted |
+| R9 | Compatibility window | Publish an exact package/version/date matrix and delete aliases on schedule; no indefinite shims | SDK release owner, docs | adopted |
+| R10 | Language-neutral reach | Make the protocol suitable for conformance clients now; decide separately which additional language SDK ships first | SDK, backend | adopted |
+| R11 | Quality release bar | Require Jesterky mean ≥7.0, every dimension ≥5.0, no holds, plus deterministic and vertical proof gates | SDK, release engineering | adopted |
+| R12 | `core` boundary | Allow only typed contracts, codecs, transport, operations, and lifecycle handles; reject policy/orchestration and generic utility dumping | SDK architecture | adopted |
 
 ### Claims the reviewer should re-measure
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from synth_ai.core.utils.env import get_api_key
+from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 from synth_ai.sdk import (
     AsyncContainerPoolsClient,
@@ -30,10 +30,7 @@ if TYPE_CHECKING:
 
 
 def _resolve_api_key(api_key: str | None) -> str:
-    resolved = (api_key or get_api_key(required=False) or "").strip()
-    if not resolved:
-        raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-    return resolved
+    return resolve_api_credential(api_key).value
 
 
 def _resolve_base_url(base_url: str | None) -> str:
@@ -107,7 +104,7 @@ class SynthClient:
 
     @property
     def research(self) -> ResearchClient:
-        """Managed Research hero namespace (projects, runs, limits, factories)."""
+        """Research hero namespace (projects, swarms, limits, factories)."""
         if self._research_client is None:
             from synth_ai.research.client import ResearchClient
 
@@ -117,6 +114,20 @@ class SynthClient:
                 timeout_seconds=self.timeout,
             )
         return self._research_client
+
+    def close(self) -> None:
+        """Close all lazily or eagerly opened SDK transports."""
+        self.containers.close()
+        self.tunnels.close()
+        self.pools.close()
+        if self._research_client is not None:
+            self._research_client.close()
+
+    def __enter__(self) -> SynthClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        self.close()
 
 
 class AsyncSynthClient:
@@ -152,7 +163,6 @@ class AsyncSynthClient:
             )
         )
         self._pools_sync = self.pools._sync_obj
-        self._research_client: ResearchClient | None = None
         self._async_research_client: AsyncResearchClient | None = None
         self._horizons_private: AsyncHorizonsPrivateClient | None = None
 
@@ -191,26 +201,46 @@ class AsyncSynthClient:
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @property
-    def research(self) -> ResearchClient:
-        """Sync Managed Research namespace (thread-offloaded from async client)."""
-        if self._research_client is None:
-            from synth_ai.research.client import ResearchClient
+    def research(self) -> AsyncResearchClient:
+        """Native asynchronous Research namespace."""
+        if self._async_research_client is None:
+            from synth_ai.research.async_client import AsyncResearchClient
 
-            self._research_client = ResearchClient(
+            self._async_research_client = AsyncResearchClient(
                 api_key=self.api_key,
                 base_url=self.base_url,
                 timeout_seconds=self.timeout,
             )
-        return self._research_client
+        return self._async_research_client
 
     @property
     def async_research(self) -> AsyncResearchClient:
-        """Async adapter over ``ResearchClient``."""
-        if self._async_research_client is None:
-            from synth_ai.research.async_client import AsyncResearchClient
+        """Deprecated alias for :attr:`research`."""
+        warnings.warn(
+            "AsyncSynthClient.async_research is deprecated; use .research.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.research
 
-            self._async_research_client = AsyncResearchClient(self.research)
-        return self._async_research_client
+    async def close(self) -> None:
+        """Close all asynchronous and wrapped infrastructure transports."""
+        await self.containers.close()
+        await self.tunnels.close()
+        await self.pools.close()
+        if self._async_research_client is not None:
+            await self._async_research_client.close()
+
+    async def __aenter__(self) -> AsyncSynthClient:
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: object,
+        exc: object,
+        traceback: object,
+    ) -> None:
+        await self.close()
 
 
 __all__ = [

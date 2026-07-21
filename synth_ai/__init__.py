@@ -55,6 +55,9 @@ __all__ = [
     "ResearchApiError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
+    "ResearchProjectCreateRequest",
+    "ResearchSwarmLaunchRequest",
+    "ResearchSwarmState",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
@@ -94,6 +97,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     ),
     "SmrLimitExceededError": ("synth_ai.research.errors", "ResearchLimitExceededError"),
     "ResearchClient": ("synth_ai.research.client", "ResearchClient"),
+    "ResearchProjectCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchProjectCreateRequest",
+    ),
+    "ResearchSwarmLaunchRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchSwarmLaunchRequest",
+    ),
+    "ResearchSwarmState": (
+        "synth_ai.core.research.contracts",
+        "ResearchSwarmState",
+    ),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
     "ContainersClient": ("synth_ai.sdk.containers", "ContainersClient"),

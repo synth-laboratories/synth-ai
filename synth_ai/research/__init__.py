@@ -5,10 +5,32 @@ Canonical entry: ``SynthClient().research``.
 
 from __future__ import annotations
 
+from synth_ai.core.research.contracts import (
+    ActorHarness as ResearchAgentHarness,
+    ActorModel as ResearchAgentModel,
+    EnvironmentKind as ResearchEnvironmentKind,
+    ProjectId,
+    ResearchProject,
+    ResearchProjectCreateRequest,
+    ResearchProjectPatchRequest,
+    ResearchRunLaunchRequest,
+    ResearchSwarm,
+    ResearchSwarmBranchRequest,
+    ResearchSwarmBranchResult,
+    ResearchSwarmLaunchRequest,
+    ResearchSwarmPreflight,
+    ResearchSwarmState,
+    ResourceLimit,
+    RuntimeKind as ResearchRuntimeKind,
+    SwarmId,
+)
+from synth_ai.core.research.contracts.swarms import HostKind as ResearchHostKind
+from synth_ai.core.research.contracts.swarms import WorkMode as ResearchWorkMode
+from synth_ai.core.research.projects import ResearchProjectsAPI
+from synth_ai.core.research.swarms import ResearchSwarmHandle, ResearchSwarmsAPI
 from synth_ai.research.async_client import AsyncResearchClient
 from synth_ai.research.client import ResearchClient
 from synth_ai.research.economics import ResearchEconomicsAPI
-from synth_ai.research.enums import ResearchHostKind, ResearchWorkMode
 from synth_ai.research.errors import (
     ResearchApiError,
     ResearchConcurrentRunLimitExceededError,
@@ -20,8 +42,6 @@ from synth_ai.research.errors import (
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.limits import ResearchLimitsAPI
 from synth_ai.research.models import (
-    ResearchAgentHarness,
-    ResearchAgentModel,
     ResearchAgentProfileBindings,
     ResearchArtifact,
     ResearchArtifactManifest,
@@ -30,30 +50,25 @@ from synth_ai.research.models import (
     ResearchBillingDrawdown,
     ResearchBillingEntitlements,
     ResearchBillingPlan,
-    ResearchCreateProjectResult,
-    ResearchEnvironmentKind,
     ResearchOrgLimits,
-    ResearchProject,
     ResearchProjectEconomics,
     ResearchRoleBinding,
     ResearchRoleBindings,
     ResearchRun,
     ResearchRunbookPreset,
-    ResearchRunLaunchRequest,
-    ResearchRunnableProjectRequest,
     ResearchRunProgress,
-    ResearchRuntimeKind,
     ResearchTagSessionCreateRequest,
     ResearchWorkerRolePalette,
     ResearchWorkProduct,
 )
-from synth_ai.research.projects import ResearchProjectsAPI
 from synth_ai.research.runs import (
     ResearchRunHandle,
     ResearchRunsAPI,
     ResearchRunSession,
 )
 from synth_ai.research.secrets import ResearchSecretsAPI
+
+ResearchRunnableProjectRequest = ResearchProjectCreateRequest
 
 __all__ = [
     "AsyncResearchClient",
@@ -70,7 +85,6 @@ __all__ = [
     "ResearchApiError",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
-    "ResearchCreateProjectResult",
     "ResearchEconomicsAPI",
     "ResearchEnvironmentKind",
     "ResearchHostKind",
@@ -78,6 +92,8 @@ __all__ = [
     "ResearchLimitExceededError",
     "ResearchOrgLimits",
     "ResearchProject",
+    "ResearchProjectCreateRequest",
+    "ResearchProjectPatchRequest",
     "ResearchProjectEconomics",
     "ResearchProjectMonthlyBudgetExhaustedError",
     "ResearchFactoriesAPI",
@@ -90,6 +106,14 @@ __all__ = [
     "ResearchRunSession",
     "ResearchRunbookPreset",
     "ResearchRunnableProjectRequest",
+    "ResearchSwarm",
+    "ResearchSwarmBranchRequest",
+    "ResearchSwarmBranchResult",
+    "ResearchSwarmHandle",
+    "ResearchSwarmLaunchRequest",
+    "ResearchSwarmPreflight",
+    "ResearchSwarmState",
+    "ResearchSwarmsAPI",
     "ResearchRoleBinding",
     "ResearchRoleBindings",
     "ResearchRuntimeKind",
@@ -100,4 +124,7 @@ __all__ = [
     "ResearchWorkMode",
     "ResearchWorkProduct",
     "ResearchWorkerRolePalette",
+    "ProjectId",
+    "ResourceLimit",
+    "SwarmId",
 ]

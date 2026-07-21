@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import os
 
-from synth_ai.managed_research.auth import BACKEND_URL_BASE, get_api_key, normalize_backend_base
+from synth_ai.core.auth.credentials import resolve_api_credential
+from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_WORKSPACE_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 600.0
@@ -25,16 +26,11 @@ def resolve_backend_base(backend_base: str | None) -> str:
 
 
 def resolve_api_key(api_key: str | None) -> str:
-    if api_key and api_key.strip():
-        return api_key.strip()
-    resolved = get_api_key("SYNTH_API_KEY", required=True)
-    if not resolved:
-        raise ValueError("api_key is required (provide api_key or set SYNTH_API_KEY)")
-    return resolved
+    return resolve_api_credential(api_key).value
 
 
 def auth_headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    return resolve_api_credential(api_key).authorization_headers()
 
 
 def optional_str(value: str | None) -> str | None:

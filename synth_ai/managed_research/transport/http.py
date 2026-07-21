@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
-from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
+from synth_ai.core.contracts.json_value import JsonValue
+from synth_ai.core.http.streaming import SseEvent
+from synth_ai.core.http.transport import HttpTransport
 from synth_ai.managed_research.errors import (
     SmrApiError,
     SmrCheckpointQuotaExceededError,
@@ -26,7 +28,6 @@ from synth_ai.managed_research.errors import (
     SmrProjectMonthlyBudgetExhaustedError,
     SmrStructuredDenialError,
 )
-from synth_ai.managed_research.transport.streaming import SseEvent, iter_sse_events
 
 
 def _error_message(response: httpx.Response) -> str:
@@ -193,124 +194,69 @@ def _raise_for_error_response(response: httpx.Response) -> None:
     )
 
 
-@dataclass
-class SmrHttpTransport:
-    """Simple JSON HTTP transport used by the rewritten public client."""
+def _raise_for_transport_exception(
+    method: str,
+    path: str,
+    error: httpx.HTTPError,
+) -> None:
+    if isinstance(error, httpx.TimeoutException):
+        raise SmrApiError(f"{method} {path} timed out") from error
+    raise SmrApiError(
+        f"{method} {path} failed: network error ({type(error).__name__})"
+    ) from error
 
-    base_url: str
-    headers: dict[str, str]
-    timeout: float
-    client: httpx.Client = field(init=False, repr=False)
 
-    def __post_init__(self) -> None:
-        self.client = httpx.Client(
-            base_url=self.base_url.rstrip("/"),
-            headers=self.headers,
-            timeout=self.timeout,
-            # Local control-plane restarts and reverse proxies can leave an
-            # otherwise healthy keep-alive connection half-open.  The SDK is
-            # request/response oriented, so prefer a fresh connection over a
-            # second request silently waiting on that stale socket.
-            limits=httpx.Limits(max_keepalive_connections=0),
-            # WorkProduct content resolves through the durable artifact owner.
-            # The API first redirects to its artifact route and may then redirect
-            # to presigned object storage; returning the first 3xx body would
-            # silently surface empty content instead of the stored blob.
-            follow_redirects=True,
+def _raise_for_decode_error(
+    method: str,
+    path: str,
+    response: httpx.Response,
+    error: Exception,
+) -> None:
+    raise SmrApiError(
+        f"{method} {path} returned a non-JSON response",
+        status_code=response.status_code,
+        response_text=response.text,
+    ) from error
+
+
+class SmrHttpTransport(HttpTransport):
+    """Deprecated compatibility adapter over the shared core transport."""
+
+    def __init__(self, *, base_url: str, headers: dict[str, str], timeout: float) -> None:
+        super().__init__(
+            base_url=base_url,
+            headers=headers,
+            timeout_seconds=timeout,
+            error_handler=_raise_for_error_response,
+            exception_handler=_raise_for_transport_exception,
+            decode_error_handler=_raise_for_decode_error,
         )
-
-    def close(self) -> None:
-        self.client.close()
-
-    def request_json(
-        self,
-        method: str,
-        path: str,
-        *,
-        params: dict[str, Any] | None = None,
-        json_body: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
-        allow_not_found: bool = False,
-        timeout_seconds: float | None = None,
-    ) -> Any:
-        try:
-            response = self.client.request(
-                method,
-                path,
-                params=params,
-                json=json_body,
-                headers=headers,
-                timeout=self.timeout if timeout_seconds is None else timeout_seconds,
-            )
-        except httpx.TimeoutException as exc:
-            raise SmrApiError(f"{method} {path} timed out") from exc
-        except httpx.TransportError as exc:
-            raise SmrApiError(
-                f"{method} {path} failed: network error ({type(exc).__name__})"
-            ) from exc
-        if allow_not_found and response.status_code == 404:
-            return None
-        if response.is_error:
-            _raise_for_error_response(response)
-        if not response.content:
-            return {}
-        try:
-            return response.json()
-        except json.JSONDecodeError as exc:
-            raise SmrApiError(
-                f"{method} {path} returned a non-JSON response",
-                status_code=response.status_code,
-                response_text=response.text,
-            ) from exc
-
-    def request_bytes(
-        self,
-        method: str,
-        path: str,
-        *,
-        params: dict[str, Any] | None = None,
-    ) -> bytes:
-        try:
-            response = self.client.request(method, path, params=params)
-        except httpx.TimeoutException as exc:
-            raise SmrApiError(f"{method} {path} timed out") from exc
-        except httpx.TransportError as exc:
-            raise SmrApiError(
-                f"{method} {path} failed: network error ({type(exc).__name__})"
-            ) from exc
-        if response.is_error:
-            _raise_for_error_response(response)
-        return bytes(response.content)
+        self.timeout = timeout
 
     def stream_sse(
         self,
         path: str,
         *,
-        params: dict[str, Any] | None = None,
+        params: dict[str, JsonValue] | None = None,
         last_event_id: str | None = None,
         timeout: float | None = None,
     ) -> Iterator[SseEvent]:
-        headers = {"Accept": "text/event-stream"}
-        if last_event_id:
-            headers["Last-Event-ID"] = last_event_id
         try:
-            with self.client.stream(
-                "GET",
+            yield from super().stream_sse(
                 path,
                 params=params,
-                headers=headers,
-                timeout=timeout,
-            ) as response:
-                if response.is_error:
-                    response.read()
-                    _raise_for_error_response(response)
-                yield from iter_sse_events(response.iter_lines())
-        except httpx.TimeoutException as exc:
-            raise SmrApiError(f"GET {path} SSE stream timed out") from exc
-        except httpx.TransportError as exc:
-            raise SmrApiError(
-                f"GET {path} SSE stream failed: network error ({type(exc).__name__})"
-            ) from exc
+                last_event_id=last_event_id,
+                timeout_seconds=timeout,
+            )
+        except SmrApiError as error:
+            if isinstance(error.__cause__, httpx.TimeoutException):
+                raise SmrApiError(f"GET {path} SSE stream timed out") from error.__cause__
+            if isinstance(error.__cause__, httpx.TransportError):
+                raise SmrApiError(
+                    f"GET {path} SSE stream failed: network error "
+                    f"({type(error.__cause__).__name__})"
+                ) from error.__cause__
+            raise
 
 
 __all__ = ["SmrHttpTransport"]

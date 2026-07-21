@@ -5,6 +5,9 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
+from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.projects import ResearchProjectsAPI
+from synth_ai.core.research.swarms import ResearchSwarmsAPI
 from synth_ai.managed_research.sdk.client import ManagedResearchClient
 from synth_ai.managed_research.sdk.images import ImagesAPI
 from synth_ai.managed_research.sdk.tag import TagAPI
@@ -13,23 +16,21 @@ from synth_ai.research.efforts import ResearchEffortsAPI
 from synth_ai.research.factories import ResearchFactoriesAPI
 from synth_ai.research.hosted_artifacts import ResearchHostedArtifactsAPI
 from synth_ai.research.limits import ResearchLimitsAPI
-from synth_ai.research.projects import ResearchProjectsAPI
-from synth_ai.research.runs import ResearchRunsAPI
 from synth_ai.research.secrets import ResearchSecretsAPI
 from synth_ai.research.visuals import ResearchVisualsAPI
 
 
 class ResearchClient:
-    """Managed Research entrypoint on ``SynthClient``.
+    """Research entrypoint on ``SynthClient``.
 
-    Obtain via ``SynthClient().research``. Namespaces cover projects, runs,
+    Obtain via ``SynthClient().research``. Namespaces cover projects, swarms,
     limits, economics, secrets, and Factory Tag (``factories.tag``).
 
     Example:
         >>> client = SynthClient()
         >>> research = client.research
         >>> research.limits.get()
-        >>> research.projects.create({"name": "demo", "work_mode": "standard"})
+        >>> research.swarms.list(project_id)
     """
 
     def __init__(
@@ -42,11 +43,14 @@ class ResearchClient:
         self.api_key = api_key
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
+        self._core = CoreResearchClient(
+            api_key=api_key,
+            base_url=base_url,
+            timeout_seconds=timeout_seconds,
+        )
         self._session: ManagedResearchClient | None = None
         self._factories: ResearchFactoriesAPI | None = None
         self._efforts: ResearchEffortsAPI | None = None
-        self._projects: ResearchProjectsAPI | None = None
-        self._runs: ResearchRunsAPI | None = None
         self._limits: ResearchLimitsAPI | None = None
         self._economics: ResearchEconomicsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
@@ -67,7 +71,7 @@ class ResearchClient:
     def session(self) -> ManagedResearchClient:
         """Low-level session client (advanced integrations and eval harnesses only).
 
-        Prefer hero namespaces (``projects``, ``runs``, ``limits``) for new code.
+        Prefer hero namespaces (``projects``, ``swarms``, ``limits``) for new code.
         """
         return self._open_session()
 
@@ -102,17 +106,23 @@ class ResearchClient:
 
     @property
     def projects(self) -> ResearchProjectsAPI:
-        """Create and configure Managed Research projects."""
-        if self._projects is None:
-            self._projects = ResearchProjectsAPI(self._open_session())
-        return self._projects
+        """Create and configure Research projects through the core client."""
+        return self._core.projects
 
     @property
-    def runs(self) -> ResearchRunsAPI:
-        """Launch runs and open run-scoped readout handles."""
-        if self._runs is None:
-            self._runs = ResearchRunsAPI(self._open_session())
-        return self._runs
+    def swarms(self) -> ResearchSwarmsAPI:
+        """Launch and control typed Research swarms."""
+        return self._core.swarms
+
+    @property
+    def runs(self) -> ResearchSwarmsAPI:
+        """Deprecated alias for :attr:`swarms`."""
+        warnings.warn(
+            "research.runs is deprecated; use research.swarms instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._core.swarms
 
     @property
     def limits(self) -> ResearchLimitsAPI:
@@ -172,13 +182,12 @@ class ResearchClient:
 
     def close(self) -> None:
         """Close the underlying HTTP session and cached namespace clients."""
+        self._core.close()
         if self._session is not None:
             self._session.close()
         self._session = None
         self._factories = None
         self._efforts = None
-        self._projects = None
-        self._runs = None
         self._limits = None
         self._economics = None
         self._secrets = None
