@@ -16,6 +16,8 @@ from synth_ai.core.research._legacy.models.local_execution_profile import (
     build_local_launch_payload,
     default_local_eval_contract_path,
     load_local_eval_contract,
+    load_local_execution_profile,
+    load_local_execution_profiles,
     local_execution_payload,
 )
 from synth_ai.core.research._legacy.models.run_control import (
@@ -32,4 +34,3 @@ from synth_ai.core.research._legacy.models.smr_work_modes import SMR_WORK_MODE_V
 from synth_ai.core.research._legacy.models.types import KickoffContract
 from synth_ai.core.research._legacy.sdk.runs import RunHandle
 from synth_ai.core.research._legacy.version import __version__
-
