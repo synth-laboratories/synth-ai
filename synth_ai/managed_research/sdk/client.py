@@ -34,6 +34,7 @@ from synth_ai.managed_research.models import (
     FactoryCreateRequest,
     FactoryIdeaCreateRequest,
     FactoryIdeaPatchRequest,
+    FactoryLifecycleState,
     FactoryPatchRequest,
     FactoryTransitionRequest,
     FactoryProjectLinkRequest,
@@ -1862,6 +1863,28 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
                 json_body=factory_patch_payload(request),
             ),
             label="patch_factory",
+        )
+
+    def patch_factory_status_compat(
+        self,
+        factory_id: str,
+        status: FactoryLifecycleState | str,
+    ) -> dict[str, Any]:
+        """Patch lifecycle state on deployments that predate transition routes.
+
+        Use only after the deployment's OpenAPI proves that ``PATCH status`` is
+        authoritative and the named start/pause/resume/archive routes are absent.
+        Current deployments should use the named transition methods instead.
+        """
+
+        normalized_status = FactoryLifecycleState(str(status)).value
+        return _coerce_dict(
+            self._request_json(
+                "PATCH",
+                f"/smr/factories/{factory_id}",
+                json_body={"status": normalized_status},
+            ),
+            label="patch_factory_status_compat",
         )
 
     def start_factory(
