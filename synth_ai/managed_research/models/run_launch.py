@@ -22,6 +22,10 @@ from synth_ai.managed_research.models.runtime_image import (
     align_execution_profile_for_runtime_image,
     runtime_image_launch_patches,
 )
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.smr_actor_models import SmrActorModelAssignment
 from synth_ai.managed_research.models.smr_agent_harnesses import SmrAgentHarness
 from synth_ai.managed_research.models.smr_agent_kinds import SmrAgentKind
@@ -228,6 +232,7 @@ class RunLaunchRequest(CommandRequest):
     run_policy: SmrRunPolicy | WireMapping | None = None
     kickoff_contract: KickoffContract | WireMapping | None = None
     resource_bindings: RunResourceBindings | WireMapping | None = None
+    evidence_obligations: EvidenceObligations | WireMapping | None = None
     ai_cache: WireMapping | None = None
     primary_objective_id: str | None = None
     primary_objective_kind: str | None = None
@@ -296,6 +301,7 @@ class RunLaunchRequest(CommandRequest):
             run_policy=self.run_policy,
             kickoff_contract=self.kickoff_contract,
             resource_bindings=self.resource_bindings,
+            evidence_obligations=self._evidence_obligations_payload(),
             dev_environment_id=self.dev_environment_id,
             ai_cache=self.ai_cache,
             primary_objective_id=self.primary_objective_id,
@@ -341,6 +347,10 @@ class RunLaunchRequest(CommandRequest):
             return None
         payload = policy.to_dict()
         return payload or None
+
+    def _evidence_obligations_payload(self) -> WirePayload | None:
+        obligations = coerce_evidence_obligations(self.evidence_obligations)
+        return obligations.to_wire() if obligations is not None else None
 
     @classmethod
     def from_client_kwargs(cls, values: Mapping[str, object]) -> Self:
@@ -1237,6 +1247,7 @@ def _validate_launch_mappings(request: RunLaunchRequest) -> None:
         request.sandbox_override, SandboxOverride
     ):
         _require_mapping(request.sandbox_override, label="sandbox_override")
+    coerce_evidence_obligations(request.evidence_obligations)
 
 
 def _validate_launch_combinations(request: RunLaunchRequest) -> None:
