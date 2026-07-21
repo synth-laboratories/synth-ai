@@ -1,4 +1,4 @@
-"""Anthropic-view managed-agents client (via backend BFF proxy)."""
+"""Anthropic-view managed-agents client for explicit Horizons Private access."""
 
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ from typing import Any
 
 import httpx
 
-from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.core.utils.urls import join_url, normalize_backend_base
 
 DEFAULT_ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MANAGED_AGENTS_BETA = (
@@ -110,7 +109,7 @@ class ManagedAgentRun:
 
 
 class ManagedAgentsAnthropicClient:
-    """Sync client for backend Anthropic-view managed-agents proxy endpoints."""
+    """Sync client for an explicitly configured managed-agents transport."""
 
     def __init__(
         self,
@@ -119,14 +118,32 @@ class ManagedAgentsAnthropicClient:
         backend_base: str | None = None,
         timeout: float = 30.0,
         anthropic_version: str | None = None,
-        path_prefix: str = "/api/managed-agents/anthropic/v1",
+        path_prefix: str | None = None,
         require_api_key: bool = True,
         anthropic_beta: str | None = None,
     ) -> None:
-        self._api_key = (api_key or get_api_key(required=False) or "").strip()
+        prefix = str(path_prefix or "").strip().rstrip("/")
+        if not prefix:
+            raise ValueError(
+                "ManagedAgentsAnthropicClient has no implicit transport after retirement of "
+                "the backend managed-agents proxy. Use from_horizons_private() with an "
+                "explicit Horizons Private base URL and credential."
+            )
+        if prefix == "/api/managed-agents/anthropic/v1":
+            raise ValueError(
+                "The backend managed-agents Anthropic proxy has been retired. Use "
+                "from_horizons_private() only with an explicit Horizons Private base URL "
+                "and credential."
+            )
+        explicit_base = str(backend_base or "").strip()
+        if not explicit_base:
+            raise ValueError(
+                "backend_base is required for explicit managed-agents transport access"
+            )
+        self._api_key = str(api_key or "").strip()
         if require_api_key and not self._api_key:
-            raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-        self._backend_base = normalize_backend_base(backend_base or BACKEND_URL_BASE)
+            raise ValueError("api_key must be an explicit credential for the selected transport")
+        self._backend_base = normalize_backend_base(explicit_base)
         self._timeout = timeout
         self._anthropic_version = (
             anthropic_version or os.getenv("ANTHROPIC_VERSION") or DEFAULT_ANTHROPIC_VERSION
@@ -134,26 +151,26 @@ class ManagedAgentsAnthropicClient:
         self._anthropic_beta = (
             anthropic_beta or os.getenv("ANTHROPIC_BETA") or DEFAULT_MANAGED_AGENTS_BETA
         ).strip()
-        self._prefix = path_prefix.rstrip("/")
+        self._prefix = prefix
 
     @classmethod
     def from_horizons_private(
         cls,
         *,
         base_url: str,
-        api_key: str | None = None,
+        api_key: str,
         timeout: float = 30.0,
         anthropic_version: str | None = None,
         anthropic_beta: str | None = None,
     ) -> ManagedAgentsAnthropicClient:
         return cls(
-            api_key=api_key or "",
+            api_key=api_key,
             backend_base=base_url,
             timeout=timeout,
             anthropic_version=anthropic_version or DEFAULT_ANTHROPIC_VERSION,
             anthropic_beta=anthropic_beta or DEFAULT_MANAGED_AGENTS_BETA,
             path_prefix="/anthropic/v1",
-            require_api_key=False,
+            require_api_key=True,
         )
 
     def _headers(self, extra: dict[str, str] | None = None) -> dict[str, str]:

@@ -563,12 +563,10 @@ class SynthManagedAgents:
         transport: ManagedAgentsAnthropicClient | None = None,
     ) -> None:
         if transport is None:
-            transport = ManagedAgentsAnthropicClient(
-                api_key=api_key,
-                backend_base=base_url,
-                timeout=timeout,
-                anthropic_version=anthropic_version,
-                anthropic_beta=anthropic_beta,
+            raise ValueError(
+                "SynthManagedAgents has no implicit transport after retirement of the "
+                "backend managed-agents proxy. Use from_horizons_private() with an "
+                "explicit Horizons Private base URL and credential."
             )
         self._transport = transport
         self.webhook_key = webhook_key
@@ -579,7 +577,7 @@ class SynthManagedAgents:
         cls,
         *,
         base_url: str,
-        api_key: str | None = None,
+        api_key: str,
         timeout: float = 30.0,
         anthropic_version: str | None = None,
         webhook_key: str | bytes | None = None,
@@ -861,13 +859,10 @@ class AsyncSynthManagedAgents:
         sync_client: SynthManagedAgents | None = None,
     ) -> None:
         if sync_client is None:
-            sync_client = SynthManagedAgents(
-                api_key=api_key,
-                base_url=base_url,
-                timeout=timeout,
-                anthropic_version=anthropic_version,
-                anthropic_beta=anthropic_beta,
-                webhook_key=webhook_key,
+            raise ValueError(
+                "AsyncSynthManagedAgents has no implicit transport after retirement of "
+                "the backend managed-agents proxy. Use from_horizons_private() with an "
+                "explicit Horizons Private base URL and credential."
             )
         self._sync = sync_client
         self.beta = _AsyncBetaResource(sync_client.beta)
@@ -877,7 +872,7 @@ class AsyncSynthManagedAgents:
         cls,
         *,
         base_url: str,
-        api_key: str | None = None,
+        api_key: str,
         timeout: float = 30.0,
         anthropic_version: str | None = None,
         webhook_key: str | bytes | None = None,
