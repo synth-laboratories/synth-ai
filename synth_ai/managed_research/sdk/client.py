@@ -90,6 +90,10 @@ from synth_ai.managed_research.models.run_launch import (
     RunLaunchRequest,
     RunLaunchResult,
 )
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
@@ -662,6 +666,7 @@ def _build_project_run_payload(
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+    evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
     directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
     required_work_products: (
@@ -940,6 +945,9 @@ def _build_project_run_payload(
             )
         if normalized_resource_bindings:
             payload["resource_bindings"] = normalized_resource_bindings
+    normalized_evidence_obligations = coerce_evidence_obligations(evidence_obligations)
+    if normalized_evidence_obligations is not None:
+        payload["evidence_obligations"] = normalized_evidence_obligations.to_wire()
     normalized_ai_cache = _optional_mapping(ai_cache, field_name="ai_cache")
     if normalized_ai_cache:
         payload["ai_cache"] = normalized_ai_cache
@@ -5621,6 +5629,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
         required_work_products: (
@@ -5670,6 +5679,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
             directed_effort_outcome=directed_effort_outcome,
             required_work_products=required_work_products,
@@ -5776,6 +5786,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
         required_work_products: (
@@ -5841,6 +5852,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
             directed_effort_outcome=directed_effort_outcome,
             required_work_products=required_work_products,

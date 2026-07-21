@@ -279,6 +279,13 @@ from synth_ai.managed_research.models.run_execution import (
     RunExecutionTask,
     RunExecutionWorkProductRef,
 )
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EVIDENCE_OBLIGATION_KIND_VALUES,
+    EVIDENCE_OBLIGATIONS_SCHEMA,
+    EvidenceObligationKind,
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.run_launch import (
     ActorStateChangedEvent,
     AsyncEventStream,
@@ -594,6 +601,10 @@ __all__ = [
     "EventStreamReplayPolicy",
     "EventStreamRequest",
     "EnvironmentSpec",
+    "EVIDENCE_OBLIGATION_KIND_VALUES",
+    "EVIDENCE_OBLIGATIONS_SCHEMA",
+    "EvidenceObligationKind",
+    "EvidenceObligations",
     "HeartbeatEvent",
     "Interrupt",
     "ImageBuilder",
@@ -625,6 +636,7 @@ __all__ = [
     "TaskStateChangedEvent",
     "UnknownEvent",
     "WorkProductPublishedEvent",
+    "coerce_evidence_obligations",
     "RequiredWorkProductSpec",
     "CredentialRef",
     "ExternalRepository",

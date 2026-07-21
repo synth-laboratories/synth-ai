@@ -11,6 +11,10 @@ from synth_ai.managed_research.models.smr_agent_harnesses import (
 )
 from synth_ai.managed_research.models.smr_agent_kinds import SmrAgentKind, coerce_smr_agent_kind
 from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.smr_funding_sources import (
     SmrFundingSource,
     coerce_smr_funding_source,
@@ -117,6 +121,7 @@ def build_project_run_payload(
     | list[Mapping[str, Any]]
     | None = None,
     roles: SmrRoleBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+    evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
     uploaded_files: list[Mapping[str, Any]] | None = None,
     resource_files: list[Mapping[str, Any]] | None = None,
     one_off: bool = False,
@@ -231,6 +236,9 @@ def build_project_run_payload(
         payload["roles"] = normalized_roles.to_wire()
     if actor_model_overrides is not None:
         payload["actor_model_overrides"] = actor_model_overrides
+    normalized_evidence_obligations = coerce_evidence_obligations(evidence_obligations)
+    if normalized_evidence_obligations is not None:
+        payload["evidence_obligations"] = normalized_evidence_obligations.to_wire()
     if uploaded_files is not None:
         payload["uploaded_files"] = [_normalize_uploaded_file(item) for item in uploaded_files]
     if resource_files is not None:
