@@ -107,13 +107,15 @@ class UsageAPI(_ClientNamespace):
 
     def get_run_usage(self, run_id: str) -> SmrRunUsage:
         return SmrRunUsage.from_wire(
-            _raise_on_error_payload(self._client._request_json("GET", f"/smr/runs/{run_id}/usage"))
+            _raise_on_error_payload(
+                self._client._request_json("GET", f"/smr/swarms/{run_id}/usage")
+            )
         )
 
     def get_run_resource_limits(self, run_id: str) -> SmrResourceLimits:
         return SmrResourceLimits.from_wire(
             _raise_on_error_payload(
-                self._client._request_json("GET", f"/smr/runs/{run_id}/resource-limits")
+                self._client._request_json("GET", f"/smr/swarms/{run_id}/resource-limits")
             )
         )
 
@@ -125,7 +127,7 @@ class UsageAPI(_ClientNamespace):
             _raise_on_error_payload(
                 self._client._request_json(
                     "GET",
-                    f"/smr/runs/{run_id}/progress-toward-resource-limits",
+                    f"/smr/swarms/{run_id}/progress-toward-resource-limits",
                 )
             )
         )
@@ -149,7 +151,7 @@ class UsageAPI(_ClientNamespace):
             _raise_on_error_payload(
                 self._client._request_json(
                     "POST",
-                    f"/smr/runs/{run_id}/resource-limit-extensions",
+                    f"/smr/swarms/{run_id}/resource-limit-extensions",
                     json_body=_limit_extension_payload(
                         limit_value=limit_value,
                         additional_value=additional_value,
@@ -175,7 +177,7 @@ class UsageAPI(_ClientNamespace):
             _raise_on_error_payload(
                 self._client._request_json(
                     "GET",
-                    f"/smr/projects/{project_id}/runs/{run_id}/resource-limits",
+                    f"/smr/projects/{project_id}/swarms/{run_id}/resource-limits",
                 )
             )
         )
@@ -189,7 +191,7 @@ class UsageAPI(_ClientNamespace):
             _raise_on_error_payload(
                 self._client._request_json(
                     "GET",
-                    f"/smr/projects/{project_id}/runs/{run_id}/progress-toward-resource-limits",
+                    f"/smr/projects/{project_id}/swarms/{run_id}/progress-toward-resource-limits",
                 )
             )
         )
@@ -214,7 +216,7 @@ class UsageAPI(_ClientNamespace):
             _raise_on_error_payload(
                 self._client._request_json(
                     "POST",
-                    f"/smr/projects/{project_id}/runs/{run_id}/resource-limit-extensions",
+                    f"/smr/projects/{project_id}/swarms/{run_id}/resource-limit-extensions",
                     json_body=_limit_extension_payload(
                         limit_value=limit_value,
                         additional_value=additional_value,

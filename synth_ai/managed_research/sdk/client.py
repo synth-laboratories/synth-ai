@@ -102,6 +102,10 @@ from synth_ai.managed_research.models.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
 )
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.smr_funding_sources import (
     SmrFundingSource,
     coerce_smr_funding_source,
@@ -645,6 +649,7 @@ def _build_project_run_payload(
     run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
     resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+    evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
     open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
     directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
     required_work_products: (
@@ -901,6 +906,9 @@ def _build_project_run_payload(
             )
         if normalized_resource_bindings:
             payload["resource_bindings"] = normalized_resource_bindings
+    normalized_evidence_obligations = coerce_evidence_obligations(evidence_obligations)
+    if normalized_evidence_obligations is not None:
+        payload["evidence_obligations"] = normalized_evidence_obligations.to_wire()
     normalized_ai_cache = _optional_mapping(ai_cache, field_name="ai_cache")
     if normalized_ai_cache:
         payload["ai_cache"] = normalized_ai_cache
@@ -2203,7 +2211,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/api/v1/managed_research/efforts/{effort_id}/runs",
+                f"/api/v1/managed_research/efforts/{effort_id}/swarms",
             ),
             label="list_runs_for_effort",
         )
@@ -2527,7 +2535,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         """Download the immutable archive resolved for one run."""
         path = Path(output_path).expanduser().resolve()
         path.parent.mkdir(parents=True, exist_ok=True)
-        request_path = f"/smr/projects/{project_id}/runs/{run_id}/workspace/archive"
+        request_path = f"/smr/projects/{project_id}/swarms/{run_id}/workspace/archive"
         try:
             with (
                 self._transport.client.stream(
@@ -3026,7 +3034,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
     def list_run_file_mounts(self, run_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/file-mounts"),
+            self._request_json("GET", f"/smr/swarms/{run_id}/file-mounts"),
             label="list_run_file_mounts",
         )
 
@@ -3041,7 +3049,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/files:upload",
+                f"/smr/swarms/{run_id}/files:upload",
                 json_body={"files": normalized_files},
             ),
             label="upload_run_files",
@@ -3078,7 +3086,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/outputs",
+                f"/smr/swarms/{run_id}/outputs",
                 params=build_query_params(artifact_type=artifact_type, limit=limit),
             ),
             label="list_run_output_files",
@@ -3114,9 +3122,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         cursor: str | None = None,
     ) -> list[RunArtifact]:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/artifacts"
+            f"/smr/projects/{project_id}/swarms/{run_id}/artifacts"
             if project_id
-            else f"/smr/runs/{run_id}/artifacts"
+            else f"/smr/swarms/{run_id}/artifacts"
         )
         payload = _coerce_dict_list(
             self._request_json(
@@ -3139,9 +3147,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         project_id: str | None = None,
     ) -> RunArtifactManifest:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/artifacts/manifest"
+            f"/smr/projects/{project_id}/swarms/{run_id}/artifacts/manifest"
             if project_id
-            else f"/smr/runs/{run_id}/artifacts/manifest"
+            else f"/smr/swarms/{run_id}/artifacts/manifest"
         )
         return RunArtifactManifest.from_wire(
             _coerce_dict(
@@ -3179,7 +3187,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/hosted-artifact",
+                f"/smr/swarms/{run_id}/hosted-artifact",
             ),
             label="get_run_hosted_artifact",
         )
@@ -3312,7 +3320,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         )
         response = self._transport.client.request(
             "POST",
-            f"/smr/runs/{run_id}/visuals",
+            f"/smr/swarms/{run_id}/visuals",
             data={
                 "title": title,
                 "visual_kind": visual_kind,
@@ -3468,9 +3476,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         project_id: str | None = None,
     ) -> list[dict[str, Any]]:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/models"
+            f"/smr/projects/{project_id}/swarms/{run_id}/models"
             if project_id
-            else f"/smr/runs/{run_id}/models"
+            else f"/smr/swarms/{run_id}/models"
         )
         return _coerce_dict_list(
             self._request_json("GET", path),
@@ -3484,9 +3492,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         project_id: str | None = None,
     ) -> list[dict[str, Any]]:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/datasets"
+            f"/smr/projects/{project_id}/swarms/{run_id}/datasets"
             if project_id
-            else f"/smr/runs/{run_id}/datasets"
+            else f"/smr/swarms/{run_id}/datasets"
         )
         return _coerce_dict_list(
             self._request_json("GET", path),
@@ -3505,7 +3513,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/artifacts",
+                f"/smr/projects/{project_id}/swarms/{run_id}/artifacts",
                 params=build_query_params(
                     artifact_type=artifact_type,
                     limit=limit,
@@ -3525,7 +3533,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_content(
                 "GET",
-                f"/smr/runs/{run_id}/outputs/{output_file_id}/content",
+                f"/smr/swarms/{run_id}/outputs/{output_file_id}/content",
                 params=build_query_params(disposition=disposition),
             ),
             label="get_run_output_file_content",
@@ -3974,7 +3982,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/dev-environments/{dev_environment_id}/runs",
+                f"/smr/dev-environments/{dev_environment_id}/swarms",
             ),
             label="get_dev_environment_runs",
         )
@@ -4693,7 +4701,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
     def list_run_work_products(self, project_id: str, run_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs/{run_id}/work-products"),
+            self._request_json("GET", f"/smr/projects/{project_id}/swarms/{run_id}/work-products"),
             label="list_run_work_products",
         )
 
@@ -4840,7 +4848,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/container-eval-packages",
+                f"/smr/projects/{project_id}/swarms/{run_id}/container-eval-packages",
                 json_body={
                     "kind": kind,
                     "name": name,
@@ -4863,7 +4871,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/container-eval-packages",
+                f"/smr/projects/{project_id}/swarms/{run_id}/container-eval-packages",
             ),
             label="list_run_container_eval_packages",
         )
@@ -5046,7 +5054,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
     def list_run_repository_mounts(self, run_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/repository-mounts"),
+            self._request_json("GET", f"/smr/swarms/{run_id}/repository-mounts"),
             label="list_run_repository_mounts",
         )
 
@@ -5068,7 +5076,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/repository-mounts",
+                f"/smr/swarms/{run_id}/repository-mounts",
                 json_body=payload,
             ),
             label="create_run_repository_mount",
@@ -5164,7 +5172,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
     def list_run_credential_bindings(self, run_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/credential-bindings"),
+            self._request_json("GET", f"/smr/swarms/{run_id}/credential-bindings"),
             label="list_run_credential_bindings",
         )
 
@@ -5177,7 +5185,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/credential-bindings",
+                f"/smr/swarms/{run_id}/credential-bindings",
                 json_body={
                     "credential_ref_id": _require_non_empty_string(
                         credential_ref_id,
@@ -5376,6 +5384,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
         required_work_products: (
@@ -5423,6 +5432,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
             directed_effort_outcome=directed_effort_outcome,
             required_work_products=required_work_products,
@@ -5526,6 +5536,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         run_policy: SmrRunPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         kickoff_contract: KickoffContract | Mapping[str, Any] | dict[str, Any] | None = None,
         resource_bindings: RunResourceBindings | Mapping[str, Any] | dict[str, Any] | None = None,
+        evidence_obligations: EvidenceObligations | Mapping[str, Any] | None = None,
         open_ended_question: Mapping[str, Any] | dict[str, Any] | None = None,
         directed_effort_outcome: Mapping[str, Any] | dict[str, Any] | None = None,
         required_work_products: (
@@ -5574,6 +5585,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             run_policy=run_policy,
             kickoff_contract=kickoff_contract,
             resource_bindings=resource_bindings,
+            evidence_obligations=evidence_obligations,
             open_ended_question=open_ended_question,
             directed_effort_outcome=directed_effort_outcome,
             required_work_products=required_work_products,
@@ -5633,13 +5645,13 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             cursor=cursor,
         )
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs", params=params),
+            self._request_json("GET", f"/smr/projects/{project_id}/swarms", params=params),
             label="list_runs",
         )
 
     def list_active_runs(self, project_id: str) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs/active"),
+            self._request_json("GET", f"/smr/projects/{project_id}/swarms/active"),
             label="list_active_runs",
         )
 
@@ -5669,16 +5681,16 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         if project_id:
             scoped = self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}",
+                f"/smr/projects/{project_id}/swarms/{run_id}",
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_dict(scoped, label="get_project_run")
-        return _coerce_dict(self._request_json("GET", f"/smr/runs/{run_id}"), label="get_run")
+        return _coerce_dict(self._request_json("GET", f"/smr/swarms/{run_id}"), label="get_run")
 
     def get_project_run(self, project_id: str, run_id: str) -> dict[str, Any]:
         return _coerce_dict(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs/{run_id}"),
+            self._request_json("GET", f"/smr/projects/{project_id}/swarms/{run_id}"),
             label="get_project_run",
         )
 
@@ -5721,7 +5733,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/poll-summary",
+                f"/smr/projects/{project_id}/swarms/{run_id}/poll-summary",
                 params=params,
             ),
             label="get_run_observability_snapshot",
@@ -5796,9 +5808,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         project_id: str | None = None,
     ) -> RunTickingStatus:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/ticking"
+            f"/smr/projects/{project_id}/swarms/{run_id}/ticking"
             if project_id
-            else f"/smr/runs/{run_id}/ticking"
+            else f"/smr/swarms/{run_id}/ticking"
         )
         payload = _coerce_dict(
             self._request_json("GET", path),
@@ -5824,9 +5836,9 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             raise ValueError("tick_mode is required")
         effective_update = update or RunTickingUpdate(tick_mode=tick_mode or "", reason=reason)
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/ticking"
+            f"/smr/projects/{project_id}/swarms/{run_id}/ticking"
             if project_id
-            else f"/smr/runs/{run_id}/ticking"
+            else f"/smr/swarms/{run_id}/ticking"
         )
         payload = _coerce_dict(
             self._request_json("PATCH", path, json_body=effective_update.to_wire()),
@@ -5868,7 +5880,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/execution",
+                f"/smr/projects/{project_id}/swarms/{run_id}/execution",
                 params=build_query_params(
                     view=view,
                     event_limit=event_limit,
@@ -5887,7 +5899,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
 
 
 class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
-    """Compatibility alias that retains the legacy synth-ai bridge surface.
+    """Compatibility alias with retired managed-agents bridge surfaces.
 
     `ManagedResearchClient` is the canonical public name. `SmrControlClient`
     remains as a one-release alias but requires callers to pass the selected
@@ -5899,10 +5911,6 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
         api_key: str | None = None,
         backend_base: str | None = None,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        openai_transport_mode: str = OPENAI_TRANSPORT_MODE_AUTO,
-        openai_organization: str | None = None,
-        openai_project: str | None = None,
-        openai_request_id: str | None = None,
     ) -> None:
         explicit_backend_base = str(backend_base or "").strip()
         if not explicit_backend_base:
@@ -5915,12 +5923,6 @@ class SmrControlClient(SmrControlClientMixin, ManagedResearchClient):
             api_key=api_key,
             backend_base=explicit_backend_base,
             timeout_seconds=timeout_seconds,
-        )
-        self._initialize_openai_bridge(
-            openai_transport_mode=openai_transport_mode,
-            openai_organization=openai_organization,
-            openai_project=openai_project,
-            openai_request_id=openai_request_id,
         )
 
     def close(self) -> None:

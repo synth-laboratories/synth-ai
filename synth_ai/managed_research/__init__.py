@@ -25,6 +25,8 @@ from synth_ai.managed_research.errors import (
     SmrStructuredDenialError,
 )
 from synth_ai.managed_research.models import (
+    EVIDENCE_OBLIGATION_KIND_VALUES,
+    EVIDENCE_OBLIGATIONS_SCHEMA,
     ActorCollectionSnapshot,
     ActorContainerRunBinding,
     ActorImageId,
@@ -78,6 +80,8 @@ from synth_ai.managed_research.models import (
     EventStreamPhase,
     EventStreamRequest,
     EventStreamState,
+    EvidenceObligationKind,
+    EvidenceObligations,
     ExperimentBundle,
     ExperimentProgress,
     ExternalRepository,
@@ -828,6 +832,10 @@ __all__ = [
     "DiagnosticEvent",
     "Event",
     "EnvironmentSpec",
+    "EVIDENCE_OBLIGATION_KIND_VALUES",
+    "EVIDENCE_OBLIGATIONS_SCHEMA",
+    "EvidenceObligationKind",
+    "EvidenceObligations",
     "EventKind",
     "EventStream",
     "EventStreamPhase",

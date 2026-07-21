@@ -53,10 +53,6 @@ class SynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout: float = 30.0,
-        openai_transport_mode: str = "auto",
-        openai_organization: str | None = None,
-        openai_project: str | None = None,
-        openai_request_id: str | None = None,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
@@ -76,19 +72,8 @@ class SynthClient:
             backend_base=self.base_url,
             timeout=self.timeout,
         )
-        self.openai_agents_sdk = OpenAIAgentsSdkClient(
-            api_key=self.api_key,
-            backend_base=self.base_url,
-            timeout=self.timeout,
-            transport_mode=openai_transport_mode,
-            openai_organization=openai_organization,
-            openai_project=openai_project,
-            request_id=openai_request_id,
-        )
         self._research_client: ResearchClient | None = None
         self._horizons_private: HorizonsPrivateClient | None = None
-        self._managed_agents: ManagedAgentsAnthropicClient | None = None
-        self._managed_agents_anthropic: SynthManagedAgents | None = None
 
     def __getattr__(self, name: str) -> Any:
         if name == "horizons_private":
@@ -101,33 +86,23 @@ class SynthClient:
                 self._horizons_private = HorizonsPrivateClient(self.pools)
             return self._horizons_private
         if name == "managed_agents":
-            warnings.warn(
-                "SynthClient.managed_agents is deprecated; import ManagedAgentsAnthropicClient explicitly.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise AttributeError(
+                "SynthClient.managed_agents was retired with the backend managed-agents "
+                "proxy. Use ManagedAgentsAnthropicClient.from_horizons_private() only "
+                "with an explicit Horizons Private base URL and credential."
             )
-            if self._managed_agents is None:
-                self._managed_agents = ManagedAgentsAnthropicClient(
-                    api_key=self.api_key,
-                    backend_base=self.base_url,
-                    timeout=self.timeout,
-                )
-            return self._managed_agents
         if name == "managed_agents_anthropic":
-            warnings.warn(
-                "SynthClient.managed_agents_anthropic is deprecated; import SynthManagedAgents explicitly.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise AttributeError(
+                "SynthClient.managed_agents_anthropic was retired with the backend "
+                "managed-agents proxy. Use SynthManagedAgents.from_horizons_private() "
+                "only with an explicit Horizons Private base URL and credential."
             )
-            if self._managed_agents_anthropic is None:
-                self._managed_agents_anthropic = SynthManagedAgents.from_transport(
-                    ManagedAgentsAnthropicClient(
-                        api_key=self.api_key,
-                        backend_base=self.base_url,
-                        timeout=self.timeout,
-                    )
-                )
-            return self._managed_agents_anthropic
+        if name == "openai_agents_sdk":
+            raise AttributeError(
+                "SynthClient.openai_agents_sdk was retired with the backend managed-agents "
+                "proxy. Use OpenAIAgentsSdkClient.from_horizons_private() only with an "
+                "explicit Horizons Private base URL and credential."
+            )
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @property
@@ -153,10 +128,6 @@ class AsyncSynthClient:
         api_key: str | None = None,
         base_url: str | None = None,
         timeout: float = 30.0,
-        openai_transport_mode: str = "auto",
-        openai_organization: str | None = None,
-        openai_project: str | None = None,
-        openai_request_id: str | None = None,
     ) -> None:
         self.api_key = _resolve_api_key(api_key)
         self.base_url = _resolve_base_url(base_url)
@@ -181,22 +152,9 @@ class AsyncSynthClient:
             )
         )
         self._pools_sync = self.pools._sync_obj
-        self.openai_agents_sdk = AsyncOpenAIAgentsSdkClient(
-            OpenAIAgentsSdkClient(
-                api_key=self.api_key,
-                backend_base=self.base_url,
-                timeout=self.timeout,
-                transport_mode=openai_transport_mode,
-                openai_organization=openai_organization,
-                openai_project=openai_project,
-                request_id=openai_request_id,
-            )
-        )
         self._research_client: ResearchClient | None = None
         self._async_research_client: AsyncResearchClient | None = None
         self._horizons_private: AsyncHorizonsPrivateClient | None = None
-        self._managed_agents: AsyncManagedAgentsAnthropicClient | None = None
-        self._managed_agents_anthropic: AsyncSynthManagedAgents | None = None
 
     def __getattr__(self, name: str) -> Any:
         if name == "horizons_private":
@@ -211,35 +169,25 @@ class AsyncSynthClient:
                 )
             return self._horizons_private
         if name == "managed_agents":
-            warnings.warn(
-                "AsyncSynthClient.managed_agents is deprecated; import AsyncManagedAgentsAnthropicClient explicitly.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise AttributeError(
+                "AsyncSynthClient.managed_agents was retired with the backend managed-agents "
+                "proxy. Build AsyncManagedAgentsAnthropicClient around "
+                "ManagedAgentsAnthropicClient.from_horizons_private() with an explicit "
+                "Horizons Private base URL and credential."
             )
-            if self._managed_agents is None:
-                self._managed_agents = AsyncManagedAgentsAnthropicClient(
-                    ManagedAgentsAnthropicClient(
-                        api_key=self.api_key,
-                        backend_base=self.base_url,
-                        timeout=self.timeout,
-                    )
-                )
-            return self._managed_agents
         if name == "managed_agents_anthropic":
-            warnings.warn(
-                "AsyncSynthClient.managed_agents_anthropic is deprecated; import AsyncSynthManagedAgents explicitly.",
-                DeprecationWarning,
-                stacklevel=2,
+            raise AttributeError(
+                "AsyncSynthClient.managed_agents_anthropic was retired with the backend "
+                "managed-agents proxy. Use AsyncSynthManagedAgents.from_horizons_private() "
+                "only with an explicit Horizons Private base URL and credential."
             )
-            if self._managed_agents_anthropic is None:
-                self._managed_agents_anthropic = AsyncSynthManagedAgents.from_transport(
-                    ManagedAgentsAnthropicClient(
-                        api_key=self.api_key,
-                        backend_base=self.base_url,
-                        timeout=self.timeout,
-                    )
-                )
-            return self._managed_agents_anthropic
+        if name == "openai_agents_sdk":
+            raise AttributeError(
+                "AsyncSynthClient.openai_agents_sdk was retired with the backend "
+                "managed-agents proxy. Build AsyncOpenAIAgentsSdkClient around "
+                "OpenAIAgentsSdkClient.from_horizons_private() with an explicit Horizons "
+                "Private base URL and credential."
+            )
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @property

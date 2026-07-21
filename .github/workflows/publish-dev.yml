@@ -9,6 +9,12 @@ permissions:
   contents: write
   id-token: write
 
+# Publishes must never race: a second push while one publish is in flight
+# waits instead of double-uploading.
+concurrency:
+  group: publish-pypi-synth-ai
+  cancel-in-progress: false
+
 jobs:
   check-version:
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -35,25 +41,34 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Local version: $VERSION"
 
-      - name: Get PyPI version
-        id: pypi
-        run: |
-          PYPI_VERSION=$(curl -fsSL https://pypi.org/pypi/synth-ai/json | jq -r '.info.version // empty')
-          if [ -z "$PYPI_VERSION" ]; then PYPI_VERSION="0.0.0"; fi
-          echo "version=$PYPI_VERSION" >> $GITHUB_OUTPUT
-          echo "PyPI version: $PYPI_VERSION"
-
       - name: Check if publish needed
         id: check
         run: |
           LOCAL="${{ steps.local.outputs.version }}"
-          PYPI="${{ steps.pypi.outputs.version }}"
-          if [ "$LOCAL" != "$PYPI" ]; then
-            echo "needs_publish=true" >> $GITHUB_OUTPUT
-            echo "Version mismatch: local=$LOCAL, pypi=$PYPI - will publish"
-          else
+          # Fail closed: a metadata lookup failure must fail this job, never
+          # be read as "version absent" (which would publish on a PyPI blip).
+          # Bounded retry distinguishes a transient outage from real absence.
+          META=""
+          for attempt in 1 2 3; do
+            if META=$(curl -fsSL --max-time 30 https://pypi.org/pypi/synth-ai/json); then
+              break
+            fi
+            META=""
+            echo "PyPI metadata fetch failed (attempt $attempt/3); retrying in 10s"
+            sleep 10
+          done
+          if [ -z "$META" ]; then
+            echo "::error::PyPI metadata unavailable after 3 attempts; refusing to decide publish"
+            exit 1
+          fi
+          # Check the EXACT release, not .info.version (latest stable): exact
+          # lookup is correct for both stable and .dev versions.
+          if printf '%s' "$META" | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null; then
             echo "needs_publish=false" >> $GITHUB_OUTPUT
-            echo "Versions match: $LOCAL - skipping publish"
+            echo "Version $LOCAL already on PyPI - skipping publish"
+          else
+            echo "needs_publish=true" >> $GITHUB_OUTPUT
+            echo "Version $LOCAL not on PyPI - will publish"
           fi
 
   build-distributions:
@@ -95,6 +110,10 @@ jobs:
 
       - name: Publish to PyPI (trusted publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # PyPI uploads are immutable; if a rerun races an earlier success,
+          # skip the already-uploaded files instead of failing the release.
+          skip-existing: true
 
   create-release:
     needs: [check-version, publish]

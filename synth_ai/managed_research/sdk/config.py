@@ -13,9 +13,7 @@ OPENAI_TRANSPORT_MODE_BACKEND_BFF = "backend_bff"
 OPENAI_TRANSPORT_MODE_DIRECT_HP = "direct_hp"
 OPENAI_TRANSPORT_MODE_AUTO = "auto"
 OPENAI_VALID_TRANSPORT_MODES = {
-    OPENAI_TRANSPORT_MODE_BACKEND_BFF,
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
-    OPENAI_TRANSPORT_MODE_AUTO,
 }
 
 
@@ -45,10 +43,21 @@ def optional_str(value: str | None) -> str | None:
 
 
 def resolve_openai_transport_mode(value: str | None) -> str:
-    normalized = str(value or OPENAI_TRANSPORT_MODE_AUTO).strip().lower()
+    normalized = str(value or "").strip().lower()
+    if normalized in {
+        OPENAI_TRANSPORT_MODE_AUTO,
+        OPENAI_TRANSPORT_MODE_BACKEND_BFF,
+    }:
+        raise ValueError(
+            f"openai_transport_mode={normalized!r} was retired with the backend "
+            "managed-agents proxy; direct_hp requires an explicit Horizons Private "
+            "base URL and credential"
+        )
     if normalized not in OPENAI_VALID_TRANSPORT_MODES:
-        allowed = ", ".join(sorted(OPENAI_VALID_TRANSPORT_MODES))
-        raise ValueError(f"openai_transport_mode must be one of: {allowed}")
+        raise ValueError(
+            "openai_transport_mode must be explicitly set to direct_hp with an explicit "
+            "Horizons Private base URL and credential"
+        )
     return normalized
 
 

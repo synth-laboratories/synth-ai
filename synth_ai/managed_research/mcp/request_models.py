@@ -14,6 +14,10 @@ from synth_ai.managed_research.models.smr_agent_models import coerce_smr_agent_m
 from synth_ai.managed_research.models.smr_credential_providers import (
     coerce_smr_credential_provider,
 )
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.managed_research.models.smr_funding_sources import coerce_smr_funding_source
 from synth_ai.managed_research.models.smr_horizons import coerce_intended_horizon_hours
 from synth_ai.managed_research.models.smr_host_kinds import coerce_smr_host_kind
@@ -198,6 +202,13 @@ def optional_role_bindings(payload: JSONDict, key: str) -> dict[str, Any] | None
     return normalized.to_wire()
 
 
+def optional_evidence_obligations(
+    payload: JSONDict,
+    key: str = "evidence_obligations",
+) -> EvidenceObligations | None:
+    return coerce_evidence_obligations(payload.get(key), field_name=key)
+
+
 def reject_legacy_prompt_arg(payload: JSONDict) -> None:
     if "prompt" in payload:
         raise ValueError(
@@ -380,6 +391,7 @@ class RunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    evidence_obligations: EvidenceObligations | None = None
     open_ended_question: dict[str, Any] | None = None
     directed_effort_outcome: dict[str, Any] | None = None
     required_work_products: list[dict[str, Any]] | None = None
@@ -452,6 +464,7 @@ class RunLaunchRequest:
             run_policy=optional_smr_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            evidence_obligations=optional_evidence_obligations(payload),
             open_ended_question=_optional_object(payload, "open_ended_question"),
             directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
             required_work_products=_optional_object_list(payload, "required_work_products"),
@@ -496,6 +509,7 @@ class RunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "evidence_obligations": self.evidence_obligations,
             "open_ended_question": self.open_ended_question,
             "directed_effort_outcome": self.directed_effort_outcome,
             "required_work_products": self.required_work_products,
@@ -541,6 +555,7 @@ class OneOffRunLaunchRequest:
     run_policy: dict[str, Any] | None = None
     kickoff_contract: dict[str, Any] | None = None
     resource_bindings: dict[str, Any] | None = None
+    evidence_obligations: EvidenceObligations | None = None
     open_ended_question: dict[str, Any] | None = None
     directed_effort_outcome: dict[str, Any] | None = None
     required_work_products: list[dict[str, Any]] | None = None
@@ -612,6 +627,7 @@ class OneOffRunLaunchRequest:
             run_policy=optional_smr_run_policy(payload, "run_policy"),
             kickoff_contract=_optional_object(payload, "kickoff_contract"),
             resource_bindings=_optional_object(payload, "resource_bindings"),
+            evidence_obligations=optional_evidence_obligations(payload),
             open_ended_question=_optional_object(payload, "open_ended_question"),
             directed_effort_outcome=_optional_object(payload, "directed_effort_outcome"),
             required_work_products=_optional_object_list(payload, "required_work_products"),
@@ -656,6 +672,7 @@ class OneOffRunLaunchRequest:
             "run_policy": self.run_policy,
             "kickoff_contract": self.kickoff_contract,
             "resource_bindings": self.resource_bindings,
+            "evidence_obligations": self.evidence_obligations,
             "open_ended_question": self.open_ended_question,
             "directed_effort_outcome": self.directed_effort_outcome,
             "required_work_products": self.required_work_products,

@@ -72,7 +72,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/task-events",
+                f"/smr/projects/{project_id}/swarms/{run_id}/task-events",
                 params=params or None,
             ),
             label="list_run_task_events",
@@ -94,7 +94,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/objective-events",
+                f"/smr/projects/{project_id}/swarms/{run_id}/objective-events",
                 params=params or None,
             ),
             label="list_run_objective_events",
@@ -108,7 +108,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/progress",
+                f"/smr/projects/{project_id}/swarms/{run_id}/progress",
             ),
             label="get_run_progress",
         )
@@ -140,7 +140,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/results",
+                f"/smr/projects/{project_id}/swarms/{run_id}/results",
             ),
             label="get_run_results",
         )
@@ -156,7 +156,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/logs",
+                f"/smr/projects/{project_id}/swarms/{run_id}/logs",
                 params=build_query_params(limit=limit, cursor=cursor),
             ),
             label="get_run_logs",
@@ -170,7 +170,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/orchestrator",
+                f"/smr/projects/{project_id}/swarms/{run_id}/orchestrator",
             ),
             label="get_run_orchestrator",
         )
@@ -186,7 +186,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/work-graph",
+                f"/smr/projects/{project_id}/swarms/{run_id}/work-graph",
                 params=params,
             ),
             label="get_run_work_graph",
@@ -244,7 +244,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/runtime/transcript",
+                f"/smr/swarms/{run_id}/runtime/transcript",
                 params=params,
             ),
             label="get_run_transcript",
@@ -264,7 +264,7 @@ class ManagedResearchRunAuthorityMixin:
             view=view,
         )
         for event in self._stream_sse(
-            f"/smr/runs/{run_id}/runtime/stream",
+            f"/smr/swarms/{run_id}/runtime/stream",
             params=params,
             last_event_id=last_event_id,
             timeout=timeout,
@@ -527,7 +527,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/tasks",
+                f"/smr/projects/{project_id}/swarms/{run_id}/tasks",
                 params=build_query_params(kind=kind, limit=limit),
             ),
             label="list_tasks",
@@ -696,12 +696,12 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             return self._run_lifecycle_control(
                 method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/stop",
+                path=f"/smr/projects/{project_id}/swarms/{run_id}/stop",
                 label="stop_project_run",
             )
         return self._run_lifecycle_control(
             method="POST",
-            path=f"/smr/runs/{run_id}/stop",
+            path=f"/smr/swarms/{run_id}/stop",
             label="stop_run",
         )
 
@@ -709,12 +709,12 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             return self._run_lifecycle_control(
                 method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/pause",
+                path=f"/smr/projects/{project_id}/swarms/{run_id}/pause",
                 label="pause_project_run",
             )
         return self._run_lifecycle_control(
             method="POST",
-            path=f"/smr/runs/{run_id}/pause",
+            path=f"/smr/swarms/{run_id}/pause",
             label="pause_run",
         )
 
@@ -722,12 +722,12 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             return self._run_lifecycle_control(
                 method="POST",
-                path=f"/smr/projects/{project_id}/runs/{run_id}/resume",
+                path=f"/smr/projects/{project_id}/swarms/{run_id}/resume",
                 label="resume_project_run",
             )
         return self._run_lifecycle_control(
             method="POST",
-            path=f"/smr/runs/{run_id}/resume",
+            path=f"/smr/swarms/{run_id}/resume",
             label="resume_run",
         )
 
@@ -749,7 +749,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_id}/control",
+                f"/smr/projects/{project_id}/swarms/{run_id}/actors/{actor_id}/control",
                 json_body={key: value for key, value in body.items() if value is not None},
             ),
             label="control_project_run_actor",
@@ -768,14 +768,14 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             scoped = self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/questions",
+                f"/smr/projects/{project_id}/swarms/{run_id}/questions",
                 params=params,
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_dict_list(scoped, label="list_project_run_questions")
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/questions", params=params),
+            self._request_json("GET", f"/smr/swarms/{run_id}/questions", params=params),
             label="list_run_questions",
         )
 
@@ -793,7 +793,7 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             scoped = self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/questions/{question_id}/respond",
+                f"/smr/projects/{project_id}/swarms/{run_id}/questions/{question_id}/respond",
                 json_body=payload,
                 allow_not_found=True,
             )
@@ -802,7 +802,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/questions/{question_id}/respond",
+                f"/smr/swarms/{run_id}/questions/{question_id}/respond",
                 json_body=payload,
             ),
             label="respond_run_question",
@@ -821,14 +821,14 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             scoped = self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals",
+                f"/smr/projects/{project_id}/swarms/{run_id}/approvals",
                 params=params,
                 allow_not_found=True,
             )
             if scoped is not None:
                 return _coerce_dict_list(scoped, label="list_project_run_approvals")
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/runs/{run_id}/approvals", params=params),
+            self._request_json("GET", f"/smr/swarms/{run_id}/approvals", params=params),
             label="list_run_approvals",
         )
 
@@ -844,7 +844,7 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             scoped = self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/approve",
+                f"/smr/projects/{project_id}/swarms/{run_id}/approvals/{approval_id}/approve",
                 json_body=payload,
                 allow_not_found=True,
             )
@@ -853,7 +853,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/approvals/{approval_id}/approve",
+                f"/smr/swarms/{run_id}/approvals/{approval_id}/approve",
                 json_body=payload,
             ),
             label="approve_run_approval",
@@ -871,7 +871,7 @@ class ManagedResearchRunAuthorityMixin:
         if project_id:
             scoped = self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/approvals/{approval_id}/deny",
+                f"/smr/projects/{project_id}/swarms/{run_id}/approvals/{approval_id}/deny",
                 json_body=payload,
                 allow_not_found=True,
             )
@@ -880,7 +880,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/approvals/{approval_id}/deny",
+                f"/smr/swarms/{run_id}/approvals/{approval_id}/deny",
                 json_body=payload,
             ),
             label="deny_run_approval",
@@ -894,9 +894,9 @@ class ManagedResearchRunAuthorityMixin:
         checkpoint_id: str | None = None,
     ) -> str:
         if project_id:
-            base = f"/smr/projects/{project_id}/runs/{run_id}/checkpoints"
+            base = f"/smr/projects/{project_id}/swarms/{run_id}/checkpoints"
         else:
-            base = f"/smr/runs/{run_id}/checkpoints"
+            base = f"/smr/swarms/{run_id}/checkpoints"
         if checkpoint_id and checkpoint_id.strip():
             return f"{base}/{checkpoint_id.strip()}"
         return base
@@ -1042,13 +1042,13 @@ class ManagedResearchRunAuthorityMixin:
             return _coerce_dict(
                 self._request_json(
                     "POST",
-                    f"/smr/projects/{project_id}/runs/{run_id}/restore",
+                    f"/smr/projects/{project_id}/swarms/{run_id}/restore",
                     json_body=payload or {},
                 ),
                 label="restore_project_run_checkpoint",
             )
         return _coerce_dict(
-            self._request_json("POST", f"/smr/runs/{run_id}/restore", json_body=payload or {}),
+            self._request_json("POST", f"/smr/swarms/{run_id}/restore", json_body=payload or {}),
             label="restore_run_checkpoint",
         )
 
@@ -1056,7 +1056,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/timeline",
+                f"/smr/projects/{project_id}/swarms/{run_id}/timeline",
             ),
             label="get_run_logical_timeline",
         )
@@ -1075,7 +1075,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/event-log",
+                f"/smr/projects/{project_id}/swarms/{run_id}/event-log",
                 params=build_query_params(
                     sources=sources,
                     event_kinds=event_kinds,
@@ -1096,7 +1096,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/authority-readouts",
+                f"/smr/swarms/{run_id}/authority-readouts",
                 params=build_query_params(include_runtime_authority=include_runtime_authority),
             ),
             label="get_run_authority_readouts",
@@ -1113,7 +1113,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/authority-readouts",
+                f"/smr/projects/{project_id}/swarms/{run_id}/authority-readouts",
                 params=build_query_params(include_runtime_authority=include_runtime_authority),
             ),
             label="get_project_run_authority_readouts",
@@ -1158,7 +1158,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/operator-evidence",
+                f"/smr/projects/{project_id}/swarms/{run_id}/operator-evidence",
                 params=build_query_params(
                     runtime_timeline_limit=runtime_timeline_limit,
                     logical_timeline_limit=logical_timeline_limit,
@@ -1194,7 +1194,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/traces",
+                f"/smr/swarms/{run_id}/traces",
             ),
             label="get_run_traces",
         )
@@ -1204,7 +1204,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces",
+                f"/smr/projects/{project_id}/swarms/{run_id}/traces",
             ),
             label="get_project_run_traces",
         )
@@ -1232,7 +1232,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_key}/trace",
+                f"/smr/projects/{project_id}/swarms/{run_id}/actors/{actor_key}/trace",
                 params=params,
             ),
             label="get_project_run_actor_trace",
@@ -1246,7 +1246,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/trace-index",
+                f"/smr/projects/{project_id}/swarms/{run_id}/actors/trace-index",
             ),
             label="get_project_run_actor_trace_index",
         )
@@ -1259,7 +1259,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors",
+                f"/smr/projects/{project_id}/swarms/{run_id}/actors",
             ),
             label="get_project_run_actors",
         )
@@ -1276,7 +1276,7 @@ class ManagedResearchRunAuthorityMixin:
     ) -> list[dict[str, Any]]:
         payload = self._request_json(
             "GET",
-            f"/smr/projects/{project_id}/runs/{run_id}/actors/{actor_key}/traces",
+            f"/smr/projects/{project_id}/swarms/{run_id}/actors/{actor_key}/traces",
         )
         if not isinstance(payload, list):
             raise ValueError("get_project_run_actor_raw_traces expected a list response")
@@ -1306,7 +1306,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces/{artifact_id}/events",
+                f"/smr/projects/{project_id}/swarms/{run_id}/traces/{artifact_id}/events",
                 params=params,
             ),
             label="get_project_run_raw_trace_events",
@@ -1323,7 +1323,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/traces/{artifact_id}/download-url",
+                f"/smr/projects/{project_id}/swarms/{run_id}/traces/{artifact_id}/download-url",
                 params=build_query_params(expires_in=expires_in),
             ),
             label="create_project_run_raw_trace_download_url",
@@ -1362,7 +1362,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/actors/usage",
+                f"/smr/swarms/{run_id}/actors/usage",
             ),
             label="get_run_actor_usage",
         )
@@ -1376,7 +1376,7 @@ class ManagedResearchRunAuthorityMixin:
         payload = _coerce_dict(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/actors/usage",
+                f"/smr/projects/{project_id}/swarms/{run_id}/actors/usage",
             ),
             label="get_project_run_actor_usage",
         )
@@ -1416,10 +1416,10 @@ class ManagedResearchRunAuthorityMixin:
         if project_id is not None and run_id is None:
             raise ValueError("run_id is required when project_id is provided")
         if project_id and run_id:
-            path = f"/smr/projects/{project_id}/runs/{run_id}/branches"
+            path = f"/smr/projects/{project_id}/swarms/{run_id}/branches"
             label = "branch_project_run_from_checkpoint"
         elif run_id:
-            path = f"/smr/runs/{run_id}/branches"
+            path = f"/smr/swarms/{run_id}/branches"
             label = "branch_run_from_checkpoint"
         else:
             path = "/smr/checkpoints/branches"
@@ -1455,7 +1455,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/runs/{run_id}/runtime/messages",
+                f"/smr/swarms/{run_id}/runtime/messages",
                 params=params or None,
             ),
             label="list_runtime_messages",
@@ -1504,7 +1504,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/runtime/messages",
+                f"/smr/projects/{project_id}/swarms/{run_id}/runtime/messages",
                 params=params or None,
             ),
             label="list_project_run_runtime_messages",
@@ -1535,9 +1535,9 @@ class ManagedResearchRunAuthorityMixin:
         if causation_id and causation_id.strip():
             json_body["causation_id"] = causation_id.strip()
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents"
+            f"/smr/projects/{project_id}/swarms/{run_id}/runtime/intents"
             if project_id
-            else f"/smr/runs/{run_id}/runtime/intents"
+            else f"/smr/swarms/{run_id}/runtime/intents"
         )
         return RuntimeIntentReceipt.from_wire(
             _coerce_dict(
@@ -1560,9 +1560,9 @@ class ManagedResearchRunAuthorityMixin:
         if limit is not None:
             params["limit"] = int(limit)
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents"
+            f"/smr/projects/{project_id}/swarms/{run_id}/runtime/intents"
             if project_id
-            else f"/smr/runs/{run_id}/runtime/intents"
+            else f"/smr/swarms/{run_id}/runtime/intents"
         )
         return [
             RuntimeIntentView.from_wire(item)
@@ -1580,9 +1580,9 @@ class ManagedResearchRunAuthorityMixin:
         project_id: str | None = None,
     ) -> RuntimeIntentView:
         path = (
-            f"/smr/projects/{project_id}/runs/{run_id}/runtime/intents/{runtime_intent_id}"
+            f"/smr/projects/{project_id}/swarms/{run_id}/runtime/intents/{runtime_intent_id}"
             if project_id
-            else f"/smr/runs/{run_id}/runtime/intents/{runtime_intent_id}"
+            else f"/smr/swarms/{run_id}/runtime/intents/{runtime_intent_id}"
         )
         return RuntimeIntentView.from_wire(
             _coerce_dict(
@@ -1626,7 +1626,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/runs/{run_id}/runtime/messages",
+                f"/smr/swarms/{run_id}/runtime/messages",
                 json_body=json_body,
             ),
             label="enqueue_runtime_message",
@@ -1671,7 +1671,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/messages",
                 json_body=json_body,
             ),
             label="publish_manderqueue_message",
@@ -1734,7 +1734,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/threads",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/threads",
                 params=params,
             ),
             label="list_manderqueue_threads",
@@ -1772,7 +1772,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/messages",
                 params=params or None,
             ),
             label="list_manderqueue_messages",
@@ -1829,7 +1829,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict_list(
             self._request_json(
                 "GET",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/interactions",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/interactions",
                 params=params or None,
             ),
             label="list_manderqueue_interactions",
@@ -1871,7 +1871,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/interactions/{interaction_id}/responses",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/interactions/{interaction_id}/responses",
                 json_body=json_body,
             ),
             label="respond_to_manderqueue_interaction",
@@ -1912,7 +1912,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages/{message_id}/edit",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/messages/{message_id}/edit",
                 json_body=json_body,
             ),
             label="edit_manderqueue_message",
@@ -1964,7 +1964,7 @@ class ManagedResearchRunAuthorityMixin:
         return _coerce_dict(
             self._request_json(
                 "POST",
-                f"/smr/projects/{project_id}/runs/{run_id}/manderqueue/messages/{message_id}/retract",
+                f"/smr/projects/{project_id}/swarms/{run_id}/manderqueue/messages/{message_id}/retract",
                 json_body={},
             ),
             label="retract_manderqueue_message",
@@ -2004,6 +2004,6 @@ class ManagedResearchRunAuthorityMixin:
         run_id: str,
     ) -> list[dict[str, Any]]:
         return _coerce_dict_list(
-            self._request_json("GET", f"/smr/projects/{project_id}/runs/{run_id}/logs/archives"),
+            self._request_json("GET", f"/smr/projects/{project_id}/swarms/{run_id}/logs/archives"),
             label="list_run_log_archives",
         )
