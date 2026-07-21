@@ -9,7 +9,7 @@ from typing import Any, List, cast
 
 import httpx
 
-from synth_ai.managed_research.errors import SmrApiError
+from synth_ai.managed_research.errors import SmrApiError, SmrStructuredDenialError
 from synth_ai.managed_research.models.canonical_usage import (
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -227,6 +227,21 @@ class RunResultsAPI:
         )
 
 
+def _is_transient_control_plane_projection(error: SmrApiError) -> bool:
+    """True for the backend's fail-closed 503 while a run projection is mid-write.
+
+    The control plane deliberately refuses to serve a poll summary whose task
+    projection is incomplete (``smr_control_plane_incomplete``).  That state
+    resolves on its own once the projection write lands, so an idempotent GET
+    poll must retry it within its deadline instead of treating it as terminal.
+    """
+    if not isinstance(error, SmrStructuredDenialError):
+        return False
+    if error.status_code != 503:
+        return False
+    return str(error.detail.get("error") or "") == "smr_control_plane_incomplete"
+
+
 class RunHandle:
     """Project-scoped handle for one managed-research run."""
 
@@ -279,6 +294,16 @@ class RunHandle:
                 contract = self.contract()
             except httpx.TransportError as exc:
                 raise SmrApiError(f"Network error while polling run {self.run_id}: {exc}") from exc
+            except SmrStructuredDenialError as exc:
+                if not _is_transient_control_plane_projection(exc):
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"run {self.run_id} did not complete within {timeout}s; "
+                        "control-plane projection stayed incomplete"
+                    ) from exc
+                time.sleep(poll_interval)
+                continue
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     msg = self.explain_blocker() or (
@@ -1692,7 +1717,18 @@ class RunsAPI(_ClientNamespace):
             raise ValueError("timeout must be non-negative when provided")
         deadline = time.monotonic() + timeout if timeout is not None else None
         while True:
-            contract = self.get_run_contract(project_id, run_id)
+            try:
+                contract = self.get_run_contract(project_id, run_id)
+            except SmrStructuredDenialError as exc:
+                if not _is_transient_control_plane_projection(exc):
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"run {run_id} did not complete within {timeout}s; "
+                        "control-plane projection stayed incomplete"
+                    ) from exc
+                time.sleep(poll_interval)
+                continue
             if contract.terminal:
                 return contract
             if deadline is not None and time.monotonic() >= deadline:
