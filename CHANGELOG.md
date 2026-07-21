@@ -62,6 +62,15 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Fixed
 
+- **Insufficient-credits denials now raise the typed error** — the backend's
+  real 402 ledger codes (`smr_allowance_and_wallet_insufficient`,
+  `smr_wallet_exhausted`, `smr_allowance_manual_reset_required`,
+  `smr_billing_blocked`, and the `smr_allowance_unprovisioned_*` /
+  `smr_window_exhausted_*` families) map to
+  `ResearchInsufficientCreditsError`; previously only the never-emitted
+  `smr_insufficient_credits` code did, so callers received the generic
+  structured-denial error. Factory budget exhaustion remains a
+  `ResearchStructuredDenialError`.
 - **`trigger_run_result`** — `ManagedResearchClient.trigger_run_result` passed
   an unsupported `request=` argument to `trigger_run` and raised `TypeError`
   on every call; it now expands `request.to_client_kwargs()`.
