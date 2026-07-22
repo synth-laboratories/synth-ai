@@ -309,13 +309,13 @@ class ResearchMcpServer:
         return list(self._advertised_tools().values())
 
     def get_tool_definition(self, name: str) -> ToolDefinition | None:
-        return resolve_tool(self._tools, name)
+        return resolve_tool(self._advertised_tools(), name)
 
     def list_tool_payload(self) -> list[JSONDict]:
         return list_tool_payload(self._advertised_tools())
 
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
-        return call_tool(self._tools, name, arguments)
+        return call_tool(self._advertised_tools(), name, arguments)
 
     def _client_from_args(self, args: JSONDict) -> ManagedResearchClient:
         resolved_api_key = optional_string(args, "api_key") or self._default_api_key
@@ -3420,7 +3420,10 @@ class ResearchMcpServer:
                 if not isinstance(params, dict):
                     raise RpcError(-32602, "tools/call requires object params")
                 tool_name = params.get("name")
-                if not isinstance(tool_name, str) or tool_name not in self._tools:
+                if (
+                    not isinstance(tool_name, str)
+                    or self.get_tool_definition(tool_name) is None
+                ):
                     raise RpcError(-32601, f"Unknown tool: {tool_name!r}")
                 arguments = params.get("arguments")
                 if arguments is not None and not isinstance(arguments, dict):

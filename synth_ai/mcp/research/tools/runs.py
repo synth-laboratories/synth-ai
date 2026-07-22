@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.mcp.research.objective_tools import RunObjectiveScopeToolOperation
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
 from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
@@ -27,11 +26,6 @@ from synth_ai.core.research._legacy.models.smr_horizons import SMR_INTENDED_HORI
 from synth_ai.core.research._legacy.models.smr_host_kinds import SMR_HOST_KIND_VALUES
 from synth_ai.core.research._legacy.models.smr_providers import PROVIDER_VALUES
 from synth_ai.core.research._legacy.models.smr_work_modes import SMR_WORK_MODE_VALUES
-
-_REMOVED_RUN_TOOL_NAMES = {
-    "smr_get_run_primary_parent",
-    "smr_run_objective_scopes",
-}
 
 # Actor model overrides are local-only. Hosted launches resolve actor profiles on
 # the platform and reject these fields with 422 model_overrides_not_supported_on_hosted.
@@ -1488,39 +1482,6 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_actor_logs,
         ),
         ToolDefinition(
-            name="smr_get_run_primary_parent",
-            description="Fetch the bound primary parent objective for a run.",
-            input_schema=tool_schema(
-                {
-                    "run_id": {"type": "string", "description": "Run id."},
-                },
-                required=["run_id"],
-            ),
-            handler=server._tool_get_run_primary_parent,
-        ),
-        ToolDefinition(
-            name="smr_run_objective_scopes",
-            description=(
-                "List or register which project objectives are in scope, primary, "
-                "supporting, reviewer, blocker, or out of scope for a run."
-            ),
-            input_schema=tool_schema(
-                {
-                    "operation": {
-                        "type": "string",
-                        "enum": [operation.value for operation in RunObjectiveScopeToolOperation],
-                    },
-                    "run_id": {"type": "string", "description": "Run id."},
-                    "payload": {
-                        "type": "object",
-                        "description": "Scope registration payload.",
-                    },
-                },
-                required=["operation", "run_id"],
-            ),
-            handler=server._tool_run_objective_scopes,
-        ),
-        ToolDefinition(
             name="smr_stop_run",
             description=(
                 "Stop a queued or running run. Response includes "
@@ -2018,7 +1979,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_runs_by_effort,
         ),
     ]
-    return [tool for tool in tools if tool.name not in _REMOVED_RUN_TOOL_NAMES]
+    return tools
 
 
 __all__ = ["build_run_tools"]
