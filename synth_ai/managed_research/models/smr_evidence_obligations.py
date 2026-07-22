@@ -39,9 +39,7 @@ class EvidenceObligations:
                 "evidence_obligations.schema must be "
                 f"{EVIDENCE_OBLIGATIONS_SCHEMA!r}, got {self.schema!r}"
             )
-        if not isinstance(self.required, Sequence) or isinstance(
-            self.required, (str, bytes)
-        ):
+        if not isinstance(self.required, Sequence) or isinstance(self.required, (str, bytes)):
             raise ValueError("evidence_obligations.required must be a non-empty sequence")
 
         normalized: list[EvidenceObligationKind] = []
@@ -65,9 +63,7 @@ class EvidenceObligations:
             raise ValueError("evidence_obligations must be a mapping when provided")
         unknown = sorted(set(payload) - {"schema", "required"})
         if unknown:
-            raise ValueError(
-                "evidence_obligations contains unknown fields: " + ", ".join(unknown)
-            )
+            raise ValueError("evidence_obligations contains unknown fields: " + ", ".join(unknown))
         schema = payload.get("schema", EVIDENCE_OBLIGATIONS_SCHEMA)
         if not isinstance(schema, str):
             raise ValueError("evidence_obligations.schema must be a string")
