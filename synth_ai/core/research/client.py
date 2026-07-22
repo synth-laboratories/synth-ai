@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from synth_ai.core.auth.credentials import ApiCredential, resolve_api_credential
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
+from synth_ai.core.research.environments import AsyncEnvironmentsAPI, EnvironmentsAPI
 from synth_ai.core.research.factories import AsyncFactoriesAPI, FactoriesAPI
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
@@ -40,6 +41,7 @@ class Client:
         self.projects = ProjectsAPI(self._transport)
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
+        self.environments = EnvironmentsAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
 
@@ -94,6 +96,7 @@ class AsyncClient:
         self.projects = AsyncProjectsAPI(self._transport)
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
+        self.environments = AsyncEnvironmentsAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
 

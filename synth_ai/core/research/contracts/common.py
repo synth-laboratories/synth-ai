@@ -91,6 +91,22 @@ class EnvironmentKind(str):
     """Backend catalog environment-kind identifier."""
 
 
+class EnvironmentId(str):
+    """Backend-owned immutable Environment catalog identifier."""
+
+
+class EnvironmentName(str):
+    """Human-readable Environment catalog selector."""
+
+
+class EnvironmentDigest(str):
+    """Content-addressed Environment manifest digest."""
+
+
+class UserId(str):
+    """Backend-owned user identifier."""
+
+
 def require_text(value: str, *, field_name: str) -> str:
     normalized = value.strip()
     if not normalized:
@@ -104,7 +120,10 @@ __all__ = [
     "ArtifactId",
     "ConfigurationVersionId",
     "EffortId",
+    "EnvironmentDigest",
+    "EnvironmentId",
     "EnvironmentKind",
+    "EnvironmentName",
     "FactoryId",
     "MessageId",
     "OrganizationId",
@@ -119,6 +138,7 @@ __all__ = [
     "SwarmId",
     "TaskId",
     "TranscriptEventId",
+    "UserId",
     "WorkspaceFileId",
     "WorkProductId",
 ]

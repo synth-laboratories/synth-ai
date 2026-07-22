@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
 from synth_ai.core.research.factories import FactoriesAPI
+from synth_ai.core.research.environments import EnvironmentsAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
 
@@ -77,6 +78,11 @@ class Client:
     def factories(self) -> FactoriesAPI:
         """Stable Factory lifecycle and typed Efforts."""
         return self._core.factories
+
+    @property
+    def environments(self) -> EnvironmentsAPI:
+        """Versioned runtime declarations and deterministic preflight."""
+        return self._core.environments
 
     @property
     def projects(self) -> ResearchProjectsAPI:

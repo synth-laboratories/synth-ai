@@ -8,6 +8,7 @@ import os
 import click
 
 from synth_ai.cli.research_projects import projects
+from synth_ai.cli.research_environments import environments
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
@@ -31,6 +32,7 @@ def research() -> None:
 
 
 research.add_command(projects)
+research.add_command(environments)
 
 
 @research.group()

@@ -48,6 +48,7 @@ from synth_ai.mcp.research.tools.cloud_deployments import (
 )
 from synth_ai.mcp.research.tools.datasets import build_dataset_tools
 from synth_ai.mcp.research.tools.dev_environments import build_dev_environment_tools
+from synth_ai.mcp.research.tools.environments import build_environment_tools
 from synth_ai.mcp.research.tools.exports import build_export_tools
 from synth_ai.mcp.research.tools.factories import build_factory_tools
 from synth_ai.mcp.research.tools.factory_results import (
@@ -93,12 +94,14 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_archive_project",
         "research_branch_run_from_checkpoint",
         "research_create_effort",
+        "research_create_environment",
         "research_create_factory",
         "research_create_runnable_project",
         "research_create_project_repository",
         "research_delete_project_repository",
         "research_get_billing_entitlements",
         "research_get_effort",
+        "research_get_environment",
         "research_get_factory",
         "research_get_launch_preflight",
         "research_get_limits",
@@ -114,6 +117,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_swarm_usage",
         "research_list_active_runs",
         "research_list_factories",
+        "research_list_environments",
         "research_list_factory_efforts",
         "research_list_projects",
         "research_list_project_datasets",
@@ -125,6 +129,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_pause_factory",
         "research_pause_run",
         "research_prepare_project_setup",
+        "research_preflight_environment",
         "research_resume_factory",
         "research_resume_run",
         "research_start_factory",
@@ -375,6 +380,7 @@ class ResearchMcpServer:
             *build_tag_tools(self),
             *build_progress_tools(self),
             *build_project_data_tools(self._core_client_from_args),
+            *build_environment_tools(self._core_client_from_args),
             *build_log_tools(self),
             *build_approval_tools(self),
             *build_artifact_tools(self),

@@ -5,6 +5,7 @@ from synth_ai.mcp.research.tools.cloud_deployments import (
 )
 from synth_ai.mcp.research.tools.datasets import build_dataset_tools
 from synth_ai.mcp.research.tools.dev_environments import build_dev_environment_tools
+from synth_ai.mcp.research.tools.environments import build_environment_tools
 from synth_ai.mcp.research.tools.exports import build_export_tools
 from synth_ai.mcp.research.tools.factories import build_factory_tools
 from synth_ai.mcp.research.tools.files import build_file_tools
@@ -23,6 +24,7 @@ __all__ = [
     "build_cloud_deployment_tools",
     "build_dataset_tools",
     "build_dev_environment_tools",
+    "build_environment_tools",
     "build_export_tools",
     "build_factory_tools",
     "build_file_tools",
