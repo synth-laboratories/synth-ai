@@ -2381,3 +2381,40 @@ No branches merged. No worktrees removed. Validation not run (user gate authoriz
 
 Still open: ReportBench `client_api` raw trigger, authorized gates, Gemini/Jesterky current-head scan, `/ultrareview`, merge + worktree cleanup.
 
+### Ultrareview readiness packet — 2026-07-22T04:50:00Z
+
+Goal remains **active**. Implementation worktrees are ready for operator `/ultrareview`; merge and worktree removal are still blocked on that review plus authorized gates.
+
+#### Committed heads (clean)
+
+| Repo | Path | HEAD | Tree |
+|---|---|---|---|
+| synth-ai | `synth-ai-worktrees/sdk-core-research-migration` | `ae3438fb` | clean |
+| backend | `backend-worktrees/sdk-core-research-migration` | `f03cc1085` | clean |
+| evals | `evals-worktrees/sdk-core-research-migration` | `ccea2cfe` | clean |
+
+Branch (all three): `sdk-core-research-migration-20260721`
+
+#### Closed since pause (`ea2eea9e` / `4add92832` / `2f0b11df`)
+
+1. Image-release SDK vertical (lean contracts → CLI/MCP)
+2. Shared classified RetryPolicy on sync/async HTTP execute
+3. Swarm status + workspace archive (backend ops + SDK/MCP)
+4. SwarmSpec launch fields + SwarmBench + SwarmGameBench cutovers (incl. kickoff artifact staging)
+5. OpenAPI same-head regen/vendor: **71 ops / 223 schemas**, SHA-256 `c8954b0bd209a47ac868aa36fa7fcbfae6c12f2db8a632ec80a40a304b1ef25e`
+6. Capability ledger regenerated (`public_operations=71`)
+7. `hero_driver` SwarmSpec-only for launch/preflight
+
+#### Remaining before merge (ordered)
+
+1. **ReportBench `client_api.py`** still prefers raw `_request_json` to `/smr/projects/{id}/trigger` and `/launch-preflight`. Hero path now rejects kwargs; full SwarmSpec builder for ReportBench payloads (objective + kickoff messages + placement) is still open.
+2. Authorized gates: Ruff, ty, tests, package/docs, live proofs — **not run** (need explicit authorization).
+3. Current-head Gemini/Jesterky qualitative scan — prior receipts predate these heads.
+4. Operator `/ultrareview`, then merge to `dev`, prove commit reachability, remove worktrees.
+
+#### Intentionally not done
+
+- No branch merges
+- No worktree removals
+- No Ruff/ty/tests/live workflows
+
