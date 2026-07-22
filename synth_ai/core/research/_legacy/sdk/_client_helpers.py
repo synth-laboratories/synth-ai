@@ -69,8 +69,7 @@ def assert_hosted_launch_surface(
     ]
     if rejected:
         raise SmrHostedModelOverridesError(
-            "actor execution overrides require local_execution; rejected: "
-            + ", ".join(rejected),
+            "actor execution overrides require local_execution; rejected: " + ", ".join(rejected),
             rejected_fields=rejected,
             detail={"rejected_fields": rejected},
         )

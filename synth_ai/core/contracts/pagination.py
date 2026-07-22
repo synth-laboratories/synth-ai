@@ -7,7 +7,6 @@ from typing import Generic, Mapping, TypeVar
 
 from synth_ai.core.contracts.json_value import JsonValue
 
-
 ItemT = TypeVar("ItemT")
 
 

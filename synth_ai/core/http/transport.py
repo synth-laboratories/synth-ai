@@ -9,7 +9,7 @@ import json
 import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
-from typing import NoReturn, cast
+from typing import Any, NoReturn, cast
 
 import httpx
 
@@ -38,7 +38,6 @@ from synth_ai.core.http.retry import (
 )
 from synth_ai.core.http.streaming import SseEvent, iter_sse_events
 
-
 ErrorHandler = Callable[[httpx.Response, str | None], NoReturn]
 ExceptionHandler = Callable[[str, str, httpx.HTTPError, str | None], NoReturn]
 DecodeErrorHandler = Callable[[str, str, httpx.Response, Exception, str | None], NoReturn]
@@ -52,10 +51,7 @@ def _decode_json_value(value: object, *, context: str) -> JsonValue:
     if isinstance(value, dict):
         if not all(isinstance(key, str) for key in value):
             raise ValueError(f"{context} JSON object contains a non-string key")
-        return {
-            str(key): _decode_json_value(item, context=context)
-            for key, item in value.items()
-        }
+        return {str(key): _decode_json_value(item, context=context) for key, item in value.items()}
     raise ValueError(f"{context} is not a JSON value")
 
 
@@ -307,7 +303,7 @@ class HttpTransport:
             response = self.client.request(
                 method,
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 json=json_body,
                 headers=headers,
                 timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
@@ -366,7 +362,7 @@ class HttpTransport:
             response = self.client.request(
                 method,
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
             )
         except httpx.TimeoutException as exc:
@@ -393,7 +389,7 @@ class HttpTransport:
             with self.client.stream(
                 "GET",
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 headers=headers,
                 timeout=timeout_seconds,
             ) as response:

@@ -240,11 +240,7 @@ class EvidenceWorkProduct:
                 )
             ),
             content_url=required_text(payload, "content_url"),
-            blocker=(
-                WorkProductBlocker.from_wire(blocker)
-                if blocker is not None
-                else None
-            ),
+            blocker=(WorkProductBlocker.from_wire(blocker) if blocker is not None else None),
             created_at=required_datetime(payload, "created_at"),
             updated_at=required_datetime(payload, "updated_at"),
         )

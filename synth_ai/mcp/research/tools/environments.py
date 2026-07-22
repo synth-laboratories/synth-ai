@@ -12,14 +12,13 @@ from synth_ai.core.research.contracts.environment_manifest import (
     RuntimeImageKind,
 )
 from synth_ai.mcp.research.registry import (
-    JSONDict,
     READ_SCOPES,
     WRITE_SCOPES,
+    JSONDict,
     ToolDefinition,
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import optional_int, optional_string, require_string
-
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
@@ -137,9 +136,7 @@ def build_environment_tools(
         with client_from_args(args) as client:
             return [
                 environment.to_wire()
-                for environment in client.environments.list(
-                    limit=100 if limit is None else limit
-                )
+                for environment in client.environments.list(limit=100 if limit is None else limit)
             ]
 
     def create_environment(args: JSONDict) -> JSONDict:

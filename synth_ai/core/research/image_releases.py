@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from synth_ai.core.contracts.json_value import JsonObject
+from typing import cast
+
+from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -38,7 +40,7 @@ def _upload(
     *,
     request: ImageReleaseUploadRequest,
 ) -> ImageReleaseUpload:
-    upload = ImageReleaseUpload.from_wire(value)
+    upload = ImageReleaseUpload.from_wire(cast(JsonValue, value))
     if upload.declaration != request.declaration:
         raise ValueError("image upload response changed its declaration")
     if upload.expires_in != request.expires_in:
@@ -51,7 +53,7 @@ def _finalize(
     *,
     request: ImageReleaseFinalizeRequest,
 ) -> ImageReleaseFinalize:
-    result = ImageReleaseFinalize.from_wire(value)
+    result = ImageReleaseFinalize.from_wire(cast(JsonValue, value))
     if result.release.declaration != request.declaration:
         raise ValueError("image finalize response changed its declaration")
     if result.staging_cleanup.upload_id != request.upload_id:
@@ -64,17 +66,14 @@ def _archive(
     *,
     runtime_image_release_id: RuntimeImageReleaseId,
 ) -> ActorRuntimeImageReleaseArchive:
-    result = ActorRuntimeImageReleaseArchive.from_wire(value)
-    if (
-        result.runtime_image_release.runtime_image_release_id
-        != runtime_image_release_id
-    ):
+    result = ActorRuntimeImageReleaseArchive.from_wire(cast(JsonValue, value))
+    if result.runtime_image_release.runtime_image_release_id != runtime_image_release_id:
         raise ValueError("image archive response changed its runtime identity")
     return result
 
 
 def _retrieve(value: object, *, release_id: ImageReleaseId) -> ImageRelease:
-    release = image_release_from_wire(value)
+    release = image_release_from_wire(cast(JsonValue, value))
     if release.release_id != release_id:
         raise ValueError("image retrieve response changed its release identity")
     return release

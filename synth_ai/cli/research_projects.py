@@ -23,9 +23,7 @@ def _resolve_backend_url(backend_url: str | None) -> str:
 def _resolve_api_key(api_key: str | None) -> str:
     resolved = (api_key or get_api_key(required=False) or "").strip()
     if not resolved:
-        raise click.ClickException(
-            "api_key is required (pass --api-key or set SYNTH_API_KEY)"
-        )
+        raise click.ClickException("api_key is required (pass --api-key or set SYNTH_API_KEY)")
     return resolved
 
 

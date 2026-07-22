@@ -4,12 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.mcp.research.registry import (
-    READ_SCOPES,
-    WRITE_SCOPES,
-    ToolDefinition,
-    tool_schema,
-)
 from synth_ai.core.research._legacy.models.factories import (
     EFFORT_STATUS_VALUES,
     EFFORT_TYPE_VALUES,
@@ -22,6 +16,12 @@ from synth_ai.core.research._legacy.models.factories import (
     FACTORY_KIND_VALUES,
     FACTORY_PROJECT_ROLE_VALUES,
     FACTORY_PROJECT_STATUS_VALUES,
+)
+from synth_ai.mcp.research.registry import (
+    READ_SCOPES,
+    WRITE_SCOPES,
+    ToolDefinition,
+    tool_schema,
 )
 
 

@@ -6,7 +6,9 @@ from synth_ai.core.research._legacy.models.smr_credential_providers import (
     SMR_CREDENTIAL_PROVIDER_VALUES,
 )
 from synth_ai.core.research._legacy.models.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
-from synth_ai.core.research._legacy.models.smr_inference_providers import SMR_INFERENCE_PROVIDER_VALUES
+from synth_ai.core.research._legacy.models.smr_inference_providers import (
+    SMR_INFERENCE_PROVIDER_VALUES,
+)
 from synth_ai.core.research._legacy.models.smr_tool_providers import SMR_TOOL_PROVIDER_VALUES
 
 

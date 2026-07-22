@@ -113,8 +113,6 @@ from synth_ai.core.research._legacy.models.factories import (
     FactoryMaintenanceAction,
     FactoryOperatingWindow,
     FactoryPatchRequest,
-    FactoryTransitionRequest,
-    FactoryTransitionResponse,
     FactoryProjectLink,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
@@ -138,6 +136,8 @@ from synth_ai.core.research._legacy.models.factories import (
     FactoryRunSummary,
     FactoryRuntimeStatus,
     FactoryStatus,
+    FactoryTransitionRequest,
+    FactoryTransitionResponse,
     FactoryWakeDueEffort,
     FactoryWakeDueRequest,
     FactoryWakeDueResult,
@@ -204,7 +204,10 @@ from synth_ai.core.research._legacy.models.operator_evidence import (
     TraceCoverageEvidence,
     TranscriptCoverageEvidence,
 )
-from synth_ai.core.research._legacy.models.project import CreateRunnableResult, ManagedResearchProject
+from synth_ai.core.research._legacy.models.project import (
+    CreateRunnableResult,
+    ManagedResearchProject,
+)
 from synth_ai.core.research._legacy.models.project_workspace import (
     ProjectWorkspaceActor,
     ProjectWorkspaceAuthority,
@@ -278,13 +281,6 @@ from synth_ai.core.research._legacy.models.run_execution import (
     RunExecutionRun,
     RunExecutionTask,
     RunExecutionWorkProductRef,
-)
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
-    EVIDENCE_OBLIGATION_KIND_VALUES,
-    EVIDENCE_OBLIGATIONS_SCHEMA,
-    EvidenceObligationKind,
-    EvidenceObligations,
-    coerce_evidence_obligations,
 )
 from synth_ai.core.research._legacy.models.run_launch import (
     ActorStateChangedEvent,
@@ -441,6 +437,13 @@ from synth_ai.core.research._legacy.models.smr_agent_kinds import SmrAgentKind
 from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
 from synth_ai.core.research._legacy.models.smr_credential_providers import SmrCredentialProvider
 from synth_ai.core.research._legacy.models.smr_environment_kinds import SmrEnvironmentKind
+from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+    EVIDENCE_OBLIGATION_KIND_VALUES,
+    EVIDENCE_OBLIGATIONS_SCHEMA,
+    EvidenceObligationKind,
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.core.research._legacy.models.smr_funding_sources import SmrFundingSource
 from synth_ai.core.research._legacy.models.smr_horizons import (
     SMR_INTENDED_HORIZON_HOURS_VALUES,

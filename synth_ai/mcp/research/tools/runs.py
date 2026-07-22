@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
-from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
 from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
 from synth_ai.core.research._legacy.models.runtime_intent import (
     RuntimeIntentKind,
@@ -26,6 +24,8 @@ from synth_ai.core.research._legacy.models.smr_horizons import SMR_INTENDED_HORI
 from synth_ai.core.research._legacy.models.smr_host_kinds import SMR_HOST_KIND_VALUES
 from synth_ai.core.research._legacy.models.smr_providers import PROVIDER_VALUES
 from synth_ai.core.research._legacy.models.smr_work_modes import SMR_WORK_MODE_VALUES
+from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
+from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
 
 # Actor model overrides are local-only. Hosted launches resolve actor profiles on
 # the platform and reject these fields with 422 model_overrides_not_supported_on_hosted.
@@ -873,8 +873,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_get_swarm_evidence",
             description=(
-                "Fetch the durable artifact and WorkProduct evidence index for "
-                "a Research swarm."
+                "Fetch the durable artifact and WorkProduct evidence index for a Research swarm."
             ),
             input_schema=tool_schema(
                 {
@@ -907,9 +906,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
         ),
         ToolDefinition(
             name="smr_get_swarm_workspace_archive",
-            description=(
-                "Download the run-owned workspace archive as base64 gzip bytes."
-            ),
+            description=("Download the run-owned workspace archive as base64 gzip bytes."),
             input_schema=tool_schema(
                 {
                     "swarm_id": {

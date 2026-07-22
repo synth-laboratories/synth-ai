@@ -30,12 +30,9 @@ from synth_ai.core.research.contracts.common import (
     require_text,
 )
 
-
 ResourceJsonScalar: TypeAlias = str | int | float | bool | None
 ResourceJsonValue: TypeAlias = (
-    ResourceJsonScalar
-    | Sequence["ResourceJsonValue"]
-    | Mapping[str, "ResourceJsonValue"]
+    ResourceJsonScalar | Sequence["ResourceJsonValue"] | Mapping[str, "ResourceJsonValue"]
 )
 FrozenResourceJsonValue: TypeAlias = (
     ResourceJsonScalar
@@ -213,8 +210,7 @@ class ProjectRepositoryPatch:
         if self.metadata is not None and not isinstance(self.metadata, ResourceMetadata):
             raise ValueError("metadata must be ResourceMetadata when provided")
         if all(
-            value is None
-            for value in (self.url, self.default_branch, self.role, self.metadata)
+            value is None for value in (self.url, self.default_branch, self.role, self.metadata)
         ):
             raise ValueError("project repository patch requires at least one field")
 
@@ -357,9 +353,7 @@ class ProjectDatasetUpload:
             "format",
             _optional_normalized_text(self.format, field_name="format"),
         )
-        if self.row_count is not None and (
-            type(self.row_count) is not int or self.row_count < 0
-        ):
+        if self.row_count is not None and (type(self.row_count) is not int or self.row_count < 0):
             raise ValueError("row_count must be a non-negative integer when provided")
         if not isinstance(self.metadata, ResourceMetadata):
             raise ValueError("metadata must be ResourceMetadata")
@@ -446,18 +440,14 @@ class ProjectDataset:
         dataset_id = ProjectDatasetId(required_text(payload, "id"))
         project_id = ProjectId(required_text(payload, "project_id"))
         download_url = required_text(payload, "download_url")
-        expected_download_url = (
-            f"/smr/projects/{project_id}/datasets/{dataset_id}/download"
-        )
+        expected_download_url = f"/smr/projects/{project_id}/datasets/{dataset_id}/download"
         if download_url != expected_download_url:
             raise ValueError("project dataset download_url drifted from its resource identity")
         return cls(
             dataset_id=dataset_id,
             project_id=project_id,
             name=required_text(payload, "name"),
-            source_kind=ProjectDatasetSourceKind(
-                required_text(payload, "source_kind")
-            ),
+            source_kind=ProjectDatasetSourceKind(required_text(payload, "source_kind")),
             format=optional_text(payload, "format"),
             row_count=_optional_non_negative_int(payload, "row_count"),
             size_bytes=_optional_non_negative_int(payload, "size_bytes"),

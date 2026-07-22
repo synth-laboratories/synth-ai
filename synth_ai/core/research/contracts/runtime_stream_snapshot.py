@@ -72,9 +72,7 @@ class RuntimeWorkersSnapshot:
         )
         if not required_bool(payload, "partial"):
             raise ValueError("runtime workers snapshot must declare partial=true")
-        if required_string(payload, "partial_reason") != (
-            "smr_control_plane_runtime_stream"
-        ):
+        if required_string(payload, "partial_reason") != ("smr_control_plane_runtime_stream"):
             raise ValueError("unsupported runtime workers partial_reason")
         return cls(
             project_id=ProjectId(required_string(payload, "project_id")),
@@ -154,9 +152,7 @@ class RuntimeLifecycleSnapshot:
         if required_string(payload, "authority_phase") != "control_plane_stream":
             raise ValueError("unsupported runtime lifecycle authority_phase")
         return cls(
-            terminal_phase=RuntimeTerminalPhase(
-                required_string(payload, "terminal_phase")
-            ),
+            terminal_phase=RuntimeTerminalPhase(required_string(payload, "terminal_phase")),
             terminal_outcome=optional_string(payload, "terminal_outcome"),
             updated_at=required_datetime(payload, "updated_at"),
             metadata=RuntimeTimelineMetadata.from_wire(payload.get("metadata")),

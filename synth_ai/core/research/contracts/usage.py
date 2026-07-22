@@ -99,12 +99,8 @@ class TokenCounts:
             raise ValueError("non_cached_input_tokens must equal input minus cached input")
         if self.reasoning_output_tokens > self.output_tokens:
             raise ValueError("reasoning_output_tokens cannot exceed output_tokens")
-        if self.non_reasoning_output_tokens != (
-            self.output_tokens - self.reasoning_output_tokens
-        ):
-            raise ValueError(
-                "non_reasoning_output_tokens must equal output minus reasoning output"
-            )
+        if self.non_reasoning_output_tokens != (self.output_tokens - self.reasoning_output_tokens):
+            raise ValueError("non_reasoning_output_tokens must equal output minus reasoning output")
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> TokenCounts:
@@ -150,9 +146,7 @@ class TokenUsage:
         payload = _exact_object(
             value,
             label="swarm token usage",
-            fields=frozenset(
-                {"sessions_seen", "session_snapshots_count", "totals", "by_model"}
-            ),
+            fields=frozenset({"sessions_seen", "session_snapshots_count", "totals", "by_model"}),
         )
         models = object_value(payload["by_model"], operation_id="swarm token usage.by_model")
         return cls(
@@ -215,9 +209,7 @@ class ActorUsageMoney:
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> ActorUsageMoney:
-        fields = frozenset(
-            {"nominal_cents", "billed_cents", "internal_cost_cents"}
-        )
+        fields = frozenset({"nominal_cents", "billed_cents", "internal_cost_cents"})
         payload = _exact_object(value, label="swarm actor usage money", fields=fields)
         return cls(**{name: _non_negative_int(payload, name) for name in fields})
 

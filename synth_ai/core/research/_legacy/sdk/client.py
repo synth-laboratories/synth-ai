@@ -34,12 +34,12 @@ from synth_ai.core.research._legacy.models import (
     FactoryIdeaPatchRequest,
     FactoryLifecycleState,
     FactoryPatchRequest,
-    FactoryTransitionRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryResultEvaluateRequest,
     FactoryResultRestoreRequest,
     FactoryResultSelectRequest,
+    FactoryTransitionRequest,
     FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
@@ -72,12 +72,12 @@ from synth_ai.core.research._legacy.models.factories import (
     factory_idea_create_payload,
     factory_idea_patch_payload,
     factory_patch_payload,
-    factory_transition_payload,
     factory_project_link_payload,
     factory_project_patch_payload,
     factory_result_evaluate_payload,
     factory_result_restore_payload,
     factory_result_select_payload,
+    factory_transition_payload,
     factory_wake_due_payload,
 )
 from synth_ai.core.research._legacy.models.local_execution_profile import (
@@ -87,10 +87,6 @@ from synth_ai.core.research._legacy.models.run_execution import RunExecutionProj
 from synth_ai.core.research._legacy.models.run_launch import (
     RunLaunchRequest,
     RunLaunchResult,
-)
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
 )
 from synth_ai.core.research._legacy.models.run_observability import (
     ManagedResearchRunContract,
@@ -117,6 +113,10 @@ from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
 from synth_ai.core.research._legacy.models.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
+)
+from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
 )
 from synth_ai.core.research._legacy.models.smr_funding_sources import (
     SmrFundingSource,
@@ -164,11 +164,11 @@ from synth_ai.core.research._legacy.models.types import (
     SmrRunnableProjectRequest,
 )
 from synth_ai.core.research._legacy.sdk._client_helpers import (
-    assert_hosted_launch_surface,
     _coerce_dict,
     _coerce_dict_list,
     _optional_mapping,
     _require_non_empty_string,
+    assert_hosted_launch_surface,
 )
 from synth_ai.core.research._legacy.sdk._run_authority_mixin import (
     ManagedResearchRunAuthorityMixin,
@@ -607,9 +607,7 @@ def _build_project_run_payload(
     if normalized_execution_target:
         target_kind = str(normalized_execution_target.get("kind") or "").strip()
         if target_kind not in {"platform_resolved", "bound_runtime"}:
-            raise ValueError(
-                "execution_target.kind must be platform_resolved or bound_runtime"
-            )
+            raise ValueError("execution_target.kind must be platform_resolved or bound_runtime")
         duplicated_authority = [
             field_name
             for field_name, value in (
@@ -1826,9 +1824,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/start",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="start_factory",
         )
@@ -1845,9 +1841,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/pause",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="pause_factory",
         )
@@ -1864,9 +1858,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/resume",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="resume_factory",
         )
@@ -1883,9 +1875,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/archive",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="archive_factory",
         )

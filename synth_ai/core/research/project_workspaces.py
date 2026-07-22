@@ -20,12 +20,12 @@ from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts.common import ProjectId
 from synth_ai.core.research.contracts.workspaces import (
     ProjectWorkspaceInputs,
-    WorkspaceFileUpload,
     WorkspaceFilesBatchUploadProgress,
     WorkspaceFilesBatchUploadReceipt,
     WorkspaceFilesBatchUploadRequest,
     WorkspaceFilesUploadReceipt,
     WorkspaceFilesUploadRequest,
+    WorkspaceFileUpload,
     WorkspaceSourceRepositoryReceipt,
     WorkspaceSourceRepositorySpec,
 )

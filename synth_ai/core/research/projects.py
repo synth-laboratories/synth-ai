@@ -10,9 +10,9 @@ from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import ProjectId
 from synth_ai.core.research.contracts.projects import (
     Project,
-    ProjectSpec,
     ProjectPatch,
     ProjectSetup,
+    ProjectSpec,
 )
 from synth_ai.core.research.operations import research_operation
 from synth_ai.core.research.project_data import (
@@ -44,8 +44,7 @@ def _request(
 
 def _projects(value: object) -> tuple[Project, ...]:
     return tuple(
-        Project.from_wire(item)
-        for item in array_value(value, operation_id="list_projects")
+        Project.from_wire(item) for item in array_value(value, operation_id="list_projects")
     )
 
 
@@ -100,9 +99,7 @@ class ProjectsAPI:
         return _projects(value)
 
     def retrieve(self, project_id: ProjectId) -> Project:
-        value = self._transport.execute(
-            _request("retrieve_project", f"/smr/projects/{project_id}")
-        )
+        value = self._transport.execute(_request("retrieve_project", f"/smr/projects/{project_id}"))
         return Project.from_wire(value)
 
     def update(

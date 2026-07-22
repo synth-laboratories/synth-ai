@@ -21,9 +21,7 @@ def _resolve_backend_url(backend_url: str | None) -> str:
 def _resolve_api_key(api_key: str | None) -> str:
     resolved = (api_key or get_api_key(required=False) or "").strip()
     if not resolved:
-        raise click.ClickException(
-            "api_key is required (pass --api-key or set SYNTH_API_KEY)"
-        )
+        raise click.ClickException("api_key is required (pass --api-key or set SYNTH_API_KEY)")
     return resolved
 
 
@@ -111,9 +109,7 @@ def environments_get(
     """Retrieve one Environment manifest version by NAME."""
     from synth_ai.research import EnvironmentDigest, EnvironmentName
 
-    digest_value = (
-        EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
-    )
+    digest_value = EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
     with _client(api_key, backend_url) as client:
         value = client.research.environments.retrieve(
             EnvironmentName(name),
@@ -135,9 +131,7 @@ def environments_preflight(
     """Run backend-owned preflight for one Environment version."""
     from synth_ai.research import EnvironmentDigest, EnvironmentName
 
-    digest_value = (
-        EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
-    )
+    digest_value = EnvironmentDigest(manifest_digest) if manifest_digest is not None else None
     with _client(api_key, backend_url) as client:
         value = client.research.environments.preflight(
             EnvironmentName(name),

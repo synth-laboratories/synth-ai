@@ -20,9 +20,9 @@ from synth_ai.core.research.contracts.project_data import (
     ResourceMetadata,
 )
 from synth_ai.mcp.research.registry import (
-    JSONDict,
     READ_SCOPES,
     WRITE_SCOPES,
+    JSONDict,
     ToolDefinition,
     tool_schema,
 )
@@ -31,7 +31,6 @@ from synth_ai.mcp.research.request_models import (
     optional_string,
     require_string,
 )
-
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
@@ -61,8 +60,7 @@ def build_project_data_tools(
         project_id = ProjectId(require_string(args, "project_id"))
         with client_from_args(args) as client:
             return [
-                repository.to_wire()
-                for repository in client.projects.repositories.list(project_id)
+                repository.to_wire() for repository in client.projects.repositories.list(project_id)
             ]
 
     def create_repository(args: JSONDict) -> JSONDict:
@@ -84,9 +82,7 @@ def build_project_data_tools(
 
     def update_repository(args: JSONDict) -> JSONDict:
         project_id = ProjectId(require_string(args, "project_id"))
-        repository_id = ProjectRepositoryId(
-            require_string(args, "repository_id")
-        )
+        repository_id = ProjectRepositoryId(require_string(args, "repository_id"))
         role = optional_string(args, "role")
         request = ProjectRepositoryPatch(
             url=optional_string(args, "url"),
@@ -103,9 +99,7 @@ def build_project_data_tools(
 
     def delete_repository(args: JSONDict) -> JSONDict:
         project_id = ProjectId(require_string(args, "project_id"))
-        repository_id = ProjectRepositoryId(
-            require_string(args, "repository_id")
-        )
+        repository_id = ProjectRepositoryId(require_string(args, "repository_id"))
         with client_from_args(args) as client:
             return client.projects.repositories.delete(
                 project_id,
@@ -115,10 +109,7 @@ def build_project_data_tools(
     def list_datasets(args: JSONDict) -> list[JSONDict]:
         project_id = ProjectId(require_string(args, "project_id"))
         with client_from_args(args) as client:
-            return [
-                dataset.to_wire()
-                for dataset in client.projects.datasets.list(project_id)
-            ]
+            return [dataset.to_wire() for dataset in client.projects.datasets.list(project_id)]
 
     def upload_dataset(args: JSONDict) -> JSONDict:
         project_id = ProjectId(require_string(args, "project_id"))

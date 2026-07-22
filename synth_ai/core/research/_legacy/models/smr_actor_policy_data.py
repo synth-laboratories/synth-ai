@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES: tuple[str, ...] = (
     "baseten/zai-org/GLM-5.2",
     "deepseek/deepseek-v4-flash",

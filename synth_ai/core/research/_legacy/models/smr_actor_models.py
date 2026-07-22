@@ -15,7 +15,10 @@ from synth_ai.core.research._legacy.models.smr_actor_policy_data import (
     SMR_ACTOR_MODEL_POLICY,
     SMR_SHARED_TOP_LEVEL_AGENT_MODEL_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel, coerce_smr_agent_model
+from synth_ai.core.research._legacy.models.smr_agent_models import (
+    SmrAgentModel,
+    coerce_smr_agent_model,
+)
 
 
 class SmrActorType(StrEnum):

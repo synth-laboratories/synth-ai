@@ -29,7 +29,6 @@ from synth_ai.core.research.contracts.environment_manifest import (
     EnvironmentManifest,
 )
 
-
 _SUMMARY_FIELDS = frozenset(
     {
         "environment_id",
@@ -166,9 +165,7 @@ def _environment_from_payload(payload: JsonObject) -> Environment:
         manifest_digest=EnvironmentDigest(
             digest(payload["manifest_digest"], field="manifest_digest")
         ),
-        organization_id=(
-            OrganizationId(organization_id) if organization_id is not None else None
-        ),
+        organization_id=(OrganizationId(organization_id) if organization_id is not None else None),
         created_by_user_id=UserId(created_by) if created_by is not None else None,
         spec=EnvironmentJsonObject.from_wire(payload["spec"]),
         created_at=required_datetime(payload, "created_at"),
@@ -289,9 +286,7 @@ class EnvironmentPreflight:
             ),
             details=EnvironmentJsonObject.from_wire(payload["details"]),
             error=(
-                None
-                if error_value is None
-                else EnvironmentPreflightError.from_wire(error_value)
+                None if error_value is None else EnvironmentPreflightError.from_wire(error_value)
             ),
         )
 

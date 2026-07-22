@@ -119,12 +119,8 @@ class ActivityActor:
             "task_ids": list(self.task_ids),
             "task_keys": list(self.task_keys),
             "spawned_at": self.spawned_at.isoformat() if self.spawned_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
-            "latest_event_at": (
-                self.latest_event_at.isoformat() if self.latest_event_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
+            "latest_event_at": (self.latest_event_at.isoformat() if self.latest_event_at else None),
             "latest_summary": self.latest_summary,
         }
 
@@ -180,25 +176,18 @@ class ActivityTask:
             title=required_text(payload, "title"),
             state=ActivityTaskState(required_text(payload, "public_task_state")),
             internal_state=(
-                ActivityTaskState(internal_state)
-                if internal_state is not None
-                else None
+                ActivityTaskState(internal_state) if internal_state is not None else None
             ),
             objective_id=optional_text(payload, "objective_id"),
             owner_actor_id=(ActorId(owner_actor_id) if owner_actor_id else None),
-            created_by_actor_id=(
-                ActorId(created_by_actor_id) if created_by_actor_id else None
-            ),
-            updated_by_actor_id=(
-                ActorId(updated_by_actor_id) if updated_by_actor_id else None
-            ),
+            created_by_actor_id=(ActorId(created_by_actor_id) if created_by_actor_id else None),
+            updated_by_actor_id=(ActorId(updated_by_actor_id) if updated_by_actor_id else None),
             created_at=optional_datetime(payload, "created_at"),
             started_at=optional_datetime(payload, "started_at"),
             completed_at=optional_datetime(payload, "completed_at"),
             latest_summary=optional_text(payload, "latest_summary"),
             work_product_ids=tuple(
-                WorkProductId(item)
-                for item in text_tuple(payload, "work_product_refs")
+                WorkProductId(item) for item in text_tuple(payload, "work_product_refs")
             ),
         )
 
@@ -208,18 +197,14 @@ class ActivityTask:
             "task_key": self.task_key,
             "title": self.title,
             "public_task_state": self.state.value,
-            "task_state": (
-                self.internal_state.value if self.internal_state is not None else None
-            ),
+            "task_state": (self.internal_state.value if self.internal_state is not None else None),
             "objective_id": self.objective_id,
             "owner_actor_id": self.owner_actor_id,
             "created_by_actor_id": self.created_by_actor_id,
             "updated_by_actor_id": self.updated_by_actor_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
             "latest_summary": self.latest_summary,
             "work_product_refs": list(self.work_product_ids),
         }
@@ -341,9 +326,7 @@ class ActivityEvent:
             title=required_text(payload, "title"),
             summary=required_text(payload, "summary"),
             state=optional_text(payload, "event_state"),
-            parent_event_id=(
-                ActivityEventId(parent_event_id) if parent_event_id else None
-            ),
+            parent_event_id=(ActivityEventId(parent_event_id) if parent_event_id else None),
             source=optional_text(payload, "source"),
         )
 
@@ -392,9 +375,7 @@ class ActivityWorkProduct:
         task_id = optional_text(payload, "task_id")
         actor_id = optional_text(payload, "actor_id")
         return cls(
-            work_product_id=WorkProductId(
-                required_text(payload, "work_product_id")
-            ),
+            work_product_id=WorkProductId(required_text(payload, "work_product_id")),
             kind=WorkProductKind(required_text(payload, "kind")),
             title=required_text(payload, "title"),
             status=WorkProductStatus(required_text(payload, "status")),

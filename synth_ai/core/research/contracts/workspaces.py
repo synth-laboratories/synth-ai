@@ -34,12 +34,9 @@ from synth_ai.core.research.contracts.common import (
     require_text,
 )
 
-
 WorkspaceJsonScalar: TypeAlias = str | int | float | bool | None
 WorkspaceJsonValue: TypeAlias = (
-    WorkspaceJsonScalar
-    | Sequence["WorkspaceJsonValue"]
-    | Mapping[str, "WorkspaceJsonValue"]
+    WorkspaceJsonScalar | Sequence["WorkspaceJsonValue"] | Mapping[str, "WorkspaceJsonValue"]
 )
 FrozenWorkspaceJsonValue: TypeAlias = (
     WorkspaceJsonScalar
@@ -96,8 +93,7 @@ def _exact_object(
     extra = fields - required_fields - optional_fields
     if missing or extra:
         raise ValueError(
-            f"{label} fields drifted: missing={sorted(missing)!r} "
-            f"extra={sorted(extra)!r}"
+            f"{label} fields drifted: missing={sorted(missing)!r} extra={sorted(extra)!r}"
         )
     return payload
 
@@ -288,11 +284,7 @@ class WorkspaceSourceRepository:
             required_fields=required_fields,
             optional_fields=frozenset({"commit_sha"}),
         )
-        commit_sha = (
-            optional_text(payload, "commit_sha")
-            if "commit_sha" in payload
-            else None
-        )
+        commit_sha = optional_text(payload, "commit_sha") if "commit_sha" in payload else None
         if commit_sha is not None:
             _git_sha(commit_sha, field_name="source_repository.commit_sha")
         return cls(
@@ -477,9 +469,7 @@ class WorkspaceFilesBatchUploadRequest:
 
     @property
     def batch_count(self) -> int:
-        return (len(self.files) + WORKSPACE_UPLOAD_FILE_LIMIT - 1) // (
-            WORKSPACE_UPLOAD_FILE_LIMIT
-        )
+        return (len(self.files) + WORKSPACE_UPLOAD_FILE_LIMIT - 1) // (WORKSPACE_UPLOAD_FILE_LIMIT)
 
     def partitions(self) -> tuple[tuple[WorkspaceFileUpload, ...], ...]:
         return tuple(
@@ -606,15 +596,11 @@ class ProjectWorkspaceInputs:
         )
         source_value = payload["source_repo"]
         source_repository = (
-            WorkspaceSourceRepository.from_wire(source_value)
-            if source_value is not None
-            else None
+            WorkspaceSourceRepository.from_wire(source_value) if source_value is not None else None
         )
         files = tuple(
             WorkspaceStoredFile.from_wire(item)
-            for item in array_value(
-                payload["files"], operation_id="project workspace input files"
-            )
+            for item in array_value(payload["files"], operation_id="project workspace input files")
         )
         file_count = _non_negative_int(payload, "file_count")
         if file_count != len(files):
@@ -648,16 +634,12 @@ class ProjectWorkspaceInputs:
             "project_id": self.project_id,
             "state": self.state.value,
             "source_repo": (
-                self.source_repository.to_wire()
-                if self.source_repository is not None
-                else None
+                self.source_repository.to_wire() if self.source_repository is not None else None
             ),
             "files": [item.to_wire() for item in self.files],
             "file_count": len(self.files),
             "project_repo": (
-                self.project_repository.to_wire()
-                if self.project_repository is not None
-                else {}
+                self.project_repository.to_wire() if self.project_repository is not None else {}
             ),
             "updated_at": self.updated_at.isoformat() if self.updated_at is not None else None,
         }
@@ -748,17 +730,13 @@ class WorkspaceFilesUploadReceipt:
         )
         file_count = _non_negative_int(payload, "file_count")
         if file_count > WORKSPACE_UPLOAD_FILE_LIMIT:
-            raise ValueError(
-                "workspace upload receipt exceeds the bounded server file limit"
-            )
+            raise ValueError("workspace upload receipt exceeds the bounded server file limit")
         if file_count != len(uploaded_files):
             raise ValueError("workspace upload file_count does not match uploaded_files")
         project_id = ProjectId(required_text(payload, "project_id"))
         committed_paths = tuple(
             _workspace_path(item)
-            for item in _string_tuple(
-                payload["files"], label="workspace upload committed paths"
-            )
+            for item in _string_tuple(payload["files"], label="workspace upload committed paths")
         )
         if len(committed_paths) != file_count:
             raise ValueError("workspace upload committed paths do not match file_count")
@@ -831,9 +809,7 @@ class WorkspaceFilesBatchUploadReceipt:
         if any(receipt.project_id != self.project_id for receipt in self.batches):
             raise ValueError("batch upload receipt crossed its requested project boundary")
         if self.file_count != self.requested_file_count:
-            raise ValueError(
-                "batch upload receipt file count does not match the composite request"
-            )
+            raise ValueError("batch upload receipt file count does not match the composite request")
         if len(set(self.committed_paths)) != len(self.committed_paths):
             raise ValueError("batch upload receipt contains duplicate committed paths")
 
@@ -851,15 +827,11 @@ class WorkspaceFilesBatchUploadReceipt:
 
     @property
     def committed_paths(self) -> tuple[str, ...]:
-        return tuple(
-            path for receipt in self.batches for path in receipt.committed_paths
-        )
+        return tuple(path for receipt in self.batches for path in receipt.committed_paths)
 
     @property
     def uploaded_files(self) -> tuple[WorkspaceStoredFile, ...]:
-        return tuple(
-            item for receipt in self.batches for item in receipt.uploaded_files
-        )
+        return tuple(item for receipt in self.batches for item in receipt.uploaded_files)
 
     @property
     def final_commit_sha(self) -> str:
@@ -923,11 +895,7 @@ class WorkspaceFilesBatchUploadProgress:
 
     @property
     def completed_paths(self) -> tuple[str, ...]:
-        return tuple(
-            path
-            for receipt in self.completed_batches
-            for path in receipt.committed_paths
-        )
+        return tuple(path for receipt in self.completed_batches for path in receipt.committed_paths)
 
     @property
     def remaining_file_count(self) -> int:
@@ -945,9 +913,7 @@ class WorkspaceFilesBatchUploadProgress:
             "failed_batch_index": self.failed_batch_index,
             "failed_paths": list(self.failed_paths),
             "remaining_file_count": self.remaining_file_count,
-            "completed_batches": [
-                receipt.to_wire() for receipt in self.completed_batches
-            ],
+            "completed_batches": [receipt.to_wire() for receipt in self.completed_batches],
         }
 
 

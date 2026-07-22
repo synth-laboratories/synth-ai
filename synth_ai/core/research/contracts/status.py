@@ -184,12 +184,10 @@ class SwarmStatusRecovery:
         payload = _exact(
             value,
             label="swarm status recovery",
-            fields=frozenset(
-                {"blocked", "codes", "incident_count", "latest_recorded_at"}
-            ),
+            fields=frozenset({"blocked", "codes", "incident_count", "latest_recorded_at"}),
         )
         codes = tuple(
-            require_text(item, field_name="recovery code")
+            required_text({"recovery_code": item}, "recovery_code")
             for item in array_value(payload["codes"], operation_id="recovery.codes")
         )
         return cls(
@@ -298,9 +296,7 @@ class SwarmStatusIssues:
             ),
             tuple(
                 SwarmStatusInvariant.from_wire(item)
-                for item in array_value(
-                    payload["invariants"], operation_id="invariants"
-                )
+                for item in array_value(payload["invariants"], operation_id="invariants")
             ),
         )
 
@@ -348,9 +344,7 @@ class SwarmStatusFreshness:
         )
         authority = required_text(payload, "projection_authority")
         if authority != "smr_run_status_projection.v1":
-            raise ValueError(
-                f"unsupported status projection authority {authority!r}"
-            )
+            raise ValueError(f"unsupported status projection authority {authority!r}")
         return cls(
             authority,
             required_datetime(payload, "last_authoritative_update_at"),
@@ -399,9 +393,7 @@ class SwarmStatus:
         )
         schema_version = payload["schema_version"]
         if schema_version != 1:
-            raise ValueError(
-                f"unsupported swarm status schema_version {schema_version!r}"
-            )
+            raise ValueError(f"unsupported swarm status schema_version {schema_version!r}")
         return cls(
             SwarmId(required_text(payload, "run_id")),
             ProjectId(required_text(payload, "project_id")),
@@ -430,9 +422,7 @@ class SwarmStatus:
             "liveness": {
                 "phase": self.liveness.phase,
                 "task_counts": dict(self.liveness.task_counts),
-                "participant_queue_counts": dict(
-                    self.liveness.participant_queue_counts
-                ),
+                "participant_queue_counts": dict(self.liveness.participant_queue_counts),
             },
             "terminal": {
                 "run_state": self.terminal.run_state,
@@ -476,14 +466,10 @@ class SwarmStatus:
                         "severity": issue.severity,
                         "summary": issue.summary,
                         "first_seen_at": (
-                            None
-                            if issue.first_seen_at is None
-                            else issue.first_seen_at.isoformat()
+                            None if issue.first_seen_at is None else issue.first_seen_at.isoformat()
                         ),
                         "last_seen_at": (
-                            None
-                            if issue.last_seen_at is None
-                            else issue.last_seen_at.isoformat()
+                            None if issue.last_seen_at is None else issue.last_seen_at.isoformat()
                         ),
                     }
                     for issue in self.issues.issues

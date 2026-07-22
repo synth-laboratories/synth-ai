@@ -98,7 +98,7 @@ def should_retry_failure(
         if error.failure is not None:
             status = error.failure.status
         if status is None and hasattr(error, "status"):
-            status = getattr(error, "status")
+            status = error.status
         return isinstance(status, int) and status in policy.retry_statuses
     return False
 

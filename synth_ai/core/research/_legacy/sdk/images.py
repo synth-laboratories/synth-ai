@@ -19,8 +19,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, List
 
 import httpx
@@ -58,9 +57,26 @@ CRAFTAX_WORKER_CAPABILITIES = (
 )
 CUSTOMER_ACTOR_IMAGE_PYPI_ALLOWLIST = frozenset(
     {
-        "chex", "craftax", "crafter", "distrax", "flax", "gymnasium", "gymnax",
-        "httpx", "imageio", "imageio-ffmpeg", "jax", "modal", "nle", "numpy",
-        "optax", "orbax-checkpoint", "pillow", "pydantic", "pyyaml", "synth-ai",
+        "chex",
+        "craftax",
+        "crafter",
+        "distrax",
+        "flax",
+        "gymnasium",
+        "gymnax",
+        "httpx",
+        "imageio",
+        "imageio-ffmpeg",
+        "jax",
+        "modal",
+        "nle",
+        "numpy",
+        "optax",
+        "orbax-checkpoint",
+        "pillow",
+        "pydantic",
+        "pyyaml",
+        "synth-ai",
     }
 )
 
@@ -120,7 +136,7 @@ class ActorImageRecipe:
         craftax_repl_path: str | Path,
         source: Mapping[str, Any],
         python_packages: Sequence[str] = (),
-    ) -> "ActorImageRecipe":
+    ) -> ActorImageRecipe:
         repository, commit_sha = _normalized_source(source)
         scorer = Path(craftax_repl_path).expanduser().resolve()
         if not scorer.is_file():
@@ -157,9 +173,12 @@ class ActorImageRecipe:
             ],
             "platform": self.platform,
         }
-        return "sha256:" + hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        ).hexdigest()
+        return (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+        )
 
     def validate(self) -> None:
         if self.name != "craftax-worker":
@@ -224,9 +243,7 @@ def _actor_image_from_materialization(
         actor_role=_text(materialization, "actor_role", label="runtime_image_release"),
         capabilities=tuple(str(item) for item in capabilities),
         archive_sha256=archive_sha256,
-        python_packages=tuple(
-            str(item) for item in (materialization.get("python_packages") or ())
-        ),
+        python_packages=tuple(str(item) for item in (materialization.get("python_packages") or ())),
         package_release_timestamps=(
             {
                 str(key): str(value)
@@ -235,9 +252,7 @@ def _actor_image_from_materialization(
             if isinstance(materialization.get("package_release_timestamps"), Mapping)
             else None
         ),
-        recipe_digest=(
-            str(materialization.get("recipe_digest") or "").strip() or None
-        ),
+        recipe_digest=(str(materialization.get("recipe_digest") or "").strip() or None),
         image_substrates=tuple(
             str(item) for item in (materialization.get("image_substrates") or ())
         ),
@@ -575,7 +590,7 @@ class ImagesAPI(_ClientNamespace):
                 "screened Craftax base image changed while creating the managed recipe; "
                 "retry to derive a new cache key"
             )
-        package_label = json.dumps(list(sorted(recipe.python_packages)))
+        package_label = json.dumps(sorted(recipe.python_packages))
         with tempfile.TemporaryDirectory(prefix="synth-actor-image-") as temporary:
             context = Path(temporary)
             assets = context / "assets"
@@ -587,9 +602,7 @@ class ImagesAPI(_ClientNamespace):
             for index, (source, destination) in enumerate(recipe.assets):
                 asset_name = f"asset-{index}"
                 shutil.copy2(source, assets / asset_name)
-                dockerfile_lines.append(
-                    f"COPY --chmod=0755 assets/{asset_name} {destination}"
-                )
+                dockerfile_lines.append(f"COPY --chmod=0755 assets/{asset_name} {destination}")
             if recipe.python_packages:
                 dockerfile_lines.append(
                     "RUN python -m pip install --no-cache-dir --no-deps "
@@ -615,7 +628,9 @@ class ImagesAPI(_ClientNamespace):
                 check=False,
             )
             if result.returncode != 0 or not temporary_archive.is_file():
-                detail = (result.stderr or result.stdout or "Docker buildx produced no archive").strip()
+                detail = (
+                    result.stderr or result.stdout or "Docker buildx produced no archive"
+                ).strip()
                 raise RuntimeError(f"managed actor image build failed: {detail[-2000:]}")
             shutil.move(str(temporary_archive), archive_path)
 

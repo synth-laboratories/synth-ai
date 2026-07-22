@@ -41,15 +41,13 @@ def _request(
 
 def _factories(value: JsonValue) -> tuple[Factory, ...]:
     return tuple(
-        Factory.from_wire(item)
-        for item in array_value(value, operation_id="list_factories")
+        Factory.from_wire(item) for item in array_value(value, operation_id="list_factories")
     )
 
 
 def _efforts(value: JsonValue) -> tuple[Effort, ...]:
     return tuple(
-        Effort.from_wire(item)
-        for item in array_value(value, operation_id="list_factory_efforts")
+        Effort.from_wire(item) for item in array_value(value, operation_id="list_factory_efforts")
     )
 
 
@@ -75,9 +73,7 @@ class FactoryEffortsAPI:
         return _efforts(value)
 
     def retrieve(self, effort_id: EffortId) -> Effort:
-        value = self._transport.execute(
-            _request("retrieve_effort", f"/smr/efforts/{effort_id}")
-        )
+        value = self._transport.execute(_request("retrieve_effort", f"/smr/efforts/{effort_id}"))
         return Effort.from_wire(value)
 
     def update(self, effort_id: EffortId, request: EffortPatch) -> Effort:

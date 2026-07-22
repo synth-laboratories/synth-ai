@@ -24,8 +24,7 @@ def exact_object(
     extra = payload.keys() - fields
     if missing or extra:
         raise ValueError(
-            f"{label} fields drifted: missing={sorted(missing)!r} "
-            f"extra={sorted(extra)!r}"
+            f"{label} fields drifted: missing={sorted(missing)!r} extra={sorted(extra)!r}"
         )
     return payload
 
@@ -51,8 +50,7 @@ def optional_non_negative_int(payload: JsonObject, name: str) -> int | None:
 
 def text_tuple(payload: JsonObject, name: str) -> tuple[str, ...]:
     return tuple(
-        required_text({name: item}, name)
-        for item in array_value(payload[name], operation_id=name)
+        required_text({name: item}, name) for item in array_value(payload[name], operation_id=name)
     )
 
 

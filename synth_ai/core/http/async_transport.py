@@ -9,7 +9,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
-from typing import cast
+from typing import Any, cast
 
 import httpx
 
@@ -22,9 +22,9 @@ from synth_ai.core.http.retry import (
 )
 from synth_ai.core.http.streaming import SseEvent, iter_sse_events_async
 from synth_ai.core.http.transport import (
+    DecodeErrorHandler,
     ErrorHandler,
     ExceptionHandler,
-    DecodeErrorHandler,
     _decode_json_value,
     raise_http_error,
     raise_json_decode_error,
@@ -73,7 +73,7 @@ class AsyncHttpTransport:
             response = await self.client.request(
                 method,
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 json=json_body,
                 headers=headers,
                 timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
@@ -132,7 +132,7 @@ class AsyncHttpTransport:
             response = await self.client.request(
                 method,
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
             )
         except httpx.TimeoutException as exc:
@@ -159,7 +159,7 @@ class AsyncHttpTransport:
             async with self.client.stream(
                 "GET",
                 path,
-                params=cast(Mapping[str, object] | None, params),
+                params=cast(Any, params),
                 headers=headers,
                 timeout=timeout_seconds,
             ) as response:

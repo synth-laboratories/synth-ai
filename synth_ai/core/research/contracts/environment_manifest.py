@@ -185,7 +185,9 @@ class EnvironmentRepositorySpec:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", text(self.name, field="repository name", maximum=255))
-        object.__setattr__(self, "url", optional_text(self.url, field="repository url", maximum=4000))
+        object.__setattr__(
+            self, "url", optional_text(self.url, field="repository url", maximum=4000)
+        )
         object.__setattr__(self, "role", text(self.role, field="repository role", maximum=128))
         object.__setattr__(
             self,
@@ -272,7 +274,10 @@ class EnvironmentIsolationSpec:
     network_mode: str | None = None
 
     def __post_init__(self) -> None:
-        allowlist = tuple(text(item, field="egress allowlist item", maximum=4000) for item in self.egress_allowlist)
+        allowlist = tuple(
+            text(item, field="egress allowlist item", maximum=4000)
+            for item in self.egress_allowlist
+        )
         object.__setattr__(self, "egress_allowlist", allowlist)
         object.__setattr__(
             self,
@@ -337,7 +342,12 @@ class EnvironmentPreflightSpec:
         )
         return cls(
             optional_text(payload.get("cmd"), field="preflight command", maximum=20_000),
-            integer(payload.get("timeout_seconds", 60), field="preflight timeout", minimum=1, maximum=1800),
+            integer(
+                payload.get("timeout_seconds", 60),
+                field="preflight timeout",
+                minimum=1,
+                maximum=1800,
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -405,7 +415,18 @@ class EnvironmentManifest:
     @classmethod
     def _decode(cls, value: JsonValue, *, exact: bool) -> EnvironmentManifest:
         fields = frozenset(
-            {"schema_version", "name", "digest", "images", "secrets", "repos", "mounts", "isolation", "preflight", "metadata"}
+            {
+                "schema_version",
+                "name",
+                "digest",
+                "images",
+                "secrets",
+                "repos",
+                "mounts",
+                "isolation",
+                "preflight",
+                "metadata",
+            }
         )
         payload = _payload(
             value,
@@ -428,11 +449,15 @@ class EnvironmentManifest:
                 maximum=255,
             ),
             digest=EnvironmentDigest(manifest_digest) if manifest_digest is not None else None,
-            secrets=tuple(EnvironmentSecretSpec.from_wire(item, exact=exact) for item in secret_values),
+            secrets=tuple(
+                EnvironmentSecretSpec.from_wire(item, exact=exact) for item in secret_values
+            ),
             repositories=tuple(
                 EnvironmentRepositorySpec.from_wire(item, exact=exact) for item in repository_values
             ),
-            mounts=tuple(EnvironmentMountSpec.from_wire(item, exact=exact) for item in mount_values),
+            mounts=tuple(
+                EnvironmentMountSpec.from_wire(item, exact=exact) for item in mount_values
+            ),
             isolation=EnvironmentIsolationSpec.from_wire(payload.get("isolation", {}), exact=exact),
             preflight=EnvironmentPreflightSpec.from_wire(payload.get("preflight", {}), exact=exact),
             metadata=EnvironmentJsonObject.from_wire(payload.get("metadata", {})),

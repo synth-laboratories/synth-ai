@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from synth_ai.core.contracts.json_value import JsonValue
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
@@ -21,9 +22,7 @@ def _resolve_backend_url(backend_url: str | None) -> str:
 def _resolve_api_key(api_key: str | None) -> str:
     resolved = (api_key or get_api_key(required=False) or "").strip()
     if not resolved:
-        raise click.ClickException(
-            "api_key is required (pass --api-key or set SYNTH_API_KEY)"
-        )
+        raise click.ClickException("api_key is required (pass --api-key or set SYNTH_API_KEY)")
     return resolved
 
 
@@ -36,11 +35,14 @@ def _client(api_key: str | None, backend_url: str | None):
     )
 
 
-def _json_file(path: Path) -> object:
+def _json_file(path: Path) -> JsonValue:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise click.ClickException(f"invalid JSON file: {error}") from error
+    if not isinstance(payload, (dict, list, str, int, float, bool)) and payload is not None:
+        raise click.ClickException("invalid JSON file: expected a JSON value")
+    return payload
 
 
 def _echo(value: object) -> None:

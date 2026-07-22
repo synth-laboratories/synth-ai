@@ -128,7 +128,10 @@ from synth_ai.core.research._legacy.models.operator_evidence import (
     TraceCoverageEvidence,
     TranscriptCoverageEvidence,
 )
-from synth_ai.core.research._legacy.models.project import CreateRunnableResult, ManagedResearchProject
+from synth_ai.core.research._legacy.models.project import (
+    CreateRunnableResult,
+    ManagedResearchProject,
+)
 from synth_ai.core.research._legacy.models.project_workspace import (
     ProjectWorkspaceActor,
     ProjectWorkspaceAuthority,
@@ -384,7 +387,12 @@ from synth_ai.core.research._legacy.sdk.prs import PrsAPI
 from synth_ai.core.research._legacy.sdk.readiness import ReadinessAPI
 from synth_ai.core.research._legacy.sdk.repos import ReposAPI
 from synth_ai.core.research._legacy.sdk.repositories import RepositoriesAPI
-from synth_ai.core.research._legacy.sdk.runs import MISC_PROJECT_ID, ProjectSelector, RunHandle, RunsAPI
+from synth_ai.core.research._legacy.sdk.runs import (
+    MISC_PROJECT_ID,
+    ProjectSelector,
+    RunHandle,
+    RunsAPI,
+)
 from synth_ai.core.research._legacy.sdk.secrets import SecretsAPI
 from synth_ai.core.research._legacy.sdk.setup import SetupAPI
 from synth_ai.core.research._legacy.sdk.usage import UsageAPI

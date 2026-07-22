@@ -205,9 +205,7 @@ def _raise_for_transport_exception(
 ) -> None:
     if isinstance(error, httpx.TimeoutException):
         raise SmrApiError(f"{method} {path} timed out") from error
-    raise SmrApiError(
-        f"{method} {path} failed: network error ({type(error).__name__})"
-    ) from error
+    raise SmrApiError(f"{method} {path} failed: network error ({type(error).__name__})") from error
 
 
 def _raise_for_decode_error(

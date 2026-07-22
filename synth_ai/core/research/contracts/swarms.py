@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import (
@@ -27,7 +27,6 @@ from synth_ai.core.research.contracts.common import (
     require_text,
 )
 
-
 FrozenJsonScalar: TypeAlias = str | int | float | bool | None
 FrozenJsonValue: TypeAlias = (
     FrozenJsonScalar | tuple["FrozenJsonValue", ...] | Mapping[str, "FrozenJsonValue"]
@@ -44,7 +43,7 @@ def _freeze_json(value: JsonValue) -> FrozenJsonValue:
 
 def _thaw_json(value: FrozenJsonValue) -> JsonValue:
     if isinstance(value, Mapping):
-        return {key: _thaw_json(child) for key, child in value.items()}
+        return {str(key): _thaw_json(cast(FrozenJsonValue, child)) for key, child in value.items()}
     if isinstance(value, tuple):
         return [_thaw_json(child) for child in value]
     return value
@@ -365,9 +364,7 @@ class RoleBinding:
     def __post_init__(self) -> None:
         if not isinstance(self.model, ActorModel):
             raise ValueError("role binding model must be ActorModel")
-        if self.agent_harness is not None and not isinstance(
-            self.agent_harness, ActorHarness
-        ):
+        if self.agent_harness is not None and not isinstance(self.agent_harness, ActorHarness):
             raise ValueError("role binding agent_harness must be ActorHarness")
         frozen = _freeze_json(dict(self.params) if self.params is not None else {})
         if not isinstance(frozen, Mapping):
@@ -401,13 +398,9 @@ class WorkerRolePalette:
             raise ValueError("worker permitted_models must be ActorModel values")
         if self.default_model not in self.permitted_models:
             raise ValueError("worker default_model must be in permitted_models")
-        if self.agent_harness is not None and not isinstance(
-            self.agent_harness, ActorHarness
-        ):
+        if self.agent_harness is not None and not isinstance(self.agent_harness, ActorHarness):
             raise ValueError("worker agent_harness must be ActorHarness")
-        params = _freeze_json(
-            dict(self.default_params) if self.default_params is not None else {}
-        )
+        params = _freeze_json(dict(self.default_params) if self.default_params is not None else {})
         if not isinstance(params, Mapping):
             raise ValueError("worker default_params must be an object")
         object.__setattr__(self, "default_params", params)
@@ -415,9 +408,7 @@ class WorkerRolePalette:
         for name, binding in dict(self.subtypes or {}).items():
             if not isinstance(binding, RoleBinding):
                 raise ValueError("worker subtype bindings must be RoleBinding")
-            normalized_subtypes[require_text(name, field_name="worker subtype")] = (
-                binding
-            )
+            normalized_subtypes[require_text(name, field_name="worker subtype")] = binding
         object.__setattr__(self, "subtypes", MappingProxyType(normalized_subtypes))
 
     def to_wire(self) -> JsonObject:
@@ -425,9 +416,7 @@ class WorkerRolePalette:
             "permitted_models": [model.value for model in self.permitted_models],
             "default_model": self.default_model.value,
             "default_params": _thaw_json(self.default_params),
-            "subtypes": {
-                name: binding.to_wire() for name, binding in self.subtypes.items()
-            },
+            "subtypes": {name: binding.to_wire() for name, binding in self.subtypes.items()},
         }
         if self.agent_harness is not None:
             payload["agent_harness"] = self.agent_harness.value
@@ -454,9 +443,7 @@ class RoleBindings:
         for name, binding in dict(self.reviewer_subtypes or {}).items():
             if not isinstance(binding, RoleBinding):
                 raise ValueError("reviewer subtype bindings must be RoleBinding")
-            normalized_subtypes[
-                require_text(name, field_name="reviewer subtype")
-            ] = binding
+            normalized_subtypes[require_text(name, field_name="reviewer subtype")] = binding
         object.__setattr__(self, "reviewer_subtypes", MappingProxyType(normalized_subtypes))
 
     def to_wire(self) -> JsonObject:
@@ -467,8 +454,7 @@ class RoleBindings:
         }
         if self.reviewer_subtypes:
             payload["reviewer_subtypes"] = {
-                name: binding.to_wire()
-                for name, binding in self.reviewer_subtypes.items()
+                name: binding.to_wire() for name, binding in self.reviewer_subtypes.items()
             }
         return payload
 
@@ -573,9 +559,7 @@ class SwarmSpec:
             self.execution_target,
             PlatformResolvedExecutionTarget,
         ):
-            raise ValueError(
-                "stable execution_target must be PlatformResolvedExecutionTarget"
-            )
+            raise ValueError("stable execution_target must be PlatformResolvedExecutionTarget")
         if self.kickoff_artifact is not None and not isinstance(
             self.kickoff_artifact,
             KickoffArtifact,
@@ -592,21 +576,13 @@ class SwarmSpec:
                 self.worker_pool_id,
             )
         ):
-            raise ValueError(
-                "execution_target cannot be combined with legacy placement fields"
-            )
+            raise ValueError("execution_target cannot be combined with legacy placement fields")
         normalized_images: dict[str, ActorImageBinding] = {}
         for role, binding in dict(self.actor_image_overrides or {}).items():
             if not isinstance(binding, ActorImageBinding):
-                raise ValueError(
-                    "actor_image_overrides values must be ActorImageBinding"
-                )
-            normalized_images[require_text(role, field_name="actor image role")] = (
-                binding
-            )
-        object.__setattr__(
-            self, "actor_image_overrides", MappingProxyType(normalized_images)
-        )
+                raise ValueError("actor_image_overrides values must be ActorImageBinding")
+            normalized_images[require_text(role, field_name="actor image role")] = binding
+        object.__setattr__(self, "actor_image_overrides", MappingProxyType(normalized_images))
         capabilities = tuple(
             require_text(item, field_name="required_capabilities")
             for item in self.required_capabilities
@@ -675,8 +651,7 @@ class SwarmSpec:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
             payload["actor_image_overrides"] = {
-                role: binding.to_wire()
-                for role, binding in self.actor_image_overrides.items()
+                role: binding.to_wire() for role, binding in self.actor_image_overrides.items()
             }
         if self.local_execution is not None:
             payload["local_execution"] = self.local_execution.to_wire()
@@ -741,14 +716,9 @@ class ResolvedSwarmConfiguration:
         payload = object_value(value, operation_id="retrieve_swarm_configuration")
         schema_version = required_text(payload, "schema_version")
         if schema_version != "synth.research.resolved-swarm-configuration.v1":
-            raise ValueError(
-                "unsupported resolved swarm configuration schema "
-                f"{schema_version!r}"
-            )
+            raise ValueError(f"unsupported resolved swarm configuration schema {schema_version!r}")
         digest = required_text(payload, "snapshot_sha256").lower()
-        if len(digest) != 64 or any(
-            character not in "0123456789abcdef" for character in digest
-        ):
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
             raise ValueError("snapshot_sha256 must be a 64-character hexadecimal digest")
         snapshot = object_value(
             payload.get("snapshot"),
@@ -760,11 +730,9 @@ class ResolvedSwarmConfiguration:
         return cls(
             swarm_id=SwarmId(required_text(payload, "run_id")),
             project_id=ProjectId(required_text(payload, "project_id")),
-            config_version_id=ConfigurationVersionId(
-                required_text(payload, "config_version_id")
-            ),
+            config_version_id=ConfigurationVersionId(required_text(payload, "config_version_id")),
             snapshot_sha256=digest,
-            snapshot=frozen_snapshot,
+            snapshot=cast(Mapping[str, FrozenJsonValue], frozen_snapshot),
             schema_version=schema_version,
         )
 

@@ -9,7 +9,10 @@ from synth_ai.core.research._legacy.models.smr_agent_harnesses import (
     SmrAgentHarness,
     coerce_smr_agent_harness,
 )
-from synth_ai.core.research._legacy.models.smr_agent_kinds import SmrAgentKind, coerce_smr_agent_kind
+from synth_ai.core.research._legacy.models.smr_agent_kinds import (
+    SmrAgentKind,
+    coerce_smr_agent_kind,
+)
 from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
 from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
     EvidenceObligations,

@@ -31,14 +31,13 @@ class LimitsAPI:
             self._transport.execute(_request("retrieve_research_limits", "/smr/limits"))
         )
 
+
 class AsyncLimitsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
     async def retrieve(self) -> ResearchOrgLimits:
-        value = await self._transport.execute(
-            _request("retrieve_research_limits", "/smr/limits")
-        )
+        value = await self._transport.execute(_request("retrieve_research_limits", "/smr/limits"))
         return ResearchOrgLimits.from_wire(value)
 
 

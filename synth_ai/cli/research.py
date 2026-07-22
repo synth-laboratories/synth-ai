@@ -7,9 +7,9 @@ import os
 
 import click
 
-from synth_ai.cli.research_projects import projects
 from synth_ai.cli.research_environments import environments
 from synth_ai.cli.research_image_releases import image_releases
+from synth_ai.cli.research_projects import projects
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
@@ -359,8 +359,6 @@ def factories_list(
                 "name": factory.name,
                 "state": factory.state.value,
             }
-            for factory in client.research.factories.list(
-                include_archived=include_archived
-            )
+            for factory in client.research.factories.list(include_archived=include_archived)
         ]
         click.echo(json.dumps(payload, indent=2, sort_keys=True))

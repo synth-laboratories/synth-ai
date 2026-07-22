@@ -5,18 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from synth_ai.mcp.research.registry import JSONDict
 from synth_ai.core.research._legacy.models.run_timeline import SmrBranchMode, SmrRunBranchRequest
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
-)
 from synth_ai.core.research._legacy.models.smr_actor_models import normalize_actor_model_assignments
 from synth_ai.core.research._legacy.models.smr_agent_harnesses import coerce_smr_agent_harness
 from synth_ai.core.research._legacy.models.smr_agent_kinds import coerce_smr_agent_kind
 from synth_ai.core.research._legacy.models.smr_agent_models import coerce_smr_agent_model
 from synth_ai.core.research._legacy.models.smr_credential_providers import (
     coerce_smr_credential_provider,
+)
+from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
 )
 from synth_ai.core.research._legacy.models.smr_funding_sources import coerce_smr_funding_source
 from synth_ai.core.research._legacy.models.smr_horizons import coerce_intended_horizon_hours
@@ -30,6 +29,7 @@ from synth_ai.core.research._legacy.models.smr_run_policy import coerce_smr_run_
 from synth_ai.core.research._legacy.models.smr_runbooks import coerce_smr_runbook_kind
 from synth_ai.core.research._legacy.models.smr_work_modes import coerce_smr_work_mode
 from synth_ai.core.research._legacy.models.types import SmrRunnableProjectRequest
+from synth_ai.mcp.research.registry import JSONDict
 
 
 def require_string(payload: JSONDict, key: str) -> str:

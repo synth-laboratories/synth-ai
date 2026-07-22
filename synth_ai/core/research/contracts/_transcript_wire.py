@@ -19,8 +19,7 @@ def exact_object(
     extra = value.keys() - fields
     if missing or extra:
         raise ValueError(
-            f"{label} fields drifted: missing={sorted(missing)!r} "
-            f"extra={sorted(extra)!r}"
+            f"{label} fields drifted: missing={sorted(missing)!r} extra={sorted(extra)!r}"
         )
     return value
 

@@ -229,9 +229,7 @@ def build_tool_registry(tools: list[ToolDefinition]) -> dict[str, ToolDefinition
     for raw_tool in tools:
         tool = _normalized_tool_definition(raw_tool)
         if tool.name.startswith("smr_"):
-            tool = _normalized_tool_definition(
-                replace(tool, name=f"research_{tool.name[4:]}")
-            )
+            tool = _normalized_tool_definition(replace(tool, name=f"research_{tool.name[4:]}"))
         if tool.name in registry:
             raise ValueError(f"duplicate MCP tool definition: {tool.name}")
         registry[tool.name] = tool

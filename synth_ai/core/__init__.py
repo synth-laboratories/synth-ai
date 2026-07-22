@@ -8,8 +8,8 @@ containers, tunnels, and pools.
 from synth_ai.core.errors import (
     AuthenticationError,
     AuthorizationError,
-    ConflictError,
     ConfigError,
+    ConflictError,
     ContractMismatchError,
     HTTPError,
     JobError,
@@ -25,8 +25,8 @@ from synth_ai.core.errors import (
     SynthErrorCode,
     SynthFailure,
     TimeoutError,
-    ValidationError,
     TransientServiceError,
+    ValidationError,
 )
 from synth_ai.core.utils.env import get_api_key, mask_value
 from synth_ai.core.utils.urls import BACKEND_URL_BASE

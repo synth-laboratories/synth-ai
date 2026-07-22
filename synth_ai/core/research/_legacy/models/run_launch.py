@@ -26,14 +26,14 @@ from synth_ai.core.research._legacy.models.runtime_image import (
     align_execution_profile_for_runtime_image,
     runtime_image_launch_patches,
 )
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
-)
 from synth_ai.core.research._legacy.models.smr_actor_models import SmrActorModelAssignment
 from synth_ai.core.research._legacy.models.smr_agent_harnesses import SmrAgentHarness
 from synth_ai.core.research._legacy.models.smr_agent_kinds import SmrAgentKind
 from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
+from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
+)
 from synth_ai.core.research._legacy.models.smr_horizons import SmrIntendedHorizonHours
 from synth_ai.core.research._legacy.models.smr_host_kinds import SmrHostKind
 from synth_ai.core.research._legacy.models.smr_providers import (

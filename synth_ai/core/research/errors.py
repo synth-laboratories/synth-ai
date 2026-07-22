@@ -30,6 +30,7 @@ from synth_ai.core.errors import (
     SynthFailure,
     TransientServiceError,
 )
+
 ResearchApiError = SynthError
 SmrApiError = ResearchApiError
 
@@ -37,16 +38,12 @@ _COMPATIBILITY_ERRORS = {
     "ResearchConcurrentRunLimitExceededError": "SmrConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError": "SmrInsufficientCreditsError",
     "ResearchLimitExceededError": "SmrLimitExceededError",
-    "ResearchProjectMonthlyBudgetExhaustedError": (
-        "SmrProjectMonthlyBudgetExhaustedError"
-    ),
+    "ResearchProjectMonthlyBudgetExhaustedError": ("SmrProjectMonthlyBudgetExhaustedError"),
     "ResearchStructuredDenialError": "SmrStructuredDenialError",
     "SmrConcurrentRunLimitExceededError": "SmrConcurrentRunLimitExceededError",
     "SmrInsufficientCreditsError": "SmrInsufficientCreditsError",
     "SmrLimitExceededError": "SmrLimitExceededError",
-    "SmrProjectMonthlyBudgetExhaustedError": (
-        "SmrProjectMonthlyBudgetExhaustedError"
-    ),
+    "SmrProjectMonthlyBudgetExhaustedError": ("SmrProjectMonthlyBudgetExhaustedError"),
     "SmrStructuredDenialError": "SmrStructuredDenialError",
 }
 
@@ -61,6 +58,7 @@ def __getattr__(name: str) -> object:
     )
     globals()[name] = value
     return value
+
 
 __all__ = [
     "ResearchApiError",

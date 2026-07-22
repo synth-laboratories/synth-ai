@@ -11,7 +11,6 @@ from typing import TypeAlias
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import object_value
 
-
 JsonScalar: TypeAlias = str | int | float | bool | None
 JsonInput: TypeAlias = JsonScalar | Sequence["JsonInput"] | Mapping[str, "JsonInput"]
 FrozenJson: TypeAlias = JsonScalar | tuple["FrozenJson", ...] | Mapping[str, "FrozenJson"]
@@ -38,7 +37,9 @@ def freeze_json(value: object, *, field: str) -> FrozenJson:
             frozen[key] = freeze_json(child, field=f"{field}.{key}")
         return MappingProxyType(frozen)
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return tuple(freeze_json(child, field=f"{field}[{index}]") for index, child in enumerate(value))
+        return tuple(
+            freeze_json(child, field=f"{field}[{index}]") for index, child in enumerate(value)
+        )
     raise ValueError(f"{field} must contain only JSON values")
 
 

@@ -173,9 +173,7 @@ class ActivityCursor:
         latest_node_id = optional_text(payload, "latest_node_id")
         return cls(
             latest_node_id=(
-                ActivityEventId(latest_node_id)
-                if latest_node_id is not None
-                else None
+                ActivityEventId(latest_node_id) if latest_node_id is not None else None
             ),
             latest_event_seq=optional_non_negative_int(payload, "latest_event_seq"),
             transcript_cursor=optional_text(payload, "transcript_cursor"),
@@ -220,9 +218,7 @@ class ActivityRun:
         return cls(
             state=SwarmState(required_text(payload, "public_state")),
             liveness_phase=(
-                SwarmLivenessPhase(liveness_phase)
-                if liveness_phase is not None
-                else None
+                SwarmLivenessPhase(liveness_phase) if liveness_phase is not None else None
             ),
             terminal_outcome=optional_text(payload, "terminal_outcome"),
             started_at=optional_datetime(payload, "started_at"),
@@ -238,9 +234,7 @@ class ActivityRun:
             ),
             "terminal_outcome": self.terminal_outcome,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
             "latest_summary": self.latest_summary,
         }
 

@@ -23,6 +23,7 @@ from synth_ai.core.research.contracts.evidence import (
     ContentDisposition,
     SwarmEvidence,
 )
+from synth_ai.core.research.contracts.status import SwarmStatus
 from synth_ai.core.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -31,12 +32,11 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmPreflight,
     SwarmSpec,
 )
-from synth_ai.core.research.contracts.usage import SwarmUsage
-from synth_ai.core.research.contracts.status import SwarmStatus
 from synth_ai.core.research.contracts.transcript import (
     SwarmTranscriptPage,
     TranscriptView,
 )
+from synth_ai.core.research.contracts.usage import SwarmUsage
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
 
@@ -57,10 +57,7 @@ def _request(
 
 
 def _swarms(value: JsonValue, *, operation_id: str) -> tuple[Swarm, ...]:
-    return tuple(
-        Swarm.from_wire(item)
-        for item in array_value(value, operation_id=operation_id)
-    )
+    return tuple(Swarm.from_wire(item) for item in array_value(value, operation_id=operation_id))
 
 
 def _wait_arguments(timeout_seconds: float, poll_interval_seconds: float) -> None:
@@ -193,9 +190,7 @@ class SwarmsAPI:
         else:
             operation_id = "preflight_project_run"
             path = f"/smr/projects/{project_id}/launch-preflight"
-        value = self._transport.execute(
-            _request(operation_id, path, body=request.to_wire())
-        )
+        value = self._transport.execute(_request(operation_id, path, body=request.to_wire()))
         return SwarmPreflight.from_wire(value)
 
     def create(
@@ -210,9 +205,7 @@ class SwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = self._transport.execute(
-            _request(operation_id, path, body=request.to_wire())
-        )
+        value = self._transport.execute(_request(operation_id, path, body=request.to_wire()))
         return SwarmHandle(self, Swarm.from_wire(value))
 
     def list(
@@ -235,9 +228,7 @@ class SwarmsAPI:
         return _swarms(value, operation_id="list_project_runs")
 
     def retrieve(self, swarm_id: SwarmId) -> Swarm:
-        value = self._transport.execute(
-            _request("retrieve_run", f"/smr/runs/{swarm_id}")
-        )
+        value = self._transport.execute(_request("retrieve_run", f"/smr/runs/{swarm_id}"))
         return Swarm.from_wire(value)
 
     def configuration(self, swarm_id: SwarmId) -> ResolvedSwarmConfiguration:
@@ -388,15 +379,11 @@ class SwarmsAPI:
             time.sleep(poll_interval_seconds)
 
     def pause(self, swarm_id: SwarmId) -> Swarm:
-        value = self._transport.execute(
-            _request("pause_run", f"/smr/runs/{swarm_id}/pause")
-        )
+        value = self._transport.execute(_request("pause_run", f"/smr/runs/{swarm_id}/pause"))
         return Swarm.from_wire(value)
 
     def resume(self, swarm_id: SwarmId) -> Swarm:
-        value = self._transport.execute(
-            _request("resume_run", f"/smr/runs/{swarm_id}/resume")
-        )
+        value = self._transport.execute(_request("resume_run", f"/smr/runs/{swarm_id}/resume"))
         return Swarm.from_wire(value)
 
     def cancel(self, swarm_id: SwarmId) -> Swarm:
@@ -555,9 +542,7 @@ class AsyncSwarmsAPI:
         else:
             operation_id = "preflight_project_run"
             path = f"/smr/projects/{project_id}/launch-preflight"
-        value = await self._transport.execute(
-            _request(operation_id, path, body=request.to_wire())
-        )
+        value = await self._transport.execute(_request(operation_id, path, body=request.to_wire()))
         return SwarmPreflight.from_wire(value)
 
     async def create(
@@ -572,9 +557,7 @@ class AsyncSwarmsAPI:
         else:
             operation_id = "trigger_project_run"
             path = f"/smr/projects/{project_id}/trigger"
-        value = await self._transport.execute(
-            _request(operation_id, path, body=request.to_wire())
-        )
+        value = await self._transport.execute(_request(operation_id, path, body=request.to_wire()))
         return AsyncSwarmHandle(self, Swarm.from_wire(value))
 
     async def list(
@@ -593,9 +576,7 @@ class AsyncSwarmsAPI:
         return _swarms(value, operation_id="list_project_runs")
 
     async def retrieve(self, swarm_id: SwarmId) -> Swarm:
-        value = await self._transport.execute(
-            _request("retrieve_run", f"/smr/runs/{swarm_id}")
-        )
+        value = await self._transport.execute(_request("retrieve_run", f"/smr/runs/{swarm_id}"))
         return Swarm.from_wire(value)
 
     async def configuration(self, swarm_id: SwarmId) -> ResolvedSwarmConfiguration:
@@ -746,9 +727,7 @@ class AsyncSwarmsAPI:
             await asyncio.sleep(poll_interval_seconds)
 
     async def pause(self, swarm_id: SwarmId) -> Swarm:
-        value = await self._transport.execute(
-            _request("pause_run", f"/smr/runs/{swarm_id}/pause")
-        )
+        value = await self._transport.execute(_request("pause_run", f"/smr/runs/{swarm_id}/pause"))
         return Swarm.from_wire(value)
 
     async def resume(self, swarm_id: SwarmId) -> Swarm:

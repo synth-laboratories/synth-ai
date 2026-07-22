@@ -9,6 +9,13 @@ from typing import Any
 
 from synth_ai.core.research._legacy.auth import get_api_key
 from synth_ai.core.research._legacy.errors import SmrApiError
+from synth_ai.core.research._legacy.models.factories import FactoryWakeDueRequest
+from synth_ai.core.research._legacy.models.promotions import (
+    SmrPromotionDiscountPreviewRequest,
+)
+from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
+from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research._legacy.version import __version__
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
 from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
@@ -71,13 +78,6 @@ from synth_ai.mcp.research.tools.tag import build_tag_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
-from synth_ai.core.research._legacy.models.factories import FactoryWakeDueRequest
-from synth_ai.core.research._legacy.models.promotions import (
-    SmrPromotionDiscountPreviewRequest,
-)
-from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-from synth_ai.core.research._legacy.version import __version__
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
@@ -87,6 +87,7 @@ SERVER_NAME = "synth-research"
 def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
     value = optional_int(args, name)
     return default if value is None else value
+
 
 _STABLE_TOOL_NAMES = frozenset(
     {
@@ -316,11 +317,7 @@ class ResearchMcpServer:
     def _advertised_tools(self) -> dict[str, ToolDefinition]:
         if self._include_advanced_tools:
             return self._tools
-        return {
-            name: tool
-            for name, tool in self._tools.items()
-            if name in _STABLE_TOOL_NAMES
-        }
+        return {name: tool for name, tool in self._tools.items() if name in _STABLE_TOOL_NAMES}
 
     def available_tool_names(self) -> list[str]:
         names = sorted(self._advertised_tools())
@@ -353,9 +350,7 @@ class ResearchMcpServer:
         """Build the stable typed client for noun-first MCP tools."""
         return CoreResearchClient(
             api_key=optional_string(args, "api_key") or self._default_api_key,
-            base_url=(
-                optional_string(args, "backend_base") or self._default_backend_base
-            ),
+            base_url=(optional_string(args, "backend_base") or self._default_backend_base),
         )
 
     @staticmethod
@@ -923,30 +918,22 @@ class ResearchMcpServer:
     def _tool_start_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.start(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.start(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_pause_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.pause(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.pause(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_resume_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.resume(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.resume(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_archive_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.archive(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.archive(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_get_factory_status(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
@@ -2594,9 +2581,7 @@ class ResearchMcpServer:
             actor_limit=_optional_int_default(args, "actor_limit", 50),
             task_limit=_optional_int_default(args, "task_limit", 100),
             message_limit=_optional_int_default(args, "message_limit", 50),
-            work_product_limit=_optional_int_default(
-                args, "work_product_limit", 50
-            ),
+            work_product_limit=_optional_int_default(args, "work_product_limit", 50),
         )
         with self._core_client_from_args(args) as client:
             return client.swarms.activity(swarm_id, window).to_wire()
@@ -3412,7 +3397,6 @@ class ResearchMcpServer:
     def _tool_directed_effort_outcomes(self, args: JSONDict) -> Any:
         self._removed_backend_contract("Project directed-effort-outcome management")
 
-
     def serve_stdio(self) -> None:
         framing = "jsonl"
         while True:
@@ -3452,10 +3436,7 @@ class ResearchMcpServer:
                 if not isinstance(params, dict):
                     raise RpcError(-32602, "tools/call requires object params")
                 tool_name = params.get("name")
-                if (
-                    not isinstance(tool_name, str)
-                    or self.get_tool_definition(tool_name) is None
-                ):
+                if not isinstance(tool_name, str) or self.get_tool_definition(tool_name) is None:
                     raise RpcError(-32601, f"Unknown tool: {tool_name!r}")
                 arguments = params.get("arguments")
                 if arguments is not None and not isinstance(arguments, dict):

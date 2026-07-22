@@ -12,14 +12,13 @@ from synth_ai.core.research.contracts.image_releases import (
     RuntimeImageReleaseId,
 )
 from synth_ai.mcp.research.registry import (
-    JSONDict,
     READ_SCOPES,
     WRITE_SCOPES,
+    JSONDict,
     ToolDefinition,
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import require_string
-
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 

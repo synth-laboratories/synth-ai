@@ -52,9 +52,7 @@ class SwarmHeartbeat:
         return {"version": self.version, "source": _RUNTIME_STREAM_SOURCE}
 
 
-SwarmEventPayload: TypeAlias = (
-    SwarmRuntimeSnapshot | SwarmTranscriptEvent | SwarmHeartbeat
-)
+SwarmEventPayload: TypeAlias = SwarmRuntimeSnapshot | SwarmTranscriptEvent | SwarmHeartbeat
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,12 +101,10 @@ class SwarmEvent:
             raise ValueError("SSE id field must match the envelope sequence")
         event_payload = _decode_payload(kind, payload.get("payload"))
         swarm_id = SwarmId(required_string(payload, "run_id"))
-        if isinstance(event_payload, SwarmRuntimeSnapshot):
-            if event_payload.swarm_id != swarm_id:
-                raise ValueError("snapshot payload run_id must match its envelope")
-        elif isinstance(event_payload, SwarmTranscriptEvent):
-            if event_payload.swarm_id != swarm_id:
-                raise ValueError("transcript payload run_id must match its envelope")
+        if isinstance(event_payload, SwarmRuntimeSnapshot) and event_payload.swarm_id != swarm_id:
+            raise ValueError("snapshot payload run_id must match its envelope")
+        if isinstance(event_payload, SwarmTranscriptEvent) and event_payload.swarm_id != swarm_id:
+            raise ValueError("transcript payload run_id must match its envelope")
         return cls(
             sequence=sequence,
             swarm_id=swarm_id,

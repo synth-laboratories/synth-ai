@@ -16,20 +16,17 @@ from synth_ai.core.research.contracts.workspaces import (
     WorkspaceSourceRepositorySpec,
 )
 from synth_ai.mcp.research.registry import (
-    JSONDict,
     READ_SCOPES,
     WRITE_SCOPES,
+    JSONDict,
     ToolDefinition,
     tool_schema,
 )
 from synth_ai.mcp.research.request_models import optional_string, require_string
 
-
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
 
-_FILE_FIELDS = frozenset(
-    {"path", "content", "content_type", "encoding", "kind", "metadata"}
-)
+_FILE_FIELDS = frozenset({"path", "content", "content_type", "encoding", "kind", "metadata"})
 
 
 def _file_upload(value: object, *, index: int) -> WorkspaceFileUpload:
@@ -73,10 +70,7 @@ def _batch_request(args: JSONDict) -> WorkspaceFilesBatchUploadRequest:
     if not isinstance(raw_files, list) or not raw_files:
         raise ValueError("'files' must be a non-empty array")
     return WorkspaceFilesBatchUploadRequest(
-        files=tuple(
-            _file_upload(value, index=index)
-            for index, value in enumerate(raw_files)
-        )
+        files=tuple(_file_upload(value, index=index) for index, value in enumerate(raw_files))
     )
 
 
@@ -115,8 +109,7 @@ def build_workspace_input_tools(
         ToolDefinition(
             name="smr_attach_source_repo",
             description=(
-                "Set the public source repository used to bootstrap one Research "
-                "project workspace."
+                "Set the public source repository used to bootstrap one Research project workspace."
             ),
             input_schema=tool_schema(
                 {
@@ -182,9 +175,7 @@ def build_workspace_input_tools(
                                 "content_type": {"type": "string"},
                                 "encoding": {
                                     "type": "string",
-                                    "enum": [
-                                        item.value for item in WorkspaceFileEncoding
-                                    ],
+                                    "enum": [item.value for item in WorkspaceFileEncoding],
                                 },
                                 "kind": {
                                     "type": "string",

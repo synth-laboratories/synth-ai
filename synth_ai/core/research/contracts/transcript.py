@@ -128,9 +128,7 @@ class SwarmTranscriptEvent:
                 }
             ),
         )
-        if required_string(payload, "schema_version") != (
-            "synth.research.transcript-event.v1"
-        ):
+        if required_string(payload, "schema_version") != ("synth.research.transcript-event.v1"):
             raise ValueError("unsupported transcript event schema_version")
         if required_string(payload, "semantic_scope") != "participant":
             raise ValueError("transcript event semantic_scope must be 'participant'")
@@ -181,16 +179,12 @@ class SwarmTranscriptEvent:
             "payload": dict(self.payload),
             "semantic_scope": "participant",
             "run_terminal": self.run_terminal,
-            "redaction_profile": (
-                self.redaction_profile.value if self.redaction_profile else None
-            ),
+            "redaction_profile": (self.redaction_profile.value if self.redaction_profile else None),
             "visibility_decision": (
                 self.visibility_decision.value if self.visibility_decision else None
             ),
             "payload_classification": (
-                self.payload_classification.value
-                if self.payload_classification
-                else None
+                self.payload_classification.value if self.payload_classification else None
             ),
         }
 
@@ -277,9 +271,7 @@ class TranscriptFreshness:
 
     def __post_init__(self) -> None:
         if self.replay_mode is TranscriptReplayMode.LIVE_TAIL:
-            if self.projection_authority is not (
-                TranscriptProjectionAuthority.LIVE_CONTROL_PLANE
-            ):
+            if self.projection_authority is not (TranscriptProjectionAuthority.LIVE_CONTROL_PLANE):
                 raise ValueError("live_tail requires live control-plane authority")
             if not self.live_tail_available:
                 raise ValueError("live_tail requires live_tail_available=true")
@@ -305,9 +297,7 @@ class TranscriptFreshness:
             projection_authority=TranscriptProjectionAuthority(
                 required_string(payload, "projection_authority")
             ),
-            replay_mode=TranscriptReplayMode(
-                required_string(payload, "replay_mode")
-            ),
+            replay_mode=TranscriptReplayMode(required_string(payload, "replay_mode")),
             live_tail_available=required_bool(payload, "live_tail_available"),
         )
 
@@ -410,9 +400,7 @@ class SwarmTranscriptPage:
                 }
             ),
         )
-        if required_string(payload, "schema_version") != (
-            "synth.research.transcript-page.v1"
-        ):
+        if required_string(payload, "schema_version") != ("synth.research.transcript-page.v1"):
             raise ValueError("unsupported transcript page schema_version")
         raw_events = payload.get("events")
         raw_participants = payload.get("participants")
@@ -429,9 +417,7 @@ class SwarmTranscriptPage:
                 else None
             ),
             events=tuple(SwarmTranscriptEvent.from_wire(item) for item in raw_events),
-            participants=tuple(
-                TranscriptParticipant.from_wire(item) for item in raw_participants
-            ),
+            participants=tuple(TranscriptParticipant.from_wire(item) for item in raw_participants),
             next_cursor=optional_string(payload, "next_cursor"),
             live_resume_cursor=optional_string(payload, "live_resume_cursor"),
             projection_authority=TranscriptProjectionAuthority(

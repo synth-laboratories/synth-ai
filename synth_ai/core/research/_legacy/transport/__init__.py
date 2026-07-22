@@ -1,7 +1,10 @@
 """Transport exports."""
 
 from synth_ai.core.research._legacy.transport.http import SmrHttpTransport
-from synth_ai.core.research._legacy.transport.pagination import build_query_params, extract_next_cursor
+from synth_ai.core.research._legacy.transport.pagination import (
+    build_query_params,
+    extract_next_cursor,
+)
 from synth_ai.core.research._legacy.transport.retries import RetryPolicy
 from synth_ai.core.research._legacy.transport.streaming import (
     BinaryPayloadPreview,

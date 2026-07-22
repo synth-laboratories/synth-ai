@@ -9,7 +9,10 @@ from synth_ai.core.research._legacy.models.canonical_usage import (
     BillingEntitlementSnapshot,
     SmrProjectUsage,
 )
-from synth_ai.core.research._legacy.models.project import CreateRunnableResult, ManagedResearchProject
+from synth_ai.core.research._legacy.models.project import (
+    CreateRunnableResult,
+    ManagedResearchProject,
+)
 from synth_ai.core.research._legacy.models.project_workspace import ProjectWorkspaceProjection
 from synth_ai.core.research._legacy.models.types import (
     ProjectCodeSource,
