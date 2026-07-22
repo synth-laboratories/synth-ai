@@ -57,7 +57,7 @@ are evidence attachments to this document.
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
 | Delivery | MCP defaults to 36 stable noun-first tools; runtime discovery contains 245 additional advanced tools, while the source ledger records 260 advanced adapter definitions before registry deduplication/removal; CLI exposes the resolved-configuration read and keeps legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
-| Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → strongest repeat 7.18 → latest repeat 7.09; latest minimum 6, no holds | Qualitative threshold passes; the 0.09 repeat variance and compression, documentation, naming, and reach at 6/10 remain review evidence, not a release waiver |
+| Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → prior repeat 7.18 → final handoff repeat 7.27; latest minimum 6, no holds | Qualitative threshold passes; parameter design, naming, and reach at 6/10 remain review evidence, not a release waiver |
 
 The implementation worktrees and exact review order are recorded in
 [Current handoff state](#current-handoff-state). This document is the only
@@ -1554,58 +1554,62 @@ Phase 10 acceptance additionally requires the release thresholds above
 | 2026-07-21 | Candidate after stable-import isolation | **7.09** | compression 6, failure 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v6/manifest.json` |
 | 2026-07-21 | Candidate after GameBench ownership and contract parity fixes | **7.18** | compression 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v8/manifest.json` |
 | 2026-07-21 | Latest repeat after advanced-consumer classification | **7.09** | compression 6, documentation 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v9/manifest.json` |
+| 2026-07-21 | Final handoff repeat after resolved-configuration vertical and final capability ownership | **7.27** | naming 6, parameter design 6, reach 6 | `.quality/runs/migration-sdk-design-v10/manifest.json` |
 
-The latest repeat completes all 11 dimensions, has no holds, and clears the
-declared qualitative bar: mean **7.09**, minimum **6**, maximum **8**, with 20
-recorded violations. The strict manifest validator passed. The immediately
-preceding repeat scored **7.18** with the same minimum and maximum. The 0.09
-movement came from concurrency (8 → 7), documentation (7 → 6), and parameter
-design (7 → 8), while the deterministic contract and import-boundary evidence
-remained unchanged. Treat this as expected qualitative-judge sampling variance,
-not as evidence that 7.18 is the exact score of the branch. Both receipts are
-retained; the latest receipt is the handoff score. It is evidence for API
-review, not a substitute for deterministic or vertical integration proof.
+The final handoff repeat completes all 11 dimensions, has no holds, and clears
+the declared qualitative bar: mean **7.27** (80/110), minimum **6**, maximum
+**8**, with 20 recorded violations. The strict manifest validator passed. It
+completed in **21 seconds** using approximately **88k tokens** (83k input and
+5.3k output) through Gemini 3.5 Flash Lite. Relative to v9, conceptual
+compression, concurrency, documentation, and observability each rose one point,
+while parameter design fell two points; the aggregate therefore rose 0.18.
+The parameter-design finding is substantive rather than hidden as sampling
+noise: public `ResourceLimit` and `BudgetPolicy` shapes still permit too many
+optional combinations. Retain both receipts so reviewers can distinguish
+judge variance from a repeated design concern. The final receipt is evidence
+for API review, not a substitute for deterministic or vertical integration
+proof.
 
 Its complete scorecard is:
 
 | Dimension | Score | Severity | Principal remaining gap |
 |---|---:|---|---|
 | Compatibility | 8 | low | Automate enforcement of the public compatibility manifest and versioned deprecation contract |
-| Conceptual compression | 6 | medium | Stop leaking low-level clients and backend route structure through top-level discovery |
-| Concurrency contract | 7 | low | Document end-to-end cancellation and deadline propagation across every helper method |
-| Documentation | 6 | medium | Put a complete five-minute quickstart in the primary README and finish generated-reference coverage |
-| Failure contract | 8 | low | Make every async Research method document and raise the typed hierarchy with request identity |
-| Lifecycle guarantees | 8 | low | Specify repeated-cancellation idempotency and immutable resolved-version snapshots |
-| Naming | 6 | medium | Keep `Smr*`, `ManagedResearch*`, and verbose `*API` names confined to time-bounded compatibility modules |
-| Observability | 7 | medium | Consolidate legacy usage/readout projections into the correlation-aware event protocol |
-| Parameter design | 8 | low | Continue reducing optional-state combinations and separate configuration boundaries in public contracts |
-| Reach | 6 | medium | Generate and publish a non-Python conformance client from the bounded OpenAPI artifact |
-| Type contract | 8 | low | Reject lenient preflight blocker shapes and remove dynamic legacy error imports |
+| Conceptual compression | 7 | low | Hide low-level core namespaces and present one flat, noun-led Research hierarchy |
+| Concurrency contract | 8 | low | Document transcript-cursor recovery and resume behavior for native async streaming |
+| Documentation | 7 | low | Complete generated public reference pages and link each back to executable recipes |
+| Failure contract | 8 | low | Complete generated documentation for every public typed error class |
+| Lifecycle guarantees | 8 | low | Make archive/delete terminality explicit and consistent across resource APIs |
+| Naming | 6 | medium | Remove internal `Smr*` prefixes and compatibility aliases from public discovery before 0.18.0 |
+| Observability | 8 | low | Move legacy readout diagnostics directly onto native core Research types |
+| Parameter design | 6 | medium | Replace optional-soup resource and budget records with validated combinations or explicit builders |
+| Reach | 6 | medium | Add CI conformance proving Python, CLI, and MCP schemas mirror the bounded OpenAPI artifact |
+| Type contract | 8 | low | Replace fallback preflight-blocker dictionary parsing with strict typed union decoding |
 
-The score moved in the intended direction at every measurement:
+The longitudinal scorecard is:
 
 | Dimension | Baseline | Relocation | First candidate | Import-isolated | Latest | Net |
 |---|---:|---:|---:|---:|---:|---:|
 | Compatibility | 6 | 8 | 6 | 8 | 8 | +2 |
-| Conceptual compression | 4 | 4 | 7 | 6 | 6 | +2 |
-| Concurrency contract | 4 | 8 | 8 | 8 | 7 | +3 |
-| Documentation | 6 | 8 | 7 | 8 | 6 | 0 |
+| Conceptual compression | 4 | 4 | 7 | 6 | 7 | +3 |
+| Concurrency contract | 4 | 8 | 8 | 8 | 8 | +4 |
+| Documentation | 6 | 8 | 7 | 8 | 7 | +1 |
 | Failure contract | 6 | 6 | 8 | 6 | 8 | +2 |
 | Lifecycle guarantees | 8 | 7 | 8 | 8 | 8 | 0 |
 | Naming | 3 | 4 | 6 | 6 | 6 | +3 |
-| Observability | 7 | 6 | 7 | 7 | 7 | 0 |
-| Parameter design | 6 | 7 | 7 | 7 | 8 | +2 |
+| Observability | 7 | 6 | 7 | 7 | 8 | +1 |
+| Parameter design | 6 | 7 | 7 | 7 | 6 | 0 |
 | Reach | 6 | 6 | 6 | 6 | 6 | 0 |
 | Type contract | 6 | 7 | 8 | 8 | 8 | +2 |
 
 The import-isolated rerun restored compatibility to 8 after stable imports
-stopped loading `_legacy`. The latest rerun keeps the failure contract at 8,
-moves documentation to 6 and concurrency to 7, and moves parameter design to
-8. Its aggregate is 1.45 points above baseline and no dimension falls below the
-release minimum. The preceding 7.18 receipt remains useful corroborating
-evidence, but the handoff uses the latest 7.09 result. All aggregates above are
-computed directly from the eleven manifest scores; no hand-entered aggregate
-is accepted as evidence.
+stopped loading `_legacy`. The final handoff rerun lifts compression,
+concurrency, documentation, and observability, but exposes parameter design as
+the clearest remaining type-design weakness. Its aggregate is 1.63 points above
+baseline and no dimension falls below the release minimum. The v8 and v9
+receipts remain useful corroborating evidence, but the handoff uses the final
+7.27 result. All aggregates above are computed directly from the eleven
+manifest scores; no hand-entered aggregate is accepted as evidence.
 
 #### Required proof per vertical set
 
@@ -1785,7 +1789,7 @@ candidate. The next engineer should review and amend rather than repeat them:
    owner or evidence that a typed stable capability is still missing.
 7. Re-run the deterministic boundary/contract checks after review edits and
    use the same bounded Gemini scan evidence. Do not lower the 7.0/5.0/no-hold
-   thresholds; investigate any regression from the latest 7.09 repeat and use
+   thresholds; investigate any regression from the final 7.27 repeat and use
    multiple receipts to distinguish source regressions from judge variance.
 8. Request the required user-triggered `/ultrareview` before integrating this
    high-blast-radius change into `dev`.
@@ -1833,7 +1837,8 @@ eval consumer, documentation, and failure behavior.
   by `6e5b4782` (final review packet) and `7088c78f` (removal of the
   GameBench-specific SDK package), plus `828c5192` (explicit advanced eval
   profile loaders), `e0b889c8` (immutable resolved-swarm configuration across
-  Python, CLI, and MCP), and the current ledger/handoff follow-up.
+  Python, CLI, and MCP), `9dbb79b8` (final advanced-capability ownership), and
+  `34d4c76e` (resolved-configuration evidence and consolidated handoff update).
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
   and `f734def19` (Research MCP delivery adapter), plus `6b5944bb9` (the
   12-operation Factory/Effort contract extension) and `23533208c` (regenerated
@@ -1879,10 +1884,10 @@ eval consumer, documentation, and failure behavior.
 - Relocation checkpoint verdict: **FAIL, 6.45/10**, 11/11 dimensions, no holds,
   13 seconds, approximately 89k tokens. Naming and conceptual compression were
   both **4/10**.
-- Latest stable API candidate verdict: **PASS, 7.09/10**, 11/11 dimensions,
-  minimum 6, maximum 8, no holds, and 20 recorded violations. The preceding
-  repeat scored 7.18 with the same range. The complete scorecard, variance
-  explanation, and findings are in Part VI.
+- Final stable API candidate verdict: **PASS, 7.27/10**, 11/11 dimensions,
+  minimum 6, maximum 8, no holds, and 20 recorded violations. The 21-second
+  Gemini 3.5 Flash Lite run used approximately 88k tokens. The complete
+  scorecard, variance explanation, and findings are in Part VI.
 - Repeatable command: `./synth-dev/quality ./synth-ai` from the workspace root.
 - Repeatable-scan tooling is not yet committed: `synth-dev/quality` and
   `synth-dev/config/quality/` remain untracked because the `synth-dev` main
@@ -1902,6 +1907,9 @@ eval consumer, documentation, and failure behavior.
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v8/manifest.json`.
 - Latest Jesterky repeat after advanced-consumer classification:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v9/manifest.json`.
+- Final Jesterky handoff repeat after the resolved-configuration vertical and
+  final capability ownership:
+  `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v10/manifest.json`.
 - Deterministic candidate checks already passed: generated compatibility-shim
   conformance, architecture boundary, cross-repository migration boundary,
   45-operation OpenAPI byte/operation parity, targeted source compilation,
@@ -1938,8 +1946,8 @@ design bar passes; the migration and release bar do not yet pass.
 | Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
 | Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
 | Stable import isolation | PASS | Clean stable manifest import loads zero `_legacy` modules; explicit `.advanced` access loads the compatibility implementation |
-| Public API qualitative design | PASS | Latest Gemini 3.5 Flash Lite repeat: 7.09 mean, 6 minimum, 8 maximum, 11/11 dimensions, no holds, 20 violations; strict manifest validation passed; preceding repeat was 7.18 |
-| Compression / failure / naming / reach quality | WARN | Each is 6/10; simplify nouns, publish complete failure guarantees, enforce alias removal, and make OpenAPI sufficient for CLI/MCP |
+| Public API qualitative design | PASS | Final Gemini 3.5 Flash Lite repeat: 7.27 mean (80/110), 6 minimum, 8 maximum, 11/11 dimensions, no holds, 20 violations, 21 seconds; strict manifest validation passed |
+| Parameter / naming / reach quality | WARN | Each is 6/10; eliminate optional-soup budget/resource states, enforce alias removal, and add cross-surface OpenAPI conformance |
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
 | GameBench ownership | PASS | No `synth_ai/gamebench` package or SDK recipe remains; scorer contracts/client/recipe and the active grader live under `evals/swarmbench/gamebench` |
 | Factory/Effort vertical | REVIEW | 12-operation candidate is typed and bounded; owner must approve lifecycle semantics and prove representative backend behavior |
