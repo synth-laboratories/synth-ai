@@ -28,10 +28,15 @@ RESEARCH_OPERATIONS = {
         _operation("create_effort", HttpMethod.POST, "/smr/efforts", mutation=True),
         _operation("create_factory", HttpMethod.POST, "/smr/factories", mutation=True),
         _operation("create_project", HttpMethod.POST, "/smr/projects:runnable", mutation=True),
+        _operation("create_project_dataset", HttpMethod.POST, "/smr/projects/{project_id}/datasets", mutation=True),
+        _operation("create_project_external_repository", HttpMethod.POST, "/smr/projects/{project_id}/external-repositories", mutation=True),
+        _operation("delete_project_external_repository", HttpMethod.DELETE, "/smr/projects/{project_id}/external-repositories/{repository_id}", mutation=True, idempotent=True),
         _operation("list_factories", HttpMethod.GET, "/smr/factories", idempotent=True),
         _operation("list_factory_efforts", HttpMethod.GET, "/smr/factories/{factory_id}/efforts", idempotent=True),
         _operation("list_jobs", HttpMethod.GET, "/smr/jobs", idempotent=True),
         _operation("list_project_active_runs", HttpMethod.GET, "/smr/projects/{project_id}/runs/active", idempotent=True),
+        _operation("list_project_datasets", HttpMethod.GET, "/smr/projects/{project_id}/datasets", idempotent=True),
+        _operation("list_project_external_repositories", HttpMethod.GET, "/smr/projects/{project_id}/external-repositories", idempotent=True),
         _operation("list_project_runs", HttpMethod.GET, "/smr/projects/{project_id}/runs", idempotent=True),
         _operation("list_projects", HttpMethod.GET, "/smr/projects", idempotent=True),
         _operation("list_run_transcript", HttpMethod.GET, "/smr/runs/{run_id}/runtime/transcript", idempotent=True),
@@ -47,6 +52,7 @@ RESEARCH_OPERATIONS = {
         _operation("retrieve_effort", HttpMethod.GET, "/smr/efforts/{effort_id}", idempotent=True),
         _operation("retrieve_factory", HttpMethod.GET, "/smr/factories/{factory_id}", idempotent=True),
         _operation("retrieve_project", HttpMethod.GET, "/smr/projects/{project_id}", idempotent=True),
+        _operation("retrieve_project_dataset_content", HttpMethod.GET, "/smr/projects/{project_id}/datasets/{dataset_id}/download", idempotent=True),
         _operation(
             "retrieve_project_workspace_inputs",
             HttpMethod.GET,
@@ -115,6 +121,7 @@ RESEARCH_OPERATIONS = {
         _operation("update_effort", HttpMethod.PATCH, "/smr/efforts/{effort_id}", mutation=True),
         _operation("update_factory", HttpMethod.PATCH, "/smr/factories/{factory_id}", mutation=True),
         _operation("update_project", HttpMethod.PATCH, "/smr/projects/{project_id}", mutation=True),
+        _operation("update_project_external_repository", HttpMethod.PATCH, "/smr/projects/{project_id}/external-repositories/{repository_id}", mutation=True),
     )
 }
 

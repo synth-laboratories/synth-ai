@@ -15,6 +15,12 @@ from synth_ai.core.research.contracts.projects import (
     ProjectSetup,
 )
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.project_data import (
+    AsyncProjectDatasetsAPI,
+    AsyncProjectRepositoriesAPI,
+    ProjectDatasetsAPI,
+    ProjectRepositoriesAPI,
+)
 from synth_ai.core.research.project_workspaces import (
     AsyncProjectWorkspaceAPI,
     ProjectWorkspaceAPI,
@@ -69,6 +75,8 @@ class ProjectSetupAPI:
 class ProjectsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
+        self.datasets = ProjectDatasetsAPI(transport)
+        self.repositories = ProjectRepositoriesAPI(transport)
         self.setup = ProjectSetupAPI(transport)
         self.workspace = ProjectWorkspaceAPI(transport)
 
@@ -144,6 +152,8 @@ class AsyncProjectSetupAPI:
 class AsyncProjectsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
+        self.datasets = AsyncProjectDatasetsAPI(transport)
+        self.repositories = AsyncProjectRepositoriesAPI(transport)
         self.setup = AsyncProjectSetupAPI(transport)
         self.workspace = AsyncProjectWorkspaceAPI(transport)
 
@@ -206,7 +216,11 @@ AsyncResearchProjectsAPI = AsyncProjectsAPI
 __all__ = [
     "AsyncProjectSetupAPI",
     "AsyncProjectWorkspaceAPI",
+    "AsyncProjectDatasetsAPI",
+    "AsyncProjectRepositoriesAPI",
     "AsyncProjectsAPI",
+    "ProjectDatasetsAPI",
+    "ProjectRepositoriesAPI",
     "ProjectSetupAPI",
     "ProjectWorkspaceAPI",
     "ProjectsAPI",

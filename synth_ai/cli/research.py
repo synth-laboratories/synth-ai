@@ -7,6 +7,7 @@ import os
 
 import click
 
+from synth_ai.cli.research_projects import projects
 from synth_ai.core.utils.env import get_api_key
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
@@ -27,6 +28,9 @@ def _resolve_api_key(api_key: str | None) -> str:
 @click.group()
 def research() -> None:
     """Typed Research projects, swarms, and factories."""
+
+
+research.add_command(projects)
 
 
 @research.group()

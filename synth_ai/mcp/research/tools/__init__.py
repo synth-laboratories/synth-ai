@@ -11,6 +11,7 @@ from synth_ai.mcp.research.tools.files import build_file_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
 from synth_ai.mcp.research.tools.progress import build_progress_tools
+from synth_ai.mcp.research.tools.project_data import build_project_data_tools
 from synth_ai.mcp.research.tools.projects import build_project_tools
 from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
@@ -28,6 +29,7 @@ __all__ = [
     "build_model_tools",
     "build_output_tools",
     "build_progress_tools",
+    "build_project_data_tools",
     "build_project_tools",
     "build_pr_tools",
     "build_readiness_tools",

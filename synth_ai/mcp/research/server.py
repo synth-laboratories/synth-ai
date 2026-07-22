@@ -59,6 +59,7 @@ from synth_ai.mcp.research.tools.logs import build_log_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
 from synth_ai.mcp.research.tools.outputs import build_output_tools
 from synth_ai.mcp.research.tools.progress import build_progress_tools
+from synth_ai.mcp.research.tools.project_data import build_project_data_tools
 from synth_ai.mcp.research.tools.projects import build_project_tools
 from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
@@ -94,6 +95,8 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_create_effort",
         "research_create_factory",
         "research_create_runnable_project",
+        "research_create_project_repository",
+        "research_delete_project_repository",
         "research_get_billing_entitlements",
         "research_get_effort",
         "research_get_factory",
@@ -101,6 +104,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_limits",
         "research_get_project",
         "research_get_project_economics",
+        "research_get_project_dataset_content",
         "research_get_project_setup",
         "research_get_run",
         "research_get_run_transcript",
@@ -112,6 +116,8 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_factories",
         "research_list_factory_efforts",
         "research_list_projects",
+        "research_list_project_datasets",
+        "research_list_project_repositories",
         "research_list_runs",
         "research_patch_effort",
         "research_patch_factory",
@@ -126,6 +132,8 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_stop_run",
         "research_trigger_run",
         "research_unarchive_project",
+        "research_update_project_repository",
+        "research_upload_project_dataset",
         "research_watch_run_events",
     }
 )
@@ -366,6 +374,7 @@ class ResearchMcpServer:
             *build_run_tools(self),
             *build_tag_tools(self),
             *build_progress_tools(self),
+            *build_project_data_tools(self._core_client_from_args),
             *build_log_tools(self),
             *build_approval_tools(self),
             *build_artifact_tools(self),

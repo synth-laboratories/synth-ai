@@ -7,6 +7,14 @@ class ProjectId(str):
     """Backend-owned Research project identifier."""
 
 
+class ProjectRepositoryId(str):
+    """Backend-owned external repository attached to a Research project."""
+
+
+class ProjectDatasetId(str):
+    """Backend-owned dataset attached to a Research project."""
+
+
 class SwarmId(str):
     """Backend-owned Research swarm identifier."""
 
@@ -103,8 +111,10 @@ __all__ = [
     "ParticipantSessionId",
     "PoolId",
     "ProfileId",
+    "ProjectDatasetId",
     "ProjectEventId",
     "ProjectId",
+    "ProjectRepositoryId",
     "RuntimeKind",
     "SwarmId",
     "TaskId",
