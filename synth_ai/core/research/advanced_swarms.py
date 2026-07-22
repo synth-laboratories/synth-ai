@@ -20,7 +20,9 @@ from synth_ai.core.research._legacy.models.run_events import RunRuntimeStreamEve
 from synth_ai.core.research._legacy.models.run_observability import (
     RunObservabilitySnapshot,
 )
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research._legacy.sdk.client import (
+    ManagedResearchClient as LegacyResearchSession,
+)
 from synth_ai.core.research._legacy.sdk.runs import ProjectSelector, RunHandle
 from synth_ai.core.research.models import ResearchRun, ResearchRunbookPreset
 from synth_ai.core.research.readouts import ResearchRunReadoutsMixin, _deprecated_method
@@ -212,7 +214,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
 class ResearchRunsAPI:
     """Public Research run methods (alpha must-have)."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: LegacyResearchSession) -> None:
         self._session = session
 
     def runbook_presets(self) -> tuple[ResearchRunbookPreset, ...]:

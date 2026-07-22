@@ -10,13 +10,15 @@ from synth_ai.core.research._legacy.models.factories import (
     EffortCreateRequest,
     GraduationProposal,
 )
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research._legacy.sdk.client import (
+    ManagedResearchClient as LegacyResearchSession,
+)
 
 
-class ResearchEffortsProposalsAPI:
+class EffortProposals:
     """List Gardener-authored graduation proposals for a project."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: LegacyResearchSession) -> None:
         self._session = session
 
     def list(self, project_id: str) -> List[GraduationProposal]:
@@ -32,7 +34,7 @@ class ResearchEffortsProposalsAPI:
         return self._session.efforts.list_graduation_proposals(project_id)
 
 
-class ResearchEffortsAPI:
+class Efforts:
     """Persistent Research Factory Efforts.
 
     Nested namespace: ``proposals`` (Gardener-authored graduation proposals).
@@ -40,15 +42,15 @@ class ResearchEffortsAPI:
     Factory is already known; use this namespace for Effort-id-first workflows.
     """
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: LegacyResearchSession) -> None:
         self._session = session
-        self._proposals: ResearchEffortsProposalsAPI | None = None
+        self._proposals: EffortProposals | None = None
 
     @property
-    def proposals(self) -> ResearchEffortsProposalsAPI:
+    def proposals(self) -> EffortProposals:
         """List graduation proposals for a project."""
         if self._proposals is None:
-            self._proposals = ResearchEffortsProposalsAPI(self._session)
+            self._proposals = EffortProposals(self._session)
         return self._proposals
 
     def create(
@@ -160,4 +162,4 @@ class ResearchEffortsAPI:
         )
 
 
-__all__ = ["ResearchEffortsAPI", "ResearchEffortsProposalsAPI"]
+__all__ = ["EffortProposals", "Efforts"]

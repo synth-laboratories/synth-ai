@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
@@ -232,6 +232,74 @@ class ProviderBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceRoutingPolicy:
+    allowed_providers: tuple[str, ...] = ()
+    denied_providers: tuple[str, ...] = ()
+    preferred_providers: tuple[str, ...] = ()
+    allowed_models: tuple[str, ...] = ()
+    denied_models: tuple[str, ...] = ()
+    preferred_models: tuple[str, ...] = ()
+    require_zdr: bool | None = None
+    allowed_domiciles: tuple[str, ...] = ()
+    allowed_regions: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "allowed_providers",
+            "denied_providers",
+            "preferred_providers",
+            "allowed_models",
+            "denied_models",
+            "preferred_models",
+            "allowed_domiciles",
+            "allowed_regions",
+        ):
+            values = tuple(
+                require_text(item, field_name=field_name) for item in getattr(self, field_name)
+            )
+            object.__setattr__(self, field_name, values)
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {}
+        for name in (
+            "allowed_providers",
+            "denied_providers",
+            "preferred_providers",
+            "allowed_models",
+            "denied_models",
+            "preferred_models",
+            "allowed_domiciles",
+            "allowed_regions",
+        ):
+            values = getattr(self, name)
+            if values:
+                payload[name] = list(values)
+        if self.require_zdr is not None:
+            payload["require_zdr"] = self.require_zdr
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderPolicy:
+    default: ResourceRoutingPolicy | None = None
+    agent_inference: ResourceRoutingPolicy | None = None
+    experiment_inference: ResourceRoutingPolicy | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("default", "agent_inference", "experiment_inference"):
+            value = getattr(self, name)
+            if value is not None and not isinstance(value, ResourceRoutingPolicy):
+                raise ValueError(f"{name} must be ResourceRoutingPolicy")
+
+    def to_wire(self) -> JsonObject:
+        return {
+            name: value.to_wire()
+            for name in ("default", "agent_inference", "experiment_inference")
+            if (value := getattr(self, name)) is not None
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class EnvironmentVariable:
     name: str
     value: str
@@ -358,7 +426,7 @@ class RoleBinding:
     """One orchestrator or reviewer role binding."""
 
     model: ActorModel
-    params: Mapping[str, FrozenJsonValue] = MappingProxyType({})
+    params: Mapping[str, FrozenJsonValue] = field(default_factory=lambda: MappingProxyType({}))
     agent_harness: ActorHarness | None = None
 
     def __post_init__(self) -> None:
@@ -387,9 +455,11 @@ class WorkerRolePalette:
 
     permitted_models: tuple[ActorModel, ...]
     default_model: ActorModel
-    default_params: Mapping[str, FrozenJsonValue] = MappingProxyType({})
+    default_params: Mapping[str, FrozenJsonValue] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
     agent_harness: ActorHarness | None = None
-    subtypes: Mapping[str, RoleBinding] = MappingProxyType({})
+    subtypes: Mapping[str, RoleBinding] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
         if not self.permitted_models:
@@ -405,7 +475,7 @@ class WorkerRolePalette:
             raise ValueError("worker default_params must be an object")
         object.__setattr__(self, "default_params", params)
         normalized_subtypes: dict[str, RoleBinding] = {}
-        for name, binding in dict(self.subtypes or {}).items():
+        for name, binding in dict(self.subtypes).items():
             if not isinstance(binding, RoleBinding):
                 raise ValueError("worker subtype bindings must be RoleBinding")
             normalized_subtypes[require_text(name, field_name="worker subtype")] = binding
@@ -430,7 +500,9 @@ class RoleBindings:
     orchestrator: RoleBinding
     reviewer: RoleBinding
     worker: WorkerRolePalette
-    reviewer_subtypes: Mapping[str, RoleBinding] = MappingProxyType({})
+    reviewer_subtypes: Mapping[str, RoleBinding] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
     def __post_init__(self) -> None:
         if not isinstance(self.orchestrator, RoleBinding):
@@ -440,7 +512,7 @@ class RoleBindings:
         if not isinstance(self.worker, WorkerRolePalette):
             raise ValueError("roles.worker must be WorkerRolePalette")
         normalized_subtypes: dict[str, RoleBinding] = {}
-        for name, binding in dict(self.reviewer_subtypes or {}).items():
+        for name, binding in dict(self.reviewer_subtypes).items():
             if not isinstance(binding, RoleBinding):
                 raise ValueError("reviewer subtype bindings must be RoleBinding")
             normalized_subtypes[require_text(name, field_name="reviewer subtype")] = binding
@@ -497,6 +569,150 @@ class ActorImageBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class SwarmEnvironment:
+    name: str
+    digest: str | None = None
+    cpus: float | None = None
+    memory_mb: int | None = None
+    schema_version: str = "2026-05-14-environment-v1"
+
+    def __post_init__(self) -> None:
+        require_text(self.name, field_name="environment name")
+        require_text(self.schema_version, field_name="environment schema_version")
+        if self.digest is not None:
+            require_text(self.digest, field_name="environment digest")
+        if self.cpus is not None and self.cpus <= 0:
+            raise ValueError("environment cpus must be positive")
+        if self.memory_mb is not None and self.memory_mb <= 0:
+            raise ValueError("environment memory_mb must be positive")
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {
+            "schema_version": self.schema_version,
+            "name": self.name,
+        }
+        if self.digest is not None:
+            payload["digest"] = self.digest
+            payload["manifest_digest"] = self.digest
+        if self.cpus is not None:
+            payload["cpus"] = self.cpus
+        if self.memory_mb is not None:
+            payload["memory_mb"] = self.memory_mb
+        return payload
+
+
+class PrimaryParentKind(StrEnum):
+    OPEN_ENDED_QUESTION = "open_ended_question"
+    DIRECTED_EFFORT_OUTCOME = "directed_effort_outcome"
+
+
+@dataclass(frozen=True, slots=True)
+class PrimaryParentRef:
+    kind: PrimaryParentKind
+    parent_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, PrimaryParentKind):
+            raise ValueError("primary parent kind must be PrimaryParentKind")
+        require_text(self.parent_id, field_name="primary parent id")
+
+    def to_wire(self) -> JsonObject:
+        return {"kind": self.kind.value, "id": self.parent_id}
+
+
+@dataclass(frozen=True, slots=True)
+class OpenEndedQuestionSpec:
+    title: str
+    description: str
+    scope: str
+    question_text: str
+    evidence_requirements: tuple[str, ...] = ()
+    resolution_criteria: tuple[str, ...] = ()
+    max_evaluation_iterations: int = 1
+    metadata: Mapping[str, FrozenJsonValue] = field(default_factory=lambda: MappingProxyType({}))
+    idempotency_key: str | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("title", "description", "scope", "question_text"):
+            require_text(getattr(self, name), field_name=name)
+        if not 1 <= self.max_evaluation_iterations <= 100:
+            raise ValueError("max_evaluation_iterations must be between 1 and 100")
+        for name in ("evidence_requirements", "resolution_criteria"):
+            values = tuple(require_text(item, field_name=name) for item in getattr(self, name))
+            object.__setattr__(self, name, values)
+        metadata = _freeze_json(dict(self.metadata))
+        if not isinstance(metadata, Mapping):
+            raise ValueError("objective metadata must be an object")
+        object.__setattr__(self, "metadata", metadata)
+        if self.idempotency_key is not None:
+            require_text(self.idempotency_key, field_name="idempotency_key")
+
+    def to_wire(self) -> JsonObject:
+        value: JsonObject = {
+            "title": self.title,
+            "description": self.description,
+            "scope": self.scope,
+            "question_text": self.question_text,
+            "evidence_requirements": list(self.evidence_requirements),
+            "resolution_criteria": list(self.resolution_criteria),
+            "max_evaluation_iterations": self.max_evaluation_iterations,
+            "metadata": _thaw_json(self.metadata),
+        }
+        if self.idempotency_key is not None:
+            value["idempotency_key"] = self.idempotency_key
+        return {
+            "kind": PrimaryParentKind.OPEN_ENDED_QUESTION.value,
+            "open_ended_question": value,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DirectedEffortOutcomeSpec:
+    title: str
+    description: str
+    scope: str
+    outcome_text: str
+    success_criteria: tuple[str, ...] = ()
+    deliverable_requirements: tuple[str, ...] = ()
+    max_evaluation_iterations: int = 1
+    metadata: Mapping[str, FrozenJsonValue] = field(default_factory=lambda: MappingProxyType({}))
+    idempotency_key: str | None = None
+
+    def __post_init__(self) -> None:
+        for name in ("title", "description", "scope", "outcome_text"):
+            require_text(getattr(self, name), field_name=name)
+        if not 1 <= self.max_evaluation_iterations <= 100:
+            raise ValueError("max_evaluation_iterations must be between 1 and 100")
+        for name in ("success_criteria", "deliverable_requirements"):
+            values = tuple(require_text(item, field_name=name) for item in getattr(self, name))
+            object.__setattr__(self, name, values)
+        metadata = _freeze_json(dict(self.metadata))
+        if not isinstance(metadata, Mapping):
+            raise ValueError("objective metadata must be an object")
+        object.__setattr__(self, "metadata", metadata)
+        if self.idempotency_key is not None:
+            require_text(self.idempotency_key, field_name="idempotency_key")
+
+    def to_wire(self) -> JsonObject:
+        value: JsonObject = {
+            "title": self.title,
+            "description": self.description,
+            "scope": self.scope,
+            "outcome_text": self.outcome_text,
+            "success_criteria": list(self.success_criteria),
+            "deliverable_requirements": list(self.deliverable_requirements),
+            "max_evaluation_iterations": self.max_evaluation_iterations,
+            "metadata": _thaw_json(self.metadata),
+        }
+        if self.idempotency_key is not None:
+            value["idempotency_key"] = self.idempotency_key
+        return {
+            "kind": PrimaryParentKind.DIRECTED_EFFORT_OUTCOME.value,
+            "directed_effort_outcome": value,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class KickoffArtifact:
     """Workspace-staged kickoff contract reference.
 
@@ -533,15 +749,21 @@ class SwarmSpec:
     actor_model_assignments: tuple[ActorModelAssignment, ...] = ()
     roles: RoleBindings | None = None
     providers: tuple[ProviderBinding, ...] = ()
+    provider_policy: ProviderPolicy | None = None
     limit: ResourceLimit | None = None
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
     execution_target: PlatformResolvedExecutionTarget | None = None
-    actor_image_overrides: Mapping[str, ActorImageBinding] = MappingProxyType({})
+    actor_image_overrides: Mapping[str, ActorImageBinding] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
     local_execution: LocalExecution | None = None
     execution_profile: ExecutionProfile | None = None
+    environment: SwarmEnvironment | None = None
     environment_name: str | None = None
+    primary_parent_ref: PrimaryParentRef | None = None
+    primary_parent: OpenEndedQuestionSpec | DirectedEffortOutcomeSpec | None = None
     worker_pool_id: str | None = None
     dev_environment_id: str | None = None
     effort_id: EffortId | None = None
@@ -565,6 +787,30 @@ class SwarmSpec:
             KickoffArtifact,
         ):
             raise ValueError("kickoff_artifact must be KickoffArtifact")
+        if self.provider_policy is not None and not isinstance(
+            self.provider_policy,
+            ProviderPolicy,
+        ):
+            raise ValueError("provider_policy must be ProviderPolicy")
+        if self.environment is not None and not isinstance(
+            self.environment,
+            SwarmEnvironment,
+        ):
+            raise ValueError("environment must be SwarmEnvironment")
+        if self.environment is not None and self.environment_name is not None:
+            raise ValueError("environment cannot be combined with environment_name")
+        if self.primary_parent_ref is not None and not isinstance(
+            self.primary_parent_ref,
+            PrimaryParentRef,
+        ):
+            raise ValueError("primary_parent_ref must be PrimaryParentRef")
+        if self.primary_parent is not None and not isinstance(
+            self.primary_parent,
+            (OpenEndedQuestionSpec, DirectedEffortOutcomeSpec),
+        ):
+            raise ValueError("primary_parent must be a typed objective specification")
+        if self.primary_parent_ref is not None and self.primary_parent is not None:
+            raise ValueError("primary_parent_ref cannot be combined with primary_parent")
         if self.actor_model_assignments and self.roles is not None:
             raise ValueError("roles cannot be combined with actor_model_assignments")
         if self.execution_target is not None and any(
@@ -578,7 +824,7 @@ class SwarmSpec:
         ):
             raise ValueError("execution_target cannot be combined with legacy placement fields")
         normalized_images: dict[str, ActorImageBinding] = {}
-        for role, binding in dict(self.actor_image_overrides or {}).items():
+        for role, binding in dict(self.actor_image_overrides).items():
             if not isinstance(binding, ActorImageBinding):
                 raise ValueError("actor_image_overrides values must be ActorImageBinding")
             normalized_images[require_text(role, field_name="actor image role")] = binding
@@ -637,6 +883,8 @@ class SwarmSpec:
             ]
         if self.providers:
             payload["providers"] = [provider.to_wire() for provider in self.providers]
+        if self.provider_policy is not None:
+            payload["provider_policy"] = self.provider_policy.to_wire()
         if self.limit is not None:
             payload["limit"] = self.limit.to_wire()
         if self.required_capabilities:
@@ -657,6 +905,12 @@ class SwarmSpec:
             payload["local_execution"] = self.local_execution.to_wire()
         if self.execution_profile is not None:
             payload["execution_profile"] = self.execution_profile.to_wire()
+        if self.environment is not None:
+            payload["environment"] = self.environment.to_wire()
+        if self.primary_parent_ref is not None:
+            payload["primary_parent_ref"] = self.primary_parent_ref.to_wire()
+        if self.primary_parent is not None:
+            payload["primary_parent"] = self.primary_parent.to_wire()
         return payload
 
 
@@ -760,7 +1014,9 @@ class SwarmPreflight:
     @classmethod
     def from_wire(cls, value: JsonValue) -> SwarmPreflight:
         payload = object_value(value, operation_id="swarm preflight")
-        raw_blockers = payload.get("blockers", [])
+        raw_blockers: object = []
+        if "blockers" in payload:
+            raw_blockers = payload["blockers"]
         if not isinstance(raw_blockers, list):
             raise ValueError("preflight blockers must be an array")
         blockers: list[str] = []
@@ -768,7 +1024,11 @@ class SwarmPreflight:
             if isinstance(blocker, str):
                 blockers.append(blocker)
             elif isinstance(blocker, dict):
-                message = blocker.get("message") or blocker.get("detail") or blocker.get("code")
+                message = blocker.get("message")
+                if message is None:
+                    message = blocker.get("detail")
+                if message is None:
+                    message = blocker.get("code")
                 if not isinstance(message, str) or not message.strip():
                     raise ValueError("preflight blocker must include message, detail, or code")
                 blockers.append(message.strip())
@@ -856,6 +1116,7 @@ __all__ = [
     "ActorSubtype",
     "ActorType",
     "BranchMode",
+    "DirectedEffortOutcomeSpec",
     "HostKind",
     "EnvironmentVariable",
     "ExecutionCapability",
@@ -864,8 +1125,12 @@ __all__ = [
     "KickoffMessage",
     "KickoffMessageMode",
     "LocalExecution",
+    "OpenEndedQuestionSpec",
     "PlatformResolvedExecutionTarget",
+    "PrimaryParentKind",
+    "PrimaryParentRef",
     "ProviderBinding",
+    "ProviderPolicy",
     "ResolvedSwarmConfiguration",
     "RoleBinding",
     "RoleBindings",
@@ -883,7 +1148,9 @@ __all__ = [
     "ResearchSwarmState",
     "ResourceLimit",
     "ResourceProvider",
+    "ResourceRoutingPolicy",
     "Runbook",
+    "SwarmEnvironment",
     "WorkMode",
     "WorkerRolePalette",
 ]

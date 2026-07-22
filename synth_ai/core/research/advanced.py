@@ -12,7 +12,7 @@ from synth_ai.core.research.advanced_factories import (
 )
 from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
 from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
-from synth_ai.core.research.efforts import ResearchEffortsAPI
+from synth_ai.core.research.efforts import Efforts
 from synth_ai.core.research.secrets import ResearchSecretsAPI
 from synth_ai.core.research.visuals import ResearchVisualsAPI
 
@@ -44,7 +44,7 @@ class ResearchAdvancedAPI:
         self._open_session = open_session
         self.limits = limits
         self.economics = economics
-        self._efforts: ResearchEffortsAPI | None = None
+        self._efforts: Efforts | None = None
         self._factories: AdvancedFactoriesAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
         self._artifacts: ResearchHostedArtifactsAPI | None = None
@@ -56,9 +56,9 @@ class ResearchAdvancedAPI:
         return self._open_session()
 
     @property
-    def efforts(self) -> ResearchEffortsAPI:
+    def efforts(self) -> Efforts:
         if self._efforts is None:
-            self._efforts = ResearchEffortsAPI(self._open_session())
+            self._efforts = Efforts(self._open_session())
         return self._efforts
 
     @property
