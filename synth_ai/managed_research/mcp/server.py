@@ -846,30 +846,22 @@ class ManagedResearchMcpServer:
     def _tool_start_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.start(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.start(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_pause_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.pause(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.pause(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_resume_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.resume(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.resume(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_archive_factory(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
         with self._client_from_args(args) as client:
-            return client.factories.archive(
-                factory_id, **self._factory_transition_kwargs(args)
-            ).raw
+            return client.factories.archive(factory_id, **self._factory_transition_kwargs(args)).raw
 
     def _tool_get_factory_status(self, args: JSONDict) -> Any:
         factory_id = require_string(args, "factory_id")
