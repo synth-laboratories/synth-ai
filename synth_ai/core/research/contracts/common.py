@@ -11,6 +11,22 @@ class SwarmId(str):
     """Backend-owned Research swarm identifier."""
 
 
+class ActorId(str):
+    """Backend-owned actor identifier within a Research swarm."""
+
+
+class TaskId(str):
+    """Backend-owned task identifier within a Research swarm."""
+
+
+class MessageId(str):
+    """Backend-owned message identifier within a Research swarm."""
+
+
+class ActivityEventId(str):
+    """Backend-owned activity-event identifier within a Research swarm."""
+
+
 class ArtifactId(str):
     """Backend-owned durable Research artifact identifier."""
 
@@ -59,16 +75,20 @@ def require_text(value: str, *, field_name: str) -> str:
 
 
 __all__ = [
+    "ActivityEventId",
+    "ActorId",
     "ArtifactId",
     "ConfigurationVersionId",
     "EffortId",
     "EnvironmentKind",
     "FactoryId",
+    "MessageId",
     "OrganizationId",
     "PoolId",
     "ProfileId",
     "ProjectId",
     "RuntimeKind",
     "SwarmId",
+    "TaskId",
     "WorkProductId",
 ]

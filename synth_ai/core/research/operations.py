@@ -64,6 +64,12 @@ RESEARCH_OPERATIONS = {
         ),
         _operation("retrieve_swarm_configuration", HttpMethod.GET, "/smr/runs/{run_id}/configuration", idempotent=True),
         _operation(
+            "retrieve_swarm_activity",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/activity",
+            idempotent=True,
+        ),
+        _operation(
             "retrieve_swarm_evidence",
             HttpMethod.GET,
             "/smr/runs/{run_id}/evidence",

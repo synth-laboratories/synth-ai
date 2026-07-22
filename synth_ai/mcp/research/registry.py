@@ -121,6 +121,7 @@ _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "smr_trigger_run": WRITE_SCOPES,
     "smr_list_runs": READ_SCOPES,
     "smr_get_run": READ_SCOPES,
+    "smr_get_swarm_activity": READ_SCOPES,
     "smr_get_swarm_configuration": READ_SCOPES,
     "smr_get_swarm_evidence": READ_SCOPES,
     "smr_get_swarm_usage": READ_SCOPES,

@@ -830,6 +830,36 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_configuration,
         ),
         ToolDefinition(
+            name="smr_get_swarm_activity",
+            description=(
+                "Fetch one bounded, typed snapshot of swarm actors, tasks, "
+                "messages, events, and WorkProduct references."
+            ),
+            input_schema=tool_schema(
+                {
+                    "swarm_id": {
+                        "type": "string",
+                        "description": "Research swarm id.",
+                    },
+                    "event_limit": {"type": "integer", "minimum": 1, "maximum": 500},
+                    "actor_limit": {"type": "integer", "minimum": 1, "maximum": 200},
+                    "task_limit": {"type": "integer", "minimum": 1, "maximum": 250},
+                    "message_limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                    },
+                    "work_product_limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 200,
+                    },
+                },
+                required=["swarm_id"],
+            ),
+            handler=server._tool_get_swarm_activity,
+        ),
+        ToolDefinition(
             name="smr_get_swarm_usage",
             description=(
                 "Fetch exact money, token, actor-attribution, and freshness "

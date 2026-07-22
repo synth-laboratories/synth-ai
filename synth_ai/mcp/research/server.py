@@ -10,6 +10,7 @@ from typing import Any
 from synth_ai.core.research._legacy.auth import get_api_key
 from synth_ai.core.research._legacy.errors import SmrApiError
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.contracts.activity import ActivityWindow
 from synth_ai.core.research.contracts.common import SwarmId
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
@@ -79,6 +80,11 @@ SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
 DEFAULT_PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0]
 SERVER_NAME = "synth-research"
 
+
+def _optional_int_default(args: JSONDict, name: str, default: int) -> int:
+    value = optional_int(args, name)
+    return default if value is None else value
+
 _STABLE_TOOL_NAMES = frozenset(
     {
         "research_archive_factory",
@@ -97,6 +103,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_project_setup",
         "research_get_run",
         "research_get_run_transcript",
+        "research_get_swarm_activity",
         "research_get_swarm_configuration",
         "research_get_swarm_evidence",
         "research_get_swarm_usage",
@@ -2569,6 +2576,20 @@ class ResearchMcpServer:
         swarm_id = SwarmId(require_string(args, "run_id"))
         with self._core_client_from_args(args) as client:
             return client.swarms.configuration(swarm_id).to_wire()
+
+    def _tool_get_swarm_activity(self, args: JSONDict) -> JSONDict:
+        swarm_id = SwarmId(require_string(args, "swarm_id"))
+        window = ActivityWindow(
+            event_limit=_optional_int_default(args, "event_limit", 100),
+            actor_limit=_optional_int_default(args, "actor_limit", 50),
+            task_limit=_optional_int_default(args, "task_limit", 100),
+            message_limit=_optional_int_default(args, "message_limit", 50),
+            work_product_limit=_optional_int_default(
+                args, "work_product_limit", 50
+            ),
+        )
+        with self._core_client_from_args(args) as client:
+            return client.swarms.activity(swarm_id, window).to_wire()
 
     def _tool_get_swarm_usage(self, args: JSONDict) -> JSONDict:
         swarm_id = SwarmId(require_string(args, "swarm_id"))

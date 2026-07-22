@@ -11,6 +11,7 @@ from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
+from synth_ai.core.research.contracts.activity import ActivityWindow, SwarmActivity
 from synth_ai.core.research.contracts.common import ProjectId, SwarmId
 from synth_ai.core.research.contracts.evidence import (
     ContentDisposition,
@@ -80,6 +81,13 @@ class SwarmHandle:
     def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return self._api.evidence(self.swarm_id)
+
+    def activity(
+        self,
+        window: ActivityWindow = ActivityWindow(),
+    ) -> SwarmActivity:
+        """Return one bounded actor, task, message, event, and output snapshot."""
+        return self._api.activity(self.swarm_id, window)
 
     def wait(
         self,
@@ -203,6 +211,21 @@ class SwarmsAPI:
         )
         return SwarmEvidence.from_wire(value)
 
+    def activity(
+        self,
+        swarm_id: SwarmId,
+        window: ActivityWindow = ActivityWindow(),
+    ) -> SwarmActivity:
+        """Return one bounded actor, task, message, event, and output snapshot."""
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_activity",
+                f"/smr/runs/{swarm_id}/activity",
+                query=window.to_query(),
+            )
+        )
+        return SwarmActivity.from_wire(value)
+
     def artifact_content(
         self,
         artifact_id: ArtifactId,
@@ -320,6 +343,13 @@ class AsyncSwarmHandle:
     async def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return await self._api.evidence(self.swarm_id)
+
+    async def activity(
+        self,
+        window: ActivityWindow = ActivityWindow(),
+    ) -> SwarmActivity:
+        """Return one bounded actor, task, message, event, and output snapshot."""
+        return await self._api.activity(self.swarm_id, window)
 
     async def wait(
         self,
@@ -442,6 +472,21 @@ class AsyncSwarmsAPI:
             )
         )
         return SwarmEvidence.from_wire(value)
+
+    async def activity(
+        self,
+        swarm_id: SwarmId,
+        window: ActivityWindow = ActivityWindow(),
+    ) -> SwarmActivity:
+        """Return one bounded actor, task, message, event, and output snapshot."""
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_activity",
+                f"/smr/runs/{swarm_id}/activity",
+                query=window.to_query(),
+            )
+        )
+        return SwarmActivity.from_wire(value)
 
     async def artifact_content(
         self,

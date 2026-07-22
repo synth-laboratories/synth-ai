@@ -230,6 +230,49 @@ def swarms_evidence(
         click.echo(json.dumps(evidence.to_wire(), indent=2, sort_keys=True))
 
 
+@swarms.command("activity")
+@click.argument("swarm_id")
+@click.option("--event-limit", type=click.IntRange(1, 500), default=100, show_default=True)
+@click.option("--actor-limit", type=click.IntRange(1, 200), default=50, show_default=True)
+@click.option("--task-limit", type=click.IntRange(1, 250), default=100, show_default=True)
+@click.option("--message-limit", type=click.IntRange(1, 200), default=50, show_default=True)
+@click.option(
+    "--work-product-limit",
+    type=click.IntRange(1, 200),
+    default=50,
+    show_default=True,
+)
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_activity(
+    swarm_id: str,
+    event_limit: int,
+    actor_limit: int,
+    task_limit: int,
+    message_limit: int,
+    work_product_limit: int,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Print one bounded execution-activity snapshot for a swarm."""
+    from synth_ai import SynthClient
+    from synth_ai.research import ActivityWindow, SwarmId
+
+    window = ActivityWindow(
+        event_limit=event_limit,
+        actor_limit=actor_limit,
+        task_limit=task_limit,
+        message_limit=message_limit,
+        work_product_limit=work_product_limit,
+    )
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        activity = client.research.swarms.activity(SwarmId(swarm_id), window)
+        click.echo(json.dumps(activity.to_wire(), indent=2, sort_keys=True))
+
+
 @research.group()
 def factories() -> None:
     """Inspect stable Research Factories."""
