@@ -69744,10 +69744,10 @@
       "working_tree_dirty": false
     },
     "synth_ai": {
-      "commit": "56ddecd2ab4dd6d7ed8cc0d776713d737e711104",
+      "commit": "27b8f0dd0492598fc4c0bd9e2e8d0c1638746a73",
       "repository": "synth-ai",
-      "snapshot": "head_plus_worktree",
-      "working_tree_dirty": true
+      "snapshot": "head",
+      "working_tree_dirty": false
     }
   },
   "summary": {
