@@ -85,6 +85,17 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmState,
     WorkMode,
 )
+from synth_ai.core.research.contracts.usage import (
+    ActorTokenUsage,
+    ActorUsage,
+    ActorUsageMoney,
+    SwarmUsage,
+    TokenCounts,
+    TokenUsage,
+    UsageFreshness,
+    UsageMoney,
+    UsageSource,
+)
 
 ResearchRunLaunchRequest = ResearchSwarmLaunchRequest
 
@@ -116,6 +127,9 @@ __all__ = [
     "ActorModelAssignment",
     "ActorSubtype",
     "ActorType",
+    "ActorTokenUsage",
+    "ActorUsage",
+    "ActorUsageMoney",
     "BranchMode",
     "BranchResult",
     "BranchSpec",
@@ -190,5 +204,11 @@ __all__ = [
     "SwarmPreflight",
     "SwarmSpec",
     "SwarmState",
+    "SwarmUsage",
+    "TokenCounts",
+    "TokenUsage",
+    "UsageFreshness",
+    "UsageMoney",
+    "UsageSource",
     "WorkMode",
 ]

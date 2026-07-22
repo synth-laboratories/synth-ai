@@ -830,6 +830,23 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_configuration,
         ),
         ToolDefinition(
+            name="smr_get_swarm_usage",
+            description=(
+                "Fetch exact money, token, actor-attribution, and freshness "
+                "evidence for a Research swarm."
+            ),
+            input_schema=tool_schema(
+                {
+                    "swarm_id": {
+                        "type": "string",
+                        "description": "Research swarm id.",
+                    },
+                },
+                required=["swarm_id"],
+            ),
+            handler=server._tool_get_swarm_usage,
+        ),
+        ToolDefinition(
             name="smr_get_run_contract",
             description=(
                 "Fetch the strict run_contract for a run. Use this for terminality, "

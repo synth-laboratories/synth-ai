@@ -20,6 +20,7 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmPreflight,
     SwarmSpec,
 )
+from synth_ai.core.research.contracts.usage import SwarmUsage
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
 
@@ -66,6 +67,10 @@ class SwarmHandle:
     def configuration(self) -> ResolvedSwarmConfiguration:
         """Return the immutable resolved configuration bound to this swarm."""
         return self._api.configuration(self.swarm_id)
+
+    def usage(self) -> SwarmUsage:
+        """Return typed cost, token, actor, and freshness evidence."""
+        return self._api.usage(self.swarm_id)
 
     def wait(
         self,
@@ -169,6 +174,16 @@ class SwarmsAPI:
         )
         return ResolvedSwarmConfiguration.from_wire(value)
 
+    def usage(self, swarm_id: SwarmId) -> SwarmUsage:
+        """Return typed cost, token, actor, and freshness evidence."""
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_usage",
+                f"/smr/runs/{swarm_id}/usage-summary",
+            )
+        )
+        return SwarmUsage.from_wire(value)
+
     def wait(
         self,
         swarm_id: SwarmId,
@@ -244,6 +259,10 @@ class AsyncSwarmHandle:
     async def configuration(self) -> ResolvedSwarmConfiguration:
         """Return the immutable resolved configuration bound to this swarm."""
         return await self._api.configuration(self.swarm_id)
+
+    async def usage(self) -> SwarmUsage:
+        """Return typed cost, token, actor, and freshness evidence."""
+        return await self._api.usage(self.swarm_id)
 
     async def wait(
         self,
@@ -346,6 +365,16 @@ class AsyncSwarmsAPI:
             )
         )
         return ResolvedSwarmConfiguration.from_wire(value)
+
+    async def usage(self, swarm_id: SwarmId) -> SwarmUsage:
+        """Return typed cost, token, actor, and freshness evidence."""
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_usage",
+                f"/smr/runs/{swarm_id}/usage-summary",
+            )
+        )
+        return SwarmUsage.from_wire(value)
 
     async def wait(
         self,

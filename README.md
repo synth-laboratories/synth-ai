@@ -62,6 +62,8 @@ with SynthClient() as client:
     print(result.swarm_id, result.state)
     resolved = swarm.configuration()
     print(resolved.config_version_id, resolved.snapshot_sha256)
+    usage = swarm.usage()
+    print(usage.money.nominal_pico_usd, usage.tokens.totals.input_tokens)
 ```
 
 `create` returns a durable handle immediately. `events()` yields typed events,
@@ -70,6 +72,9 @@ including an explicit `UnknownSwarmEvent` for forward-compatible server events;
 `configuration()` returns the immutable, versioned, secret-redacted launch
 snapshot bound to that swarm, so replay and audit do not depend on the
 project's current mutable configuration.
+`usage()` returns one typed cost, token, and actor-attribution projection plus
+its source, record count, observation time, and terminal-state freshness. It
+does not expose the legacy raw ledger-entry dictionaries.
 
 ## Research SDK
 

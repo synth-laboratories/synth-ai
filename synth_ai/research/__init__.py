@@ -11,6 +11,9 @@ from __future__ import annotations
 import importlib
 
 from synth_ai.core.research.contracts import (
+    ActorTokenUsage,
+    ActorUsage,
+    ActorUsageMoney,
     ActorHarness,
     ActorModel,
     BudgetPolicy,
@@ -39,6 +42,12 @@ from synth_ai.core.research.contracts import (
     SwarmSpec,
     SwarmPreflight as Preflight,
     SwarmState,
+    SwarmUsage,
+    TokenCounts,
+    TokenUsage,
+    UsageFreshness,
+    UsageMoney,
+    UsageSource,
     ResourceLimit as Limit,
     RuntimeKind,
     SwarmId,
@@ -64,6 +73,9 @@ from synth_ai.research.client import Client
 __all__ = [
     "ActorHarness",
     "ActorModel",
+    "ActorTokenUsage",
+    "ActorUsage",
+    "ActorUsageMoney",
     "AsyncClient",
     "Branch",
     "BranchSpec",
@@ -104,7 +116,13 @@ __all__ = [
     "SwarmSpec",
     "SwarmState",
     "SwarmTelemetry",
+    "SwarmUsage",
+    "TokenCounts",
+    "TokenUsage",
     "UnknownSwarmEvent",
+    "UsageFreshness",
+    "UsageMoney",
+    "UsageSource",
     "WorkMode",
 ]
 

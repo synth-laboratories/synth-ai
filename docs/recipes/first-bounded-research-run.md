@@ -29,6 +29,8 @@ with SynthClient() as client:
         print(terminal.swarm_id, terminal.state)
         resolved = handle.configuration()
         print(resolved.config_version_id, resolved.snapshot_sha256)
+        usage = handle.usage()
+        print(usage.money.nominal_pico_usd, usage.freshness.as_of)
     except Error as error:
         if handle is not None:
             handle.cancel()
@@ -52,6 +54,13 @@ bound at launch. The returned snapshot is recursively immutable and
 secret-redacted, and `snapshot_sha256` provides the stable replay/audit
 identity. Historical runs without a configuration version fail explicitly;
 the SDK never substitutes the project's current configuration.
+
+`handle.usage()` makes evidence freshness observable: `freshness.source`
+identifies the canonical usage authority, `as_of` records the newest included
+fact, and `run_is_terminal` states the lifecycle observation used for this
+projection. Aggregate money uses exact integer cents and pico-USD; actor money
+uses the cent precision supplied by its authority. Tokens and attribution are
+closed typed records rather than arbitrary mappings.
 
 Stream typed events when live progress is needed:
 

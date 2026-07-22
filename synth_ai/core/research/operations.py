@@ -57,6 +57,12 @@ RESEARCH_OPERATIONS = {
         _operation("retrieve_research_limits", HttpMethod.GET, "/smr/limits", idempotent=True),
         _operation("retrieve_run", HttpMethod.GET, "/smr/runs/{run_id}", idempotent=True),
         _operation("retrieve_swarm_configuration", HttpMethod.GET, "/smr/runs/{run_id}/configuration", idempotent=True),
+        _operation(
+            "retrieve_swarm_usage",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/usage-summary",
+            idempotent=True,
+        ),
         _operation("retrieve_swarm_billing_drawdown", HttpMethod.GET, "/smr/billing/runs/{run_id}/drawdown", idempotent=True),
         _operation("start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True),
         _operation("stop_run", HttpMethod.POST, "/smr/runs/{run_id}/stop", mutation=True),

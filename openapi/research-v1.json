@@ -8478,6 +8478,401 @@
         "title": "SmrSourceRevisionRequest",
         "type": "object"
       },
+      "SmrSwarmActorMoneyResponse": {
+        "additionalProperties": false,
+        "description": "Cent-granular money attributed to one swarm actor.",
+        "properties": {
+          "billed_cents": {
+            "minimum": 0.0,
+            "title": "Billed Cents",
+            "type": "integer"
+          },
+          "internal_cost_cents": {
+            "minimum": 0.0,
+            "title": "Internal Cost Cents",
+            "type": "integer"
+          },
+          "nominal_cents": {
+            "minimum": 0.0,
+            "title": "Nominal Cents",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nominal_cents",
+          "billed_cents",
+          "internal_cost_cents"
+        ],
+        "title": "SmrSwarmActorMoneyResponse",
+        "type": "object"
+      },
+      "SmrSwarmActorTokenUsageResponse": {
+        "additionalProperties": false,
+        "description": "Token counts attributed to one swarm actor.",
+        "properties": {
+          "cached_input_tokens": {
+            "minimum": 0.0,
+            "title": "Cached Input Tokens",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_output_tokens": {
+            "minimum": 0.0,
+            "title": "Reasoning Output Tokens",
+            "type": "integer"
+          },
+          "total_tokens": {
+            "minimum": 0.0,
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "cached_input_tokens",
+          "output_tokens",
+          "reasoning_output_tokens",
+          "total_tokens"
+        ],
+        "title": "SmrSwarmActorTokenUsageResponse",
+        "type": "object"
+      },
+      "SmrSwarmActorUsageResponse": {
+        "additionalProperties": false,
+        "description": "Customer-facing usage attributed to one actor.",
+        "properties": {
+          "actor_id": {
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "event_count": {
+            "minimum": 0.0,
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "latest_usage_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Usage At"
+          },
+          "money": {
+            "$ref": "#/components/schemas/SmrSwarmActorMoneyResponse"
+          },
+          "nominal_cents_by_model": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Nominal Cents By Model",
+            "type": "object"
+          },
+          "nominal_cents_by_provider": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Nominal Cents By Provider",
+            "type": "object"
+          },
+          "participant_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participant Role"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/SmrSwarmActorTokenUsageResponse"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          }
+        },
+        "required": [
+          "actor_id",
+          "money",
+          "event_count",
+          "nominal_cents_by_provider",
+          "nominal_cents_by_model",
+          "tokens"
+        ],
+        "title": "SmrSwarmActorUsageResponse",
+        "type": "object"
+      },
+      "SmrSwarmTokenCountsResponse": {
+        "additionalProperties": false,
+        "description": "Token counts for one swarm or model.",
+        "properties": {
+          "cached_input_tokens": {
+            "minimum": 0.0,
+            "title": "Cached Input Tokens",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "non_cached_input_tokens": {
+            "minimum": 0.0,
+            "title": "Non Cached Input Tokens",
+            "type": "integer"
+          },
+          "non_reasoning_output_tokens": {
+            "minimum": 0.0,
+            "title": "Non Reasoning Output Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "reasoning_output_tokens": {
+            "minimum": 0.0,
+            "title": "Reasoning Output Tokens",
+            "type": "integer"
+          },
+          "snapshots": {
+            "minimum": 0.0,
+            "title": "Snapshots",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "input_tokens",
+          "cached_input_tokens",
+          "non_cached_input_tokens",
+          "output_tokens",
+          "reasoning_output_tokens",
+          "non_reasoning_output_tokens",
+          "snapshots"
+        ],
+        "title": "SmrSwarmTokenCountsResponse",
+        "type": "object"
+      },
+      "SmrSwarmTokenUsageResponse": {
+        "additionalProperties": false,
+        "description": "Typed token rollup for a swarm.",
+        "properties": {
+          "by_model": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SmrSwarmTokenCountsResponse"
+            },
+            "title": "By Model",
+            "type": "object"
+          },
+          "session_snapshots_count": {
+            "minimum": 0.0,
+            "title": "Session Snapshots Count",
+            "type": "integer"
+          },
+          "sessions_seen": {
+            "minimum": 0.0,
+            "title": "Sessions Seen",
+            "type": "integer"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/SmrSwarmTokenCountsResponse"
+          }
+        },
+        "required": [
+          "sessions_seen",
+          "session_snapshots_count",
+          "totals",
+          "by_model"
+        ],
+        "title": "SmrSwarmTokenUsageResponse",
+        "type": "object"
+      },
+      "SmrSwarmUsageFreshnessResponse": {
+        "additionalProperties": false,
+        "description": "Observable freshness and authority of a swarm usage projection.",
+        "properties": {
+          "as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of"
+          },
+          "record_count": {
+            "minimum": 0.0,
+            "title": "Record Count",
+            "type": "integer"
+          },
+          "run_is_terminal": {
+            "title": "Run Is Terminal",
+            "type": "boolean"
+          },
+          "source": {
+            "enum": [
+              "none",
+              "usage_facts",
+              "spend_ledger"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "record_count",
+          "run_is_terminal"
+        ],
+        "title": "SmrSwarmUsageFreshnessResponse",
+        "type": "object"
+      },
+      "SmrSwarmUsageMoneyResponse": {
+        "additionalProperties": false,
+        "description": "Exact monetary usage totals for a public swarm readout.",
+        "properties": {
+          "billed_cents": {
+            "minimum": 0.0,
+            "title": "Billed Cents",
+            "type": "integer"
+          },
+          "billed_pico_usd": {
+            "minimum": 0.0,
+            "title": "Billed Pico Usd",
+            "type": "integer"
+          },
+          "internal_cost_cents": {
+            "minimum": 0.0,
+            "title": "Internal Cost Cents",
+            "type": "integer"
+          },
+          "internal_cost_pico_usd": {
+            "minimum": 0.0,
+            "title": "Internal Cost Pico Usd",
+            "type": "integer"
+          },
+          "nominal_cents": {
+            "minimum": 0.0,
+            "title": "Nominal Cents",
+            "type": "integer"
+          },
+          "nominal_pico_usd": {
+            "minimum": 0.0,
+            "title": "Nominal Pico Usd",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nominal_cents",
+          "billed_cents",
+          "internal_cost_cents",
+          "nominal_pico_usd",
+          "billed_pico_usd",
+          "internal_cost_pico_usd"
+        ],
+        "title": "SmrSwarmUsageMoneyResponse",
+        "type": "object"
+      },
+      "SmrSwarmUsageResponse": {
+        "additionalProperties": false,
+        "description": "Concise typed usage summary for one swarm.",
+        "properties": {
+          "actors": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmActorUsageResponse"
+            },
+            "title": "Actors",
+            "type": "array"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/SmrSwarmUsageFreshnessResponse"
+          },
+          "money": {
+            "$ref": "#/components/schemas/SmrSwarmUsageMoneyResponse"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/SmrSwarmTokenUsageResponse"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "money",
+          "tokens",
+          "actors",
+          "freshness"
+        ],
+        "title": "SmrSwarmUsageResponse",
+        "type": "object"
+      },
       "SmrToolProvider": {
         "enum": [
           "tinker",
@@ -11395,6 +11790,49 @@
           }
         },
         "summary": "Stop Run",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/usage-summary": {
+      "get": {
+        "description": "Return typed cost, token, actor, and freshness evidence for a swarm.",
+        "operationId": "retrieve_swarm_usage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrSwarmUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Swarm Usage",
         "tags": [
           "smr"
         ]

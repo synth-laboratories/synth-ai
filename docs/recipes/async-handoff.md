@@ -50,6 +50,8 @@ async def return_by_id() -> None:
         try:
             resolved = await client.research.swarms.configuration(swarm_id)
             print(resolved.config_version_id, resolved.snapshot_sha256)
+            usage = await client.research.swarms.usage(swarm_id)
+            print(usage.freshness.source, usage.freshness.as_of)
             terminal = await client.research.swarms.wait(
                 swarm_id,
                 timeout_seconds=1800,
