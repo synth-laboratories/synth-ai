@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from synth_ai.mcp.research.registry import JSONDict
@@ -714,22 +714,3 @@ class UsageAnalyticsRequest:
             first=first,
             after=optional_string(payload, "after"),
         )
-
-
-@dataclass(frozen=True)
-class WorkspaceFileUploadRequest:
-    project_id: str
-    files: list[dict[str, Any]] = field(default_factory=list)
-
-    @classmethod
-    def from_payload(cls, payload: JSONDict) -> WorkspaceFileUploadRequest:
-        project_id = require_string(payload, "project_id")
-        files = payload.get("files")
-        if not isinstance(files, list) or not files:
-            raise ValueError("'files' must be a non-empty array")
-        normalized: list[dict[str, Any]] = []
-        for item in files:
-            if not isinstance(item, dict):
-                raise ValueError("each file entry must be an object")
-            normalized.append(dict(item))
-        return cls(project_id=project_id, files=normalized)

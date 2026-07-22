@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import mimetypes
 import os
 from pathlib import Path
 
@@ -287,6 +289,119 @@ def datasets_download(
         )
     destination.write_bytes(content)
     _echo_json({"destination": str(destination), "size_bytes": len(content)})
+
+
+@projects.group()
+def workspace() -> None:
+    """Inspect and configure project workspace bootstrap inputs."""
+
+
+@workspace.command("get")
+@click.argument("project_id")
+@_auth_options
+def workspace_get(
+    project_id: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Print the exact workspace-input projection for PROJECT_ID."""
+    from synth_ai.research import ProjectId
+
+    with _client(api_key, backend_url) as client:
+        receipt = client.research.projects.workspace.retrieve(ProjectId(project_id))
+        _echo_json(receipt.to_wire())
+
+
+@workspace.command("source")
+@click.argument("project_id")
+@click.argument("url")
+@click.option("--default-branch", help="Optional default branch override.")
+@click.option("--commit-sha", help="Optional immutable source commit SHA.")
+@_auth_options
+def workspace_source(
+    project_id: str,
+    url: str,
+    default_branch: str | None,
+    commit_sha: str | None,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Set the public source repository used to bootstrap PROJECT_ID."""
+    from synth_ai.research import ProjectId, WorkspaceSourceRepositorySpec
+
+    request = WorkspaceSourceRepositorySpec(
+        url=url,
+        default_branch=default_branch,
+        commit_sha=commit_sha,
+    )
+    with _client(api_key, backend_url) as client:
+        receipt = client.research.projects.workspace.set_source_repository(
+            ProjectId(project_id),
+            request,
+        )
+        _echo_json(receipt.to_wire())
+
+
+@workspace.command("upload")
+@click.argument("project_id")
+@click.argument(
+    "sources",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+)
+@click.option(
+    "--root",
+    type=click.Path(exists=True, file_okay=False, readable=True, path_type=Path),
+    default=".",
+    show_default=True,
+    help="Root used to derive normalized workspace-relative paths.",
+)
+@_auth_options
+def workspace_upload(
+    project_id: str,
+    sources: tuple[Path, ...],
+    root: Path,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Upload one or more binary-safe files in deterministic bounded batches."""
+    from synth_ai.research import (
+        ProjectId,
+        WorkspaceFileEncoding,
+        WorkspaceFileKind,
+        WorkspaceFilesBatchUploadRequest,
+        WorkspaceFileUpload,
+    )
+
+    resolved_root = root.resolve()
+    files: list[WorkspaceFileUpload] = []
+    for source in sources:
+        resolved_source = source.resolve()
+        try:
+            relative_path = resolved_source.relative_to(resolved_root)
+        except ValueError as error:
+            raise click.ClickException(
+                f"source is outside --root: {source} (root: {resolved_root})"
+            ) from error
+        content_type, _ = mimetypes.guess_type(relative_path.name)
+        files.append(
+            WorkspaceFileUpload(
+                path=relative_path.as_posix(),
+                content=base64.b64encode(resolved_source.read_bytes()).decode("ascii"),
+                content_type=content_type,
+                encoding=WorkspaceFileEncoding.BASE64,
+                kind=WorkspaceFileKind.FILE,
+            )
+        )
+
+    request = WorkspaceFilesBatchUploadRequest(files=tuple(files))
+    with _client(api_key, backend_url) as client:
+        receipt = client.research.projects.workspace.upload_batches(
+            ProjectId(project_id),
+            request,
+        )
+        _echo_json(receipt.to_wire())
 
 
 __all__ = ["projects"]

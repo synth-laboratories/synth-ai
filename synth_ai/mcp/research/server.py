@@ -34,7 +34,6 @@ from synth_ai.mcp.research.request_models import (
     ProviderKeyRequest,
     RunLaunchRequest,
     RunnableProjectCreateRequest,
-    WorkspaceFileUploadRequest,
     optional_bool,
     optional_int,
     optional_string,
@@ -109,6 +108,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_project_economics",
         "research_get_project_dataset_content",
         "research_get_project_setup",
+        "research_get_workspace_inputs",
         "research_get_run",
         "research_get_run_transcript",
         "research_get_swarm_activity",
@@ -139,7 +139,9 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_unarchive_project",
         "research_update_project_repository",
         "research_upload_project_dataset",
+        "research_upload_workspace_files",
         "research_watch_run_events",
+        "research_attach_source_repo",
     }
 )
 
@@ -366,7 +368,7 @@ class ResearchMcpServer:
             *build_factory_result_tools(self),
             *build_dev_environment_tools(self),
             *build_cloud_deployment_tools(self),
-            *build_workspace_input_tools(self),
+            *build_workspace_input_tools(self._core_client_from_args),
             *build_export_tools(self),
             *build_repo_tools(self),
             *build_dataset_tools(self),
@@ -2089,23 +2091,6 @@ class ResearchMcpServer:
                 output_path,
                 run_id=run_id,
             )
-
-    def _tool_attach_source_repo(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        url = require_string(args, "url")
-        default_branch = optional_string(args, "default_branch")
-        with self._client_from_args(args) as client:
-            return client.attach_source_repo(project_id, url, default_branch=default_branch)
-
-    def _tool_get_workspace_inputs(self, args: JSONDict) -> Any:
-        project_id = require_string(args, "project_id")
-        with self._client_from_args(args) as client:
-            return client.get_workspace_inputs(project_id)
-
-    def _tool_upload_workspace_files(self, args: JSONDict) -> Any:
-        request = WorkspaceFileUploadRequest.from_payload(args)
-        with self._client_from_args(args) as client:
-            return client.upload_workspace_files(request.project_id, request.files)
 
     # --- trained model registry --------------------------------------------
 
