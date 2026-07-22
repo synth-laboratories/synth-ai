@@ -2,6 +2,7 @@
 
 - **Status:** engineer review required — unmerged implementation candidate exists
 - **Date:** 2026-07-21
+- **Last updated:** 2026-07-22
 - **Scope:** `synth-ai`, `backend`, and `evals`
 - **Quality bar:** `strong_option`
 - **Primary public entrypoint:** `SynthClient().research`
@@ -57,7 +58,7 @@ are evidence attachments to this document.
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
 | Delivery | MCP defaults to 37 stable noun-first tools; runtime discovery contains 245 additional advanced tools, while the source ledger records 260 advanced adapter definitions before registry deduplication/removal; CLI exposes resolved configuration and typed usage | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
-| Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → prior repeat 7.18 → final handoff repeat 7.27; latest minimum 6, no holds | Qualitative threshold passes; parameter design, naming, and reach at 6/10 remain review evidence, not a release waiver |
+| Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → strongest accepted repeat 7.27; post-usage verification 7.18 with minimum 6 and no holds | The release floor passes, but v11 is 0.09 below v10 and is therefore a ratchet-review receipt rather than a newly accepted phase exit; compatibility, compression, naming, and reach remain review evidence, not a release waiver |
 
 The implementation worktrees and exact review order are recorded in
 [Current handoff state](#current-handoff-state). This document is the only
@@ -1566,6 +1567,7 @@ Phase 10 acceptance additionally requires the release thresholds above
 | 2026-07-21 | Candidate after GameBench ownership and contract parity fixes | **7.18** | compression 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v8/manifest.json` |
 | 2026-07-21 | Latest repeat after advanced-consumer classification | **7.09** | compression 6, documentation 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v9/manifest.json` |
 | 2026-07-21 | Final handoff repeat after resolved-configuration vertical and final capability ownership | **7.27** | naming 6, parameter design 6, reach 6 | `.quality/runs/migration-sdk-design-v10/manifest.json` |
+| 2026-07-22 | Post-usage-contract verification | **7.18** | compression 6, naming 6, reach 6 | `.quality/runs/migration-sdk-design-v11/manifest.json` |
 
 The final handoff repeat completes all 11 dimensions, has no holds, and clears
 the declared qualitative bar: mean **7.27** (80/110), minimum **6**, maximum
@@ -1618,9 +1620,43 @@ stopped loading `_legacy`. The final handoff rerun lifts compression,
 concurrency, documentation, and observability, but exposes parameter design as
 the clearest remaining type-design weakness. Its aggregate is 1.63 points above
 baseline and no dimension falls below the release minimum. The v8 and v9
-receipts remain useful corroborating evidence, but the handoff uses the final
-7.27 result. All aggregates above are computed directly from the eleven
-manifest scores; no hand-entered aggregate is accepted as evidence.
+receipts remain useful corroborating evidence, but the handoff uses the 7.27
+result as its strongest accepted ratchet. All aggregates above are computed
+directly from the eleven manifest scores; no hand-entered aggregate is accepted
+as evidence.
+
+The later v11 verification was run after the typed swarm-usage vertical. It
+completed 11/11 dimensions in **21 seconds**, used approximately **88k tokens**
+(83k input and 5.1k output), recorded 18 violations, emitted no holds, and
+passed the strict 7.0/5.0 manifest validator. Its mean is **7.18** (79/110),
+minimum **6**, and maximum **8**. Compared with v10, compatibility moved 8→7,
+conceptual compression 7→6, and parameter design 6→7; every other dimension was
+unchanged. The relevant source facts did not regress: the compatibility
+timeline and shim architecture, stable discovery boundary, and public resource
+tree are unchanged, while the new usage contract adds a strict typed read. The
+judge instead surfaced two existing debts more strongly: wildcard imports in
+generated compatibility shims and the breadth visible beneath the Research
+resource tree. Those are valid findings and are retained below. Because the
+aggregate nevertheless decreased by 0.09, v11 proves the absolute release floor
+but is **not accepted as a monotonic phase-exit improvement**. The reviewer must
+either approve those debts as bounded compatibility/advanced-only exceptions or
+require their source fix and a new receipt before accepting the phase exit.
+
+The complete latest verification scorecard is:
+
+| Dimension | Score | Severity | Finding / required review action |
+|---|---:|---|---|
+| Compatibility | 7 | low | Generated compatibility shims still rely on wildcard legacy imports; decide whether generation must emit explicit symbol exports |
+| Conceptual compression | 6 | medium | Auxiliary resource namespaces still expose too much backend-shaped breadth; keep the stable hero surface focused on projects, swarms, and factories |
+| Concurrency contract | 8 | low | Native sync/async separation and cursored events are strong; document resume and cancellation propagation |
+| Documentation | 7 | low | Recipes are coherent but need explicit version and expected-output annotations |
+| Failure contract | 8 | low | Typed failures preserve operation/request/correlation/retry metadata; complete public error documentation |
+| Lifecycle guarantees | 8 | low | Resource transitions and immutable snapshots are explicit; add version-pinned replay guidance |
+| Naming | 6 | medium | Remaining `Smr*` and compatibility client suffixes must stay out of stable discovery and be removed on schedule |
+| Observability | 8 | low | Correlated events and typed usage/readouts are strong; graduate remaining legacy-backed observability projections |
+| Parameter design | 7 | medium | Required fields are typed, but `ResourceLimit` and `BudgetPolicy` still allow optional-soup configurations |
+| Reach | 6 | medium | Python, CLI, and MCP need authoritative cross-surface conformance against the bounded OpenAPI artifact |
+| Type contract | 8 | low | Strict decoders reject malformed/unknown fields; remove remaining fallback dictionary parsing at optional wire blocks |
 
 #### Required proof per vertical set
 
@@ -1801,8 +1837,10 @@ candidate. The next engineer should review and amend rather than repeat them:
    owner or evidence that a typed stable capability is still missing.
 7. Re-run the deterministic boundary/contract checks after review edits and
    use the same bounded Gemini scan evidence. Do not lower the 7.0/5.0/no-hold
-   thresholds; investigate any regression from the final 7.27 repeat and use
-   multiple receipts to distinguish source regressions from judge variance.
+   thresholds. Treat v10's 7.27 as the strongest accepted ratchet and v11's
+   7.18 as a passing-floor but non-monotonic verification; resolve its existing
+   compatibility/compression findings or record the reviewer-approved bounded
+   exception before accepting another phase exit.
 8. Request the required user-triggered `/ultrareview` before integrating this
    high-blast-radius change into `dev`.
 
@@ -1900,10 +1938,13 @@ eval consumer, documentation, and failure behavior.
 - Relocation checkpoint verdict: **FAIL, 6.45/10**, 11/11 dimensions, no holds,
   13 seconds, approximately 89k tokens. Naming and conceptual compression were
   both **4/10**.
-- Final stable API candidate verdict: **PASS, 7.27/10**, 11/11 dimensions,
-  minimum 6, maximum 8, no holds, and 20 recorded violations. The 21-second
-  Gemini 3.5 Flash Lite run used approximately 88k tokens. The complete
-  scorecard, variance explanation, and findings are in Part VI.
+- Strongest accepted stable API candidate verdict: **PASS, 7.27/10**, 11/11
+  dimensions, minimum 6, maximum 8, no holds, and 20 recorded violations. The
+  later typed-usage verification also passes the absolute floor at **7.18/10**,
+  minimum 6, no holds, and 18 violations, but is 0.09 lower and is retained as
+  a ratchet-review receipt. Both 21-second Gemini 3.5 Flash Lite runs used
+  approximately 88k tokens. The complete scorecards, variance explanation, and
+  findings are in Part VI.
 - Repeatable command: `./synth-dev/quality ./synth-ai` from the workspace root.
 - Repeatable-scan tooling is not yet committed: `synth-dev/quality` and
   `synth-dev/config/quality/` remain untracked because the `synth-dev` main
@@ -1926,6 +1967,8 @@ eval consumer, documentation, and failure behavior.
 - Final Jesterky handoff repeat after the resolved-configuration vertical and
   final capability ownership:
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v10/manifest.json`.
+- Post-usage-contract verification receipt:
+  `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v11/manifest.json`.
 - Deterministic candidate checks already passed: generated compatibility-shim
   conformance, architecture boundary, cross-repository migration boundary,
   46-operation OpenAPI byte/operation parity, targeted source compilation,
@@ -1962,7 +2005,7 @@ design bar passes; the migration and release bar do not yet pass.
 | Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
 | Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
 | Stable import isolation | PASS | Clean stable manifest import loads zero `_legacy` modules; explicit `.advanced` access loads the compatibility implementation |
-| Public API qualitative design | PASS | Final Gemini 3.5 Flash Lite repeat: 7.27 mean (80/110), 6 minimum, 8 maximum, 11/11 dimensions, no holds, 20 violations, 21 seconds; strict manifest validation passed |
+| Public API qualitative design | PASS FLOOR / RATCHET REVIEW | Strongest accepted repeat: 7.27 mean (80/110), minimum 6, no holds. Latest post-usage verification: 7.18 (79/110), minimum 6, no holds, 18 violations, 21 seconds; strict validation passed but the 0.09 decrease requires reviewer disposition before phase acceptance |
 | Parameter / naming / reach quality | WARN | Each is 6/10; eliminate optional-soup budget/resource states, enforce alias removal, and add cross-surface OpenAPI conformance |
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
 | GameBench ownership | PASS | No `synth_ai/gamebench` package or SDK recipe remains; scorer contracts/client/recipe and the active grader live under `evals/swarmbench/gamebench` |
