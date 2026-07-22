@@ -21,7 +21,7 @@ except PackageNotFoundError:
     try:
         import tomllib as _toml
     except ModuleNotFoundError:  # pragma: no cover
-        import tomli as _toml  # type: ignore[no-redef]
+        import tomli as _toml  # type: ignore[no-redef]  # ty: ignore[unresolved-import]
 
     try:
         pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"

@@ -12,7 +12,7 @@ from datetime import datetime
 from enum import StrEnum
 from math import isfinite
 from types import MappingProxyType
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import (
@@ -67,9 +67,15 @@ def _freeze_json(value: object, *, field_name: str) -> FrozenResourceJsonValue:
 
 def _thaw_json(value: FrozenResourceJsonValue) -> JsonValue:
     if isinstance(value, Mapping):
-        return {key: _thaw_json(child) for key, child in value.items()}
+        return cast(
+            JsonValue,
+            {
+                str(key): _thaw_json(cast(FrozenResourceJsonValue, child))
+                for key, child in value.items()
+            },
+        )
     if isinstance(value, tuple):
-        return [_thaw_json(child) for child in value]
+        return cast(JsonValue, [_thaw_json(child) for child in value])
     return value
 
 

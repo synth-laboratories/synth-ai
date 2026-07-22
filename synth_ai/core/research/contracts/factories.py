@@ -245,21 +245,17 @@ class Factory:
     def from_wire(cls, payload: JsonValue) -> Factory:
         value = object_value(payload, operation_id="decode_factory")
         return cls(
-            factory_id=FactoryId(required_text(value, "factory_id", operation_id="decode_factory")),
-            organization_id=OrganizationId(
-                required_text(value, "org_id", operation_id="decode_factory")
-            ),
-            name=required_text(value, "name", operation_id="decode_factory"),
-            description=optional_text(value, "description", operation_id="decode_factory"),
-            kind=FactoryKind(required_text(value, "kind", operation_id="decode_factory")),
-            state=FactoryLifecycleState(
-                required_text(value, "status", operation_id="decode_factory")
-            ),
+            factory_id=FactoryId(required_text(value, "factory_id")),
+            organization_id=OrganizationId(required_text(value, "org_id")),
+            name=required_text(value, "name"),
+            description=optional_text(value, "description"),
+            kind=FactoryKind(required_text(value, "kind")),
+            state=FactoryLifecycleState(required_text(value, "status")),
             budget_policy=_optional_object(value, "budget_policy", operation_id="decode_factory"),
             capacity_policy=_optional_object(value, "cap_policy", operation_id="decode_factory"),
             metadata=_optional_object(value, "metadata", operation_id="decode_factory"),
-            created_at=required_datetime(value, "created_at", operation_id="decode_factory"),
-            updated_at=required_datetime(value, "updated_at", operation_id="decode_factory"),
+            created_at=required_datetime(value, "created_at"),
+            updated_at=required_datetime(value, "updated_at"),
         )
 
 
@@ -284,16 +280,10 @@ class FactoryTransitionResult:
             raise ValueError("factory transition woken_efforts must be an integer")
         return cls(
             factory=Factory.from_wire(value.get("factory")),
-            command=required_text(value, "command", operation_id="decode_factory_transition"),
-            decision=FactoryTransitionDecision(
-                required_text(value, "decision", operation_id="decode_factory_transition")
-            ),
-            detail=optional_text(
-                value, "decision_detail", operation_id="decode_factory_transition"
-            ),
-            state=FactoryLifecycleState(
-                required_text(value, "to_status", operation_id="decode_factory_transition")
-            ),
+            command=required_text(value, "command"),
+            decision=FactoryTransitionDecision(required_text(value, "decision")),
+            detail=optional_text(value, "decision_detail"),
+            state=FactoryLifecycleState(required_text(value, "to_status")),
             effects=tuple(effects),
             woken_effort_count=wake_count,
         )
@@ -409,20 +399,16 @@ class Effort:
         next_wake = value.get("next_wake_at")
         if next_wake is not None and not isinstance(next_wake, str):
             raise ValueError("effort next_wake_at must be an ISO-8601 string or null")
-        latest_swarm = optional_text(value, "latest_run_id", operation_id="decode_effort")
+        latest_swarm = optional_text(value, "latest_run_id")
         return cls(
-            effort_id=EffortId(required_text(value, "effort_id", operation_id="decode_effort")),
-            organization_id=OrganizationId(
-                required_text(value, "org_id", operation_id="decode_effort")
-            ),
-            factory_id=FactoryId(required_text(value, "factory_id", operation_id="decode_effort")),
-            project_id=ProjectId(required_text(value, "project_id", operation_id="decode_effort")),
-            name=required_text(value, "name", operation_id="decode_effort"),
-            hypothesis=optional_text(value, "hypothesis_or_topic", operation_id="decode_effort"),
-            state=EffortStatus(required_text(value, "status", operation_id="decode_effort")),
-            effort_type=EffortType(
-                required_text(value, "effort_type", operation_id="decode_effort")
-            ),
+            effort_id=EffortId(required_text(value, "effort_id")),
+            organization_id=OrganizationId(required_text(value, "org_id")),
+            factory_id=FactoryId(required_text(value, "factory_id")),
+            project_id=ProjectId(required_text(value, "project_id")),
+            name=required_text(value, "name"),
+            hypothesis=optional_text(value, "hypothesis_or_topic"),
+            state=EffortStatus(required_text(value, "status")),
+            effort_type=EffortType(required_text(value, "effort_type")),
             recurrence_policy=_optional_object(
                 value, "recurrence_policy", operation_id="decode_effort"
             ),
@@ -432,19 +418,17 @@ class Effort:
                 else None
             ),
             latest_swarm_id=SwarmId(latest_swarm) if latest_swarm is not None else None,
-            latest_report_id=optional_text(value, "latest_report_id", operation_id="decode_effort"),
+            latest_report_id=optional_text(value, "latest_report_id"),
             latest_work_product_id=optional_text(
                 value,
                 "latest_work_product_id",
-                operation_id="decode_effort",
             ),
-            decision_needed=optional_bool(value, "decision_needed", operation_id="decode_effort")
-            or False,
-            decision_note=optional_text(value, "decision_note", operation_id="decode_effort"),
+            decision_needed=optional_bool(value, "decision_needed") or False,
+            decision_note=optional_text(value, "decision_note"),
             budget_policy=_optional_object(value, "budget_policy", operation_id="decode_effort"),
             metadata=_optional_object(value, "metadata", operation_id="decode_effort"),
-            created_at=required_datetime(value, "created_at", operation_id="decode_effort"),
-            updated_at=required_datetime(value, "updated_at", operation_id="decode_effort"),
+            created_at=required_datetime(value, "created_at"),
+            updated_at=required_datetime(value, "updated_at"),
         )
 
 

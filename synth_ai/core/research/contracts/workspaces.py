@@ -12,7 +12,7 @@ from enum import StrEnum
 from math import isfinite
 from pathlib import PurePosixPath
 from types import MappingProxyType
-from typing import Optional, TypeAlias
+from typing import Optional, TypeAlias, cast
 from urllib.parse import urlsplit
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
@@ -74,9 +74,15 @@ def _freeze_json(value: object, *, field_name: str) -> FrozenWorkspaceJsonValue:
 
 def _thaw_json(value: FrozenWorkspaceJsonValue) -> JsonValue:
     if isinstance(value, Mapping):
-        return {key: _thaw_json(child) for key, child in value.items()}
+        return cast(
+            JsonValue,
+            {
+                str(key): _thaw_json(cast(FrozenWorkspaceJsonValue, child))
+                for key, child in value.items()
+            },
+        )
     if isinstance(value, tuple):
-        return [_thaw_json(child) for child in value]
+        return cast(JsonValue, [_thaw_json(child) for child in value])
     return value
 
 

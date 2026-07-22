@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from synth_ai.core.contracts.json_value import JsonObject
+from typing import cast
+
+from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -44,7 +46,8 @@ def _request(
 
 def _projects(value: object) -> tuple[Project, ...]:
     return tuple(
-        Project.from_wire(item) for item in array_value(value, operation_id="list_projects")
+        Project.from_wire(item)
+        for item in array_value(cast(JsonValue, value), operation_id="list_projects")
     )
 
 

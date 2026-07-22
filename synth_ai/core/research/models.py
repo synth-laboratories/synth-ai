@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import cast
 
 from synth_ai.core.research._legacy.models.project import (
     CreateRunnableResult as ResearchCreateProjectResult,
@@ -109,7 +110,8 @@ class ResearchRunProgress(RunProgress):
         parsed = RunProgress.from_wire(payload)
         if not isinstance(payload, Mapping):
             raise ValueError("run progress must be an object")
-        public_state = payload.get("public_state")
+        typed_payload = cast(Mapping[str, object], payload)
+        public_state = typed_payload.get("public_state")
         if public_state is not None and not isinstance(public_state, str):
             raise ValueError("run progress public_state must be a string or null")
         return cls(**vars(parsed), public_state=public_state)

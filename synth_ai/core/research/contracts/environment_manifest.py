@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._environment_wire import (
@@ -47,7 +48,7 @@ def _objects(value: object, *, field_name: str) -> tuple[JsonObject, ...]:
         raise ValueError(f"{field_name} must be an array")
     if not all(isinstance(item, dict) for item in value):
         raise ValueError(f"{field_name} must contain only objects")
-    return tuple(value)
+    return cast(tuple[JsonObject, ...], tuple(value))
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +122,10 @@ class RuntimeImageRef:
         return cls(
             ref=text(payload["ref"], field="image ref", maximum=4000),
             kind=RuntimeImageKind(payload.get("kind", RuntimeImageKind.REGISTRY_IMAGE)),
-            digest=optional_digest(payload.get("digest"), field="image digest"),
+            digest=cast(
+                EnvironmentDigest | None,
+                optional_digest(payload.get("digest"), field="image digest"),
+            ),
         )
 
     def to_wire(self) -> JsonObject:

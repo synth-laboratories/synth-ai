@@ -40,7 +40,7 @@ class WorkspaceResolution:
         path = self.repo_paths.get(repo_name)
         if required and path is None:
             raise RuntimeError(f"workspace repo is not configured: {repo_name}")
-        if required and not path.exists():
+        if required and path is not None and not path.exists():
             raise RuntimeError(f"workspace repo does not exist: {repo_name} at {path}")
         return path
 

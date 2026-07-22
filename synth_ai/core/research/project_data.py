@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
-from synth_ai.core.contracts.json_value import JsonObject
+from typing import cast
+
+from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -43,7 +45,7 @@ def _repositories(value: object, *, project_id: ProjectId) -> tuple[ProjectRepos
     repositories = tuple(
         ProjectRepository.from_wire(item)
         for item in array_value(
-            value,
+            cast(JsonValue, value),
             operation_id="list_project_external_repositories",
         )
     )
@@ -55,7 +57,7 @@ def _repositories(value: object, *, project_id: ProjectId) -> tuple[ProjectRepos
 def _datasets(value: object, *, project_id: ProjectId) -> tuple[ProjectDataset, ...]:
     datasets = tuple(
         ProjectDataset.from_wire(item)
-        for item in array_value(value, operation_id="list_project_datasets")
+        for item in array_value(cast(JsonValue, value), operation_id="list_project_datasets")
     )
     if any(dataset.project_id != project_id for dataset in datasets):
         raise ValueError("project dataset list crossed its requested project boundary")
@@ -68,7 +70,7 @@ def _repository(
     project_id: ProjectId,
     repository_id: ProjectRepositoryId | None = None,
 ) -> ProjectRepository:
-    repository = ProjectRepository.from_wire(value)
+    repository = ProjectRepository.from_wire(cast(JsonValue, value))
     if repository.project_id != project_id:
         raise ValueError("project repository response crossed its requested project boundary")
     if repository_id is not None and repository.repository_id != repository_id:
@@ -77,7 +79,7 @@ def _repository(
 
 
 def _dataset(value: object, *, project_id: ProjectId) -> ProjectDataset:
-    dataset = ProjectDataset.from_wire(value)
+    dataset = ProjectDataset.from_wire(cast(JsonValue, value))
     if dataset.project_id != project_id:
         raise ValueError("project dataset response crossed its requested project boundary")
     return dataset

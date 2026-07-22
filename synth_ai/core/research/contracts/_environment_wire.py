@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping, Sequence
 from math import isfinite
 from types import MappingProxyType
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import object_value
@@ -45,9 +45,12 @@ def freeze_json(value: object, *, field: str) -> FrozenJson:
 
 def thaw_json(value: FrozenJson) -> JsonValue:
     if isinstance(value, Mapping):
-        return {key: thaw_json(child) for key, child in value.items()}
+        return cast(
+            JsonValue,
+            {str(key): thaw_json(cast(FrozenJson, child)) for key, child in value.items()},
+        )
     if isinstance(value, tuple):
-        return [thaw_json(child) for child in value]
+        return cast(JsonValue, [thaw_json(child) for child in value])
     return value
 
 
