@@ -2334,3 +2334,38 @@ contract is approved as final.
 | Checked-in OpenAPI / capability ledger | **STALE** | Same-head byte and operation parity |
 | Current-head qualitative score | UNPROVED | Gemini 3.5 Flash Lite scan at mean >=7, every dimension >=5, no holds |
 | Release review / integration | PENDING | User-triggered ultrareview, authorized gates, merge and cleanup |
+
+### Resume continuation after pause — 2026-07-22T04:30:00Z
+
+Goal remained active. Implementation resumed from frozen heads `synth-ai ea2eea9e`, `backend 4add92832`, `evals 2f0b11df`.
+
+#### Disposition of quarantined image drafts
+
+- Deleted the bloated untracked `contracts/image_releases.py` draft (~1187 lines).
+- Kept a lean contracts module (~409 lines) plus the existing resource API (~221 lines).
+- Completed the full vertical: ops, core/async clients, research facade, CLI (`research image-releases`), MCP (`smr_*` renamed to stable `research_*` via registry).
+
+#### Closed in this continuation
+
+| Vertical | Result | Heads |
+|---|---|---|
+| Image-release SDK | PASS (source-complete) | synth-ai `1d102df9` |
+| Shared RetryPolicy on sync/async execute | PASS (source-complete) | synth-ai `1d102df9` |
+| Swarm status + workspace archive | PASS (backend + SDK) | backend `7aa3646b9`, synth-ai `1d102df9` |
+| SwarmSpec launch fields + SwarmBench cutover | PASS (source-complete) | synth-ai `1d102df9`, evals `fa103a6b` |
+
+#### Still open before merge
+
+1. Checked-in OpenAPI + capability ledger same-head regen/vendor (artifacts still stale vs source allowlist now at 71 ops).
+2. Remaining eval cutovers: SwarmGameBench + ReportBench/hero_driver still on advanced/compat launch paths.
+3. Authorized gates: Ruff, ty, tests, package/docs, live proofs — not run this continuation.
+4. Current-head Gemini/Jesterky qualitative scan (prior receipts predate these heads).
+5. User `/ultrareview`, then merge to `dev`, prove reachability, remove worktrees.
+
+#### Current committed heads
+
+- synth-ai: `1d102df9`
+- backend: `7aa3646b9`
+- evals: `fa103a6b`
+
+No branches merged. No worktrees removed. Validation not run (user gate authorization required).
