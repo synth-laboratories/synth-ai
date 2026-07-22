@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, field
@@ -14,6 +15,11 @@ import httpx
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.request import HttpRequest
+from synth_ai.core.http.retry import (
+    RetryPolicy,
+    retry_after_from_error,
+    should_retry_failure,
+)
 from synth_ai.core.http.streaming import SseEvent, iter_sse_events_async
 from synth_ai.core.http.transport import (
     ErrorHandler,
@@ -33,6 +39,7 @@ class AsyncHttpTransport:
     base_url: str
     headers: Mapping[str, str]
     timeout_seconds: float = 30.0
+    retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     error_handler: ErrorHandler = raise_http_error
     exception_handler: ExceptionHandler = raise_transport_exception
     decode_error_handler: DecodeErrorHandler = raise_json_decode_error
@@ -87,15 +94,30 @@ class AsyncHttpTransport:
             self.decode_error_handler(method, path, response, exc, operation_id)
 
     async def execute(self, request: HttpRequest) -> JsonValue:
-        return await self.request_json(
-            request.operation.method.value,
-            request.path,
-            params=request.query,
-            json_body=request.body,
-            headers=request.headers,
-            timeout_seconds=request.timeout_seconds,
-            operation_id=str(request.operation.operation_id),
-        )
+        attempt_index = 0
+        while True:
+            try:
+                return await self.request_json(
+                    request.operation.method.value,
+                    request.path,
+                    params=request.query,
+                    json_body=request.body,
+                    headers=request.headers,
+                    timeout_seconds=request.timeout_seconds,
+                    operation_id=str(request.operation.operation_id),
+                )
+            except Exception as error:
+                if attempt_index + 1 >= self.retry_policy.attempts_max:
+                    raise
+                if not should_retry_failure(self.retry_policy, request, error):
+                    raise
+                delay = self.retry_policy.delay_seconds(
+                    attempt_index,
+                    retry_after_seconds=retry_after_from_error(error),
+                )
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                attempt_index += 1
 
     async def request_bytes(
         self,

@@ -9,6 +9,10 @@ from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.environments import AsyncEnvironmentsAPI, EnvironmentsAPI
 from synth_ai.core.research.factories import AsyncFactoriesAPI, FactoriesAPI
+from synth_ai.core.research.image_releases import (
+    AsyncImageReleasesAPI,
+    ImageReleasesAPI,
+)
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
@@ -42,6 +46,7 @@ class Client:
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
+        self.image_releases = ImageReleasesAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
 
@@ -97,6 +102,7 @@ class AsyncClient:
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)
+        self.image_releases = AsyncImageReleasesAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
 

@@ -54,6 +54,7 @@ from synth_ai.mcp.research.tools.factory_results import (
     build_factory_result_tools,
 )
 from synth_ai.mcp.research.tools.files import build_file_tools
+from synth_ai.mcp.research.tools.image_releases import build_image_release_tools
 from synth_ai.mcp.research.tools.integrations import build_integration_tools
 from synth_ai.mcp.research.tools.logs import build_log_tools
 from synth_ai.mcp.research.tools.models import build_model_tools
@@ -95,9 +96,11 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_create_effort",
         "research_create_environment",
         "research_create_factory",
+        "research_create_image_release_upload",
         "research_create_runnable_project",
         "research_create_project_repository",
         "research_delete_project_repository",
+        "research_finalize_image_release",
         "research_get_billing_entitlements",
         "research_get_effort",
         "research_get_environment",
@@ -114,11 +117,14 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_swarm_activity",
         "research_get_swarm_configuration",
         "research_get_swarm_evidence",
+        "research_get_swarm_status",
         "research_get_swarm_usage",
+        "research_get_swarm_workspace_archive",
         "research_list_active_runs",
         "research_list_factories",
         "research_list_environments",
         "research_list_factory_efforts",
+        "research_list_customer_actor_images",
         "research_list_projects",
         "research_list_project_datasets",
         "research_list_project_repositories",
@@ -126,12 +132,14 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_patch_effort",
         "research_patch_factory",
         "research_patch_project",
+        "research_archive_customer_actor_image",
         "research_pause_factory",
         "research_pause_run",
         "research_prepare_project_setup",
         "research_preflight_environment",
         "research_resume_factory",
         "research_resume_run",
+        "research_retrieve_image_release",
         "research_start_factory",
         "research_start_one_off_run",
         "research_stop_run",
@@ -383,6 +391,7 @@ class ResearchMcpServer:
             *build_progress_tools(self),
             *build_project_data_tools(self._core_client_from_args),
             *build_environment_tools(self._core_client_from_args),
+            *build_image_release_tools(self._core_client_from_args),
             *build_log_tools(self),
             *build_approval_tools(self),
             *build_artifact_tools(self),
@@ -2601,6 +2610,25 @@ class ResearchMcpServer:
         swarm_id = SwarmId(require_string(args, "swarm_id"))
         with self._core_client_from_args(args) as client:
             return client.swarms.evidence(swarm_id).to_wire()
+
+    def _tool_get_swarm_status(self, args: JSONDict) -> JSONDict:
+        swarm_id = SwarmId(require_string(args, "swarm_id"))
+        with self._core_client_from_args(args) as client:
+            return client.swarms.status(swarm_id).to_wire()
+
+    def _tool_get_swarm_workspace_archive(self, args: JSONDict) -> JSONDict:
+        import base64
+
+        swarm_id = SwarmId(require_string(args, "swarm_id"))
+        with self._core_client_from_args(args) as client:
+            content = client.swarms.workspace_archive(swarm_id)
+        return {
+            "swarm_id": swarm_id,
+            "content_type": "application/gzip",
+            "encoding": "base64",
+            "content_base64": base64.b64encode(content).decode("ascii"),
+            "byte_length": len(content),
+        }
 
     def _tool_get_run_contract(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

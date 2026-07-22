@@ -32,6 +32,7 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmSpec,
 )
 from synth_ai.core.research.contracts.usage import SwarmUsage
+from synth_ai.core.research.contracts.status import SwarmStatus
 from synth_ai.core.research.contracts.transcript import (
     SwarmTranscriptPage,
     TranscriptView,
@@ -109,6 +110,17 @@ class SwarmHandle:
     ) -> SwarmActivity:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return self._api.activity(self.swarm_id, window)
+
+    def status(self) -> SwarmStatus:
+        """Return the cheap authoritative status projection."""
+        return self._api.status(self.swarm_id)
+
+    def workspace_archive(self, *, timeout_seconds: float | None = None) -> bytes:
+        """Download the run-owned workspace archive bytes."""
+        return self._api.workspace_archive(
+            self.swarm_id,
+            timeout_seconds=timeout_seconds,
+        )
 
     def transcript(
         self,
@@ -273,6 +285,30 @@ class SwarmsAPI:
         )
         return SwarmActivity.from_wire(value)
 
+    def status(self, swarm_id: SwarmId) -> SwarmStatus:
+        """Return the cheap authoritative status projection for a swarm."""
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_status",
+                f"/smr/runs/{swarm_id}/status",
+            )
+        )
+        return SwarmStatus.from_wire(value)
+
+    def workspace_archive(
+        self,
+        swarm_id: SwarmId,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Download the run-owned workspace archive bytes."""
+        return self._transport.request_bytes(
+            "GET",
+            f"/smr/runs/{swarm_id}/workspace/archive",
+            timeout_seconds=timeout_seconds,
+            operation_id="retrieve_swarm_workspace_archive",
+        )
+
     def transcript(
         self,
         swarm_id: SwarmId,
@@ -431,6 +467,21 @@ class AsyncSwarmHandle:
     ) -> SwarmActivity:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return await self._api.activity(self.swarm_id, window)
+
+    async def status(self) -> SwarmStatus:
+        """Return the cheap authoritative status projection."""
+        return await self._api.status(self.swarm_id)
+
+    async def workspace_archive(
+        self,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Download the run-owned workspace archive bytes."""
+        return await self._api.workspace_archive(
+            self.swarm_id,
+            timeout_seconds=timeout_seconds,
+        )
 
     async def transcript(
         self,
@@ -591,6 +642,30 @@ class AsyncSwarmsAPI:
             )
         )
         return SwarmActivity.from_wire(value)
+
+    async def status(self, swarm_id: SwarmId) -> SwarmStatus:
+        """Return the cheap authoritative status projection for a swarm."""
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_status",
+                f"/smr/runs/{swarm_id}/status",
+            )
+        )
+        return SwarmStatus.from_wire(value)
+
+    async def workspace_archive(
+        self,
+        swarm_id: SwarmId,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Download the run-owned workspace archive bytes."""
+        return await self._transport.request_bytes(
+            "GET",
+            f"/smr/runs/{swarm_id}/workspace/archive",
+            timeout_seconds=timeout_seconds,
+            operation_id="retrieve_swarm_workspace_archive",
+        )
 
     async def transcript(
         self,

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import NoReturn, cast
@@ -30,6 +31,11 @@ from synth_ai.core.errors import (
     TransientServiceError,
 )
 from synth_ai.core.http.request import HttpRequest
+from synth_ai.core.http.retry import (
+    RetryPolicy,
+    retry_after_from_error,
+    should_retry_failure,
+)
 from synth_ai.core.http.streaming import SseEvent, iter_sse_events
 
 
@@ -267,6 +273,7 @@ class HttpTransport:
     base_url: str
     headers: Mapping[str, str]
     timeout_seconds: float = 30.0
+    retry_policy: RetryPolicy = field(default_factory=RetryPolicy)
     error_handler: ErrorHandler = raise_http_error
     exception_handler: ExceptionHandler = raise_transport_exception
     decode_error_handler: DecodeErrorHandler = raise_json_decode_error
@@ -321,15 +328,30 @@ class HttpTransport:
             self.decode_error_handler(method, path, response, exc, operation_id)
 
     def execute(self, request: HttpRequest) -> JsonValue:
-        return self.request_json(
-            request.operation.method.value,
-            request.path,
-            params=request.query,
-            json_body=request.body,
-            headers=request.headers,
-            timeout_seconds=request.timeout_seconds,
-            operation_id=str(request.operation.operation_id),
-        )
+        attempt_index = 0
+        while True:
+            try:
+                return self.request_json(
+                    request.operation.method.value,
+                    request.path,
+                    params=request.query,
+                    json_body=request.body,
+                    headers=request.headers,
+                    timeout_seconds=request.timeout_seconds,
+                    operation_id=str(request.operation.operation_id),
+                )
+            except Exception as error:
+                if attempt_index + 1 >= self.retry_policy.attempts_max:
+                    raise
+                if not should_retry_failure(self.retry_policy, request, error):
+                    raise
+                delay = self.retry_policy.delay_seconds(
+                    attempt_index,
+                    retry_after_seconds=retry_after_from_error(error),
+                )
+                if delay > 0:
+                    time.sleep(delay)
+                attempt_index += 1
 
     def request_bytes(
         self,

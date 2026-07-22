@@ -888,6 +888,40 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_swarm_evidence,
         ),
         ToolDefinition(
+            name="smr_get_swarm_status",
+            description=(
+                "Fetch the cheap authoritative swarm status projection: state, "
+                "liveness, terminal/finalization/recovery, progress, issues, "
+                "failure classification, and freshness."
+            ),
+            input_schema=tool_schema(
+                {
+                    "swarm_id": {
+                        "type": "string",
+                        "description": "Research swarm id.",
+                    },
+                },
+                required=["swarm_id"],
+            ),
+            handler=server._tool_get_swarm_status,
+        ),
+        ToolDefinition(
+            name="smr_get_swarm_workspace_archive",
+            description=(
+                "Download the run-owned workspace archive as base64 gzip bytes."
+            ),
+            input_schema=tool_schema(
+                {
+                    "swarm_id": {
+                        "type": "string",
+                        "description": "Research swarm id.",
+                    },
+                },
+                required=["swarm_id"],
+            ),
+            handler=server._tool_get_swarm_workspace_archive,
+        ),
+        ToolDefinition(
             name="smr_get_run_contract",
             description=(
                 "Fetch the strict run_contract for a run. Use this for terminality, "

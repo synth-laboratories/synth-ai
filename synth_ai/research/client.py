@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
 from synth_ai.core.research.factories import FactoriesAPI
 from synth_ai.core.research.environments import EnvironmentsAPI
+from synth_ai.core.research.image_releases import ImageReleasesAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
 
@@ -83,6 +84,11 @@ class Client:
     def environments(self) -> EnvironmentsAPI:
         """Versioned runtime declarations and deterministic preflight."""
         return self._core.environments
+
+    @property
+    def image_releases(self) -> ImageReleasesAPI:
+        """Immutable customer image-release receipts and actor runtime images."""
+        return self._core.image_releases
 
     @property
     def projects(self) -> ResearchProjectsAPI:

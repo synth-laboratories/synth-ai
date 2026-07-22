@@ -355,6 +355,185 @@ class KickoffMessage:
 
 
 @dataclass(frozen=True, slots=True)
+class RoleBinding:
+    """One orchestrator or reviewer role binding."""
+
+    model: ActorModel
+    params: Mapping[str, FrozenJsonValue] = MappingProxyType({})
+    agent_harness: ActorHarness | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.model, ActorModel):
+            raise ValueError("role binding model must be ActorModel")
+        if self.agent_harness is not None and not isinstance(
+            self.agent_harness, ActorHarness
+        ):
+            raise ValueError("role binding agent_harness must be ActorHarness")
+        frozen = _freeze_json(dict(self.params) if self.params is not None else {})
+        if not isinstance(frozen, Mapping):
+            raise ValueError("role binding params must be an object")
+        object.__setattr__(self, "params", frozen)
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {
+            "model": self.model.value,
+            "params": _thaw_json(self.params),
+        }
+        if self.agent_harness is not None:
+            payload["agent_harness"] = self.agent_harness.value
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class WorkerRolePalette:
+    """Worker model palette with optional subtype overrides."""
+
+    permitted_models: tuple[ActorModel, ...]
+    default_model: ActorModel
+    default_params: Mapping[str, FrozenJsonValue] = MappingProxyType({})
+    agent_harness: ActorHarness | None = None
+    subtypes: Mapping[str, RoleBinding] = MappingProxyType({})
+
+    def __post_init__(self) -> None:
+        if not self.permitted_models:
+            raise ValueError("worker permitted_models must be non-empty")
+        if any(not isinstance(model, ActorModel) for model in self.permitted_models):
+            raise ValueError("worker permitted_models must be ActorModel values")
+        if self.default_model not in self.permitted_models:
+            raise ValueError("worker default_model must be in permitted_models")
+        if self.agent_harness is not None and not isinstance(
+            self.agent_harness, ActorHarness
+        ):
+            raise ValueError("worker agent_harness must be ActorHarness")
+        params = _freeze_json(
+            dict(self.default_params) if self.default_params is not None else {}
+        )
+        if not isinstance(params, Mapping):
+            raise ValueError("worker default_params must be an object")
+        object.__setattr__(self, "default_params", params)
+        normalized_subtypes: dict[str, RoleBinding] = {}
+        for name, binding in dict(self.subtypes or {}).items():
+            if not isinstance(binding, RoleBinding):
+                raise ValueError("worker subtype bindings must be RoleBinding")
+            normalized_subtypes[require_text(name, field_name="worker subtype")] = (
+                binding
+            )
+        object.__setattr__(self, "subtypes", MappingProxyType(normalized_subtypes))
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {
+            "permitted_models": [model.value for model in self.permitted_models],
+            "default_model": self.default_model.value,
+            "default_params": _thaw_json(self.default_params),
+            "subtypes": {
+                name: binding.to_wire() for name, binding in self.subtypes.items()
+            },
+        }
+        if self.agent_harness is not None:
+            payload["agent_harness"] = self.agent_harness.value
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class RoleBindings:
+    """Closed orchestrator/reviewer/worker launch policy."""
+
+    orchestrator: RoleBinding
+    reviewer: RoleBinding
+    worker: WorkerRolePalette
+    reviewer_subtypes: Mapping[str, RoleBinding] = MappingProxyType({})
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.orchestrator, RoleBinding):
+            raise ValueError("roles.orchestrator must be RoleBinding")
+        if not isinstance(self.reviewer, RoleBinding):
+            raise ValueError("roles.reviewer must be RoleBinding")
+        if not isinstance(self.worker, WorkerRolePalette):
+            raise ValueError("roles.worker must be WorkerRolePalette")
+        normalized_subtypes: dict[str, RoleBinding] = {}
+        for name, binding in dict(self.reviewer_subtypes or {}).items():
+            if not isinstance(binding, RoleBinding):
+                raise ValueError("reviewer subtype bindings must be RoleBinding")
+            normalized_subtypes[
+                require_text(name, field_name="reviewer subtype")
+            ] = binding
+        object.__setattr__(self, "reviewer_subtypes", MappingProxyType(normalized_subtypes))
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {
+            "orchestrator": self.orchestrator.to_wire(),
+            "reviewer": self.reviewer.to_wire(),
+            "worker": self.worker.to_wire(),
+        }
+        if self.reviewer_subtypes:
+            payload["reviewer_subtypes"] = {
+                name: binding.to_wire()
+                for name, binding in self.reviewer_subtypes.items()
+            }
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class PlatformResolvedExecutionTarget:
+    """Stable placement target that delegates substrate choice to the platform."""
+
+    kind: str = "platform_resolved"
+
+    def __post_init__(self) -> None:
+        if self.kind != "platform_resolved":
+            raise ValueError("stable execution_target.kind must be platform_resolved")
+
+    def to_wire(self) -> JsonObject:
+        return {"kind": "platform_resolved"}
+
+
+@dataclass(frozen=True, slots=True)
+class ActorImageBinding:
+    """Admitted runtime image-release binding for one actor role."""
+
+    release_id: str
+    reason: str | None = None
+    notes: str | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.release_id, field_name="actor image release_id")
+        for name, value in (("reason", self.reason), ("notes", self.notes)):
+            if value is not None:
+                require_text(value, field_name=name)
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {"release_id": self.release_id}
+        if self.reason is not None:
+            payload["reason"] = self.reason
+        if self.notes is not None:
+            payload["notes"] = self.notes
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class KickoffArtifact:
+    """Workspace-staged kickoff contract reference.
+
+    Stable launches stage kickoff bodies as project workspace artifacts and
+    reference them here. Unclosed kickoff dictionaries remain advanced-only.
+    """
+
+    path: str
+    contract_kind: str = "staged_smr_kickoff_contract"
+
+    def __post_init__(self) -> None:
+        require_text(self.path, field_name="kickoff artifact path")
+        require_text(self.contract_kind, field_name="kickoff contract_kind")
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "schema_version": 1,
+            "contract_kind": self.contract_kind,
+            "kickoff_contract_file": self.path,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SwarmSpec:
     objective: str
     work_mode: WorkMode | None = None
@@ -366,11 +545,17 @@ class SwarmSpec:
     agent_model: ActorModel | None = None
     agent_harness: ActorHarness | None = None
     actor_model_assignments: tuple[ActorModelAssignment, ...] = ()
+    roles: RoleBindings | None = None
     providers: tuple[ProviderBinding, ...] = ()
     limit: ResourceLimit | None = None
+    required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
+    kickoff_artifact: KickoffArtifact | None = None
+    execution_target: PlatformResolvedExecutionTarget | None = None
+    actor_image_overrides: Mapping[str, ActorImageBinding] = MappingProxyType({})
     local_execution: LocalExecution | None = None
     execution_profile: ExecutionProfile | None = None
+    environment_name: str | None = None
     worker_pool_id: str | None = None
     dev_environment_id: str | None = None
     effort_id: EffortId | None = None
@@ -382,8 +567,54 @@ class SwarmSpec:
             raise ValueError("intended_horizon_hours must be one of 1, 4, 8, 24, or 168")
         if self.timebox_seconds is not None and self.timebox_seconds <= 0:
             raise ValueError("timebox_seconds must be positive")
+        if self.roles is not None and not isinstance(self.roles, RoleBindings):
+            raise ValueError("roles must be RoleBindings")
+        if self.execution_target is not None and not isinstance(
+            self.execution_target,
+            PlatformResolvedExecutionTarget,
+        ):
+            raise ValueError(
+                "stable execution_target must be PlatformResolvedExecutionTarget"
+            )
+        if self.kickoff_artifact is not None and not isinstance(
+            self.kickoff_artifact,
+            KickoffArtifact,
+        ):
+            raise ValueError("kickoff_artifact must be KickoffArtifact")
+        if self.actor_model_assignments and self.roles is not None:
+            raise ValueError("roles cannot be combined with actor_model_assignments")
+        if self.execution_target is not None and any(
+            value is not None
+            for value in (
+                self.host_kind,
+                self.local_execution,
+                self.execution_profile,
+                self.worker_pool_id,
+            )
+        ):
+            raise ValueError(
+                "execution_target cannot be combined with legacy placement fields"
+            )
+        normalized_images: dict[str, ActorImageBinding] = {}
+        for role, binding in dict(self.actor_image_overrides or {}).items():
+            if not isinstance(binding, ActorImageBinding):
+                raise ValueError(
+                    "actor_image_overrides values must be ActorImageBinding"
+                )
+            normalized_images[require_text(role, field_name="actor image role")] = (
+                binding
+            )
+        object.__setattr__(
+            self, "actor_image_overrides", MappingProxyType(normalized_images)
+        )
+        capabilities = tuple(
+            require_text(item, field_name="required_capabilities")
+            for item in self.required_capabilities
+        )
+        object.__setattr__(self, "required_capabilities", capabilities)
         for name, value in (
             ("runbook_preset", self.runbook_preset),
+            ("environment_name", self.environment_name),
             ("worker_pool_id", self.worker_pool_id),
             ("dev_environment_id", self.dev_environment_id),
             ("effort_id", self.effort_id),
@@ -411,11 +642,19 @@ class SwarmSpec:
             ("worker_pool_id", self.worker_pool_id),
             ("dev_environment_id", self.dev_environment_id),
             ("effort_id", self.effort_id),
-            ("idempotency_key", self.idempotency_key),
         )
         for name, value in scalar_values:
             if value is not None:
                 payload[name] = value
+        if self.idempotency_key is not None:
+            payload["idempotency_key_run_create"] = self.idempotency_key
+        if self.environment_name is not None:
+            payload["environment"] = {
+                "schema_version": "2026-05-14-environment-v1",
+                "name": self.environment_name,
+            }
+        if self.roles is not None:
+            payload["roles"] = self.roles.to_wire()
         if self.actor_model_assignments:
             payload["actor_model_overrides"] = [
                 assignment.to_wire() for assignment in self.actor_model_assignments
@@ -424,10 +663,21 @@ class SwarmSpec:
             payload["providers"] = [provider.to_wire() for provider in self.providers]
         if self.limit is not None:
             payload["limit"] = self.limit.to_wire()
+        if self.required_capabilities:
+            payload["required_capabilities"] = list(self.required_capabilities)
         if self.kickoff_messages:
             payload["initial_runtime_messages"] = [
                 message.to_wire() for message in self.kickoff_messages
             ]
+        if self.kickoff_artifact is not None:
+            payload["kickoff_contract"] = self.kickoff_artifact.to_wire()
+        if self.execution_target is not None:
+            payload["execution_target"] = self.execution_target.to_wire()
+        if self.actor_image_overrides:
+            payload["actor_image_overrides"] = {
+                role: binding.to_wire()
+                for role, binding in self.actor_image_overrides.items()
+            }
         if self.local_execution is not None:
             payload["local_execution"] = self.local_execution.to_wire()
         if self.execution_profile is not None:
@@ -632,6 +882,7 @@ ResearchSwarmState = SwarmState
 
 __all__ = [
     "ActorHarness",
+    "ActorImageBinding",
     "ActorModel",
     "ActorModelAssignment",
     "ActorSubtype",
@@ -641,11 +892,15 @@ __all__ = [
     "EnvironmentVariable",
     "ExecutionCapability",
     "ExecutionProfile",
+    "KickoffArtifact",
     "KickoffMessage",
     "KickoffMessageMode",
     "LocalExecution",
+    "PlatformResolvedExecutionTarget",
     "ProviderBinding",
     "ResolvedSwarmConfiguration",
+    "RoleBinding",
+    "RoleBindings",
     "Swarm",
     "BranchSpec",
     "BranchResult",
@@ -662,4 +917,5 @@ __all__ = [
     "ResourceProvider",
     "Runbook",
     "WorkMode",
+    "WorkerRolePalette",
 ]
