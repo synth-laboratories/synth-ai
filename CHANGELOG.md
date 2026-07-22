@@ -4,6 +4,21 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.16.1 — 2026-07-22
+
+### Added
+
+- **Explicit reviewer profile binding** — runnable-project / Research project
+  creation accepts optional `reviewer_profile_id` (and MCP/SDK equivalents) so
+  hosted BRSR lanes bind the platform-owned verifier without inferring it from
+  worker profile ordering. Missing SDK support fails closed.
+
+### Notes
+
+- Install: `pip install synth-ai==0.16.1`.
+- Backend production already serves the matching reviewer/inspection surfaces.
+
+
 ## 0.16.0 — 2026-07-20
 
 ### Added
