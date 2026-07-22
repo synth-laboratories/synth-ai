@@ -64,6 +64,8 @@ Install the research extra when you need hosted runs, projects, Factory Tag, or 
 uv add "synth-ai[research]"
 ```
 
+Managed Research SDK/client, MCP server, models, transport, and public Research interfaces are provided by `synth-ai`; the standalone `managed-research` package is only a compatibility shim during retirement.
+
 Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
 
 ```python
