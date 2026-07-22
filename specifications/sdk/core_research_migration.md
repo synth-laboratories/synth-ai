@@ -2181,3 +2181,156 @@ design bar passes; the migration and release bar do not yet pass.
 | Ruff / `ty` / tests | NOT RUN | Explicitly skipped under workspace policy because the user did not request those validations |
 | User-triggered `/ultrareview` | PENDING | Mandatory before integration for this high-blast-radius migration |
 | `dev` integration and worktree cleanup | PENDING | Merge only after review; prove commits reachable from `dev`, then remove all three worktrees and feature branches |
+
+## Pause handoff — 2026-07-22T03:48:02Z
+
+This is the authoritative freeze point for the next engineer. It supersedes the
+older exact-head and incomplete-workspace statements in the historical handoff
+above. The goal remains **active**, not blocked or complete; implementation was
+paused at the user's request before review, release proof, or integration.
+
+### Frozen worktrees
+
+All three worktrees use branch `sdk-core-research-migration-20260721`. Do not
+reset, stash, or replace their main sibling worktrees.
+
+| Repository | Worktree | Frozen source head before this handoff commit | `origin/dev` delta | Worktree state |
+|---|---|---|---:|---|
+| `synth-ai` | `/Users/joshpurtell/Documents/GitHub/synth-ai-worktrees/sdk-core-research-migration` | `710583f5` | 44 ahead / 0 behind | This documentation commit sits on top; two interrupted image-release files remain untracked; every other file is clean |
+| `backend` | `/Users/joshpurtell/Documents/GitHub/backend-worktrees/sdk-core-research-migration` | `4add92832` | 27 ahead / 0 behind | Clean |
+| `evals` | `/Users/joshpurtell/Documents/GitHub/evals-worktrees/sdk-core-research-migration` | `2f0b11df` | 38 ahead / 8 behind | Clean; rebase/merge disposition belongs to review |
+
+Goal record:
+`Jstack/.jstack/records/goals/2026-07-21-019f8645.md` (`019f8645`). All
+implementation subagents were interrupted before this freeze.
+
+### New committed work after the previous handoff
+
+`synth-ai`:
+
+- `d34292ed` — deterministic workspace batches: 100 files per server mutation,
+  10,000 files per composite request, content-derived idempotency, complete
+  receipts, and exact partial-progress errors for sync/native async.
+- `0cdaaaf0` — strict four-operation Environment catalog in sync/native async
+  Python, CLI, and stable MCP; deliberately does not expose DevEnvironment
+  lifecycle as an Environment concern.
+- `6de7b40e` — public workspace batch exports and idempotent operation metadata.
+- `710583f5` — routes the three existing workspace MCP names through the typed
+  core API, adds the composite bound and exact parsing/scopes, removes the
+  obsolete dictionary request wrapper, exposes the tools in stable discovery,
+  and adds binary-safe CLI workspace inspect/source/upload commands.
+
+`backend`:
+
+- `e910fc69c` — performs the authoritative workspace git mutation before stored
+  file projection, propagates a bounded idempotency key, and allows projection
+  completion to resume after an existing idempotent git result.
+- `4add92832` — bounds the five customer image-release operations with strict
+  request/response schemas. The implementer's latest temporary export reported
+  69 operations / 211 schemas; this is not a replacement for the checked-in
+  contract artifact or a current-head parity receipt.
+
+`evals`:
+
+- `fe2ae068` — converts five ReportBench/SwarmBench/SwarmGameBench workspace
+  upload sites to exact `WorkspaceFileUpload` values and deterministic batches,
+  including binary-safe base64 handling.
+- `2f0b11df` — preserves an explicit advanced compatibility route for broad
+  ReportBench launch arguments that the current stable `SwarmSpec` cannot yet
+  represent. This prevents data loss during migration; it is not the final
+  launch cutover.
+
+The matching integrity defects and fixes are recorded in
+`Jstack/.jstack/records/bug_fixes/2026-07.md`, including workspace mutation
+ordering, eval launch compatibility, and legacy MCP workspace dispatch.
+
+### Quarantined, uncommitted image SDK draft
+
+The interrupted image-release SDK agent left exactly two untracked files:
+
+- `synth_ai/core/research/contracts/image_releases.py` — 1,187 lines.
+- `synth_ai/core/research/image_releases.py` — 221 lines.
+
+Do **not** stage them as-is. They were interrupted before compile/import/wire
+proof and before operation-registry, client composition, public exports, CLI,
+or MCP integration. The 1,187-line contract draft also fails the intended
+concern/magnitude posture and needs reviewer-led decomposition or deletion.
+Inspect it only as recoverable design material against backend `4add92832`.
+The paused status/archive and shared retry tasks left no source edits.
+
+### Release-significant launch audit
+
+The remaining launch gap is correctness, not naming polish:
+
+- Public `ResearchRunLaunchRequest` resolves to stable `SwarmSpec`, but the
+  active SwarmBench and SwarmGameBench builders pass unsupported `roles`,
+  `kickoff_contract`, `execution_target`, and, for SwarmBench,
+  `actor_image_overrides`.
+- `research.runs` is only a deprecated alias for `SwarmsAPI`; it has no
+  `check_preflight` or `create_configured`. The stable shape is one immutable
+  spec reused by `research.swarms.preflight(spec, project_id=...)` and
+  `research.swarms.create(spec, project_id=...)`.
+- Central ReportBench still prefers raw `_request_json`. Its adapter currently
+  drops the staged `kickoff_contract`, while its `workflow` field does not exist
+  in the backend request and is silently ignored by Pydantic's current default.
+- Do not solve this by adding raw dictionaries to `SwarmSpec`. The minimum
+  reviewed additions are typed role bindings, platform-resolved execution
+  target, admitted image-release bindings, required resource capabilities,
+  an Environment reference, canonical `idempotency_key_run_create` wire output,
+  and a kickoff strategy based on typed messages plus a workspace artifact.
+- Keep signed bound-runtime attestations, raw sandbox/cache overrides, inline
+  parent mutation, and unclosed kickoff dictionaries in advanced/control-plane
+  ownership unless an explicit product decision promotes a closed contract.
+- Backend `actor_model_overrides` and `actor_image_overrides` are different
+  authorities and must not be collapsed into a generic override type.
+
+The full field-by-field backend/SDK disposition was captured during the final
+read-only audit; re-derive it from `services/smr/api_schemas.py` and
+`synth_ai/core/research/contracts/swarms.py` before editing because neither
+contract is approved as final.
+
+### Ordered closeout for the next engineer
+
+1. Review the three frozen heads and decide whether to split/salvage or delete
+   the two untracked image files. Do not mix them into the first review commit.
+2. Finish the image-release vertical concern by concern: strict SDK contracts,
+   sync/native-async resource, operation metadata, client composition, public
+   exports, CLI, stable MCP, and exact backend OpenAPI parity.
+3. Add the small backend-owned swarm-status projection and graduate the existing
+   run-owned `application/gzip` workspace archive with stable operation IDs;
+   project only authoritative public-run fields and do not duplicate recovery
+   or finalization policy in a route or SDK decoder.
+4. Close the launch-contract decisions above, then rebuild SwarmBench,
+   SwarmGameBench, and central ReportBench around the same immutable typed spec
+   for preflight and create. Stage kickoff data as a typed workspace artifact,
+   preserve the objective, and delete the nonexistent `workflow` field.
+5. Wire the existing `RetryPolicy` into sync/native-async `execute` with exact
+   parity: retry only metadata-declared idempotent operations, require an
+   idempotency key for unsafe methods, retry only classified transient failures,
+   cap deterministic exponential/`Retry-After` delays, and never retry contract
+   decode failures. Bytes and SSE need explicit, separately reviewed semantics.
+6. Regenerate the bounded backend artifact and vendor it byte-identically in
+   `synth-ai`; regenerate the capability ledger and prove operation/handler,
+   Python, CLI, MCP, compatibility, and stable-import parity at the same heads.
+7. Run only the validations the user authorizes. This freeze has targeted
+   compilation/import/schema/diff receipts for landed verticals, but no unified
+   current-head gate, package/docs/live proof, Ruff, `ty`, or tests. The latest
+   Gemini/Jesterky receipts predate these heads and cannot accept them.
+8. Ask the user to trigger `/ultrareview`. Only after it clears should the
+   engineer integrate all three branches into `dev`, prove reachability, remove
+   the worktrees, and delete the temporary branches.
+
+### Pause scorecard delta
+
+| Gate | Frozen status | Exact next proof |
+|---|---:|---|
+| Workspace batching / projection integrity | PASS (targeted source proof) | Live retry and >100-file receipt proof |
+| Environment vertical | PASS (targeted source proof) | Checked-in OpenAPI parity and representative backend call |
+| Image-release backend | PASS (targeted backend source proof) | Reviewed/split SDK vertical and checked-in parity |
+| Image-release SDK | **UNCOMMITTED / UNREVIEWED** | Decide salvage/delete; then complete every adapter and proof |
+| Swarm status / workspace archive | NOT IMPLEMENTED | Backend-authoritative DTO/download plus SDK/adapters |
+| Launch contract and eval cutover | **FAIL** | One immutable typed spec; no raw fallback or dropped fields |
+| Shared retry guarantee | NOT IMPLEMENTED | Sync/native-async classified retry receipt |
+| Checked-in OpenAPI / capability ledger | **STALE** | Same-head byte and operation parity |
+| Current-head qualitative score | UNPROVED | Gemini 3.5 Flash Lite scan at mean >=7, every dimension >=5, no holds |
+| Release review / integration | PENDING | User-triggered ultrareview, authorized gates, merge and cleanup |
