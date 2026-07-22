@@ -52,12 +52,7 @@ def _default_backend_manifest_path() -> Path:
 def _default_backend_supported_models_path() -> Path:
     workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root
-        / "backend"
-        / "packages"
-        / "smr"
-        / "config"
-        / "supported_models_catalog.py"
+        workspace_root / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
     )
 
 
@@ -485,9 +480,7 @@ def sync_smr_actor_model_policy(
     shared_raw = raw.get("shared_top_level_agent_models")
     if isinstance(shared_raw, list) and shared_raw:
         shared_top_level = tuple(
-            dict.fromkeys(
-                str(model_id).strip() for model_id in shared_raw if str(model_id).strip()
-            )
+            dict.fromkeys(str(model_id).strip() for model_id in shared_raw if str(model_id).strip())
         )
     else:
         shared_top_level = _shared_top_level_model_ids(policies)
