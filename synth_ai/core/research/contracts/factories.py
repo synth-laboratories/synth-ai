@@ -62,6 +62,11 @@ class EffortType(StrEnum):
     OPEN_RESEARCH = "open_research"
 
 
+class EffortRunClass(StrEnum):
+    ORDINARY = "ordinary"
+    TINKER_SFT = "tinker_sft"
+
+
 class FactoryTransitionDecision(StrEnum):
     APPLIED = "applied"
     NOOP = "noop"
@@ -70,21 +75,39 @@ class FactoryTransitionDecision(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class BudgetPolicy:
-    """Stable customer and FactoryBench budget controls."""
+    """Stable customer budget controls."""
 
     limit_usd: float | None = None
     period: str | None = None
-    factory_limit_usd: float | None = None
-    ordinary_run_limit_usd: float | None = None
-    ordinary_run_target_usd: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.limit_usd is not None and self.limit_usd < 0:
+            raise ValueError("limit_usd must be non-negative")
+        if self.period is not None:
+            require_text(self.period, field_name="period")
+
+    def to_wire(self) -> JsonObject:
+        value: JsonObject = {}
+        if self.limit_usd is not None:
+            value["limit"] = self.limit_usd
+            value["currency"] = "USD"
+        if self.period is not None:
+            value["period"] = self.period
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryBudgetPolicy:
+    """Factory-owned budget envelope and per-swarm admission limits."""
+
+    factory_limit_usd: float
+    ordinary_run_limit_usd: float
+    ordinary_run_target_usd: float
     tinker_sft_run_limit_usd: float | None = None
     tinker_sft_runs_per_window: int | None = None
-    run_class: str | None = None
-    operator_approved: bool | None = None
 
     def __post_init__(self) -> None:
         for name in (
-            "limit_usd",
             "factory_limit_usd",
             "ordinary_run_limit_usd",
             "ordinary_run_target_usd",
@@ -95,31 +118,32 @@ class BudgetPolicy:
                 raise ValueError(f"{name} must be non-negative")
         if self.tinker_sft_runs_per_window is not None and self.tinker_sft_runs_per_window < 0:
             raise ValueError("tinker_sft_runs_per_window must be non-negative")
-        if self.period is not None:
-            require_text(self.period, field_name="period")
-        if self.run_class is not None:
-            require_text(self.run_class, field_name="run_class")
 
     def to_wire(self) -> JsonObject:
-        value: JsonObject = {}
-        if self.limit_usd is not None:
-            value["limit"] = self.limit_usd
-            value["currency"] = "USD"
-        if self.period is not None:
-            value["period"] = self.period
-        for name in (
-            "factory_limit_usd",
-            "ordinary_run_limit_usd",
-            "ordinary_run_target_usd",
-            "tinker_sft_run_limit_usd",
-            "tinker_sft_runs_per_window",
-            "run_class",
-            "operator_approved",
-        ):
-            field_value = getattr(self, name)
-            if field_value is not None:
-                value[name] = field_value
+        value: JsonObject = {
+            "factory_limit_usd": self.factory_limit_usd,
+            "ordinary_run_limit_usd": self.ordinary_run_limit_usd,
+            "ordinary_run_target_usd": self.ordinary_run_target_usd,
+        }
+        if self.tinker_sft_run_limit_usd is not None:
+            value["tinker_sft_run_limit_usd"] = self.tinker_sft_run_limit_usd
+        if self.tinker_sft_runs_per_window is not None:
+            value["tinker_sft_runs_per_window"] = self.tinker_sft_runs_per_window
         return value
+
+
+@dataclass(frozen=True, slots=True)
+class EffortBudgetPolicy:
+    """Admission class and human-approval posture for one Effort."""
+
+    run_class: EffortRunClass
+    operator_approved: bool
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "run_class": self.run_class.value,
+            "operator_approved": self.operator_approved,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,7 +204,7 @@ class FactorySpec:
     description: str | None = None
     kind: FactoryKind = FactoryKind.CUSTOMER
     state: FactoryCreateState = FactoryCreateState.ACTIVE
-    budget: BudgetPolicy | None = None
+    budget: BudgetPolicy | FactoryBudgetPolicy | None = None
     capacity: CapacityPolicy | None = None
     metadata: JsonObject = field(default_factory=dict)
 
@@ -332,7 +356,7 @@ class EffortSpec:
     next_wake_at: datetime | None = None
     decision_needed: bool = False
     decision_note: str | None = None
-    budget: BudgetPolicy | None = None
+    budget: BudgetPolicy | EffortBudgetPolicy | None = None
     actor_notes: JsonObject = field(default_factory=dict)
     metadata: JsonObject = field(default_factory=dict)
 
@@ -483,17 +507,20 @@ EffortPatchRequest = EffortPatch
 __all__ = [
     "BudgetPolicy",
     "CapacityPolicy",
+    "EffortBudgetPolicy",
     "Effort",
     "EffortCreateRequest",
     "EffortPatch",
     "EffortPatchRequest",
     "EffortRecurrence",
+    "EffortRunClass",
     "EffortSpec",
     "EffortStatus",
     "EffortType",
     "Factory",
     "FactoryCreateRequest",
     "FactoryCreateState",
+    "FactoryBudgetPolicy",
     "FactoryKind",
     "FactoryLifecycleState",
     "FactoryPatch",
