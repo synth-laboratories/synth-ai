@@ -6871,7 +6871,7 @@
         "type": "object"
       },
       "SmrResolvedActorProfilesResponse": {
-        "description": "Platform-resolved actor execution for a hosted launch \u2014 no customer input.\n\nSurfaces what the platform chose (orchestrator + worker profiles) so history\nand dashboards never conflate requested vs platform-chosen models.",
+        "description": "Platform-resolved actor execution for a hosted launch \u2014 no customer input.\n\nSurfaces what the platform chose (orchestrator, reviewer, and worker\nprofiles) so history and dashboards never conflate requested vs\nplatform-chosen models.",
         "properties": {
           "default_worker_profile_id": {
             "anyOf": [
@@ -6886,6 +6886,16 @@
           },
           "orchestrator": {
             "$ref": "#/components/schemas/SmrResolvedProfileResponse"
+          },
+          "reviewer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrResolvedProfileResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "workers": {
             "items": {
@@ -10161,6 +10171,19 @@
             "additionalProperties": true,
             "title": "Retention Policy",
             "type": "object"
+          },
+          "reviewer_profile_id": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Profile Id"
           },
           "runtime_artifact_release_id": {
             "anyOf": [
