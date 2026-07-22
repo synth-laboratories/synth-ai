@@ -52,7 +52,12 @@ def _default_backend_manifest_path() -> Path:
 def _default_backend_supported_models_path() -> Path:
     workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
+        workspace_root
+        / "backend"
+        / "packages"
+        / "smr"
+        / "config"
+        / "supported_models_catalog.py"
     )
 
 
@@ -160,7 +165,9 @@ def _load_actor_policy_manifest(source: Path | None) -> dict[str, object]:
         if legacy.is_file():
             raw = json.loads(legacy.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
-                raise ValueError("Actor model policy manifest must be a JSON object") from primary_exc
+                raise ValueError(
+                    "Actor model policy manifest must be a JSON object"
+                ) from primary_exc
             return raw
         raise RuntimeError(
             "Unable to sync Managed Research actor model policy from backend Python "
@@ -479,9 +486,7 @@ def sync_smr_actor_model_policy(
     if isinstance(shared_raw, list) and shared_raw:
         shared_top_level = tuple(
             dict.fromkeys(
-                str(model_id).strip()
-                for model_id in shared_raw
-                if str(model_id).strip()
+                str(model_id).strip() for model_id in shared_raw if str(model_id).strip()
             )
         )
     else:
