@@ -103,19 +103,22 @@ class AsyncHttpTransport:
         path: str,
         *,
         params: Mapping[str, JsonValue] | None = None,
+        timeout_seconds: float | None = None,
+        operation_id: str | None = None,
     ) -> bytes:
         try:
             response = await self.client.request(
                 method,
                 path,
                 params=cast(Mapping[str, object] | None, params),
+                timeout=self.timeout_seconds if timeout_seconds is None else timeout_seconds,
             )
         except httpx.TimeoutException as exc:
-            self.exception_handler(method, path, exc, None)
+            self.exception_handler(method, path, exc, operation_id)
         except httpx.TransportError as exc:
-            self.exception_handler(method, path, exc, None)
+            self.exception_handler(method, path, exc, operation_id)
         if response.is_error:
-            self.error_handler(response, None)
+            self.error_handler(response, operation_id)
         return bytes(response.content)
 
     async def stream_sse(

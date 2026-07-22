@@ -56,7 +56,19 @@ RESEARCH_OPERATIONS = {
         _operation("retrieve_project_setup", HttpMethod.GET, "/smr/projects/{project_id}/setup", idempotent=True),
         _operation("retrieve_research_limits", HttpMethod.GET, "/smr/limits", idempotent=True),
         _operation("retrieve_run", HttpMethod.GET, "/smr/runs/{run_id}", idempotent=True),
+        _operation(
+            "retrieve_swarm_artifact_content",
+            HttpMethod.GET,
+            "/smr/artifacts/{artifact_id}/content",
+            idempotent=True,
+        ),
         _operation("retrieve_swarm_configuration", HttpMethod.GET, "/smr/runs/{run_id}/configuration", idempotent=True),
+        _operation(
+            "retrieve_swarm_evidence",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/evidence",
+            idempotent=True,
+        ),
         _operation(
             "retrieve_swarm_usage",
             HttpMethod.GET,
@@ -64,6 +76,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation("retrieve_swarm_billing_drawdown", HttpMethod.GET, "/smr/billing/runs/{run_id}/drawdown", idempotent=True),
+        _operation(
+            "retrieve_swarm_work_product_content",
+            HttpMethod.GET,
+            "/smr/work-products/{work_product_id}/content",
+            idempotent=True,
+        ),
         _operation("start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True),
         _operation("stop_run", HttpMethod.POST, "/smr/runs/{run_id}/stop", mutation=True),
         _operation("stream_run_events", HttpMethod.GET, "/smr/runs/{run_id}/runtime/stream", idempotent=True),

@@ -98,6 +98,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_run",
         "research_get_run_transcript",
         "research_get_swarm_configuration",
+        "research_get_swarm_evidence",
         "research_get_swarm_usage",
         "research_list_active_runs",
         "research_list_factories",
@@ -2573,6 +2574,11 @@ class ResearchMcpServer:
         swarm_id = SwarmId(require_string(args, "swarm_id"))
         with self._core_client_from_args(args) as client:
             return client.swarms.usage(swarm_id).to_wire()
+
+    def _tool_get_swarm_evidence(self, args: JSONDict) -> JSONDict:
+        swarm_id = SwarmId(require_string(args, "swarm_id"))
+        with self._core_client_from_args(args) as client:
+            return client.swarms.evidence(swarm_id).to_wire()
 
     def _tool_get_run_contract(self, args: JSONDict) -> Any:
         project_id = require_string(args, "project_id")

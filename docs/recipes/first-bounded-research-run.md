@@ -31,6 +31,13 @@ with SynthClient() as client:
         print(resolved.config_version_id, resolved.snapshot_sha256)
         usage = handle.usage()
         print(usage.money.nominal_pico_usd, usage.freshness.as_of)
+        evidence = handle.evidence()
+        print(len(evidence.artifacts), len(evidence.work_products))
+        if evidence.work_products:
+            report = client.research.swarms.work_product_content(
+                evidence.work_products[0].work_product_id
+            )
+            print(report.decode("utf-8"))
     except Error as error:
         if handle is not None:
             handle.cancel()
@@ -62,6 +69,13 @@ projection. Aggregate money uses exact integer cents and pico-USD; actor money
 uses the cent precision supplied by its authority. Tokens and attribution are
 closed typed records rather than arbitrary mappings.
 
+`handle.evidence()` returns the complete durable artifact and WorkProduct index
+for the swarm at one observable read time. Counts are checked against the
+decoded records, identifiers are opaque types, WorkProduct kind/status/
+readiness and artifact roles are closed enums, and content is read as bytes
+through the same typed transport and failure contract. The SDK does not probe
+project-scoped legacy routes or inspect storage URIs.
+
 Stream typed events when live progress is needed:
 
 ```python
@@ -74,6 +88,6 @@ Known event kinds decode to `KnownSwarmEvent`. A server event introduced after
 the installed SDK decodes to `UnknownSwarmEvent` with its raw JSON preserved,
 rather than being misclassified or rejected.
 
-Advanced evidence, artifact, economics, and administrative projections remain
-under `client.research.advanced` until they graduate onto the bounded stable
-operation contract.
+Advanced operator timelines, traces, economics, and administrative projections
+remain under `client.research.advanced` until they graduate onto the bounded
+stable operation contract.

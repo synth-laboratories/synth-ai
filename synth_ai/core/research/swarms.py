@@ -12,6 +12,11 @@ from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import ProjectId, SwarmId
+from synth_ai.core.research.contracts.evidence import (
+    ContentDisposition,
+    SwarmEvidence,
+)
+from synth_ai.core.research.contracts.common import ArtifactId, WorkProductId
 from synth_ai.core.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -71,6 +76,10 @@ class SwarmHandle:
     def usage(self) -> SwarmUsage:
         """Return typed cost, token, actor, and freshness evidence."""
         return self._api.usage(self.swarm_id)
+
+    def evidence(self) -> SwarmEvidence:
+        """Return durable artifact and WorkProduct evidence."""
+        return self._api.evidence(self.swarm_id)
 
     def wait(
         self,
@@ -184,6 +193,50 @@ class SwarmsAPI:
         )
         return SwarmUsage.from_wire(value)
 
+    def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
+        """Return durable artifact and WorkProduct evidence."""
+        value = self._transport.execute(
+            _request(
+                "retrieve_swarm_evidence",
+                f"/smr/runs/{swarm_id}/evidence",
+            )
+        )
+        return SwarmEvidence.from_wire(value)
+
+    def artifact_content(
+        self,
+        artifact_id: ArtifactId,
+        *,
+        disposition: ContentDisposition = ContentDisposition.INLINE,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Read durable bytes for an artifact advertised by swarm evidence."""
+        operation = research_operation("retrieve_swarm_artifact_content")
+        return self._transport.request_bytes(
+            operation.method.value,
+            f"/smr/artifacts/{artifact_id}/content",
+            params={"disposition": disposition.value},
+            timeout_seconds=timeout_seconds,
+            operation_id=str(operation.operation_id),
+        )
+
+    def work_product_content(
+        self,
+        work_product_id: WorkProductId,
+        *,
+        disposition: ContentDisposition = ContentDisposition.INLINE,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Read durable bytes for a WorkProduct advertised by swarm evidence."""
+        operation = research_operation("retrieve_swarm_work_product_content")
+        return self._transport.request_bytes(
+            operation.method.value,
+            f"/smr/work-products/{work_product_id}/content",
+            params={"disposition": disposition.value},
+            timeout_seconds=timeout_seconds,
+            operation_id=str(operation.operation_id),
+        )
+
     def wait(
         self,
         swarm_id: SwarmId,
@@ -263,6 +316,10 @@ class AsyncSwarmHandle:
     async def usage(self) -> SwarmUsage:
         """Return typed cost, token, actor, and freshness evidence."""
         return await self._api.usage(self.swarm_id)
+
+    async def evidence(self) -> SwarmEvidence:
+        """Return durable artifact and WorkProduct evidence."""
+        return await self._api.evidence(self.swarm_id)
 
     async def wait(
         self,
@@ -375,6 +432,50 @@ class AsyncSwarmsAPI:
             )
         )
         return SwarmUsage.from_wire(value)
+
+    async def evidence(self, swarm_id: SwarmId) -> SwarmEvidence:
+        """Return durable artifact and WorkProduct evidence."""
+        value = await self._transport.execute(
+            _request(
+                "retrieve_swarm_evidence",
+                f"/smr/runs/{swarm_id}/evidence",
+            )
+        )
+        return SwarmEvidence.from_wire(value)
+
+    async def artifact_content(
+        self,
+        artifact_id: ArtifactId,
+        *,
+        disposition: ContentDisposition = ContentDisposition.INLINE,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Read durable bytes for an artifact advertised by swarm evidence."""
+        operation = research_operation("retrieve_swarm_artifact_content")
+        return await self._transport.request_bytes(
+            operation.method.value,
+            f"/smr/artifacts/{artifact_id}/content",
+            params={"disposition": disposition.value},
+            timeout_seconds=timeout_seconds,
+            operation_id=str(operation.operation_id),
+        )
+
+    async def work_product_content(
+        self,
+        work_product_id: WorkProductId,
+        *,
+        disposition: ContentDisposition = ContentDisposition.INLINE,
+        timeout_seconds: float | None = None,
+    ) -> bytes:
+        """Read durable bytes for a WorkProduct advertised by swarm evidence."""
+        operation = research_operation("retrieve_swarm_work_product_content")
+        return await self._transport.request_bytes(
+            operation.method.value,
+            f"/smr/work-products/{work_product_id}/content",
+            params={"disposition": disposition.value},
+            timeout_seconds=timeout_seconds,
+            operation_id=str(operation.operation_id),
+        )
 
     async def wait(
         self,

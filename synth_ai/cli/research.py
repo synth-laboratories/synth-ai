@@ -209,6 +209,27 @@ def swarms_usage(
         click.echo(json.dumps(usage.to_wire(), indent=2, sort_keys=True))
 
 
+@swarms.command("evidence")
+@click.argument("swarm_id")
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_evidence(
+    swarm_id: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Print durable artifact and WorkProduct evidence for a swarm."""
+    from synth_ai import SynthClient
+    from synth_ai.research import SwarmId
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        evidence = client.research.swarms.evidence(SwarmId(swarm_id))
+        click.echo(json.dumps(evidence.to_wire(), indent=2, sort_keys=True))
+
+
 @research.group()
 def factories() -> None:
     """Inspect stable Research Factories."""

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 
 from synth_ai.core.research.contracts.common import (
+    ArtifactId,
     ConfigurationVersionId,
     EffortId,
     EnvironmentKind,
@@ -15,6 +16,20 @@ from synth_ai.core.research.contracts.common import (
     ProjectId,
     RuntimeKind,
     SwarmId,
+    WorkProductId,
+)
+from synth_ai.core.research.contracts.evidence import (
+    ContentDisposition,
+    EvidenceArtifact,
+    EvidenceFreshness,
+    EvidenceWorkProduct,
+    SwarmEvidence,
+    WorkProductArtifactLink,
+    WorkProductArtifactRole,
+    WorkProductBlocker,
+    WorkProductKind,
+    WorkProductReadiness,
+    WorkProductStatus,
 )
 from synth_ai.core.research.contracts.factories import (
     BudgetPolicy,
@@ -122,6 +137,7 @@ def __getattr__(name: str) -> object:
     return value
 
 __all__ = [
+    "ArtifactId",
     "ActorHarness",
     "ActorModel",
     "ActorModelAssignment",
@@ -136,7 +152,11 @@ __all__ = [
     "BudgetPolicy",
     "CapacityPolicy",
     "ConfigurationVersionId",
+    "ContentDisposition",
     "EnvironmentVariable",
+    "EvidenceArtifact",
+    "EvidenceFreshness",
+    "EvidenceWorkProduct",
     "Effort",
     "EffortCreateRequest",
     "EffortPatch",
@@ -200,6 +220,7 @@ __all__ = [
     "Runbook",
     "RuntimeKind",
     "SwarmId",
+    "SwarmEvidence",
     "Swarm",
     "SwarmPreflight",
     "SwarmSpec",
@@ -211,4 +232,11 @@ __all__ = [
     "UsageMoney",
     "UsageSource",
     "WorkMode",
+    "WorkProductArtifactLink",
+    "WorkProductArtifactRole",
+    "WorkProductBlocker",
+    "WorkProductId",
+    "WorkProductKind",
+    "WorkProductReadiness",
+    "WorkProductStatus",
 ]

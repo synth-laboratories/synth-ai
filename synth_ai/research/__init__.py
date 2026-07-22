@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 
 from synth_ai.core.research.contracts import (
+    ArtifactId,
     ActorTokenUsage,
     ActorUsage,
     ActorUsageMoney,
@@ -18,6 +19,7 @@ from synth_ai.core.research.contracts import (
     ActorModel,
     BudgetPolicy,
     CapacityPolicy,
+    ContentDisposition,
     ConfigurationVersionId,
     Effort,
     EffortId,
@@ -25,6 +27,9 @@ from synth_ai.core.research.contracts import (
     EffortRecurrence,
     EffortSpec,
     EnvironmentKind,
+    EvidenceArtifact,
+    EvidenceFreshness,
+    EvidenceWorkProduct,
     Factory,
     FactoryId,
     FactoryPatch,
@@ -37,6 +42,7 @@ from synth_ai.core.research.contracts import (
     ProjectSpec,
     ResolvedSwarmConfiguration,
     Swarm,
+    SwarmEvidence,
     BranchSpec,
     BranchResult as Branch,
     SwarmSpec,
@@ -52,6 +58,13 @@ from synth_ai.core.research.contracts import (
     RuntimeKind,
     SwarmId,
     WorkMode,
+    WorkProductArtifactLink,
+    WorkProductArtifactRole,
+    WorkProductBlocker,
+    WorkProductId,
+    WorkProductKind,
+    WorkProductReadiness,
+    WorkProductStatus,
 )
 from synth_ai.core.research.swarms import SwarmHandle
 from synth_ai.core.errors import (
@@ -71,6 +84,7 @@ from synth_ai.research.async_client import AsyncClient
 from synth_ai.research.client import Client
 
 __all__ = [
+    "ArtifactId",
     "ActorHarness",
     "ActorModel",
     "ActorTokenUsage",
@@ -82,6 +96,7 @@ __all__ = [
     "BudgetPolicy",
     "CapacityPolicy",
     "Client",
+    "ContentDisposition",
     "ConfigurationVersionId",
     "Effort",
     "EffortId",
@@ -89,6 +104,9 @@ __all__ = [
     "EffortRecurrence",
     "EffortSpec",
     "EnvironmentKind",
+    "EvidenceArtifact",
+    "EvidenceFreshness",
+    "EvidenceWorkProduct",
     "Error",
     "ErrorCategory",
     "ErrorCode",
@@ -109,6 +127,7 @@ __all__ = [
     "RuntimeKind",
     "Retry",
     "Swarm",
+    "SwarmEvidence",
     "SwarmEvent",
     "SwarmEventKind",
     "SwarmHandle",
@@ -124,6 +143,13 @@ __all__ = [
     "UsageMoney",
     "UsageSource",
     "WorkMode",
+    "WorkProductArtifactLink",
+    "WorkProductArtifactRole",
+    "WorkProductBlocker",
+    "WorkProductId",
+    "WorkProductKind",
+    "WorkProductReadiness",
+    "WorkProductStatus",
 ]
 
 _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {

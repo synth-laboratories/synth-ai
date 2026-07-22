@@ -8650,6 +8650,149 @@
         "title": "SmrSwarmActorUsageResponse",
         "type": "object"
       },
+      "SmrSwarmArtifactEvidenceResponse": {
+        "additionalProperties": false,
+        "description": "One durable artifact advertised by a swarm evidence snapshot.",
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "artifact_type": {
+            "minLength": 1,
+            "title": "Artifact Type",
+            "type": "string"
+          },
+          "content_url": {
+            "minLength": 1,
+            "title": "Content Url",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "download_url": {
+            "minLength": 1,
+            "title": "Download Url",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "artifact_type",
+          "created_at",
+          "content_url",
+          "download_url"
+        ],
+        "title": "SmrSwarmArtifactEvidenceResponse",
+        "type": "object"
+      },
+      "SmrSwarmEvidenceFreshnessResponse": {
+        "additionalProperties": false,
+        "description": "Observable completeness and read time for durable swarm evidence.",
+        "properties": {
+          "artifact_count": {
+            "minimum": 0.0,
+            "title": "Artifact Count",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "run_is_terminal": {
+            "title": "Run Is Terminal",
+            "type": "boolean"
+          },
+          "work_product_count": {
+            "minimum": 0.0,
+            "title": "Work Product Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "generated_at",
+          "artifact_count",
+          "work_product_count",
+          "run_is_terminal"
+        ],
+        "title": "SmrSwarmEvidenceFreshnessResponse",
+        "type": "object"
+      },
+      "SmrSwarmEvidenceResponse": {
+        "additionalProperties": false,
+        "description": "Concise durable artifact and WorkProduct index for one swarm.",
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmArtifactEvidenceResponse"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/SmrSwarmEvidenceFreshnessResponse"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "work_products": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmWorkProductEvidenceResponse"
+            },
+            "title": "Work Products",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "artifacts",
+          "work_products",
+          "freshness"
+        ],
+        "title": "SmrSwarmEvidenceResponse",
+        "type": "object"
+      },
       "SmrSwarmTokenCountsResponse": {
         "additionalProperties": false,
         "description": "Token counts for one swarm or model.",
@@ -8871,6 +9014,173 @@
           "freshness"
         ],
         "title": "SmrSwarmUsageResponse",
+        "type": "object"
+      },
+      "SmrSwarmWorkProductArtifactLinkResponse": {
+        "additionalProperties": false,
+        "description": "Typed artifact binding retained by one WorkProduct.",
+        "properties": {
+          "artifact_id": {
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "role": {
+            "$ref": "#/components/schemas/WorkProductArtifactRole"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "role"
+        ],
+        "title": "SmrSwarmWorkProductArtifactLinkResponse",
+        "type": "object"
+      },
+      "SmrSwarmWorkProductBlockerResponse": {
+        "additionalProperties": false,
+        "description": "Stable reason that a WorkProduct is not currently consumable.",
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "SmrSwarmWorkProductBlockerResponse",
+        "type": "object"
+      },
+      "SmrSwarmWorkProductEvidenceResponse": {
+        "additionalProperties": false,
+        "description": "One typed WorkProduct advertised by a swarm evidence snapshot.",
+        "properties": {
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          },
+          "artifact_links": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmWorkProductArtifactLinkResponse"
+            },
+            "title": "Artifact Links",
+            "type": "array"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrSwarmWorkProductBlockerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_url": {
+            "minLength": 1,
+            "title": "Content Url",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/WorkProductKind"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/WorkProductReadiness"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkProductStatus"
+          },
+          "subtype_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype Kind"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "work_product_id": {
+            "minLength": 1,
+            "title": "Work Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_product_id",
+          "kind",
+          "title",
+          "status",
+          "readiness",
+          "artifact_links",
+          "content_url",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrSwarmWorkProductEvidenceResponse",
         "type": "object"
       },
       "SmrToolProvider": {
@@ -9446,6 +9756,48 @@
         ],
         "title": "WorkMode",
         "type": "string"
+      },
+      "WorkProductArtifactRole": {
+        "enum": [
+          "primary",
+          "evidence",
+          "visual",
+          "media",
+          "scorecard"
+        ],
+        "title": "WorkProductArtifactRole",
+        "type": "string"
+      },
+      "WorkProductKind": {
+        "enum": [
+          "report",
+          "model",
+          "candidate",
+          "container_eval"
+        ],
+        "title": "WorkProductKind",
+        "type": "string"
+      },
+      "WorkProductReadiness": {
+        "enum": [
+          "downloadable",
+          "importable",
+          "viewable",
+          "blocked",
+          "unavailable"
+        ],
+        "title": "WorkProductReadiness",
+        "type": "string"
+      },
+      "WorkProductStatus": {
+        "enum": [
+          "ready",
+          "blocked",
+          "failed",
+          "deleted"
+        ],
+        "title": "WorkProductStatus",
+        "type": "string"
       }
     }
   },
@@ -9474,6 +9826,60 @@
         "summary": "Get Billing Entitlements",
         "tags": [
           "billing"
+        ]
+      }
+    },
+    "/smr/artifacts/{artifact_id}/content": {
+      "get": {
+        "operationId": "retrieve_swarm_artifact_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "artifact_id",
+            "required": true,
+            "schema": {
+              "title": "Artifact Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "disposition",
+            "required": false,
+            "schema": {
+              "default": "inline",
+              "pattern": "^(inline|attachment)$",
+              "title": "Disposition",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Artifact Content",
+        "tags": [
+          "smr"
         ]
       }
     },
@@ -11481,6 +11887,49 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/evidence": {
+      "get": {
+        "description": "Return durable artifacts and WorkProducts for a swarm.",
+        "operationId": "retrieve_swarm_evidence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrSwarmEvidenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Swarm Evidence",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/runs/{run_id}/pause": {
       "post": {
         "operationId": "pause_run",
@@ -11919,6 +12368,61 @@
         "summary": "Get one-off run launch preflight",
         "tags": [
           "smr"
+        ]
+      }
+    },
+    "/smr/work-products/{work_product_id}/content": {
+      "get": {
+        "operationId": "retrieve_swarm_work_product_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "work_product_id",
+            "required": true,
+            "schema": {
+              "title": "Work Product Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "disposition",
+            "required": false,
+            "schema": {
+              "default": "inline",
+              "pattern": "^(inline|attachment)$",
+              "title": "Disposition",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Work Product Content",
+        "tags": [
+          "smr",
+          "work_products"
         ]
       }
     }

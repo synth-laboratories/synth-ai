@@ -64,6 +64,8 @@ with SynthClient() as client:
     print(resolved.config_version_id, resolved.snapshot_sha256)
     usage = swarm.usage()
     print(usage.money.nominal_pico_usd, usage.tokens.totals.input_tokens)
+    evidence = swarm.evidence()
+    print(evidence.artifacts, evidence.work_products)
 ```
 
 `create` returns a durable handle immediately. `events()` yields typed events,
@@ -75,6 +77,10 @@ project's current mutable configuration.
 `usage()` returns one typed cost, token, and actor-attribution projection plus
 its source, record count, observation time, and terminal-state freshness. It
 does not expose the legacy raw ledger-entry dictionaries.
+`evidence()` returns the complete durable artifact and WorkProduct index with
+strict counts and lifecycle freshness. Artifact and WorkProduct content reads
+use the same typed transport and return bytes; they do not expose storage
+authority.
 
 ## Research SDK
 

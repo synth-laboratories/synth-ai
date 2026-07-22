@@ -11,6 +11,14 @@ class SwarmId(str):
     """Backend-owned Research swarm identifier."""
 
 
+class ArtifactId(str):
+    """Backend-owned durable Research artifact identifier."""
+
+
+class WorkProductId(str):
+    """Backend-owned durable Research WorkProduct identifier."""
+
+
 class ConfigurationVersionId(str):
     """Immutable backend configuration-snapshot identifier."""
 
@@ -51,6 +59,7 @@ def require_text(value: str, *, field_name: str) -> str:
 
 
 __all__ = [
+    "ArtifactId",
     "ConfigurationVersionId",
     "EffortId",
     "EnvironmentKind",
@@ -61,4 +70,5 @@ __all__ = [
     "ProjectId",
     "RuntimeKind",
     "SwarmId",
+    "WorkProductId",
 ]
