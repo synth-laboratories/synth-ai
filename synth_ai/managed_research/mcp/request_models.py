@@ -330,6 +330,9 @@ class RunnableProjectCreateRequest:
             "orchestrator_profile_id": require_string(payload, "orchestrator_profile_id"),
             "default_worker_profile_id": require_string(payload, "default_worker_profile_id"),
         }
+        reviewer_profile_id = payload.get("reviewer_profile_id")
+        if reviewer_profile_id is not None:
+            agent_profiles["reviewer_profile_id"] = require_string(payload, "reviewer_profile_id")
         worker_profile_ids = payload.get("worker_profile_ids")
         if worker_profile_ids is not None:
             if not isinstance(worker_profile_ids, list):

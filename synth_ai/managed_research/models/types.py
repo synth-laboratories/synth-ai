@@ -1711,11 +1711,57 @@ class SmrResolvedActorProfiles:
     orchestrator: SmrResolvedProfile
     workers: tuple[SmrResolvedProfile, ...] = field(default_factory=tuple)
     default_worker_profile_id: str | None = None
+    reviewer: SmrResolvedProfile | None = None
 
     @classmethod
     def from_wire(cls, payload: object) -> SmrResolvedActorProfiles | None:
         if not isinstance(payload, Mapping):
             return None
+        direct_orchestrator = payload.get("orchestrator")
+        if isinstance(direct_orchestrator, Mapping):
+            orchestrator_id = str(direct_orchestrator.get("profile_id") or "").strip()
+            if not orchestrator_id:
+                return None
+            orchestrator = SmrResolvedProfile.from_wire(
+                role=SmrActorType.ORCHESTRATOR,
+                profile_id=orchestrator_id,
+                snapshot=direct_orchestrator,
+            )
+            if orchestrator is None:
+                return None
+            workers: list[SmrResolvedProfile] = []
+            direct_workers = payload.get("workers")
+            if isinstance(direct_workers, (list, tuple)):
+                for worker_payload in direct_workers:
+                    if not isinstance(worker_payload, Mapping):
+                        continue
+                    worker_id = str(worker_payload.get("profile_id") or "").strip()
+                    if not worker_id:
+                        continue
+                    worker = SmrResolvedProfile.from_wire(
+                        role=SmrActorType.WORKER,
+                        profile_id=worker_id,
+                        snapshot=worker_payload,
+                    )
+                    if worker is not None:
+                        workers.append(worker)
+            direct_reviewer = payload.get("reviewer")
+            reviewer: SmrResolvedProfile | None = None
+            if isinstance(direct_reviewer, Mapping):
+                reviewer_id = str(direct_reviewer.get("profile_id") or "").strip()
+                if reviewer_id:
+                    reviewer = SmrResolvedProfile.from_wire(
+                        role=SmrActorType.REVIEWER,
+                        profile_id=reviewer_id,
+                        snapshot=direct_reviewer,
+                    )
+            default_worker = payload.get("default_worker_profile_id")
+            return cls(
+                orchestrator=orchestrator,
+                workers=tuple(workers),
+                default_worker_profile_id=(str(default_worker) if default_worker else None),
+                reviewer=reviewer,
+            )
         resolved = payload.get("resolved_profiles")
         orchestrator_id = payload.get("orchestrator_profile_id")
         if not isinstance(resolved, Mapping) or not orchestrator_id:
@@ -1739,10 +1785,21 @@ class SmrResolvedActorProfiles:
                 if worker is not None:
                     workers.append(worker)
         default_worker = payload.get("default_worker_profile_id")
+        reviewer_id = payload.get("reviewer_profile_id")
+        reviewer = (
+            SmrResolvedProfile.from_wire(
+                role=SmrActorType.REVIEWER,
+                profile_id=str(reviewer_id),
+                snapshot=resolved.get(str(reviewer_id)),
+            )
+            if reviewer_id
+            else None
+        )
         return cls(
             orchestrator=orchestrator,
             workers=tuple(workers),
             default_worker_profile_id=(str(default_worker) if default_worker else None),
+            reviewer=reviewer,
         )
 
 
@@ -1826,16 +1883,20 @@ class SmrAgentProfileBindings:
     orchestrator_profile_id: str
     default_worker_profile_id: str
     worker_profile_ids: list[str] = field(default_factory=list)
+    reviewer_profile_id: str | None = None
 
     def to_wire(self) -> dict[str, object]:
         worker_profile_ids = list(self.worker_profile_ids)
         if not worker_profile_ids:
             worker_profile_ids = [self.default_worker_profile_id]
-        return {
+        payload: dict[str, object] = {
             "orchestrator_profile_id": self.orchestrator_profile_id,
             "default_worker_profile_id": self.default_worker_profile_id,
             "worker_profile_ids": worker_profile_ids,
         }
+        if self.reviewer_profile_id is not None:
+            payload["reviewer_profile_id"] = self.reviewer_profile_id
+        return payload
 
 
 @dataclass(frozen=True)
@@ -1916,6 +1977,10 @@ class SmrRunnableProjectRequest:
                     "default_worker_profile_id",
                     label="runnable project request.agent_profiles.default_worker_profile_id",
                 ),
+                reviewer_profile_id=_optional_string(
+                    agent_profiles_payload,
+                    "reviewer_profile_id",
+                ),
                 worker_profile_ids=worker_profile_ids,
             ),
             worker_profile_ids=worker_profile_ids,
@@ -1964,6 +2029,8 @@ class SmrRunnableProjectRequest:
             "policy": dict(self.policy),
             "trial_matrix": dict(self.trial_matrix),
         }
+        if self.agent_profiles.reviewer_profile_id is not None:
+            payload["reviewer_profile_id"] = self.agent_profiles.reviewer_profile_id
         if self.actor_model_assignments:
             payload["actor_model_assignments"] = [
                 item.as_payload() for item in self.actor_model_assignments
