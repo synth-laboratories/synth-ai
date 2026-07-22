@@ -52,11 +52,11 @@ are evidence attachments to this document.
 | Area | Current checkpoint | Review implication |
 |---|---|---|
 | `synth-ai` | Committed candidate with concise projects/swarms/factories APIs, typed failures/events, native async parity, and stable-versus-advanced discovery | Review the product/API contract in the candidate; do not equate passing structure checks with release readiness |
-| `backend` | Committed Research contract/MCP cutover and 12-operation Factory/Effort extension; bounded artifact now contains 44 operations | Approve the exact Factory/Effort lifecycle and confirm each operation remains backend-owned |
+| `backend` | Committed Research contract/MCP cutover, 12-operation Factory/Effort extension, and immutable resolved-configuration read; bounded artifact now contains 45 operations | Approve the exact Factory/Effort lifecycle and confirm each operation remains backend-owned |
 | `evals` | Committed removal of deep imports and seven call-site cutovers to stable or explicit `advanced` APIs | Verify real workflow behavior and decide whether each advanced dependency is acceptable or must graduate |
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
-| Delivery | MCP defaults to 35 stable noun-first tools while 280 advanced tools remain explicitly discoverable; CLI places legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
+| Delivery | MCP defaults to 36 stable noun-first tools; runtime discovery contains 245 additional advanced tools, while the source ledger records 260 advanced adapter definitions before registry deduplication/removal; CLI exposes the resolved-configuration read and keeps legacy limits/Tag under `research advanced` | Approve adapter scope and require every advertised stable tool to conform to the same operation/error contract |
 | Quality | Baseline 5.64 → relocation 6.45 → first candidate 7.09 → import-isolated candidate 7.09 → strongest repeat 7.18 → latest repeat 7.09; latest minimum 6, no holds | Qualitative threshold passes; the 0.09 repeat variance and compression, documentation, naming, and reach at 6/10 remain review evidence, not a release waiver |
 
 The implementation worktrees and exact review order are recorded in
@@ -1009,9 +1009,11 @@ Without this matrix, `core/http/retry.py` merely centralizes guesses.
 #### 6. Swarms are not reproducible research objects
 
 Claude versions agent definitions; Modal versions deployments and supports
-version-pinned Function handles. Synth's post-migration plan defines typed
-launch requests but does not yet require an immutable resolved configuration
-snapshot. A `Swarm` must expose the exact effective configuration after server
+version-pinned Function handles. The candidate now exposes a dedicated
+`retrieve_swarm_configuration` operation: the backend loads the exact durable
+run-bound configuration version, secret-redacts it at the public boundary,
+hashes the returned projection, and the SDK recursively freezes it. The review
+must still verify that the snapshot covers every effective value after server
 defaults and policy resolution:
 
 - public contract and server build version;
@@ -1203,9 +1205,13 @@ Exit: no unclassified operation and no new legacy growth.
 
 Implementation evidence:
 
-- `specifications/sdk/research_capability_ledger.json` now records 2,088
+- `specifications/sdk/research_capability_ledger.json` now records 2,090
   backend-route, SDK-method, MCP-tool, and backend/eval-consumer rows with zero
-  unclassified dispositions and exact source commit identities. The original
+  unclassified dispositions and exact source commit identities. All 45
+  advanced backend-route rows are owned by their backend domain, all 45
+  advanced eval-import rows are explicitly retained under evals ownership, and
+  the MCP inventory distinguishes 36 public from 260 advanced source adapters.
+  The original
   Phase 0 inventory contained 2,339 rows; row count may decrease as retired
   surfaces disappear while the frozen architecture magnitudes remain ratchets.
 - The baseline freezes 156 legacy implementation files / 61,081 lines, 42
@@ -1251,8 +1257,8 @@ Implementation evidence (in progress):
 - Backend `scripts/export_research_openapi.py` filters the real application
   OpenAPI graph by explicit `PUBLIC_OPERATION_IDS`, verifies operation ID drift,
   and emits the transitive schema closure.
-- `openapi/research-v1.json` currently vendors 44 backend-authored operations and
-  135 required schemas. `scripts/check_research_openapi_contract.py` proves byte
+- `openapi/research-v1.json` currently vendors 45 backend-authored operations and
+  137 required schemas. `scripts/check_research_openapi_contract.py` proves byte
   parity with a supplied backend artifact and exact method/path/operation-ID
   parity with `core/research/operations.py`.
 
@@ -1286,6 +1292,12 @@ Implementation evidence (in progress):
 - Typed launch intent covers actor model assignments, providers, resource
   limits, kickoff messages, local execution identity, and execution profiles;
   no public launch mapping is accepted by the core API.
+- `SwarmHandle.configuration()` and the sync/async swarm APIs resolve the exact
+  run-bound configuration version through one backend-owned operation. The
+  returned `ResolvedSwarmConfiguration` is frozen, versioned, secret-redacted,
+  hash-identified, and exposed through matching CLI and stable MCP reads. The
+  backend fails explicitly for historical unversioned runs or missing durable
+  snapshots instead of reading the project's current configuration.
 - Sync and native-async project/swarm APIs support create, retrieve/list,
   setup/preflight, wait, pause/resume/cancel, branch, and typed live events.
   `research.runs` warns and returns the exact same swarm API object.
@@ -1663,15 +1675,15 @@ proves some exit conditions and contradicts or cannot prove the rest.
 
 | Phase | Status | Evidence proved now | Evidence still required |
 |---|---:|---|---|
-| 0 — freeze and ledger | PASS | 2,088 rows, zero unclassified, frozen growth/deep-import ratchets, dated compatibility policy | Keep ratchets green after every later edit |
+| 0 — freeze and ledger | PASS | 2,090 rows, zero unclassified, explicit owners for all 90 advanced backend/eval rows, public/advanced MCP classification, frozen growth/deep-import ratchets, dated compatibility policy | Keep ratchets green after every later edit |
 | 1 — core foundations | PARTIAL | Shared credential, sync/async HTTP, retry, JSON, pagination, and error primitives exist; Research uses native async | Prove every container/pool/Research path uses one behaviorally identical error/retry/auth boundary and no domain transport remains |
-| 2 — bounded backend contract | PARTIAL | Backend-authored 44-operation / 135-schema artifact has exact byte and operation parity | Put the checker in authoritative CI and prove enum, requiredness, error, event, pagination, and state drift—not only operation metadata |
-| 3 — projects and swarms | PARTIAL | Stable typed sync/async project and swarm APIs, same-object run aliases, event protocol, zero deep eval imports | Replace remaining active compatibility launch names, prove the hero loop against a real backend, and prove resolved configuration identity |
+| 2 — bounded backend contract | PARTIAL | Backend-authored 45-operation / 137-schema artifact has exact byte and operation parity | Put the checker in authoritative CI and prove enum, requiredness, error, event, pagination, and state drift—not only operation metadata |
+| 3 — projects and swarms | PARTIAL | Stable typed sync/async project and swarm APIs, same-object run aliases, event protocol, immutable resolved-configuration read, zero deep eval imports | Replace remaining active compatibility launch names and prove the hero loop plus resolved-configuration read against a real backend |
 | 4 — evidence and collaboration | PARTIAL | Implementation is under core and active callers use public or explicit advanced paths | Replace legacy-backed readout models, mapping probes, and `Any` returns with one typed freshness/event/artifact protocol; prove an eval evidence vertical |
 | 5 — factories and economics | PARTIAL | Seven economics plus twelve Factory/Effort operations are bounded and typed with sync/async peers | Classify or graduate every legacy-session Factory projection and prove lifecycle/idempotency semantics against backend |
 | 6 — resources and deployment | NOT PROVED | Existing resource code is reachable through the explicit advanced bridge | Graduate general environments/images/deployments/repositories/datasets/workspace-input operations to typed core contracts or classify them non-public; remove duplicate transport/identity paths |
-| 7 — CLI and MCP | PARTIAL | MCP package moved, stable discovery is 35 noun-first tools, CLI uses the new Research command root | Replace or remove 280 advanced legacy-backed MCP tools and legacy request models; prove Python/CLI/MCP operation and failure parity |
-| 8 — eval cutover | PARTIAL | Deep and standalone-package imports are zero; top-level client aliases are gone; GameBench scorer ownership moved to evals; 45 explicit advanced imports are identified | Assign an owner and graduate/retain/remove disposition to all 45 advanced rows, then run representative project/swarm/Factory eval workflows |
+| 7 — CLI and MCP | PARTIAL | MCP package moved, stable discovery is 36 noun-first tools, CLI uses the new Research command root and matches the resolved-configuration operation | Replace or remove the 245 runtime-discoverable advanced legacy-backed tools and legacy request models; prove Python/CLI/MCP operation and failure parity |
+| 8 — eval cutover | PARTIAL | Deep and standalone-package imports are zero; top-level client aliases are gone; GameBench scorer ownership moved to evals; all 45 explicit advanced imports are retained with evals ownership | Run representative project/swarm/Factory eval workflows and graduate any dependency proven to be generally customer-facing |
 | 9 — compatibility shell | PASS | 150 generated warning-only re-export files / 754 lines; no implementation under `synth_ai.managed_research` | Preserve exact aliases and warnings through the declared window |
 | 10 — removal | NOT DUE | Version/date matrix is recorded | After supported-consumer and published-package proof, remove compatibility in 0.18.0 no earlier than 2026-09-01 |
 
@@ -1820,35 +1832,40 @@ eval consumer, documentation, and failure behavior.
   candidate with import isolation and accepted qualitative evidence), followed
   by `6e5b4782` (final review packet) and `7088c78f` (removal of the
   GameBench-specific SDK package), plus `828c5192` (explicit advanced eval
-  profile loaders).
+  profile loaders), `e0b889c8` (immutable resolved-swarm configuration across
+  Python, CLI, and MCP), and the current ledger/handoff follow-up.
 - Committed backend checkpoints: `713b6db59` (bounded 32-operation contract)
   and `f734def19` (Research MCP delivery adapter), plus `6b5944bb9` (the
   12-operation Factory/Effort contract extension) and `23533208c` (regenerated
-  44-operation / 135-schema authoritative artifact).
+  44-operation / 135-schema authoritative artifact), followed by `938487707`
+  (the 45th operation and 137-schema resolved-configuration contract).
 - Committed eval checkpoints: `7708aafa` (active consumer cutover to public
   SDK), `c3164c5f` (seven stable/advanced boundary cleanups), and `e16d0bf2`
   (GameBench scorer ownership moved to evals), followed by `65b9387c` (removal
   of standalone-package and top-level compatibility-client imports).
-- The current capability ledger classifies **2,088** rows with zero unclassified
-  rows. It reports zero active backend/eval deep imports, **44** stable
-  operations, **45** explicit advanced eval-import rows, 150 generated
+- The current capability ledger classifies **2,090** rows with zero unclassified
+  rows. It reports zero active backend/eval deep imports, **45** stable
+  operations, **45** backend advanced rows, **45** explicit advanced eval-import
+  rows, 36 public MCP adapter definitions, 260 advanced MCP adapter definitions,
+  150 generated
   compatibility-shim files / 754 lines, and 117
   relocated `_legacy` implementation files / 46,295 lines. Re-measure these
   figures if review changes the branch.
 - Current candidate magnitude (physical Python lines, including compatibility
-  code) is **399 files / 76,123 lines** under `synth_ai`; **145 / 52,984** under
-  `synth_ai/core/research`; **20 / 494** in the thin `synth_ai/research` facade;
+  code) is **399 files / 76,307 lines** under `synth_ai`; **145 / 53,108** under
+  `synth_ai/core/research`; **20 / 498** in the thin `synth_ai/research` facade;
   and **150 / 754** in the generated `synth_ai/managed_research` shims. The
   largest remaining file is `_legacy/sdk/client.py` at 6,124 lines, followed by
-  the Research MCP server at 3,438 lines. These are magnitude indicators, not
+  the Research MCP server at 3,455 lines. These are magnitude indicators, not
   permission to split files without a concern boundary.
 - `synth-ai` commit `adc56a5b` implements concise stable contracts and clients,
   the Factory/Effort vertical, native sync/async parity, typed
   failures and correlated events, a thin advanced bridge, revised docs and CLI,
-  35-tool stable MCP discovery, the 44-operation artifact, and the refreshed
+  36-tool stable MCP discovery, the 45-operation artifact, and the refreshed
   ledger. These changes are review material, not an approved final API.
-- `backend` commit `6b5944bb9` adds the 12 Factory/Effort operation IDs that
-  produced the 44-operation bounded artifact.
+- `backend` commits `6b5944bb9` and `938487707` add the 12 Factory/Effort
+  operation IDs and immutable swarm-configuration read that produce the
+  45-operation bounded artifact.
 - `evals` commit `c3164c5f` contains seven consumer cleanups using either the
   stable facade or explicit `research.advanced` access.
 - Cross-repository commits `7088c78f` (synth-ai) and `e16d0bf2` (evals) remove
@@ -1886,7 +1903,7 @@ eval consumer, documentation, and failure behavior.
   `synth-ai-worktrees/sdk-core-research-migration/.quality/runs/migration-sdk-design-v9/manifest.json`.
 - Deterministic candidate checks already passed: generated compatibility-shim
   conformance, architecture boundary, cross-repository migration boundary,
-  44-operation OpenAPI byte/operation parity, targeted source compilation,
+  45-operation OpenAPI byte/operation parity, targeted source compilation,
   public symbol/identity smoke, typed failure smoke, unknown-event protocol
   smoke, and diff integrity. They must be rerun after review-driven changes.
 - Clean-process import isolation now passes: all stable manifest modules load
@@ -1914,8 +1931,8 @@ design bar passes; the migration and release bar do not yet pass.
 
 | Gate | Status | Current evidence / required next proof |
 |---|---:|---|
-| Authority and source disposition | PASS | 2,088 ledger rows, zero unclassified; backend owns policy/state/persistence; evals owns benchmark behavior |
-| Bounded backend contract | PASS | 44 stable operation IDs and byte/operation parity against `openapi/research-v1.json` |
+| Authority and source disposition | PASS | 2,090 ledger rows, zero unclassified; all 90 advanced backend/eval rows have explicit owners; backend owns policy/state/persistence; evals owns benchmark behavior |
+| Bounded backend contract | PASS | 45 stable operation IDs and byte/operation parity against `openapi/research-v1.json` |
 | Active deep-import boundary | PASS | Zero active backend/eval deep imports in the generated migration ledger |
 | Compatibility shim conformance | PASS | 150 generated warning-only files / 754 lines; removal scheduled for 0.18.0 no earlier than 2026-09-01 |
 | Public architecture ratchets | PASS | Concern-based core, thin public facade, architecture and cross-repo migration checkers green |
@@ -1925,7 +1942,8 @@ design bar passes; the migration and release bar do not yet pass.
 | Typed failure and event protocols | PASS (source proof) | Typed codes/categories/retry/request/correlation metadata and unknown-event preservation; reviewer must approve them as stable protocol |
 | GameBench ownership | PASS | No `synth_ai/gamebench` package or SDK recipe remains; scorer contracts/client/recipe and the active grader live under `evals/swarmbench/gamebench` |
 | Factory/Effort vertical | REVIEW | 12-operation candidate is typed and bounded; owner must approve lifecycle semantics and prove representative backend behavior |
-| Eval consumer cutover | REVIEW | Deep, standalone-package, and top-level compatibility-client imports are zero; 45 explicit advanced rows need named dispositions and representative workflow proof |
+| Resolved swarm identity | PASS (source proof) | Exact run-bound config version, redacted immutable snapshot, public digest, typed sync/async API, CLI command, and stable MCP tool; live backend proof remains required |
+| Eval consumer cutover | REVIEW | Deep, standalone-package, and top-level compatibility-client imports are zero; all 45 explicit advanced rows are retained under evals ownership, but representative workflow proof is still required |
 | Package/docs/live vertical proof | NOT RUN | Required before release; no wheel/import matrix, generated docs proof, or live local/staging Factory/Swarm proof in this handoff |
 | Ruff / `ty` / tests | NOT RUN | Explicitly skipped under workspace policy because the user did not request those validations |
 | User-triggered `/ultrareview` | PENDING | Mandatory before integration for this high-blast-radius migration |

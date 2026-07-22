@@ -166,11 +166,15 @@ def _backend_rows(
                     disposition = "public"
                     reason = "backend-authored stable public operation ID"
                 elif _route_is_referenced(route, sdk_routes):
-                    disposition = "advanced_public_candidate"
-                    reason = "currently referenced by the SDK; requires an approved operation ID"
+                    disposition = "advanced"
+                    reason = (
+                        "supported operator route referenced only through the explicit "
+                        "unstable Research bridge"
+                    )
                 else:
                     disposition = "backend_only"
                     reason = "not in the bounded public contract and not referenced by the SDK"
+                canonical_noun = _canonical_noun(relative, route, node.name)
                 rows.append(
                     {
                         "id": f"backend:{method.upper()}:{relative}:{node.name}",
@@ -182,7 +186,8 @@ def _backend_rows(
                         "route": route,
                         "operation_id": operation_id,
                         "disposition": disposition,
-                        "canonical_noun": _canonical_noun(relative, route, node.name),
+                        "canonical_noun": canonical_noun,
+                        "owner": f"backend/{canonical_noun}",
                         "reason": reason,
                     }
                 )
@@ -233,9 +238,34 @@ def _sdk_rows(sdk_root: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _stable_mcp_tool_names(server_path: Path) -> set[str]:
+    """Read stable discovery without importing the SDK runtime graph."""
+    for node in _parse(server_path).body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name) and target.id == "_STABLE_TOOL_NAMES"
+            for target in node.targets
+        ):
+            continue
+        value = node.value
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Name)
+            and value.func.id == "frozenset"
+            and len(value.args) == 1
+        ):
+            value = value.args[0]
+        if isinstance(value, (ast.Set, ast.List, ast.Tuple)):
+            names = {_constant_text(item) for item in value.elts}
+            return {name for name in names if name is not None}
+    raise RuntimeError(f"stable MCP tool allowlist is missing from {server_path}")
+
+
 def _mcp_rows(sdk_root: Path) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     base = sdk_root / "synth_ai/mcp/research"
+    stable_tool_names = _stable_mcp_tool_names(base / "server.py")
     for path in _python_files(base):
         relative = path.relative_to(sdk_root).as_posix()
         for node in ast.walk(_parse(path)):
@@ -252,6 +282,8 @@ def _mcp_rows(sdk_root: Path) -> list[dict[str, Any]]:
             name = keywords.get("name")
             if not name:
                 continue
+            advertised_name = f"research_{name[4:]}" if name.startswith("smr_") else name
+            is_stable = advertised_name in stable_tool_names
             rows.append(
                 {
                     "id": f"mcp:{relative}:{name}",
@@ -259,9 +291,14 @@ def _mcp_rows(sdk_root: Path) -> list[dict[str, Any]]:
                     "source_path": relative,
                     "line": node.lineno,
                     "symbol": name,
-                    "disposition": "adapter_migrate",
+                    "disposition": "public_adapter" if is_stable else "advanced_adapter",
                     "canonical_noun": _canonical_noun(relative, name),
-                    "reason": "move to the thin MCP adapter over the core operation registry",
+                    "owner": "synth-ai/mcp",
+                    "reason": (
+                        "stable noun-first MCP adapter"
+                        if is_stable
+                        else "explicitly unstable MCP adapter pending core-operation cutover or removal"
+                    ),
                 }
             )
     return rows
@@ -301,10 +338,10 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
                 disposition = "migrate_public"
                 reason = "deep/legacy SDK import must move to documented synth_ai.research surfaces"
             elif advanced:
-                disposition = "advanced_explicit"
+                disposition = "advanced"
                 reason = (
-                    "explicit unstable Research dependency requires a named owner and "
-                    "graduation, retention, or removal decision"
+                    "repository-owned operator workflow explicitly accepts the unstable "
+                    "Research bridge and may not advertise it as customer-stable"
                 )
             else:
                 disposition = "supported_public"
@@ -318,6 +355,7 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
                     "symbol": ",".join(names),
                     "disposition": disposition,
                     "canonical_noun": _canonical_noun(relative, *names),
+                    "owner": repository,
                     "reason": reason,
                 }
             )
