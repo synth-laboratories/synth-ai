@@ -148,7 +148,11 @@ def _strings(
 
 
 def _datetime(value: object, field: str) -> datetime:
-    parsed = value if isinstance(value, datetime) else required_datetime({"value": value}, "value")
+    parsed = (
+        value
+        if isinstance(value, datetime)
+        else required_datetime({"value": _t(value, field, maximum=128)}, "value")
+    )
     if parsed.tzinfo is None:
         raise ValueError(f"{field} must include a timezone")
     return parsed
@@ -352,28 +356,90 @@ _DECL_BASE = frozenset(
 
 
 def declaration_from_wire(value: JsonValue) -> ImageReleaseDeclaration:
-    kind = ImageReleaseKind(
-        _t(
-            object_value(value, operation_id="image release declaration").get("kind"),
-            "kind",
-            maximum=64,
+    raw_payload = object_value(value, operation_id="image release declaration")
+    kind = ImageReleaseKind(_t(raw_payload.get("kind"), "kind", maximum=64))
+    payload = (
+        _obj(
+            value,
+            "craftax scorer declaration",
+            _DECL_BASE | {"fixture_manifest_sha256", "fixture_binary_sha256"},
         )
-    )
-    if kind is ImageReleaseKind.CRAFTAX_SCORER:
-        return CraftaxScorerImageReleaseDeclaration(
-            **_obj(
-                value,
-                "craftax scorer declaration",
-                _DECL_BASE | {"fixture_manifest_sha256", "fixture_binary_sha256"},
-            )
-        )
-    return ActorRuntimeImageReleaseDeclaration(
-        **_obj(
+        if kind is ImageReleaseKind.CRAFTAX_SCORER
+        else _obj(
             value,
             "actor runtime declaration",
             _DECL_BASE | {"actor_role", "interface_mode", "capabilities", "python_packages"},
             frozenset({"recipe_digest"}),
         )
+    )
+    archive_sha256 = _rx(
+        payload["archive_sha256"],
+        "archive_sha256",
+        _ARCHIVE,
+        "64 lowercase hex characters",
+    )
+    archive_size_bytes = integer(
+        payload["archive_size_bytes"],
+        field="archive_size_bytes",
+        minimum=1,
+        maximum=_MAX_ARCHIVE_BYTES,
+    )
+    image_manifest_digest = digest(payload["image_manifest_digest"], field="image_manifest_digest")
+    image_ref = _t(payload["image_ref"], "image_ref", minimum=3, maximum=255)
+    platform_os = _const(payload["platform_os"], "platform_os", "linux")
+    platform_architecture = _one_of(
+        payload["platform_architecture"],
+        "platform_architecture",
+        frozenset({"amd64", "arm64"}),
+    )
+    source_repository = _t(
+        payload["source_repository"], "source_repository", minimum=20, maximum=512
+    )
+    source_commit_sha = _rx(
+        payload["source_commit_sha"],
+        "source_commit_sha",
+        _GIT,
+        "a lowercase 40-character Git SHA",
+    )
+    if kind is ImageReleaseKind.CRAFTAX_SCORER:
+        return CraftaxScorerImageReleaseDeclaration(
+            kind=kind,
+            archive_sha256=archive_sha256,
+            archive_size_bytes=archive_size_bytes,
+            image_manifest_digest=image_manifest_digest,
+            image_ref=image_ref,
+            platform_os=platform_os,
+            platform_architecture=platform_architecture,
+            source_repository=source_repository,
+            source_commit_sha=source_commit_sha,
+            fixture_manifest_sha256=_rx(
+                payload["fixture_manifest_sha256"],
+                "fixture_manifest_sha256",
+                _ARCHIVE,
+                "64 lowercase hex characters",
+            ),
+            fixture_binary_sha256=_rx(
+                payload["fixture_binary_sha256"],
+                "fixture_binary_sha256",
+                _ARCHIVE,
+                "64 lowercase hex characters",
+            ),
+        )
+    return ActorRuntimeImageReleaseDeclaration(
+        kind=kind,
+        archive_sha256=archive_sha256,
+        archive_size_bytes=archive_size_bytes,
+        image_manifest_digest=image_manifest_digest,
+        image_ref=image_ref,
+        platform_os=platform_os,
+        platform_architecture=platform_architecture,
+        source_repository=source_repository,
+        source_commit_sha=source_commit_sha,
+        actor_role=_const(payload["actor_role"], "actor_role", "worker"),
+        interface_mode=_const(payload["interface_mode"], "interface_mode", "synth_actor_runtime"),
+        capabilities=_strings(payload["capabilities"], "capabilities", minimum=1),
+        python_packages=_strings(payload["python_packages"], "python_packages", pattern=_PACKAGE),
+        recipe_digest=optional_digest(payload.get("recipe_digest"), field="recipe_digest"),
     )
 
 
@@ -404,7 +470,12 @@ class ImageReleaseUploadRequest:
         )
         return cls(
             declaration=declaration_from_wire(payload["declaration"]),
-            expires_in=payload.get("expires_in", 3600),
+            expires_in=integer(
+                payload.get("expires_in", 3600),
+                field="expires_in",
+                minimum=60,
+                maximum=86400,
+            ),
         )
 
     def to_wire(self) -> JsonObject:
@@ -625,7 +696,37 @@ class ActorRuntimeImageMaterialization:
             ),
             frozenset({"recipe_digest"}),
         )
-        return cls(**payload)
+        return cls(
+            schema_version=_const(
+                payload["schema_version"],
+                "schema_version",
+                "smr-actor-image-materialization-v1",
+            ),
+            runtime_image_release_id=RuntimeImageReleaseId(
+                _t(payload["runtime_image_release_id"], "runtime_image_release_id", maximum=64)
+            ),
+            status=RuntimeImageReleaseStatus(_t(payload["status"], "status", maximum=64)),
+            image_ref=_t(payload["image_ref"], "image_ref", minimum=3),
+            resolved_digest=digest(payload["resolved_digest"], field="resolved_digest"),
+            interface_mode=_const(
+                payload["interface_mode"], "interface_mode", "synth_actor_runtime"
+            ),
+            actor_role=_const(payload["actor_role"], "actor_role", "worker"),
+            selection_kind=_const(
+                payload["selection_kind"], "selection_kind", "customer_actor_runtime"
+            ),
+            capabilities=_strings(payload["capabilities"], "capabilities", minimum=1),
+            python_packages=_strings(
+                payload["python_packages"], "python_packages", pattern=_PACKAGE
+            ),
+            package_release_timestamps=_timestamp_map(payload["package_release_timestamps"]),
+            recipe_digest=optional_digest(payload.get("recipe_digest"), field="recipe_digest"),
+            image_release_id=ImageReleaseId(
+                _t(payload["image_release_id"], "image_release_id", maximum=80)
+            ),
+            image_substrates=_strings(payload["image_substrates"], "image_substrates", maximum=2),
+            daytona_pullable=required_bool(payload, "daytona_pullable"),
+        )
 
     def to_wire(self) -> JsonObject:
         return {
