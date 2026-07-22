@@ -48,6 +48,7 @@ FrozenWorkspaceJsonValue: TypeAlias = (
 )
 
 WORKSPACE_UPLOAD_FILE_LIMIT = 100
+WORKSPACE_BATCH_UPLOAD_FILE_LIMIT = 10_000
 
 
 def _freeze_json(value: object, *, field_name: str) -> FrozenWorkspaceJsonValue:
@@ -457,6 +458,37 @@ class WorkspaceFilesUploadRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkspaceFilesBatchUploadRequest:
+    """Client-side composite request partitioned into bounded server mutations."""
+
+    files: tuple[WorkspaceFileUpload, ...]
+
+    def __post_init__(self) -> None:
+        if not self.files:
+            raise ValueError("workspace batch upload requires at least one file")
+        if len(self.files) > WORKSPACE_BATCH_UPLOAD_FILE_LIMIT:
+            raise ValueError(
+                "workspace batch upload exceeds the "
+                f"{WORKSPACE_BATCH_UPLOAD_FILE_LIMIT}-file composite limit"
+            )
+        paths = tuple(item.path for item in self.files)
+        if len(set(paths)) != len(paths):
+            raise ValueError("workspace batch upload paths must be globally unique")
+
+    @property
+    def batch_count(self) -> int:
+        return (len(self.files) + WORKSPACE_UPLOAD_FILE_LIMIT - 1) // (
+            WORKSPACE_UPLOAD_FILE_LIMIT
+        )
+
+    def partitions(self) -> tuple[tuple[WorkspaceFileUpload, ...], ...]:
+        return tuple(
+            self.files[index : index + WORKSPACE_UPLOAD_FILE_LIMIT]
+            for index in range(0, len(self.files), WORKSPACE_UPLOAD_FILE_LIMIT)
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class WorkspaceStoredFile:
     file_id: WorkspaceFileId
     organization_id: OrganizationId
@@ -715,6 +747,10 @@ class WorkspaceFilesUploadReceipt:
             )
         )
         file_count = _non_negative_int(payload, "file_count")
+        if file_count > WORKSPACE_UPLOAD_FILE_LIMIT:
+            raise ValueError(
+                "workspace upload receipt exceeds the bounded server file limit"
+            )
         if file_count != len(uploaded_files):
             raise ValueError("workspace upload file_count does not match uploaded_files")
         project_id = ProjectId(required_text(payload, "project_id"))
@@ -772,7 +808,151 @@ class WorkspaceFilesUploadReceipt:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class WorkspaceFilesBatchUploadReceipt:
+    """Complete ordered receipt for a deterministic composite upload."""
+
+    project_id: ProjectId
+    requested_file_count: int
+    batches: tuple[WorkspaceFilesUploadReceipt, ...]
+
+    def __post_init__(self) -> None:
+        if self.requested_file_count < 1:
+            raise ValueError("batch upload receipt requires a positive requested_file_count")
+        if self.requested_file_count > WORKSPACE_BATCH_UPLOAD_FILE_LIMIT:
+            raise ValueError("batch upload receipt exceeds the composite file limit")
+        if not self.batches:
+            raise ValueError("batch upload receipt requires at least one batch")
+        expected_batch_count = (
+            self.requested_file_count + WORKSPACE_UPLOAD_FILE_LIMIT - 1
+        ) // WORKSPACE_UPLOAD_FILE_LIMIT
+        if len(self.batches) != expected_batch_count:
+            raise ValueError("batch upload receipt does not cover every bounded batch")
+        if any(receipt.project_id != self.project_id for receipt in self.batches):
+            raise ValueError("batch upload receipt crossed its requested project boundary")
+        if self.file_count != self.requested_file_count:
+            raise ValueError(
+                "batch upload receipt file count does not match the composite request"
+            )
+        if len(set(self.committed_paths)) != len(self.committed_paths):
+            raise ValueError("batch upload receipt contains duplicate committed paths")
+
+    @property
+    def batch_count(self) -> int:
+        return len(self.batches)
+
+    @property
+    def file_count(self) -> int:
+        return sum(receipt.file_count for receipt in self.batches)
+
+    @property
+    def bytes_uploaded(self) -> int:
+        return sum(receipt.bytes_uploaded for receipt in self.batches)
+
+    @property
+    def committed_paths(self) -> tuple[str, ...]:
+        return tuple(
+            path for receipt in self.batches for path in receipt.committed_paths
+        )
+
+    @property
+    def uploaded_files(self) -> tuple[WorkspaceStoredFile, ...]:
+        return tuple(
+            item for receipt in self.batches for item in receipt.uploaded_files
+        )
+
+    @property
+    def final_commit_sha(self) -> str:
+        return self.batches[-1].commit_sha
+
+    @property
+    def committed_batch_count(self) -> int:
+        return sum(1 for receipt in self.batches if receipt.committed)
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "complete": True,
+            "project_id": self.project_id,
+            "requested_file_count": self.requested_file_count,
+            "batch_count": self.batch_count,
+            "committed_batch_count": self.committed_batch_count,
+            "file_count": self.file_count,
+            "bytes_uploaded": self.bytes_uploaded,
+            "committed_paths": list(self.committed_paths),
+            "final_commit_sha": self.final_commit_sha,
+            "batches": [receipt.to_wire() for receipt in self.batches],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkspaceFilesBatchUploadProgress:
+    """Exact partial receipt attached to a failed composite upload."""
+
+    project_id: ProjectId
+    requested_file_count: int
+    total_batch_count: int
+    completed_batches: tuple[WorkspaceFilesUploadReceipt, ...]
+    failed_batch_index: int
+    failed_paths: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.requested_file_count < 1:
+            raise ValueError("batch upload progress requires a positive file count")
+        if self.requested_file_count > WORKSPACE_BATCH_UPLOAD_FILE_LIMIT:
+            raise ValueError("batch upload progress exceeds the composite file limit")
+        if self.total_batch_count < 1:
+            raise ValueError("batch upload progress requires a positive batch count")
+        if self.failed_batch_index != len(self.completed_batches):
+            raise ValueError("failed batch index must follow the completed batch receipts")
+        if not 0 <= self.failed_batch_index < self.total_batch_count:
+            raise ValueError("failed batch index is outside the composite request")
+        if not self.failed_paths:
+            raise ValueError("batch upload progress requires failed batch paths")
+        if len(self.failed_paths) > WORKSPACE_UPLOAD_FILE_LIMIT:
+            raise ValueError("failed batch paths exceed the bounded server file limit")
+        if len(set(self.failed_paths)) != len(self.failed_paths):
+            raise ValueError("failed batch paths must be unique")
+        if any(receipt.project_id != self.project_id for receipt in self.completed_batches):
+            raise ValueError("batch upload progress crossed its requested project boundary")
+        if self.completed_file_count + len(self.failed_paths) > self.requested_file_count:
+            raise ValueError("batch upload progress exceeds the composite request")
+
+    @property
+    def completed_file_count(self) -> int:
+        return sum(receipt.file_count for receipt in self.completed_batches)
+
+    @property
+    def completed_paths(self) -> tuple[str, ...]:
+        return tuple(
+            path
+            for receipt in self.completed_batches
+            for path in receipt.committed_paths
+        )
+
+    @property
+    def remaining_file_count(self) -> int:
+        return self.requested_file_count - self.completed_file_count
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "complete": False,
+            "project_id": self.project_id,
+            "requested_file_count": self.requested_file_count,
+            "total_batch_count": self.total_batch_count,
+            "completed_batch_count": len(self.completed_batches),
+            "completed_file_count": self.completed_file_count,
+            "completed_paths": list(self.completed_paths),
+            "failed_batch_index": self.failed_batch_index,
+            "failed_paths": list(self.failed_paths),
+            "remaining_file_count": self.remaining_file_count,
+            "completed_batches": [
+                receipt.to_wire() for receipt in self.completed_batches
+            ],
+        }
+
+
 __all__ = [
+    "WORKSPACE_BATCH_UPLOAD_FILE_LIMIT",
     "WORKSPACE_UPLOAD_FILE_LIMIT",
     "ProjectWorkspaceInputs",
     "WorkspaceFileEncoding",
@@ -780,6 +960,9 @@ __all__ = [
     "WorkspaceFileScope",
     "WorkspaceFilesUploadReceipt",
     "WorkspaceFilesUploadRequest",
+    "WorkspaceFilesBatchUploadProgress",
+    "WorkspaceFilesBatchUploadReceipt",
+    "WorkspaceFilesBatchUploadRequest",
     "WorkspaceFileUpload",
     "WorkspaceFileVisibility",
     "WorkspaceInputState",
