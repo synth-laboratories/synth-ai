@@ -51,6 +51,13 @@ def _objects(value: object, *, field_name: str) -> tuple[JsonObject, ...]:
     return cast(tuple[JsonObject, ...], tuple(value))
 
 
+def _value_when_missing(payload: JsonObject, name: str, default: JsonValue) -> JsonValue:
+    value = payload.get(name)
+    if value is None and name not in payload:
+        return default
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class EnvironmentJsonObject:
     """Recursively immutable backend-declared JSON extension island."""
@@ -304,7 +311,7 @@ class EnvironmentIsolationSpec:
             required=frozenset(),
             exact=exact,
         )
-        raw = payload.get("egress_allowlist", [])
+        raw = _value_when_missing(payload, "egress_allowlist", [])
         if not isinstance(raw, list):
             raise ValueError("egress_allowlist must be an array")
         return cls(
@@ -439,10 +446,10 @@ class EnvironmentManifest:
             required=frozenset({"name", "images"}),
             exact=exact,
         )
-        image_values = _objects(payload.get("images", []), field_name="images")
-        secret_values = _objects(payload.get("secrets", []), field_name="secrets")
-        repository_values = _objects(payload.get("repos", []), field_name="repos")
-        mount_values = _objects(payload.get("mounts", []), field_name="mounts")
+        image_values = _objects(payload["images"], field_name="images")
+        secret_values = _objects(_value_when_missing(payload, "secrets", []), field_name="secrets")
+        repository_values = _objects(_value_when_missing(payload, "repos", []), field_name="repos")
+        mount_values = _objects(_value_when_missing(payload, "mounts", []), field_name="mounts")
         manifest_digest = optional_digest(payload.get("digest"), field="environment digest")
         return cls(
             name=EnvironmentName(text(payload["name"], field="environment name", maximum=255)),
@@ -462,9 +469,13 @@ class EnvironmentManifest:
             mounts=tuple(
                 EnvironmentMountSpec.from_wire(item, exact=exact) for item in mount_values
             ),
-            isolation=EnvironmentIsolationSpec.from_wire(payload.get("isolation", {}), exact=exact),
-            preflight=EnvironmentPreflightSpec.from_wire(payload.get("preflight", {}), exact=exact),
-            metadata=EnvironmentJsonObject.from_wire(payload.get("metadata", {})),
+            isolation=EnvironmentIsolationSpec.from_wire(
+                _value_when_missing(payload, "isolation", {}), exact=exact
+            ),
+            preflight=EnvironmentPreflightSpec.from_wire(
+                _value_when_missing(payload, "preflight", {}), exact=exact
+            ),
+            metadata=EnvironmentJsonObject.from_wire(_value_when_missing(payload, "metadata", {})),
         )
 
     def to_wire(self) -> JsonObject:

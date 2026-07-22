@@ -154,7 +154,9 @@ class ProjectSetup:
     @classmethod
     def from_wire(cls, value: JsonValue) -> ProjectSetup:
         payload = object_value(value, operation_id="project setup")
-        blockers_value = payload.get("blockers", [])
+        blockers_value = payload.get("blockers")
+        if blockers_value is None and "blockers" not in payload:
+            blockers_value = []
         if not isinstance(blockers_value, list) or not all(
             isinstance(blocker, str) for blocker in blockers_value
         ):
