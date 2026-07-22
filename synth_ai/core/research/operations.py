@@ -121,6 +121,7 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/projects/{project_id}/workspace-inputs/files:upload",
             mutation=True,
+            idempotent=True,
         ),
         _operation("update_effort", HttpMethod.PATCH, "/smr/efforts/{effort_id}", mutation=True),
         _operation("update_factory", HttpMethod.PATCH, "/smr/factories/{factory_id}", mutation=True),
