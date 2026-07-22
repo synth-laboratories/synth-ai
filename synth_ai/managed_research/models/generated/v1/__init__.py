@@ -1,21 +1,5 @@
-"""Compatibility exports for the current generated-model namespace."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research.models.types import (
-    ProviderKeyStatus,
-    RecommendedAction,
-    RunProgress,
-    WorkspaceFileInput,
-    WorkspaceInputsState,
-    WorkspaceSourceRepo,
-    WorkspaceUploadResult,
-)
+from __future__ import annotations
 
-__all__ = [
-    "ProviderKeyStatus",
-    "RecommendedAction",
-    "RunProgress",
-    "WorkspaceFileInput",
-    "WorkspaceInputsState",
-    "WorkspaceSourceRepo",
-    "WorkspaceUploadResult",
-]
+from synth_ai.core.research._legacy.models.generated.v1 import *  # noqa: F403

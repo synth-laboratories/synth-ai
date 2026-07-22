@@ -2,26 +2,26 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
-from typing import Any, TypeVar
+from typing import Any, NoReturn, TypeVar, cast
 
 import httpx
 from pydantic import BaseModel
 
-from synth_ai.core.utils.env import get_api_key
+from synth_ai.core.auth.credentials import resolve_api_credential
+from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.errors import AuthenticationError
+from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 def resolve_api_key(api_key: str | None) -> str:
-    if api_key and api_key.strip():
-        return api_key.strip()
-    resolved = (get_api_key(required=False) or "").strip()
-    if not resolved:
-        raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)")
-    return resolved
+    try:
+        return resolve_api_credential(api_key).value
+    except AuthenticationError as error:
+        raise ValueError("api_key is required (provide explicitly or set SYNTH_API_KEY)") from error
 
 
 def resolve_backend_base(base_url: str | None) -> str:
@@ -44,7 +44,7 @@ class SynthBaseClient:
         self._api_key = resolve_api_key(api_key)
         self._backend_base = resolve_backend_base(backend_base or base_url)
         self._timeout_seconds = timeout_seconds
-        self._http_client: httpx.Client | None = None
+        self._transport: HttpTransport | None = None
 
     @property
     def api_key(self) -> str:
@@ -59,12 +59,18 @@ class SynthBaseClient:
         return self._timeout_seconds
 
     def _client(self) -> httpx.Client:
-        if self._http_client is None:
-            self._http_client = httpx.Client(
+        return self._open_transport().client
+
+    def _open_transport(self) -> HttpTransport:
+        if self._transport is None:
+            self._transport = HttpTransport(
                 base_url=self._backend_base,
-                timeout=self._timeout_seconds,
+                headers=self._headers(),
+                timeout_seconds=self._timeout_seconds,
+                error_handler=_raise_infra_error,
+                exception_handler=_raise_infra_transport_exception,
             )
-        return self._http_client
+        return self._transport
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._api_key}"}
@@ -78,18 +84,13 @@ class SynthBaseClient:
         params: dict[str, Any] | None = None,
         timeout_seconds: float | None = None,
     ) -> Any:
-        response = self._client().request(
-            method,
+        return self._open_transport().request_json(
+            method.upper(),
             path if path.startswith("/") else f"/{path}",
-            headers=self._headers(),
-            json=json_body,
-            params=params,
-            timeout=timeout_seconds if timeout_seconds is not None else self._timeout_seconds,
+            json_body=cast(JsonObject | None, json_body),
+            params=cast(dict[str, JsonValue] | None, params),
+            timeout_seconds=timeout_seconds,
         )
-        response.raise_for_status()
-        if not response.content:
-            return {}
-        return response.json()
 
     def _stream(
         self,
@@ -98,37 +99,46 @@ class SynthBaseClient:
         params: dict[str, Any] | None = None,
         timeout_seconds: float | None = None,
     ) -> Iterator[dict[str, Any]]:
-        with self._client().stream(
-            "GET",
+        for event in self._open_transport().stream_sse(
             path if path.startswith("/") else f"/{path}",
-            headers=self._headers(),
-            params=params,
-            timeout=timeout_seconds if timeout_seconds is not None else self._timeout_seconds,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                text = line.decode("utf-8") if isinstance(line, (bytes, bytearray)) else str(line)
-                if not text.startswith("data:"):
-                    continue
-                payload = text[5:].strip()
-                if payload:
-                    yield json.loads(payload)
+            params=cast(dict[str, JsonValue] | None, params),
+            timeout_seconds=timeout_seconds,
+        ):
+            payload = event.json_data()
+            if not isinstance(payload, dict):
+                raise ValueError("SSE data payload must be a JSON object")
+            yield payload
 
     def cast_to(self, model: type[ModelT], payload: Any) -> ModelT:
         return model.model_validate(payload)
 
     def close(self) -> None:
-        if self._http_client is not None:
-            self._http_client.close()
-            self._http_client = None
+        if self._transport is not None:
+            self._transport.close()
+            self._transport = None
 
     def __enter__(self) -> SynthBaseClient:
         return self
 
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         self.close()
+
+
+def _raise_infra_error(
+    response: httpx.Response,
+    operation_id: str | None = None,
+) -> NoReturn:
+    response.raise_for_status()
+    raise RuntimeError("unreachable: successful response passed to error handler")
+
+
+def _raise_infra_transport_exception(
+    method: str,
+    path: str,
+    error: httpx.HTTPError,
+    operation_id: str | None = None,
+) -> NoReturn:
+    raise error
 
 
 __all__ = [

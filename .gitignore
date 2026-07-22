@@ -197,6 +197,9 @@ customers/
 
 # Outputs directory (local artifacts only)
 outputs/
+
+# Local quality command receipts
+.quality/
  
 # Temporary workspace and embedded repos
 .tmp/

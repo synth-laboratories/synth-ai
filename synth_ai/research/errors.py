@@ -1,54 +1,13 @@
-"""Research API errors (public names; ``Smr*`` compatibility aliases).
-
-Catch these typed exceptions from ``SynthClient().research`` call sites.
-
-| Exception | Typical cause |
-| --- | --- |
-| ``ResearchApiError`` | Base API error with structured ``message`` |
-| ``ResearchStructuredDenialError`` | Policy or preflight denial |
-| ``ResearchLimitExceededError`` | Org or project limit exceeded |
-| ``ResearchConcurrentRunLimitExceededError`` | Too many concurrent runs |
-| ``ResearchInsufficientCreditsError`` | Insufficient account credits |
-| ``ResearchProjectMonthlyBudgetExhaustedError`` | Project monthly budget exhausted |
-"""
+"""Stable Research failures with lazy migration aliases."""
 
 from __future__ import annotations
 
-from synth_ai.managed_research.errors import (
-    SmrApiError,
-    SmrConcurrentRunLimitExceededError,
-    SmrInsufficientCreditsError,
-    SmrLimitExceededError,
-    SmrProjectMonthlyBudgetExhaustedError,
-    SmrStructuredDenialError,
-)
+from synth_ai.core.research import errors as _errors
+from synth_ai.core.research.errors import *  # noqa: F403
+from synth_ai.core.research.errors import __all__
 
-ResearchApiError = SmrApiError
-ResearchStructuredDenialError = SmrStructuredDenialError
-ResearchLimitExceededError = SmrLimitExceededError
-ResearchConcurrentRunLimitExceededError = SmrConcurrentRunLimitExceededError
-ResearchInsufficientCreditsError = SmrInsufficientCreditsError
-ResearchProjectMonthlyBudgetExhaustedError = SmrProjectMonthlyBudgetExhaustedError
 
-# Compatibility aliases for migration from managed-research imports.
-SmrApiError = ResearchApiError
-SmrStructuredDenialError = ResearchStructuredDenialError
-SmrLimitExceededError = ResearchLimitExceededError
-SmrConcurrentRunLimitExceededError = ResearchConcurrentRunLimitExceededError
-SmrInsufficientCreditsError = ResearchInsufficientCreditsError
-SmrProjectMonthlyBudgetExhaustedError = ResearchProjectMonthlyBudgetExhaustedError
-
-__all__ = [
-    "ResearchApiError",
-    "ResearchConcurrentRunLimitExceededError",
-    "ResearchInsufficientCreditsError",
-    "ResearchLimitExceededError",
-    "ResearchProjectMonthlyBudgetExhaustedError",
-    "ResearchStructuredDenialError",
-    "SmrApiError",
-    "SmrConcurrentRunLimitExceededError",
-    "SmrInsufficientCreditsError",
-    "SmrLimitExceededError",
-    "SmrProjectMonthlyBudgetExhaustedError",
-    "SmrStructuredDenialError",
-]
+def __getattr__(name: str) -> object:
+    value = getattr(_errors, name)
+    globals()[name] = value
+    return value

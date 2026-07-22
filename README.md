@@ -50,93 +50,97 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
 ```python
 from synth_ai import SynthClient
+from synth_ai.research import SwarmSpec
 
-client = SynthClient()
-
-print(client.research.limits.get_typed().plan)
+with SynthClient() as client:
+    swarm = client.research.swarms.create(
+        SwarmSpec(objective="Assess this repository and produce a concise report.")
+    )
+    for event in swarm.events():
+        print(event.kind, event.telemetry.sequence)
+    result = swarm.wait(timeout_seconds=900)
+    print(result.swarm_id, result.state)
+    resolved = swarm.configuration()
+    print(resolved.config_version_id, resolved.snapshot_sha256)
+    usage = swarm.usage()
+    print(usage.money.nominal_pico_usd, usage.tokens.totals.input_tokens)
+    evidence = swarm.evidence()
+    print(evidence.artifacts, evidence.work_products)
 ```
 
-## Managed Research (hero SDK)
+`create` returns a durable handle immediately. `events()` yields typed events,
+including an explicit `UnknownSwarmEvent` for forward-compatible server events;
+`wait()` uses a monotonic deadline and returns the terminal typed `Swarm`.
+`configuration()` returns the immutable, versioned, secret-redacted launch
+snapshot bound to that swarm, so replay and audit do not depend on the
+project's current mutable configuration.
+`usage()` returns one typed cost, token, and actor-attribution projection plus
+its source, record count, observation time, and terminal-state freshness. It
+does not expose the legacy raw ledger-entry dictionaries.
+`evidence()` returns the complete durable artifact and WorkProduct index with
+strict counts and lifecycle freshness. Artifact and WorkProduct content reads
+use the same typed transport and return bytes; they do not expose storage
+authority.
 
-Install the research extra when you need hosted runs, projects, Factory Tag, or MCP:
+## Research SDK
 
-```bash
-uv add "synth-ai[research]"
-```
+The only customer entrypoint is `SynthClient().research`. Its stable namespaces
+are `projects`, `swarms`, and `factories`.
 
-Hero entrypoint — **`SynthClient().research`** only (no standalone control client in new code):
+Create a durable project when work needs reusable configuration:
 
 ```python
-import os
-
 from synth_ai import SynthClient
-from synth_ai.research import ResearchTagSessionCreateRequest, ResearchWorkMode
+from synth_ai.research import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
 
-client = SynthClient()
-research = client.research
-factory_id = os.environ["SYNTH_FACTORY_ID"]
-effort_id = os.environ["SYNTH_FACTORY_EFFORT_ID"]
-project_id = os.environ["SYNTH_RESEARCH_PROJECT_ID"]  # An existing, prepared project.
-
-# Org limits
-limits = research.limits.get_typed()
-print(limits.plan)
-
-# Authoritative economics reads; the client does not recompute allowances or discounts.
-plan = research.economics.plan()
-catalog = research.economics.catalog()
-entitlements = research.economics.entitlements()
-
-# Async Research Factory: inspect the experiment floor before launching work
-factory = research.factories.get(factory_id)
-floor = research.factories.status(factory.factory_id)
-preview = research.factories.preview_wake(factory.factory_id)
-# After reviewing preview.efforts, the SDK replays the resolved request_contract
-# with its opaque preview_token; callers do not reconstruct the write request.
-if preview.confirmation_required:
-    receipt = research.factories.wake_due(
-        factory.factory_id,
-        preview=preview,
+with SynthClient() as client:
+    project = client.research.projects.create(
+        ProjectSpec(
+            name="Repository assessment",
+            pool_id="pool_default",
+            runtime_kind=RuntimeKind("python"),
+            environment_kind=EnvironmentKind("docker"),
+            orchestrator_profile_id="profile_orchestrator",
+            default_worker_profile_id="profile_worker",
+        )
     )
-
-# Factory Tag loop
-session = research.factories.tag.sessions.create(
-    ResearchTagSessionCreateRequest(
-        request="Improve rollout throughput",
-        factory_id=factory_id,
-        effort_id=effort_id,
+    swarm = client.research.swarms.create(
+        SwarmSpec(objective="Produce the assessment."),
+        project_id=project.project_id,
     )
-)
-research.factories.tag.sessions.messages.send(session.session_id, "Status update")
-scope = research.factories.tag.scopes.get_default()
-
-# Launch against the explicitly selected pre-existing project.
-work_mode = ResearchWorkMode.DIRECTED_EFFORT
-preflight = research.runs.check_preflight(project_id, work_mode=work_mode)
-session = research.runs.create(
-    project_id,
-    objective="Produce a bounded repository assessment and a readable report.",
-    work_mode=work_mode,
-)
-
-# Run readouts (nested namespaces — never ``manderqueue`` on hero)
-session.snapshots.get(detail="control")
-progress = session.progress.get_typed()
-usage = session.usage.get()
-work_products = session.work_products.list()
-artifacts = session.artifacts.list()
-if work_products:
-    report = session.work_products.content.get(work_products[0].work_product_id)
-session.message_queue.messages.list()
-research.projects.objectives.list(project_id, run_id=session.run_id)
+    print(swarm.wait().state)
 ```
 
-CLI smoke:
+Factories provide a typed durable optimization loop with native sync/async
+parity:
+
+```python
+from synth_ai import SynthClient
+from synth_ai.research import EffortSpec, FactorySpec, ProjectId
+
+with SynthClient() as client:
+    factory = client.research.factories.create(
+        FactorySpec(name="Prompt optimizer")
+    )
+    effort = client.research.factories.efforts.create(
+        EffortSpec(
+            factory_id=factory.factory_id,
+            project_id=ProjectId("project_existing"),
+            name="Improve the system prompt",
+        )
+    )
+    print(effort.effort_id, effort.state)
+```
+
+Limits, economics, secrets, Tag, rich evidence projections, and administrative
+resource APIs remain available under `client.research.advanced` while their
+contracts are stabilized. Advanced APIs are not covered by the stable surface
+guarantee.
+
+CLI discovery:
 
 ```bash
-synth-ai research limits get
-synth-ai research tag smoke
-synth-ai research smoke
+synth-ai research --help
 ```
 
 ## CLI
@@ -154,7 +158,7 @@ Use `SynthClient` as the front door:
 
 | Surface | Client namespace | Use it for |
 | --- | --- | --- |
-| **Managed Research / Factory** | `client.research` | Hosted research runs, projects, Factory Tag, limits, MCP (`synth-ai[research]`). |
+| **Research / Factory** | `client.research` | Typed hosted projects, swarms, Factory lifecycles, and Efforts. |
 | Containers | `client.containers` | Hosted container records and lifecycle operations. |
 | Tunnels | `client.tunnels` | Managed tunnel records, leases, health, and rotation. |
 | Pools | `client.pools` | Container pools, tasks, rollouts, artifacts, usage, and events. |
@@ -176,10 +180,8 @@ override grants are manual audit events rather than automatic resets.
 The canonical backend surfaces are `GET /smr/billing/catalog`,
 `GET /smr/billing/plan`, `GET /smr/billing/runs/{run_id}/drawdown`, and
 `GET /smr/billing/factory-efforts/{factory_effort_id}/drawdown`. In the Python
-SDK, use `client.research.economics.entitlements()` for the organization snapshot
-and `client.research.economics.plan()`, `.catalog()`, `.run_drawdown(run_id)`, or
-`.factory_effort_drawdown(factory_effort_id)` for canonical billing reads. Use
-`.project(project_id)` for project usage, budgets, and entitlements. Do not infer
+SDK, use `client.research.advanced.economics` for authoritative billing reads
+while the economics contract remains advanced. Do not infer
 allowance from legacy Autumn balances or local spend summaries, and do not
 recompute discounts in the client.
 

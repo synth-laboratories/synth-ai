@@ -69,7 +69,6 @@ Vendored third-party references under `references/` are ignored (see `.gitignore
 ## Research recipes
 
 - [First bounded research run](recipes/first-bounded-research-run.md)
-- [Game experiment](recipes/game-experiment.md)
 - [Async handoff](recipes/async-handoff.md)
 
 These hand-written recipes are not generated or removed by `make docs-gen`.

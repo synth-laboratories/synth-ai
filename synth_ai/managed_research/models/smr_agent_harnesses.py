@@ -1,17 +1,5 @@
-"""Public agent-harness compatibility surface."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research.models.smr_agent_kinds import (
-    SMR_AGENT_KIND_VALUES as SMR_AGENT_HARNESS_VALUES,
-)
-from synth_ai.managed_research.models.smr_agent_kinds import (
-    SmrAgentKind as SmrAgentHarness,
-)
-from synth_ai.managed_research.models.smr_agent_kinds import (
-    coerce_smr_agent_kind as coerce_smr_agent_harness,
-)
+from __future__ import annotations
 
-__all__ = [
-    "SMR_AGENT_HARNESS_VALUES",
-    "SmrAgentHarness",
-    "coerce_smr_agent_harness",
-]
+from synth_ai.core.research._legacy.models.smr_agent_harnesses import *  # noqa: F403

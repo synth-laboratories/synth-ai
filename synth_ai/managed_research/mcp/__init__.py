@@ -1,5 +1,5 @@
-"""Managed Research MCP exports."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer
+from __future__ import annotations
 
-__all__ = ["ManagedResearchMcpServer"]
+from synth_ai.mcp.research import *  # noqa: F403

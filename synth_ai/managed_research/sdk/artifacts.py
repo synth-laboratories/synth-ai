@@ -1,3 +1,5 @@
-"""Artifact namespace removed; use files, logs, and runs canonical surfaces."""
+"""Deprecated exact re-exports from the core Research implementation."""
 
-__all__: list[str] = []
+from __future__ import annotations
+
+from synth_ai.core.research._legacy.sdk.artifacts import *  # noqa: F403
