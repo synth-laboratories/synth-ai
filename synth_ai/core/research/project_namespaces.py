@@ -80,13 +80,17 @@ class ResearchProjectsWorkspaceAPI:
         project_id: str,
         files: Iterable[Mapping[str, object]],
     ) -> WorkspaceUploadResult:
-        """Upload workspace files from in-memory file descriptors.
+        """Removed from stable discovery — use projects.workspace.upload_batches.
 
         Args:
             project_id: Project identifier.
             files: Iterable of file mappings (path, content, metadata).
         """
-        return self._session.workspace_inputs.upload_files(project_id, files)
+        raise AttributeError(
+            "ResearchProjectsWorkspaceAPI.upload is removed from the stable "
+            "Research surface; use SynthClient().research.projects.workspace."
+            "upload_batches(...) with typed WorkspaceFilesBatchUploadRequest"
+        )
 
     def upload_directory(
         self,
@@ -147,7 +151,7 @@ class ResearchProjectsReposAPI:
         default_branch: str | None = None,
         commit_sha: str | None = None,
     ) -> dict[str, Any]:
-        """Attach a git repository as a workspace input source.
+        """Removed from stable discovery — use workspace.set_source_repository.
 
         Args:
             project_id: Project identifier.
@@ -155,11 +159,10 @@ class ResearchProjectsReposAPI:
             default_branch: Branch to track when no commit is pinned.
             commit_sha: Optional pinned commit SHA.
         """
-        return self._session.workspace_inputs.attach_source_repo(
-            project_id,
-            url,
-            default_branch=default_branch,
-            commit_sha=commit_sha,
+        raise AttributeError(
+            "ResearchProjectsReposAPI.attach is removed from the stable Research "
+            "surface; use SynthClient().research.projects.workspace."
+            "set_source_repository(...) with WorkspaceSourceRepositorySpec"
         )
 
 

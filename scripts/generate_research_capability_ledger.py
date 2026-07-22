@@ -610,15 +610,22 @@ def _mcp_operation_ids(
     candidate_ids.update(
         {
             {
+                "attach_source_repo": "set_project_workspace_source_repository",
                 "branch_run_from_checkpoint": "branch_run",
+                "create_environment": "create_research_environment",
                 "create_project_repository": "create_project_external_repository",
                 "create_runnable_project": "create_project",
                 "delete_project_repository": "delete_project_external_repository",
+                "get_environment": "retrieve_research_environment",
+                "get_workspace_inputs": "retrieve_project_workspace_inputs",
+                "list_environments": "list_research_environments",
                 "list_project_repositories": "list_project_external_repositories",
+                "preflight_environment": "preflight_research_environment",
                 "start_one_off_run": "trigger_one_off_run",
                 "trigger_run": "trigger_project_run",
                 "update_project_repository": "update_project_external_repository",
                 "upload_project_dataset": "create_project_dataset",
+                "upload_workspace_files": "upload_project_workspace_files",
             }.get(suffix, "")
         }
     )

@@ -1,6 +1,6 @@
 # Synth SDK Research migration and refactor plan
 
-- **Status:** engineer review required — unmerged implementation candidate exists
+- **Status:** code closeout on `origin/dev` (live proofs deferred by operator); implementation merged via synth-ai #315 / backend #853 / evals #168
 - **Date:** 2026-07-21
 - **Last updated:** 2026-07-22
 - **Scope:** `synth-ai`, `backend`, and `evals`
@@ -1887,12 +1887,12 @@ The implementing engineer should edit this document in place:
 | R12 | `core` boundary | Allow only typed contracts, codecs, transport, operations, and lifecycle handles; reject policy/orchestration and generic utility dumping | SDK architecture | adopted |
 | R13 | Usage evidence contract | One concise swarm projection with exact aggregate money, typed tokens/actors, honest actor precision, and explicit freshness; keep raw ledger entries advanced | Backend, SDK, evals | candidate implemented; reviewer approval required |
 | R14 | Durable evidence contract | One strict swarm evidence snapshot for artifacts and WorkProducts, plus operation-aware binary content reads; backend remains index/content authority and the SDK does not expose storage URIs as authority | Backend, SDK, evals | candidate implemented; reviewer approval required |
-| R15 | Contract publication atomicity | A vertical is incomplete unless the backend allowlist, generated backend artifact, SDK operation metadata, and byte-identical vendored artifact land and validate together | Backend, SDK, release engineering | open; current 64-source/49-artifact split violates the recommendation |
-| R16 | Workspace uploads above 100 files | Keep the single backend mutation bounded at 100 files; add an explicit typed batch operation with deterministic partitions, per-batch idempotency, partial-completion receipts, and fail-loud semantics rather than silently chunking one call. Execute the authoritative git mutation before its stored-file projection so a failed git write cannot leave rows claiming content was committed; the same idempotency key must safely resume the projection write | SDK, backend, evals | open; required by directory-backed ReportBench lanes, and the current backend route writes its projection before the git mutation |
-| R17 | Repository taxonomy | Keep bootstrap source repository configuration under `projects.workspace`; keep reusable/attached project external repositories under `projects.repositories`; do not alias one into the other | SDK/product, backend, evals | candidate distinction exists; reviewer approval and eval cutover required |
-| R18 | Environment taxonomy | Stable `research.environments` is the declarative catalog/preflight resource; DevEnvironment materialization/control is operator-only unless separately approved | SDK/product, backend runtime | open; backend catalog contract exists, SDK adapter does not |
-| R19 | Image-release declarations | Replace the optional-field declaration record with a discriminated scorer-versus-actor union and strict nested artifact/inspection/materialization contracts before exposing five image-release operations | SDK, backend images | open; no bounded operation IDs yet |
-| R20 | Observability and run outputs | Prefer the typed activity/transcript/evidence/usage set; replace giant poll summary with one small authoritative status projection; graduate the existing binary workspace archive; retain objective events only through an exact typed list contract when historical transitions are a real evidence requirement; keep raw logs/traces operator-only | SDK/product, backend runtime, evals | open; active advanced ReportBench reads and archive downloads remain |
+| R15 | Contract publication atomicity | A vertical is incomplete unless the backend allowlist, generated backend artifact, SDK operation metadata, and byte-identical vendored artifact land and validate together | Backend, SDK, release engineering | closed on tip: 72 ops / 224 schemas byte-identical; MCP env/workspace tools mapped to operation IDs; live receipts still deferred |
+| R16 | Workspace uploads above 100 files | Keep the single backend mutation bounded at 100 files; add an explicit typed batch operation with deterministic partitions, per-batch idempotency, partial-completion receipts, and fail-loud semantics rather than silently chunking one call. Execute the authoritative git mutation before its stored-file projection so a failed git write cannot leave rows claiming content was committed; the same idempotency key must safely resume the projection write | SDK, backend, evals | closed: client `upload_batches` is the batch contract (≤100/partition); backend git-before-projection; no new backend batch op ID |
+| R17 | Repository taxonomy | Keep bootstrap source repository configuration under `projects.workspace`; keep reusable/attached project external repositories under `projects.repositories`; do not alias one into the other | SDK/product, backend, evals | closed: stable split on tip; legacy `ReposAPI.attach` / `WorkspaceAPI.upload` fail closed |
+| R18 | Environment taxonomy | Stable `research.environments` is the declarative catalog/preflight resource; DevEnvironment materialization/control is operator-only unless separately approved | SDK/product, backend runtime | closed: SDK EnvironmentsAPI + MCP adapters mapped to bounded ops; DevEnvironments remain advanced |
+| R19 | Image-release declarations | Replace the optional-field declaration record with a discriminated scorer-versus-actor union and strict nested artifact/inspection/materialization contracts before exposing five image-release operations | SDK, backend images | closed: discriminated union + five public ops on tip |
+| R20 | Observability and run outputs | Prefer the typed activity/transcript/evidence/usage set; replace giant poll summary with one small authoritative status projection; graduate the existing binary workspace archive; retain objective events only through an exact typed list contract when historical transitions are a real evidence requirement; keep raw logs/traces operator-only | SDK/product, backend runtime, evals | closed for code: ReportBench status via `swarms.status`; archive graduated; objective events remain advanced by disposition; live proofs deferred |
 
 ### Residual observability disposition
 
@@ -2508,3 +2508,14 @@ export SYNTH_API_KEY="$(awk -F= '/^SYNTH_API_KEY=/{print $2; exit}' ~/Documents/
 - Backend = contract authority; synth-ai = Research SDK ownership.
 - Load synth-ai skill for SDK boundary work.
 - Synth Style: `backend/specifications/tanha/references/synthstyle.md` (or historical sibling under specifications).
+
+## Dev code closeout — 2026-07-22
+
+Operator directed: finish remaining **dev code** only; skip live proofs.
+
+- Residual eval launch escapes cut to `SwarmSpec` + `research.swarms` / factories (lanes, task launchers, drivers; EffortBench opens via `SynthClient`).
+- ReportBench hero observability uses `swarms.status`; `__getattr__` no longer passthrough for stable twins.
+- R15–R20 statuses refreshed above. Capability ledger regenerated (2982 rows; env/workspace MCP tools mapped).
+- Live seven-lane matrix remains deferred. Phase 10 removal date-gated. Staging/main/PyPI out of scope.
+
+Receipt: `Jstack/.jstack/daily_notes/2026-07-22/RECEIPT_sdk_migration_dev_code_closeout_20260722.md`.

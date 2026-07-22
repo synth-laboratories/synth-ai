@@ -16,7 +16,7 @@
   "current": {
     "deep_consumer_imports": 0,
     "internal_compatibility_files": 117,
-    "internal_compatibility_lines": 46383,
+    "internal_compatibility_lines": 46316,
     "legacy_implementation_files": 150,
     "legacy_implementation_lines": 758,
     "stable_public_operation_ids": 72
@@ -18697,13 +18697,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:product/behavioral/dcrbench/live_harness.py:1897",
+      "id": "consumer:evals:product/behavioral/dcrbench/live_harness.py:1380",
       "invoked_capabilities": [
         "synth_ai.research.advanced.ManagedResearchClient"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 1897,
+      "line": 1380,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -18746,15 +18746,17 @@
     },
     {
       "canonical_noun": "factories",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "synth_ai.SynthClient",
+      "canonical_targets": [
+        "synth_ai.SynthClient"
+      ],
       "definition_status": "source_reference",
-      "disposition": "advanced",
+      "disposition": "supported_public",
       "handler": null,
       "id": "consumer:evals:product/factory/effortbench/run.py:2657",
       "invoked_capabilities": [
         "research.get",
-        "synth_ai.research.advanced.ManagedResearchClient"
+        "synth_ai.SynthClient"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -18762,12 +18764,12 @@
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
-      "reason": "repository-owned operator workflow explicitly accepts the unstable Research bridge and may not advertise it as customer-stable",
+      "reason": "already uses a supported public import boundary",
       "runtime_availability": "unresolved",
       "source_path": "product/factory/effortbench/run.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient",
-      "target_disposition": "unresolved",
+      "symbol": "synth_ai.SynthClient",
+      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -20867,14 +20869,16 @@
     },
     {
       "canonical_noun": "factories",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "synth_ai.SynthClient",
+      "canonical_targets": [
+        "synth_ai.SynthClient"
+      ],
       "definition_status": "source_reference",
-      "disposition": "advanced",
+      "disposition": "supported_public",
       "handler": null,
       "id": "consumer:evals:projectbench/factory_e2e_staging.py:460",
       "invoked_capabilities": [
-        "synth_ai.research.advanced.ManagedResearchClient"
+        "synth_ai.SynthClient"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -20882,12 +20886,12 @@
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
-      "reason": "repository-owned operator workflow explicitly accepts the unstable Research bridge and may not advertise it as customer-stable",
+      "reason": "already uses a supported public import boundary",
       "runtime_availability": "unresolved",
       "source_path": "projectbench/factory_e2e_staging.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient",
-      "target_disposition": "unresolved",
+      "symbol": "synth_ai.SynthClient",
+      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -20897,13 +20901,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:projectbench/factory_e2e_staging.py:535",
+      "id": "consumer:evals:projectbench/factory_e2e_staging.py:553",
       "invoked_capabilities": [
-        "synth_ai.research.advanced.ManagedResearchClient"
+        "synth_ai.SynthClient"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 535,
+      "line": 553,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20922,13 +20926,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:projectbench/factory_e2e_staging.py:671",
+      "id": "consumer:evals:projectbench/factory_e2e_staging.py:689",
       "invoked_capabilities": [
-        "synth_ai.research.advanced.ManagedResearchClient"
+        "synth_ai.SynthClient"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 671,
+      "line": 689,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -21031,11 +21035,8 @@
       "handler": null,
       "id": "consumer:evals:projectbench/tools/objective_orchestration_agent.py:11",
       "invoked_capabilities": [
-        "synth_ai.research.advanced.ManagedResearchClient",
-        "synth_ai.research.advanced.ProviderBinding",
         "synth_ai.research.advanced.SmrAgentProfileBindings",
-        "synth_ai.research.advanced.SmrRunnableProjectRequest",
-        "synth_ai.research.advanced.UsageLimit"
+        "synth_ai.research.advanced.SmrRunnableProjectRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -21047,8 +21048,36 @@
       "runtime_availability": "unresolved",
       "source_path": "projectbench/tools/objective_orchestration_agent.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.Provider,synth_ai.research.advanced.ProviderBinding,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrHostKind,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind,synth_ai.research.advanced.SmrWorkMode,synth_ai.research.advanced.UsageLimit",
+      "symbol": "synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrHostKind,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind,synth_ai.research.advanced.SmrWorkMode",
       "target_disposition": "unresolved",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "projects",
+      "canonical_target": "synth_ai.research.SwarmSpec",
+      "canonical_targets": [
+        "synth_ai.research.SwarmSpec"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:projectbench/tools/objective_orchestration_agent.py:25",
+      "invoked_capabilities": [
+        "synth_ai.research.advanced.SmrAgentProfileBindings",
+        "synth_ai.research.advanced.SmrRunnableProjectRequest"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 25,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "projectbench/tools/objective_orchestration_agent.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.SwarmSpec",
+      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -21076,6 +21105,68 @@
       "source_path": "provisional/benchmarks/reportbench_synth/crafter_tinker/containers/crafter_rs/open_synth_tunnel.py",
       "surface": "evals_consumer",
       "symbol": "synth_ai.client.NgrokTunnel,synth_ai.client.SynthTunnel",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.SynthClient",
+      "canonical_targets": [
+        "synth_ai.SynthClient"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:provisional/new/standard/smr_swe_rebench/run_smr_swe_rebench_single_task.py:1233",
+      "invoked_capabilities": [
+        "research.swarms.create",
+        "synth_ai.SynthClient",
+        "synth_ai.research.ActorHarness",
+        "synth_ai.research.ProjectId",
+        "synth_ai.research.SwarmSpec"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 1233,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "provisional/new/standard/smr_swe_rebench/run_smr_swe_rebench_single_task.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.SynthClient",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "projects",
+      "canonical_target": "synth_ai.research.ActorHarness,synth_ai.research.ProjectId,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode",
+      "canonical_targets": [
+        "synth_ai.research.ActorHarness,synth_ai.research.ProjectId,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:provisional/new/standard/smr_swe_rebench/run_smr_swe_rebench_single_task.py:1234",
+      "invoked_capabilities": [
+        "research.swarms.create",
+        "synth_ai.SynthClient",
+        "synth_ai.research.ActorHarness",
+        "synth_ai.research.ProjectId",
+        "synth_ai.research.SwarmSpec"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 1234,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "provisional/new/standard/smr_swe_rebench/run_smr_swe_rebench_single_task.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.ActorHarness,synth_ai.research.ProjectId,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode",
       "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
@@ -21454,6 +21545,81 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
+      "id": "consumer:evals:reportbench/lanes/readme_smoke/workspace/run_smr_hello_world_e2e.py:62",
+      "invoked_capabilities": [],
+      "invoked_capability_status": "unresolved",
+      "legacy_alias_target": null,
+      "line": 62,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "reportbench/lanes/readme_smoke/workspace/run_smr_hello_world_e2e.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.SwarmSpec",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.research.SwarmSpec",
+      "canonical_targets": [
+        "synth_ai.research.SwarmSpec"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:reportbench/lanes/readme_smoke_codex/workspace/run_smr_hello_world_e2e.py:63",
+      "invoked_capabilities": [],
+      "invoked_capability_status": "unresolved",
+      "legacy_alias_target": null,
+      "line": 63,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "reportbench/lanes/readme_smoke_codex/workspace/run_smr_hello_world_e2e.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.SwarmSpec",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.research.SwarmSpec",
+      "canonical_targets": [
+        "synth_ai.research.SwarmSpec"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:reportbench/lanes/readme_smoke_deepseek/workspace/run_smr_hello_world_e2e.py:54",
+      "invoked_capabilities": [],
+      "invoked_capability_status": "unresolved",
+      "legacy_alias_target": null,
+      "line": 54,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "reportbench/lanes/readme_smoke_deepseek/workspace/run_smr_hello_world_e2e.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.SwarmSpec",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.research.SwarmSpec",
+      "canonical_targets": [
+        "synth_ai.research.SwarmSpec"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
       "id": "consumer:evals:reportbench/launch_context.py:11",
       "invoked_capabilities": [],
       "invoked_capability_status": "unresolved",
@@ -21497,9 +21663,9 @@
     },
     {
       "canonical_noun": "efforts",
-      "canonical_target": "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.HostKind,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette",
+      "canonical_target": "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.CredentialProvider,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.FundingSource,synth_ai.research.HostKind,synth_ai.research.InferenceProvider,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.RunPolicy,synth_ai.research.RunPolicyAccess,synth_ai.research.RunPolicyLimits,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.ToolProvider,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette",
       "canonical_targets": [
-        "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.HostKind,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette"
+        "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.CredentialProvider,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.FundingSource,synth_ai.research.HostKind,synth_ai.research.InferenceProvider,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.RunPolicy,synth_ai.research.RunPolicyAccess,synth_ai.research.RunPolicyLimits,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.ToolProvider,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette"
       ],
       "definition_status": "source_reference",
       "disposition": "supported_public",
@@ -21513,6 +21679,7 @@
         "synth_ai.research.EnvironmentVariable",
         "synth_ai.research.ExecutionCapability",
         "synth_ai.research.ExecutionProfile",
+        "synth_ai.research.FundingSource",
         "synth_ai.research.HostKind",
         "synth_ai.research.KickoffArtifact",
         "synth_ai.research.KickoffMessage",
@@ -21529,6 +21696,9 @@
         "synth_ai.research.ResourceRoutingPolicy",
         "synth_ai.research.RoleBinding",
         "synth_ai.research.RoleBindings",
+        "synth_ai.research.RunPolicy",
+        "synth_ai.research.RunPolicyAccess",
+        "synth_ai.research.RunPolicyLimits",
         "synth_ai.research.Runbook",
         "synth_ai.research.SwarmEnvironment",
         "synth_ai.research.SwarmSpec",
@@ -21545,7 +21715,7 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/swarm_launch.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.HostKind,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette",
+      "symbol": "synth_ai.research.ActorHarness,synth_ai.research.ActorImageBinding,synth_ai.research.ActorModel,synth_ai.research.CredentialProvider,synth_ai.research.DirectedEffortOutcomeSpec,synth_ai.research.EnvironmentVariable,synth_ai.research.ExecutionCapability,synth_ai.research.ExecutionProfile,synth_ai.research.FundingSource,synth_ai.research.HostKind,synth_ai.research.InferenceProvider,synth_ai.research.KickoffArtifact,synth_ai.research.KickoffMessage,synth_ai.research.KickoffMessageMode,synth_ai.research.Limit,synth_ai.research.LocalExecution,synth_ai.research.OpenEndedQuestionSpec,synth_ai.research.PlatformResolvedExecutionTarget,synth_ai.research.PrimaryParentKind,synth_ai.research.PrimaryParentRef,synth_ai.research.ProviderBinding,synth_ai.research.ProviderPolicy,synth_ai.research.ResourceProvider,synth_ai.research.ResourceRoutingPolicy,synth_ai.research.RoleBinding,synth_ai.research.RoleBindings,synth_ai.research.RunPolicy,synth_ai.research.RunPolicyAccess,synth_ai.research.RunPolicyLimits,synth_ai.research.Runbook,synth_ai.research.SwarmEnvironment,synth_ai.research.SwarmSpec,synth_ai.research.ToolProvider,synth_ai.research.WorkMode,synth_ai.research.WorkerRolePalette",
       "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
@@ -21687,36 +21857,8 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError",
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient",
       "target_disposition": "unresolved",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "swarms",
-      "canonical_target": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "canonical_targets": [
-        "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode"
-      ],
-      "definition_status": "source_reference",
-      "disposition": "supported_public",
-      "handler": null,
-      "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py:20",
-      "invoked_capabilities": [
-        "synth_ai.research.advanced.SmrAgentProfileBindings",
-        "synth_ai.research.advanced.SmrRunnableProjectRequest"
-      ],
-      "invoked_capability_status": "source_detected",
-      "legacy_alias_target": null,
-      "line": 20,
-      "operation_id": null,
-      "operation_ids": [],
-      "owner": "evals",
-      "reason": "already uses a supported public import boundary",
-      "runtime_availability": "unresolved",
-      "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py",
-      "surface": "evals_consumer",
-      "symbol": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -21741,7 +21883,7 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
+      "symbol": "synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
       "target_disposition": "unresolved",
       "target_removal_version": null
     },
@@ -21767,36 +21909,8 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError",
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient",
       "target_disposition": "unresolved",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "swarms",
-      "canonical_target": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "canonical_targets": [
-        "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode"
-      ],
-      "definition_status": "source_reference",
-      "disposition": "supported_public",
-      "handler": null,
-      "id": "consumer:evals:reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py:21",
-      "invoked_capabilities": [
-        "synth_ai.research.advanced.SmrAgentProfileBindings",
-        "synth_ai.research.advanced.SmrRunnableProjectRequest"
-      ],
-      "invoked_capability_status": "source_detected",
-      "legacy_alias_target": null,
-      "line": 21,
-      "operation_id": null,
-      "operation_ids": [],
-      "owner": "evals",
-      "reason": "already uses a supported public import boundary",
-      "runtime_availability": "unresolved",
-      "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py",
-      "surface": "evals_consumer",
-      "symbol": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -21821,7 +21935,7 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/banking77_sft_qwen3_4b_1_container_premade/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
+      "symbol": "synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
       "target_disposition": "unresolved",
       "target_removal_version": null
     },
@@ -21847,36 +21961,8 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.ManagedResearchClient,synth_ai.research.advanced.SmrApiError",
+      "symbol": "synth_ai.research.advanced.ManagedResearchClient",
       "target_disposition": "unresolved",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "swarms",
-      "canonical_target": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "canonical_targets": [
-        "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode"
-      ],
-      "definition_status": "source_reference",
-      "disposition": "supported_public",
-      "handler": null,
-      "id": "consumer:evals:reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py:20",
-      "invoked_capabilities": [
-        "synth_ai.research.advanced.SmrAgentProfileBindings",
-        "synth_ai.research.advanced.SmrRunnableProjectRequest"
-      ],
-      "invoked_capability_status": "source_detected",
-      "legacy_alias_target": null,
-      "line": 20,
-      "operation_id": null,
-      "operation_ids": [],
-      "owner": "evals",
-      "reason": "already uses a supported public import boundary",
-      "runtime_availability": "unresolved",
-      "source_path": "reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py",
-      "surface": "evals_consumer",
-      "symbol": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode",
-      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -21901,8 +21987,64 @@
       "runtime_availability": "unresolved",
       "source_path": "reportbench/tasks/frogsgame_fbc_qwen35_4b_1/smr_launch/run_smr_task.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.advanced.LaunchPreflight,synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentModel,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
+      "symbol": "synth_ai.research.advanced.ProjectSetupAuthority,synth_ai.research.advanced.SmrAgentProfileBindings,synth_ai.research.advanced.SmrEnvironmentKind,synth_ai.research.advanced.SmrProjectSetupStatus,synth_ai.research.advanced.SmrRunnableProjectRequest,synth_ai.research.advanced.SmrRuntimeKind",
       "target_disposition": "unresolved",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.SynthClient",
+      "canonical_targets": [
+        "synth_ai.SynthClient"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:reportbench/typed_swarm_launch.py:14",
+      "invoked_capabilities": [
+        "synth_ai.SynthClient",
+        "synth_ai.research.ProjectId"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 14,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "reportbench/typed_swarm_launch.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.SynthClient",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "projects",
+      "canonical_target": "synth_ai.research.ProjectId,synth_ai.research.SwarmSpec",
+      "canonical_targets": [
+        "synth_ai.research.ProjectId,synth_ai.research.SwarmSpec"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:reportbench/typed_swarm_launch.py:15",
+      "invoked_capabilities": [
+        "synth_ai.SynthClient",
+        "synth_ai.research.ProjectId"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 15,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "reportbench/typed_swarm_launch.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.ProjectId,synth_ai.research.SwarmSpec",
+      "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
     {
@@ -22025,7 +22167,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:40",
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:41",
       "invoked_capabilities": [
         "research.swarms.configuration",
         "synth_ai.SynthClient",
@@ -22034,7 +22176,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 40,
+      "line": 41,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22053,7 +22195,7 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:41",
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:42",
       "invoked_capabilities": [
         "research.swarms.configuration",
         "synth_ai.SynthClient",
@@ -22062,7 +22204,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 41,
+      "line": 42,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22081,7 +22223,7 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:45",
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:46",
       "invoked_capabilities": [
         "research.swarms.configuration",
         "synth_ai.SynthClient",
@@ -22090,7 +22232,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 45,
+      "line": 46,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22194,13 +22336,13 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:47",
+      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:48",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 47,
+      "line": 48,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22219,13 +22361,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:48",
+      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:49",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 48,
+      "line": 49,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22244,13 +22386,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:52",
+      "id": "consumer:evals:scripts/run_reportbench_via_managed_research.py:53",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 52,
+      "line": 53,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22356,7 +22498,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1592",
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1593",
       "invoked_capabilities": [
         "research.advanced.limits.retrieve",
         "synth_ai.config.get_api_key",
@@ -22367,7 +22509,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 1592,
+      "line": 1593,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22388,7 +22530,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1890",
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1891",
       "invoked_capabilities": [
         "research.advanced.limits.retrieve",
         "synth_ai.config.get_api_key",
@@ -22399,7 +22541,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 1890,
+      "line": 1891,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22420,7 +22562,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1891",
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:1892",
       "invoked_capabilities": [
         "research.advanced.limits.retrieve",
         "synth_ai.config.get_api_key",
@@ -22431,7 +22573,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 1891,
+      "line": 1892,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22546,7 +22688,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:45",
+      "id": "consumer:evals:scripts/smr_sdk_harness/readme_smoke.py:46",
       "invoked_capabilities": [
         "research.advanced.limits.retrieve",
         "synth_ai.config.get_api_key",
@@ -22557,7 +22699,7 @@
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 45,
+      "line": 46,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22865,20 +23007,20 @@
     },
     {
       "canonical_noun": "swarms",
-      "canonical_target": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage",
+      "canonical_target": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmSpec,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage",
       "canonical_targets": [
-        "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage"
+        "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmSpec,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage"
       ],
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:swarmbench/reportbench/run.py:228",
+      "id": "consumer:evals:swarmbench/reportbench/run.py:229",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 228,
+      "line": 229,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22886,7 +23028,7 @@
       "runtime_availability": "unresolved",
       "source_path": "swarmbench/reportbench/run.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage",
+      "symbol": "synth_ai.research.ResearchHostKind,synth_ai.research.ResearchWorkMode,synth_ai.research.SwarmSpec,synth_ai.research.SwarmTranscriptEvent,synth_ai.research.SwarmTranscriptPage",
       "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
@@ -22897,13 +23039,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:swarmbench/reportbench/run.py:234",
+      "id": "consumer:evals:swarmbench/reportbench/run.py:236",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 234,
+      "line": 236,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -22922,13 +23064,13 @@
       "definition_status": "source_reference",
       "disposition": "advanced",
       "handler": null,
-      "id": "consumer:evals:swarmbench/reportbench/run.py:238",
+      "id": "consumer:evals:swarmbench/reportbench/run.py:240",
       "invoked_capabilities": [
         "synth_ai.research.advanced.SmrRunbookKind"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 238,
+      "line": 240,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -33669,7 +33811,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 203,
+      "line": 206,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33693,7 +33835,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 176,
+      "line": 179,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33717,7 +33859,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 172,
+      "line": 175,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33741,7 +33883,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 285,
+      "line": 288,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33765,7 +33907,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 264,
+      "line": 267,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33789,7 +33931,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 248,
+      "line": 251,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33813,7 +33955,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 232,
+      "line": 235,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33837,7 +33979,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 218,
+      "line": 221,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33861,7 +34003,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 142,
+      "line": 146,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -33885,7 +34027,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 306,
+      "line": 309,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34053,7 +34195,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 115,
+      "line": 119,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34077,7 +34219,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 99,
+      "line": 103,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34125,7 +34267,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 107,
+      "line": 111,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34173,7 +34315,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 91,
+      "line": 95,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34197,7 +34339,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 111,
+      "line": 115,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -67641,8 +67783,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:create_research_environment",
+      "canonical_targets": [
+        "operation:create_research_environment"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "create_environment",
@@ -67651,8 +67795,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_create_environment",
       "line": 178,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "create_research_environment",
+      "operation_ids": [
+        "create_research_environment"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -67664,8 +67810,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:retrieve_research_environment",
+      "canonical_targets": [
+        "operation:retrieve_research_environment"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "get_environment",
@@ -67674,8 +67822,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_environment",
       "line": 188,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "retrieve_research_environment",
+      "operation_ids": [
+        "retrieve_research_environment"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -67687,8 +67837,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:list_research_environments",
+      "canonical_targets": [
+        "operation:list_research_environments"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "list_environments",
@@ -67697,8 +67849,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_list_environments",
       "line": 168,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "list_research_environments",
+      "operation_ids": [
+        "list_research_environments"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -67710,8 +67864,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:preflight_research_environment",
+      "canonical_targets": [
+        "operation:preflight_research_environment"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "preflight_environment",
@@ -67720,8 +67876,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_preflight_environment",
       "line": 195,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "preflight_research_environment",
+      "operation_ids": [
+        "preflight_research_environment"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -69876,7 +70034,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_append_project_notes",
-      "line": 406,
+      "line": 402,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -69901,7 +70059,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_archive_project",
-      "line": 511,
+      "line": 507,
       "operation_id": "archive_project",
       "operation_ids": [
         "archive_project"
@@ -69926,7 +70084,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_create_project_changeset",
-      "line": 292,
+      "line": 288,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -69976,7 +70134,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_curated_knowledge",
-      "line": 462,
+      "line": 458,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -69999,7 +70157,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_decide_project_changeset",
-      "line": 349,
+      "line": 345,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70022,7 +70180,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_download_code",
-      "line": 698,
+      "line": 694,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70045,7 +70203,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_download_workspace_archive",
-      "line": 663,
+      "line": 659,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70068,7 +70226,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_capabilities",
-      "line": 529,
+      "line": 525,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70091,7 +70249,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_capacity_lane_preview",
-      "line": 545,
+      "line": 541,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70114,7 +70272,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_default_project",
-      "line": 206,
+      "line": 202,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70139,7 +70297,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_limits",
-      "line": 539,
+      "line": 535,
       "operation_id": "retrieve_research_limits",
       "operation_ids": [
         "retrieve_research_limits"
@@ -70164,7 +70322,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_objective_status",
-      "line": 778,
+      "line": 774,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70187,7 +70345,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_org_knowledge",
-      "line": 418,
+      "line": 414,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70212,7 +70370,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project",
-      "line": 197,
+      "line": 193,
       "operation_id": "retrieve_project",
       "operation_ids": [
         "retrieve_project"
@@ -70237,7 +70395,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_changeset",
-      "line": 334,
+      "line": 330,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70260,7 +70418,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_entitlement",
-      "line": 376,
+      "line": 372,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70283,7 +70441,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_git",
-      "line": 641,
+      "line": 637,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70306,7 +70464,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_knowledge",
-      "line": 438,
+      "line": 434,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70329,7 +70487,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_notes",
-      "line": 385,
+      "line": 381,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70352,7 +70510,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_status",
-      "line": 247,
+      "line": 243,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70375,7 +70533,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_project_workspace",
-      "line": 256,
+      "line": 252,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70398,7 +70556,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_provider_key_status",
-      "line": 597,
+      "line": 593,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70421,7 +70579,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_workspace_download_url",
-      "line": 618,
+      "line": 614,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70467,7 +70625,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_list_project_changesets",
-      "line": 270,
+      "line": 266,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70492,7 +70650,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_list_projects",
-      "line": 182,
+      "line": 178,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -70517,7 +70675,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_milestones",
-      "line": 806,
+      "line": 802,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70540,7 +70698,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_objectives",
-      "line": 733,
+      "line": 729,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70565,7 +70723,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_patch_project",
-      "line": 226,
+      "line": 222,
       "operation_id": "update_project",
       "operation_ids": [
         "update_project"
@@ -70590,7 +70748,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_pause_project",
-      "line": 493,
+      "line": 489,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70613,7 +70771,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_rename_project",
-      "line": 214,
+      "line": 210,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70636,7 +70794,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_resume_project",
-      "line": 502,
+      "line": 498,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70659,7 +70817,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_set_org_knowledge",
-      "line": 424,
+      "line": 420,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70682,7 +70840,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_set_project_knowledge",
-      "line": 447,
+      "line": 443,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70705,7 +70863,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_set_project_notes",
-      "line": 394,
+      "line": 390,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70728,7 +70886,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_set_provider_key",
-      "line": 568,
+      "line": 564,
       "operation_id": null,
       "operation_ids": [],
       "owner": "synth-ai/mcp",
@@ -70753,7 +70911,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_unarchive_project",
-      "line": 520,
+      "line": 516,
       "operation_id": "unarchive_project",
       "operation_ids": [
         "unarchive_project"
@@ -73157,8 +73315,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:set_project_workspace_source_repository",
+      "canonical_targets": [
+        "operation:set_project_workspace_source_repository"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "attach_source_repository",
@@ -73167,8 +73327,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_attach_source_repo",
       "line": 109,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "set_project_workspace_source_repository",
+      "operation_ids": [
+        "set_project_workspace_source_repository"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -73180,8 +73342,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:retrieve_project_workspace_inputs",
+      "canonical_targets": [
+        "operation:retrieve_project_workspace_inputs"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "get_workspace_inputs",
@@ -73190,8 +73354,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_get_workspace_inputs",
       "line": 139,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "retrieve_project_workspace_inputs",
+      "operation_ids": [
+        "retrieve_project_workspace_inputs"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -73203,8 +73369,10 @@
     },
     {
       "canonical_noun": "environments",
-      "canonical_target": null,
-      "canonical_targets": [],
+      "canonical_target": "operation:upload_project_workspace_files",
+      "canonical_targets": [
+        "operation:upload_project_workspace_files"
+      ],
       "definition_status": "source_defined",
       "disposition": "public_adapter",
       "handler": "upload_workspace_files",
@@ -73213,8 +73381,10 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": "mcp:research_upload_workspace_files",
       "line": 154,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "upload_project_workspace_files",
+      "operation_ids": [
+        "upload_project_workspace_files"
+      ],
       "owner": "synth-ai/mcp",
       "reason": "stable noun-first MCP adapter",
       "runtime_availability": "unresolved",
@@ -74768,32 +74938,32 @@
   "schema": "synth.research-capability-ledger.v2",
   "sources": {
     "backend": {
-      "commit": "98176666e58567a02c7f94a89e3698614daef81c",
+      "commit": "383d5c0227364f9cee14c78d74f7d6432f5d2fe2",
       "repository": "backend",
       "snapshot": "head",
       "working_tree_dirty": false
     },
     "evals": {
-      "commit": "bdbb94da22517db18f6c674f2d0c503676c3258e",
+      "commit": "084db8b28dbdf835d487a626ba7d0eff296651cc",
       "repository": "evals",
       "snapshot": "head_plus_worktree",
       "working_tree_dirty": true
     },
     "synth_ai": {
-      "commit": "ec957b35c332e5afa809eca65e939fd68513c542",
+      "commit": "996bbc2c82776431803a9282fc2fba3d4e96c0c5",
       "repository": "synth-ai",
-      "snapshot": "head",
-      "working_tree_dirty": false
+      "snapshot": "head_plus_worktree",
+      "working_tree_dirty": true
     }
   },
   "summary": {
     "by_definition_status": {
       "source_alias": 204,
       "source_defined": 2484,
-      "source_reference": 289
+      "source_reference": 294
     },
     "by_disposition": {
-      "advanced": 170,
+      "advanced": 168,
       "advanced_adapter": 242,
       "backend_only": 366,
       "compatibility_alias": 205,
@@ -74801,16 +74971,16 @@
       "core_implementation": 564,
       "public": 73,
       "public_adapter": 60,
-      "supported_public": 246
+      "supported_public": 253
     },
     "by_runtime_availability": {
-      "unresolved": 2977
+      "unresolved": 2982
     },
     "by_surface": {
       "backend_consumer": 25,
       "backend_route": 476,
       "core_research": 647,
-      "evals_consumer": 264,
+      "evals_consumer": 269,
       "internal_compatibility_sdk": 1051,
       "legacy_alias_module": 150,
       "mcp_tool": 302,
@@ -74825,11 +74995,11 @@
       "stable_public_adapter": 60,
       "stable_public_operation": 67,
       "stable_public_python": 6,
-      "supported_public_consumer": 246,
-      "unresolved": 1292
+      "supported_public_consumer": 253,
+      "unresolved": 1290
     },
-    "canonical_target_unresolved": 1296,
-    "eval_invocation_unresolved": 13,
+    "canonical_target_unresolved": 1287,
+    "eval_invocation_unresolved": 16,
     "public_operation_ids_with_backend_handler": 67,
     "public_operation_ids_without_backend_handler": [
       "archive_customer_actor_image",
@@ -74838,23 +75008,15 @@
       "list_customer_actor_images",
       "retrieve_image_release"
     ],
-    "rows": 2977,
-    "runtime_availability_unresolved": 2977,
+    "rows": 2982,
+    "runtime_availability_unresolved": 2982,
     "source_classification_unresolved": 0,
-    "stable_mcp_adapters_without_operation_mapping": [
-      "smr_attach_source_repo",
-      "smr_create_environment",
-      "smr_get_environment",
-      "smr_get_workspace_inputs",
-      "smr_list_environments",
-      "smr_preflight_environment",
-      "smr_upload_workspace_files"
-    ],
-    "target_disposition_unresolved": 1292,
+    "stable_mcp_adapters_without_operation_mapping": [],
+    "target_disposition_unresolved": 1290,
     "target_disposition_unresolved_by_surface": {
       "backend_route": 43,
       "core_research": 83,
-      "evals_consumer": 43,
+      "evals_consumer": 41,
       "internal_compatibility_sdk": 880,
       "mcp_tool": 242,
       "public_research": 1
