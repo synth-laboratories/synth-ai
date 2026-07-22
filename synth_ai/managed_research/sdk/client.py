@@ -690,9 +690,7 @@ def _build_project_run_payload(
     if normalized_execution_target:
         target_kind = str(normalized_execution_target.get("kind") or "").strip()
         if target_kind not in {"platform_resolved", "bound_runtime"}:
-            raise ValueError(
-                "execution_target.kind must be platform_resolved or bound_runtime"
-            )
+            raise ValueError("execution_target.kind must be platform_resolved or bound_runtime")
         duplicated_authority = [
             field_name
             for field_name, value in (
