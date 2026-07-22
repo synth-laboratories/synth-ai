@@ -70,16 +70,35 @@ class FactoryTransitionDecision(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class BudgetPolicy:
-    """Stable customer budget controls; unmodeled operator policy stays advanced."""
+    """Stable customer and FactoryBench budget controls."""
 
     limit_usd: float | None = None
     period: str | None = None
+    factory_limit_usd: float | None = None
+    ordinary_run_limit_usd: float | None = None
+    ordinary_run_target_usd: float | None = None
+    tinker_sft_run_limit_usd: float | None = None
+    tinker_sft_runs_per_window: int | None = None
+    run_class: str | None = None
+    operator_approved: bool | None = None
 
     def __post_init__(self) -> None:
-        if self.limit_usd is not None and self.limit_usd < 0:
-            raise ValueError("limit_usd must be non-negative")
+        for name in (
+            "limit_usd",
+            "factory_limit_usd",
+            "ordinary_run_limit_usd",
+            "ordinary_run_target_usd",
+            "tinker_sft_run_limit_usd",
+        ):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                raise ValueError(f"{name} must be non-negative")
+        if self.tinker_sft_runs_per_window is not None and self.tinker_sft_runs_per_window < 0:
+            raise ValueError("tinker_sft_runs_per_window must be non-negative")
         if self.period is not None:
             require_text(self.period, field_name="period")
+        if self.run_class is not None:
+            require_text(self.run_class, field_name="run_class")
 
     def to_wire(self) -> JsonObject:
         value: JsonObject = {}
@@ -88,6 +107,18 @@ class BudgetPolicy:
             value["currency"] = "USD"
         if self.period is not None:
             value["period"] = self.period
+        for name in (
+            "factory_limit_usd",
+            "ordinary_run_limit_usd",
+            "ordinary_run_target_usd",
+            "tinker_sft_run_limit_usd",
+            "tinker_sft_runs_per_window",
+            "run_class",
+            "operator_approved",
+        ):
+            field_value = getattr(self, name)
+            if field_value is not None:
+                value[name] = field_value
         return value
 
 
@@ -302,6 +333,7 @@ class EffortSpec:
     decision_needed: bool = False
     decision_note: str | None = None
     budget: BudgetPolicy | None = None
+    actor_notes: JsonObject = field(default_factory=dict)
     metadata: JsonObject = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -322,7 +354,7 @@ class EffortSpec:
             "budget_policy": self.budget.to_wire() if self.budget is not None else {},
             "publication_policy": {},
             "authorization_policy": {},
-            "actor_notes": {},
+            "actor_notes": dict(self.actor_notes),
             "metadata": dict(self.metadata),
         }
         if self.hypothesis is not None:

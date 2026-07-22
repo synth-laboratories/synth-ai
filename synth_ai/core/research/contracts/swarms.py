@@ -131,6 +131,35 @@ class ResourceProvider(StrEnum):
     BASETEN = "baseten"
 
 
+class FundingSource(StrEnum):
+    SYNTH_MANAGED = "synth_managed"
+    CUSTOMER_BYOK = "customer_byok"
+    USER_CONNECTED = "user_connected"
+
+
+class CredentialProvider(StrEnum):
+    DEEPSEEK = "deepseek"
+    OPENAI = "openai"
+    OPENROUTER = "openrouter"
+    XAI = "xai"
+    TINKER = "tinker"
+
+
+class InferenceProvider(StrEnum):
+    BASETEN = "baseten"
+    DEEPSEEK = "deepseek"
+    OPENAI = "openai"
+    GOOGLE = "google"
+    OPENROUTER = "openrouter"
+    XAI = "xai"
+
+
+class ToolProvider(StrEnum):
+    TINKER = "tinker"
+    SUBLINEAR = "sublinear"
+    LINEAR = "linear"
+
+
 class KickoffMessageMode(StrEnum):
     QUEUE = "queue"
     INTERRUPT = "interrupt"
@@ -217,6 +246,55 @@ class ResourceLimit:
             )
             if value is not None
         }
+
+
+@dataclass(frozen=True, slots=True)
+class RunPolicyAccess:
+    credential_providers: tuple[CredentialProvider, ...] | None = None
+    inference_providers: tuple[InferenceProvider, ...] | None = None
+    tool_providers: tuple[ToolProvider, ...] | None = None
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {}
+        for name, values in (
+            ("credential_providers", self.credential_providers),
+            ("inference_providers", self.inference_providers),
+            ("tool_providers", self.tool_providers),
+        ):
+            if values is not None:
+                payload[name] = [value.value for value in values]
+        return payload
+
+
+@dataclass(frozen=True, slots=True)
+class RunPolicyLimits:
+    total_cost_cents: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.total_cost_cents is not None and self.total_cost_cents < 0:
+            raise ValueError("total_cost_cents must be non-negative")
+
+    def to_wire(self) -> JsonObject:
+        if self.total_cost_cents is None:
+            return {}
+        return {"total_cost_cents": self.total_cost_cents}
+
+
+@dataclass(frozen=True, slots=True)
+class RunPolicy:
+    funding_source: FundingSource | None = None
+    access: RunPolicyAccess | None = None
+    limits: RunPolicyLimits | None = None
+
+    def to_wire(self) -> JsonObject:
+        payload: JsonObject = {}
+        if self.funding_source is not None:
+            payload["funding_source"] = self.funding_source.value
+        if self.access is not None:
+            payload["access"] = self.access.to_wire()
+        if self.limits is not None:
+            payload["limits"] = self.limits.to_wire()
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -746,11 +824,13 @@ class SwarmSpec:
     host_kind: HostKind | None = None
     agent_model: ActorModel | None = None
     agent_harness: ActorHarness | None = None
+    agent_profile_id: str | None = None
     actor_model_assignments: tuple[ActorModelAssignment, ...] = ()
     roles: RoleBindings | None = None
     providers: tuple[ProviderBinding, ...] = ()
     provider_policy: ProviderPolicy | None = None
     limit: ResourceLimit | None = None
+    run_policy: RunPolicy | None = None
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
@@ -792,6 +872,8 @@ class SwarmSpec:
             ProviderPolicy,
         ):
             raise ValueError("provider_policy must be ProviderPolicy")
+        if self.run_policy is not None and not isinstance(self.run_policy, RunPolicy):
+            raise ValueError("run_policy must be RunPolicy")
         if self.environment is not None and not isinstance(
             self.environment,
             SwarmEnvironment,
@@ -836,6 +918,7 @@ class SwarmSpec:
         object.__setattr__(self, "required_capabilities", capabilities)
         for name, value in (
             ("runbook_preset", self.runbook_preset),
+            ("agent_profile_id", self.agent_profile_id),
             ("environment_name", self.environment_name),
             ("worker_pool_id", self.worker_pool_id),
             ("dev_environment_id", self.dev_environment_id),
@@ -868,6 +951,8 @@ class SwarmSpec:
         for name, value in scalar_values:
             if value is not None:
                 payload[name] = value
+        if self.agent_profile_id is not None:
+            payload["agent_profile"] = self.agent_profile_id
         if self.idempotency_key is not None:
             payload["idempotency_key_run_create"] = self.idempotency_key
         if self.environment_name is not None:
@@ -887,6 +972,8 @@ class SwarmSpec:
             payload["provider_policy"] = self.provider_policy.to_wire()
         if self.limit is not None:
             payload["limit"] = self.limit.to_wire()
+        if self.run_policy is not None:
+            payload["run_policy"] = self.run_policy.to_wire()
         if self.required_capabilities:
             payload["required_capabilities"] = list(self.required_capabilities)
         if self.kickoff_messages:
@@ -1116,7 +1203,9 @@ __all__ = [
     "ActorSubtype",
     "ActorType",
     "BranchMode",
+    "CredentialProvider",
     "DirectedEffortOutcomeSpec",
+    "FundingSource",
     "HostKind",
     "EnvironmentVariable",
     "ExecutionCapability",
@@ -1124,6 +1213,7 @@ __all__ = [
     "KickoffArtifact",
     "KickoffMessage",
     "KickoffMessageMode",
+    "InferenceProvider",
     "LocalExecution",
     "OpenEndedQuestionSpec",
     "PlatformResolvedExecutionTarget",
@@ -1149,8 +1239,12 @@ __all__ = [
     "ResourceLimit",
     "ResourceProvider",
     "ResourceRoutingPolicy",
+    "RunPolicy",
+    "RunPolicyAccess",
+    "RunPolicyLimits",
     "Runbook",
     "SwarmEnvironment",
+    "ToolProvider",
     "WorkMode",
     "WorkerRolePalette",
 ]
