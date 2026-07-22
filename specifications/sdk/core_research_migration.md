@@ -54,7 +54,7 @@ are evidence attachments to this document.
 |---|---|---|
 | `synth-ai` | Clean candidate at `320be4ba` with projects/swarms/factories, typed failures/events, native async, activity, transcripts, workspace inputs, and project repository/dataset APIs | Review the product/API contract in the candidate; do not equate source structure with release readiness |
 | `backend` | Clean candidate at `64361869d`; the source allowlist has 64 operations and a fresh temporary export has 197 schemas, but the checked-in and vendored artifacts still contain only 49 operations / 155 schemas | Treat contract publication as stale until the backend artifact and SDK vendor are regenerated atomically and parity is re-proved |
-| `evals` | Clean candidate at `5301844d` with no deep imports and typed activity, transcript, usage, configuration, and durable-evidence consumers | Fix the two ReportBench workspace calls that target nonexistent stable methods, then prove representative workflows rather than relying on source inspection |
+| `evals` | Clean candidate at `5301844d` with no deep imports and typed activity, transcript, usage, configuration, and durable-evidence consumers | Fix five active workspace call sites across ReportBench, SwarmBench, and SwarmGameBench that target nonexistent stable methods, then prove representative workflows rather than relying on source inspection |
 | Compatibility | `synth_ai.managed_research` is 150 generated warning-only re-export files; 117 implementation files remain temporarily under `core/research/_legacy` | Enforce the 0.18.0 / no-earlier-than-2026-09-01 deletion contract and prevent stable imports from loading `_legacy` |
 | Public surface | Candidate discovery exposes `projects`, `swarms`, and `factories`; operator breadth is grouped under `advanced`; old `Research*`, `runs`, and `smr_*` names are compatibility-only | Finalize the smallest hero lifecycle, the stable/advanced line, and alias visibility before release |
 | Resources | Workspace inputs and project repository/dataset contracts exist end to end; Environment catalog is backend-only; image releases, DevEnvironments, and cloud deployments remain ungraduated | Settle resource taxonomy and batching semantics before adding another broad resource namespace |
@@ -98,6 +98,9 @@ not competing plans.
 - The distinction between bootstrap source repositories, project external
   repositories, Environment catalog entries, operator DevEnvironments, and
   admitted image releases.
+- Whether the customer-stable observability set needs one small authoritative
+  swarm-status projection and a binary workspace-archive operation, while raw
+  logs/traces and giant poll-summary payloads remain advanced or disappear.
 - The supported/deprecated/removed schedule for every legacy import and entrypoint.
 - Whether the release thresholds and proof matrix in Part VI are sufficient.
 
@@ -1833,11 +1836,11 @@ proves some exit conditions and contradicts or cannot prove the rest.
 | 1 — core foundations | PARTIAL | Shared credential, sync/async HTTP, retry, JSON, pagination, and error primitives exist; Research uses native async | Prove every container/pool/Research path uses one behaviorally identical error/retry/auth boundary and no domain transport remains |
 | 2 — bounded backend contract | NOT PROVED — STALE | Backend source allowlists 64 operations and a fresh temporary export has 197 schemas | Regenerate the checked-in backend and SDK artifacts, which still contain 49 operations / 155 schemas; then prove byte, operation, enum, requiredness, error, event, pagination, and state parity in authoritative CI |
 | 3 — projects and swarms | PARTIAL | Stable typed sync/async project and swarm APIs, same-object run aliases, event protocol, immutable resolved-configuration read, zero deep eval imports | Replace remaining active compatibility launch names and prove the hero loop plus resolved-configuration read against a real backend |
-| 4 — evidence and collaboration | PARTIAL | Typed activity, transcript/SSE, usage/freshness, durable artifact/WorkProduct evidence, and binary content are shared by sync/async Python, CLI, stable MCP, and active ReportBench collectors | Classify or graduate poll summary, objective events, workspace archive, logs/traces, and remaining advanced session reads; attach live cursor/reconnect/failure proof |
+| 4 — evidence and collaboration | PARTIAL | Typed activity, transcript/SSE, usage/freshness, durable artifact/WorkProduct evidence, and binary content are shared by sync/async Python, CLI, stable MCP, and active ReportBench collectors | Replace giant poll-summary consumption with a small status projection plus existing resources; graduate the required binary workspace archive; remove or strictly type objective events; keep raw logs/traces advanced; attach live cursor/reconnect/failure proof |
 | 5 — factories and economics | PARTIAL | Seven economics plus twelve Factory/Effort operations are bounded and typed with sync/async peers | Classify or graduate every legacy-session Factory projection and prove lifecycle/idempotency semantics against backend |
 | 6 — resources and deployment | PARTIAL | Workspace inputs plus project external repositories/datasets are bounded end to end; four strict Environment operations exist in backend source | Add the Environment SDK adapters; design strict image-release unions and five operation contracts; classify DevEnvironments/cloud deployments; fix ReportBench's nonexistent workspace calls and explicitly handle uploads above 100 files |
 | 7 — CLI and MCP | PARTIAL | MCP package moved; 46 stable definitions have bounded operation mappings; CLI/MCP source adapters cover configuration, activity, transcript, usage, durable evidence, workspace, repositories, and datasets | Synchronize the 64-operation artifact, attach runtime registration/invocation/failure receipts, and replace or remove the 245 target-unresolved advanced definitions and legacy request models |
-| 8 — eval cutover | PARTIAL — BROKEN CALLS | Deep and standalone-package imports are zero; GameBench scoring is eval-owned; typed activity/transcript/usage/evidence consumers landed | Replace the nonexistent ReportBench workspace methods, resolve >100-file batching, resolve 11 ledger invocation rows, and run representative project/swarm/Factory workflows; source calls are not execution proof |
+| 8 — eval cutover | PARTIAL — BROKEN CALLS | Deep and standalone-package imports are zero; GameBench scoring is eval-owned; typed activity/transcript/usage/evidence consumers landed | Replace five nonexistent workspace call sites across ReportBench/SwarmBench/SwarmGameBench, resolve >100-file batching and mutation atomicity, resolve 11 ledger invocation rows, and run representative project/swarm/Factory workflows; source calls are not execution proof |
 | 9 — compatibility shell | PASS | 150 generated warning-only re-export files / 754 lines; no implementation under `synth_ai.managed_research` | Preserve exact aliases and warnings through the declared window |
 | 10 — removal | NOT DUE | Version/date matrix is recorded | After supported-consumer and published-package proof, remove compatibility in 0.18.0 no earlier than 2026-09-01 |
 
@@ -1885,11 +1888,32 @@ The implementing engineer should edit this document in place:
 | R13 | Usage evidence contract | One concise swarm projection with exact aggregate money, typed tokens/actors, honest actor precision, and explicit freshness; keep raw ledger entries advanced | Backend, SDK, evals | candidate implemented; reviewer approval required |
 | R14 | Durable evidence contract | One strict swarm evidence snapshot for artifacts and WorkProducts, plus operation-aware binary content reads; backend remains index/content authority and the SDK does not expose storage URIs as authority | Backend, SDK, evals | candidate implemented; reviewer approval required |
 | R15 | Contract publication atomicity | A vertical is incomplete unless the backend allowlist, generated backend artifact, SDK operation metadata, and byte-identical vendored artifact land and validate together | Backend, SDK, release engineering | open; current 64-source/49-artifact split violates the recommendation |
-| R16 | Workspace uploads above 100 files | Keep the single backend mutation bounded at 100 files; add an explicit typed batch operation with deterministic partitions, per-batch idempotency, partial-completion receipts, and fail-loud semantics rather than silently chunking one call | SDK, backend, evals | open; required by directory-backed ReportBench lanes |
+| R16 | Workspace uploads above 100 files | Keep the single backend mutation bounded at 100 files; add an explicit typed batch operation with deterministic partitions, per-batch idempotency, partial-completion receipts, and fail-loud semantics rather than silently chunking one call. Execute the authoritative git mutation before its stored-file projection so a failed git write cannot leave rows claiming content was committed; the same idempotency key must safely resume the projection write | SDK, backend, evals | open; required by directory-backed ReportBench lanes, and the current backend route writes its projection before the git mutation |
 | R17 | Repository taxonomy | Keep bootstrap source repository configuration under `projects.workspace`; keep reusable/attached project external repositories under `projects.repositories`; do not alias one into the other | SDK/product, backend, evals | candidate distinction exists; reviewer approval and eval cutover required |
 | R18 | Environment taxonomy | Stable `research.environments` is the declarative catalog/preflight resource; DevEnvironment materialization/control is operator-only unless separately approved | SDK/product, backend runtime | open; backend catalog contract exists, SDK adapter does not |
 | R19 | Image-release declarations | Replace the optional-field declaration record with a discriminated scorer-versus-actor union and strict nested artifact/inspection/materialization contracts before exposing five image-release operations | SDK, backend images | open; no bounded operation IDs yet |
-| R20 | Observability projection | Prefer the typed activity/transcript/evidence/usage set; graduate poll summary or objective-event projections only for information that cannot be represented without loss | SDK/product, backend runtime, evals | open; active advanced ReportBench reads remain |
+| R20 | Observability and run outputs | Prefer the typed activity/transcript/evidence/usage set; replace giant poll summary with one small authoritative status projection; graduate the existing binary workspace archive; retain objective events only through an exact typed list contract when historical transitions are a real evidence requirement; keep raw logs/traces operator-only | SDK/product, backend runtime, evals | open; active advanced ReportBench reads and archive downloads remain |
+
+### Residual observability disposition
+
+The final read-only consumer audit found that the remaining advanced reads are
+not one capability. Review them separately so the stable SDK does not inherit a
+single unbounded poll payload:
+
+| Residual | Proposed disposition | Why |
+|---|---|---|
+| Poll summary | Add one strict `retrieve_swarm_status` operation containing state, liveness, terminal/finalization/recovery outcome, last progress, typed issues/invariants, failure classification, and freshness only | Active evals need a cheap authoritative terminal projection; actors, tasks, messages, evidence, usage, and transcripts already have separate typed resources |
+| Workspace archive | Graduate existing `GET /smr/runs/{run_id}/workspace/archive` as `retrieve_swarm_workspace_archive`, with byte-return and destination-download forms plus a typed checksum/commit/media receipt | ReportBench grading, code churn, staged-output hydration, Frontier, DeepSWE, and Crafter require the exact run-owned archive; a project-current fallback can grade the wrong generation |
+| Objective events | Remove the periodic/raw pass-through unless historical objective transitions are an explicit evidence requirement; if retained, expose one strict typed list operation | Current active code stores/counts the records but does not consume their arbitrary payload fields |
+| Raw logs | Keep generic log search advanced; use activity plus typed status issues for normal progress/failure interpretation | Customer correctness must not depend on parsing log prose |
+| Raw traces | Keep under `research.advanced` as an operator/debug capability | The collector requests raw redaction mode and reconstructs actor configuration |
+| Launch/preflight | Cut evals to existing `research.swarms.preflight(...)` and `.create(...)`; replace the preflight blocker loose-shape decoder with a closed blocker/denial union | No new backend operation is needed; the current hero adapter simply calls the advanced compatibility API |
+
+The status projection must not repeat actors, tasks, messages, artifacts,
+WorkProducts, logs, traces, trained models, or container packages. Those belong
+to their existing or separately approved resources. The workspace archive must
+remain run/swarm-owned and operation-aware; do not revive a project-current
+fallback in the stable path.
 
 ### Claims the reviewer should re-measure
 
@@ -1946,16 +1970,22 @@ order rather than repeat the mass move:
    operations; design and bound the five image-release operations; explicitly
    classify DevEnvironments/cloud deployments; and keep repository identities
    distinct.
-6. Fix ReportBench workspace setup using the typed stable methods and decide
-   R16 before changing code. A method-name correction without a >100-file and
-   partial-completion contract is a hidden behavior regression.
+6. Fix all five active ReportBench/SwarmBench/SwarmGameBench workspace call
+   sites using the typed stable methods and decide R16 before changing code. A
+   method-name correction without a >100-file, idempotency, partial-completion,
+   and projection-atomicity contract is a hidden behavior regression. In the
+   backend route, perform the authoritative git mutation before materializing
+   stored-file projection rows and make retry resume the projection safely.
 7. Review `SynthFailure`, activity/transcript SSE, usage, evidence, and Factory/
    Effort semantics as public protocol contracts. Require operation, request,
    correlation, retry, unknown-event, cursor, idempotency, cancellation, and
    freshness behavior to remain observable through Python, CLI, and MCP.
 8. Classify every remaining eval `research.advanced` use and the 245 advanced
-   MCP definitions. Each is an accepted operator dependency with an owner, a
-   missing stable capability, or removal—not an implicit compatibility waiver.
+   MCP definitions. Start with the residual disposition above: status and the
+   run-owned workspace archive are proposed stable contracts; objective events
+   require product evidence; raw logs/traces stay advanced. Each remaining use
+   is an accepted operator dependency with an owner, a missing stable
+   capability, or removal—not an implicit compatibility waiver.
 9. After review-driven edits, run the deterministic boundary/contract/package
    proofs and a new bounded Gemini 3.5 Flash Lite scan. Do not lower the
    7.0/5.0/no-hold thresholds. v10's 7.27 is the strongest accepted historical
@@ -2009,7 +2039,7 @@ uncommitted source changes:
 |---|---|---:|---|
 | `synth-ai` | `320be4ba` | 38 ahead | ledger receipt over `56ddecd2` project data, `bf4e8c68` transcript/SSE, `f7c89c65` workspace inputs, and `aced5585` activity |
 | `backend` | `64361869d` | 25 ahead | strict Environment catalog over `941408134` project data, `5b9092ef7` workspace inputs, `009e3a9bb` transcript/SSE, and `4d9bf5dd5` activity |
-| `evals` | `5301844d` | 36 ahead / 8 behind | typed transcript over `d52b69cf` usage and `381ff1a0` activity; workspace setup still has two invalid stable calls |
+| `evals` | `5301844d` | 36 ahead / 8 behind | typed transcript over `d52b69cf` usage and `381ff1a0` activity; five active workspace call sites still use invalid stable methods |
 
 Earlier foundational checkpoints remain in each branch history: `9e992da0` and
 `1a050cef` establish/consolidate the core; `adc56a5b` isolates stable imports;
@@ -2054,11 +2084,13 @@ change log; this document records review-significant checkpoints only.
 - Cross-repository commits `7088c78f` (synth-ai) and `e16d0bf2` (evals) remove
   `synth_ai/gamebench` and place the exact scorer contracts, client, and recipe
   under `evals/swarmbench/gamebench`.
-- The two newest handoff defects are recorded in Jstack: the ReportBench
-  workspace method/batching defect under `evals` at
-  `reportbench/hero_driver.py:139` (observed at `5301844d`) and the recurring
-  stale Research OpenAPI artifact under `backend` at `research_openapi.json`
-  (observed at `64361869d`).
+- The newest handoff defects are recorded in Jstack: the workspace
+  method/batching defect under `evals` at `reportbench/hero_driver.py:139`
+  (observed at `5301844d`), the workspace projection-before-git integrity defect
+  under `backend` at
+  `app/api/v1/managed_research/collaboration.py:2529` (observed at
+  `64361869d`), and the recurring stale Research OpenAPI artifact under
+  `backend` at `research_openapi.json` (observed at `64361869d`).
 - Main worktrees may contain unrelated user changes and must not be reset,
   stashed, or folded into this migration.
 - Baseline SDK-design verdict: **FAIL, 5.64/10**, 11/11 dimensions, two holds,
@@ -2144,7 +2176,7 @@ design bar passes; the migration and release bar do not yet pass.
 | Typed swarm usage evidence | PASS (source proof) | One strict backend projection; exact aggregate units; honest cent-only actor precision; closed tokens; explicit freshness; sync/async Python, CLI, stable MCP, and three ReportBench consumers; live backend proof remains required |
 | Durable swarm evidence | PASS (source proof) | One strict artifact/WorkProduct index; closed states/roles; count invariants; operation-aware binary content; sync/async Python, CLI, stable MCP, and ReportBench cutover; live backend proof remains required |
 | Resource verticals | PARTIAL | Workspace inputs and project repository/dataset APIs are typed end to end; Environment is backend-only; image releases, DevEnvironments, and cloud deployments remain ungraduated; >100-file workspace semantics are undecided |
-| Eval consumer cutover | **REVIEW — BROKEN CALLS** | Deep, standalone-package, and top-level compatibility-client imports are zero, and typed evidence consumers landed. ReportBench still calls nonexistent `projects.repos.attach` and `projects.workspace.upload`; 11 ledger rows and all runtime receipts remain unresolved |
+| Eval consumer cutover | **REVIEW — BROKEN CALLS** | Deep, standalone-package, and top-level compatibility-client imports are zero, and typed evidence consumers landed. Five active ReportBench/SwarmBench/SwarmGameBench call sites use nonexistent `projects.repos.attach` or `projects.workspace.upload`; 11 ledger rows and all runtime receipts remain unresolved |
 | Package/docs/live vertical proof | NOT RUN | Required before release; no wheel/import matrix, generated docs proof, or live local/staging Factory/Swarm proof in this handoff |
 | Ruff / `ty` / tests | NOT RUN | Explicitly skipped under workspace policy because the user did not request those validations |
 | User-triggered `/ultrareview` | PENDING | Mandatory before integration for this high-blast-radius migration |
