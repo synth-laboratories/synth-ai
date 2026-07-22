@@ -2508,4 +2508,3 @@ export SYNTH_API_KEY="$(awk -F= '/^SYNTH_API_KEY=/{print $2; exit}' ~/Documents/
 - Backend = contract authority; synth-ai = Research SDK ownership.
 - Load synth-ai skill for SDK boundary work.
 - Synth Style: `backend/specifications/tanha/references/synthstyle.md` (or historical sibling under specifications).
-

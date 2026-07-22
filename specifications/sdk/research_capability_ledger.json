@@ -19398,7 +19398,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:1228",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19427,7 +19426,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19455,7 +19455,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:1855",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19484,7 +19483,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19512,7 +19512,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:29",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19541,7 +19540,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19569,7 +19569,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:3441",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19598,7 +19597,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19626,7 +19626,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:3506",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19655,7 +19654,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19683,7 +19683,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:3569",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19712,7 +19711,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19740,7 +19740,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:3612",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19769,7 +19768,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19797,7 +19797,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:3622",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19826,7 +19825,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19854,7 +19854,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:4671",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19883,7 +19882,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19911,7 +19911,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:4721",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19940,7 +19939,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -19958,9 +19958,9 @@
     },
     {
       "canonical_noun": "projects",
-      "canonical_target": "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFilesBatchUploadRequest",
+      "canonical_target": "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFileEncoding,synth_ai.research.WorkspaceFileKind,synth_ai.research.WorkspaceFileUpload,synth_ai.research.WorkspaceFilesBatchUploadRequest,synth_ai.research.WorkspaceMetadata",
       "canonical_targets": [
-        "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFileEncoding,synth_ai.research.WorkspaceFileKind,synth_ai.research.WorkspaceFileUpload,synth_ai.research.WorkspaceFilesBatchUploadRequest,synth_ai.research.WorkspaceMetadata"
       ],
       "definition_status": "source_reference",
       "disposition": "supported_public",
@@ -19968,7 +19968,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:4722",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -19997,7 +19996,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -20009,7 +20009,7 @@
       "runtime_availability": "unresolved",
       "source_path": "product/runs/swarmgamebench/run.py",
       "surface": "evals_consumer",
-      "symbol": "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFilesBatchUploadRequest",
+      "symbol": "synth_ai.research.EnvironmentKind,synth_ai.research.ProjectId,synth_ai.research.ProjectSpec,synth_ai.research.RuntimeKind,synth_ai.research.SwarmId,synth_ai.research.WorkspaceFileEncoding,synth_ai.research.WorkspaceFileKind,synth_ai.research.WorkspaceFileUpload,synth_ai.research.WorkspaceFilesBatchUploadRequest,synth_ai.research.WorkspaceMetadata",
       "target_disposition": "supported_public_consumer",
       "target_removal_version": null
     },
@@ -20022,10 +20022,9 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5150",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5154",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -20054,11 +20053,12 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5150,
+      "line": 5154,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20079,10 +20079,9 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5151",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5155",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -20111,11 +20110,12 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5151,
+      "line": 5155,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20136,10 +20136,9 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5719",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5737",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -20168,11 +20167,12 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5719,
+      "line": 5737,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20196,7 +20196,6 @@
       "id": "consumer:evals:product/runs/swarmgamebench/run.py:936",
       "invoked_capabilities": [
         "research.advanced.session.run",
-        "research.advanced.session.upload_workspace_source_bundle",
         "research.close",
         "research.projects.archive",
         "research.projects.create",
@@ -20225,7 +20224,8 @@
         "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
-        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest",
+        "synth_ai.research.WorkspaceMetadata"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
@@ -74768,22 +74768,22 @@
   "schema": "synth.research-capability-ledger.v2",
   "sources": {
     "backend": {
-      "commit": "fb5268ba2d90971c1e4417c7b19eefcd9d1f65cf",
+      "commit": "98176666e58567a02c7f94a89e3698614daef81c",
       "repository": "backend",
-      "snapshot": "head_plus_worktree",
-      "working_tree_dirty": true
+      "snapshot": "head",
+      "working_tree_dirty": false
     },
     "evals": {
-      "commit": "a1033f6370d50c3f19eb1f0f11aeadf2aef02a08",
+      "commit": "bdbb94da22517db18f6c674f2d0c503676c3258e",
       "repository": "evals",
       "snapshot": "head_plus_worktree",
       "working_tree_dirty": true
     },
     "synth_ai": {
-      "commit": "269273dbcc8999e97e1a6199fb4d7e258b212933",
+      "commit": "ec957b35c332e5afa809eca65e939fd68513c542",
       "repository": "synth-ai",
-      "snapshot": "head_plus_worktree",
-      "working_tree_dirty": true
+      "snapshot": "head",
+      "working_tree_dirty": false
     }
   },
   "summary": {
