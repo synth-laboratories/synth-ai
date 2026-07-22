@@ -160,9 +160,7 @@ def _load_actor_policy_manifest(source: Path | None) -> dict[str, object]:
         if legacy.is_file():
             raw = json.loads(legacy.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
-                raise ValueError(
-                    "Actor model policy manifest must be a JSON object"
-                ) from primary_exc
+                raise ValueError("Actor model policy manifest must be a JSON object") from primary_exc
             return raw
         raise RuntimeError(
             "Unable to sync Managed Research actor model policy from backend Python "
