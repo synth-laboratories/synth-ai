@@ -11,7 +11,8 @@ from synth_ai.core.research._legacy.auth import get_api_key
 from synth_ai.core.research._legacy.errors import SmrApiError
 from synth_ai.core.research.client import ResearchClient as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
-from synth_ai.core.research.contracts.common import SwarmId
+from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
+from synth_ai.core.research.contracts.transcript import TranscriptView
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
     objective_tool_operation_from_wire,
@@ -3233,52 +3234,55 @@ class ResearchMcpServer:
             return client.logs.list_run_archives(project_id, run_id)
 
     def _tool_get_run_transcript(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
+        swarm_id = SwarmId(require_string(args, "run_id"))
         cursor = optional_string(args, "cursor")
         limit = optional_int(args, "limit") or 100
         participant_session_id = optional_string(args, "participant_session_id")
-        view = optional_string(args, "view")
-        with self._client_from_args(args) as client:
-            return client.runs.transcript(
-                run_id,
+        view = TranscriptView(optional_string(args, "view") or "operator")
+        with self._core_client_from_args(args) as client:
+            return client.swarms.transcript(
+                swarm_id,
                 cursor=cursor,
                 limit=min(limit, 200),
-                participant_session_id=participant_session_id,
+                participant_session_id=(
+                    ParticipantSessionId(participant_session_id)
+                    if participant_session_id is not None
+                    else None
+                ),
                 view=view,
-            )
+            ).to_wire()
 
     def _tool_watch_run_events(self, args: JSONDict) -> Any:
-        run_id = require_string(args, "run_id")
+        swarm_id = SwarmId(require_string(args, "run_id"))
         transcript_cursor = optional_string(args, "transcript_cursor")
         last_event_id = optional_string(args, "last_event_id")
-        view = optional_string(args, "view") or "operator"
+        view = TranscriptView(optional_string(args, "view") or "operator")
         max_events = min(optional_int(args, "max_events") or 20, 50)
         timeout_seconds = optional_int(args, "timeout_seconds") or 30
         events: list[dict[str, Any]] = []
-        with self._client_from_args(args) as client:
-            for event in client.runs.stream_events(
-                run_id,
+        next_last_event_id = last_event_id
+        next_transcript_cursor = transcript_cursor
+        with self._core_client_from_args(args) as client:
+            for event in client.swarms.events(
+                swarm_id,
                 transcript_cursor=transcript_cursor,
                 view=view,
                 last_event_id=last_event_id,
-                timeout=float(timeout_seconds),
+                timeout_seconds=float(timeout_seconds),
             ):
-                row = asdict(event)
-                occurred_at = row.get("occurred_at")
-                if hasattr(occurred_at, "isoformat"):
-                    row["occurred_at"] = occurred_at.isoformat()
+                row = event.to_wire()
                 events.append(row)
+                next_last_event_id = event.event_id
+                next_transcript_cursor = event.transcript_cursor
                 if len(events) >= max_events:
                     break
         return {
-            "run_id": run_id,
-            "view": view,
+            "run_id": swarm_id,
+            "view": view.value,
             "event_count": len(events),
             "events": events,
-            "next_last_event_id": events[-1].get("event_id") if events else last_event_id,
-            "next_transcript_cursor": (
-                events[-1].get("transcript_cursor") if events else transcript_cursor
-            ),
+            "next_last_event_id": next_last_event_id,
+            "next_transcript_cursor": next_transcript_cursor,
         }
 
     def _tool_get_launch_preflight(self, args: JSONDict) -> Any:

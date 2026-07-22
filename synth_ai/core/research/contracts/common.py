@@ -27,6 +27,14 @@ class ActivityEventId(str):
     """Backend-owned activity-event identifier within a Research swarm."""
 
 
+class TranscriptEventId(str):
+    """Backend-owned transcript-event identifier within a Research swarm."""
+
+
+class ParticipantSessionId(str):
+    """Backend-owned participant session represented in a transcript."""
+
+
 class ArtifactId(str):
     """Backend-owned durable Research artifact identifier."""
 
@@ -92,6 +100,7 @@ __all__ = [
     "FactoryId",
     "MessageId",
     "OrganizationId",
+    "ParticipantSessionId",
     "PoolId",
     "ProfileId",
     "ProjectEventId",
@@ -99,6 +108,7 @@ __all__ = [
     "RuntimeKind",
     "SwarmId",
     "TaskId",
+    "TranscriptEventId",
     "WorkspaceFileId",
     "WorkProductId",
 ]

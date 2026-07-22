@@ -12,12 +12,17 @@ from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.activity import ActivityWindow, SwarmActivity
-from synth_ai.core.research.contracts.common import ProjectId, SwarmId
+from synth_ai.core.research.contracts.common import (
+    ArtifactId,
+    ParticipantSessionId,
+    ProjectId,
+    SwarmId,
+    WorkProductId,
+)
 from synth_ai.core.research.contracts.evidence import (
     ContentDisposition,
     SwarmEvidence,
 )
-from synth_ai.core.research.contracts.common import ArtifactId, WorkProductId
 from synth_ai.core.research.contracts.swarms import (
     BranchResult,
     BranchSpec,
@@ -27,6 +32,10 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmSpec,
 )
 from synth_ai.core.research.contracts.usage import SwarmUsage
+from synth_ai.core.research.contracts.transcript import (
+    SwarmTranscriptPage,
+    TranscriptView,
+)
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
 
@@ -60,6 +69,18 @@ def _wait_arguments(timeout_seconds: float, poll_interval_seconds: float) -> Non
         raise ValueError("poll_interval_seconds must be positive")
 
 
+def _transcript_limit(limit: int) -> int:
+    if type(limit) is not int or not 1 <= limit <= 500:
+        raise ValueError("limit must be an integer from 1 through 500")
+    return limit
+
+
+def _stream_timeout(timeout_seconds: float | None) -> float | None:
+    if timeout_seconds is not None and timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be positive when provided")
+    return timeout_seconds
+
+
 class SwarmHandle:
     def __init__(self, api: SwarmsAPI, swarm: Swarm) -> None:
         self._api = api
@@ -89,6 +110,23 @@ class SwarmHandle:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return self._api.activity(self.swarm_id, window)
 
+    def transcript(
+        self,
+        *,
+        participant_session_id: ParticipantSessionId | None = None,
+        cursor: str | None = None,
+        limit: int = 200,
+        view: TranscriptView = TranscriptView.OPERATOR,
+    ) -> SwarmTranscriptPage:
+        """Return one page from the live or terminal transcript authority."""
+        return self._api.transcript(
+            self.swarm_id,
+            participant_session_id=participant_session_id,
+            cursor=cursor,
+            limit=limit,
+            view=view,
+        )
+
     def wait(
         self,
         *,
@@ -113,9 +151,18 @@ class SwarmHandle:
     def events(
         self,
         *,
+        transcript_cursor: str | None = None,
+        view: TranscriptView = TranscriptView.OPERATOR,
         last_event_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Iterator[SwarmEvent]:
-        yield from self._api.events(self.swarm_id, last_event_id=last_event_id)
+        yield from self._api.events(
+            self.swarm_id,
+            transcript_cursor=transcript_cursor,
+            view=view,
+            last_event_id=last_event_id,
+            timeout_seconds=timeout_seconds,
+        )
 
 
 class SwarmsAPI:
@@ -226,6 +273,33 @@ class SwarmsAPI:
         )
         return SwarmActivity.from_wire(value)
 
+    def transcript(
+        self,
+        swarm_id: SwarmId,
+        *,
+        participant_session_id: ParticipantSessionId | None = None,
+        cursor: str | None = None,
+        limit: int = 200,
+        view: TranscriptView = TranscriptView.OPERATOR,
+    ) -> SwarmTranscriptPage:
+        """Return one page with explicit replay authority and cursor semantics."""
+        query: JsonObject = {
+            "limit": _transcript_limit(limit),
+            "view": TranscriptView(view).value,
+        }
+        if participant_session_id is not None:
+            query["participant_session_id"] = participant_session_id
+        if cursor is not None:
+            query["cursor"] = cursor
+        value = self._transport.execute(
+            _request(
+                "list_run_transcript",
+                f"/smr/runs/{swarm_id}/runtime/transcript",
+                query=query,
+            )
+        )
+        return SwarmTranscriptPage.from_wire(value)
+
     def artifact_content(
         self,
         artifact_id: ArtifactId,
@@ -311,12 +385,19 @@ class SwarmsAPI:
         self,
         swarm_id: SwarmId,
         *,
+        transcript_cursor: str | None = None,
+        view: TranscriptView = TranscriptView.OPERATOR,
         last_event_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> Iterator[SwarmEvent]:
+        query: JsonObject = {"view": TranscriptView(view).value}
+        if transcript_cursor is not None:
+            query["transcript_cursor"] = transcript_cursor
         for event in self._transport.stream_sse(
             f"/smr/runs/{swarm_id}/runtime/stream",
+            params=query,
             last_event_id=last_event_id,
-            timeout_seconds=None,
+            timeout_seconds=_stream_timeout(timeout_seconds),
             operation_id="stream_run_events",
         ):
             yield decode_swarm_event(event)
@@ -351,6 +432,23 @@ class AsyncSwarmHandle:
         """Return one bounded actor, task, message, event, and output snapshot."""
         return await self._api.activity(self.swarm_id, window)
 
+    async def transcript(
+        self,
+        *,
+        participant_session_id: ParticipantSessionId | None = None,
+        cursor: str | None = None,
+        limit: int = 200,
+        view: TranscriptView = TranscriptView.OPERATOR,
+    ) -> SwarmTranscriptPage:
+        """Return one page from the live or terminal transcript authority."""
+        return await self._api.transcript(
+            self.swarm_id,
+            participant_session_id=participant_session_id,
+            cursor=cursor,
+            limit=limit,
+            view=view,
+        )
+
     async def wait(
         self,
         *,
@@ -375,11 +473,17 @@ class AsyncSwarmHandle:
     async def events(
         self,
         *,
+        transcript_cursor: str | None = None,
+        view: TranscriptView = TranscriptView.OPERATOR,
         last_event_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> AsyncIterator[SwarmEvent]:
         async for event in self._api.events(
             self.swarm_id,
+            transcript_cursor=transcript_cursor,
+            view=view,
             last_event_id=last_event_id,
+            timeout_seconds=timeout_seconds,
         ):
             yield event
 
@@ -488,6 +592,33 @@ class AsyncSwarmsAPI:
         )
         return SwarmActivity.from_wire(value)
 
+    async def transcript(
+        self,
+        swarm_id: SwarmId,
+        *,
+        participant_session_id: ParticipantSessionId | None = None,
+        cursor: str | None = None,
+        limit: int = 200,
+        view: TranscriptView = TranscriptView.OPERATOR,
+    ) -> SwarmTranscriptPage:
+        """Return one page with explicit replay authority and cursor semantics."""
+        query: JsonObject = {
+            "limit": _transcript_limit(limit),
+            "view": TranscriptView(view).value,
+        }
+        if participant_session_id is not None:
+            query["participant_session_id"] = participant_session_id
+        if cursor is not None:
+            query["cursor"] = cursor
+        value = await self._transport.execute(
+            _request(
+                "list_run_transcript",
+                f"/smr/runs/{swarm_id}/runtime/transcript",
+                query=query,
+            )
+        )
+        return SwarmTranscriptPage.from_wire(value)
+
     async def artifact_content(
         self,
         artifact_id: ArtifactId,
@@ -569,12 +700,19 @@ class AsyncSwarmsAPI:
         self,
         swarm_id: SwarmId,
         *,
+        transcript_cursor: str | None = None,
+        view: TranscriptView = TranscriptView.OPERATOR,
         last_event_id: str | None = None,
+        timeout_seconds: float | None = None,
     ) -> AsyncIterator[SwarmEvent]:
+        query: JsonObject = {"view": TranscriptView(view).value}
+        if transcript_cursor is not None:
+            query["transcript_cursor"] = transcript_cursor
         async for event in self._transport.stream_sse(
             f"/smr/runs/{swarm_id}/runtime/stream",
+            params=query,
             last_event_id=last_event_id,
-            timeout_seconds=None,
+            timeout_seconds=_stream_timeout(timeout_seconds),
             operation_id="stream_run_events",
         ):
             yield decode_swarm_event(event)

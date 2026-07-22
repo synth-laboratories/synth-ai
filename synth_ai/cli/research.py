@@ -273,6 +273,57 @@ def swarms_activity(
         click.echo(json.dumps(activity.to_wire(), indent=2, sort_keys=True))
 
 
+@swarms.command("transcript")
+@click.argument("swarm_id")
+@click.option("--cursor", help="Exclusive live or durable replay cursor.")
+@click.option("--limit", type=click.IntRange(1, 500), default=200, show_default=True)
+@click.option(
+    "--participant-session-id",
+    help="Restrict the page to one participant session.",
+)
+@click.option(
+    "--view",
+    type=click.Choice(("public", "operator", "debug"), case_sensitive=True),
+    default="operator",
+    show_default=True,
+)
+@click.option("--api-key", envvar="SYNTH_API_KEY", help="Synth API key.")
+@click.option("--backend-url", envvar="SYNTH_BACKEND_URL", help="Backend base URL.")
+def swarms_transcript(
+    swarm_id: str,
+    cursor: str | None,
+    limit: int,
+    participant_session_id: str | None,
+    view: str,
+    api_key: str | None,
+    backend_url: str | None,
+) -> None:
+    """Print one versioned transcript page and its cursor authority."""
+    from synth_ai import SynthClient
+    from synth_ai.research import (
+        ParticipantSessionId,
+        SwarmId,
+        TranscriptView,
+    )
+
+    with SynthClient(
+        api_key=_resolve_api_key(api_key),
+        base_url=_resolve_backend_url(backend_url),
+    ) as client:
+        transcript = client.research.swarms.transcript(
+            SwarmId(swarm_id),
+            participant_session_id=(
+                ParticipantSessionId(participant_session_id)
+                if participant_session_id is not None
+                else None
+            ),
+            cursor=cursor,
+            limit=limit,
+            view=TranscriptView(view),
+        )
+        click.echo(json.dumps(transcript.to_wire(), indent=2, sort_keys=True))
+
+
 @research.group()
 def factories() -> None:
     """Inspect stable Research Factories."""
