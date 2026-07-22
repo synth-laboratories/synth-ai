@@ -479,7 +479,9 @@ def sync_smr_actor_model_policy(
     if isinstance(shared_raw, list) and shared_raw:
         shared_top_level = tuple(
             dict.fromkeys(
-                str(model_id).strip() for model_id in shared_raw if str(model_id).strip()
+                str(model_id).strip()
+                for model_id in shared_raw
+                if str(model_id).strip()
             )
         )
     else:
