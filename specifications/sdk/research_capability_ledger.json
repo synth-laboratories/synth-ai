@@ -9486,9 +9486,31 @@
     },
     {
       "canonical_noun": "research",
-      "disposition": "advanced",
+      "disposition": "supported_public",
       "id": "consumer:evals:scripts/reportbench_sdk_driver.py:35",
       "line": 35,
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "source_path": "scripts/reportbench_sdk_driver.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.SynthClient"
+    },
+    {
+      "canonical_noun": "swarms",
+      "disposition": "supported_public",
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:36",
+      "line": 36,
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "source_path": "scripts/reportbench_sdk_driver.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.SwarmId"
+    },
+    {
+      "canonical_noun": "research",
+      "disposition": "advanced",
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:37",
+      "line": 37,
       "owner": "evals",
       "reason": "repository-owned operator workflow explicitly accepts the unstable Research bridge and may not advertise it as customer-stable",
       "source_path": "scripts/reportbench_sdk_driver.py",
@@ -9498,8 +9520,8 @@
     {
       "canonical_noun": "research",
       "disposition": "supported_public",
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:38",
-      "line": 38,
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:40",
+      "line": 40,
       "owner": "evals",
       "reason": "already uses a supported public import boundary",
       "source_path": "scripts/reportbench_sdk_driver.py",
@@ -9509,8 +9531,8 @@
     {
       "canonical_noun": "swarms",
       "disposition": "advanced",
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:39",
-      "line": 39,
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:41",
+      "line": 41,
       "owner": "evals",
       "reason": "repository-owned operator workflow explicitly accepts the unstable Research bridge and may not advertise it as customer-stable",
       "source_path": "scripts/reportbench_sdk_driver.py",
@@ -9520,8 +9542,8 @@
     {
       "canonical_noun": "research",
       "disposition": "advanced",
-      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:43",
-      "line": 43,
+      "id": "consumer:evals:scripts/reportbench_sdk_driver.py:45",
+      "line": 45,
       "owner": "evals",
       "reason": "repository-owned operator workflow explicitly accepts the unstable Research bridge and may not advertise it as customer-stable",
       "source_path": "scripts/reportbench_sdk_driver.py",
@@ -23692,11 +23714,11 @@
       "repository": "backend"
     },
     "evals": {
-      "commit": "65b9387ca38cda34df5de8a50f37907d597e15ef",
+      "commit": "7d7e29f83d98b950f8d0f721bb8ddf718efd8a23",
       "repository": "evals"
     },
     "synth_ai": {
-      "commit": "e0b889c820b53c298640e129e4bed95d7ffaadc8",
+      "commit": "9dbb79b8bf00975b0c5390ad10ef7b20d81d6edc",
       "repository": "synth-ai"
     }
   },
@@ -23708,17 +23730,17 @@
       "compatibility_migrate": 1051,
       "public": 50,
       "public_adapter": 36,
-      "supported_public": 221
+      "supported_public": 223
     },
     "by_surface": {
       "backend_consumer": 25,
       "backend_route": 471,
-      "evals_consumer": 241,
+      "evals_consumer": 243,
       "internal_compatibility_sdk": 1051,
       "mcp_tool": 296,
       "public_research": 6
     },
-    "rows": 2090,
+    "rows": 2092,
     "unclassified": 0
   }
 }
