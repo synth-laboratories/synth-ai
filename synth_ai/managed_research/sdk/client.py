@@ -36,12 +36,12 @@ from synth_ai.managed_research.models import (
     FactoryIdeaPatchRequest,
     FactoryLifecycleState,
     FactoryPatchRequest,
-    FactoryTransitionRequest,
     FactoryProjectLinkRequest,
     FactoryProjectPatchRequest,
     FactoryResultEvaluateRequest,
     FactoryResultRestoreRequest,
     FactoryResultSelectRequest,
+    FactoryTransitionRequest,
     FactoryWakeDueRequest,
     SmrProjectEconomics,
     SmrProjectUsage,
@@ -74,12 +74,12 @@ from synth_ai.managed_research.models.factories import (
     factory_idea_create_payload,
     factory_idea_patch_payload,
     factory_patch_payload,
-    factory_transition_payload,
     factory_project_link_payload,
     factory_project_patch_payload,
     factory_result_evaluate_payload,
     factory_result_restore_payload,
     factory_result_select_payload,
+    factory_transition_payload,
     factory_wake_due_payload,
 )
 from synth_ai.managed_research.models.local_execution_profile import (
@@ -89,10 +89,6 @@ from synth_ai.managed_research.models.run_execution import RunExecutionProjectio
 from synth_ai.managed_research.models.run_launch import (
     RunLaunchRequest,
     RunLaunchResult,
-)
-from synth_ai.managed_research.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
 )
 from synth_ai.managed_research.models.run_observability import (
     ManagedResearchRunContract,
@@ -119,6 +115,10 @@ from synth_ai.managed_research.models.smr_agent_models import SmrAgentModel
 from synth_ai.managed_research.models.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
+)
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
 )
 from synth_ai.managed_research.models.smr_funding_sources import (
     SmrFundingSource,
@@ -198,12 +198,8 @@ from synth_ai.managed_research.sdk.config import (
     OPENAI_TRANSPORT_MODE_BACKEND_BFF,
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
 )
-from synth_ai.managed_research.sdk.config import (
-    resolve_api_key as _resolve_api_key,
-)
-from synth_ai.managed_research.sdk.config import (
-    resolve_backend_base as _resolve_backend_base,
-)
+from synth_ai.managed_research.sdk.config import resolve_api_key as _resolve_api_key
+from synth_ai.managed_research.sdk.config import resolve_backend_base as _resolve_backend_base
 from synth_ai.managed_research.sdk.cost import RunCostAPI
 from synth_ai.managed_research.sdk.credentials import CredentialsAPI
 from synth_ai.managed_research.sdk.datasets import DatasetsAPI

@@ -7,16 +7,16 @@ from typing import Any
 
 from synth_ai.managed_research.mcp.registry import JSONDict
 from synth_ai.managed_research.models.run_timeline import SmrBranchMode, SmrRunBranchRequest
-from synth_ai.managed_research.models.smr_evidence_obligations import (
-    EvidenceObligations,
-    coerce_evidence_obligations,
-)
 from synth_ai.managed_research.models.smr_actor_models import normalize_actor_model_assignments
 from synth_ai.managed_research.models.smr_agent_harnesses import coerce_smr_agent_harness
 from synth_ai.managed_research.models.smr_agent_kinds import coerce_smr_agent_kind
 from synth_ai.managed_research.models.smr_agent_models import coerce_smr_agent_model
 from synth_ai.managed_research.models.smr_credential_providers import (
     coerce_smr_credential_provider,
+)
+from synth_ai.managed_research.models.smr_evidence_obligations import (
+    EvidenceObligations,
+    coerce_evidence_obligations,
 )
 from synth_ai.managed_research.models.smr_funding_sources import coerce_smr_funding_source
 from synth_ai.managed_research.models.smr_horizons import coerce_intended_horizon_hours
