@@ -13669,6 +13669,41 @@
         ],
         "title": "WorkProductStatus",
         "type": "string"
+      },
+      "WorkspaceConfirmPushRequest": {
+        "properties": {
+          "archive_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive Key"
+          },
+          "commit_sha": {
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "commit_sha"
+        ],
+        "title": "WorkspaceConfirmPushRequest",
+        "type": "object"
       }
     }
   },
@@ -16157,6 +16192,60 @@
           }
         },
         "summary": "Workspace Inputs Source Repo",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/workspace/confirm-push": {
+      "post": {
+        "operationId": "confirm_project_workspace_push",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceConfirmPushRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Workspace Confirm Push Smr Projects  Project Id  Workspace Confirm Push Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace Confirm Push",
         "tags": [
           "smr"
         ]

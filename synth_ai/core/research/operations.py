@@ -28,6 +28,13 @@ RESEARCH_OPERATIONS = {
         _operation(
             "archive_project", HttpMethod.POST, "/smr/projects/{project_id}/archive", mutation=True
         ),
+        _operation(
+            "confirm_project_workspace_push",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/workspace/confirm-push",
+            mutation=True,
+            idempotent=True,
+        ),
         _operation("branch_run", HttpMethod.POST, "/smr/runs/{run_id}/branches", mutation=True),
         _operation("create_effort", HttpMethod.POST, "/smr/efforts", mutation=True),
         _operation(

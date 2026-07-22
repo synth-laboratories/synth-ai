@@ -19,7 +19,7 @@
     "internal_compatibility_lines": 46383,
     "legacy_implementation_files": 150,
     "legacy_implementation_lines": 758,
-    "stable_public_operation_ids": 71
+    "stable_public_operation_ids": 72
   },
   "evidence_semantics": {
     "definition_status": "AST-discovered source definition, compatibility alias, or consumer reference only",
@@ -11457,12 +11457,12 @@
     },
     {
       "canonical_noun": "projects",
-      "canonical_target": "backend:app/api/v1/managed_research/projects.py:workspace_confirm_push",
+      "canonical_target": "operation:confirm_project_workspace_push",
       "canonical_targets": [
-        "backend:app/api/v1/managed_research/projects.py:workspace_confirm_push"
+        "operation:confirm_project_workspace_push"
       ],
       "definition_status": "source_defined",
-      "disposition": "backend_only",
+      "disposition": "public",
       "handler": "backend:app/api/v1/managed_research/projects.py:workspace_confirm_push",
       "http_method": "POST",
       "id": "backend:POST:app/api/v1/managed_research/projects.py:workspace_confirm_push",
@@ -11470,16 +11470,18 @@
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
       "line": 1084,
-      "operation_id": null,
-      "operation_ids": [],
+      "operation_id": "confirm_project_workspace_push",
+      "operation_ids": [
+        "confirm_project_workspace_push"
+      ],
       "owner": "backend/projects",
-      "reason": "not in the bounded public contract and not referenced by the SDK",
+      "reason": "backend-authored stable public operation ID",
       "route": "/projects/{project_id}/workspace/confirm-push",
       "runtime_availability": "unresolved",
       "source_path": "app/api/v1/managed_research/projects.py",
       "surface": "backend_route",
       "symbol": "workspace_confirm_push",
-      "target_disposition": "backend_internal",
+      "target_disposition": "stable_public_operation",
       "target_removal_version": null
     },
     {
@@ -19386,14 +19388,14 @@
     },
     {
       "canonical_noun": "swarms",
-      "canonical_target": "synth_ai.research.ResearchAuthorityReadouts",
+      "canonical_target": "synth_ai.research.WorkProductId",
       "canonical_targets": [
-        "synth_ai.research.ResearchAuthorityReadouts"
+        "synth_ai.research.WorkProductId"
       ],
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:1862",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:1228",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19422,13 +19424,71 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 1862,
+      "line": 1228,
+      "operation_id": null,
+      "operation_ids": [],
+      "owner": "evals",
+      "reason": "already uses a supported public import boundary",
+      "runtime_availability": "unresolved",
+      "source_path": "product/runs/swarmgamebench/run.py",
+      "surface": "evals_consumer",
+      "symbol": "synth_ai.research.WorkProductId",
+      "target_disposition": "supported_public_consumer",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "swarms",
+      "canonical_target": "synth_ai.research.ResearchAuthorityReadouts",
+      "canonical_targets": [
+        "synth_ai.research.ResearchAuthorityReadouts"
+      ],
+      "definition_status": "source_reference",
+      "disposition": "supported_public",
+      "handler": null,
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:1855",
+      "invoked_capabilities": [
+        "research.advanced.session.run",
+        "research.advanced.session.upload_workspace_source_bundle",
+        "research.close",
+        "research.projects.archive",
+        "research.projects.create",
+        "research.projects.setup.prepare",
+        "research.projects.workspace.upload_batches",
+        "research.swarms.cancel",
+        "research.swarms.create",
+        "research.swarms.list",
+        "research.swarms.preflight",
+        "research.swarms.wait",
+        "synth_ai.SynthClient",
+        "synth_ai.research.ActorModel",
+        "synth_ai.research.EnvironmentKind",
+        "synth_ai.research.ExecutionProfile",
+        "synth_ai.research.KickoffArtifact",
+        "synth_ai.research.LocalExecution",
+        "synth_ai.research.PlatformResolvedExecutionTarget",
+        "synth_ai.research.ProjectId",
+        "synth_ai.research.ProjectSpec",
+        "synth_ai.research.RoleBinding",
+        "synth_ai.research.RoleBindings",
+        "synth_ai.research.RuntimeKind",
+        "synth_ai.research.SwarmId",
+        "synth_ai.research.SwarmSpec",
+        "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
+        "synth_ai.research.WorkerRolePalette",
+        "synth_ai.research.WorkspaceFileUpload",
+        "synth_ai.research.WorkspaceFilesBatchUploadRequest"
+      ],
+      "invoked_capability_status": "source_detected",
+      "legacy_alias_target": null,
+      "line": 1855,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19478,6 +19538,7 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
@@ -19505,7 +19566,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3450",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3441",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19534,13 +19595,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 3450,
+      "line": 3441,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19561,7 +19623,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3515",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3506",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19590,13 +19652,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 3515,
+      "line": 3506,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19617,7 +19680,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3578",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3569",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19646,13 +19709,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 3578,
+      "line": 3569,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19673,7 +19737,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3621",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3612",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19702,13 +19766,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 3621,
+      "line": 3612,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19729,7 +19794,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3631",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:3622",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19758,13 +19823,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 3631,
+      "line": 3622,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19785,7 +19851,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4734",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4671",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19814,13 +19880,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 4734,
+      "line": 4671,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19841,7 +19908,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4784",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4721",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19870,13 +19937,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 4784,
+      "line": 4721,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19897,7 +19965,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4785",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:4722",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19926,13 +19994,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 4785,
+      "line": 4722,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -19953,7 +20022,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5213",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5150",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -19982,13 +20051,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5213,
+      "line": 5150,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20009,7 +20079,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5214",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5151",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -20038,13 +20108,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5214,
+      "line": 5151,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20065,7 +20136,7 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5787",
+      "id": "consumer:evals:product/runs/swarmgamebench/run.py:5719",
       "invoked_capabilities": [
         "research.advanced.session.run",
         "research.advanced.session.upload_workspace_source_bundle",
@@ -20094,13 +20165,14 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
       ],
       "invoked_capability_status": "source_detected",
       "legacy_alias_target": null,
-      "line": 5787,
+      "line": 5719,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -20150,6 +20222,7 @@
         "synth_ai.research.SwarmId",
         "synth_ai.research.SwarmSpec",
         "synth_ai.research.WorkMode",
+        "synth_ai.research.WorkProductId",
         "synth_ai.research.WorkerRolePalette",
         "synth_ai.research.WorkspaceFileUpload",
         "synth_ai.research.WorkspaceFilesBatchUploadRequest"
@@ -21015,11 +21088,11 @@
       "definition_status": "source_reference",
       "disposition": "supported_public",
       "handler": null,
-      "id": "consumer:evals:reportbench/client_api.py:11",
+      "id": "consumer:evals:reportbench/client_api.py:7",
       "invoked_capabilities": [],
       "invoked_capability_status": "unresolved",
       "legacy_alias_target": null,
-      "line": 11,
+      "line": 7,
       "operation_id": null,
       "operation_ids": [],
       "owner": "evals",
@@ -33208,7 +33281,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 312,
+      "line": 319,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34137,6 +34210,32 @@
     },
     {
       "canonical_noun": "projects",
+      "canonical_target": "python:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.confirm_push",
+      "canonical_targets": [
+        "python:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.confirm_push"
+      ],
+      "definition_status": "source_defined",
+      "disposition": "core_implementation",
+      "handler": "python:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.confirm_push",
+      "id": "core_research:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.confirm_push",
+      "invoked_capabilities": [],
+      "invoked_capability_status": "not_applicable",
+      "legacy_alias_target": null,
+      "line": 258,
+      "operation_id": "list_projects",
+      "operation_ids": [
+        "list_projects"
+      ],
+      "reason": "core Research source definition",
+      "runtime_availability": "unresolved",
+      "source_path": "synth_ai/core/research/project_workspaces.py",
+      "surface": "core_research",
+      "symbol": "AsyncProjectWorkspaceAPI.confirm_push",
+      "target_disposition": "core_implementation",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "projects",
       "canonical_target": "python:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.retrieve",
       "canonical_targets": [
         "python:synth_ai/core/research/project_workspaces.py:AsyncProjectWorkspaceAPI.retrieve"
@@ -34148,7 +34247,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 200,
+      "line": 249,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -34174,7 +34273,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 209,
+      "line": 283,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -34200,7 +34299,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 237,
+      "line": 311,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34224,7 +34323,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 223,
+      "line": 297,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -34234,6 +34333,32 @@
       "source_path": "synth_ai/core/research/project_workspaces.py",
       "surface": "core_research",
       "symbol": "AsyncProjectWorkspaceAPI.upload_files",
+      "target_disposition": "core_implementation",
+      "target_removal_version": null
+    },
+    {
+      "canonical_noun": "projects",
+      "canonical_target": "python:synth_ai/core/research/project_workspaces.py:ProjectWorkspaceAPI.confirm_push",
+      "canonical_targets": [
+        "python:synth_ai/core/research/project_workspaces.py:ProjectWorkspaceAPI.confirm_push"
+      ],
+      "definition_status": "source_defined",
+      "disposition": "core_implementation",
+      "handler": "python:synth_ai/core/research/project_workspaces.py:ProjectWorkspaceAPI.confirm_push",
+      "id": "core_research:synth_ai/core/research/project_workspaces.py:ProjectWorkspaceAPI.confirm_push",
+      "invoked_capabilities": [],
+      "invoked_capability_status": "not_applicable",
+      "legacy_alias_target": null,
+      "line": 163,
+      "operation_id": "list_projects",
+      "operation_ids": [
+        "list_projects"
+      ],
+      "reason": "core Research source definition",
+      "runtime_availability": "unresolved",
+      "source_path": "synth_ai/core/research/project_workspaces.py",
+      "surface": "core_research",
+      "symbol": "ProjectWorkspaceAPI.confirm_push",
       "target_disposition": "core_implementation",
       "target_removal_version": null
     },
@@ -34250,7 +34375,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 130,
+      "line": 154,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -34276,7 +34401,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 139,
+      "line": 188,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -34302,7 +34427,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 167,
+      "line": 216,
       "operation_id": null,
       "operation_ids": [],
       "reason": "core Research source definition",
@@ -34326,7 +34451,7 @@
       "invoked_capabilities": [],
       "invoked_capability_status": "not_applicable",
       "legacy_alias_target": null,
-      "line": 153,
+      "line": 202,
       "operation_id": "list_projects",
       "operation_ids": [
         "list_projects"
@@ -74643,7 +74768,7 @@
   "schema": "synth.research-capability-ledger.v2",
   "sources": {
     "backend": {
-      "commit": "0d7c0359979ae00c8c4250f61f63ebc1fb69c242",
+      "commit": "fb5268ba2d90971c1e4417c7b19eefcd9d1f65cf",
       "repository": "backend",
       "snapshot": "head_plus_worktree",
       "working_tree_dirty": true
@@ -74651,11 +74776,11 @@
     "evals": {
       "commit": "a1033f6370d50c3f19eb1f0f11aeadf2aef02a08",
       "repository": "evals",
-      "snapshot": "head",
-      "working_tree_dirty": false
+      "snapshot": "head_plus_worktree",
+      "working_tree_dirty": true
     },
     "synth_ai": {
-      "commit": "b08d774cf342ef2daf266136a4beafa2404f2604",
+      "commit": "269273dbcc8999e97e1a6199fb4d7e258b212933",
       "repository": "synth-ai",
       "snapshot": "head_plus_worktree",
       "working_tree_dirty": true
@@ -74664,28 +74789,28 @@
   "summary": {
     "by_definition_status": {
       "source_alias": 204,
-      "source_defined": 2482,
-      "source_reference": 288
+      "source_defined": 2484,
+      "source_reference": 289
     },
     "by_disposition": {
       "advanced": 170,
       "advanced_adapter": 242,
-      "backend_only": 367,
+      "backend_only": 366,
       "compatibility_alias": 205,
       "compatibility_migrate": 1051,
-      "core_implementation": 562,
-      "public": 72,
+      "core_implementation": 564,
+      "public": 73,
       "public_adapter": 60,
-      "supported_public": 245
+      "supported_public": 246
     },
     "by_runtime_availability": {
-      "unresolved": 2974
+      "unresolved": 2977
     },
     "by_surface": {
       "backend_consumer": 25,
       "backend_route": 476,
-      "core_research": 645,
-      "evals_consumer": 263,
+      "core_research": 647,
+      "evals_consumer": 264,
       "internal_compatibility_sdk": 1051,
       "legacy_alias_module": 150,
       "mcp_tool": 302,
@@ -74693,19 +74818,19 @@
       "public_research": 8
     },
     "by_target_disposition": {
-      "backend_internal": 367,
-      "core_implementation": 562,
+      "backend_internal": 366,
+      "core_implementation": 564,
       "remove_compatibility_alias": 205,
       "replace_with_stable_operation": 171,
       "stable_public_adapter": 60,
-      "stable_public_operation": 66,
+      "stable_public_operation": 67,
       "stable_public_python": 6,
-      "supported_public_consumer": 245,
+      "supported_public_consumer": 246,
       "unresolved": 1292
     },
     "canonical_target_unresolved": 1296,
     "eval_invocation_unresolved": 13,
-    "public_operation_ids_with_backend_handler": 66,
+    "public_operation_ids_with_backend_handler": 67,
     "public_operation_ids_without_backend_handler": [
       "archive_customer_actor_image",
       "create_image_release_upload",
@@ -74713,8 +74838,8 @@
       "list_customer_actor_images",
       "retrieve_image_release"
     ],
-    "rows": 2974,
-    "runtime_availability_unresolved": 2974,
+    "rows": 2977,
+    "runtime_availability_unresolved": 2977,
     "source_classification_unresolved": 0,
     "stable_mcp_adapters_without_operation_mapping": [
       "smr_attach_source_repo",
