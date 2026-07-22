@@ -46,6 +46,8 @@ _PACKAGE_REQUIREMENT = re.compile(
     r"^(?P<name>[a-z0-9][a-z0-9._-]*)==(?P<version>[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127})$"
 )
 _PLATFORMS = ("linux/amd64", "linux/arm64")
+_ACTOR_IMAGE_CACHE_MAX_ENTRIES = 2
+_ACTOR_IMAGE_CACHE_MAX_BYTES = 4 * 1024**3
 CUSTOMER_ACTOR_IMAGE_PACKAGE_LABEL = "io.synth.actor-runtime.python-packages"
 CRAFTAX_WORKER_BASE_IMAGE = "synth-local-open-research-craftax:latest"
 CRAFTAX_WORKER_SCORER_PATH = "/opt/synth/task-assets/craftax_repl"
@@ -189,6 +191,20 @@ class ActorImageRecipe:
                 raise ValueError(
                     "managed Craftax assets may only target " + CRAFTAX_WORKER_SCORER_PATH
                 )
+
+
+@dataclass(frozen=True, slots=True)
+class _ActorImageCachePolicy:
+    """Bounded local cache policy for rebuildable managed-image archives."""
+
+    max_entries: int = _ACTOR_IMAGE_CACHE_MAX_ENTRIES
+    max_bytes: int = _ACTOR_IMAGE_CACHE_MAX_BYTES
+
+    def __post_init__(self) -> None:
+        if self.max_entries < 1:
+            raise ValueError("actor image cache max_entries must be >= 1")
+        if self.max_bytes < 1:
+            raise ValueError("actor image cache max_bytes must be >= 1")
 
 
 def _text(payload: Mapping[str, Any], key: str, *, label: str) -> str:
@@ -384,6 +400,47 @@ def _recipe_cache_lock(archive_path: Path):
                 fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
+def _prune_recipe_cache(
+    cache_root: Path,
+    *,
+    protected_recipe_digests: set[str],
+    policy: _ActorImageCachePolicy = _ActorImageCachePolicy(),
+) -> None:
+    """Bound rebuildable archives while never deleting an in-use recipe."""
+    if not cache_root.is_dir() or fcntl is None:
+        return
+    protected_names = {
+        digest.removeprefix("sha256:") + ".oci.tar"
+        for digest in protected_recipe_digests
+    }
+    archives = sorted(
+        cache_root.glob("*.oci.tar"),
+        key=lambda path: path.stat().st_mtime_ns,
+        reverse=True,
+    )
+    retained_entries = 0
+    retained_bytes = 0
+    for archive in archives:
+        size_bytes = archive.stat().st_size
+        protected = archive.name in protected_names
+        within_policy = (
+            retained_entries < policy.max_entries
+            and retained_bytes + size_bytes <= policy.max_bytes
+        )
+        if protected or within_policy:
+            retained_entries += 1
+            retained_bytes += size_bytes
+            continue
+        lock_path = archive.with_suffix(archive.suffix + ".lock")
+        with lock_path.open("a+", encoding="utf-8") as lock:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                continue
+            archive.unlink()
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 def _normalized_python_packages(values: Sequence[str]) -> list[str]:
     if len(values) > 32:
         raise ValueError("python_packages must list at most 32 exact-pinned packages")
@@ -530,19 +587,21 @@ class ImagesAPI(_ClientNamespace):
         """
         recipe.validate()
         recipe_digest = recipe.recipe_digest()
+        cache_root = Path.home() / ".cache" / "synth-ai" / "actor-images"
         active_release = self._active_recipe_release(recipe_digest)
         if active_release is not None:
+            _prune_recipe_cache(cache_root, protected_recipe_digests={recipe_digest})
             return active_release
-        cache_root = Path.home() / ".cache" / "synth-ai" / "actor-images"
         cache_root.mkdir(parents=True, exist_ok=True)
         archive_path = cache_root / f"{recipe_digest.removeprefix('sha256:')}.oci.tar"
         with _recipe_cache_lock(archive_path):
             active_release = self._active_recipe_release(recipe_digest)
             if active_release is not None:
+                _prune_recipe_cache(cache_root, protected_recipe_digests={recipe_digest})
                 return active_release
             if not archive_path.is_file():
                 self._build_recipe_oci_archive(recipe, archive_path=archive_path)
-            return self.upload_archive(
+            image = self.upload_archive(
                 name=recipe.name,
                 archive_path=archive_path,
                 source={
@@ -555,6 +614,8 @@ class ImagesAPI(_ClientNamespace):
                 tag=f"recipe-{recipe_digest.removeprefix('sha256:')[:12]}",
                 recipe_digest=recipe_digest,
             )
+            _prune_recipe_cache(cache_root, protected_recipe_digests={recipe_digest})
+            return image
 
     def _active_recipe_release(self, recipe_digest: str) -> ActorImage | None:
         for item in self.list():
@@ -607,7 +668,10 @@ class ImagesAPI(_ClientNamespace):
                     "--platform",
                     recipe.platform,
                     "--output",
-                    f"type=oci,dest={temporary_archive}",
+                    (
+                        f"type=oci,dest={temporary_archive},compression=gzip,"
+                        "compression-level=6,force-compression=true"
+                    ),
                     str(context),
                 ],
                 capture_output=True,

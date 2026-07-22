@@ -4339,8 +4339,8 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         )
         if payload["release"]["declaration"] != normalized:
             raise ValueError("image release finalize response did not bind the request")
-        if payload["staging_cleanup"]["upload_id"] != normalized_upload_id:
-            raise ValueError("image release finalize cleaned a different upload_id")
+        if payload["upload_reconciliation"]["upload_id"] != normalized_upload_id:
+            raise ValueError("image release finalize reconciled a different upload_id")
         return payload
 
     def get_image_release(self, *, release_id: str) -> ImageRelease:

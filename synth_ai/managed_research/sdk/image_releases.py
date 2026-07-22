@@ -6,7 +6,7 @@ import hashlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal, TypedDict, cast
+from typing import Any, Literal, TypedDict, cast
 
 import httpx
 
@@ -72,26 +72,32 @@ class ImageRelease(TypedDict):
     artifact: ImageReleaseArtifact
     declaration: ImageReleaseDeclaration
     inspection: ImageReleaseInspection
+    package_release_timestamps: dict[str, str]
 
 
 class ImageReleaseUpload(TypedDict):
-    schema_version: Literal["smr-image-release-upload-v1"]
+    schema_version: Literal["smr-image-release-upload-v2"]
     upload_id: str
     release_id: str
     upload_url: str
+    upload_required: bool
+    upload_mode: Literal["content_addressed_quarantine"]
+    storage_admission: dict[str, Any] | None
     expires_in: int
     declaration: ImageReleaseDeclaration
+    package_release_timestamps: dict[str, str]
 
 
-class ImageReleaseStagingCleanup(TypedDict):
+class ImageReleaseUploadReconciliation(TypedDict):
     upload_id: str
-    status: Literal["deleted", "absent"]
+    status: Literal["verified_and_published", "already_published"]
+    object_key: str
 
 
 class ImageReleaseFinalize(TypedDict):
     schema_version: Literal["smr-image-release-finalize-v1"]
     release: ImageRelease
-    staging_cleanup: ImageReleaseStagingCleanup
+    upload_reconciliation: ImageReleaseUploadReconciliation
 
 
 def _exact_fields(
@@ -204,6 +210,7 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
                 "artifact",
                 "declaration",
                 "inspection",
+                "package_release_timestamps",
             }
         ),
         label="image_release",
@@ -218,6 +225,12 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
     inspection_payload = payload.get("inspection")
     if not isinstance(artifact_payload, Mapping) or not isinstance(inspection_payload, Mapping):
         raise ValueError("image release artifact and inspection must be objects")
+    package_timestamps = payload.get("package_release_timestamps")
+    if not isinstance(package_timestamps, Mapping) or any(
+        not isinstance(name, str) or not isinstance(timestamp, str)
+        for name, timestamp in package_timestamps.items()
+    ):
+        raise ValueError("image release package_release_timestamps must be a string map")
     declaration = image_release_declaration(cast(Mapping[str, object], declaration_payload))
     _exact_fields(
         artifact_payload,
@@ -276,24 +289,41 @@ def _image_release_upload_from_wire(payload: object) -> ImageReleaseUpload:
                 "upload_id",
                 "release_id",
                 "upload_url",
+                "upload_required",
+                "upload_mode",
+                "storage_admission",
                 "expires_in",
                 "declaration",
+                "package_release_timestamps",
             }
         ),
         label="image_release_upload",
     )
-    if payload.get("schema_version") != "smr-image-release-upload-v1":
+    if payload.get("schema_version") != "smr-image-release-upload-v2":
         raise ValueError("image release upload schema_version is unsupported")
     upload_id = _text(payload, "upload_id", label="image_release_upload")
     release_id = _text(payload, "release_id", label="image_release_upload")
     upload_url = _text(payload, "upload_url", label="image_release_upload")
     if not _UPLOAD_ID.fullmatch(upload_id) or not _RELEASE_ID.fullmatch(release_id):
         raise ValueError("image release upload identifiers are invalid")
-    if not upload_url.startswith("https://"):
-        raise ValueError("image release upload_url must use HTTPS")
+    if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
+        raise ValueError("image release upload_url must use HTTPS or loopback HTTP")
     expires_in = payload.get("expires_in")
     if isinstance(expires_in, bool) or not isinstance(expires_in, int):
         raise ValueError("image release upload expires_in must be an integer")
+    if not isinstance(payload.get("upload_required"), bool):
+        raise ValueError("image release upload_required must be a boolean")
+    if payload.get("upload_mode") != "content_addressed_quarantine":
+        raise ValueError("image release upload_mode is unsupported")
+    admission = payload.get("storage_admission")
+    if admission is not None and not isinstance(admission, Mapping):
+        raise ValueError("image release storage_admission must be an object or null")
+    package_timestamps = payload.get("package_release_timestamps")
+    if not isinstance(package_timestamps, Mapping) or any(
+        not isinstance(name, str) or not isinstance(timestamp, str)
+        for name, timestamp in package_timestamps.items()
+    ):
+        raise ValueError("image release package_release_timestamps must be a string map")
     image_release_declaration(cast(Mapping[str, object], payload.get("declaration")))
     return cast(ImageReleaseUpload, dict(payload))
 
@@ -303,36 +333,43 @@ def _image_release_finalize_from_wire(payload: object) -> ImageReleaseFinalize:
         raise ValueError("image release finalize response must be an object")
     _exact_fields(
         payload,
-        frozenset({"schema_version", "release", "staging_cleanup"}),
+        frozenset({"schema_version", "release", "upload_reconciliation"}),
         label="image_release_finalize",
     )
     if payload.get("schema_version") != "smr-image-release-finalize-v1":
         raise ValueError("image release finalize schema_version is unsupported")
     release = _image_release_from_wire(payload.get("release"))
-    cleanup = payload.get("staging_cleanup")
-    if not isinstance(cleanup, Mapping):
-        raise ValueError("image release staging_cleanup must be an object")
+    reconciliation = payload.get("upload_reconciliation")
+    if not isinstance(reconciliation, Mapping):
+        raise ValueError("image release upload_reconciliation must be an object")
     _exact_fields(
-        cleanup,
-        frozenset({"upload_id", "status"}),
-        label="image_release_finalize.staging_cleanup",
+        reconciliation,
+        frozenset({"upload_id", "status", "object_key"}),
+        label="image_release_finalize.upload_reconciliation",
     )
     upload_id = _text(
-        cleanup,
+        reconciliation,
         "upload_id",
-        label="image_release_finalize.staging_cleanup",
+        label="image_release_finalize.upload_reconciliation",
     )
-    if not _UPLOAD_ID.fullmatch(upload_id) or cleanup.get("status") not in {
-        "deleted",
-        "absent",
+    object_key = _text(
+        reconciliation,
+        "object_key",
+        label="image_release_finalize.upload_reconciliation",
+    )
+    if not _UPLOAD_ID.fullmatch(upload_id) or reconciliation.get("status") not in {
+        "verified_and_published",
+        "already_published",
     }:
-        raise ValueError("image release staging cleanup evidence is invalid")
+        raise ValueError("image release upload reconciliation evidence is invalid")
+    if not object_key.startswith("smr/env-images/objects/"):
+        raise ValueError("image release upload reconciliation object_key is invalid")
     return cast(
         ImageReleaseFinalize,
         {
             "schema_version": "smr-image-release-finalize-v1",
             "release": release,
-            "staging_cleanup": dict(cleanup),
+            "upload_reconciliation": dict(reconciliation),
         },
     )
 
@@ -381,7 +418,7 @@ class ImageReleasesAPI(_ClientNamespace):
         upload_id: str,
         declaration: ImageReleaseDeclaration | Mapping[str, object],
     ) -> ImageReleaseFinalize:
-        """Idempotently finalize and prove exact staging-upload disposal."""
+        """Idempotently finalize and prove content-addressed publication."""
         return self.finalize(upload_id=upload_id, declaration=declaration)
 
     def upload_archive(
@@ -410,37 +447,38 @@ class ImageReleasesAPI(_ClientNamespace):
         upload = self.create_upload(normalized, expires_in=expires_in)
         if upload["declaration"] != normalized:
             raise ValueError("image release upload response changed the declaration")
-        upload_error: httpx.TransportError | None = None
-        with httpx.Client(
-            timeout=upload_timeout_seconds,
-            follow_redirects=False,
-        ) as upload_client:
-            for _attempt in range(2):
-                try:
-                    with path.open("rb") as handle:
-                        response = upload_client.put(
-                            upload["upload_url"],
-                            content=handle,
-                            headers={
-                                "Content-Length": str(normalized["archive_size_bytes"]),
-                            },
-                        )
-                    upload_error = None
-                    break
-                except httpx.TransportError as exc:
-                    # Exact-key PUT is idempotent. One replay reconciles the only
-                    # ambiguous outcome without crossing the Synth storage boundary.
-                    upload_error = exc
-            else:
+        if upload["upload_required"]:
+            upload_error: httpx.TransportError | None = None
+            with httpx.Client(
+                timeout=upload_timeout_seconds,
+                follow_redirects=False,
+            ) as upload_client:
+                for _attempt in range(2):
+                    try:
+                        with path.open("rb") as handle:
+                            response = upload_client.put(
+                                upload["upload_url"],
+                                content=handle,
+                                headers={
+                                    "Content-Length": str(normalized["archive_size_bytes"]),
+                                },
+                            )
+                        upload_error = None
+                        break
+                    except httpx.TransportError as exc:
+                        # Exact-key PUT is idempotent. One replay reconciles the only
+                        # ambiguous outcome without crossing the storage boundary.
+                        upload_error = exc
+                else:
+                    raise RuntimeError(
+                        "image release archive upload outcome is uncertain "
+                        f"(upload_id={upload['upload_id']}, "
+                        f"release_id={upload['release_id']})"
+                    ) from upload_error
+            if response.is_error:
                 raise RuntimeError(
-                    "image release archive upload outcome is uncertain "
-                    f"(upload_id={upload['upload_id']}, "
-                    f"release_id={upload['release_id']})"
-                ) from upload_error
-        if response.is_error:
-            raise RuntimeError(
-                f"image release archive upload failed with HTTP {response.status_code}"
-            )
+                    f"image release archive upload failed with HTTP {response.status_code}"
+                )
         try:
             finalized = self.finalize(
                 upload_id=upload["upload_id"],
@@ -450,7 +488,7 @@ class ImageReleasesAPI(_ClientNamespace):
             if exc.status_code is not None:
                 raise
             # The backend finalize operation is idempotent and always proves
-            # staging disposal, so replay exactly once after response loss.
+            # content publication, so replay exactly once after response loss.
             try:
                 finalized = self.reconcile(
                     upload_id=upload["upload_id"],
@@ -462,8 +500,8 @@ class ImageReleasesAPI(_ClientNamespace):
                     f"(upload_id={upload['upload_id']}, "
                     f"release_id={upload['release_id']})"
                 ) from reconcile_exc
-        if finalized["staging_cleanup"]["upload_id"] != upload["upload_id"]:
-            raise ValueError("image release finalize cleaned a different upload_id")
+        if finalized["upload_reconciliation"]["upload_id"] != upload["upload_id"]:
+            raise ValueError("image release finalize reconciled a different upload_id")
         if finalized["release"]["release_id"] != upload["release_id"]:
             raise ValueError("image release finalize returned a different release_id")
         return finalized
@@ -475,7 +513,7 @@ __all__ = [
     "ImageReleaseDeclaration",
     "ImageReleaseInspection",
     "ImageReleaseFinalize",
-    "ImageReleaseStagingCleanup",
+    "ImageReleaseUploadReconciliation",
     "ImageReleasesAPI",
     "ImageReleaseUpload",
     "image_release_declaration",
