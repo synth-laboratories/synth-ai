@@ -1905,9 +1905,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/start",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="start_factory",
         )
@@ -1924,9 +1922,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/pause",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="pause_factory",
         )
@@ -1943,9 +1939,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/resume",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="resume_factory",
         )
@@ -1962,9 +1956,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             self._request_json(
                 "POST",
                 f"/smr/factories/{factory_id}/archive",
-                json_body=factory_transition_payload(
-                    request, reason=reason, dry_run=dry_run
-                ),
+                json_body=factory_transition_payload(request, reason=reason, dry_run=dry_run),
             ),
             label="archive_factory",
         )
