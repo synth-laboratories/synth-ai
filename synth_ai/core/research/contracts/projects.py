@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
@@ -47,6 +47,8 @@ class ProjectSpec:
     timezone: str = "UTC"
     scenario: str | None = None
     notes: str | None = None
+    execution_policy: JsonObject = field(default_factory=dict)
+    research: JsonObject = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -70,6 +72,8 @@ class ProjectSpec:
             "default_worker_profile_id": self.default_worker_profile_id,
             "worker_profile_ids": list(self.worker_profile_ids),
             "timezone": self.timezone,
+            "execution_policy": dict(self.execution_policy),
+            "research": dict(self.research),
         }
         for name, value in (
             ("actor_profile_id", self.actor_profile_id),
