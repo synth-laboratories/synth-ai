@@ -15,6 +15,10 @@ from synth_ai.core.research.contracts.projects import (
     ProjectSetup,
 )
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.project_workspaces import (
+    AsyncProjectWorkspaceAPI,
+    ProjectWorkspaceAPI,
+)
 
 
 def _request(
@@ -66,6 +70,7 @@ class ProjectsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
         self.setup = ProjectSetupAPI(transport)
+        self.workspace = ProjectWorkspaceAPI(transport)
 
     def create(self, request: ProjectSpec) -> Project:
         value = self._transport.execute(
@@ -140,6 +145,7 @@ class AsyncProjectsAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
         self.setup = AsyncProjectSetupAPI(transport)
+        self.workspace = AsyncProjectWorkspaceAPI(transport)
 
     async def create(self, request: ProjectSpec) -> Project:
         value = await self._transport.execute(
@@ -199,8 +205,10 @@ AsyncResearchProjectsAPI = AsyncProjectsAPI
 
 __all__ = [
     "AsyncProjectSetupAPI",
+    "AsyncProjectWorkspaceAPI",
     "AsyncProjectsAPI",
     "ProjectSetupAPI",
+    "ProjectWorkspaceAPI",
     "ProjectsAPI",
     "AsyncResearchProjectSetupAPI",
     "AsyncResearchProjectsAPI",

@@ -39,6 +39,14 @@ class ConfigurationVersionId(str):
     """Immutable backend configuration-snapshot identifier."""
 
 
+class WorkspaceFileId(str):
+    """Backend-owned stored workspace-file identifier."""
+
+
+class ProjectEventId(str):
+    """Backend-owned project collaboration-event identifier."""
+
+
 class EffortId(str):
     """Backend-owned Factory Effort identifier."""
 
@@ -86,9 +94,11 @@ __all__ = [
     "OrganizationId",
     "PoolId",
     "ProfileId",
+    "ProjectEventId",
     "ProjectId",
     "RuntimeKind",
     "SwarmId",
     "TaskId",
+    "WorkspaceFileId",
     "WorkProductId",
 ]
