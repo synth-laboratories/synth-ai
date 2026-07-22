@@ -123,6 +123,10 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                         "type": "string",
                         "description": "Required shared orchestrator profile id.",
                     },
+                    "reviewer_profile_id": {
+                        "type": "string",
+                        "description": "Optional explicit reviewer profile id sealed by project authority.",
+                    },
                     "default_worker_profile_id": {
                         "type": "string",
                         "description": "Required default worker profile id.",

@@ -54763,6 +54763,10 @@ components:
       properties:
         orchestrator:
           $ref: '#/components/schemas/SmrResolvedProfileResponse'
+        reviewer:
+          anyOf:
+          - $ref: '#/components/schemas/SmrResolvedProfileResponse'
+          - type: 'null'
         workers:
           items:
             $ref: '#/components/schemas/SmrResolvedProfileResponse'
@@ -54778,9 +54782,9 @@ components:
       - orchestrator
       title: SmrResolvedActorProfilesResponse
       description: "Platform-resolved actor execution for a hosted launch \u2014 no\
-        \ customer input.\n\nSurfaces what the platform chose (orchestrator + worker\
-        \ profiles) so history\nand dashboards never conflate requested vs platform-chosen\
-        \ models."
+        \ customer input.\n\nSurfaces what the platform chose (orchestrator, reviewer,\
+        \ and worker\nprofiles) so history and dashboards never conflate requested\
+        \ vs\nplatform-chosen models."
     SmrResolvedProfileResponse:
       properties:
         role:
@@ -60600,6 +60604,13 @@ components:
           maxLength: 200
           minLength: 1
           title: Orchestrator Profile Id
+        reviewer_profile_id:
+          anyOf:
+          - type: string
+            maxLength: 200
+            minLength: 1
+          - type: 'null'
+          title: Reviewer Profile Id
         default_worker_profile_id:
           type: string
           maxLength: 200
