@@ -2418,3 +2418,94 @@ Branch (all three): `sdk-core-research-migration-20260721`
 - No worktree removals
 - No Ruff/ty/tests/live workflows
 
+### Engineer handoff — closeout packet — 2026-07-22T04:46:00Z
+
+**Goal remains ACTIVE.** Do not treat this as complete. Do not merge or remove worktrees until live evals + synthstyle closeout pass.
+
+#### Frozen clean heads (branch `sdk-core-research-migration-20260721`)
+
+| Repo | Worktree | HEAD |
+|---|---|---|
+| synth-ai | `~/Documents/GitHub/synth-ai-worktrees/sdk-core-research-migration` | `920975e2` |
+| backend | `~/Documents/GitHub/backend-worktrees/sdk-core-research-migration` | `f03cc1085` |
+| evals | `~/Documents/GitHub/evals-worktrees/sdk-core-research-migration` | `ccea2cfe` |
+
+Goal record: `Jstack/.jstack/records/goals/2026-07-21-019f8645.md`
+
+#### Already closed (do not re-litigate)
+
+1. Image-release SDK vertical (lean contracts → CLI/MCP); quarantined drafts disposed (not staged wholesale).
+2. Shared classified `RetryPolicy` on sync/async HTTP execute.
+3. Swarm status + workspace archive (backend ops + SDK/MCP).
+4. `SwarmSpec` launch fields; SwarmBench + SwarmGameBench cut over to `research.swarms.preflight` / `.create` with staged `kickoff_contract.json`.
+5. OpenAPI same-head parity: **71 ops / 223 schemas**, vendored SHA-256 `c8954b0bd209a47ac868aa36fa7fcbfae6c12f2db8a632ec80a40a304b1ef25e`.
+6. Capability ledger regen at same heads.
+7. ReportBench `hero_driver` is **SwarmSpec-only** for launch/preflight (compat kwargs closed).
+8. Quality deterministic lint/type: **ruff-format / ruff-check / ty / architecture PASS** at `920975e2`.
+   - Receipt: `synth-ai-worktrees/.../.quality/runs/20260722T044441Z/`
+   - Overall quality still **FAIL**: jstack (~3017), structural (38 huge MCP/CLI), sdk-design aggregate **6.82** (need ≥7.0).
+
+#### Critical remaining code gap
+
+**ReportBench `client_api.py` still prefers raw `_request_json`** to `/smr/projects/{id}/trigger` and `/launch-preflight`. Hero path rejects kwargs, so any caller that reaches `hero_driver.trigger_run(**kwargs)` will hard-fail; the raw HTTP path still bypasses typed SwarmSpec. Cut this before claiming ReportBench/FactoryBench SDK adherence.
+
+#### Closeout mission (ordered)
+
+1. **Install/work against these worktrees**, not main `synth-ai`/`backend`/`evals` checkouts.
+2. **Synth style first pass** on remaining dirty intent:
+   - Fix or schedule jstack HIGH hits that touch Research public surface.
+   - Structural debt is mostly `mcp/research/server.py` + CLI factory standup size — do not drive mega-refactors mid-eval unless they block correctness.
+   - Re-run `./synth-dev/quality ./synth-ai-worktrees/sdk-core-research-migration` after style fixes; target sdk-design aggregate ≥7.0 and no holds.
+3. **Live product evals via typed swarms** (local slot / synth-dev — claim slot ownership; do not kill shared services):
+   - SwarmBench: `product/runs/swarmbench` — start with `readme-smoke`, then `craftax-code-policy-deo-hillclimb` if capacity allows.
+     - `./bench.sh validate swarmbench/readme-smoke`
+     - `./bench.sh run-config configs/swarmbench/...` (see suite README)
+   - SwarmGameBench: `product/runs/swarmgamebench` — `craftax-code-policy-deo-hillclimb` (and/or rogue smoke).
+     - Launch must go through `research.swarms.*` (already cut over in `run.py`).
+4. **ReportBench (“reb”) against new SDK**:
+   - Cut `reportbench/client_api.py` off `_request_json` trigger/preflight onto `SwarmSpec` + `hero_driver`.
+   - Prove banking77 + Craftax-shaped ReportBench tasks launch without advanced/compat aliases.
+5. **FactoryBench against new SDK**:
+   - Craftax: `projectbench/factory_projects/craftax_simple_factory/` (and/or cybernetics effort if required).
+   - Banking77: `projectbench/factory_projects/banking77_simple_factory/`.
+   - Also see `factorybench/craftax_factory_eval.py` and `smr/panels` factorybench adapter.
+   - Confirm factory create/effort/run paths use `synth_ai.research` typed surfaces, not managed-research / raw SMR HTTP.
+6. **Evidence packet before merge**:
+   - Capture run IDs, project IDs, receipt paths, preflight clear, terminal state.
+   - Note which slot/backend URL/`SYNTH_API_KEY` env was used (never print the key).
+   - Re-prove OpenAPI byte parity if backend allowlist changes: `scripts/export_research_openapi.py` → vendor `openapi/research-v1.json` → `scripts/check_research_openapi_contract.py`.
+7. **Only then**: operator review → merge three branches to `dev` → prove SHAs reachable → remove worktrees → delete local feature branches → finish goal `019f8645`.
+
+#### Do not
+
+- Merge or remove worktrees before live proofs.
+- Stage incomplete drafts wholesale.
+- Re-open disposed image-release quarantine as a redesign.
+- Call goal `blocked`; keep active and write the exact next owner/action here.
+- Kill shared local uvicorn/next without proving slot ownership (`./scripts/local.sh status <slot>`).
+
+#### Useful commands
+
+```bash
+# Quality (authorized previously; re-run after style/eval fixes)
+cd ~/Documents/GitHub
+./synth-dev/quality ./synth-ai-worktrees/sdk-core-research-migration
+
+# OpenAPI parity
+cd ~/Documents/GitHub/backend-worktrees/sdk-core-research-migration
+.venv/bin/python scripts/export_research_openapi.py --output research_openapi.json
+cp research_openapi.json ~/Documents/GitHub/synth-ai-worktrees/sdk-core-research-migration/openapi/research-v1.json
+cd ~/Documents/GitHub/synth-ai-worktrees/sdk-core-research-migration
+.venv/bin/python scripts/check_research_openapi_contract.py --backend-contract \
+  ../backend-worktrees/sdk-core-research-migration/research_openapi.json
+
+# Local secret
+export SYNTH_API_KEY="$(awk -F= '/^SYNTH_API_KEY=/{print $2; exit}' ~/Documents/GitHub/synth-ai/.env)"
+```
+
+#### Skills / authority
+
+- Backend = contract authority; synth-ai = Research SDK ownership.
+- Load synth-ai skill for SDK boundary work.
+- Synth Style: `backend/specifications/tanha/references/synthstyle.md` (or historical sibling under specifications).
+
