@@ -1,6 +1,327 @@
 {
   "components": {
     "schemas": {
+      "ActorRuntimeImageMaterialization": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_role": {
+            "const": "worker",
+            "title": "Actor Role",
+            "type": "string"
+          },
+          "capabilities": {
+            "items": {
+              "enum": [
+                "codex_cli",
+                "craftax_eval",
+                "crafter_eval",
+                "dungeongrid_eval",
+                "image_artifacts",
+                "jax_cpu",
+                "managed_research_sdk",
+                "mcp_client",
+                "modal_client",
+                "nethack_eval",
+                "numpy_stack",
+                "opencode",
+                "openrouter_client",
+                "synth_sdk",
+                "video_artifacts"
+              ],
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "daytona_pullable": {
+            "title": "Daytona Pullable",
+            "type": "boolean"
+          },
+          "image_ref": {
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "image_release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Image Release Id",
+            "type": "string"
+          },
+          "image_substrates": {
+            "items": {
+              "enum": [
+                "org_registry",
+                "wasabi_artifact"
+              ],
+              "type": "string"
+            },
+            "title": "Image Substrates",
+            "type": "array"
+          },
+          "interface_mode": {
+            "const": "synth_actor_runtime",
+            "title": "Interface Mode",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "python_packages": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Python Packages",
+            "type": "array"
+          },
+          "recipe_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe Digest"
+          },
+          "resolved_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Resolved Digest",
+            "type": "string"
+          },
+          "runtime_image_release_id": {
+            "format": "uuid",
+            "title": "Runtime Image Release Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr-actor-image-materialization-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "selection_kind": {
+            "const": "customer_actor_runtime",
+            "title": "Selection Kind",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "archived"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "runtime_image_release_id",
+          "status",
+          "image_ref",
+          "resolved_digest",
+          "interface_mode",
+          "actor_role",
+          "selection_kind",
+          "capabilities",
+          "python_packages",
+          "image_release_id",
+          "image_substrates",
+          "daytona_pullable"
+        ],
+        "title": "ActorRuntimeImageMaterialization",
+        "type": "object"
+      },
+      "ActorRuntimeImageReleaseDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_role": {
+            "const": "worker",
+            "title": "Actor Role",
+            "type": "string"
+          },
+          "archive_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 17179869184.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "capabilities": {
+            "items": {
+              "enum": [
+                "codex_cli",
+                "craftax_eval",
+                "crafter_eval",
+                "dungeongrid_eval",
+                "image_artifacts",
+                "jax_cpu",
+                "managed_research_sdk",
+                "mcp_client",
+                "modal_client",
+                "nethack_eval",
+                "numpy_stack",
+                "opencode",
+                "openrouter_client",
+                "synth_sdk",
+                "video_artifacts"
+              ],
+              "type": "string"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "image_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Manifest Digest",
+            "type": "string"
+          },
+          "image_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "interface_mode": {
+            "const": "synth_actor_runtime",
+            "title": "Interface Mode",
+            "type": "string"
+          },
+          "kind": {
+            "const": "actor_runtime",
+            "title": "Kind",
+            "type": "string"
+          },
+          "platform_architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ],
+            "title": "Platform Architecture",
+            "type": "string"
+          },
+          "platform_os": {
+            "const": "linux",
+            "title": "Platform Os",
+            "type": "string"
+          },
+          "python_packages": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Python Packages",
+            "type": "array"
+          },
+          "recipe_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipe Digest"
+          },
+          "source_commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Commit Sha",
+            "type": "string"
+          },
+          "source_repository": {
+            "maxLength": 512,
+            "minLength": 20,
+            "title": "Source Repository",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_sha256",
+          "archive_size_bytes",
+          "image_manifest_digest",
+          "image_ref",
+          "platform_os",
+          "platform_architecture",
+          "source_repository",
+          "source_commit_sha",
+          "kind",
+          "actor_role",
+          "interface_mode",
+          "capabilities",
+          "python_packages"
+        ],
+        "title": "ActorRuntimeImageReleaseDeclaration",
+        "type": "object"
+      },
+      "ActorRuntimeImageReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/ImageReleaseArtifact"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/ImageReleaseInspection"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "runtime_image_release": {
+            "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+          },
+          "schema_version": {
+            "const": "smr-image-release-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "release_id",
+          "org_id",
+          "artifact",
+          "inspection",
+          "declaration",
+          "runtime_image_release"
+        ],
+        "title": "ActorRuntimeImageReleaseResponse",
+        "type": "object"
+      },
       "BillingEntitlementAssetSnapshot": {
         "properties": {
           "asset_id": {
@@ -353,6 +674,134 @@
         "title": "CandidatePublicationResponse",
         "type": "object"
       },
+      "CraftaxScorerImageReleaseDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 17179869184.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "fixture_binary_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fixture Binary Sha256",
+            "type": "string"
+          },
+          "fixture_manifest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fixture Manifest Sha256",
+            "type": "string"
+          },
+          "image_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Manifest Digest",
+            "type": "string"
+          },
+          "image_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "kind": {
+            "const": "craftax_scorer",
+            "title": "Kind",
+            "type": "string"
+          },
+          "platform_architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ],
+            "title": "Platform Architecture",
+            "type": "string"
+          },
+          "platform_os": {
+            "const": "linux",
+            "title": "Platform Os",
+            "type": "string"
+          },
+          "source_commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Commit Sha",
+            "type": "string"
+          },
+          "source_repository": {
+            "maxLength": 512,
+            "minLength": 20,
+            "title": "Source Repository",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_sha256",
+          "archive_size_bytes",
+          "image_manifest_digest",
+          "image_ref",
+          "platform_os",
+          "platform_architecture",
+          "source_repository",
+          "source_commit_sha",
+          "kind",
+          "fixture_manifest_sha256",
+          "fixture_binary_sha256"
+        ],
+        "title": "CraftaxScorerImageReleaseDeclaration",
+        "type": "object"
+      },
+      "CraftaxScorerImageReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/ImageReleaseArtifact"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/ImageReleaseInspection"
+          },
+          "org_id": {
+            "format": "uuid",
+            "title": "Org Id",
+            "type": "string"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr-image-release-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "release_id",
+          "org_id",
+          "artifact",
+          "inspection",
+          "declaration"
+        ],
+        "title": "CraftaxScorerImageReleaseResponse",
+        "type": "object"
+      },
       "EntitlementAssetId": {
         "enum": [
           "usage",
@@ -381,6 +830,261 @@
         "title": "EntitlementKind",
         "type": "string"
       },
+      "EnvironmentIsolationSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "egress_allowlist": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Egress Allowlist",
+            "type": "array"
+          },
+          "network_mode": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network Mode"
+          }
+        },
+        "title": "EnvironmentIsolationSpec",
+        "type": "object"
+      },
+      "EnvironmentManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/RuntimeImageRef"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "isolation": {
+            "$ref": "#/components/schemas/EnvironmentIsolationSpec"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "mounts": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentMountSpec"
+            },
+            "title": "Mounts",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "preflight": {
+            "$ref": "#/components/schemas/EnvironmentPreflightSpec"
+          },
+          "repos": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentRepositorySpec"
+            },
+            "title": "Repos",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": "2026-05-14-environment-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "secrets": {
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentSecretSpec"
+            },
+            "title": "Secrets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "EnvironmentManifest",
+        "type": "object"
+      },
+      "EnvironmentMountSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "EnvironmentMountSpec",
+        "type": "object"
+      },
+      "EnvironmentPreflightSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "cmd": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cmd"
+          },
+          "timeout_seconds": {
+            "default": 60,
+            "maximum": 1800.0,
+            "minimum": 1.0,
+            "title": "Timeout Seconds",
+            "type": "integer"
+          }
+        },
+        "title": "EnvironmentPreflightSpec",
+        "type": "object"
+      },
+      "EnvironmentRepositorySpec": {
+        "additionalProperties": false,
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "role": {
+            "default": "dependency",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "EnvironmentRepositorySpec",
+        "type": "object"
+      },
+      "EnvironmentSecretSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "required": {
+            "default": true,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "EnvironmentSecretSpec",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -392,6 +1096,289 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImageReleaseArtifact": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Archive Sha256",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 17179869184.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "artifact_id": {
+            "pattern": "^imgobj_[0-9a-f]{64}$",
+            "title": "Artifact Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "archive_sha256",
+          "archive_size_bytes"
+        ],
+        "title": "ImageReleaseArtifact",
+        "type": "object"
+      },
+      "ImageReleaseFinalizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration": {
+            "discriminator": {
+              "mapping": {
+                "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              }
+            ],
+            "title": "Declaration"
+          },
+          "upload_id": {
+            "pattern": "^imgup_[0-9a-f]{32}$",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "declaration"
+        ],
+        "title": "ImageReleaseFinalizeRequest",
+        "type": "object"
+      },
+      "ImageReleaseFinalizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "release": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CraftaxScorerImageReleaseResponse"
+              },
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageReleaseResponse"
+              }
+            ],
+            "title": "Release"
+          },
+          "schema_version": {
+            "const": "smr-image-release-finalize-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "staging_cleanup": {
+            "$ref": "#/components/schemas/ImageReleaseStagingCleanupResponse"
+          }
+        },
+        "required": [
+          "schema_version",
+          "release",
+          "staging_cleanup"
+        ],
+        "title": "ImageReleaseFinalizeResponse",
+        "type": "object"
+      },
+      "ImageReleaseInspection": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_format": {
+            "const": "oci-image-layout-tar-v1",
+            "title": "Archive Format",
+            "type": "string"
+          },
+          "image_config_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Config Digest",
+            "type": "string"
+          },
+          "image_manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Image Manifest Digest",
+            "type": "string"
+          },
+          "image_ref": {
+            "maxLength": 255,
+            "minLength": 3,
+            "title": "Image Ref",
+            "type": "string"
+          },
+          "platform_architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ],
+            "title": "Platform Architecture",
+            "type": "string"
+          },
+          "platform_os": {
+            "const": "linux",
+            "title": "Platform Os",
+            "type": "string"
+          },
+          "python_packages": {
+            "items": {
+              "pattern": "^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Python Packages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "archive_format",
+          "image_manifest_digest",
+          "image_config_digest",
+          "image_ref",
+          "python_packages",
+          "platform_os",
+          "platform_architecture"
+        ],
+        "title": "ImageReleaseInspection",
+        "type": "object"
+      },
+      "ImageReleaseStagingCleanupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "deleted",
+              "absent"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "upload_id": {
+            "pattern": "^imgup_[0-9a-f]{32}$",
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "upload_id",
+          "status"
+        ],
+        "title": "ImageReleaseStagingCleanupResponse",
+        "type": "object"
+      },
+      "ImageReleaseUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration": {
+            "discriminator": {
+              "mapping": {
+                "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              }
+            ],
+            "title": "Declaration"
+          },
+          "expires_in": {
+            "default": 3600,
+            "maximum": 86400.0,
+            "minimum": 60.0,
+            "title": "Expires In",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "declaration"
+        ],
+        "title": "ImageReleaseUploadRequest",
+        "type": "object"
+      },
+      "ImageReleaseUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration": {
+            "discriminator": {
+              "mapping": {
+                "actor_runtime": "#/components/schemas/ActorRuntimeImageReleaseDeclaration",
+                "craftax_scorer": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CraftaxScorerImageReleaseDeclaration"
+              },
+              {
+                "$ref": "#/components/schemas/ActorRuntimeImageReleaseDeclaration"
+              }
+            ],
+            "title": "Declaration"
+          },
+          "expires_in": {
+            "maximum": 86400.0,
+            "minimum": 60.0,
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "package_release_timestamps": {
+            "additionalProperties": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Package Release Timestamps",
+            "type": "object"
+          },
+          "release_id": {
+            "pattern": "^imgrel_[0-9a-f]{64}$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr-image-release-upload-v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "upload_id": {
+            "pattern": "^imgup_[0-9a-f]{32}$",
+            "title": "Upload Id",
+            "type": "string"
+          },
+          "upload_required": {
+            "title": "Upload Required",
+            "type": "boolean"
+          },
+          "upload_url": {
+            "minLength": 1,
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "upload_id",
+          "release_id",
+          "upload_url",
+          "upload_required",
+          "expires_in",
+          "declaration"
+        ],
+        "title": "ImageReleaseUploadResponse",
         "type": "object"
       },
       "JsonValue": {},
@@ -596,6 +1583,87 @@
         ],
         "title": "RunbookKind",
         "type": "string"
+      },
+      "RuntimeImageRef": {
+        "additionalProperties": false,
+        "description": "Resolved runtime image reference accepted by the current sandbox contract.",
+        "properties": {
+          "digest": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Digest"
+          },
+          "kind": {
+            "default": "registry_image",
+            "enum": [
+              "local_docker_image",
+              "registry_image",
+              "daytona_snapshot"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "ref": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "RuntimeImageRef",
+        "type": "object"
+      },
+      "RuntimeImageReleaseArchiveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "runtime_image_release": {
+            "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+          },
+          "schema_version": {
+            "const": "smr-actor-image-archive-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "runtime_image_release"
+        ],
+        "title": "RuntimeImageReleaseArchiveResponse",
+        "type": "object"
+      },
+      "RuntimeImageReleaseListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "releases": {
+            "items": {
+              "$ref": "#/components/schemas/ActorRuntimeImageMaterialization"
+            },
+            "title": "Releases",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "smr-actor-image-list-v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "releases"
+        ],
+        "title": "RuntimeImageReleaseListResponse",
+        "type": "object"
       },
       "SmrActorImageBindingRequest": {
         "additionalProperties": false,
@@ -2572,6 +3640,190 @@
         "title": "SmrEffortResponse",
         "type": "object"
       },
+      "SmrEmptyWorkspaceProjectRepoResponse": {
+        "additionalProperties": false,
+        "description": "Explicit empty alternative before a project repository exists.",
+        "properties": {},
+        "title": "SmrEmptyWorkspaceProjectRepoResponse",
+        "type": "object"
+      },
+      "SmrEnvironmentCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/EnvironmentManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "title": "SmrEnvironmentCreateRequest",
+        "type": "object"
+      },
+      "SmrEnvironmentDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "environment_id": {
+            "title": "Environment Id",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/EnvironmentManifest"
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "spec": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "environment_id",
+          "name",
+          "digest",
+          "manifest_digest",
+          "created_at",
+          "manifest"
+        ],
+        "title": "SmrEnvironmentDetailResponse",
+        "type": "object"
+      },
+      "SmrEnvironmentPreflightError": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "error_code": {
+            "title": "Error Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "responsible_party": {
+            "enum": [
+              "infra",
+              "project",
+              "user"
+            ],
+            "title": "Responsible Party",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "responsible_party",
+          "message"
+        ],
+        "title": "SmrEnvironmentPreflightError",
+        "type": "object"
+      },
+      "SmrEnvironmentPreflightResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrEnvironmentPreflightError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "result": {
+            "enum": [
+              "failed",
+              "ok",
+              "skipped"
+            ],
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "digest",
+          "manifest_digest",
+          "ok",
+          "result"
+        ],
+        "title": "SmrEnvironmentPreflightResponse",
+        "type": "object"
+      },
       "SmrEnvironmentRefRequest": {
         "properties": {
           "cpus": {
@@ -2628,6 +3880,72 @@
           "name"
         ],
         "title": "SmrEnvironmentRefRequest",
+        "type": "object"
+      },
+      "SmrEnvironmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "environment_id": {
+            "title": "Environment Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Id"
+          },
+          "spec": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Spec",
+            "type": "object"
+          }
+        },
+        "required": [
+          "environment_id",
+          "name",
+          "digest",
+          "manifest_digest",
+          "created_at"
+        ],
+        "title": "SmrEnvironmentResponse",
         "type": "object"
       },
       "SmrEvidenceObligationsRequest": {
@@ -2772,6 +4090,226 @@
           "required_runtime_kind"
         ],
         "title": "SmrExecutionProfileRequest",
+        "type": "object"
+      },
+      "SmrExternalRepositoryCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "default": "dependency",
+            "enum": [
+              "primary",
+              "dependency"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "SmrExternalRepositoryCreateRequest",
+        "type": "object"
+      },
+      "SmrExternalRepositoryDeleteResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deleted": {
+            "const": true,
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "repository_id": {
+            "title": "Repository Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deleted",
+          "repository_id"
+        ],
+        "title": "SmrExternalRepositoryDeleteResponse",
+        "type": "object"
+      },
+      "SmrExternalRepositoryPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "primary",
+                  "dependency"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "SmrExternalRepositoryPatchRequest",
+        "type": "object"
+      },
+      "SmrExternalRepositoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "repository_id": {
+            "title": "Repository Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "primary",
+              "dependency"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scope_kind": {
+            "enum": [
+              "project",
+              "run"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repository_id",
+          "org_id",
+          "project_id",
+          "scope_kind",
+          "name",
+          "url",
+          "role",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrExternalRepositoryResponse",
         "type": "object"
       },
       "SmrFactoryCreateRequest": {
@@ -3977,6 +5515,176 @@
           "id"
         ],
         "title": "SmrPrimaryParentRefResponse",
+        "type": "object"
+      },
+      "SmrProjectDatasetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mount_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mount Path"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "row_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Count"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "source_kind": {
+            "const": "upload",
+            "default": "upload",
+            "title": "Source Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "project_id",
+          "name",
+          "created_at",
+          "download_url"
+        ],
+        "title": "SmrProjectDatasetResponse",
+        "type": "object"
+      },
+      "SmrProjectDatasetUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "encoding": {
+            "default": "text",
+            "enum": [
+              "base64",
+              "text",
+              "utf-8"
+            ],
+            "title": "Encoding",
+            "type": "string"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "row_count": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Count"
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "title": "SmrProjectDatasetUploadRequest",
         "type": "object"
       },
       "SmrProjectEconomicsResponse": {
@@ -5921,6 +7629,552 @@
           }
         },
         "title": "SmrRunEvidenceSummaryResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionActorResponse": {
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "latest_event_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Event At"
+          },
+          "latest_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Summary"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "spawned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spawned At"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Ids",
+            "type": "array"
+          },
+          "task_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Task Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "actor_id",
+          "role",
+          "label",
+          "state"
+        ],
+        "title": "SmrRunExecutionActorResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionEventResponse": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event State"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "parent_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Event Id"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "kind",
+          "occurred_at",
+          "title",
+          "summary"
+        ],
+        "title": "SmrRunExecutionEventResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionMessageResponse": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "participant_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Participant Role"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "task_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Key"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "public",
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "occurred_at",
+          "title",
+          "body"
+        ],
+        "title": "SmrRunExecutionMessageResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionRunResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "latest_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Summary"
+          },
+          "liveness_phase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Liveness Phase"
+          },
+          "public_state": {
+            "title": "Public State",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "terminal_outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Terminal Outcome"
+          }
+        },
+        "required": [
+          "public_state"
+        ],
+        "title": "SmrRunExecutionRunResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionTaskResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by_actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By Actor Id"
+          },
+          "latest_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Summary"
+          },
+          "objective_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective Id"
+          },
+          "owner_actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Actor Id"
+          },
+          "public_task_state": {
+            "title": "Public Task State",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_key": {
+            "title": "Task Key",
+            "type": "string"
+          },
+          "task_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task State"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_by_actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By Actor Id"
+          },
+          "work_product_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Work Product Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "task_id",
+          "task_key",
+          "title",
+          "public_task_state"
+        ],
+        "title": "SmrRunExecutionTaskResponse",
+        "type": "object"
+      },
+      "SmrRunExecutionWorkProductRefResponse": {
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "work_product_id": {
+            "title": "Work Product Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_product_id",
+          "kind",
+          "title",
+          "status"
+        ],
+        "title": "SmrRunExecutionWorkProductRefResponse",
         "type": "object"
       },
       "SmrRunLaunchContextResponse": {
@@ -8478,6 +10732,206 @@
         "title": "SmrSourceRevisionRequest",
         "type": "object"
       },
+      "SmrSwarmActivityCursorResponse": {
+        "description": "Stable resume coordinates for bounded swarm activity.",
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "latest_event_seq": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Event Seq"
+          },
+          "latest_node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Node Id"
+          },
+          "transcript_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Cursor"
+          }
+        },
+        "required": [
+          "generated_at"
+        ],
+        "title": "SmrSwarmActivityCursorResponse",
+        "type": "object"
+      },
+      "SmrSwarmActivityResponse": {
+        "description": "Stable bounded execution activity for one public Research swarm.",
+        "properties": {
+          "actors": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunExecutionActorResponse"
+            },
+            "title": "Actors",
+            "type": "array"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/SmrSwarmActivityCursorResponse"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunExecutionEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunExecutionMessageResponse"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run": {
+            "$ref": "#/components/schemas/SmrRunExecutionRunResponse"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunExecutionTaskResponse"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "window": {
+            "$ref": "#/components/schemas/SmrSwarmActivityWindowResponse"
+          },
+          "work_products": {
+            "items": {
+              "$ref": "#/components/schemas/SmrRunExecutionWorkProductRefResponse"
+            },
+            "title": "Work Products",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "generated_at",
+          "run",
+          "cursor",
+          "window"
+        ],
+        "title": "SmrSwarmActivityResponse",
+        "type": "object"
+      },
+      "SmrSwarmActivityWindowResponse": {
+        "description": "Requested and returned bounds for one activity snapshot.",
+        "properties": {
+          "actor_count": {
+            "minimum": 0.0,
+            "title": "Actor Count",
+            "type": "integer"
+          },
+          "actor_limit": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Actor Limit",
+            "type": "integer"
+          },
+          "event_count": {
+            "minimum": 0.0,
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "event_limit": {
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Event Limit",
+            "type": "integer"
+          },
+          "message_count": {
+            "minimum": 0.0,
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "message_limit": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Message Limit",
+            "type": "integer"
+          },
+          "task_count": {
+            "minimum": 0.0,
+            "title": "Task Count",
+            "type": "integer"
+          },
+          "task_limit": {
+            "maximum": 250.0,
+            "minimum": 1.0,
+            "title": "Task Limit",
+            "type": "integer"
+          },
+          "work_product_count": {
+            "minimum": 0.0,
+            "title": "Work Product Count",
+            "type": "integer"
+          },
+          "work_product_limit": {
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Work Product Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event_limit",
+          "actor_limit",
+          "task_limit",
+          "message_limit",
+          "work_product_limit",
+          "event_count",
+          "actor_count",
+          "task_count",
+          "message_count",
+          "work_product_count"
+        ],
+        "title": "SmrSwarmActivityWindowResponse",
+        "type": "object"
+      },
       "SmrSwarmActorMoneyResponse": {
         "additionalProperties": false,
         "description": "Cent-granular money attributed to one swarm actor.",
@@ -8791,6 +11245,555 @@
           "freshness"
         ],
         "title": "SmrSwarmEvidenceResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusFailureResponse": {
+        "additionalProperties": false,
+        "description": "Failure classification selected by the status projection.",
+        "properties": {
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "terminal": {
+            "default": false,
+            "title": "Terminal",
+            "type": "boolean"
+          }
+        },
+        "title": "SmrSwarmStatusFailureResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusFinalizationResponse": {
+        "additionalProperties": false,
+        "description": "Finalization proof status projected by the terminal contract.",
+        "properties": {
+          "blocker_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker Code"
+          },
+          "proof_satisfied": {
+            "default": false,
+            "title": "Proof Satisfied",
+            "type": "boolean"
+          },
+          "proof_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proof Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "SmrSwarmStatusFinalizationResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusFreshnessResponse": {
+        "additionalProperties": false,
+        "description": "Status projection freshness and read time.",
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "last_authoritative_update_at": {
+            "format": "date-time",
+            "title": "Last Authoritative Update At",
+            "type": "string"
+          },
+          "projection_authority": {
+            "const": "smr_run_status_projection.v1",
+            "default": "smr_run_status_projection.v1",
+            "title": "Projection Authority",
+            "type": "string"
+          }
+        },
+        "required": [
+          "last_authoritative_update_at",
+          "generated_at"
+        ],
+        "title": "SmrSwarmStatusFreshnessResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusInvariantResponse": {
+        "additionalProperties": false,
+        "description": "One invariant violation summarized from typed projection diagnostics.",
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "SmrSwarmStatusInvariantResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusIssueResponse": {
+        "additionalProperties": false,
+        "description": "One typed status issue without raw logs, traces, actors, or tasks.",
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "first_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen At"
+          },
+          "kind": {
+            "enum": [
+              "blocker",
+              "failure",
+              "provider_incident",
+              "resource_incident",
+              "participant_start_failure",
+              "recovery",
+              "runtime_invariant"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Severity"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "kind",
+          "code"
+        ],
+        "title": "SmrSwarmStatusIssueResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusIssuesResponse": {
+        "additionalProperties": false,
+        "description": "Typed blockers and invariant summaries for status consumers.",
+        "properties": {
+          "invariants": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmStatusInvariantResponse"
+            },
+            "title": "Invariants",
+            "type": "array"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/SmrSwarmStatusIssueResponse"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "title": "SmrSwarmStatusIssuesResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusLivenessResponse": {
+        "additionalProperties": false,
+        "description": "Cheap liveness summary from the run status projection.",
+        "properties": {
+          "participant_queue_counts": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Participant Queue Counts",
+            "type": "object"
+          },
+          "phase": {
+            "minLength": 1,
+            "title": "Phase",
+            "type": "string"
+          },
+          "task_counts": {
+            "additionalProperties": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Task Counts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "phase"
+        ],
+        "title": "SmrSwarmStatusLivenessResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusProgressResponse": {
+        "additionalProperties": false,
+        "description": "Last compact progress signal exposed by the status projection.",
+        "properties": {
+          "last_progress_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Progress At"
+          },
+          "last_progress_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Progress Kind"
+          }
+        },
+        "title": "SmrSwarmStatusProgressResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusRecoveryResponse": {
+        "additionalProperties": false,
+        "description": "Run-closure recovery blocker summary without task or incident detail.",
+        "properties": {
+          "blocked": {
+            "default": false,
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Codes",
+            "type": "array"
+          },
+          "incident_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Incident Count",
+            "type": "integer"
+          },
+          "latest_recorded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Recorded At"
+          }
+        },
+        "title": "SmrSwarmStatusRecoveryResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusResponse": {
+        "additionalProperties": false,
+        "description": "Strict status projection for one public Research swarm.\n\nSee specifications/sdk/core_research_migration.md residual observability\ndisposition. This schema intentionally excludes actors, tasks, messages,\nartifacts, WorkProducts, logs, and traces.",
+        "properties": {
+          "failure": {
+            "$ref": "#/components/schemas/SmrSwarmStatusFailureResponse"
+          },
+          "finalization": {
+            "$ref": "#/components/schemas/SmrSwarmStatusFinalizationResponse"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/SmrSwarmStatusFreshnessResponse"
+          },
+          "issues": {
+            "$ref": "#/components/schemas/SmrSwarmStatusIssuesResponse"
+          },
+          "liveness": {
+            "$ref": "#/components/schemas/SmrSwarmStatusLivenessResponse"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/SmrSwarmStatusProgressResponse"
+          },
+          "project_id": {
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "recovery": {
+            "$ref": "#/components/schemas/SmrSwarmStatusRecoveryResponse"
+          },
+          "run_id": {
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SmrSwarmStatusStateResponse"
+          },
+          "terminal": {
+            "$ref": "#/components/schemas/SmrSwarmStatusTerminalResponse"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "state",
+          "liveness",
+          "terminal",
+          "finalization",
+          "recovery",
+          "progress",
+          "issues",
+          "failure",
+          "freshness"
+        ],
+        "title": "SmrSwarmStatusResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusStateResponse": {
+        "additionalProperties": false,
+        "description": "Authoritative public state for one Research swarm.",
+        "properties": {
+          "blocker_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker Code"
+          },
+          "public_state": {
+            "minLength": 1,
+            "title": "Public State",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "public_state"
+        ],
+        "title": "SmrSwarmStatusStateResponse",
+        "type": "object"
+      },
+      "SmrSwarmStatusTerminalResponse": {
+        "additionalProperties": false,
+        "description": "Terminal contract outcome projected by status_projection.",
+        "properties": {
+          "contract_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Reason"
+          },
+          "contract_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Status"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "run_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run State"
+          },
+          "run_state_is_terminal": {
+            "default": false,
+            "title": "Run State Is Terminal",
+            "type": "boolean"
+          }
+        },
+        "title": "SmrSwarmStatusTerminalResponse",
         "type": "object"
       },
       "SmrSwarmTokenCountsResponse": {
@@ -9192,7 +12195,62 @@
         "title": "SmrToolProvider",
         "type": "string"
       },
+      "SmrTranscriptCursorResponse": {
+        "additionalProperties": false,
+        "description": "Opaque exclusive cursor contract for replay and live handoff.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/TranscriptCursorKind"
+          },
+          "live_resume_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Resume Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "requested_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Cursor"
+          },
+          "semantics": {
+            "const": "exclusive",
+            "default": "exclusive",
+            "title": "Semantics",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SmrTranscriptCursorResponse",
+        "type": "object"
+      },
       "SmrTranscriptEventResponse": {
+        "additionalProperties": false,
+        "description": "One viewer-safe transcript event.",
         "properties": {
           "event_id": {
             "anyOf": [
@@ -9206,6 +12264,7 @@
             "title": "Event Id"
           },
           "kind": {
+            "minLength": 1,
             "title": "Kind",
             "type": "string"
           },
@@ -9237,17 +12296,27 @@
             "title": "Participant Role"
           },
           "participant_session_id": {
+            "minLength": 1,
             "title": "Participant Session Id",
             "type": "string"
           },
           "payload": {
-            "additionalProperties": true,
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
             "title": "Payload",
             "type": "object"
           },
           "payload_classification": {
             "anyOf": [
               {
+                "enum": [
+                  "public_safe",
+                  "private",
+                  "internal",
+                  "secret",
+                  "hidden_reasoning"
+                ],
                 "type": "string"
               },
               {
@@ -9259,6 +12328,11 @@
           "redaction_profile": {
             "anyOf": [
               {
+                "enum": [
+                  "open_research_public",
+                  "operator_default",
+                  "debug_operator"
+                ],
                 "type": "string"
               },
               {
@@ -9268,6 +12342,7 @@
             "title": "Redaction Profile"
           },
           "run_id": {
+            "minLength": 1,
             "title": "Run Id",
             "type": "string"
           },
@@ -9276,7 +12351,14 @@
             "title": "Run Terminal",
             "type": "boolean"
           },
+          "schema_version": {
+            "const": "synth.research.transcript-event.v1",
+            "default": "synth.research.transcript-event.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
           "semantic_scope": {
+            "const": "participant",
             "default": "participant",
             "title": "Semantic Scope",
             "type": "string"
@@ -9306,6 +12388,10 @@
           "visibility_decision": {
             "anyOf": [
               {
+                "enum": [
+                  "stream_redacted",
+                  "stream_summary_only"
+                ],
                 "type": "string"
               },
               {
@@ -9324,14 +12410,51 @@
         "title": "SmrTranscriptEventResponse",
         "type": "object"
       },
-      "SmrTranscriptPageResponse": {
+      "SmrTranscriptFreshnessResponse": {
+        "additionalProperties": false,
+        "description": "Read time and authority for one transcript projection.",
         "properties": {
+          "live_tail_available": {
+            "title": "Live Tail Available",
+            "type": "boolean"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "projection_authority": {
+            "$ref": "#/components/schemas/TranscriptProjectionAuthority"
+          },
+          "replay_mode": {
+            "$ref": "#/components/schemas/TranscriptReplayMode"
+          }
+        },
+        "required": [
+          "observed_at",
+          "projection_authority",
+          "replay_mode",
+          "live_tail_available"
+        ],
+        "title": "SmrTranscriptFreshnessResponse",
+        "type": "object"
+      },
+      "SmrTranscriptPageResponse": {
+        "additionalProperties": false,
+        "description": "Versioned transcript page with explicit freshness and cursor semantics.",
+        "properties": {
+          "cursor": {
+            "$ref": "#/components/schemas/SmrTranscriptCursorResponse"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/SmrTranscriptEventResponse"
             },
             "title": "Events",
             "type": "array"
+          },
+          "freshness": {
+            "$ref": "#/components/schemas/SmrTranscriptFreshnessResponse"
           },
           "live_resume_cursor": {
             "anyOf": [
@@ -9374,28 +12497,32 @@
             "type": "array"
           },
           "projection_authority": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Projection Authority"
+            "$ref": "#/components/schemas/TranscriptProjectionAuthority"
           },
           "run_id": {
+            "minLength": 1,
             "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.research.transcript-page.v1",
+            "default": "synth.research.transcript-page.v1",
+            "title": "Schema Version",
             "type": "string"
           }
         },
         "required": [
-          "run_id"
+          "run_id",
+          "projection_authority",
+          "freshness",
+          "cursor"
         ],
         "title": "SmrTranscriptPageResponse",
         "type": "object"
       },
       "SmrTranscriptParticipantResponse": {
+        "additionalProperties": false,
+        "description": "Current or archived participant represented in a transcript page.",
         "properties": {
           "has_active_turn": {
             "default": false,
@@ -9442,6 +12569,7 @@
             "title": "Participant Role"
           },
           "participant_session_id": {
+            "minLength": 1,
             "title": "Participant Session Id",
             "type": "string"
           },
@@ -9647,6 +12775,726 @@
           "artifact_builder"
         ],
         "title": "SmrWorkerSubtype",
+        "type": "string"
+      },
+      "SmrWorkspaceFilesUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "branch": {
+            "title": "Branch",
+            "type": "string"
+          },
+          "bytes_uploaded": {
+            "minimum": 0.0,
+            "title": "Bytes Uploaded",
+            "type": "integer"
+          },
+          "commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "committed": {
+            "title": "Committed",
+            "type": "boolean"
+          },
+          "event_summary": {
+            "title": "Event Summary",
+            "type": "string"
+          },
+          "fanout_runs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fanout Runs",
+            "type": "array"
+          },
+          "file_count": {
+            "minimum": 0.0,
+            "title": "File Count",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "message_for_agents": {
+            "title": "Message For Agents",
+            "type": "string"
+          },
+          "project_event_id": {
+            "title": "Project Event Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "uploaded_files": {
+            "items": {
+              "$ref": "#/components/schemas/SmrWorkspaceStoredFileResponse"
+            },
+            "title": "Uploaded Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "project_id",
+          "branch",
+          "commit_sha",
+          "files",
+          "committed",
+          "file_count",
+          "bytes_uploaded",
+          "uploaded_files",
+          "project_event_id",
+          "event_summary",
+          "message_for_agents",
+          "fanout_runs"
+        ],
+        "title": "SmrWorkspaceFilesUploadResponse",
+        "type": "object"
+      },
+      "SmrWorkspaceInputFileItem": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "enum": [
+                  "base64",
+                  "utf-8"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoding"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "file",
+                  "source_bundle"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "title": "SmrWorkspaceInputFileItem",
+        "type": "object"
+      },
+      "SmrWorkspaceInputFilesUploadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SmrWorkspaceInputFileItem"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Files",
+            "type": "array"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "SmrWorkspaceInputFilesUploadRequest",
+        "type": "object"
+      },
+      "SmrWorkspaceInputSourceRepoRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "commit_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "SmrWorkspaceInputSourceRepoRequest",
+        "type": "object"
+      },
+      "SmrWorkspaceInputsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "file_count": {
+            "minimum": 0.0,
+            "title": "File Count",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/SmrWorkspaceStoredFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_repo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrWorkspaceProjectRepoResponse"
+              },
+              {
+                "$ref": "#/components/schemas/SmrEmptyWorkspaceProjectRepoResponse"
+              }
+            ],
+            "title": "Project Repo"
+          },
+          "source_repo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrWorkspaceSourceRepoResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "enum": [
+              "empty",
+              "configured"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "project_id",
+          "state",
+          "source_repo",
+          "files",
+          "file_count",
+          "project_repo",
+          "updated_at"
+        ],
+        "title": "SmrWorkspaceInputsResponse",
+        "type": "object"
+      },
+      "SmrWorkspaceProjectRepoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_archive_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Archive Key"
+          },
+          "current_commit_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Commit Sha"
+          },
+          "current_manifest_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Manifest Key"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "remote_repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remote Repo"
+          },
+          "repo_id": {
+            "title": "Repo Id",
+            "type": "string"
+          },
+          "repo_org_slug": {
+            "title": "Repo Org Slug",
+            "type": "string"
+          },
+          "repo_project_slug": {
+            "title": "Repo Project Slug",
+            "type": "string"
+          },
+          "s3_bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "S3 Bucket"
+          },
+          "s3_prefix": {
+            "title": "S3 Prefix",
+            "type": "string"
+          },
+          "storage_backend": {
+            "title": "Storage Backend",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "vcs_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vcs Provider"
+          }
+        },
+        "required": [
+          "repo_id",
+          "repo_org_slug",
+          "repo_project_slug",
+          "storage_backend",
+          "s3_bucket",
+          "s3_prefix",
+          "vcs_provider",
+          "remote_repo",
+          "default_branch",
+          "current_archive_key",
+          "current_manifest_key",
+          "metadata",
+          "updated_at"
+        ],
+        "title": "SmrWorkspaceProjectRepoResponse",
+        "type": "object"
+      },
+      "SmrWorkspaceSourceRepoReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "commit_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
+          "config_version_id": {
+            "title": "Config Version Id",
+            "type": "string"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "ok": {
+            "const": true,
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "url",
+          "default_branch",
+          "config_version_id"
+        ],
+        "title": "SmrWorkspaceSourceRepoReceipt",
+        "type": "object"
+      },
+      "SmrWorkspaceSourceRepoResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_mode": {
+            "const": "none",
+            "title": "Auth Mode",
+            "type": "string"
+          },
+          "bootstrap_mode": {
+            "const": "workspace_clone",
+            "title": "Bootstrap Mode",
+            "type": "string"
+          },
+          "commit_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit Sha"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "display_url": {
+            "title": "Display Url",
+            "type": "string"
+          },
+          "kind": {
+            "const": "external_git",
+            "title": "Kind",
+            "type": "string"
+          },
+          "public": {
+            "title": "Public",
+            "type": "boolean"
+          },
+          "remote_name": {
+            "title": "Remote Name",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "url",
+          "display_url",
+          "public",
+          "auth_mode",
+          "bootstrap_mode",
+          "remote_name",
+          "default_branch"
+        ],
+        "title": "SmrWorkspaceSourceRepoResponse",
+        "type": "object"
+      },
+      "SmrWorkspaceStoredFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "content_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Bytes"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Type"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "enum": [
+                  "base64",
+                  "utf-8"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoding"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "logical_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logical Name"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scope_kind": {
+            "enum": [
+              "project",
+              "run"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "storage_backend": {
+            "title": "Storage Backend",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": [
+              "model",
+              "verifier"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "org_id",
+          "project_id",
+          "run_id",
+          "scope_kind",
+          "path",
+          "logical_name",
+          "content_type",
+          "encoding",
+          "visibility",
+          "storage_backend",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrWorkspaceStoredFileResponse",
+        "type": "object"
+      },
+      "TranscriptCursorKind": {
+        "description": "Opaque cursor namespace returned by a transcript page.",
+        "enum": [
+          "redis_stream_id",
+          "durable_transcript_page"
+        ],
+        "title": "TranscriptCursorKind",
+        "type": "string"
+      },
+      "TranscriptProjectionAuthority": {
+        "description": "Backend authority used to serve one transcript page.",
+        "enum": [
+          "smr_control_plane.redis.live_transcript.v1",
+          "smr_transcript_events.terminal_archive.v1"
+        ],
+        "title": "TranscriptProjectionAuthority",
+        "type": "string"
+      },
+      "TranscriptReplayMode": {
+        "description": "Ordering domain used by transcript page cursors.",
+        "enum": [
+          "live_tail",
+          "terminal_archive"
+        ],
+        "title": "TranscriptReplayMode",
         "type": "string"
       },
       "UsageLimit": {
@@ -10148,6 +13996,242 @@
         "tags": [
           "smr",
           "factories"
+        ]
+      }
+    },
+    "/smr/environments": {
+      "get": {
+        "operationId": "list_research_environments",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrEnvironmentResponse"
+                  },
+                  "title": "Response List Environments Smr Environments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Environments",
+        "tags": [
+          "smr"
+        ]
+      },
+      "post": {
+        "operationId": "create_research_environment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrEnvironmentCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEnvironmentDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Environment",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/environments/{name}": {
+      "get": {
+        "operationId": "retrieve_research_environment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "digest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Digest"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifest Digest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEnvironmentDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Environment",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/environments/{name}/preflight": {
+      "post": {
+        "operationId": "preflight_research_environment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "digest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Digest"
+            }
+          },
+          {
+            "in": "query",
+            "name": "manifest_digest",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Manifest Digest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrEnvironmentPreflightResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preflight Environment",
+        "tags": [
+          "smr"
         ]
       }
     },
@@ -11047,6 +15131,154 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/datasets": {
+      "get": {
+        "operationId": "list_project_datasets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrProjectDatasetResponse"
+                  },
+                  "title": "Response List Project Datasets Smr Projects  Project Id  Datasets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Datasets",
+        "tags": [
+          "smr"
+        ]
+      },
+      "post": {
+        "operationId": "create_project_dataset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrProjectDatasetUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrProjectDatasetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project Dataset",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/datasets/{dataset_id}/download": {
+      "get": {
+        "operationId": "retrieve_project_dataset_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_id",
+            "required": true,
+            "schema": {
+              "title": "Dataset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Project Dataset",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/economics": {
       "get": {
         "operationId": "retrieve_project_economics",
@@ -11084,6 +15316,212 @@
           }
         },
         "summary": "Get Project Economics",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/external-repositories": {
+      "get": {
+        "operationId": "list_project_external_repositories",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrExternalRepositoryResponse"
+                  },
+                  "title": "Response List Project External Repositories Smr Projects  Project Id  External Repositories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project External Repositories",
+        "tags": [
+          "smr"
+        ]
+      },
+      "post": {
+        "operationId": "create_project_external_repository",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrExternalRepositoryCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExternalRepositoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Project External Repository",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/external-repositories/{repository_id}": {
+      "delete": {
+        "operationId": "delete_project_external_repository",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "repository_id",
+            "required": true,
+            "schema": {
+              "title": "Repository Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExternalRepositoryDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Project External Repository",
+        "tags": [
+          "smr"
+        ]
+      },
+      "patch": {
+        "operationId": "update_project_external_repository",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "repository_id",
+            "required": true,
+            "schema": {
+              "title": "Repository Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrExternalRepositoryPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrExternalRepositoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Project External Repository",
         "tags": [
           "smr"
         ]
@@ -11552,6 +15990,155 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/workspace-inputs": {
+      "get": {
+        "description": "Fetch the current workspace bootstrap inputs for a project.",
+        "operationId": "retrieve_project_workspace_inputs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrWorkspaceInputsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Workspace Inputs",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/workspace-inputs/files:upload": {
+      "post": {
+        "description": "Upload workspace input files to a project's git repo.",
+        "operationId": "upload_project_workspace_files",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrWorkspaceInputFilesUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrWorkspaceFilesUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace Inputs Upload Files",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/workspace-inputs/source-repo": {
+      "put": {
+        "description": "Attach a source repo to a project's workspace inputs.",
+        "operationId": "set_project_workspace_source_repository",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrWorkspaceInputSourceRepoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrWorkspaceSourceRepoReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Workspace Inputs Source Repo",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects:runnable": {
       "post": {
         "description": "Canonical project-creation route for the managed-research launch flow.",
@@ -11787,6 +16374,109 @@
           }
         },
         "summary": "Get Run",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/activity": {
+      "get": {
+        "description": "Return typed bounded execution activity for a swarm.",
+        "operationId": "retrieve_swarm_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "event_limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Event Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Actor Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "task_limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 250,
+              "minimum": 1,
+              "title": "Task Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "message_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Message Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "work_product_limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Work Product Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrSwarmActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Swarm Activity",
         "tags": [
           "smr"
         ]
@@ -12057,11 +16747,659 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "schema": {
+                  "format": "event-stream",
+                  "type": "string"
+                },
+                "x-sse-event-data-schema": {
+                  "$defs": {
+                    "JsonValue": {},
+                    "RuntimeStreamEventKind": {
+                      "enum": [
+                        "snapshot",
+                        "transcript",
+                        "heartbeat"
+                      ],
+                      "title": "RuntimeStreamEventKind",
+                      "type": "string"
+                    },
+                    "SmrRuntimeStreamHeartbeatPayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "source": {
+                          "const": "smr_control_plane.redis.runtime_stream.v1",
+                          "title": "Source",
+                          "type": "string"
+                        },
+                        "version": {
+                          "minLength": 1,
+                          "title": "Version",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "source"
+                      ],
+                      "title": "SmrRuntimeStreamHeartbeatPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamLifecyclePayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "authority_phase": {
+                          "const": "control_plane_stream",
+                          "title": "Authority Phase",
+                          "type": "string"
+                        },
+                        "metadata": {
+                          "$ref": "#/$defs/SmrRuntimeStreamTimelineMetadataPayload"
+                        },
+                        "terminal_outcome": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Terminal Outcome"
+                        },
+                        "terminal_phase": {
+                          "enum": [
+                            "terminal",
+                            "nonterminal"
+                          ],
+                          "title": "Terminal Phase",
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "format": "date-time",
+                          "title": "Updated At",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "authority_phase",
+                        "terminal_phase",
+                        "updated_at",
+                        "metadata"
+                      ],
+                      "title": "SmrRuntimeStreamLifecyclePayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamSnapshotPayload": {
+                      "additionalProperties": false,
+                      "description": "Typed snapshot payload emitted before live runtime updates.",
+                      "properties": {
+                        "actors": {
+                          "items": {
+                            "additionalProperties": {
+                              "$ref": "#/$defs/JsonValue"
+                            },
+                            "type": "object"
+                          },
+                          "title": "Actors",
+                          "type": "array"
+                        },
+                        "deliveries": {
+                          "items": {
+                            "additionalProperties": {
+                              "$ref": "#/$defs/JsonValue"
+                            },
+                            "type": "object"
+                          },
+                          "title": "Deliveries",
+                          "type": "array"
+                        },
+                        "messages": {
+                          "items": {
+                            "additionalProperties": {
+                              "$ref": "#/$defs/JsonValue"
+                            },
+                            "type": "object"
+                          },
+                          "title": "Messages",
+                          "type": "array"
+                        },
+                        "project_id": {
+                          "minLength": 1,
+                          "title": "Project Id",
+                          "type": "string"
+                        },
+                        "run_id": {
+                          "minLength": 1,
+                          "title": "Run Id",
+                          "type": "string"
+                        },
+                        "timeline": {
+                          "$ref": "#/$defs/SmrRuntimeStreamTimelinePayload"
+                        },
+                        "workers": {
+                          "$ref": "#/$defs/SmrRuntimeStreamWorkersPayload"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "run_id",
+                        "workers",
+                        "actors",
+                        "messages",
+                        "deliveries",
+                        "timeline"
+                      ],
+                      "title": "SmrRuntimeStreamSnapshotPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamTimelineEventDetailPayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "last_event_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Last Event Id"
+                        },
+                        "source": {
+                          "const": "smr_control_plane.redis.runtime_stream.v1",
+                          "title": "Source",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source"
+                      ],
+                      "title": "SmrRuntimeStreamTimelineEventDetailPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamTimelineEventPayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "created_at": {
+                          "format": "date-time",
+                          "title": "Created At",
+                          "type": "string"
+                        },
+                        "detail": {
+                          "$ref": "#/$defs/SmrRuntimeStreamTimelineEventDetailPayload"
+                        },
+                        "event_id": {
+                          "minLength": 1,
+                          "title": "Event Id",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "const": "control_plane_snapshot",
+                          "title": "Kind",
+                          "type": "string"
+                        },
+                        "source": {
+                          "const": "smr_control_plane.redis.runtime_stream.v1",
+                          "title": "Source",
+                          "type": "string"
+                        },
+                        "state": {
+                          "minLength": 1,
+                          "title": "State",
+                          "type": "string"
+                        },
+                        "summary": {
+                          "minLength": 1,
+                          "title": "Summary",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "event_id",
+                        "created_at",
+                        "kind",
+                        "source",
+                        "summary",
+                        "state",
+                        "detail"
+                      ],
+                      "title": "SmrRuntimeStreamTimelineEventPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamTimelineMetadataPayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "last_event_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Last Event Id"
+                        },
+                        "source": {
+                          "const": "smr_control_plane.redis.runtime_stream.v1",
+                          "title": "Source",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "source"
+                      ],
+                      "title": "SmrRuntimeStreamTimelineMetadataPayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamTimelinePayload": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "authority_persisted_state": {
+                          "minLength": 1,
+                          "title": "Authority Persisted State",
+                          "type": "string"
+                        },
+                        "authority_source": {
+                          "const": "smr_control_plane.redis.runtime_stream.v1",
+                          "title": "Authority Source",
+                          "type": "string"
+                        },
+                        "authority_state": {
+                          "minLength": 1,
+                          "title": "Authority State",
+                          "type": "string"
+                        },
+                        "events": {
+                          "items": {
+                            "$ref": "#/$defs/SmrRuntimeStreamTimelineEventPayload"
+                          },
+                          "title": "Events",
+                          "type": "array"
+                        },
+                        "latest_kind": {
+                          "const": "control_plane_snapshot",
+                          "title": "Latest Kind",
+                          "type": "string"
+                        },
+                        "latest_summary": {
+                          "minLength": 1,
+                          "title": "Latest Summary",
+                          "type": "string"
+                        },
+                        "lifecycle": {
+                          "$ref": "#/$defs/SmrRuntimeStreamLifecyclePayload"
+                        },
+                        "project_id": {
+                          "minLength": 1,
+                          "title": "Project Id",
+                          "type": "string"
+                        },
+                        "run_id": {
+                          "minLength": 1,
+                          "title": "Run Id",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "run_id",
+                        "authority_source",
+                        "authority_state",
+                        "authority_persisted_state",
+                        "lifecycle",
+                        "latest_kind",
+                        "latest_summary",
+                        "events"
+                      ],
+                      "title": "SmrRuntimeStreamTimelinePayload",
+                      "type": "object"
+                    },
+                    "SmrRuntimeStreamWorkersPayload": {
+                      "additionalProperties": false,
+                      "description": "Control-plane worker summary carried by a snapshot frame.",
+                      "properties": {
+                        "active_count": {
+                          "minimum": 0,
+                          "title": "Active Count",
+                          "type": "integer"
+                        },
+                        "active_workers": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Active Workers",
+                          "type": "array"
+                        },
+                        "last_tick_at": {
+                          "format": "date-time",
+                          "title": "Last Tick At",
+                          "type": "string"
+                        },
+                        "links": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "title": "Links",
+                          "type": "object"
+                        },
+                        "live_workers_limit": {
+                          "anyOf": [
+                            {
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Live Workers Limit"
+                        },
+                        "partial": {
+                          "const": true,
+                          "title": "Partial",
+                          "type": "boolean"
+                        },
+                        "partial_reason": {
+                          "const": "smr_control_plane_runtime_stream",
+                          "title": "Partial Reason",
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "minLength": 1,
+                          "title": "Project Id",
+                          "type": "string"
+                        },
+                        "run_id": {
+                          "minLength": 1,
+                          "title": "Run Id",
+                          "type": "string"
+                        },
+                        "status": {
+                          "minLength": 1,
+                          "title": "Status",
+                          "type": "string"
+                        },
+                        "worker_counts": {
+                          "additionalProperties": {
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "title": "Worker Counts",
+                          "type": "object"
+                        },
+                        "worker_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "title": "Worker Ids",
+                          "type": "array"
+                        },
+                        "workers": {
+                          "items": {
+                            "additionalProperties": {
+                              "$ref": "#/$defs/JsonValue"
+                            },
+                            "type": "object"
+                          },
+                          "title": "Workers",
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "project_id",
+                        "run_id",
+                        "status",
+                        "last_tick_at",
+                        "active_count",
+                        "active_workers",
+                        "worker_ids",
+                        "worker_counts",
+                        "partial",
+                        "partial_reason",
+                        "workers",
+                        "links"
+                      ],
+                      "title": "SmrRuntimeStreamWorkersPayload",
+                      "type": "object"
+                    },
+                    "SmrTranscriptEventResponse": {
+                      "additionalProperties": false,
+                      "description": "One viewer-safe transcript event.",
+                      "properties": {
+                        "event_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Event Id"
+                        },
+                        "kind": {
+                          "minLength": 1,
+                          "title": "Kind",
+                          "type": "string"
+                        },
+                        "live_cursor": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Live Cursor"
+                        },
+                        "occurred_at": {
+                          "format": "date-time",
+                          "title": "Occurred At",
+                          "type": "string"
+                        },
+                        "participant_role": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Participant Role"
+                        },
+                        "participant_session_id": {
+                          "minLength": 1,
+                          "title": "Participant Session Id",
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": {
+                            "$ref": "#/$defs/JsonValue"
+                          },
+                          "title": "Payload",
+                          "type": "object"
+                        },
+                        "payload_classification": {
+                          "anyOf": [
+                            {
+                              "enum": [
+                                "public_safe",
+                                "private",
+                                "internal",
+                                "secret",
+                                "hidden_reasoning"
+                              ],
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Payload Classification"
+                        },
+                        "redaction_profile": {
+                          "anyOf": [
+                            {
+                              "enum": [
+                                "open_research_public",
+                                "operator_default",
+                                "debug_operator"
+                              ],
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Redaction Profile"
+                        },
+                        "run_id": {
+                          "minLength": 1,
+                          "title": "Run Id",
+                          "type": "string"
+                        },
+                        "run_terminal": {
+                          "default": false,
+                          "title": "Run Terminal",
+                          "type": "boolean"
+                        },
+                        "schema_version": {
+                          "const": "synth.research.transcript-event.v1",
+                          "default": "synth.research.transcript-event.v1",
+                          "title": "Schema Version",
+                          "type": "string"
+                        },
+                        "semantic_scope": {
+                          "const": "participant",
+                          "default": "participant",
+                          "title": "Semantic Scope",
+                          "type": "string"
+                        },
+                        "thread_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Thread Id"
+                        },
+                        "turn_id": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Turn Id"
+                        },
+                        "visibility_decision": {
+                          "anyOf": [
+                            {
+                              "enum": [
+                                "stream_redacted",
+                                "stream_summary_only"
+                              ],
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "title": "Visibility Decision"
+                        }
+                      },
+                      "required": [
+                        "run_id",
+                        "participant_session_id",
+                        "occurred_at",
+                        "kind"
+                      ],
+                      "title": "SmrTranscriptEventResponse",
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "Versioned SSE ``data`` envelope for the public runtime stream.",
+                  "properties": {
+                    "kind": {
+                      "$ref": "#/$defs/RuntimeStreamEventKind"
+                    },
+                    "payload": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/SmrRuntimeStreamSnapshotPayload"
+                        },
+                        {
+                          "$ref": "#/$defs/SmrTranscriptEventResponse"
+                        },
+                        {
+                          "$ref": "#/$defs/SmrRuntimeStreamHeartbeatPayload"
+                        }
+                      ],
+                      "title": "Payload"
+                    },
+                    "run_id": {
+                      "minLength": 1,
+                      "title": "Run Id",
+                      "type": "string"
+                    },
+                    "schema_version": {
+                      "const": "research.swarm_event.v1",
+                      "default": "research.swarm_event.v1",
+                      "title": "Schema Version",
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "minLength": 1,
+                      "title": "Sequence",
+                      "type": "string"
+                    },
+                    "state_version": {
+                      "minLength": 1,
+                      "title": "State Version",
+                      "type": "string"
+                    },
+                    "transcript_cursor": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "title": "Transcript Cursor"
+                    },
+                    "ts": {
+                      "format": "date-time",
+                      "title": "Ts",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sequence",
+                    "run_id",
+                    "ts",
+                    "kind",
+                    "payload",
+                    "state_version"
+                  ],
+                  "title": "SmrRuntimeStreamEventEnvelope",
+                  "type": "object"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Versioned runtime events framed as Server-Sent Events. The schema below describes the JSON value in each data field."
           },
           "422": {
             "content": {
@@ -12171,6 +17509,49 @@
           }
         },
         "summary": "Get Run Runtime Transcript",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/status": {
+      "get": {
+        "description": "Return the cheap authoritative status projection for a swarm.",
+        "operationId": "retrieve_swarm_status",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrSwarmStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Swarm Status",
         "tags": [
           "smr"
         ]
@@ -12287,6 +17668,46 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/workspace/archive": {
+      "get": {
+        "operationId": "retrieve_swarm_workspace_archive",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Run Workspace Archive",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/runs:one-off": {
       "post": {
         "description": "Project-optional run trigger. The backend still resolves every run to org_id and a canonical project_id; callers that do not choose a project are routed to their miscellaneous project.",
@@ -12366,6 +17787,201 @@
           }
         },
         "summary": "Get one-off run launch preflight",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases": {
+      "get": {
+        "operationId": "list_customer_actor_images",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeImageReleaseListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Customer Actor Images",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases/finalize": {
+      "post": {
+        "operationId": "finalize_image_release",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageReleaseFinalizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageReleaseFinalizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Image Release",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases/upload-url": {
+      "post": {
+        "operationId": "create_image_release_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageReleaseUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageReleaseUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Image Release Upload",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases/{release_id}": {
+      "get": {
+        "operationId": "retrieve_image_release",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "release_id",
+            "required": true,
+            "schema": {
+              "title": "Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CraftaxScorerImageReleaseResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ActorRuntimeImageReleaseResponse"
+                    }
+                  ],
+                  "title": "Response Get Image Release Smr V1 Image Releases  Release Id  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image Release",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/v1/image-releases/{runtime_image_release_id}/archive": {
+      "post": {
+        "operationId": "archive_customer_actor_image",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "runtime_image_release_id",
+            "required": true,
+            "schema": {
+              "title": "Runtime Image Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeImageReleaseArchiveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Customer Actor Image",
         "tags": [
           "smr"
         ]

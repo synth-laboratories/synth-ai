@@ -2369,3 +2369,15 @@ Goal remained active. Implementation resumed from frozen heads `synth-ai ea2eea9
 - evals: `fa103a6b`
 
 No branches merged. No worktrees removed. Validation not run (user gate authorization required).
+
+### Continuation — OpenAPI parity + eval cutovers — 2026-07-22T04:45:00Z
+
+- Regenerated backend `research_openapi.json` and vendored byte-identically to `openapi/research-v1.json` (71 operations / 223 schemas; SHA-256 `c8954b0bd209a47ac868aa36fa7fcbfae6c12f2db8a632ec80a40a304b1ef25e`).
+- Regenerated `specifications/sdk/research_capability_ledger.json` at the same heads.
+- Exported `LocalExecution` / `ExecutionProfile` from `synth_ai.research`.
+- SwarmBench now stages `kickoff_contract.json` into the workspace before `KickoffArtifact` reference.
+- SwarmGameBench cut over to typed `SwarmSpec` + `research.swarms.preflight/create` (including cloud slot-local execution).
+- ReportBench `hero_driver` now requires `SwarmSpec` only (compat kwargs / advanced aliases closed). `reportbench/client_api.py` still has a raw `_request_json` trigger path that remains to cut over.
+
+Still open: ReportBench `client_api` raw trigger, authorized gates, Gemini/Jesterky current-head scan, `/ultrareview`, merge + worktree cleanup.
+
