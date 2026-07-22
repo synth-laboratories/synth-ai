@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -205,6 +206,52 @@ class _ActorImageCachePolicy:
             raise ValueError("actor image cache max_entries must be >= 1")
         if self.max_bytes < 1:
             raise ValueError("actor image cache max_bytes must be >= 1")
+
+
+@dataclass(frozen=True, slots=True)
+class _ImageUploadLease:
+    """Client-side deadline for one backend-admitted presigned upload."""
+
+    upload_id: str
+    expires_in_seconds: float
+    acquired_monotonic: float
+
+    @classmethod
+    def from_response(cls, upload: Mapping[str, Any]) -> "_ImageUploadLease":
+        upload_id = _text(upload, "upload_id", label="image_upload")
+        raw_expires_in = upload.get("expires_in")
+        if isinstance(raw_expires_in, bool) or not isinstance(
+            raw_expires_in,
+            (int, float),
+        ):
+            raise ValueError("image_upload.expires_in must be a positive number")
+        expires_in_seconds = float(raw_expires_in)
+        if expires_in_seconds <= 0:
+            raise ValueError("image_upload.expires_in must be a positive number")
+        return cls(
+            upload_id=upload_id,
+            expires_in_seconds=expires_in_seconds,
+            acquired_monotonic=time.monotonic(),
+        )
+
+    def timeout_seconds(self, *, requested_seconds: float) -> float:
+        """Return one attempt's budget without crossing the lease deadline."""
+
+        requested = float(requested_seconds)
+        if requested <= 0:
+            raise ValueError("upload_timeout_seconds must be positive")
+        remaining = (
+            self.acquired_monotonic
+            + self.expires_in_seconds
+            - time.monotonic()
+            - 5.0
+        )
+        if remaining <= 0:
+            raise RuntimeError(
+                "actor image upload lease expired before transfer completed "
+                f"(upload_id={self.upload_id})"
+            )
+        return min(requested, remaining)
 
 
 def _text(payload: Mapping[str, Any], key: str, *, label: str) -> str:
@@ -544,7 +591,8 @@ class ImagesAPI(_ClientNamespace):
         )
         if not isinstance(upload, Mapping):
             raise ValueError("image upload response must be an object")
-        upload_id = _text(upload, "upload_id", label="image_upload")
+        upload_lease = _ImageUploadLease.from_response(upload)
+        upload_id = upload_lease.upload_id
         upload_required = upload.get("upload_required") is not False
         if upload_required:
             upload_url = _text(upload, "upload_url", label="image_upload")
@@ -556,7 +604,7 @@ class ImagesAPI(_ClientNamespace):
                 path,
                 archive_size_bytes=archive_size_bytes,
                 upload_timeout_seconds=upload_timeout_seconds,
-                upload_id=upload_id,
+                upload_lease=upload_lease,
             )
         finalized = self._finalize(
             upload_id=upload_id,
@@ -690,20 +738,21 @@ class ImagesAPI(_ClientNamespace):
         *,
         archive_size_bytes: int,
         upload_timeout_seconds: float,
-        upload_id: str,
+        upload_lease: _ImageUploadLease,
     ) -> None:
         upload_error: httpx.TransportError | None = None
-        with httpx.Client(
-            timeout=upload_timeout_seconds,
-            follow_redirects=False,
-        ) as upload_client:
+        with httpx.Client(follow_redirects=False) as upload_client:
             for _attempt in range(2):
                 try:
+                    attempt_timeout = upload_lease.timeout_seconds(
+                        requested_seconds=upload_timeout_seconds,
+                    )
                     with path.open("rb") as handle:
                         response = upload_client.put(
                             upload_url,
                             content=handle,
                             headers={"Content-Length": str(archive_size_bytes)},
+                            timeout=attempt_timeout,
                         )
                     upload_error = None
                     break
@@ -713,7 +762,8 @@ class ImagesAPI(_ClientNamespace):
                     upload_error = exc
             else:
                 raise RuntimeError(
-                    f"actor image archive upload outcome is uncertain (upload_id={upload_id})"
+                    "actor image archive upload outcome is uncertain "
+                    f"(upload_id={upload_lease.upload_id})"
                 ) from upload_error
         if response.is_error:
             # Object stores put the actionable SigV4 failure code in the
