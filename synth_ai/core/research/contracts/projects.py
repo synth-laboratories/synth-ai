@@ -42,6 +42,7 @@ class ProjectSpec:
     orchestrator_profile_id: ProfileId
     default_worker_profile_id: ProfileId
     worker_profile_ids: tuple[ProfileId, ...] = ()
+    reviewer_profile_id: ProfileId | None = None
     actor_profile_id: ProfileId | None = None
     runtime_artifact_release_id: str | None = None
     timezone: str = "UTC"
@@ -61,6 +62,8 @@ class ProjectSpec:
             ("timezone", self.timezone),
         ):
             require_text(value, field_name=name)
+        if self.reviewer_profile_id is not None:
+            require_text(self.reviewer_profile_id, field_name="reviewer_profile_id")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {
@@ -76,6 +79,7 @@ class ProjectSpec:
             "research": dict(self.research),
         }
         for name, value in (
+            ("reviewer_profile_id", self.reviewer_profile_id),
             ("actor_profile_id", self.actor_profile_id),
             ("runtime_artifact_release_id", self.runtime_artifact_release_id),
             ("scenario", self.scenario),
