@@ -129,7 +129,6 @@ class ResourceProvider(StrEnum):
     MODAL = "modal"
     OPENAI_CHATGPT = "openai_chatgpt"
     BASETEN = "baseten"
-    SYNTH_INTERNAL = "synth_internal"
 
 
 class FundingSource(StrEnum):
