@@ -239,7 +239,7 @@ class ResearchRunEventsAPI(_RunReadoutBound):
 
 
 class ResearchRunTasksAPI(_RunReadoutBound):
-    """Task summaries attached to a run."""
+    """Control-plane tasks owned by a run."""
 
     def list(
         self,
@@ -247,13 +247,13 @@ class ResearchRunTasksAPI(_RunReadoutBound):
         kind: str | None = None,
         limit: int | None = None,
     ) -> List[Any]:
-        """List task summaries for the run.
+        """List control-plane tasks for the run.
 
         Args:
             kind: Optional task kind filter.
-            limit: Maximum summaries to return.
+            limit: Maximum tasks to return.
         """
-        return self._handle._client.list_task_summaries(
+        return self._handle._client.list_tasks(
             self._handle.project_id,
             run_id=self._handle.run_id,
             kind=kind,

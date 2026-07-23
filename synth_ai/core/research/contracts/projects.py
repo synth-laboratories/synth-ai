@@ -128,12 +128,28 @@ class Project:
     project_kind: str | None = None
     active_swarm_id: SwarmId | None = None
     latest_swarm_id: SwarmId | None = None
+    research: JsonObject = field(default_factory=dict)
+    execution: JsonObject = field(default_factory=dict)
+    project_repo: JsonObject | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Project:
         payload = object_value(value, operation_id="project")
         active_swarm = optional_text(payload, "active_run_id")
         latest_swarm = optional_text(payload, "latest_run_id")
+        research = payload.get("research", {})
+        execution = payload.get("execution", {})
+        project_repo = payload.get("project_repo")
+        if research is None:
+            research = {}
+        if execution is None:
+            execution = {}
+        if not isinstance(research, dict):
+            raise ValueError("project research must be an object")
+        if not isinstance(execution, dict):
+            raise ValueError("project execution must be an object")
+        if project_repo is not None and not isinstance(project_repo, dict):
+            raise ValueError("project project_repo must be an object or null")
         return cls(
             project_id=ProjectId(required_text(payload, "project_id")),
             organization_id=OrganizationId(required_text(payload, "org_id")),
@@ -146,6 +162,9 @@ class Project:
             project_kind=optional_text(payload, "project_kind"),
             active_swarm_id=SwarmId(active_swarm) if active_swarm is not None else None,
             latest_swarm_id=SwarmId(latest_swarm) if latest_swarm is not None else None,
+            research=dict(research),
+            execution=dict(execution),
+            project_repo=dict(project_repo) if project_repo is not None else None,
         )
 
 
