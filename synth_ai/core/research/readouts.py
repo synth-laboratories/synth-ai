@@ -666,13 +666,39 @@ class ResearchRunLogsAPI(_RunReadoutBound):
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        start: str | None = None,
+        end: str | None = None,
+        level: str | None = None,
+        min_level: str | None = None,
+        service: str | None = None,
+        component: str | None = None,
+        event: str | None = None,
+        condition_code: str | None = None,
+        task_id: str | None = None,
+        task_key: str | None = None,
+        participant_session_id: str | None = None,
+        dedupe: str | None = None,
+        compact: bool | None = None,
     ) -> dict[str, Any]:
-        """List log records with optional cursor pagination."""
+        """List filtered log records with optional full-fidelity payloads."""
         return self._handle._client.get_run_logs(
             self._handle.project_id,
             self._handle.run_id,
             limit=limit,
             cursor=cursor,
+            start=start,
+            end=end,
+            level=level,
+            min_level=min_level,
+            service=service,
+            component=component,
+            event=event,
+            condition_code=condition_code,
+            task_id=task_id,
+            task_key=task_key,
+            participant_session_id=participant_session_id,
+            dedupe=dedupe,
+            compact=compact,
         )
 
 
