@@ -8,12 +8,11 @@ namespaces:
 * ``pools.tasks`` for pool task definitions.
 * ``pools.metrics`` for pool utilization.
 
-The lower-level methods remain available on ``pools.raw``. Request and response
-bodies are backend-owned JSON objects. ``pools.rollouts.create``,
-``pools.agent_rollouts.create``, ``pools.raw.create_rollout``, and
-``pools.raw.create_global_rollout`` validate their closed set of request keys.
-Other raw methods pass backend contracts through without fabricating a second
-schema authority.
+Lower-level methods remain available through the ``pools.raw`` client. Request
+and response bodies are backend-owned JSON objects. Rollout creation through
+either the task-oriented namespaces or their lower-level implementations
+validates a closed set of request keys. Other raw methods pass backend
+contracts through without fabricating a second schema authority.
 
 Example:
     from synth_ai import SynthClient
