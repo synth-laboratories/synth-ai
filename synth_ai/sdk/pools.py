@@ -1,6 +1,49 @@
-"""Python-only container pools SDK.
+"""Container pools, tasks, rollouts, metrics, artifacts, usage, and events.
 
-Access via ``SynthClient().pools``. Nested namespaces: ``rollouts``, ``tasks``, ``metrics``, ``agent_rollouts``.
+Access this API through ``SynthClient().pools``. Prefer its task-oriented
+namespaces:
+
+* ``pools.rollouts`` for rollouts scoped to one pool.
+* ``pools.agent_rollouts`` for global rollouts.
+* ``pools.tasks`` for pool task definitions.
+* ``pools.metrics`` for pool utilization.
+
+The lower-level methods remain available on ``pools.raw``. Request and response
+bodies are backend-owned JSON objects. ``pools.rollouts.create``,
+``pools.agent_rollouts.create``, ``pools.raw.create_rollout``, and
+``pools.raw.create_global_rollout`` validate their closed set of request keys.
+Other raw methods pass backend contracts through without fabricating a second
+schema authority.
+
+Example:
+    from synth_ai import SynthClient
+
+    client = SynthClient()
+    try:
+        page = client.pools.list(limit=20)
+        for pool in page.get("items", []):
+            metrics = client.pools.metrics.get(pool["id"])
+            print(pool["id"], metrics)
+    finally:
+        client.pools.close()
+
+Expected output:
+    Expected output is one line per pool containing its stable ID and the
+    service-owned metrics object. An organization with no pools returns an
+    empty ``items`` list.
+
+Pagination:
+    ``limit`` defaults to ``100``. Pagination is backend-owned: continue only
+    when a response supplies a distinct continuation token such as
+    ``next_cursor``. The current production service may omit a continuation or
+    echo the supplied ``cursor``; stop in either case to avoid a loop.
+
+Errors:
+    The four rollout-creation entry points named above reject unsupported keys
+    locally with ``ValueError``.
+    Service failures raise ``httpx.HTTPStatusError``. Inspect
+    ``error.response.status_code`` to distinguish authentication,
+    authorization, validation, capacity, and transient service failures.
 """
 
 from __future__ import annotations
@@ -186,7 +229,53 @@ class _PoolMetricsClient:
 
 
 class ContainerPoolsClient(SynthBaseClient):
-    """Manage container pools, tasks, rollouts, and metrics."""
+    """Manage container pools, tasks, rollouts, and metrics.
+
+    Args:
+        api_key: Synth API key. Defaults to ``SYNTH_API_KEY``.
+        backend_base: Preferred API base URL override.
+        base_url: Compatibility alias for ``backend_base``.
+        timeout: Default request timeout in seconds. Defaults to ``30``.
+        timeout_seconds: Preferred timeout override. When supplied, it takes
+            precedence over ``timeout``.
+
+    Attributes:
+        rollouts: Pool-scoped rollout operations.
+        agent_rollouts: Global rollout operations.
+        tasks: Pool task operations.
+        metrics: Pool utilization reads.
+
+    Raises:
+        ValueError: The API key is missing or a rollout request contains a
+            non-canonical key.
+        httpx.HTTPStatusError: The service rejects an operation.
+
+    Example:
+        import os
+
+        from synth_ai import SynthClient
+
+        pool_id = os.environ["SYNTH_POOL_ID"]
+        task_id = os.environ["SYNTH_TASK_ID"]
+        client = SynthClient()
+        try:
+            rollout = client.pools.rollouts.create(
+                pool_id,
+                {
+                    "task_id": task_id,
+                    "messages": [
+                        {"role": "user", "content": "Solve the task."}
+                    ],
+                },
+            )
+            print(rollout["id"], rollout["status"])
+        finally:
+            client.pools.close()
+
+    Expected output:
+        Expected output contains the service-assigned rollout ID and its
+        initial lifecycle state.
+    """
 
     def __init__(
         self,
@@ -213,7 +302,19 @@ class ContainerPoolsClient(SynthBaseClient):
         return self
 
     def create_pool(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Create a container pool."""
+        """Create one container pool.
+
+        Args:
+            request: Backend-owned pool definition. Use fields documented by
+                the active pool API contract.
+
+        Returns:
+            The created pool JSON object, including its service-assigned ID.
+
+        Raises:
+            httpx.HTTPStatusError: Authentication, authorization, validation,
+                conflict, quota, or service errors.
+        """
         return self._request("POST", "/v1/pools", json_body=request)
 
     def create(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -227,7 +328,20 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
-        """List container pools with optional cursor pagination."""
+        """List container pools with cursor pagination.
+
+        Args:
+            state: Optional service-owned lifecycle-state filter. Defaults to
+                no state filter.
+            limit: Maximum page size. Defaults to ``100``.
+            cursor: Backend-owned continuation token. Defaults to ``None``.
+
+        Returns:
+            The backend page object. Stop if its continuation is missing or unchanged.
+
+        Raises:
+            httpx.HTTPStatusError: The request is rejected.
+        """
         params = {
             k: v
             for k, v in {"state": state, "limit": limit, "cursor": cursor}.items()
@@ -246,7 +360,18 @@ class ContainerPoolsClient(SynthBaseClient):
         return self.list_pools(state=state, limit=limit, cursor=cursor)
 
     def get_pool(self, pool_id: str) -> dict[str, Any]:
-        """Retrieve a pool by id."""
+        """Retrieve one pool by ID.
+
+        Args:
+            pool_id: Stable ID returned by ``create_pool`` or ``list_pools``.
+
+        Returns:
+            The current pool JSON object.
+
+        Raises:
+            httpx.HTTPStatusError: The pool is unavailable or the request is
+                rejected.
+        """
         return self._request("GET", f"/v1/pools/{pool_id}")
 
     def get(self, pool_id: str) -> dict[str, Any]:
@@ -310,7 +435,21 @@ class ContainerPoolsClient(SynthBaseClient):
         return self._request("DELETE", f"/v1/pools/{pool_id}/tasks/{task_id}")
 
     def create_rollout(self, pool_id: str, request: dict[str, Any]) -> dict[str, Any]:
-        """Start a rollout on a pool."""
+        """Start one rollout on a pool.
+
+        Args:
+            pool_id: Target pool ID.
+            request: Rollout request using only
+                `CANONICAL_ROLLOUT_REQUEST_KEYS`.
+
+        Returns:
+            The created rollout JSON object.
+
+        Raises:
+            ValueError: ``request`` contains a non-canonical key.
+            httpx.HTTPStatusError: The pool cannot accept the rollout or the
+                request is rejected.
+        """
         validate_pool_rollout_request(request, context="pools.create_rollout")
         return self._request("POST", f"/v1/pools/{pool_id}/rollouts", json_body=request)
 
@@ -326,7 +465,21 @@ class ContainerPoolsClient(SynthBaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> dict[str, Any]:
-        """List rollouts for a pool."""
+        """List rollouts for one pool.
+
+        Args:
+            pool_id: Target pool ID.
+            state: Optional service-owned lifecycle-state filter. Defaults to
+                no state filter.
+            limit: Maximum page size. Defaults to ``100``.
+            cursor: Backend-owned continuation token. Defaults to ``None``.
+
+        Returns:
+            The backend page object. Stop if its continuation is missing or unchanged.
+
+        Raises:
+            httpx.HTTPStatusError: The request is rejected.
+        """
         params = {
             k: v
             for k, v in {"state": state, "limit": limit, "cursor": cursor}.items()

@@ -38,6 +38,161 @@ STATUS_CONFIG: dict[str, tuple[str, str, str]] = {
     "beta": ("BETA", "blue", "circle-check"),
 }
 
+SIGNATURE_REPLACEMENTS: dict[str, dict[str, str]] = {
+    "containers-client.mdx": {
+        "create(self, spec: ContainerSpec) -> Container": (
+            "create(self, spec: ContainerSpec, *, "
+            "timeout_seconds: float | None = None) -> Container"
+        ),
+        "get(self, container_id: str) -> Container": (
+            "get(self, container_id: str, *, "
+            "timeout_seconds: float | None = None) -> Container"
+        ),
+        "list(self) -> builtins.list[Container]": (
+            "list(self, *, timeout_seconds: float | None = None) "
+            "-> builtins.list[Container]"
+        ),
+        "delete(self, container_id: str) -> None": (
+            "delete(self, container_id: str, *, "
+            "timeout_seconds: float | None = None) -> None"
+        ),
+        "wait_ready(self, container_id: str) -> Container": (
+            "wait_ready(self, container_id: str, *, "
+            "timeout_seconds: float = 300.0, "
+            "poll_interval_seconds: float = 2.0, "
+            "timeout: float | None = None, "
+            "poll_interval: float | None = None) -> Container"
+        ),
+    },
+    "pools-client.mdx": {
+        "list_pools(self) -> dict[str, Any]": (
+            "list_pools(self, *, state: str | None = None, limit: int = 100, "
+            "cursor: str | None = None) -> dict[str, Any]"
+        ),
+        "list(self) -> dict[str, Any]": (
+            "list(self, *, state: str | None = None, limit: int = 100, "
+            "cursor: str | None = None) -> dict[str, Any]"
+        ),
+        "list_rollouts(self, pool_id: str) -> dict[str, Any]": (
+            "list_rollouts(self, pool_id: str, *, state: str | None = None, "
+            "limit: int = 100, cursor: str | None = None) -> dict[str, Any]"
+        ),
+        (
+            "stream_rollout_events(self, pool_id: str, rollout_id: str) "
+            "-> Iterator[dict[str, Any]]"
+        ): (
+            "stream_rollout_events(self, pool_id: str, rollout_id: str, *, "
+            "cursor: str | None = None) -> Iterator[dict[str, Any]]"
+        ),
+        "list_global_rollouts(self) -> dict[str, Any]": (
+            "list_global_rollouts(self, *, state: str | None = None, "
+            "limit: int = 100, cursor: str | None = None) -> dict[str, Any]"
+        ),
+        (
+            "stream_global_rollout_events(self, rollout_id: str) "
+            "-> Iterator[dict[str, Any]]"
+        ): (
+            "stream_global_rollout_events(self, rollout_id: str, *, "
+            "cursor: str | None = None) -> Iterator[dict[str, Any]]"
+        ),
+    },
+}
+
+ASYNC_RESEARCH_REFERENCE = """---
+title: AsyncResearchClient
+sidebarTitle: AsyncResearchClient
+---
+
+# `synth_ai.research.async_client`
+
+`AsyncResearchClient` is the native asynchronous Research client. It has the
+same resource namespaces as the typed core synchronous client, but network
+operations are awaitable and the transport is closed with `await close()` or
+`async with`.
+
+This is a direct alias of the typed core `AsyncClient`; it does **not** return a
+thread-offloaded or opaque namespace proxy. Unlike the public synchronous
+`ResearchClient` wrapper, it does not expose the `advanced` namespace or the
+deprecated `runs` alias; use the typed namespaces below.
+
+## Construct the client
+
+| Argument | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `api_key` | `str | None` | `None` | Uses `SYNTH_API_KEY` when omitted. |
+| `base_url` | `str | None` | `None` | Uses the environment-selected backend when omitted; an unconfigured development shell defaults to `http://localhost:8000`. |
+| `timeout_seconds` | `float` | `30.0` | Default HTTP timeout for resource operations. |
+
+```python
+import asyncio
+
+from synth_ai.research.async_client import AsyncResearchClient
+
+
+async def main() -> None:
+    async with AsyncResearchClient() as research:
+        projects = await research.projects.list(limit=20)
+        for project in projects:
+            print(project.project_id, project.name)
+
+
+asyncio.run(main())
+```
+
+Expected output is one line per visible project containing its stable ID and
+name. An organization with no projects produces no lines.
+
+## Namespaces
+
+| Namespace | Type | Use |
+| --- | --- | --- |
+| `projects` | `AsyncProjectsAPI` | Create, list, read, update, and archive projects. |
+| `swarms` | `AsyncSwarmsAPI` | Launch and inspect hosted swarms. |
+| `factories` | `AsyncFactoriesAPI` | Operate recurring Research Factory programs. |
+| `environments` | `AsyncEnvironmentsAPI` | Inspect execution environments. |
+| `image_releases` | `AsyncImageReleasesAPI` | Inspect released runtime images. |
+| `economics` | `AsyncEconomicsAPI` | Read metered economics; loaded on first access. |
+| `limits` | `AsyncLimitsAPI` | Read organization limits; loaded on first access. |
+| `credential` | `ApiCredential` | Read the validated credential object without exposing it in `repr`. |
+
+Each namespace documents its own method parameters, return models, and
+operation-specific failures. The async client returns the same typed models as
+the synchronous client.
+
+## Lifecycle
+
+Prefer `async with`; it closes the shared HTTP transport even when an operation
+raises:
+
+```python
+async with AsyncResearchClient() as research:
+    project = await research.projects.retrieve(project_id)
+    print(project.project_id)
+```
+
+For a longer-lived client, call `await research.close()` exactly once when its
+owner shuts down.
+
+## Errors and next actions
+
+| Error | Cause | Action |
+| --- | --- | --- |
+| `AuthenticationError` | No API key or an empty key during client construction. | Set `SYNTH_API_KEY` or pass a non-empty `api_key`. |
+| `AuthorizationError` | The credential lacks authority for the resource. | Use the owning organization or request access; do not retry unchanged. |
+| `ResearchOperationError` | A request is rejected without a narrower typed failure; `failure.category` distinguishes authentication, validation, and other causes. | Follow the category and status; correct invalid input or credentials before retrying. |
+| `ConflictError` | The mutation conflicts with current resource state. | Read the resource, reconcile its state, then issue a new mutation. |
+| `PaymentRequiredError` | A `402` response reports exhausted credits or another payment requirement. | Inspect economics and billing state before retrying. |
+| `RateLimitedError` | A rate limit denied the operation. | Respect `retry_after_seconds` when present. |
+| `TransientServiceError` | A classified temporary service failure. | Retry only according to the exception's retry metadata. |
+
+All operation exceptions carry a structured `failure` record when the service
+provides one. Preserve `request_id`, `error_code`, and retry metadata when
+reporting an incident.
+
+See also: [ResearchClient](/reference/sdk/research/synth_ai-research-client) and
+[Errors](/reference/sdk/research/synth_ai-research-errors).
+"""
+
 
 def wrap_examples_in_code_blocks(content: str) -> str:
     """Wrap indented Example sections in fenced ```python blocks."""
@@ -55,6 +210,8 @@ def wrap_examples_in_code_blocks(content: str) -> str:
             while index < len(lines) and lines[index].strip() == "":
                 result.append(lines[index])
                 index += 1
+            if not result or result[-1].strip():
+                result.append("")
 
             code_lines: list[str] = []
             while index < len(lines) and (
@@ -85,6 +242,35 @@ def wrap_examples_in_code_blocks(content: str) -> str:
 
         result.append(line)
         index += 1
+
+    return "\n".join(result)
+
+
+def normalize_labeled_prose(content: str) -> str:
+    """Render module-level prose labels as readable Markdown, not code blocks."""
+    labels = {"Availability", "Contract", "Errors", "Expected output", "Pagination"}
+    lines = content.split("\n")
+    result: list[str] = []
+    index = 0
+
+    while index < len(lines):
+        label = lines[index].strip().removesuffix(":")
+        if label not in labels:
+            result.append(lines[index])
+            index += 1
+            continue
+
+        result.extend([f"**{label}:**", ""])
+        index += 1
+        while index < len(lines) and (
+            lines[index].startswith("    ") or not lines[index].strip()
+        ):
+            result.append(
+                lines[index][4:]
+                if lines[index].startswith("    ")
+                else lines[index]
+            )
+            index += 1
 
     return "\n".join(result)
 
@@ -160,6 +346,74 @@ def fix_see_also_sections(content: str) -> str:
     return "\n".join(result)
 
 
+def normalize_rst_inline_markup(content: str) -> str:
+    """Convert common reStructuredText inline roles to Markdown code spans."""
+    lines = content.split("\n")
+    result: list[str] = []
+    in_code_block = False
+
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            result.append(line)
+            continue
+        if in_code_block:
+            result.append(line)
+            continue
+
+        line = re.sub(
+            r":(?:attr|class|data|func|meth):`~?([^`]+)`",
+            r"`\1`",
+            line,
+        )
+        line = re.sub(r"``([^`\n]+)``", r"`\1`", line)
+        result.append(line)
+
+    return "\n".join(result)
+
+
+def indent_wrapped_list_continuations(content: str) -> str:
+    """Keep mdxify-wrapped list descriptions attached to their bullets."""
+    lines = content.split("\n")
+    result: list[str] = []
+    in_code_block = False
+    in_list_item = False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            in_list_item = False
+            result.append(line)
+            continue
+        if in_code_block:
+            result.append(line)
+            continue
+
+        if line.startswith("- "):
+            in_list_item = True
+            result.append(line)
+            continue
+        if not stripped or stripped.startswith("#") or stripped.startswith("**"):
+            in_list_item = False
+            result.append(line)
+            continue
+        if in_list_item and not line.startswith(("  ", "\t")):
+            result.append(f"  {line}")
+            continue
+
+        result.append(line)
+
+    return "\n".join(result)
+
+
+def restore_keyword_only_signatures(content: str, filename: str) -> str:
+    """Repair signatures whose keyword-only parameters mdxify omits."""
+    for generated, actual in SIGNATURE_REPLACEMENTS.get(filename, {}).items():
+        content = content.replace(generated, actual)
+    return content
+
+
 def apply_title_mappings(content: str, filename: str) -> str:
     """Replace mdxify module titles with customer-facing sidebar names."""
     if filename not in TITLE_MAPPINGS:
@@ -221,8 +475,14 @@ def extract_and_add_status_tags(content: str) -> str:
 
 def postprocess_mdx_file(content: str, filename: str) -> str:
     """Run the full postprocess pipeline on one MDX file."""
+    if filename == "synth_ai-research-async_client.mdx":
+        content = ASYNC_RESEARCH_REFERENCE
     content = wrap_examples_in_code_blocks(content)
+    content = normalize_labeled_prose(content)
     content = fix_see_also_sections(content)
+    content = normalize_rst_inline_markup(content)
+    content = indent_wrapped_list_continuations(content)
+    content = restore_keyword_only_signatures(content, filename)
     content = escape_remaining_curly_braces(content)
     content = apply_title_mappings(content, filename)
     content = extract_and_add_status_tags(content)

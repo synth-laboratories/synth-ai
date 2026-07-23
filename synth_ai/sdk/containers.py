@@ -1,6 +1,29 @@
-"""Hosted Containers SDK — create, manage, and reference hosted containers by ID.
+"""Hosted Containers SDK — create, inspect, wait for, and delete containers.
 
-Access via ``SynthClient().containers``.
+Access this API through ``SynthClient().containers``. The client reads
+``SYNTH_API_KEY`` when ``api_key`` is omitted and uses the environment-selected
+backend when ``backend_base`` is omitted. An unconfigured development shell
+defaults to ``http://localhost:8000``.
+
+Availability:
+    This is a compatibility client for deployments that expose
+    ``/v1/containers``. The SDK's bundled OpenAPI file describes those routes,
+    but the current production backend and its live OpenAPI contract route
+    hosted workloads through ``/v1/pools``. Use ``SynthClient().pools`` for the
+    portable production workflow, and use this client only when your target
+    deployment exposes the compatibility routes.
+
+Contract:
+    Container names are organization-scoped. ``definition`` and
+    ``environment_config`` are backend-owned JSON contracts for the selected
+    ``task_type``; use the corresponding container guide rather than guessing
+    fields.
+
+Errors:
+    HTTP failures raise ``httpx.HTTPStatusError``. A missing API key fails
+    before the first request with a ``ValueError`` that names
+    ``SYNTH_API_KEY``. Invalid response data raises
+    ``pydantic.ValidationError`` instead of returning a partial model.
 """
 
 from __future__ import annotations
@@ -34,7 +57,16 @@ class ContainerType(str, Enum):
 
 
 class ContainerSpec(BaseModel):
-    """Specification for creating a hosted container."""
+    """Validated request for creating one hosted container.
+
+    Attributes:
+        name: Organization-scoped container name. This field is required.
+        task_type: Required provisioning substrate selected from ``ContainerType``.
+        definition: Backend-owned definition for ``task_type``; defaults to an empty object.
+        environment_config: Optional overrides; defaults to ``None`` and is omitted when unset.
+        internal_url: Optional existing runtime URL. Defaults to ``None``; the
+            service supplies a placeholder when omitted.
+    """
 
     name: str = Field(..., description="Unique name for this container within the org")
     task_type: ContainerType = Field(..., description="Type of container to provision")
@@ -53,7 +85,18 @@ class ContainerSpec(BaseModel):
 
 
 class Container(BaseModel):
-    """Response model for a hosted container."""
+    """Validated hosted-container response.
+
+    Attributes:
+        id: Stable container identifier used by ``get``, ``delete``, and
+            ``wait_ready``.
+        name: Organization-scoped container name.
+        task_type: Provisioning substrate reported by the service.
+        status: Current lifecycle state.
+        internal_url: Runtime URL when one is available.
+        created_at: Service creation timestamp when supplied.
+        updated_at: Service update timestamp when supplied.
+    """
 
     id: str
     name: str
@@ -65,7 +108,25 @@ class Container(BaseModel):
 
 
 class ContainersClient(SynthBaseClient):
-    """Create and manage hosted environment containers."""
+    """Create and manage hosted environment containers.
+
+    Args:
+        api_key: Synth API key. Defaults to ``SYNTH_API_KEY``.
+        backend_base: API base URL. Defaults to the environment-selected
+            backend; an unconfigured development shell uses localhost.
+        timeout_seconds: Default HTTP timeout in seconds. Defaults to ``30``.
+
+    Raises:
+        ValueError: The API key is missing.
+        httpx.HTTPStatusError: The service rejects an operation.
+        pydantic.ValidationError: A service response does not match ``Container``.
+
+    Availability:
+        Methods require a deployment that exposes ``/v1/containers``. Although
+        the SDK's bundled OpenAPI file describes those routes, the current
+        production backend directs hosted workloads through
+        ``SynthClient().pools``.
+    """
 
     def __init__(
         self,
@@ -87,7 +148,21 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> Container:
-        """Provision a new hosted container from a :class:`ContainerSpec`."""
+        """Provision one hosted container.
+
+        Args:
+            spec: Validated container definition.
+            timeout_seconds: Per-request timeout override. Defaults to the
+                client timeout.
+
+        Returns:
+            The created ``Container``; provisioning may still be in progress.
+
+        Raises:
+            httpx.HTTPStatusError: Authentication, authorization, validation,
+                conflict, quota, or service errors.
+            pydantic.ValidationError: The response is not a valid ``Container``.
+        """
         payload = spec.model_dump(exclude_none=True)
         return self.cast_to(
             Container,
@@ -105,7 +180,21 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> Container:
-        """Retrieve a container by id."""
+        """Retrieve one container by ID.
+
+        Args:
+            container_id: Stable ID returned by ``create`` or ``list``.
+            timeout_seconds: Per-request timeout override. Defaults to the
+                client timeout.
+
+        Returns:
+            The current ``Container`` record.
+
+        Raises:
+            httpx.HTTPStatusError: The container is unavailable or the request
+                is rejected.
+            pydantic.ValidationError: The response is not a valid ``Container``.
+        """
         return self.cast_to(
             Container,
             self._request(
@@ -120,7 +209,19 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> builtins.list[Container]:
-        """List containers in the current organization."""
+        """List containers in the current organization.
+
+        Args:
+            timeout_seconds: Per-request timeout override. Defaults to the
+                client timeout.
+
+        Returns:
+            Validated ``Container`` records; an empty organization returns ``[]``.
+
+        Raises:
+            httpx.HTTPStatusError: The request is rejected.
+            pydantic.ValidationError: Any returned item is not a valid ``Container``.
+        """
         data = self._request("GET", self._prefix, timeout_seconds=timeout_seconds)
         items = data if isinstance(data, list) else data.get("items", [])
         return [self.cast_to(Container, item) for item in items]
@@ -131,7 +232,20 @@ class ContainersClient(SynthBaseClient):
         *,
         timeout_seconds: float | None = None,
     ) -> None:
-        """Delete a hosted container by id."""
+        """Delete one hosted container by ID.
+
+        Args:
+            container_id: Stable ID returned by ``create`` or ``list``.
+            timeout_seconds: Per-request timeout override. Defaults to the
+                client timeout.
+
+        Returns:
+            ``None`` after the service accepts the deletion.
+
+        Raises:
+            httpx.HTTPStatusError: The container is unavailable or the request
+                is rejected.
+        """
         self._request(
             "DELETE",
             f"{self._prefix}/{container_id}",
@@ -147,7 +261,24 @@ class ContainersClient(SynthBaseClient):
         timeout: float | None = None,
         poll_interval: float | None = None,
     ) -> Container:
-        """Poll until the container reaches 'ready' status or a terminal state."""
+        """Wait for ``ready``, ``failed``, or ``stopped``.
+
+        Args:
+            container_id: Stable ID returned by ``create`` or ``list``.
+            timeout_seconds: Best-effort polling window. Defaults to ``300``;
+                an in-flight read or sleep can finish after the nominal window.
+            poll_interval_seconds: Delay between reads. Defaults to ``2``.
+            timeout: Deprecated alias for ``timeout_seconds``.
+            poll_interval: Deprecated alias for ``poll_interval_seconds``.
+
+        Returns:
+            The first terminal ``Container``; check ``status == "ready"`` before use.
+
+        Raises:
+            TimeoutError: No terminal state is observed during the polling window.
+            httpx.HTTPStatusError: A polling request is rejected.
+            pydantic.ValidationError: A polling response is invalid.
+        """
         if timeout is not None:
             timeout_seconds = timeout
         if poll_interval is not None:
@@ -165,7 +296,7 @@ class ContainersClient(SynthBaseClient):
 
 
 class AsyncContainersClient:
-    """Async adapter over :class:`ContainersClient` (thread-offloaded)."""
+    """Async adapter over `ContainersClient` (thread-offloaded)."""
 
     def __init__(self, sync_client: ContainersClient) -> None:
         """Wrap a sync client for async call sites."""
