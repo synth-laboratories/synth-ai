@@ -249,32 +249,6 @@ class ContainerPoolsClient(SynthBaseClient):
         ValueError: The API key is missing or a rollout request contains a
             non-canonical key.
         httpx.HTTPStatusError: The service rejects an operation.
-
-    Example:
-        import os
-
-        from synth_ai import SynthClient
-
-        pool_id = os.environ["SYNTH_POOL_ID"]
-        task_id = os.environ["SYNTH_TASK_ID"]
-        client = SynthClient()
-        try:
-            rollout = client.pools.rollouts.create(
-                pool_id,
-                {
-                    "task_id": task_id,
-                    "messages": [
-                        {"role": "user", "content": "Solve the task."}
-                    ],
-                },
-            )
-            print(rollout["id"], rollout["status"])
-        finally:
-            client.pools.close()
-
-    Expected output:
-        Expected output contains the service-assigned rollout ID and its
-        initial lifecycle state.
     """
 
     def __init__(
