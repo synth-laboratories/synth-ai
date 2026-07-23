@@ -4305,7 +4305,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         payload = _image_release_upload_from_wire(
             self._request_json(
                 "POST",
-                "/smr/v1/image-releases/upload-url",
+                "/smr/v1/image-releases/upload-url-v3",
                 json_body={
                     "declaration": dict(normalized),
                     "expires_in": expires_in,
@@ -4321,6 +4321,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         *,
         upload_id: str,
         declaration: ImageReleaseDeclaration | Mapping[str, object],
+        timeout_seconds: float | None = None,
     ) -> ImageReleaseFinalize:
         normalized_upload_id = _require_non_empty_string(
             upload_id,
@@ -4335,6 +4336,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
                     "upload_id": normalized_upload_id,
                     "declaration": dict(normalized),
                 },
+                timeout_seconds=timeout_seconds,
             )
         )
         if payload["release"]["declaration"] != normalized:

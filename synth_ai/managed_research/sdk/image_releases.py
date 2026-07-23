@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
+import json
 import re
+import time
+import urllib.parse
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, Literal, NotRequired, TypedDict, cast
 
 import httpx
 
@@ -19,6 +24,9 @@ _GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 _RELEASE_ID = re.compile(r"^imgrel_[0-9a-f]{64}$")
 _UPLOAD_ID = re.compile(r"^imgup_[0-9a-f]{32}$")
 _IMAGE_REF = re.compile(r"^[a-z0-9]+(?:[._/-][a-z0-9]+)*(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})$")
+IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES = 5_000_000_000
+_UPLOAD_ERROR_DETAIL_MAX_BYTES = 4 * 1024
+_UPLOAD_ERROR_DETAIL_MAX_CHARS = 600
 _DECLARATION_FIELDS = frozenset(
     {
         "kind",
@@ -61,8 +69,31 @@ class ImageReleaseInspection(TypedDict):
     image_manifest_digest: str
     image_config_digest: str
     image_ref: str
+    python_packages: NotRequired[list[str]]
     platform_os: Literal["linux"]
     platform_architecture: Literal["amd64", "arm64"]
+
+
+class ImageReleaseStorageIdentity(TypedDict):
+    object_key: str
+    etag: str
+    size_bytes: int
+
+
+def _bounded_upload_error_detail(response: httpx.Response) -> str:
+    """Read a small diagnostic prefix without buffering a provider response."""
+
+    body = bytearray()
+    for chunk in response.iter_bytes(chunk_size=1024):
+        remaining = _UPLOAD_ERROR_DETAIL_MAX_BYTES - len(body)
+        if remaining <= 0:
+            break
+        body.extend(chunk[:remaining])
+        if len(body) >= _UPLOAD_ERROR_DETAIL_MAX_BYTES:
+            break
+    return " ".join(body.decode("utf-8", errors="replace").split())[
+        :_UPLOAD_ERROR_DETAIL_MAX_CHARS
+    ]
 
 
 class ImageRelease(TypedDict):
@@ -73,17 +104,20 @@ class ImageRelease(TypedDict):
     declaration: ImageReleaseDeclaration
     inspection: ImageReleaseInspection
     package_release_timestamps: dict[str, str]
+    storage: NotRequired[ImageReleaseStorageIdentity]
 
 
 class ImageReleaseUpload(TypedDict):
-    schema_version: Literal["smr-image-release-upload-v2"]
+    schema_version: Literal["smr-image-release-upload-v3"]
     upload_id: str
     release_id: str
     upload_url: str
+    upload_headers: dict[str, str]
     upload_required: bool
     upload_mode: Literal["content_addressed_quarantine"]
     storage_admission: dict[str, Any] | None
     expires_in: int
+    finalize_deadline_at: str
     declaration: ImageReleaseDeclaration
     package_release_timestamps: dict[str, str]
 
@@ -120,6 +154,84 @@ def _text(payload: Mapping[str, object], key: str, *, label: str) -> str:
     if not isinstance(value, str) or not value or value != value.strip():
         raise ValueError(f"{label}.{key} must be a nonempty trimmed string")
     return value
+
+
+def _valid_upload_url(value: str) -> bool:
+    parsed = urllib.parse.urlparse(value)
+    if (
+        not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        return False
+    if parsed.scheme == "https":
+        return True
+    if parsed.scheme != "http":
+        return False
+    host = parsed.hostname.lower()
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _declaration_sha256(declaration: Mapping[str, object]) -> str:
+    encoded = json.dumps(
+        dict(declaration),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _utc_deadline(value: object, *, label: str) -> datetime:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ValueError(f"{label} must be a nonempty datetime string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{label} must be an ISO-8601 datetime") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{label} must include a timezone")
+    normalized = parsed.astimezone(timezone.utc)
+    if normalized <= datetime.now(timezone.utc):
+        raise ValueError(f"{label} must be in the future")
+    return normalized
+
+
+def _remaining_deadline_seconds(
+    deadline_at: str,
+    *,
+    requested_seconds: float,
+    label: str,
+) -> float:
+    requested = float(requested_seconds)
+    if requested <= 0:
+        raise ValueError(f"{label} timeout must be positive")
+    remaining = (
+        _utc_deadline(deadline_at, label=label) - datetime.now(timezone.utc)
+    ).total_seconds() - 5.0
+    if remaining <= 0:
+        raise RuntimeError(f"{label} deadline expired before the request started")
+    return min(requested, remaining)
+
+
+def _remaining_upload_seconds(
+    *,
+    acquired_monotonic: float,
+    expires_in: int,
+    requested_seconds: float,
+) -> float:
+    remaining = (
+        acquired_monotonic + float(expires_in) - time.monotonic() - 5.0
+    )
+    if remaining <= 0:
+        raise RuntimeError("image release upload URL expired before transfer")
+    return min(float(requested_seconds), remaining)
 
 
 def image_release_declaration(
@@ -162,9 +274,12 @@ def image_release_declaration(
     if (
         isinstance(archive_size_bytes, bool)
         or not isinstance(archive_size_bytes, int)
-        or not 1 <= archive_size_bytes <= 16 * 1024**3
+        or not 1 <= archive_size_bytes <= IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES
     ):
-        raise ValueError("declaration.archive_size_bytes must be between 1 byte and 16 GiB")
+        raise ValueError(
+            "declaration.archive_size_bytes must be between 1 byte and "
+            "5,000,000,000 bytes (single-PUT limit)"
+        )
     if not _DIGEST.fullmatch(image_manifest_digest):
         raise ValueError("declaration.image_manifest_digest must be a sha256 digest")
     if not _IMAGE_REF.fullmatch(image_ref):
@@ -200,21 +315,19 @@ def image_release_declaration(
 def _image_release_from_wire(payload: object) -> ImageRelease:
     if not isinstance(payload, Mapping):
         raise ValueError("image release response must be an object")
-    _exact_fields(
-        payload,
-        frozenset(
-            {
-                "schema_version",
-                "release_id",
-                "org_id",
-                "artifact",
-                "declaration",
-                "inspection",
-                "package_release_timestamps",
-            }
-        ),
-        label="image_release",
+    base_fields = frozenset(
+        {
+            "schema_version",
+            "release_id",
+            "org_id",
+            "artifact",
+            "declaration",
+            "inspection",
+            "package_release_timestamps",
+        }
     )
+    if frozenset(payload) not in {base_fields, base_fields | {"storage"}}:
+        _exact_fields(payload, base_fields | {"storage"}, label="image_release")
     if _text(payload, "schema_version", label="image_release") != "smr-image-release-v1":
         raise ValueError("image release schema_version is unsupported")
     release_id = _text(payload, "release_id", label="image_release")
@@ -244,20 +357,30 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
         artifact_payload.get("archive_size_bytes") != declaration["archive_size_bytes"]
     ):
         raise ValueError("image release artifact does not bind the declaration")
-    _exact_fields(
-        inspection_payload,
-        frozenset(
-            {
-                "archive_format",
-                "image_manifest_digest",
-                "image_config_digest",
-                "image_ref",
-                "platform_os",
-                "platform_architecture",
-            }
-        ),
-        label="image_release.inspection",
+    inspection_fields = frozenset(
+        {
+            "archive_format",
+            "image_manifest_digest",
+            "image_config_digest",
+            "image_ref",
+            "platform_os",
+            "platform_architecture",
+        }
     )
+    if frozenset(inspection_payload) not in {
+        inspection_fields,
+        inspection_fields | {"python_packages"},
+    }:
+        _exact_fields(
+            inspection_payload,
+            inspection_fields | {"python_packages"},
+            label="image_release.inspection",
+        )
+    python_packages = inspection_payload.get("python_packages")
+    if python_packages is not None and python_packages != []:
+        raise ValueError(
+            "scorer image release inspection.python_packages must be empty"
+        )
     if inspection_payload.get("archive_format") != "oci-image-layout-tar-v1":
         raise ValueError("image release inspection archive_format is unsupported")
     for key in (
@@ -275,6 +398,25 @@ def _image_release_from_wire(payload: object) -> ImageRelease:
     )
     if not _DIGEST.fullmatch(image_config_digest):
         raise ValueError("image release inspection.image_config_digest is invalid")
+    storage_payload = payload.get("storage")
+    if "storage" in payload:
+        if not isinstance(storage_payload, Mapping):
+            raise ValueError("image release storage must be an object")
+        _exact_fields(
+            storage_payload,
+            frozenset({"object_key", "etag", "size_bytes"}),
+            label="image_release.storage",
+        )
+        expected_object_key = (
+            f"smr/env-images/objects/{declaration['archive_sha256']}.tar"
+        )
+        if (
+            _text(storage_payload, "object_key", label="image_release.storage")
+            != expected_object_key
+            or not _text(storage_payload, "etag", label="image_release.storage")
+            or storage_payload.get("size_bytes") != declaration["archive_size_bytes"]
+        ):
+            raise ValueError("image release storage does not bind the declaration")
     return cast(ImageRelease, dict(payload))
 
 
@@ -289,28 +431,48 @@ def _image_release_upload_from_wire(payload: object) -> ImageReleaseUpload:
                 "upload_id",
                 "release_id",
                 "upload_url",
+                "upload_headers",
                 "upload_required",
                 "upload_mode",
                 "storage_admission",
                 "expires_in",
+                "finalize_deadline_at",
                 "declaration",
                 "package_release_timestamps",
             }
         ),
         label="image_release_upload",
     )
-    if payload.get("schema_version") != "smr-image-release-upload-v2":
+    if payload.get("schema_version") != "smr-image-release-upload-v3":
         raise ValueError("image release upload schema_version is unsupported")
     upload_id = _text(payload, "upload_id", label="image_release_upload")
     release_id = _text(payload, "release_id", label="image_release_upload")
     upload_url = _text(payload, "upload_url", label="image_release_upload")
     if not _UPLOAD_ID.fullmatch(upload_id) or not _RELEASE_ID.fullmatch(release_id):
         raise ValueError("image release upload identifiers are invalid")
-    if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
+    if not _valid_upload_url(upload_url):
         raise ValueError("image release upload_url must use HTTPS or loopback HTTP")
+    declaration = image_release_declaration(
+        cast(Mapping[str, object], payload.get("declaration"))
+    )
+    upload_headers = payload.get("upload_headers")
+    expected_upload_headers = {
+        "Content-Length": str(declaration["archive_size_bytes"]),
+        "If-None-Match": "*",
+        "x-amz-meta-synth-upload-id": upload_id,
+        "x-amz-meta-synth-declaration-sha256": _declaration_sha256(declaration),
+    }
+    if upload_headers != expected_upload_headers:
+        raise ValueError(
+            "image release upload_headers must bind create-only content length"
+        )
     expires_in = payload.get("expires_in")
     if isinstance(expires_in, bool) or not isinstance(expires_in, int):
         raise ValueError("image release upload expires_in must be an integer")
+    _utc_deadline(
+        payload.get("finalize_deadline_at"),
+        label="image release upload finalize_deadline_at",
+    )
     if not isinstance(payload.get("upload_required"), bool):
         raise ValueError("image release upload_required must be a boolean")
     if payload.get("upload_mode") != "content_addressed_quarantine":
@@ -324,7 +486,6 @@ def _image_release_upload_from_wire(payload: object) -> ImageReleaseUpload:
         for name, timestamp in package_timestamps.items()
     ):
         raise ValueError("image release package_release_timestamps must be a string map")
-    image_release_declaration(cast(Mapping[str, object], payload.get("declaration")))
     return cast(ImageReleaseUpload, dict(payload))
 
 
@@ -339,6 +500,10 @@ def _image_release_finalize_from_wire(payload: object) -> ImageReleaseFinalize:
     if payload.get("schema_version") != "smr-image-release-finalize-v1":
         raise ValueError("image release finalize schema_version is unsupported")
     release = _image_release_from_wire(payload.get("release"))
+    if not isinstance(release.get("storage"), Mapping):
+        raise ValueError(
+            "image release finalize must include the immutable storage identity"
+        )
     reconciliation = payload.get("upload_reconciliation")
     if not isinstance(reconciliation, Mapping):
         raise ValueError("image release upload_reconciliation must be an object")
@@ -362,8 +527,14 @@ def _image_release_finalize_from_wire(payload: object) -> ImageReleaseFinalize:
         "already_published",
     }:
         raise ValueError("image release upload reconciliation evidence is invalid")
-    if not object_key.startswith("smr/env-images/objects/"):
-        raise ValueError("image release upload reconciliation object_key is invalid")
+    expected_object_key = (
+        "smr/env-images/objects/"
+        f"{release['declaration']['archive_sha256']}.tar"
+    )
+    if object_key != expected_object_key:
+        raise ValueError(
+            "image release upload reconciliation does not bind the release object"
+        )
     return cast(
         ImageReleaseFinalize,
         {
@@ -399,10 +570,12 @@ class ImageReleasesAPI(_ClientNamespace):
         *,
         upload_id: str,
         declaration: ImageReleaseDeclaration | Mapping[str, object],
+        timeout_seconds: float | None = None,
     ) -> ImageReleaseFinalize:
         return self._client.finalize_image_release(
             upload_id=upload_id,
             declaration=image_release_declaration(declaration),
+            timeout_seconds=timeout_seconds,
         )
 
     def get(self, *, release_id: str) -> ImageRelease:
@@ -417,9 +590,14 @@ class ImageReleasesAPI(_ClientNamespace):
         *,
         upload_id: str,
         declaration: ImageReleaseDeclaration | Mapping[str, object],
+        timeout_seconds: float | None = None,
     ) -> ImageReleaseFinalize:
         """Idempotently finalize and prove content-addressed publication."""
-        return self.finalize(upload_id=upload_id, declaration=declaration)
+        return self.finalize(
+            upload_id=upload_id,
+            declaration=declaration,
+            timeout_seconds=timeout_seconds,
+        )
 
     def upload_archive(
         self,
@@ -445,61 +623,95 @@ class ImageReleasesAPI(_ClientNamespace):
         ):
             raise ValueError("image release archive does not match its declaration")
         upload = self.create_upload(normalized, expires_in=expires_in)
+        upload_acquired_monotonic = time.monotonic()
         if upload["declaration"] != normalized:
             raise ValueError("image release upload response changed the declaration")
         if upload["upload_required"]:
-            upload_error: httpx.TransportError | None = None
+            status_code: int | None = None
+            response_detail = ""
             with httpx.Client(
                 timeout=upload_timeout_seconds,
                 follow_redirects=False,
             ) as upload_client:
-                for _attempt in range(2):
+                for attempt_index in range(2):
                     try:
                         with path.open("rb") as handle:
-                            response = upload_client.put(
+                            with upload_client.stream(
+                                "PUT",
                                 upload["upload_url"],
                                 content=handle,
-                                headers={
-                                    "Content-Length": str(normalized["archive_size_bytes"]),
-                                },
-                            )
-                        upload_error = None
+                                headers=upload["upload_headers"],
+                                timeout=_remaining_upload_seconds(
+                                    acquired_monotonic=upload_acquired_monotonic,
+                                    expires_in=upload["expires_in"],
+                                    requested_seconds=upload_timeout_seconds,
+                                ),
+                            ) as response:
+                                status_code = response.status_code
+                                response_detail = ""
+                                if (
+                                    not response.is_success
+                                    and status_code not in {409, 412}
+                                ):
+                                    response_detail = _bounded_upload_error_detail(
+                                        response
+                                    )
+                        if status_code == 409 and attempt_index == 0:
+                            continue
                         break
-                    except httpx.TransportError as exc:
-                        # Exact-key PUT is idempotent. One replay reconciles the only
-                        # ambiguous outcome without crossing the storage boundary.
-                        upload_error = exc
+                    except httpx.TransportError:
+                        # A create-only retry can return 412 when the first request
+                        # committed but its response was lost. Finalize verifies the
+                        # exact digest and reconciles that ambiguous success.
+                        continue
                 else:
-                    raise RuntimeError(
-                        "image release archive upload outcome is uncertain "
-                        f"(upload_id={upload['upload_id']}, "
-                        f"release_id={upload['release_id']})"
-                    ) from upload_error
-            if response.is_error:
+                    # A transport failure is an in-doubt write, not proof that
+                    # the create-only PUT failed. The backend finalizer is the
+                    # authority that re-HEADs and verifies the exact object.
+                    status_code = None
+            if (
+                status_code is not None
+                and not 200 <= status_code < 300
+                and status_code not in {409, 412}
+            ):
+                suffix = f": {response_detail}" if response_detail else ""
                 raise RuntimeError(
-                    f"image release archive upload failed with HTTP {response.status_code}"
+                    "image release archive upload failed with HTTP "
+                    f"{status_code}{suffix}"
                 )
+        finalize_timeout_seconds = _remaining_deadline_seconds(
+            upload["finalize_deadline_at"],
+            requested_seconds=upload_timeout_seconds,
+            label="image release finalize",
+        )
         try:
             finalized = self.finalize(
                 upload_id=upload["upload_id"],
                 declaration=normalized,
+                timeout_seconds=finalize_timeout_seconds,
             )
         except SmrApiError as exc:
             if exc.status_code is not None:
                 raise
-            # The backend finalize operation is idempotent and always proves
-            # content publication, so replay exactly once after response loss.
-            try:
+            if isinstance(exc.__cause__, httpx.ConnectError):
+                # A failed TCP connect proves the request was not admitted.
                 finalized = self.reconcile(
                     upload_id=upload["upload_id"],
                     declaration=normalized,
+                    timeout_seconds=_remaining_deadline_seconds(
+                        upload["finalize_deadline_at"],
+                        requested_seconds=upload_timeout_seconds,
+                        label="image release finalize reconciliation",
+                    ),
                 )
-            except Exception as reconcile_exc:
+            else:
+                # A read timeout or disconnect can happen after publication
+                # starts. Automatic replay could duplicate registry work; let
+                # the caller explicitly reconcile the durable upload id.
                 raise RuntimeError(
-                    "image release finalize outcome is uncertain "
-                    f"(upload_id={upload['upload_id']}, "
-                    f"release_id={upload['release_id']})"
-                ) from reconcile_exc
+                    "image release finalize outcome is uncertain; call reconcile "
+                    f"with upload_id={upload['upload_id']}"
+                ) from exc
         if finalized["upload_reconciliation"]["upload_id"] != upload["upload_id"]:
             raise ValueError("image release finalize reconciled a different upload_id")
         if finalized["release"]["release_id"] != upload["release_id"]:
@@ -508,10 +720,12 @@ class ImageReleasesAPI(_ClientNamespace):
 
 
 __all__ = [
+    "IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES",
     "ImageRelease",
     "ImageReleaseArtifact",
     "ImageReleaseDeclaration",
     "ImageReleaseInspection",
+    "ImageReleaseStorageIdentity",
     "ImageReleaseFinalize",
     "ImageReleaseUploadReconciliation",
     "ImageReleasesAPI",

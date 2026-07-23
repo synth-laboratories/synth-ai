@@ -363,11 +363,13 @@ from synth_ai.managed_research.sdk.factory_evidence import FactoryEvidenceAPI
 from synth_ai.managed_research.sdk.files import FilesAPI
 from synth_ai.managed_research.sdk.github import GithubAPI
 from synth_ai.managed_research.sdk.image_releases import (
+    IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES,
     ImageRelease,
     ImageReleaseArtifact,
     ImageReleaseDeclaration,
     ImageReleaseFinalize,
     ImageReleaseInspection,
+    ImageReleaseStorageIdentity,
     ImageReleasesAPI,
     ImageReleaseUpload,
     ImageReleaseUploadReconciliation,
@@ -473,11 +475,13 @@ __all__ = [
     "RecurrencePolicy",
     "FilesAPI",
     "GithubAPI",
+    "IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES",
     "ImageRelease",
     "ImageReleaseArtifact",
     "ImageReleaseDeclaration",
     "ImageReleaseFinalize",
     "ImageReleaseInspection",
+    "ImageReleaseStorageIdentity",
     "ImageReleasesAPI",
     "ImageReleaseUpload",
     "ImageReleaseUploadReconciliation",
