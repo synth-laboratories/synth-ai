@@ -10,6 +10,7 @@ from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import (
     object_value,
     optional_bool,
+    optional_datetime,
     optional_text,
     required_datetime,
     required_text,
@@ -124,6 +125,7 @@ class Project:
     created_at: datetime
     updated_at: datetime
     archived: bool = False
+    archived_at: datetime | None = None
     project_alias: str | None = None
     project_kind: str | None = None
     active_swarm_id: SwarmId | None = None
@@ -158,6 +160,7 @@ class Project:
             created_at=required_datetime(payload, "created_at"),
             updated_at=required_datetime(payload, "updated_at"),
             archived=optional_bool(payload, "archived"),
+            archived_at=optional_datetime(payload, "archived_at"),
             project_alias=optional_text(payload, "project_alias"),
             project_kind=optional_text(payload, "project_kind"),
             active_swarm_id=SwarmId(active_swarm) if active_swarm is not None else None,

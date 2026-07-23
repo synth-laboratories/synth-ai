@@ -35,12 +35,14 @@ def _request(
     *,
     query: JsonObject | None = None,
     body: JsonObject | None = None,
+    headers: dict[str, str] | None = None,
 ) -> HttpRequest:
     return HttpRequest(
         research_operation(operation_id),
         path,
         query=query or {},
         body=body,
+        headers=headers or {},
     )
 
 
@@ -121,7 +123,11 @@ class ProjectsAPI:
 
     def archive(self, project_id: ProjectId) -> Project:
         value = self._transport.execute(
-            _request("archive_project", f"/smr/projects/{project_id}/archive")
+            _request(
+                "archive_project",
+                f"/smr/projects/{project_id}/archive",
+                headers={"Idempotency-Key": f"archive-project:{project_id}"},
+            )
         )
         return Project.from_wire(value)
 
@@ -196,7 +202,11 @@ class AsyncProjectsAPI:
 
     async def archive(self, project_id: ProjectId) -> Project:
         value = await self._transport.execute(
-            _request("archive_project", f"/smr/projects/{project_id}/archive")
+            _request(
+                "archive_project",
+                f"/smr/projects/{project_id}/archive",
+                headers={"Idempotency-Key": f"archive-project:{project_id}"},
+            )
         )
         return Project.from_wire(value)
 
