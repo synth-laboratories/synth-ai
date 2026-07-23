@@ -981,7 +981,9 @@ class SwarmSpec:
                 message.to_wire() for message in self.kickoff_messages
             ]
         if self.kickoff_artifact is not None:
-            payload["kickoff_contract"] = self.kickoff_artifact.to_wire()
+            kickoff_contract = self.kickoff_artifact.to_wire()
+            kickoff_contract["run_objective"] = self.objective
+            payload["kickoff_contract"] = kickoff_contract
         if self.execution_target is not None:
             payload["execution_target"] = self.execution_target.to_wire()
         if self.actor_image_overrides:
