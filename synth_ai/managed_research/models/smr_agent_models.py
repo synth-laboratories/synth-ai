@@ -30,6 +30,7 @@ class SmrAgentModel(StrEnum):
     DEEPSEEK_DEEPSEEK_V4_PRO_DIRECT = "deepseek/deepseek-v4-pro-direct"
     DEEPSEEK_DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
+    POOLSIDE_LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
     GPT_5_6_SOL = "gpt-5.6-sol"
     GPT_5_6_TERRA = "gpt-5.6-terra"
     CURSOR_GROK_4_5 = "cursor/grok-4.5"
