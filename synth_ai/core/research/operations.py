@@ -26,7 +26,11 @@ RESEARCH_OPERATIONS = {
             "archive_factory", HttpMethod.POST, "/smr/factories/{factory_id}/archive", mutation=True
         ),
         _operation(
-            "archive_project", HttpMethod.POST, "/smr/projects/{project_id}/archive", mutation=True
+            "archive_project",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/archive",
+            mutation=True,
+            idempotent=True,
         ),
         _operation(
             "confirm_project_workspace_push",

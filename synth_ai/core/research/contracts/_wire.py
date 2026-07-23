@@ -60,10 +60,17 @@ def required_datetime(payload: JsonObject, name: str) -> datetime:
     return parsed
 
 
+def optional_datetime(payload: JsonObject, name: str) -> datetime | None:
+    if payload.get(name) is None:
+        return None
+    return required_datetime(payload, name)
+
+
 __all__ = [
     "array_value",
     "object_value",
     "optional_bool",
+    "optional_datetime",
     "optional_text",
     "required_bool",
     "required_datetime",
