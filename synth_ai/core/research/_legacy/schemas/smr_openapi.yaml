@@ -16739,6 +16739,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/v1/image-releases/upload-url-v3:
+    post:
+      tags:
+      - smr
+      summary: Create Image Release Upload V3
+      operationId: create_image_release_upload_v3_smr_v1_image_releases_upload_url_v3_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageReleaseUploadRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageReleaseUploadV3Response'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/v1/image-releases/finalize:
     post:
       tags:
@@ -38708,7 +38733,7 @@ components:
           title: Archive Sha256
         archive_size_bytes:
           type: integer
-          maximum: 17179869184.0
+          maximum: 5000000000.0
           exclusiveMinimum: 0.0
           title: Archive Size Bytes
         image_manifest_digest:
@@ -38820,14 +38845,14 @@ components:
           title: Schema Version
         release:
           $ref: '#/components/schemas/ImageReleaseResponse'
-        staging_cleanup:
-          $ref: '#/components/schemas/ImageReleaseStagingCleanupResponse'
+        upload_reconciliation:
+          $ref: '#/components/schemas/ImageReleaseUploadReconciliationResponse'
       additionalProperties: false
       type: object
       required:
       - schema_version
       - release
-      - staging_cleanup
+      - upload_reconciliation
       title: ImageReleaseFinalizeResponse
     ImageReleaseResponse:
       properties:
@@ -38864,6 +38889,10 @@ components:
             type: object
           - type: 'null'
           title: Runtime Image Release
+        storage:
+          anyOf:
+          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -38874,7 +38903,31 @@ components:
       - declaration
       - inspection
       title: ImageReleaseResponse
-    ImageReleaseStagingCleanupResponse:
+    ImageReleaseStorageIdentity:
+      properties:
+        object_key:
+          type: string
+          pattern: ^smr/env-images/objects/[0-9a-f]{64}\.tar$
+          title: Object Key
+        etag:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Etag
+        size_bytes:
+          type: integer
+          maximum: 5000000000.0
+          exclusiveMinimum: 0.0
+          title: Size Bytes
+      additionalProperties: false
+      type: object
+      required:
+      - object_key
+      - etag
+      - size_bytes
+      title: ImageReleaseStorageIdentity
+      description: Provider incarnation bound into an immutable release receipt.
+    ImageReleaseUploadReconciliationResponse:
       properties:
         upload_id:
           type: string
@@ -38882,15 +38935,19 @@ components:
         status:
           type: string
           enum:
-          - deleted
-          - absent
+          - verified_and_published
+          - already_published
           title: Status
+        object_key:
+          type: string
+          title: Object Key
       additionalProperties: false
       type: object
       required:
       - upload_id
       - status
-      title: ImageReleaseStagingCleanupResponse
+      - object_key
+      title: ImageReleaseUploadReconciliationResponse
     ImageReleaseUploadRequest:
       properties:
         declaration:
@@ -38910,7 +38967,7 @@ components:
       properties:
         schema_version:
           type: string
-          const: smr-image-release-upload-v1
+          const: smr-image-release-upload-v2
           title: Schema Version
         upload_id:
           type: string
@@ -38920,7 +38977,22 @@ components:
           title: Release Id
         upload_url:
           type: string
+          minLength: 1
           title: Upload Url
+        upload_required:
+          type: boolean
+          title: Upload Required
+          default: true
+        upload_mode:
+          type: string
+          const: content_addressed_quarantine
+          title: Upload Mode
+        storage_admission:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Storage Admission
         expires_in:
           type: integer
           title: Expires In
@@ -38940,9 +39012,102 @@ components:
       - upload_id
       - release_id
       - upload_url
+      - upload_mode
       - expires_in
       - declaration
       title: ImageReleaseUploadResponse
+    ImageReleaseUploadV3Headers:
+      properties:
+        Content-Length:
+          type: string
+          pattern: ^[1-9][0-9]*$
+          title: Content-Length
+        If-None-Match:
+          type: string
+          const: '*'
+          title: If-None-Match
+        x-amz-meta-synth-upload-id:
+          type: string
+          pattern: ^imgup_[0-9a-f]{32}$
+          title: X-Amz-Meta-Synth-Upload-Id
+        x-amz-meta-synth-declaration-sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: X-Amz-Meta-Synth-Declaration-Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - Content-Length
+      - If-None-Match
+      - x-amz-meta-synth-upload-id
+      - x-amz-meta-synth-declaration-sha256
+      title: ImageReleaseUploadV3Headers
+      description: Exact signed headers that a v3 client must send unchanged.
+    ImageReleaseUploadV3Response:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-upload-v3
+          title: Schema Version
+        upload_id:
+          type: string
+          title: Upload Id
+        release_id:
+          type: string
+          title: Release Id
+        upload_url:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Upload Url
+        upload_required:
+          type: boolean
+          title: Upload Required
+          default: true
+        upload_mode:
+          type: string
+          const: content_addressed_quarantine
+          title: Upload Mode
+        storage_admission:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Storage Admission
+        expires_in:
+          type: integer
+          title: Expires In
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+          type: object
+          title: Package Release Timestamps
+        upload_headers:
+          anyOf:
+          - $ref: '#/components/schemas/ImageReleaseUploadV3Headers'
+          - type: 'null'
+        finalize_deadline_at:
+          type: string
+          format: date-time
+          title: Finalize Deadline At
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - upload_id
+      - release_id
+      - upload_url
+      - upload_mode
+      - expires_in
+      - declaration
+      - upload_headers
+      - finalize_deadline_at
+      title: ImageReleaseUploadV3Response
     IncreaseLimitRequest:
       properties:
         metric_type:

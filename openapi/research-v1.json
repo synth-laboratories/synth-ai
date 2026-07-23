@@ -156,7 +156,7 @@
           },
           "archive_size_bytes": {
             "exclusiveMinimum": 0.0,
-            "maximum": 17179869184.0,
+            "maximum": 5000000000.0,
             "title": "Archive Size Bytes",
             "type": "integer"
           },
@@ -308,6 +308,16 @@
             "const": "smr-image-release-v1",
             "title": "Schema Version",
             "type": "string"
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageReleaseStorageIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -684,7 +694,7 @@
           },
           "archive_size_bytes": {
             "exclusiveMinimum": 0.0,
-            "maximum": 17179869184.0,
+            "maximum": 5000000000.0,
             "title": "Archive Size Bytes",
             "type": "integer"
           },
@@ -789,6 +799,16 @@
             "const": "smr-image-release-v1",
             "title": "Schema Version",
             "type": "string"
+          },
+          "storage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageReleaseStorageIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -1108,7 +1128,7 @@
           },
           "archive_size_bytes": {
             "exclusiveMinimum": 0.0,
-            "maximum": 17179869184.0,
+            "maximum": 5000000000.0,
             "title": "Archive Size Bytes",
             "type": "integer"
           },
@@ -1179,14 +1199,14 @@
             "title": "Schema Version",
             "type": "string"
           },
-          "staging_cleanup": {
-            "$ref": "#/components/schemas/ImageReleaseStagingCleanupResponse"
+          "upload_reconciliation": {
+            "$ref": "#/components/schemas/ImageReleaseUploadReconciliationResponse"
           }
         },
         "required": [
           "schema_version",
           "release",
-          "staging_cleanup"
+          "upload_reconciliation"
         ],
         "title": "ImageReleaseFinalizeResponse",
         "type": "object"
@@ -1250,13 +1270,48 @@
         "title": "ImageReleaseInspection",
         "type": "object"
       },
-      "ImageReleaseStagingCleanupResponse": {
+      "ImageReleaseStorageIdentity": {
+        "additionalProperties": false,
+        "description": "Provider-reported identity of the published canonical archive object.",
+        "properties": {
+          "etag": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Etag",
+            "type": "string"
+          },
+          "object_key": {
+            "pattern": "^smr/env-images/objects/[0-9a-f]{64}\\.tar$",
+            "title": "Object Key",
+            "type": "string"
+          },
+          "size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 5000000000.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "object_key",
+          "etag",
+          "size_bytes"
+        ],
+        "title": "ImageReleaseStorageIdentity",
+        "type": "object"
+      },
+      "ImageReleaseUploadReconciliationResponse": {
         "additionalProperties": false,
         "properties": {
+          "object_key": {
+            "minLength": 1,
+            "title": "Object Key",
+            "type": "string"
+          },
           "status": {
             "enum": [
-              "deleted",
-              "absent"
+              "verified_and_published",
+              "already_published"
             ],
             "title": "Status",
             "type": "string"
@@ -1269,9 +1324,10 @@
         },
         "required": [
           "upload_id",
-          "status"
+          "status",
+          "object_key"
         ],
-        "title": "ImageReleaseStagingCleanupResponse",
+        "title": "ImageReleaseUploadReconciliationResponse",
         "type": "object"
       },
       "ImageReleaseUploadRequest": {
@@ -1350,13 +1406,30 @@
             "type": "string"
           },
           "schema_version": {
-            "const": "smr-image-release-upload-v1",
+            "const": "smr-image-release-upload-v2",
             "title": "Schema Version",
             "type": "string"
+          },
+          "storage_admission": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage Admission"
           },
           "upload_id": {
             "pattern": "^imgup_[0-9a-f]{32}$",
             "title": "Upload Id",
+            "type": "string"
+          },
+          "upload_mode": {
+            "const": "content_addressed_quarantine",
+            "title": "Upload Mode",
             "type": "string"
           },
           "upload_required": {
@@ -1375,6 +1448,7 @@
           "release_id",
           "upload_url",
           "upload_required",
+          "upload_mode",
           "expires_in",
           "declaration"
         ],
@@ -1838,7 +1912,8 @@
           "deepseek/deepseek-v4-flash-direct",
           "deepseek/deepseek-v4-pro-direct",
           "deepseek/deepseek-chat",
-          "deepseek/deepseek-reasoner"
+          "deepseek/deepseek-reasoner",
+          "poolside/laguna-s-2.1"
         ],
         "title": "SmrAgentModel",
         "type": "string"
@@ -2976,6 +3051,7 @@
           "deepseek",
           "openai",
           "openrouter",
+          "poolside",
           "xai",
           "tinker"
         ],
@@ -4748,6 +4824,7 @@
           "openai",
           "google",
           "openrouter",
+          "poolside",
           "xai"
         ],
         "title": "SmrInferenceProvider",
@@ -6350,7 +6427,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
