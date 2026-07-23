@@ -120,12 +120,6 @@ class ContainersClient(SynthBaseClient):
         ValueError: The API key is missing.
         httpx.HTTPStatusError: The service rejects an operation.
         pydantic.ValidationError: A service response does not match ``Container``.
-
-    Availability:
-        Methods require a deployment that exposes ``/v1/containers``. Although
-        the SDK's bundled OpenAPI file describes those routes, the current
-        production backend directs hosted workloads through
-        ``SynthClient().pools``.
     """
 
     def __init__(
