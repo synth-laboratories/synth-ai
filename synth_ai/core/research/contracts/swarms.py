@@ -168,6 +168,7 @@ class KickoffMessageMode(StrEnum):
 
 class SwarmState(StrEnum):
     QUEUED = "queued"
+    RUNNING = "running"
     PLANNING = "planning"
     EXECUTING = "executing"
     REVIEWING = "reviewing"
