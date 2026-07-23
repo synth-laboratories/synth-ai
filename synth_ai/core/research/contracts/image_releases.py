@@ -34,7 +34,9 @@ _PACKAGE = re.compile(r"^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127
 _RELEASE = re.compile(r"^imgrel_[0-9a-f]{64}$")
 _UPLOAD = re.compile(r"^imgup_[0-9a-f]{32}$")
 _ARTIFACT = re.compile(r"^imgobj_[0-9a-f]{64}$")
-_MAX_ARCHIVE_BYTES = 16 * 1024**3
+_STORAGE_OBJECT_KEY = re.compile(r"^smr/env-images/objects/[0-9a-f]{64}\.tar$")
+# Backend authority: IMAGE_RELEASE_SINGLE_PUT_MAX_BYTES.
+_MAX_ARCHIVE_BYTES = 5_000_000_000
 TimestampMap: TypeAlias = Mapping[str, datetime]
 _IdT = TypeVar("_IdT", bound=str)
 
@@ -779,6 +781,45 @@ def _check_receipt(
 
 
 @dataclass(frozen=True, slots=True)
+class ImageReleaseStorageIdentity:
+    """Provider-reported identity of the published canonical archive object."""
+
+    object_key: str
+    etag: str
+    size_bytes: int
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> ImageReleaseStorageIdentity:
+        payload = _obj(
+            value,
+            "image release storage identity",
+            frozenset({"object_key", "etag", "size_bytes"}),
+        )
+        return cls(
+            _rx(
+                payload["object_key"],
+                "object_key",
+                _STORAGE_OBJECT_KEY,
+                "a canonical image object key",
+            ),
+            _t(payload["etag"], "etag", maximum=256),
+            integer(
+                payload["size_bytes"],
+                field="size_bytes",
+                minimum=1,
+                maximum=_MAX_ARCHIVE_BYTES,
+            ),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "object_key": self.object_key,
+            "etag": self.etag,
+            "size_bytes": self.size_bytes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class _ImageReleaseBase:
     schema_version: str
     release_id: ImageReleaseId
@@ -787,9 +828,10 @@ class _ImageReleaseBase:
     declaration: ImageReleaseDeclaration
     inspection: ImageReleaseInspection
     package_release_timestamps: TimestampMap
+    storage: ImageReleaseStorageIdentity | None
 
     def _base_wire(self) -> JsonObject:
-        return {
+        payload: JsonObject = {
             "schema_version": self.schema_version,
             "release_id": self.release_id,
             "org_id": self.organization_id,
@@ -798,6 +840,9 @@ class _ImageReleaseBase:
             "inspection": self.inspection.to_wire(),
             "package_release_timestamps": _timestamp_wire(self.package_release_timestamps),
         }
+        if self.storage is not None:
+            payload["storage"] = self.storage.to_wire()
+        return payload
 
 
 def _release_base(
@@ -810,15 +855,25 @@ def _release_base(
     ImageReleaseDeclaration,
     ImageReleaseInspection,
     TimestampMap,
+    ImageReleaseStorageIdentity | None,
 ]:
+    artifact = ImageReleaseArtifact.from_wire(payload["artifact"])
+    raw_storage = payload.get("storage")
+    storage = None if raw_storage is None else ImageReleaseStorageIdentity.from_wire(raw_storage)
+    if storage is not None:
+        if storage.object_key != f"smr/env-images/objects/{artifact.archive_sha256}.tar":
+            raise ValueError("storage object_key must bind the archive digest")
+        if storage.size_bytes != artifact.archive_size_bytes:
+            raise ValueError("storage size_bytes must bind the archive size")
     return (
         _const(payload["schema_version"], "schema_version", "smr-image-release-v1"),
         ImageReleaseId(str(payload["release_id"])),
         OrganizationId(str(UUID(_t(payload["org_id"], "org_id")))),
-        ImageReleaseArtifact.from_wire(payload["artifact"]),
+        artifact,
         declaration_from_wire(payload["declaration"]),
         ImageReleaseInspection.from_wire(payload["inspection"]),
         _timestamp_map(payload.get("package_release_timestamps")),
+        storage,
     )
 
 
@@ -832,7 +887,7 @@ class CraftaxScorerImageRelease(_ImageReleaseBase):
             frozenset(
                 {"schema_version", "release_id", "org_id", "artifact", "declaration", "inspection"}
             ),
-            frozenset({"package_release_timestamps"}),
+            frozenset({"package_release_timestamps", "storage"}),
         )
         release = cls(*_release_base(payload))
         if not isinstance(release.declaration, CraftaxScorerImageReleaseDeclaration):
@@ -869,7 +924,7 @@ class ActorRuntimeImageRelease(_ImageReleaseBase):
                     "runtime_image_release",
                 }
             ),
-            frozenset({"package_release_timestamps"}),
+            frozenset({"package_release_timestamps", "storage"}),
         )
         release = cls(
             *_release_base(payload),
@@ -930,8 +985,12 @@ class ImageReleaseUpload:
     schema_version: str
     upload_id: ImageUploadId
     release_id: ImageReleaseId
+    # Released v2 contract: upload_url is always a non-empty presigned URL;
+    # upload_required tells the client whether it must be used.
     upload_url: str
     upload_required: bool
+    upload_mode: str
+    storage_admission: JsonObject | None
     expires_in: int
     declaration: ImageReleaseDeclaration
     package_release_timestamps: TimestampMap = field(default_factory=dict)
@@ -948,21 +1007,51 @@ class ImageReleaseUpload:
                     "release_id",
                     "upload_url",
                     "upload_required",
+                    "upload_mode",
                     "expires_in",
                     "declaration",
                     "package_release_timestamps",
                 }
             ),
+            frozenset({"storage_admission"}),
+        )
+        upload_required = required_bool(payload, "upload_required")
+        upload_url = _t(payload["upload_url"], "upload_url")
+        if not upload_url.startswith(("https://", "http://localhost", "http://127.")):
+            raise ValueError("upload_url must use HTTPS or loopback HTTP")
+        raw_storage_admission = payload.get("storage_admission")
+        storage_admission = (
+            None
+            if raw_storage_admission is None
+            else object_value(
+                cast(JsonValue, raw_storage_admission),
+                operation_id="image release storage admission",
+            )
         )
         result = cls(
-            _const(payload["schema_version"], "schema_version", "smr-image-release-upload-v1"),
-            ImageUploadId(str(payload["upload_id"])),
-            ImageReleaseId(str(payload["release_id"])),
-            _t(payload["upload_url"], "upload_url"),
-            required_bool(payload, "upload_required"),
-            integer(payload["expires_in"], field="expires_in", minimum=60, maximum=86400),
-            declaration_from_wire(payload["declaration"]),
-            _timestamp_map(payload["package_release_timestamps"]),
+            schema_version=_const(
+                payload["schema_version"],
+                "schema_version",
+                "smr-image-release-upload-v2",
+            ),
+            upload_id=ImageUploadId(str(payload["upload_id"])),
+            release_id=ImageReleaseId(str(payload["release_id"])),
+            upload_url=upload_url,
+            upload_required=upload_required,
+            upload_mode=_const(
+                payload["upload_mode"],
+                "upload_mode",
+                "content_addressed_quarantine",
+            ),
+            storage_admission=storage_admission,
+            expires_in=integer(
+                payload["expires_in"],
+                field="expires_in",
+                minimum=60,
+                maximum=86400,
+            ),
+            declaration=declaration_from_wire(payload["declaration"]),
+            package_release_timestamps=_timestamp_map(payload["package_release_timestamps"]),
         )
         _check_packages(result.declaration, result.package_release_timestamps)
         return result
@@ -974,6 +1063,8 @@ class ImageReleaseUpload:
             "release_id": self.release_id,
             "upload_url": self.upload_url,
             "upload_required": self.upload_required,
+            "upload_mode": self.upload_mode,
+            "storage_admission": self.storage_admission,
             "expires_in": self.expires_in,
             "declaration": self.declaration.to_wire(),
             "package_release_timestamps": _timestamp_wire(self.package_release_timestamps),
@@ -991,46 +1082,60 @@ def _check_packages(declaration: ImageReleaseDeclaration, timestamps: TimestampM
 
 
 @dataclass(frozen=True, slots=True)
-class ImageReleaseStagingCleanup:
+class ImageReleaseUploadReconciliation:
     upload_id: ImageUploadId
     status: str
+    object_key: str
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> ImageReleaseStagingCleanup:
-        payload = _obj(value, "image release staging cleanup", frozenset({"upload_id", "status"}))
+    def from_wire(cls, value: JsonValue) -> ImageReleaseUploadReconciliation:
+        payload = _obj(
+            value,
+            "image release upload reconciliation",
+            frozenset({"upload_id", "status", "object_key"}),
+        )
         return cls(
             ImageUploadId(str(payload["upload_id"])),
-            _one_of(payload["status"], "status", frozenset({"deleted", "absent"})),
+            _one_of(
+                payload["status"],
+                "status",
+                frozenset({"verified_and_published", "already_published"}),
+            ),
+            _t(payload["object_key"], "object_key"),
         )
 
     def to_wire(self) -> JsonObject:
-        return {"upload_id": self.upload_id, "status": self.status}
+        return {
+            "upload_id": self.upload_id,
+            "status": self.status,
+            "object_key": self.object_key,
+        }
 
 
 @dataclass(frozen=True, slots=True)
 class ImageReleaseFinalize:
     schema_version: str
     release: ImageRelease
-    staging_cleanup: ImageReleaseStagingCleanup
+    upload_reconciliation: ImageReleaseUploadReconciliation
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> ImageReleaseFinalize:
         payload = _obj(
             value,
             "image release finalize",
-            frozenset({"schema_version", "release", "staging_cleanup"}),
+            frozenset({"schema_version", "release", "upload_reconciliation"}),
         )
         return cls(
             _const(payload["schema_version"], "schema_version", "smr-image-release-finalize-v1"),
             image_release_from_wire(payload["release"]),
-            ImageReleaseStagingCleanup.from_wire(payload["staging_cleanup"]),
+            ImageReleaseUploadReconciliation.from_wire(payload["upload_reconciliation"]),
         )
 
     def to_wire(self) -> JsonObject:
         return {
             "schema_version": self.schema_version,
             "release": self.release.to_wire(),
-            "staging_cleanup": self.staging_cleanup.to_wire(),
+            "upload_reconciliation": self.upload_reconciliation.to_wire(),
         }
 
 
@@ -1103,8 +1208,9 @@ __all__ = [
     "ImageReleaseFinalizeResponse",
     "ImageReleaseId",
     "ImageReleaseKind",
-    "ImageReleaseStagingCleanup",
+    "ImageReleaseStorageIdentity",
     "ImageReleaseUpload",
+    "ImageReleaseUploadReconciliation",
     "ImageReleaseUploadRequest",
     "ImageReleaseUploadResponse",
     "ImageUploadId",

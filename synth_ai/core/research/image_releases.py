@@ -56,7 +56,7 @@ def _finalize(
     result = ImageReleaseFinalize.from_wire(cast(JsonValue, value))
     if result.release.declaration != request.declaration:
         raise ValueError("image finalize response changed its declaration")
-    if result.staging_cleanup.upload_id != request.upload_id:
+    if result.upload_reconciliation.upload_id != request.upload_id:
         raise ValueError("image finalize response changed its upload identity")
     return result
 

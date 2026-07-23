@@ -372,8 +372,9 @@ from synth_ai.core.research._legacy.sdk.image_releases import (
     ImageReleaseFinalize,
     ImageReleaseInspection,
     ImageReleasesAPI,
-    ImageReleaseStagingCleanup,
+    ImageReleaseStorageIdentity,
     ImageReleaseUpload,
+    ImageReleaseUploadReconciliation,
     image_release_declaration,
 )
 from synth_ai.core.research._legacy.sdk.integrations import IntegrationsAPI
@@ -487,8 +488,9 @@ __all__ = [
     "ImageReleaseFinalize",
     "ImageReleaseInspection",
     "ImageReleasesAPI",
-    "ImageReleaseStagingCleanup",
+    "ImageReleaseStorageIdentity",
     "ImageReleaseUpload",
+    "ImageReleaseUploadReconciliation",
     "image_release_declaration",
     "GitHubInstallation",
     "IntegrationsAPI",
