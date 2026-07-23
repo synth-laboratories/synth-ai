@@ -10,6 +10,7 @@ from synth_ai.core.research._legacy.sdk.tag import TagAPI
 from synth_ai.core.research.advanced_factories import (
     ResearchFactoriesAPI as AdvancedFactoriesAPI,
 )
+from synth_ai.core.research.advanced_swarms import ResearchRunsAPI
 from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
 from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
 from synth_ai.core.research.efforts import Efforts
@@ -46,6 +47,7 @@ class ResearchAdvancedAPI:
         self.economics = economics
         self._efforts: Efforts | None = None
         self._factories: AdvancedFactoriesAPI | None = None
+        self._runs: ResearchRunsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
         self._artifacts: ResearchHostedArtifactsAPI | None = None
         self._visuals: ResearchVisualsAPI | None = None
@@ -67,6 +69,13 @@ class ResearchAdvancedAPI:
         if self._factories is None:
             self._factories = AdvancedFactoriesAPI(self._open_session())
         return self._factories
+
+    @property
+    def runs(self) -> ResearchRunsAPI:
+        """Typed run readouts and operator lifecycle capabilities."""
+        if self._runs is None:
+            self._runs = ResearchRunsAPI(self._open_session())
+        return self._runs
 
     @property
     def secrets(self) -> ResearchSecretsAPI:
