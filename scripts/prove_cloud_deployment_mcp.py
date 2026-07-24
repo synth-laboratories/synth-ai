@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Iterator
 
-from synth_ai.managed_research.mcp.server import ManagedResearchMcpServer
+from synth_ai.mcp.research.server import ResearchMcpServer
 
 RUNNING_STATES = {"running"}
 RETRYABLE_FAILURE_STATES = {"failed"}
@@ -121,7 +121,7 @@ def _write_receipt(path: str | None, payload: dict[str, Any]) -> None:
     target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
 
-def _tool_registry_receipt(server: ManagedResearchMcpServer) -> dict[str, Any]:
+def _tool_registry_receipt(server: ResearchMcpServer) -> dict[str, Any]:
     available_tools = set(server.available_tool_names())
     missing_tools = sorted(CLOUD_DEPLOYMENT_TOOLS - available_tools)
     missing_aliases = sorted(
@@ -138,7 +138,7 @@ def _tool_registry_receipt(server: ManagedResearchMcpServer) -> dict[str, Any]:
 @contextmanager
 def _held_claim(
     *,
-    server: ManagedResearchMcpServer,
+    server: ResearchMcpServer,
     deployment_id: str,
     holder: str,
     purpose: str,
@@ -188,7 +188,7 @@ def _held_claim(
 
 def _wait_for_running(
     *,
-    server: ManagedResearchMcpServer,
+    server: ResearchMcpServer,
     deployment_id: str,
     timeout_seconds: float,
     poll_seconds: float,
@@ -294,7 +294,7 @@ def main(argv: list[str] | None = None) -> int:
     }
     try:
         if args.registry_only:
-            server = ManagedResearchMcpServer(
+            server = ResearchMcpServer(
                 api_key=args.api_key,
                 backend_base=args.backend_base,
             )
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
 
         backend_base = _backend_base_arg(args.backend_base)
         api_key = _env_or_arg(args.api_key, "SYNTH_API_KEY")
-        server = ManagedResearchMcpServer(api_key=api_key, backend_base=backend_base)
+        server = ResearchMcpServer(api_key=api_key, backend_base=backend_base)
         registry = _tool_registry_receipt(server)
         receipt["steps"].append({"step": "tool_registry", **registry})
         if registry["missing_tools"] or registry["missing_aliases"]:

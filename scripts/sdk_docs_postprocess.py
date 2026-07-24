@@ -103,7 +103,7 @@ title: AsyncResearchClient
 sidebarTitle: AsyncResearchClient
 ---
 
-# `synth_ai.research.async_client`
+# `synth_ai.core.research.client`
 
 `AsyncResearchClient` is the native asynchronous Research client. It has the
 same resource namespaces as the typed core synchronous client, but network

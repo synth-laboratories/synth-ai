@@ -777,13 +777,13 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
             if not names:
                 continue
             deep = any(
-                name.startswith("synth_ai.managed_research") or name.startswith("synth_ai.core")
+                name.startswith("synth_ai.core")
                 for name in names
             )
-            advanced = any(name.startswith("synth_ai.research.advanced") for name in names)
+            advanced = any(name.startswith("synth_ai.core.research.advanced") for name in names)
             if deep:
                 disposition = "migrate_public"
-                reason = "deep/legacy SDK import must move to documented synth_ai.research surfaces"
+                reason = "deep/legacy SDK import must move to documented SynthClient().research surfaces"
             elif advanced:
                 disposition = "advanced"
                 reason = (
@@ -798,7 +798,7 @@ def _consumer_rows(root: Path, repository: str) -> list[dict[str, Any]]:
                 canonical_target = ",".join(names)
             elif disposition == "migrate_public":
                 target_disposition = "migrate_to_public_surface"
-                canonical_target = "python:synth_ai.research"
+                canonical_target = "python:synth_ai.core.research"
             else:
                 target_disposition = "unresolved"
                 canonical_target = None

@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from synth_ai.managed_research import ManagedResearchClient
+from synth_ai.core.research.session.client import ResearchSession
 
 
 def _utc_now() -> str:
@@ -159,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
 
         backend_base = _backend_base_arg(args.backend_base)
         api_key = _env_or_arg(args.api_key, "SYNTH_API_KEY")
-        client = ManagedResearchClient(api_key=api_key, backend_base=backend_base)
+        client = ResearchSession(api_key=api_key, backend_base=backend_base)
 
         if args.create:
             project_id = _env_or_arg(args.project_id, "PROJECT_ID")
