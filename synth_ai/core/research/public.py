@@ -1,4 +1,4 @@
-"""Concise public types for ``SynthClient().research``.
+"""Public Research types (moved from ``synth_ai.research``).
 
 The hero workflow is ``Project -> Swarm -> events/result``.  Factory is the
 durable optimization loop that creates and evaluates Efforts.  Names prefixed
@@ -242,8 +242,8 @@ from synth_ai.core.research.events import (
 )
 from synth_ai.core.research.project_workspaces import WorkspaceBatchUploadError
 from synth_ai.core.research.swarms import SwarmHandle
-from synth_ai.research.async_client import AsyncClient
-from synth_ai.research.client import Client
+from synth_ai.core.research.client import AsyncClient
+from synth_ai.core.research.facade import Client
 
 __all__ = [
     "ActivityActor",
@@ -466,46 +466,46 @@ __all__ = [
 ]
 
 _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {
-    "AsyncResearchClient": ("synth_ai.research.async_client", "AsyncResearchClient"),
-    "ResearchApiError": ("synth_ai.research.errors", "ResearchApiError"),
-    "ResearchArtifact": ("synth_ai.research.models", "ResearchArtifact"),
-    "ResearchArtifactManifest": ("synth_ai.research.models", "ResearchArtifactManifest"),
+    "AsyncResearchClient": ("synth_ai.core.research.client", "AsyncResearchClient"),
+    "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
+    "ResearchArtifact": ("synth_ai.core.research.models", "ResearchArtifact"),
+    "ResearchArtifactManifest": ("synth_ai.core.research.models", "ResearchArtifactManifest"),
     "ResearchAgentHarness": ("synth_ai.core.research.contracts", "ActorHarness"),
     "ResearchAgentModel": ("synth_ai.core.research.contracts", "ActorModel"),
     "ResearchAgentProfileBindings": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchAgentProfileBindings",
     ),
     "ResearchAuthorityReadouts": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchAuthorityReadouts",
     ),
-    "ResearchBillingCatalog": ("synth_ai.research.models", "ResearchBillingCatalog"),
-    "ResearchBillingDrawdown": ("synth_ai.research.models", "ResearchBillingDrawdown"),
+    "ResearchBillingCatalog": ("synth_ai.core.research.models", "ResearchBillingCatalog"),
+    "ResearchBillingDrawdown": ("synth_ai.core.research.models", "ResearchBillingDrawdown"),
     "ResearchBillingEntitlements": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchBillingEntitlements",
     ),
-    "ResearchBillingPlan": ("synth_ai.research.models", "ResearchBillingPlan"),
-    "ResearchClient": ("synth_ai.research.client", "ResearchClient"),
+    "ResearchBillingPlan": ("synth_ai.core.research.models", "ResearchBillingPlan"),
+    "ResearchClient": ("synth_ai.core.research.facade", "ResearchClient"),
     "ResearchConcurrentRunLimitExceededError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchConcurrentRunLimitExceededError",
     ),
-    "ResearchEconomicsAPI": ("synth_ai.research.economics", "ResearchEconomicsAPI"),
+    "ResearchEconomicsAPI": ("synth_ai.core.research.economics", "ResearchEconomicsAPI"),
     "ResearchEnvironmentKind": ("synth_ai.core.research.contracts", "EnvironmentKind"),
-    "ResearchFactoriesAPI": ("synth_ai.research.factories", "ResearchFactoriesAPI"),
+    "ResearchFactoriesAPI": ("synth_ai.core.research.factories", "ResearchFactoriesAPI"),
     "ResearchHostKind": ("synth_ai.core.research.contracts", "HostKind"),
     "ResearchInsufficientCreditsError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchInsufficientCreditsError",
     ),
     "ResearchLimitExceededError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchLimitExceededError",
     ),
-    "ResearchLimitsAPI": ("synth_ai.research.limits", "ResearchLimitsAPI"),
-    "ResearchOrgLimits": ("synth_ai.research.models", "ResearchOrgLimits"),
+    "ResearchLimitsAPI": ("synth_ai.core.research.economics", "ResearchLimitsAPI"),
+    "ResearchOrgLimits": ("synth_ai.core.research.models", "ResearchOrgLimits"),
     "ResearchProject": ("synth_ai.core.research.contracts", "ResearchProject"),
     "ResearchProjectCreateRequest": (
         "synth_ai.core.research.contracts",
@@ -516,34 +516,34 @@ _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {
         "ResearchProjectPatchRequest",
     ),
     "ResearchProjectEconomics": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchProjectEconomics",
     ),
     "ResearchProjectMonthlyBudgetExhaustedError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchProjectMonthlyBudgetExhaustedError",
     ),
     "ResearchProjectsAPI": ("synth_ai.core.research.projects", "ResearchProjectsAPI"),
-    "ResearchRoleBinding": ("synth_ai.research.models", "ResearchRoleBinding"),
-    "ResearchRoleBindings": ("synth_ai.research.models", "ResearchRoleBindings"),
-    "ResearchRun": ("synth_ai.research.models", "ResearchRun"),
-    "ResearchRunHandle": ("synth_ai.research.runs", "ResearchRunHandle"),
+    "ResearchRoleBinding": ("synth_ai.core.research.models", "ResearchRoleBinding"),
+    "ResearchRoleBindings": ("synth_ai.core.research.models", "ResearchRoleBindings"),
+    "ResearchRun": ("synth_ai.core.research.models", "ResearchRun"),
+    "ResearchRunHandle": ("synth_ai.core.research.advanced_swarms", "ResearchRunHandle"),
     "ResearchRunLaunchRequest": (
         "synth_ai.core.research.contracts",
         "ResearchRunLaunchRequest",
     ),
-    "ResearchRunProgress": ("synth_ai.research.models", "ResearchRunProgress"),
-    "ResearchRunSession": ("synth_ai.research.runs", "ResearchRunSession"),
-    "ResearchRunbookPreset": ("synth_ai.research.models", "ResearchRunbookPreset"),
+    "ResearchRunProgress": ("synth_ai.core.research.models", "ResearchRunProgress"),
+    "ResearchRunSession": ("synth_ai.core.research.advanced_swarms", "ResearchRunSession"),
+    "ResearchRunbookPreset": ("synth_ai.core.research.models", "ResearchRunbookPreset"),
     "ResearchRunnableProjectRequest": (
         "synth_ai.core.research.contracts",
         "ResearchProjectCreateRequest",
     ),
-    "ResearchRunsAPI": ("synth_ai.research.runs", "ResearchRunsAPI"),
+    "ResearchRunsAPI": ("synth_ai.core.research.advanced_swarms", "ResearchRunsAPI"),
     "ResearchRuntimeKind": ("synth_ai.core.research.contracts", "RuntimeKind"),
-    "ResearchSecretsAPI": ("synth_ai.research.secrets", "ResearchSecretsAPI"),
+    "ResearchSecretsAPI": ("synth_ai.core.research.secrets", "ResearchSecretsAPI"),
     "ResearchStructuredDenialError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchStructuredDenialError",
     ),
     "ResearchSwarm": ("synth_ai.core.research.contracts", "ResearchSwarm"),
@@ -567,15 +567,15 @@ _COMPATIBILITY_EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchSwarmState": ("synth_ai.core.research.contracts", "ResearchSwarmState"),
     "ResearchSwarmsAPI": ("synth_ai.core.research.swarms", "ResearchSwarmsAPI"),
     "ResearchTagSessionCreateRequest": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchTagSessionCreateRequest",
     ),
     "ResearchWorkMode": ("synth_ai.core.research.contracts", "WorkMode"),
     "ResearchWorkerRolePalette": (
-        "synth_ai.research.models",
+        "synth_ai.core.research.models",
         "ResearchWorkerRolePalette",
     ),
-    "ResearchWorkProduct": ("synth_ai.research.models", "ResearchWorkProduct"),
+    "ResearchWorkProduct": ("synth_ai.core.research.models", "ResearchWorkProduct"),
     "ResourceLimit": ("synth_ai.core.research.contracts", "ResourceLimit"),
 }
 

@@ -16,7 +16,7 @@ from synth_ai.core.research._legacy.models.promotions import (
 from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
 from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
 from synth_ai.core.research._legacy.version import __version__
-from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
 from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
 from synth_ai.core.research.contracts.transcript import TranscriptView

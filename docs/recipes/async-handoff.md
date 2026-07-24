@@ -11,7 +11,7 @@ import asyncio
 from pathlib import Path
 
 from synth_ai import AsyncSynthClient
-from synth_ai.research import SwarmSpec
+from synth_ai.core.research.public import SwarmSpec
 
 
 async def start_and_leave() -> None:
@@ -39,7 +39,7 @@ import asyncio
 from pathlib import Path
 
 from synth_ai import AsyncSynthClient
-from synth_ai.research import Error, SwarmId
+from synth_ai.core.research.public import Error, SwarmId
 
 
 async def return_by_id() -> None:

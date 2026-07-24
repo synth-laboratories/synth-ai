@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import ResearchClient
+from synth_ai.core.research.client import Client as ResearchClient
 from synth_ai.core.research.contracts.common import EnvironmentDigest, EnvironmentName
 from synth_ai.core.research.contracts.environment_manifest import (
     ENVIRONMENT_SCHEMA_VERSION,

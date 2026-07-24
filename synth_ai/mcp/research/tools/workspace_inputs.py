@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import ResearchClient
+from synth_ai.core.research.client import Client as ResearchClient
 from synth_ai.core.research.contracts.common import ProjectId
 from synth_ai.core.research.contracts.workspaces import (
     WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,

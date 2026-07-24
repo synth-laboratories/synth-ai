@@ -138,8 +138,7 @@ class AsyncClient:
         await self.close()
 
 
-ResearchClient = Client
-AsyncResearchClient = AsyncClient
+# Public SynthClient().research facade is synth_ai.core.research.facade.ResearchClient.
+# This module is the typed HTTP transport client only.
 
-
-__all__ = ["AsyncClient", "AsyncResearchClient", "Client", "ResearchClient"]
+__all__ = ["AsyncClient", "Client"]

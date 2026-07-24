@@ -151,7 +151,7 @@ def swarms_start(
 ) -> None:
     """Create one swarm and print its durable identity."""
     from synth_ai import SynthClient
-    from synth_ai.research import SwarmSpec
+    from synth_ai.core.research.public import SwarmSpec
 
     with SynthClient(
         api_key=_resolve_api_key(api_key),
@@ -186,7 +186,7 @@ def swarms_configuration(
 ) -> None:
     """Print the immutable resolved configuration bound to a swarm."""
     from synth_ai import SynthClient
-    from synth_ai.research import SwarmId
+    from synth_ai.core.research.public import SwarmId
 
     with SynthClient(
         api_key=_resolve_api_key(api_key),
@@ -207,7 +207,7 @@ def swarms_usage(
 ) -> None:
     """Print typed cost, token, actor, and freshness evidence for a swarm."""
     from synth_ai import SynthClient
-    from synth_ai.research import SwarmId
+    from synth_ai.core.research.public import SwarmId
 
     with SynthClient(
         api_key=_resolve_api_key(api_key),
@@ -228,7 +228,7 @@ def swarms_evidence(
 ) -> None:
     """Print durable artifact and WorkProduct evidence for a swarm."""
     from synth_ai import SynthClient
-    from synth_ai.research import SwarmId
+    from synth_ai.core.research.public import SwarmId
 
     with SynthClient(
         api_key=_resolve_api_key(api_key),
@@ -264,7 +264,7 @@ def swarms_activity(
 ) -> None:
     """Print one bounded execution-activity snapshot for a swarm."""
     from synth_ai import SynthClient
-    from synth_ai.research import ActivityWindow, SwarmId
+    from synth_ai.core.research.public import ActivityWindow, SwarmId
 
     window = ActivityWindow(
         event_limit=event_limit,
@@ -308,7 +308,7 @@ def swarms_transcript(
 ) -> None:
     """Print one versioned transcript page and its cursor authority."""
     from synth_ai import SynthClient
-    from synth_ai.research import (
+    from synth_ai.core.research.public import (
         ParticipantSessionId,
         SwarmId,
         TranscriptView,

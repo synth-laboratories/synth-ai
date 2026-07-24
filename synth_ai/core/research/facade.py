@@ -1,11 +1,11 @@
-"""``SynthClient().research`` namespace (alpha)."""
+"""Public ``SynthClient().research`` facade over core transport + advanced session."""
 
 from __future__ import annotations
 
 import warnings
 from typing import TYPE_CHECKING
 
-from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.environments import EnvironmentsAPI
 from synth_ai.core.research.factories import FactoriesAPI
 from synth_ai.core.research.image_releases import ImageReleasesAPI

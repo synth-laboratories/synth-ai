@@ -126,7 +126,7 @@ deprecated `runs` alias; use the typed namespaces below.
 ```python
 import asyncio
 
-from synth_ai.research.async_client import AsyncResearchClient
+from synth_ai.core.research import AsyncResearchClient
 
 
 async def main() -> None:

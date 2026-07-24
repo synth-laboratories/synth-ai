@@ -1,4 +1,4 @@
-"""Advanced Research compatibility surface for operator and eval integrations.
+"""Advanced Research compatibility surface (moved from synth_ai.research.advanced).
 
 This module is public but unstable.  It keeps active operator integrations off
 the deprecated :mod:`synth_ai.managed_research` package while the corresponding
