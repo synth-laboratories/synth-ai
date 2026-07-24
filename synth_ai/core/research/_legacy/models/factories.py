@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from synth_ai.core.research._legacy.models.run_state import (
     _int_value,
@@ -1886,26 +1886,19 @@ class FactoryRunCleanupReceipt:
         )
         if schema_version != "factory_run_cleanup_receipt.v1":
             raise ValueError(
-                "factory run cleanup receipt schema_version must be "
-                "factory_run_cleanup_receipt.v1"
+                "factory run cleanup receipt schema_version must be factory_run_cleanup_receipt.v1"
             )
-        status = _require_string(
-            mapping, "status", label="factory run cleanup receipt status"
-        )
+        status = _require_string(mapping, "status", label="factory run cleanup receipt status")
         if status not in {"cleaned", "not_required", "pending", "failed"}:
             raise ValueError(f"factory run cleanup receipt status is invalid: {status!r}")
         observed_at = _optional_datetime(mapping, "observed_at")
         if observed_at is None:
             raise ValueError("factory run cleanup receipt requires observed_at")
         return cls(
-            run_id=_require_string(
-                mapping, "run_id", label="factory run cleanup receipt run_id"
-            ),
+            run_id=_require_string(mapping, "run_id", label="factory run cleanup receipt run_id"),
             status=status,
             observed_at=observed_at,
-            reason=_require_string(
-                mapping, "reason", label="factory run cleanup receipt reason"
-            ),
+            reason=_require_string(mapping, "reason", label="factory run cleanup receipt reason"),
             resources=_optional_object_tuple(
                 mapping.get("resources"),
                 label="factory run cleanup receipt resources",

@@ -413,7 +413,7 @@ paths:
       tags:
       - billing
       summary: Get Billing Entitlements
-      operationId: get_billing_entitlements_api_v1_billing_entitlements_get
+      operationId: retrieve_billing_entitlements
       responses:
         '200':
           description: Successful Response
@@ -4141,7 +4141,7 @@ paths:
       tags:
       - smr
       summary: Get Limits
-      operationId: get_limits_smr_limits_get
+      operationId: retrieve_research_limits
       responses:
         '200':
           description: Successful Response
@@ -4208,7 +4208,7 @@ paths:
       tags:
       - smr
       summary: Archive Project
-      operationId: archive_project_smr_projects__project_id__archive_post
+      operationId: archive_project
       parameters:
       - name: project_id
         in: path
@@ -4234,7 +4234,7 @@ paths:
       tags:
       - smr
       summary: Unarchive Project
-      operationId: unarchive_project_smr_projects__project_id__unarchive_post
+      operationId: unarchive_project
       parameters:
       - name: project_id
         in: path
@@ -4607,7 +4607,7 @@ paths:
       tags:
       - smr
       summary: Get Project Economics
-      operationId: get_project_economics_smr_projects__project_id__economics_get
+      operationId: retrieve_project_economics
       parameters:
       - name: project_id
         in: path
@@ -4844,7 +4844,7 @@ paths:
       tags:
       - smr
       summary: Workspace Confirm Push
-      operationId: workspace_confirm_push_smr_projects__project_id__workspace_confirm_push_post
+      operationId: confirm_project_workspace_push
       parameters:
       - name: project_id
         in: path
@@ -5336,7 +5336,7 @@ paths:
       - smr
       - billing
       summary: Get Billing Catalog
-      operationId: get_billing_catalog_smr_billing_catalog_get
+      operationId: retrieve_billing_catalog
       responses:
         '200':
           description: Successful Response
@@ -5350,7 +5350,7 @@ paths:
       - smr
       - billing
       summary: Get Billing Plan Snapshot
-      operationId: get_billing_plan_snapshot_smr_billing_plan_get
+      operationId: retrieve_billing_plan
       responses:
         '200':
           description: Successful Response
@@ -5364,7 +5364,7 @@ paths:
       - smr
       - billing
       summary: Get Run Billing Drawdown
-      operationId: get_run_billing_drawdown_smr_billing_runs__run_id__drawdown_get
+      operationId: retrieve_swarm_billing_drawdown
       parameters:
       - name: run_id
         in: path
@@ -5480,7 +5480,7 @@ paths:
       - smr
       - billing
       summary: Get Factory Effort Billing Drawdown
-      operationId: get_factory_effort_billing_drawdown_smr_billing_factory_efforts__factory_effort_id__drawdown_get
+      operationId: retrieve_effort_billing_drawdown
       parameters:
       - name: factory_effort_id
         in: path
@@ -5594,7 +5594,7 @@ paths:
       - smr
       - factories
       summary: Create Factory
-      operationId: create_factory_smr_factories_post
+      operationId: create_factory
       requestBody:
         required: true
         content:
@@ -5619,7 +5619,7 @@ paths:
       - smr
       - factories
       summary: List Factories
-      operationId: list_factories_smr_factories_get
+      operationId: list_factories
       parameters:
       - name: include_archived
         in: query
@@ -5650,7 +5650,7 @@ paths:
       - smr
       - factories
       summary: Get Factory
-      operationId: get_factory_smr_factories__factory_id__get
+      operationId: retrieve_factory
       parameters:
       - name: factory_id
         in: path
@@ -5676,7 +5676,7 @@ paths:
       - smr
       - factories
       summary: Patch Factory
-      operationId: patch_factory_smr_factories__factory_id__patch
+      operationId: update_factory
       parameters:
       - name: factory_id
         in: path
@@ -5709,7 +5709,7 @@ paths:
       - smr
       - factories
       summary: Start Factory
-      operationId: start_factory_smr_factories__factory_id__start_post
+      operationId: start_factory
       parameters:
       - name: factory_id
         in: path
@@ -5744,7 +5744,7 @@ paths:
       - smr
       - factories
       summary: Pause Factory
-      operationId: pause_factory_smr_factories__factory_id__pause_post
+      operationId: pause_factory
       parameters:
       - name: factory_id
         in: path
@@ -5779,7 +5779,7 @@ paths:
       - smr
       - factories
       summary: Resume Factory
-      operationId: resume_factory_smr_factories__factory_id__resume_post
+      operationId: resume_factory
       parameters:
       - name: factory_id
         in: path
@@ -5814,7 +5814,7 @@ paths:
       - smr
       - factories
       summary: Archive Factory
-      operationId: archive_factory_smr_factories__factory_id__archive_post
+      operationId: archive_factory
       parameters:
       - name: factory_id
         in: path
@@ -6399,7 +6399,7 @@ paths:
       - smr
       - factories
       summary: Create Effort
-      operationId: create_effort_smr_efforts_post
+      operationId: create_effort
       requestBody:
         content:
           application/json:
@@ -6425,7 +6425,7 @@ paths:
       - smr
       - factories
       summary: List Efforts For Factory
-      operationId: list_efforts_for_factory_smr_factories__factory_id__efforts_get
+      operationId: list_factory_efforts
       parameters:
       - name: factory_id
         in: path
@@ -6456,7 +6456,7 @@ paths:
       - smr
       - factories
       summary: Get Effort
-      operationId: get_effort_smr_efforts__effort_id__get
+      operationId: retrieve_effort
       parameters:
       - name: effort_id
         in: path
@@ -6482,7 +6482,7 @@ paths:
       - smr
       - factories
       summary: Patch Effort
-      operationId: patch_effort_smr_efforts__effort_id__patch
+      operationId: update_effort
       parameters:
       - name: effort_id
         in: path
@@ -6753,7 +6753,7 @@ paths:
       - smr
       - factories
       summary: List Factory Candidates
-      operationId: list_factory_candidates_smr_factories__factory_id__candidates_get
+      operationId: list_factory_candidates
       parameters:
       - name: factory_id
         in: path
@@ -6807,7 +6807,7 @@ paths:
       - smr
       - factories
       summary: Record Factory Candidate Grading
-      operationId: record_factory_candidate_grading_smr_factories__factory_id__candidates__candidate_id__grading_post
+      operationId: record_factory_candidate_grading
       parameters:
       - name: factory_id
         in: path
@@ -6846,7 +6846,7 @@ paths:
       - smr
       - factories
       summary: Select Factory Champion
-      operationId: select_factory_champion_smr_factories__factory_id__champion_select_post
+      operationId: select_factory_champion
       parameters:
       - name: factory_id
         in: path
@@ -6879,7 +6879,7 @@ paths:
       - smr
       - factories
       summary: Rollback Factory Champion
-      operationId: rollback_factory_champion_smr_factories__factory_id__champion_rollback_post
+      operationId: rollback_factory_champion
       parameters:
       - name: factory_id
         in: path
@@ -6912,7 +6912,7 @@ paths:
       - smr
       - factories
       summary: List Factory Champion Events
-      operationId: list_factory_champion_events_smr_factories__factory_id__champion_events_get
+      operationId: list_factory_champion_events
       parameters:
       - name: factory_id
         in: path
@@ -8785,7 +8785,7 @@ paths:
       tags:
       - smr
       summary: List Environments
-      operationId: list_environments_smr_environments_get
+      operationId: list_research_environments
       parameters:
       - name: limit
         in: query
@@ -8816,7 +8816,7 @@ paths:
       tags:
       - smr
       summary: Create Environment
-      operationId: create_environment_smr_environments_post
+      operationId: create_research_environment
       requestBody:
         required: true
         content:
@@ -8841,7 +8841,7 @@ paths:
       tags:
       - smr
       summary: Get Environment
-      operationId: get_environment_smr_environments__name__get
+      operationId: retrieve_research_environment
       parameters:
       - name: name
         in: path
@@ -8883,7 +8883,7 @@ paths:
       tags:
       - smr
       summary: Preflight Environment
-      operationId: preflight_environment_smr_environments__name__preflight_post
+      operationId: preflight_research_environment
       parameters:
       - name: name
         in: path
@@ -9052,7 +9052,7 @@ paths:
       tags:
       - smr
       summary: List Project Datasets
-      operationId: list_project_datasets_smr_projects__project_id__datasets_get
+      operationId: list_project_datasets
       parameters:
       - name: project_id
         in: path
@@ -9081,7 +9081,7 @@ paths:
       tags:
       - smr
       summary: Create Project Dataset
-      operationId: create_project_dataset_smr_projects__project_id__datasets_post
+      operationId: create_project_dataset
       parameters:
       - name: project_id
         in: path
@@ -9178,7 +9178,7 @@ paths:
       tags:
       - smr
       summary: Download Project Dataset
-      operationId: download_project_dataset_smr_projects__project_id__datasets__dataset_id__download_get
+      operationId: retrieve_project_dataset_content
       parameters:
       - name: project_id
         in: path
@@ -9196,8 +9196,10 @@ paths:
         '200':
           description: Successful Response
           content:
-            application/json:
-              schema: {}
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '422':
           description: Validation Error
           content:
@@ -9836,7 +9838,7 @@ paths:
       - smr
       - work_products
       summary: Get Run Work Product Content
-      operationId: get_run_work_product_content_smr_work_products__work_product_id__content_get
+      operationId: retrieve_swarm_work_product_content
       parameters:
       - name: work_product_id
         in: path
@@ -9856,8 +9858,10 @@ paths:
         '200':
           description: Successful Response
           content:
-            application/json:
-              schema: {}
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '422':
           description: Validation Error
           content:
@@ -10250,6 +10254,22 @@ paths:
           minimum: 1
           default: 80
           title: Limit
+      - name: learning_family
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Learning Family
+      - name: max_chars
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 24000
+          title: Max Chars
       responses:
         '200':
           description: Successful Response
@@ -11285,7 +11305,7 @@ paths:
       tags:
       - smr
       summary: List Project External Repositories
-      operationId: list_project_external_repositories_smr_projects__project_id__external_repositories_get
+      operationId: list_project_external_repositories
       parameters:
       - name: project_id
         in: path
@@ -11314,7 +11334,7 @@ paths:
       tags:
       - smr
       summary: Create Project External Repository
-      operationId: create_project_external_repository_smr_projects__project_id__external_repositories_post
+      operationId: create_project_external_repository
       parameters:
       - name: project_id
         in: path
@@ -11346,7 +11366,7 @@ paths:
       tags:
       - smr
       summary: Patch Project External Repository
-      operationId: patch_project_external_repository_smr_projects__project_id__external_repositories__repository_id__patch
+      operationId: update_project_external_repository
       parameters:
       - name: project_id
         in: path
@@ -11383,7 +11403,7 @@ paths:
       tags:
       - smr
       summary: Delete Project External Repository
-      operationId: delete_project_external_repository_smr_projects__project_id__external_repositories__repository_id__delete
+      operationId: delete_project_external_repository
       parameters:
       - name: project_id
         in: path
@@ -11403,10 +11423,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Delete Project External Repository Smr Projects  Project
-                  Id  External Repositories  Repository Id  Delete
+                $ref: '#/components/schemas/SmrExternalRepositoryDeleteResponse'
         '422':
           description: Validation Error
           content:
@@ -12027,7 +12044,7 @@ paths:
       summary: List public runbook presets
       description: Return the backend-owned public SMR run-start profiles available
         to SDK and MCP launch callers.
-      operationId: runbook_presets_smr_runbook_presets_get
+      operationId: list_runbook_presets
       responses:
         '200':
           description: Successful Response
@@ -12042,7 +12059,7 @@ paths:
       summary: Get project setup authority
       description: Canonical setup-authority projection for the managed-research run-start
         flow.
-      operationId: project_setup_smr_projects__project_id__setup_get
+      operationId: retrieve_project_setup
       parameters:
       - name: project_id
         in: path
@@ -12070,7 +12087,7 @@ paths:
       summary: Prepare project setup authority
       description: Canonical explicit setup-preparation step before launch preflight
         and trigger.
-      operationId: prepare_project_setup_smr_projects__project_id__setup_prepare_post
+      operationId: prepare_project_setup
       parameters:
       - name: project_id
         in: path
@@ -12132,7 +12149,7 @@ paths:
       summary: Get project launch preflight
       description: Canonical launch-preflight evaluation for a concrete project-scoped
         run request.
-      operationId: project_launch_preflight_smr_projects__project_id__launch_preflight_post
+      operationId: preflight_project_run
       parameters:
       - name: project_id
         in: path
@@ -12167,7 +12184,7 @@ paths:
       description: Project-optional launch-preflight entrypoint. The backend resolves
         the run to the caller's canonical miscellaneous project before evaluating
         limits, capacity, setup, and launch policy.
-      operationId: one_off_launch_preflight_smr_runs_one_off_launch_preflight_post
+      operationId: preflight_one_off_run
       requestBody:
         content:
           application/json:
@@ -12195,7 +12212,7 @@ paths:
       description: Project-optional run trigger. The backend still resolves every
         run to org_id and a canonical project_id; callers that do not choose a project
         are routed to their miscellaneous project.
-      operationId: trigger_one_off_run_smr_runs_one_off_post
+      operationId: trigger_one_off_run
       requestBody:
         content:
           application/json:
@@ -12420,6 +12437,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/configuration:
+    get:
+      tags:
+      - smr
+      summary: Get a swarm's immutable resolved configuration
+      description: Return the versioned, secret-redacted configuration snapshot durably
+        bound to this Research swarm. The snapshot digest is stable for replay and
+        audit; historical unversioned runs fail explicitly.
+      operationId: retrieve_swarm_configuration
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrResolvedRunConfigurationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/ticking:
     get:
       tags:
@@ -12590,6 +12636,159 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrRunUsageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/evidence:
+    get:
+      tags:
+      - smr
+      summary: Get Swarm Evidence
+      description: Return durable artifacts and WorkProducts for a swarm.
+      operationId: retrieve_swarm_evidence
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmEvidenceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/usage-summary:
+    get:
+      tags:
+      - smr
+      summary: Get Swarm Usage
+      description: Return typed cost, token, actor, and freshness evidence for a swarm.
+      operationId: retrieve_swarm_usage
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmUsageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/activity:
+    get:
+      tags:
+      - smr
+      summary: Get Swarm Activity
+      description: Return typed bounded execution activity for a swarm.
+      operationId: retrieve_swarm_activity
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: event_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Event Limit
+      - name: actor_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Actor Limit
+      - name: task_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 250
+          minimum: 1
+          default: 100
+          title: Task Limit
+      - name: message_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Message Limit
+      - name: work_product_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Work Product Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmActivityResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/status:
+    get:
+      tags:
+      - smr
+      summary: Get Swarm Status
+      description: Return the cheap authoritative status projection for a swarm.
+      operationId: retrieve_swarm_status
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmStatusResponse'
         '422':
           description: Validation Error
           content:
@@ -12845,7 +13044,7 @@ paths:
       tags:
       - smr
       summary: Pause Run
-      operationId: pause_run_smr_runs__run_id__pause_post
+      operationId: pause_run
       parameters:
       - name: run_id
         in: path
@@ -12871,7 +13070,7 @@ paths:
       tags:
       - smr
       summary: Resume Run
-      operationId: resume_run_smr_runs__run_id__resume_post
+      operationId: resume_run
       parameters:
       - name: run_id
         in: path
@@ -12994,7 +13193,7 @@ paths:
       tags:
       - smr
       summary: Branch Run From Checkpoint
-      operationId: branch_run_from_checkpoint_smr_runs__run_id__branches_post
+      operationId: branch_run
       parameters:
       - name: run_id
         in: path
@@ -13051,7 +13250,7 @@ paths:
       tags:
       - smr
       summary: Stop Run
-      operationId: stop_run_smr_runs__run_id__stop_post
+      operationId: stop_run
       parameters:
       - name: run_id
         in: path
@@ -16719,7 +16918,7 @@ paths:
       tags:
       - smr
       summary: Create Image Release Upload
-      operationId: create_image_release_upload_smr_v1_image_releases_upload_url_post
+      operationId: create_image_release_upload
       requestBody:
         content:
           application/json:
@@ -16769,7 +16968,7 @@ paths:
       tags:
       - smr
       summary: Finalize Image Release
-      operationId: finalize_image_release_smr_v1_image_releases_finalize_post
+      operationId: finalize_image_release
       requestBody:
         content:
           application/json:
@@ -16794,7 +16993,7 @@ paths:
       tags:
       - smr
       summary: List Customer Actor Images
-      operationId: list_customer_actor_images_smr_v1_image_releases_get
+      operationId: list_customer_actor_images
       responses:
         '200':
           description: Successful Response
@@ -16807,7 +17006,7 @@ paths:
       tags:
       - smr
       summary: Archive Customer Actor Image
-      operationId: archive_customer_actor_image_smr_v1_image_releases__runtime_image_release_id__archive_post
+      operationId: archive_customer_actor_image
       parameters:
       - name: runtime_image_release_id
         in: path
@@ -16833,7 +17032,7 @@ paths:
       tags:
       - smr
       summary: Get Image Release
-      operationId: get_image_release_smr_v1_image_releases__release_id__get
+      operationId: retrieve_image_release
       parameters:
       - name: release_id
         in: path
@@ -16847,7 +17046,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImageReleaseResponse'
+                anyOf:
+                - $ref: '#/components/schemas/CraftaxScorerImageReleaseResponse'
+                - $ref: '#/components/schemas/ActorRuntimeImageReleaseResponse'
+                title: Response Get Image Release Smr V1 Image Releases  Release Id  Get
         '422':
           description: Validation Error
           content:
@@ -17349,7 +17551,7 @@ paths:
       - smr
       summary: Get Workspace Inputs
       description: Fetch the current workspace bootstrap inputs for a project.
-      operationId: get_workspace_inputs_smr_projects__project_id__workspace_inputs_get
+      operationId: retrieve_project_workspace_inputs
       parameters:
       - name: project_id
         in: path
@@ -17376,7 +17578,7 @@ paths:
       - smr
       summary: Workspace Inputs Source Repo
       description: Attach a source repo to a project's workspace inputs.
-      operationId: workspace_inputs_source_repo_smr_projects__project_id__workspace_inputs_source_repo_put
+      operationId: set_project_workspace_source_repository
       parameters:
       - name: project_id
         in: path
@@ -17396,10 +17598,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Workspace Inputs Source Repo Smr Projects  Project
-                  Id  Workspace Inputs Source Repo Put
+                $ref: '#/components/schemas/SmrWorkspaceSourceRepoReceipt'
         '422':
           description: Validation Error
           content:
@@ -17412,7 +17611,7 @@ paths:
       - smr
       summary: Workspace Inputs Upload Files
       description: Upload workspace input files to a project's git repo.
-      operationId: workspace_inputs_upload_files_smr_projects__project_id__workspace_inputs_files_upload_post
+      operationId: upload_project_workspace_files
       parameters:
       - name: project_id
         in: path
@@ -17420,16 +17619,19 @@ paths:
         schema:
           type: string
           title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrWorkspaceInputFilesUploadRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Workspace Inputs Upload Files Smr Projects  Project
-                  Id  Workspace Inputs Files Upload Post
+                $ref: '#/components/schemas/SmrWorkspaceFilesUploadResponse'
         '422':
           description: Validation Error
           content:
@@ -18001,7 +18203,7 @@ paths:
       tags:
       - smr
       summary: Get Artifact Content
-      operationId: get_artifact_content_smr_artifacts__artifact_id__content_get
+      operationId: retrieve_swarm_artifact_content
       parameters:
       - name: artifact_id
         in: path
@@ -18021,8 +18223,10 @@ paths:
         '200':
           description: Successful Response
           content:
-            application/json:
-              schema: {}
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '422':
           description: Validation Error
           content:
@@ -18189,7 +18393,7 @@ paths:
       tags:
       - smr
       summary: Download Run Workspace Archive
-      operationId: download_run_workspace_archive_smr_runs__run_id__workspace_archive_get
+      operationId: retrieve_swarm_workspace_archive
       parameters:
       - name: run_id
         in: path
@@ -18946,7 +19150,7 @@ paths:
       tags:
       - smr
       summary: Get Run Runtime Transcript
-      operationId: get_run_runtime_transcript_smr_runs__run_id__runtime_transcript_get
+      operationId: list_run_transcript
       parameters:
       - name: run_id
         in: path
@@ -19004,7 +19208,7 @@ paths:
       tags:
       - smr
       summary: Stream Run Runtime
-      operationId: stream_run_runtime_smr_runs__run_id__runtime_stream_get
+      operationId: stream_run_events
       parameters:
       - name: run_id
         in: path
@@ -19029,10 +19233,467 @@ paths:
           title: View
       responses:
         '200':
-          description: Successful Response
+          description: Versioned runtime events framed as Server-Sent Events. The
+            schema below describes the JSON value in each data field.
           content:
-            application/json:
-              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+                format: event-stream
+              x-sse-event-data-schema:
+                $defs:
+                  JsonValue: {}
+                  RuntimeStreamEventKind:
+                    enum:
+                    - snapshot
+                    - transcript
+                    - heartbeat
+                    title: RuntimeStreamEventKind
+                    type: string
+                  SmrRuntimeStreamHeartbeatPayload:
+                    additionalProperties: false
+                    properties:
+                      version:
+                        minLength: 1
+                        title: Version
+                        type: string
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                    required:
+                    - version
+                    - source
+                    title: SmrRuntimeStreamHeartbeatPayload
+                    type: object
+                  SmrRuntimeStreamLifecyclePayload:
+                    additionalProperties: false
+                    properties:
+                      authority_phase:
+                        const: control_plane_stream
+                        title: Authority Phase
+                        type: string
+                      terminal_phase:
+                        enum:
+                        - terminal
+                        - nonterminal
+                        title: Terminal Phase
+                        type: string
+                      terminal_outcome:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Terminal Outcome
+                      updated_at:
+                        format: date-time
+                        title: Updated At
+                        type: string
+                      metadata:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelineMetadataPayload'
+                    required:
+                    - authority_phase
+                    - terminal_phase
+                    - updated_at
+                    - metadata
+                    title: SmrRuntimeStreamLifecyclePayload
+                    type: object
+                  SmrRuntimeStreamSnapshotPayload:
+                    additionalProperties: false
+                    description: Typed snapshot payload emitted before live runtime
+                      updates.
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      workers:
+                        $ref: '#/$defs/SmrRuntimeStreamWorkersPayload'
+                      actors:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Actors
+                        type: array
+                      messages:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Messages
+                        type: array
+                      deliveries:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Deliveries
+                        type: array
+                      timeline:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelinePayload'
+                    required:
+                    - project_id
+                    - run_id
+                    - workers
+                    - actors
+                    - messages
+                    - deliveries
+                    - timeline
+                    title: SmrRuntimeStreamSnapshotPayload
+                    type: object
+                  SmrRuntimeStreamTimelineEventDetailPayload:
+                    additionalProperties: false
+                    properties:
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      last_event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Last Event Id
+                    required:
+                    - source
+                    title: SmrRuntimeStreamTimelineEventDetailPayload
+                    type: object
+                  SmrRuntimeStreamTimelineEventPayload:
+                    additionalProperties: false
+                    properties:
+                      event_id:
+                        minLength: 1
+                        title: Event Id
+                        type: string
+                      created_at:
+                        format: date-time
+                        title: Created At
+                        type: string
+                      kind:
+                        const: control_plane_snapshot
+                        title: Kind
+                        type: string
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      summary:
+                        minLength: 1
+                        title: Summary
+                        type: string
+                      state:
+                        minLength: 1
+                        title: State
+                        type: string
+                      detail:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelineEventDetailPayload'
+                    required:
+                    - event_id
+                    - created_at
+                    - kind
+                    - source
+                    - summary
+                    - state
+                    - detail
+                    title: SmrRuntimeStreamTimelineEventPayload
+                    type: object
+                  SmrRuntimeStreamTimelineMetadataPayload:
+                    additionalProperties: false
+                    properties:
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      last_event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Last Event Id
+                    required:
+                    - source
+                    title: SmrRuntimeStreamTimelineMetadataPayload
+                    type: object
+                  SmrRuntimeStreamTimelinePayload:
+                    additionalProperties: false
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      authority_source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Authority Source
+                        type: string
+                      authority_state:
+                        minLength: 1
+                        title: Authority State
+                        type: string
+                      authority_persisted_state:
+                        minLength: 1
+                        title: Authority Persisted State
+                        type: string
+                      lifecycle:
+                        $ref: '#/$defs/SmrRuntimeStreamLifecyclePayload'
+                      latest_kind:
+                        const: control_plane_snapshot
+                        title: Latest Kind
+                        type: string
+                      latest_summary:
+                        minLength: 1
+                        title: Latest Summary
+                        type: string
+                      events:
+                        items:
+                          $ref: '#/$defs/SmrRuntimeStreamTimelineEventPayload'
+                        title: Events
+                        type: array
+                    required:
+                    - project_id
+                    - run_id
+                    - authority_source
+                    - authority_state
+                    - authority_persisted_state
+                    - lifecycle
+                    - latest_kind
+                    - latest_summary
+                    - events
+                    title: SmrRuntimeStreamTimelinePayload
+                    type: object
+                  SmrRuntimeStreamWorkersPayload:
+                    additionalProperties: false
+                    description: Control-plane worker summary carried by a snapshot
+                      frame.
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      status:
+                        minLength: 1
+                        title: Status
+                        type: string
+                      last_tick_at:
+                        format: date-time
+                        title: Last Tick At
+                        type: string
+                      active_count:
+                        minimum: 0
+                        title: Active Count
+                        type: integer
+                      live_workers_limit:
+                        anyOf:
+                        - minimum: 0
+                          type: integer
+                        - type: 'null'
+                        title: Live Workers Limit
+                      active_workers:
+                        items:
+                          type: string
+                        title: Active Workers
+                        type: array
+                      worker_ids:
+                        items:
+                          type: string
+                        title: Worker Ids
+                        type: array
+                      worker_counts:
+                        additionalProperties:
+                          minimum: 0
+                          type: integer
+                        title: Worker Counts
+                        type: object
+                      partial:
+                        const: true
+                        title: Partial
+                        type: boolean
+                      partial_reason:
+                        const: smr_control_plane_runtime_stream
+                        title: Partial Reason
+                        type: string
+                      workers:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Workers
+                        type: array
+                      links:
+                        additionalProperties:
+                          type: string
+                        title: Links
+                        type: object
+                    required:
+                    - project_id
+                    - run_id
+                    - status
+                    - last_tick_at
+                    - active_count
+                    - active_workers
+                    - worker_ids
+                    - worker_counts
+                    - partial
+                    - partial_reason
+                    - workers
+                    - links
+                    title: SmrRuntimeStreamWorkersPayload
+                    type: object
+                  SmrTranscriptEventResponse:
+                    additionalProperties: false
+                    description: One viewer-safe transcript event.
+                    properties:
+                      schema_version:
+                        const: synth.research.transcript-event.v1
+                        default: synth.research.transcript-event.v1
+                        title: Schema Version
+                        type: string
+                      event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Event Id
+                      live_cursor:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Live Cursor
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      participant_session_id:
+                        minLength: 1
+                        title: Participant Session Id
+                        type: string
+                      participant_role:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Participant Role
+                      thread_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Thread Id
+                      turn_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Turn Id
+                      occurred_at:
+                        format: date-time
+                        title: Occurred At
+                        type: string
+                      kind:
+                        minLength: 1
+                        title: Kind
+                        type: string
+                      payload:
+                        additionalProperties:
+                          $ref: '#/$defs/JsonValue'
+                        title: Payload
+                        type: object
+                      semantic_scope:
+                        const: participant
+                        default: participant
+                        title: Semantic Scope
+                        type: string
+                      run_terminal:
+                        default: false
+                        title: Run Terminal
+                        type: boolean
+                      redaction_profile:
+                        anyOf:
+                        - enum:
+                          - open_research_public
+                          - operator_default
+                          - debug_operator
+                          type: string
+                        - type: 'null'
+                        title: Redaction Profile
+                      visibility_decision:
+                        anyOf:
+                        - enum:
+                          - stream_redacted
+                          - stream_summary_only
+                          type: string
+                        - type: 'null'
+                        title: Visibility Decision
+                      payload_classification:
+                        anyOf:
+                        - enum:
+                          - public_safe
+                          - private
+                          - internal
+                          - secret
+                          - hidden_reasoning
+                          type: string
+                        - type: 'null'
+                        title: Payload Classification
+                    required:
+                    - run_id
+                    - participant_session_id
+                    - occurred_at
+                    - kind
+                    title: SmrTranscriptEventResponse
+                    type: object
+                additionalProperties: false
+                description: Versioned SSE ``data`` envelope for the public runtime
+                  stream.
+                properties:
+                  schema_version:
+                    const: research.swarm_event.v1
+                    default: research.swarm_event.v1
+                    title: Schema Version
+                    type: string
+                  sequence:
+                    minLength: 1
+                    title: Sequence
+                    type: string
+                  run_id:
+                    minLength: 1
+                    title: Run Id
+                    type: string
+                  ts:
+                    format: date-time
+                    title: Ts
+                    type: string
+                  kind:
+                    $ref: '#/$defs/RuntimeStreamEventKind'
+                  payload:
+                    anyOf:
+                    - $ref: '#/$defs/SmrRuntimeStreamSnapshotPayload'
+                    - $ref: '#/$defs/SmrTranscriptEventResponse'
+                    - $ref: '#/$defs/SmrRuntimeStreamHeartbeatPayload'
+                    title: Payload
+                  state_version:
+                    minLength: 1
+                    title: State Version
+                    type: string
+                  transcript_cursor:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                    title: Transcript Cursor
+                required:
+                - sequence
+                - run_id
+                - ts
+                - kind
+                - payload
+                - state_version
+                title: SmrRuntimeStreamEventEnvelope
+                type: object
         '422':
           description: Validation Error
           content:
@@ -22111,6 +22772,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/configuration:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get a swarm's immutable resolved configuration
+      description: Return the versioned, secret-redacted configuration snapshot durably
+        bound to this Research swarm. The snapshot digest is stable for replay and
+        audit; historical unversioned runs fail explicitly.
+      operationId: get_run_resolved_configuration_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrResolvedRunConfigurationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/swarms/{run_id}/ticking:
     get:
       tags:
@@ -22286,6 +22977,163 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrRunUsageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/evidence:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Swarm Evidence
+      description: Return durable artifacts and WorkProducts for a swarm.
+      operationId: get_swarm_evidence_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmEvidenceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/usage-summary:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Swarm Usage
+      description: Return typed cost, token, actor, and freshness evidence for a swarm.
+      operationId: get_swarm_usage_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmUsageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/activity:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Swarm Activity
+      description: Return typed bounded execution activity for a swarm.
+      operationId: get_swarm_activity_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: event_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Event Limit
+      - name: actor_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Actor Limit
+      - name: task_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 250
+          minimum: 1
+          default: 100
+          title: Task Limit
+      - name: message_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Message Limit
+      - name: work_product_limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Work Product Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmActivityResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/status:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Swarm Status
+      description: Return the cheap authoritative status projection for a swarm.
+      operationId: get_swarm_status_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrSwarmStatusResponse'
         '422':
           description: Validation Error
           content:
@@ -26213,10 +27061,467 @@ paths:
           title: View
       responses:
         '200':
-          description: Successful Response
+          description: Versioned runtime events framed as Server-Sent Events. The
+            schema below describes the JSON value in each data field.
           content:
-            application/json:
-              schema: {}
+            text/event-stream:
+              schema:
+                type: string
+                format: event-stream
+              x-sse-event-data-schema:
+                $defs:
+                  JsonValue: {}
+                  RuntimeStreamEventKind:
+                    enum:
+                    - snapshot
+                    - transcript
+                    - heartbeat
+                    title: RuntimeStreamEventKind
+                    type: string
+                  SmrRuntimeStreamHeartbeatPayload:
+                    additionalProperties: false
+                    properties:
+                      version:
+                        minLength: 1
+                        title: Version
+                        type: string
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                    required:
+                    - version
+                    - source
+                    title: SmrRuntimeStreamHeartbeatPayload
+                    type: object
+                  SmrRuntimeStreamLifecyclePayload:
+                    additionalProperties: false
+                    properties:
+                      authority_phase:
+                        const: control_plane_stream
+                        title: Authority Phase
+                        type: string
+                      terminal_phase:
+                        enum:
+                        - terminal
+                        - nonterminal
+                        title: Terminal Phase
+                        type: string
+                      terminal_outcome:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Terminal Outcome
+                      updated_at:
+                        format: date-time
+                        title: Updated At
+                        type: string
+                      metadata:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelineMetadataPayload'
+                    required:
+                    - authority_phase
+                    - terminal_phase
+                    - updated_at
+                    - metadata
+                    title: SmrRuntimeStreamLifecyclePayload
+                    type: object
+                  SmrRuntimeStreamSnapshotPayload:
+                    additionalProperties: false
+                    description: Typed snapshot payload emitted before live runtime
+                      updates.
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      workers:
+                        $ref: '#/$defs/SmrRuntimeStreamWorkersPayload'
+                      actors:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Actors
+                        type: array
+                      messages:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Messages
+                        type: array
+                      deliveries:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Deliveries
+                        type: array
+                      timeline:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelinePayload'
+                    required:
+                    - project_id
+                    - run_id
+                    - workers
+                    - actors
+                    - messages
+                    - deliveries
+                    - timeline
+                    title: SmrRuntimeStreamSnapshotPayload
+                    type: object
+                  SmrRuntimeStreamTimelineEventDetailPayload:
+                    additionalProperties: false
+                    properties:
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      last_event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Last Event Id
+                    required:
+                    - source
+                    title: SmrRuntimeStreamTimelineEventDetailPayload
+                    type: object
+                  SmrRuntimeStreamTimelineEventPayload:
+                    additionalProperties: false
+                    properties:
+                      event_id:
+                        minLength: 1
+                        title: Event Id
+                        type: string
+                      created_at:
+                        format: date-time
+                        title: Created At
+                        type: string
+                      kind:
+                        const: control_plane_snapshot
+                        title: Kind
+                        type: string
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      summary:
+                        minLength: 1
+                        title: Summary
+                        type: string
+                      state:
+                        minLength: 1
+                        title: State
+                        type: string
+                      detail:
+                        $ref: '#/$defs/SmrRuntimeStreamTimelineEventDetailPayload'
+                    required:
+                    - event_id
+                    - created_at
+                    - kind
+                    - source
+                    - summary
+                    - state
+                    - detail
+                    title: SmrRuntimeStreamTimelineEventPayload
+                    type: object
+                  SmrRuntimeStreamTimelineMetadataPayload:
+                    additionalProperties: false
+                    properties:
+                      source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Source
+                        type: string
+                      last_event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Last Event Id
+                    required:
+                    - source
+                    title: SmrRuntimeStreamTimelineMetadataPayload
+                    type: object
+                  SmrRuntimeStreamTimelinePayload:
+                    additionalProperties: false
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      authority_source:
+                        const: smr_control_plane.redis.runtime_stream.v1
+                        title: Authority Source
+                        type: string
+                      authority_state:
+                        minLength: 1
+                        title: Authority State
+                        type: string
+                      authority_persisted_state:
+                        minLength: 1
+                        title: Authority Persisted State
+                        type: string
+                      lifecycle:
+                        $ref: '#/$defs/SmrRuntimeStreamLifecyclePayload'
+                      latest_kind:
+                        const: control_plane_snapshot
+                        title: Latest Kind
+                        type: string
+                      latest_summary:
+                        minLength: 1
+                        title: Latest Summary
+                        type: string
+                      events:
+                        items:
+                          $ref: '#/$defs/SmrRuntimeStreamTimelineEventPayload'
+                        title: Events
+                        type: array
+                    required:
+                    - project_id
+                    - run_id
+                    - authority_source
+                    - authority_state
+                    - authority_persisted_state
+                    - lifecycle
+                    - latest_kind
+                    - latest_summary
+                    - events
+                    title: SmrRuntimeStreamTimelinePayload
+                    type: object
+                  SmrRuntimeStreamWorkersPayload:
+                    additionalProperties: false
+                    description: Control-plane worker summary carried by a snapshot
+                      frame.
+                    properties:
+                      project_id:
+                        minLength: 1
+                        title: Project Id
+                        type: string
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      status:
+                        minLength: 1
+                        title: Status
+                        type: string
+                      last_tick_at:
+                        format: date-time
+                        title: Last Tick At
+                        type: string
+                      active_count:
+                        minimum: 0
+                        title: Active Count
+                        type: integer
+                      live_workers_limit:
+                        anyOf:
+                        - minimum: 0
+                          type: integer
+                        - type: 'null'
+                        title: Live Workers Limit
+                      active_workers:
+                        items:
+                          type: string
+                        title: Active Workers
+                        type: array
+                      worker_ids:
+                        items:
+                          type: string
+                        title: Worker Ids
+                        type: array
+                      worker_counts:
+                        additionalProperties:
+                          minimum: 0
+                          type: integer
+                        title: Worker Counts
+                        type: object
+                      partial:
+                        const: true
+                        title: Partial
+                        type: boolean
+                      partial_reason:
+                        const: smr_control_plane_runtime_stream
+                        title: Partial Reason
+                        type: string
+                      workers:
+                        items:
+                          additionalProperties:
+                            $ref: '#/$defs/JsonValue'
+                          type: object
+                        title: Workers
+                        type: array
+                      links:
+                        additionalProperties:
+                          type: string
+                        title: Links
+                        type: object
+                    required:
+                    - project_id
+                    - run_id
+                    - status
+                    - last_tick_at
+                    - active_count
+                    - active_workers
+                    - worker_ids
+                    - worker_counts
+                    - partial
+                    - partial_reason
+                    - workers
+                    - links
+                    title: SmrRuntimeStreamWorkersPayload
+                    type: object
+                  SmrTranscriptEventResponse:
+                    additionalProperties: false
+                    description: One viewer-safe transcript event.
+                    properties:
+                      schema_version:
+                        const: synth.research.transcript-event.v1
+                        default: synth.research.transcript-event.v1
+                        title: Schema Version
+                        type: string
+                      event_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Event Id
+                      live_cursor:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Live Cursor
+                      run_id:
+                        minLength: 1
+                        title: Run Id
+                        type: string
+                      participant_session_id:
+                        minLength: 1
+                        title: Participant Session Id
+                        type: string
+                      participant_role:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Participant Role
+                      thread_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Thread Id
+                      turn_id:
+                        anyOf:
+                        - type: string
+                        - type: 'null'
+                        title: Turn Id
+                      occurred_at:
+                        format: date-time
+                        title: Occurred At
+                        type: string
+                      kind:
+                        minLength: 1
+                        title: Kind
+                        type: string
+                      payload:
+                        additionalProperties:
+                          $ref: '#/$defs/JsonValue'
+                        title: Payload
+                        type: object
+                      semantic_scope:
+                        const: participant
+                        default: participant
+                        title: Semantic Scope
+                        type: string
+                      run_terminal:
+                        default: false
+                        title: Run Terminal
+                        type: boolean
+                      redaction_profile:
+                        anyOf:
+                        - enum:
+                          - open_research_public
+                          - operator_default
+                          - debug_operator
+                          type: string
+                        - type: 'null'
+                        title: Redaction Profile
+                      visibility_decision:
+                        anyOf:
+                        - enum:
+                          - stream_redacted
+                          - stream_summary_only
+                          type: string
+                        - type: 'null'
+                        title: Visibility Decision
+                      payload_classification:
+                        anyOf:
+                        - enum:
+                          - public_safe
+                          - private
+                          - internal
+                          - secret
+                          - hidden_reasoning
+                          type: string
+                        - type: 'null'
+                        title: Payload Classification
+                    required:
+                    - run_id
+                    - participant_session_id
+                    - occurred_at
+                    - kind
+                    title: SmrTranscriptEventResponse
+                    type: object
+                additionalProperties: false
+                description: Versioned SSE ``data`` envelope for the public runtime
+                  stream.
+                properties:
+                  schema_version:
+                    const: research.swarm_event.v1
+                    default: research.swarm_event.v1
+                    title: Schema Version
+                    type: string
+                  sequence:
+                    minLength: 1
+                    title: Sequence
+                    type: string
+                  run_id:
+                    minLength: 1
+                    title: Run Id
+                    type: string
+                  ts:
+                    format: date-time
+                    title: Ts
+                    type: string
+                  kind:
+                    $ref: '#/$defs/RuntimeStreamEventKind'
+                  payload:
+                    anyOf:
+                    - $ref: '#/$defs/SmrRuntimeStreamSnapshotPayload'
+                    - $ref: '#/$defs/SmrTranscriptEventResponse'
+                    - $ref: '#/$defs/SmrRuntimeStreamHeartbeatPayload'
+                    title: Payload
+                  state_version:
+                    minLength: 1
+                    title: State Version
+                    type: string
+                  transcript_cursor:
+                    anyOf:
+                    - type: string
+                    - type: 'null'
+                    title: Transcript Cursor
+                required:
+                - sequence
+                - run_id
+                - ts
+                - kind
+                - payload
+                - state_version
+                title: SmrRuntimeStreamEventEnvelope
+                type: object
         '422':
           description: Validation Error
           content:
@@ -34786,6 +36091,263 @@ components:
       - resume
       - interrupt
       title: ActorControlAction
+    ActorRuntimeImageMaterialization:
+      properties:
+        schema_version:
+          type: string
+          const: smr-actor-image-materialization-v1
+          title: Schema Version
+        runtime_image_release_id:
+          type: string
+          format: uuid
+          title: Runtime Image Release Id
+        status:
+          type: string
+          enum:
+          - active
+          - archived
+          title: Status
+        image_ref:
+          type: string
+          minLength: 3
+          title: Image Ref
+        resolved_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Resolved Digest
+        interface_mode:
+          type: string
+          const: synth_actor_runtime
+          title: Interface Mode
+        actor_role:
+          type: string
+          const: worker
+          title: Actor Role
+        selection_kind:
+          type: string
+          const: customer_actor_runtime
+          title: Selection Kind
+        capabilities:
+          items:
+            type: string
+            enum:
+            - codex_cli
+            - craftax_eval
+            - crafter_eval
+            - dungeongrid_eval
+            - image_artifacts
+            - jax_cpu
+            - managed_research_sdk
+            - mcp_client
+            - modal_client
+            - nethack_eval
+            - numpy_stack
+            - opencode
+            - openrouter_client
+            - synth_sdk
+            - video_artifacts
+          type: array
+          maxItems: 32
+          minItems: 1
+          title: Capabilities
+        python_packages:
+          items:
+            type: string
+            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
+          type: array
+          maxItems: 32
+          title: Python Packages
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+            format: date-time
+          type: object
+          title: Package Release Timestamps
+        recipe_digest:
+          anyOf:
+          - type: string
+            pattern: ^sha256:[0-9a-f]{64}$
+          - type: 'null'
+          title: Recipe Digest
+        image_release_id:
+          type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
+          title: Image Release Id
+        image_substrates:
+          items:
+            type: string
+            enum:
+            - org_registry
+            - wasabi_artifact
+          type: array
+          title: Image Substrates
+        daytona_pullable:
+          type: boolean
+          title: Daytona Pullable
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - runtime_image_release_id
+      - status
+      - image_ref
+      - resolved_digest
+      - interface_mode
+      - actor_role
+      - selection_kind
+      - capabilities
+      - python_packages
+      - image_release_id
+      - image_substrates
+      - daytona_pullable
+      title: ActorRuntimeImageMaterialization
+    ActorRuntimeImageReleaseDeclaration:
+      properties:
+        archive_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Archive Sha256
+        archive_size_bytes:
+          type: integer
+          maximum: 5000000000.0
+          exclusiveMinimum: 0.0
+          title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        kind:
+          type: string
+          const: actor_runtime
+          title: Kind
+        actor_role:
+          type: string
+          const: worker
+          title: Actor Role
+        interface_mode:
+          type: string
+          const: synth_actor_runtime
+          title: Interface Mode
+        capabilities:
+          items:
+            type: string
+            enum:
+            - codex_cli
+            - craftax_eval
+            - crafter_eval
+            - dungeongrid_eval
+            - image_artifacts
+            - jax_cpu
+            - managed_research_sdk
+            - mcp_client
+            - modal_client
+            - nethack_eval
+            - numpy_stack
+            - opencode
+            - openrouter_client
+            - synth_sdk
+            - video_artifacts
+          type: array
+          maxItems: 32
+          minItems: 1
+          title: Capabilities
+        python_packages:
+          items:
+            type: string
+            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
+          type: array
+          maxItems: 32
+          title: Python Packages
+        recipe_digest:
+          anyOf:
+          - type: string
+            pattern: ^sha256:[0-9a-f]{64}$
+          - type: 'null'
+          title: Recipe Digest
+      additionalProperties: false
+      type: object
+      required:
+      - archive_sha256
+      - archive_size_bytes
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      - kind
+      - actor_role
+      - interface_mode
+      - capabilities
+      - python_packages
+      title: ActorRuntimeImageReleaseDeclaration
+    ActorRuntimeImageReleaseResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
+          type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
+          title: Release Id
+        org_id:
+          type: string
+          format: uuid
+          title: Org Id
+        artifact:
+          $ref: '#/components/schemas/ImageReleaseArtifact'
+        inspection:
+          $ref: '#/components/schemas/ImageReleaseInspection'
+        storage:
+          anyOf:
+          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
+          - type: 'null'
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+            format: date-time
+          type: object
+          title: Package Release Timestamps
+        declaration:
+          $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+        runtime_image_release:
+          $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - inspection
+      - declaration
+      - runtime_image_release
+      title: ActorRuntimeImageReleaseResponse
     AddCreditsRequest:
       properties:
         org_id:
@@ -36878,6 +38440,112 @@ components:
       - status
       - validation_status
       title: ContainerEvalPackageResponse
+    CraftaxScorerImageReleaseDeclaration:
+      properties:
+        archive_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Archive Sha256
+        archive_size_bytes:
+          type: integer
+          maximum: 5000000000.0
+          exclusiveMinimum: 0.0
+          title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        kind:
+          type: string
+          const: craftax_scorer
+          title: Kind
+        fixture_manifest_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Manifest Sha256
+        fixture_binary_sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          title: Fixture Binary Sha256
+      additionalProperties: false
+      type: object
+      required:
+      - archive_sha256
+      - archive_size_bytes
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      - kind
+      - fixture_manifest_sha256
+      - fixture_binary_sha256
+      title: CraftaxScorerImageReleaseDeclaration
+    CraftaxScorerImageReleaseResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
+          type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
+          title: Release Id
+        org_id:
+          type: string
+          format: uuid
+          title: Org Id
+        artifact:
+          $ref: '#/components/schemas/ImageReleaseArtifact'
+        inspection:
+          $ref: '#/components/schemas/ImageReleaseInspection'
+        storage:
+          anyOf:
+          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
+          - type: 'null'
+        package_release_timestamps:
+          additionalProperties:
+            type: string
+            format: date-time
+          type: object
+          title: Package Release Timestamps
+        declaration:
+          $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - inspection
+      - declaration
+      title: CraftaxScorerImageReleaseResponse
     CreateCredentialRequest:
       properties:
         credential_name:
@@ -36997,6 +38665,7 @@ components:
         context_tar_base64:
           anyOf:
           - type: string
+            maxLength: 188743680
           - type: 'null'
           title: Context Tar Base64
           description: Optional build context as base64-encoded .tar.gz. If absent,
@@ -37961,7 +39630,8 @@ components:
         preflight:
           $ref: '#/components/schemas/EnvironmentPreflightSpec'
         metadata:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Metadata
       additionalProperties: false
@@ -38719,14 +40389,12 @@ components:
       type: object
       title: HeartbeatResponse
       description: Response for lease heartbeat.
-    ImageReleaseDeclarationRequest:
+    ImageReleaseArtifact:
       properties:
-        kind:
+        artifact_id:
           type: string
-          enum:
-          - craftax_scorer
-          - actor_runtime
-          title: Kind
+          pattern: ^imgobj_[0-9a-f]{64}$
+          title: Artifact Id
         archive_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
@@ -38736,93 +40404,13 @@ components:
           maximum: 5000000000.0
           exclusiveMinimum: 0.0
           title: Archive Size Bytes
-        image_manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Image Manifest Digest
-        image_ref:
-          type: string
-          maxLength: 255
-          minLength: 3
-          title: Image Ref
-        platform_os:
-          type: string
-          const: linux
-          title: Platform Os
-        platform_architecture:
-          type: string
-          enum:
-          - amd64
-          - arm64
-          title: Platform Architecture
-        source_repository:
-          type: string
-          maxLength: 512
-          minLength: 20
-          title: Source Repository
-        source_commit_sha:
-          type: string
-          pattern: ^[0-9a-f]{40}$
-          title: Source Commit Sha
-        fixture_manifest_sha256:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{64}$
-          - type: 'null'
-          title: Fixture Manifest Sha256
-        fixture_binary_sha256:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{64}$
-          - type: 'null'
-          title: Fixture Binary Sha256
-        actor_role:
-          anyOf:
-          - type: string
-            maxLength: 64
-          - type: 'null'
-          title: Actor Role
-        interface_mode:
-          anyOf:
-          - type: string
-            maxLength: 64
-          - type: 'null'
-          title: Interface Mode
-        capabilities:
-          anyOf:
-          - items:
-              type: string
-            type: array
-            maxItems: 32
-          - type: 'null'
-          title: Capabilities
-        python_packages:
-          anyOf:
-          - items:
-              type: string
-            type: array
-            maxItems: 32
-          - type: 'null'
-          title: Python Packages
-        recipe_digest:
-          anyOf:
-          - type: string
-            pattern: ^sha256:[0-9a-f]{64}$
-          - type: 'null'
-          title: Recipe Digest
       additionalProperties: false
       type: object
       required:
-      - kind
+      - artifact_id
       - archive_sha256
       - archive_size_bytes
-      - image_manifest_digest
-      - image_ref
-      - platform_os
-      - platform_architecture
-      - source_repository
-      - source_commit_sha
-      title: ImageReleaseDeclarationRequest
+      title: ImageReleaseArtifact
     ImageReleaseFinalizeRequest:
       properties:
         upload_id:
@@ -38830,7 +40418,15 @@ components:
           pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         declaration:
-          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+          oneOf:
+          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+          title: Declaration
+          discriminator:
+            propertyName: kind
+            mapping:
+              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
       additionalProperties: false
       type: object
       required:
@@ -38844,7 +40440,10 @@ components:
           const: smr-image-release-finalize-v1
           title: Schema Version
         release:
-          $ref: '#/components/schemas/ImageReleaseResponse'
+          anyOf:
+          - $ref: '#/components/schemas/CraftaxScorerImageReleaseResponse'
+          - $ref: '#/components/schemas/ActorRuntimeImageReleaseResponse'
+          title: Release
         upload_reconciliation:
           $ref: '#/components/schemas/ImageReleaseUploadReconciliationResponse'
       additionalProperties: false
@@ -38854,55 +40453,53 @@ components:
       - release
       - upload_reconciliation
       title: ImageReleaseFinalizeResponse
-    ImageReleaseResponse:
+    ImageReleaseInspection:
       properties:
-        schema_version:
+        archive_format:
           type: string
-          const: smr-image-release-v1
-          title: Schema Version
-        release_id:
+          const: oci-image-layout-tar-v1
+          title: Archive Format
+        image_manifest_digest:
           type: string
-          title: Release Id
-        org_id:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_config_digest:
           type: string
-          title: Org Id
-        artifact:
-          additionalProperties: true
-          type: object
-          title: Artifact
-        declaration:
-          additionalProperties: true
-          type: object
-          title: Declaration
-        inspection:
-          additionalProperties: true
-          type: object
-          title: Inspection
-        package_release_timestamps:
-          additionalProperties:
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Config Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        python_packages:
+          items:
             type: string
-          type: object
-          title: Package Release Timestamps
-        runtime_image_release:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Runtime Image Release
-        storage:
-          anyOf:
-          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
-          - type: 'null'
+            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
+          type: array
+          maxItems: 32
+          title: Python Packages
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
       additionalProperties: false
       type: object
       required:
-      - schema_version
-      - release_id
-      - org_id
-      - artifact
-      - declaration
-      - inspection
-      title: ImageReleaseResponse
+      - archive_format
+      - image_manifest_digest
+      - image_config_digest
+      - image_ref
+      - python_packages
+      - platform_os
+      - platform_architecture
+      title: ImageReleaseInspection
     ImageReleaseStorageIdentity:
       properties:
         object_key:
@@ -38926,11 +40523,12 @@ components:
       - etag
       - size_bytes
       title: ImageReleaseStorageIdentity
-      description: Provider incarnation bound into an immutable release receipt.
+      description: Provider-reported identity of the published canonical archive object.
     ImageReleaseUploadReconciliationResponse:
       properties:
         upload_id:
           type: string
+          pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         status:
           type: string
@@ -38940,6 +40538,7 @@ components:
           title: Status
         object_key:
           type: string
+          minLength: 1
           title: Object Key
       additionalProperties: false
       type: object
@@ -38951,7 +40550,15 @@ components:
     ImageReleaseUploadRequest:
       properties:
         declaration:
-          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
+          oneOf:
+          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+          title: Declaration
+          discriminator:
+            propertyName: kind
+            mapping:
+              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
         expires_in:
           type: integer
           maximum: 86400.0
@@ -38971,9 +40578,11 @@ components:
           title: Schema Version
         upload_id:
           type: string
+          pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         release_id:
           type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
           title: Release Id
         upload_url:
           type: string
@@ -38982,7 +40591,6 @@ components:
         upload_required:
           type: boolean
           title: Upload Required
-          default: true
         upload_mode:
           type: string
           const: content_addressed_quarantine
@@ -38995,14 +40603,23 @@ components:
           title: Storage Admission
         expires_in:
           type: integer
+          maximum: 86400.0
+          minimum: 60.0
           title: Expires In
         declaration:
-          additionalProperties: true
-          type: object
+          oneOf:
+          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
           title: Declaration
+          discriminator:
+            propertyName: kind
+            mapping:
+              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
         package_release_timestamps:
           additionalProperties:
             type: string
+            format: date-time
           type: object
           title: Package Release Timestamps
       additionalProperties: false
@@ -39012,6 +40629,7 @@ components:
       - upload_id
       - release_id
       - upload_url
+      - upload_required
       - upload_mode
       - expires_in
       - declaration
@@ -39051,9 +40669,11 @@ components:
           title: Schema Version
         upload_id:
           type: string
+          pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         release_id:
           type: string
+          pattern: ^imgrel_[0-9a-f]{64}$
           title: Release Id
         upload_url:
           anyOf:
@@ -39064,7 +40684,6 @@ components:
         upload_required:
           type: boolean
           title: Upload Required
-          default: true
         upload_mode:
           type: string
           const: content_addressed_quarantine
@@ -39077,14 +40696,23 @@ components:
           title: Storage Admission
         expires_in:
           type: integer
+          maximum: 86400.0
+          minimum: 60.0
           title: Expires In
         declaration:
-          additionalProperties: true
-          type: object
+          oneOf:
+          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
           title: Declaration
+          discriminator:
+            propertyName: kind
+            mapping:
+              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
+              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
         package_release_timestamps:
           additionalProperties:
             type: string
+            format: date-time
           type: object
           title: Package Release Timestamps
         upload_headers:
@@ -39102,12 +40730,15 @@ components:
       - upload_id
       - release_id
       - upload_url
+      - upload_required
       - upload_mode
       - expires_in
       - declaration
       - upload_headers
       - finalize_deadline_at
       title: ImageReleaseUploadV3Response
+      description: 'Internal create-only contract: the upload capability is withheld
+        on reuse.'
     IncreaseLimitRequest:
       properties:
         metric_type:
@@ -39261,6 +40892,7 @@ components:
       - job_id
       - usage_type
       title: InternalUsageRecordIn
+    JsonValue: {}
     KeyStatusResponse:
       properties:
         exists:
@@ -43020,9 +44652,7 @@ components:
           const: smr-actor-image-archive-v1
           title: Schema Version
         runtime_image_release:
-          additionalProperties: true
-          type: object
-          title: Runtime Image Release
+          $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
       additionalProperties: false
       type: object
       required:
@@ -43037,8 +44667,7 @@ components:
           title: Schema Version
         releases:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
           type: array
           title: Releases
       additionalProperties: false
@@ -43680,6 +45309,12 @@ components:
             type: object
           - type: 'null'
           title: Runtime Bootstrap
+        status_detail:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Status Detail
         assigned_at:
           anyOf:
           - type: string
@@ -44178,6 +45813,8 @@ components:
       - deepseek/deepseek-v4-pro-direct
       - deepseek/deepseek-chat
       - deepseek/deepseek-reasoner
+      - poolside/laguna-s-2.1
+      - synth_internal/laguna-s-2.1-nvfp4
       title: SmrAgentModel
     SmrAgentModelCatalogEntry:
       properties:
@@ -45566,6 +47203,8 @@ components:
       - deepseek
       - openai
       - openrouter
+      - poolside
+      - synth_internal
       - xai
       - tinker
       title: SmrCredentialProvider
@@ -46146,6 +47785,12 @@ components:
       - created_at
       - updated_at
       title: SmrEffortResponse
+    SmrEmptyWorkspaceProjectRepoResponse:
+      properties: {}
+      additionalProperties: false
+      type: object
+      title: SmrEmptyWorkspaceProjectRepoResponse
+      description: Explicit empty alternative before a project repository exists.
     SmrEnsureProjectGitResponse:
       properties:
         ok:
@@ -46172,6 +47817,7 @@ components:
       properties:
         manifest:
           $ref: '#/components/schemas/EnvironmentManifest'
+      additionalProperties: false
       type: object
       required:
       - manifest
@@ -46186,11 +47832,11 @@ components:
           title: Name
         digest:
           type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Manifest Digest
         org_id:
           anyOf:
@@ -46203,21 +47849,53 @@ components:
           - type: 'null'
           title: Created By User Id
         spec:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Spec
         created_at:
+          type: string
+          format: date-time
           title: Created At
         manifest:
           $ref: '#/components/schemas/EnvironmentManifest'
+      additionalProperties: false
       type: object
       required:
       - environment_id
       - name
       - digest
+      - manifest_digest
       - created_at
       - manifest
       title: SmrEnvironmentDetailResponse
+    SmrEnvironmentPreflightError:
+      properties:
+        error_code:
+          type: string
+          title: Error Code
+        responsible_party:
+          type: string
+          enum:
+          - infra
+          - project
+          - user
+          title: Responsible Party
+        message:
+          type: string
+          title: Message
+        details:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Details
+      additionalProperties: false
+      type: object
+      required:
+      - error_code
+      - responsible_party
+      - message
+      title: SmrEnvironmentPreflightError
     SmrEnvironmentPreflightResponse:
       properties:
         name:
@@ -46225,32 +47903,37 @@ components:
           title: Name
         digest:
           type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Manifest Digest
         ok:
           type: boolean
           title: Ok
         result:
           type: string
+          enum:
+          - failed
+          - ok
+          - skipped
           title: Result
         details:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Details
         error:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - $ref: '#/components/schemas/SmrEnvironmentPreflightError'
           - type: 'null'
-          title: Error
+      additionalProperties: false
       type: object
       required:
       - name
       - digest
+      - manifest_digest
       - ok
       - result
       title: SmrEnvironmentPreflightResponse
@@ -46299,11 +47982,11 @@ components:
           title: Name
         digest:
           type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
           title: Manifest Digest
         org_id:
           anyOf:
@@ -46316,16 +47999,21 @@ components:
           - type: 'null'
           title: Created By User Id
         spec:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Spec
         created_at:
+          type: string
+          format: date-time
           title: Created At
+      additionalProperties: false
       type: object
       required:
       - environment_id
       - name
       - digest
+      - manifest_digest
       - created_at
       title: SmrEnvironmentResponse
     SmrEvidenceObligationsRequest:
@@ -46812,9 +48500,11 @@ components:
           $ref: '#/components/schemas/SmrExportTargetConfig'
         access_key_id:
           type: string
+          minLength: 1
           title: Access Key Id
         secret_access_key:
           type: string
+          minLength: 1
           title: Secret Access Key
       type: object
       required:
@@ -46837,11 +48527,13 @@ components:
         access_key_id:
           anyOf:
           - type: string
+            minLength: 1
           - type: 'null'
           title: Access Key Id
         secret_access_key:
           anyOf:
           - type: string
+            minLength: 1
           - type: 'null'
           title: Secret Access Key
       type: object
@@ -46897,22 +48589,43 @@ components:
           title: Default Branch
         role:
           type: string
+          enum:
+          - primary
+          - dependency
           title: Role
           default: dependency
         metadata:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Metadata
+      additionalProperties: false
       type: object
       required:
       - name
       - url
       title: SmrExternalRepositoryCreateRequest
+    SmrExternalRepositoryDeleteResponse:
+      properties:
+        deleted:
+          type: boolean
+          const: true
+          title: Deleted
+        repository_id:
+          type: string
+          title: Repository Id
+      additionalProperties: false
+      type: object
+      required:
+      - deleted
+      - repository_id
+      title: SmrExternalRepositoryDeleteResponse
     SmrExternalRepositoryPatchRequest:
       properties:
         url:
           anyOf:
           - type: string
+            minLength: 1
           - type: 'null'
           title: Url
         default_branch:
@@ -46923,14 +48636,19 @@ components:
         role:
           anyOf:
           - type: string
+            enum:
+            - primary
+            - dependency
           - type: 'null'
           title: Role
         metadata:
           anyOf:
-          - additionalProperties: true
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
             type: object
           - type: 'null'
           title: Metadata
+      additionalProperties: false
       type: object
       title: SmrExternalRepositoryPatchRequest
     SmrExternalRepositoryResponse:
@@ -46951,6 +48669,9 @@ components:
           title: Run Id
         scope_kind:
           type: string
+          enum:
+          - project
+          - run
           title: Scope Kind
         name:
           type: string
@@ -46965,15 +48686,24 @@ components:
           title: Default Branch
         role:
           type: string
+          enum:
+          - primary
+          - dependency
           title: Role
         metadata:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Metadata
         created_at:
+          type: string
+          format: date-time
           title: Created At
         updated_at:
+          type: string
+          format: date-time
           title: Updated At
+      additionalProperties: false
       type: object
       required:
       - repository_id
@@ -48998,6 +50728,44 @@ components:
       - action
       - created_at
       title: SmrFactoryResultSelectionEventResponse
+    SmrFactoryRunCleanupReceiptResponse:
+      properties:
+        schema_version:
+          type: string
+          const: factory_run_cleanup_receipt.v1
+          title: Schema Version
+          default: factory_run_cleanup_receipt.v1
+        run_id:
+          type: string
+          title: Run Id
+        status:
+          type: string
+          enum:
+          - cleaned
+          - not_required
+          - pending
+          - failed
+          title: Status
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        reason:
+          type: string
+          title: Reason
+        resources:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Resources
+      type: object
+      required:
+      - run_id
+      - status
+      - observed_at
+      - reason
+      title: SmrFactoryRunCleanupReceiptResponse
     SmrFactoryRunSummaryResponse:
       properties:
         run_id:
@@ -49154,6 +50922,26 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SmrFactoryOperatingWindowResponse'
           - type: 'null'
+        candidate_gradings:
+          items:
+            $ref: '#/components/schemas/SmrFactoryCandidateResponse'
+          type: array
+          title: Candidate Gradings
+        candidate_gradings_truncated:
+          type: boolean
+          title: Candidate Gradings Truncated
+          default: false
+        git_server_receipt:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Git Server Receipt
+        run_cleanup_receipts:
+          items:
+            $ref: '#/components/schemas/SmrFactoryRunCleanupReceiptResponse'
+          type: array
+          title: Run Cleanup Receipts
         results:
           items:
             $ref: '#/components/schemas/SmrFactoryResultResponse'
@@ -50218,6 +52006,8 @@ components:
       - openai
       - google
       - openrouter
+      - poolside
+      - synth_internal
       - xai
       title: SmrInferenceProvider
     SmrInitialRuntimeMessageRequest:
@@ -52283,6 +54073,7 @@ components:
           title: Run Id
         name:
           type: string
+          minLength: 1
           title: Name
         source_kind:
           type: string
@@ -52297,11 +54088,13 @@ components:
         row_count:
           anyOf:
           - type: integer
+            minimum: 0.0
           - type: 'null'
           title: Row Count
         size_bytes:
           anyOf:
           - type: integer
+            minimum: 0.0
           - type: 'null'
           title: Size Bytes
         mount_path:
@@ -52314,27 +54107,32 @@ components:
           format: date-time
           title: Created At
         download_url:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           title: Download Url
+      additionalProperties: false
       type: object
       required:
       - id
       - project_id
       - name
       - created_at
+      - download_url
       title: SmrProjectDatasetResponse
     SmrProjectDatasetUploadRequest:
       properties:
         name:
           type: string
+          minLength: 1
           title: Name
         content:
           type: string
           title: Content
         encoding:
           type: string
+          enum:
+          - base64
+          - text
+          - utf-8
           title: Encoding
           default: text
         content_type:
@@ -52350,12 +54148,15 @@ components:
         row_count:
           anyOf:
           - type: integer
+            minimum: 0.0
           - type: 'null'
           title: Row Count
         metadata:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Metadata
+      additionalProperties: false
       type: object
       required:
       - name
@@ -53923,9 +55724,11 @@ components:
           - research
           - maintenance
           title: Run Kind
-          description: Kind of work performed by a Factory-linked run. Maintenance
+          description: 'Kind of work performed by a Factory-linked run. Direct /smr/runs
+            must use research. Maintenance is Factory-owned: configure it on the Effort
+            recurrence policy and launch only through Factory wake-due. Maintenance
             runs start with an orchestrator that decides whether to stop early, act,
-            or delegate stewardship work.
+            or delegate stewardship work.'
           default: research
         intended_horizon_hours:
           anyOf:
@@ -53960,8 +55763,9 @@ components:
           description: Override one shared agent model for this run. Shared top-level
             values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct',
             'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4',
-            'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'x-ai/grok-4.3', 'x-ai/grok-build'.
-            Use actor_model_overrides for actor-specific model selection.
+            'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4',
+            'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific
+            model selection.
         agent_harness:
           anyOf:
           - type: string
@@ -55007,6 +56811,43 @@ components:
       - agent_kind
       title: SmrResolvedProfileResponse
       description: A single platform-resolved actor profile (read-only).
+    SmrResolvedRunConfigurationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: synth.research.resolved-swarm-configuration.v1
+          title: Schema Version
+          default: synth.research.resolved-swarm-configuration.v1
+        run_id:
+          type: string
+          title: Run Id
+        project_id:
+          type: string
+          title: Project Id
+        config_version_id:
+          type: string
+          title: Config Version Id
+        snapshot_sha256:
+          type: string
+          maxLength: 64
+          minLength: 64
+          title: Snapshot Sha256
+        snapshot:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Snapshot
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - project_id
+      - config_version_id
+      - snapshot_sha256
+      - snapshot
+      title: SmrResolvedRunConfigurationResponse
+      description: Immutable, redacted configuration snapshot bound to one Research
+        run.
     SmrResourceKind:
       type: string
       enum:
@@ -62387,6 +64228,999 @@ components:
       required:
       - teams
       title: SmrSublinearTeamsResponse
+    SmrSwarmActivityCursorResponse:
+      properties:
+        latest_node_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Latest Node Id
+        latest_event_seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Latest Event Seq
+        transcript_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Transcript Cursor
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      type: object
+      required:
+      - generated_at
+      title: SmrSwarmActivityCursorResponse
+      description: Stable resume coordinates for bounded swarm activity.
+    SmrSwarmActivityResponse:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+          default: 1
+        run_id:
+          type: string
+          title: Run Id
+        project_id:
+          type: string
+          title: Project Id
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+        run:
+          $ref: '#/components/schemas/SmrRunExecutionRunResponse'
+        cursor:
+          $ref: '#/components/schemas/SmrSwarmActivityCursorResponse'
+        actors:
+          items:
+            $ref: '#/components/schemas/SmrRunExecutionActorResponse'
+          type: array
+          title: Actors
+        tasks:
+          items:
+            $ref: '#/components/schemas/SmrRunExecutionTaskResponse'
+          type: array
+          title: Tasks
+        messages:
+          items:
+            $ref: '#/components/schemas/SmrRunExecutionMessageResponse'
+          type: array
+          title: Messages
+        events:
+          items:
+            $ref: '#/components/schemas/SmrRunExecutionEventResponse'
+          type: array
+          title: Events
+        work_products:
+          items:
+            $ref: '#/components/schemas/SmrRunExecutionWorkProductRefResponse'
+          type: array
+          title: Work Products
+        window:
+          $ref: '#/components/schemas/SmrSwarmActivityWindowResponse'
+      type: object
+      required:
+      - run_id
+      - project_id
+      - generated_at
+      - run
+      - cursor
+      - window
+      title: SmrSwarmActivityResponse
+      description: Stable bounded execution activity for one public Research swarm.
+    SmrSwarmActivityWindowResponse:
+      properties:
+        event_limit:
+          type: integer
+          maximum: 500.0
+          minimum: 1.0
+          title: Event Limit
+        actor_limit:
+          type: integer
+          maximum: 200.0
+          minimum: 1.0
+          title: Actor Limit
+        task_limit:
+          type: integer
+          maximum: 250.0
+          minimum: 1.0
+          title: Task Limit
+        message_limit:
+          type: integer
+          maximum: 200.0
+          minimum: 1.0
+          title: Message Limit
+        work_product_limit:
+          type: integer
+          maximum: 200.0
+          minimum: 1.0
+          title: Work Product Limit
+        event_count:
+          type: integer
+          minimum: 0.0
+          title: Event Count
+        actor_count:
+          type: integer
+          minimum: 0.0
+          title: Actor Count
+        task_count:
+          type: integer
+          minimum: 0.0
+          title: Task Count
+        message_count:
+          type: integer
+          minimum: 0.0
+          title: Message Count
+        work_product_count:
+          type: integer
+          minimum: 0.0
+          title: Work Product Count
+      type: object
+      required:
+      - event_limit
+      - actor_limit
+      - task_limit
+      - message_limit
+      - work_product_limit
+      - event_count
+      - actor_count
+      - task_count
+      - message_count
+      - work_product_count
+      title: SmrSwarmActivityWindowResponse
+      description: Requested and returned bounds for one activity snapshot.
+    SmrSwarmActorMoneyResponse:
+      properties:
+        nominal_cents:
+          type: integer
+          minimum: 0.0
+          title: Nominal Cents
+        billed_cents:
+          type: integer
+          minimum: 0.0
+          title: Billed Cents
+        internal_cost_cents:
+          type: integer
+          minimum: 0.0
+          title: Internal Cost Cents
+      additionalProperties: false
+      type: object
+      required:
+      - nominal_cents
+      - billed_cents
+      - internal_cost_cents
+      title: SmrSwarmActorMoneyResponse
+      description: Cent-granular money attributed to one swarm actor.
+    SmrSwarmActorTokenUsageResponse:
+      properties:
+        input_tokens:
+          type: integer
+          minimum: 0.0
+          title: Input Tokens
+        cached_input_tokens:
+          type: integer
+          minimum: 0.0
+          title: Cached Input Tokens
+        output_tokens:
+          type: integer
+          minimum: 0.0
+          title: Output Tokens
+        reasoning_output_tokens:
+          type: integer
+          minimum: 0.0
+          title: Reasoning Output Tokens
+        total_tokens:
+          type: integer
+          minimum: 0.0
+          title: Total Tokens
+      additionalProperties: false
+      type: object
+      required:
+      - input_tokens
+      - cached_input_tokens
+      - output_tokens
+      - reasoning_output_tokens
+      - total_tokens
+      title: SmrSwarmActorTokenUsageResponse
+      description: Token counts attributed to one swarm actor.
+    SmrSwarmActorUsageResponse:
+      properties:
+        actor_id:
+          type: string
+          minLength: 1
+          title: Actor Id
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        task_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Key
+        worker_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Worker Id
+        participant_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Participant Role
+        money:
+          $ref: '#/components/schemas/SmrSwarmActorMoneyResponse'
+        event_count:
+          type: integer
+          minimum: 0.0
+          title: Event Count
+        latest_usage_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Usage At
+        nominal_cents_by_provider:
+          additionalProperties:
+            type: integer
+            minimum: 0.0
+          type: object
+          title: Nominal Cents By Provider
+        nominal_cents_by_model:
+          additionalProperties:
+            type: integer
+            minimum: 0.0
+          type: object
+          title: Nominal Cents By Model
+        tokens:
+          $ref: '#/components/schemas/SmrSwarmActorTokenUsageResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - actor_id
+      - money
+      - event_count
+      - nominal_cents_by_provider
+      - nominal_cents_by_model
+      - tokens
+      title: SmrSwarmActorUsageResponse
+      description: Customer-facing usage attributed to one actor.
+    SmrSwarmArtifactEvidenceResponse:
+      properties:
+        artifact_id:
+          type: string
+          minLength: 1
+          title: Artifact Id
+        artifact_type:
+          type: string
+          minLength: 1
+          title: Artifact Type
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Digest
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        content_url:
+          type: string
+          minLength: 1
+          title: Content Url
+        download_url:
+          type: string
+          minLength: 1
+          title: Download Url
+      additionalProperties: false
+      type: object
+      required:
+      - artifact_id
+      - artifact_type
+      - created_at
+      - content_url
+      - download_url
+      title: SmrSwarmArtifactEvidenceResponse
+      description: One durable artifact advertised by a swarm evidence snapshot.
+    SmrSwarmEvidenceFreshnessResponse:
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+        artifact_count:
+          type: integer
+          minimum: 0.0
+          title: Artifact Count
+        work_product_count:
+          type: integer
+          minimum: 0.0
+          title: Work Product Count
+        run_is_terminal:
+          type: boolean
+          title: Run Is Terminal
+      additionalProperties: false
+      type: object
+      required:
+      - generated_at
+      - artifact_count
+      - work_product_count
+      - run_is_terminal
+      title: SmrSwarmEvidenceFreshnessResponse
+      description: Observable completeness and read time for durable swarm evidence.
+    SmrSwarmEvidenceResponse:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+          default: 1
+        run_id:
+          type: string
+          minLength: 1
+          title: Run Id
+        project_id:
+          type: string
+          minLength: 1
+          title: Project Id
+        artifacts:
+          items:
+            $ref: '#/components/schemas/SmrSwarmArtifactEvidenceResponse'
+          type: array
+          title: Artifacts
+        work_products:
+          items:
+            $ref: '#/components/schemas/SmrSwarmWorkProductEvidenceResponse'
+          type: array
+          title: Work Products
+        freshness:
+          $ref: '#/components/schemas/SmrSwarmEvidenceFreshnessResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - project_id
+      - artifacts
+      - work_products
+      - freshness
+      title: SmrSwarmEvidenceResponse
+      description: Concise durable artifact and WorkProduct index for one swarm.
+    SmrSwarmStatusFailureResponse:
+      properties:
+        code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Code
+        source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+        classification:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Classification
+        terminal:
+          type: boolean
+          title: Terminal
+          default: false
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusFailureResponse
+      description: Failure classification selected by the status projection.
+    SmrSwarmStatusFinalizationResponse:
+      properties:
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        proof_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Proof Status
+        proof_satisfied:
+          type: boolean
+          title: Proof Satisfied
+          default: false
+        blocker_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocker Code
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusFinalizationResponse
+      description: Finalization proof status projected by the terminal contract.
+    SmrSwarmStatusFreshnessResponse:
+      properties:
+        projection_authority:
+          type: string
+          const: smr_run_status_projection.v1
+          title: Projection Authority
+          default: smr_run_status_projection.v1
+        last_authoritative_update_at:
+          type: string
+          format: date-time
+          title: Last Authoritative Update At
+        generated_at:
+          type: string
+          format: date-time
+          title: Generated At
+      additionalProperties: false
+      type: object
+      required:
+      - last_authoritative_update_at
+      - generated_at
+      title: SmrSwarmStatusFreshnessResponse
+      description: Status projection freshness and read time.
+    SmrSwarmStatusInvariantResponse:
+      properties:
+        code:
+          type: string
+          minLength: 1
+          title: Code
+        source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      title: SmrSwarmStatusInvariantResponse
+      description: One invariant violation summarized from typed projection diagnostics.
+    SmrSwarmStatusIssueResponse:
+      properties:
+        kind:
+          type: string
+          enum:
+          - blocker
+          - failure
+          - provider_incident
+          - resource_incident
+          - participant_start_failure
+          - recovery
+          - runtime_invariant
+          title: Kind
+        code:
+          type: string
+          minLength: 1
+          title: Code
+        source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        severity:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Severity
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        first_seen_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: First Seen At
+        last_seen_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Seen At
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - code
+      title: SmrSwarmStatusIssueResponse
+      description: One typed status issue without raw logs, traces, actors, or tasks.
+    SmrSwarmStatusIssuesResponse:
+      properties:
+        issues:
+          items:
+            $ref: '#/components/schemas/SmrSwarmStatusIssueResponse'
+          type: array
+          title: Issues
+        invariants:
+          items:
+            $ref: '#/components/schemas/SmrSwarmStatusInvariantResponse'
+          type: array
+          title: Invariants
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusIssuesResponse
+      description: Typed blockers and invariant summaries for status consumers.
+    SmrSwarmStatusLivenessResponse:
+      properties:
+        phase:
+          type: string
+          minLength: 1
+          title: Phase
+        task_counts:
+          additionalProperties:
+            type: integer
+            minimum: 0.0
+          type: object
+          title: Task Counts
+        participant_queue_counts:
+          additionalProperties:
+            type: integer
+            minimum: 0.0
+          type: object
+          title: Participant Queue Counts
+      additionalProperties: false
+      type: object
+      required:
+      - phase
+      title: SmrSwarmStatusLivenessResponse
+      description: Cheap liveness summary from the run status projection.
+    SmrSwarmStatusProgressResponse:
+      properties:
+        last_progress_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Last Progress At
+        last_progress_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Progress Kind
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusProgressResponse
+      description: Last compact progress signal exposed by the status projection.
+    SmrSwarmStatusRecoveryResponse:
+      properties:
+        blocked:
+          type: boolean
+          title: Blocked
+          default: false
+        codes:
+          items:
+            type: string
+          type: array
+          title: Codes
+        incident_count:
+          type: integer
+          minimum: 0.0
+          title: Incident Count
+          default: 0
+        latest_recorded_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Recorded At
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusRecoveryResponse
+      description: Run-closure recovery blocker summary without task or incident detail.
+    SmrSwarmStatusResponse:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+          default: 1
+        run_id:
+          type: string
+          minLength: 1
+          title: Run Id
+        project_id:
+          type: string
+          minLength: 1
+          title: Project Id
+        state:
+          $ref: '#/components/schemas/SmrSwarmStatusStateResponse'
+        liveness:
+          $ref: '#/components/schemas/SmrSwarmStatusLivenessResponse'
+        terminal:
+          $ref: '#/components/schemas/SmrSwarmStatusTerminalResponse'
+        finalization:
+          $ref: '#/components/schemas/SmrSwarmStatusFinalizationResponse'
+        recovery:
+          $ref: '#/components/schemas/SmrSwarmStatusRecoveryResponse'
+        progress:
+          $ref: '#/components/schemas/SmrSwarmStatusProgressResponse'
+        issues:
+          $ref: '#/components/schemas/SmrSwarmStatusIssuesResponse'
+        failure:
+          $ref: '#/components/schemas/SmrSwarmStatusFailureResponse'
+        freshness:
+          $ref: '#/components/schemas/SmrSwarmStatusFreshnessResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - project_id
+      - state
+      - liveness
+      - terminal
+      - finalization
+      - recovery
+      - progress
+      - issues
+      - failure
+      - freshness
+      title: SmrSwarmStatusResponse
+      description: 'Strict status projection for one public Research swarm.
+
+
+        See specifications/sdk/core_research_migration.md residual observability
+
+        disposition. This schema intentionally excludes actors, tasks, messages,
+
+        artifacts, WorkProducts, logs, and traces.'
+    SmrSwarmStatusStateResponse:
+      properties:
+        public_state:
+          type: string
+          minLength: 1
+          title: Public State
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        blocker_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blocker Code
+      additionalProperties: false
+      type: object
+      required:
+      - public_state
+      title: SmrSwarmStatusStateResponse
+      description: Authoritative public state for one Research swarm.
+    SmrSwarmStatusTerminalResponse:
+      properties:
+        run_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run State
+        run_state_is_terminal:
+          type: boolean
+          title: Run State Is Terminal
+          default: false
+        contract_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Contract Status
+        contract_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Contract Reason
+        outcome:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Outcome
+      additionalProperties: false
+      type: object
+      title: SmrSwarmStatusTerminalResponse
+      description: Terminal contract outcome projected by status_projection.
+    SmrSwarmTokenCountsResponse:
+      properties:
+        input_tokens:
+          type: integer
+          minimum: 0.0
+          title: Input Tokens
+        cached_input_tokens:
+          type: integer
+          minimum: 0.0
+          title: Cached Input Tokens
+        non_cached_input_tokens:
+          type: integer
+          minimum: 0.0
+          title: Non Cached Input Tokens
+        output_tokens:
+          type: integer
+          minimum: 0.0
+          title: Output Tokens
+        reasoning_output_tokens:
+          type: integer
+          minimum: 0.0
+          title: Reasoning Output Tokens
+        non_reasoning_output_tokens:
+          type: integer
+          minimum: 0.0
+          title: Non Reasoning Output Tokens
+        snapshots:
+          type: integer
+          minimum: 0.0
+          title: Snapshots
+      additionalProperties: false
+      type: object
+      required:
+      - input_tokens
+      - cached_input_tokens
+      - non_cached_input_tokens
+      - output_tokens
+      - reasoning_output_tokens
+      - non_reasoning_output_tokens
+      - snapshots
+      title: SmrSwarmTokenCountsResponse
+      description: Token counts for one swarm or model.
+    SmrSwarmTokenUsageResponse:
+      properties:
+        sessions_seen:
+          type: integer
+          minimum: 0.0
+          title: Sessions Seen
+        session_snapshots_count:
+          type: integer
+          minimum: 0.0
+          title: Session Snapshots Count
+        totals:
+          $ref: '#/components/schemas/SmrSwarmTokenCountsResponse'
+        by_model:
+          additionalProperties:
+            $ref: '#/components/schemas/SmrSwarmTokenCountsResponse'
+          type: object
+          title: By Model
+      additionalProperties: false
+      type: object
+      required:
+      - sessions_seen
+      - session_snapshots_count
+      - totals
+      - by_model
+      title: SmrSwarmTokenUsageResponse
+      description: Typed token rollup for a swarm.
+    SmrSwarmUsageFreshnessResponse:
+      properties:
+        source:
+          type: string
+          enum:
+          - none
+          - usage_facts
+          - spend_ledger
+          title: Source
+        as_of:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: As Of
+        record_count:
+          type: integer
+          minimum: 0.0
+          title: Record Count
+        run_is_terminal:
+          type: boolean
+          title: Run Is Terminal
+      additionalProperties: false
+      type: object
+      required:
+      - source
+      - record_count
+      - run_is_terminal
+      title: SmrSwarmUsageFreshnessResponse
+      description: Observable freshness and authority of a swarm usage projection.
+    SmrSwarmUsageMoneyResponse:
+      properties:
+        nominal_cents:
+          type: integer
+          minimum: 0.0
+          title: Nominal Cents
+        billed_cents:
+          type: integer
+          minimum: 0.0
+          title: Billed Cents
+        internal_cost_cents:
+          type: integer
+          minimum: 0.0
+          title: Internal Cost Cents
+        nominal_pico_usd:
+          type: integer
+          minimum: 0.0
+          title: Nominal Pico Usd
+        billed_pico_usd:
+          type: integer
+          minimum: 0.0
+          title: Billed Pico Usd
+        internal_cost_pico_usd:
+          type: integer
+          minimum: 0.0
+          title: Internal Cost Pico Usd
+      additionalProperties: false
+      type: object
+      required:
+      - nominal_cents
+      - billed_cents
+      - internal_cost_cents
+      - nominal_pico_usd
+      - billed_pico_usd
+      - internal_cost_pico_usd
+      title: SmrSwarmUsageMoneyResponse
+      description: Exact monetary usage totals for a public swarm readout.
+    SmrSwarmUsageResponse:
+      properties:
+        schema_version:
+          type: integer
+          const: 1
+          title: Schema Version
+          default: 1
+        run_id:
+          type: string
+          minLength: 1
+          title: Run Id
+        project_id:
+          type: string
+          minLength: 1
+          title: Project Id
+        money:
+          $ref: '#/components/schemas/SmrSwarmUsageMoneyResponse'
+        tokens:
+          $ref: '#/components/schemas/SmrSwarmTokenUsageResponse'
+        actors:
+          items:
+            $ref: '#/components/schemas/SmrSwarmActorUsageResponse'
+          type: array
+          title: Actors
+        freshness:
+          $ref: '#/components/schemas/SmrSwarmUsageFreshnessResponse'
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - project_id
+      - money
+      - tokens
+      - actors
+      - freshness
+      title: SmrSwarmUsageResponse
+      description: Concise typed usage summary for one swarm.
+    SmrSwarmWorkProductArtifactLinkResponse:
+      properties:
+        artifact_id:
+          type: string
+          minLength: 1
+          title: Artifact Id
+        role:
+          $ref: '#/components/schemas/WorkProductArtifactRole'
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Label
+      additionalProperties: false
+      type: object
+      required:
+      - artifact_id
+      - role
+      title: SmrSwarmWorkProductArtifactLinkResponse
+      description: Typed artifact binding retained by one WorkProduct.
+    SmrSwarmWorkProductBlockerResponse:
+      properties:
+        code:
+          type: string
+          minLength: 1
+          title: Code
+        message:
+          type: string
+          minLength: 1
+          title: Message
+        source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - message
+      title: SmrSwarmWorkProductBlockerResponse
+      description: Stable reason that a WorkProduct is not currently consumable.
+    SmrSwarmWorkProductEvidenceResponse:
+      properties:
+        work_product_id:
+          type: string
+          minLength: 1
+          title: Work Product Id
+        kind:
+          $ref: '#/components/schemas/WorkProductKind'
+        subtype_kind:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Subtype Kind
+        title:
+          type: string
+          minLength: 1
+          title: Title
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
+        status:
+          $ref: '#/components/schemas/WorkProductStatus'
+        readiness:
+          $ref: '#/components/schemas/WorkProductReadiness'
+        artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Artifact Id
+        artifact_links:
+          items:
+            $ref: '#/components/schemas/SmrSwarmWorkProductArtifactLinkResponse'
+          type: array
+          title: Artifact Links
+        content_url:
+          type: string
+          minLength: 1
+          title: Content Url
+        blocker:
+          anyOf:
+          - $ref: '#/components/schemas/SmrSwarmWorkProductBlockerResponse'
+          - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - work_product_id
+      - kind
+      - title
+      - status
+      - readiness
+      - artifact_links
+      - content_url
+      - created_at
+      - updated_at
+      title: SmrSwarmWorkProductEvidenceResponse
+      description: One typed WorkProduct advertised by a swarm evidence snapshot.
     SmrTenantResponse:
       properties:
         tenant_id:
@@ -62412,8 +65246,43 @@ components:
       - sublinear
       - linear
       title: SmrToolProvider
+    SmrTranscriptCursorResponse:
+      properties:
+        kind:
+          $ref: '#/components/schemas/TranscriptCursorKind'
+        semantics:
+          type: string
+          const: exclusive
+          title: Semantics
+          default: exclusive
+        requested_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Requested Cursor
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+        live_resume_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Live Resume Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      title: SmrTranscriptCursorResponse
+      description: Opaque exclusive cursor contract for replay and live handoff.
     SmrTranscriptEventResponse:
       properties:
+        schema_version:
+          type: string
+          const: synth.research.transcript-event.v1
+          title: Schema Version
+          default: synth.research.transcript-event.v1
         event_id:
           anyOf:
           - type: string
@@ -62426,9 +65295,11 @@ components:
           title: Live Cursor
         run_id:
           type: string
+          minLength: 1
           title: Run Id
         participant_session_id:
           type: string
+          minLength: 1
           title: Participant Session Id
         participant_role:
           anyOf:
@@ -62451,13 +65322,16 @@ components:
           title: Occurred At
         kind:
           type: string
+          minLength: 1
           title: Kind
         payload:
-          additionalProperties: true
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
           type: object
           title: Payload
         semantic_scope:
           type: string
+          const: participant
           title: Semantic Scope
           default: participant
         run_terminal:
@@ -62467,18 +65341,32 @@ components:
         redaction_profile:
           anyOf:
           - type: string
+            enum:
+            - open_research_public
+            - operator_default
+            - debug_operator
           - type: 'null'
           title: Redaction Profile
         visibility_decision:
           anyOf:
           - type: string
+            enum:
+            - stream_redacted
+            - stream_summary_only
           - type: 'null'
           title: Visibility Decision
         payload_classification:
           anyOf:
           - type: string
+            enum:
+            - public_safe
+            - private
+            - internal
+            - secret
+            - hidden_reasoning
           - type: 'null'
           title: Payload Classification
+      additionalProperties: false
       type: object
       required:
       - run_id
@@ -62486,10 +65374,39 @@ components:
       - occurred_at
       - kind
       title: SmrTranscriptEventResponse
+      description: One viewer-safe transcript event.
+    SmrTranscriptFreshnessResponse:
+      properties:
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        projection_authority:
+          $ref: '#/components/schemas/TranscriptProjectionAuthority'
+        replay_mode:
+          $ref: '#/components/schemas/TranscriptReplayMode'
+        live_tail_available:
+          type: boolean
+          title: Live Tail Available
+      additionalProperties: false
+      type: object
+      required:
+      - observed_at
+      - projection_authority
+      - replay_mode
+      - live_tail_available
+      title: SmrTranscriptFreshnessResponse
+      description: Read time and authority for one transcript projection.
     SmrTranscriptPageResponse:
       properties:
+        schema_version:
+          type: string
+          const: synth.research.transcript-page.v1
+          title: Schema Version
+          default: synth.research.transcript-page.v1
         run_id:
           type: string
+          minLength: 1
           title: Run Id
         participant_session_id:
           anyOf:
@@ -62517,18 +65434,25 @@ components:
           - type: 'null'
           title: Live Resume Cursor
         projection_authority:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Projection Authority
+          $ref: '#/components/schemas/TranscriptProjectionAuthority'
+        freshness:
+          $ref: '#/components/schemas/SmrTranscriptFreshnessResponse'
+        cursor:
+          $ref: '#/components/schemas/SmrTranscriptCursorResponse'
+      additionalProperties: false
       type: object
       required:
       - run_id
+      - projection_authority
+      - freshness
+      - cursor
       title: SmrTranscriptPageResponse
+      description: Versioned transcript page with explicit freshness and cursor semantics.
     SmrTranscriptParticipantResponse:
       properties:
         participant_session_id:
           type: string
+          minLength: 1
           title: Participant Session Id
         participant_id:
           anyOf:
@@ -62584,10 +65508,12 @@ components:
           - type: string
           - type: 'null'
           title: Worker Id
+      additionalProperties: false
       type: object
       required:
       - participant_session_id
       title: SmrTranscriptParticipantResponse
+      description: Current or archived participant represented in a transcript page.
     SmrUsageResponse:
       properties:
         project_id:
@@ -64145,6 +67071,131 @@ components:
       required:
       - rollup_kind
       title: SmrWorkerUpsertUsageRollupRequest
+    SmrWorkspaceFilesUploadResponse:
+      properties:
+        project_id:
+          type: string
+          title: Project Id
+        branch:
+          type: string
+          title: Branch
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Commit Sha
+        files:
+          items:
+            type: string
+          type: array
+          title: Files
+        committed:
+          type: boolean
+          title: Committed
+        file_count:
+          type: integer
+          minimum: 0.0
+          title: File Count
+        bytes_uploaded:
+          type: integer
+          minimum: 0.0
+          title: Bytes Uploaded
+        uploaded_files:
+          items:
+            $ref: '#/components/schemas/SmrWorkspaceStoredFileResponse'
+          type: array
+          title: Uploaded Files
+        project_event_id:
+          type: string
+          title: Project Event Id
+        event_summary:
+          type: string
+          title: Event Summary
+        message_for_agents:
+          type: string
+          title: Message For Agents
+        fanout_runs:
+          items:
+            type: string
+          type: array
+          title: Fanout Runs
+      additionalProperties: false
+      type: object
+      required:
+      - project_id
+      - branch
+      - commit_sha
+      - files
+      - committed
+      - file_count
+      - bytes_uploaded
+      - uploaded_files
+      - project_event_id
+      - event_summary
+      - message_for_agents
+      - fanout_runs
+      title: SmrWorkspaceFilesUploadResponse
+    SmrWorkspaceInputFileItem:
+      properties:
+        path:
+          type: string
+          minLength: 1
+          title: Path
+        content:
+          type: string
+          title: Content
+        content_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Type
+        encoding:
+          anyOf:
+          - type: string
+            enum:
+            - base64
+            - utf-8
+          - type: 'null'
+          title: Encoding
+        kind:
+          anyOf:
+          - type: string
+            enum:
+            - file
+            - source_bundle
+          - type: 'null'
+          title: Kind
+        metadata:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - path
+      - content
+      title: SmrWorkspaceInputFileItem
+    SmrWorkspaceInputFilesUploadRequest:
+      properties:
+        files:
+          items:
+            $ref: '#/components/schemas/SmrWorkspaceInputFileItem'
+          type: array
+          maxItems: 100
+          minItems: 1
+          title: Files
+        idempotency_key:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 1
+          - type: 'null'
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - files
+      title: SmrWorkspaceInputFilesUploadRequest
     SmrWorkspaceInputSourceRepoRequest:
       properties:
         url:
@@ -64154,13 +67205,16 @@ components:
         default_branch:
           anyOf:
           - type: string
+            minLength: 1
           - type: 'null'
           title: Default Branch
         commit_sha:
           anyOf:
           - type: string
+            pattern: ^[0-9a-f]{40}$
           - type: 'null'
           title: Commit Sha
+      additionalProperties: false
       type: object
       required:
       - url
@@ -64172,37 +67226,299 @@ components:
           title: Project Id
         state:
           type: string
+          enum:
+          - empty
+          - configured
           title: State
         source_repo:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - $ref: '#/components/schemas/SmrWorkspaceSourceRepoResponse'
           - type: 'null'
-          title: Source Repo
         files:
           items:
-            additionalProperties: true
-            type: object
+            $ref: '#/components/schemas/SmrWorkspaceStoredFileResponse'
           type: array
           title: Files
         file_count:
           type: integer
+          minimum: 0.0
           title: File Count
-          default: 0
         project_repo:
-          additionalProperties: true
-          type: object
+          anyOf:
+          - $ref: '#/components/schemas/SmrWorkspaceProjectRepoResponse'
+          - $ref: '#/components/schemas/SmrEmptyWorkspaceProjectRepoResponse'
           title: Project Repo
         updated_at:
           anyOf:
           - type: string
+            format: date-time
           - type: 'null'
           title: Updated At
+      additionalProperties: false
       type: object
       required:
       - project_id
       - state
+      - source_repo
+      - files
+      - file_count
+      - project_repo
+      - updated_at
       title: SmrWorkspaceInputsResponse
+    SmrWorkspaceProjectRepoResponse:
+      properties:
+        repo_id:
+          type: string
+          title: Repo Id
+        repo_org_slug:
+          type: string
+          title: Repo Org Slug
+        repo_project_slug:
+          type: string
+          title: Repo Project Slug
+        storage_backend:
+          type: string
+          title: Storage Backend
+        s3_bucket:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: S3 Bucket
+        s3_prefix:
+          type: string
+          title: S3 Prefix
+        vcs_provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Vcs Provider
+        remote_repo:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repo
+        default_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Branch
+        current_archive_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Archive Key
+        current_manifest_key:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Manifest Key
+        current_commit_sha:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{40}$
+          - type: 'null'
+          title: Current Commit Sha
+        metadata:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Metadata
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - repo_id
+      - repo_org_slug
+      - repo_project_slug
+      - storage_backend
+      - s3_bucket
+      - s3_prefix
+      - vcs_provider
+      - remote_repo
+      - default_branch
+      - current_archive_key
+      - current_manifest_key
+      - metadata
+      - updated_at
+      title: SmrWorkspaceProjectRepoResponse
+    SmrWorkspaceSourceRepoReceipt:
+      properties:
+        ok:
+          type: boolean
+          const: true
+          title: Ok
+        url:
+          type: string
+          title: Url
+        default_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Branch
+        commit_sha:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{40}$
+          - type: 'null'
+          title: Commit Sha
+        config_version_id:
+          type: string
+          title: Config Version Id
+      additionalProperties: false
+      type: object
+      required:
+      - ok
+      - url
+      - default_branch
+      - config_version_id
+      title: SmrWorkspaceSourceRepoReceipt
+    SmrWorkspaceSourceRepoResponse:
+      properties:
+        kind:
+          type: string
+          const: external_git
+          title: Kind
+        url:
+          type: string
+          title: Url
+        display_url:
+          type: string
+          title: Display Url
+        public:
+          type: boolean
+          title: Public
+        auth_mode:
+          type: string
+          const: none
+          title: Auth Mode
+        bootstrap_mode:
+          type: string
+          const: workspace_clone
+          title: Bootstrap Mode
+        remote_name:
+          type: string
+          title: Remote Name
+        default_branch:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Branch
+        commit_sha:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{40}$
+          - type: 'null'
+          title: Commit Sha
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - url
+      - display_url
+      - public
+      - auth_mode
+      - bootstrap_mode
+      - remote_name
+      - default_branch
+      title: SmrWorkspaceSourceRepoResponse
+    SmrWorkspaceStoredFileResponse:
+      properties:
+        file_id:
+          type: string
+          title: File Id
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        scope_kind:
+          type: string
+          enum:
+          - project
+          - run
+          title: Scope Kind
+        path:
+          type: string
+          title: Path
+        logical_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Logical Name
+        content_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Type
+        encoding:
+          anyOf:
+          - type: string
+            enum:
+            - base64
+            - utf-8
+          - type: 'null'
+          title: Encoding
+        visibility:
+          type: string
+          enum:
+          - model
+          - verifier
+          title: Visibility
+        storage_backend:
+          type: string
+          title: Storage Backend
+        content_sha256:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          title: Content Sha256
+        content_bytes:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Content Bytes
+        metadata:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - file_id
+      - org_id
+      - project_id
+      - run_id
+      - scope_kind
+      - path
+      - logical_name
+      - content_type
+      - encoding
+      - visibility
+      - storage_backend
+      - metadata
+      - created_at
+      - updated_at
+      title: SmrWorkspaceStoredFileResponse
     SpendSummaryResponse:
       properties:
         today_nominal_usd:
@@ -65480,6 +68796,27 @@ components:
       required:
       - items
       title: TransactionsResponse
+    TranscriptCursorKind:
+      type: string
+      enum:
+      - redis_stream_id
+      - durable_transcript_page
+      title: TranscriptCursorKind
+      description: Opaque cursor namespace returned by a transcript page.
+    TranscriptProjectionAuthority:
+      type: string
+      enum:
+      - smr_control_plane.redis.live_transcript.v1
+      - smr_transcript_events.terminal_archive.v1
+      title: TranscriptProjectionAuthority
+      description: Backend authority used to serve one transcript page.
+    TranscriptReplayMode:
+      type: string
+      enum:
+      - live_tail
+      - terminal_archive
+      title: TranscriptReplayMode
+      description: Ordering domain used by transcript page cursors.
     TransferCreditsRequest:
       properties:
         from_user_id:
@@ -66781,6 +70118,15 @@ components:
       - artifact_id
       - role
       title: WorkProductArtifactLinkResponse
+    WorkProductArtifactRole:
+      type: string
+      enum:
+      - primary
+      - evidence
+      - visual
+      - media
+      - scorecard
+      title: WorkProductArtifactRole
     WorkProductExportBody:
       properties:
         destination:
@@ -66853,6 +70199,31 @@ components:
       - idempotency_key
       - status
       title: WorkProductExportResponse
+    WorkProductKind:
+      type: string
+      enum:
+      - report
+      - model
+      - candidate
+      - container_eval
+      title: WorkProductKind
+    WorkProductReadiness:
+      type: string
+      enum:
+      - downloadable
+      - importable
+      - viewable
+      - blocked
+      - unavailable
+      title: WorkProductReadiness
+    WorkProductStatus:
+      type: string
+      enum:
+      - ready
+      - blocked
+      - failed
+      - deleted
+      title: WorkProductStatus
     WorkspaceConfirmPushRequest:
       properties:
         commit_sha:
