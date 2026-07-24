@@ -4,6 +4,41 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.16.2 — 2026-07-24
+
+### Removed
+
+- **The in-tree Research compatibility packages are gone.** `synth_ai.research`,
+  `synth_ai.managed_research`, `synth_ai.core.research._legacy`,
+  `synth_ai.core.research.compat_advanced`, and `synth_ai.core.research.control`
+  are deleted. `SynthClient().research` is the only entrypoint.
+- The `synth-ai-managed-research-mcp` and `synth-ai-mcp-managed-research`
+  console scripts are replaced by `synth-ai-research-mcp`.
+
+### Changed
+
+- Wire models moved from `_legacy/models` to `synth_ai.core.research.contracts`;
+  the operator session moved from `_legacy/sdk` to
+  `synth_ai.core.research.session`; transports, credentials, errors, vendored
+  schemas, and factory plans moved to their owning `core/research` modules.
+- `ManagedResearchClient` is `ResearchSession`. `SmrControlClient` and
+  `ResearchControlClient` are `ResearchControlSession`.
+  `ManagedResearchMcpServer` is `ResearchMcpServer`.
+- `synth_ai.core.research.errors` owns the typed Research exceptions directly.
+  `Research*` names are primary and the `Smr*` names remain as aliases; the
+  `__getattr__` compatibility indirection is gone.
+
+### Fixed
+
+- The Research SSE transport overrode `HttpTransport.stream_sse` with a narrower
+  `params` type, a renamed timeout parameter, and no `operation_id`, violating
+  Liskov substitution. It now matches the base signature.
+
+### Documentation
+
+- The public Client, Projects, Swarms, and Factories surfaces are fully
+  documented; the docstring gate covers all ten manifest modules.
+
 ## 0.15.3.dev0 — 2026-07-17
 
 Prerelease. Install with `pip install --pre synth-ai` or pin
