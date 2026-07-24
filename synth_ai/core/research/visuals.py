@@ -6,11 +6,9 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, List
 
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-
 
 class ResearchVisualsAPI:
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def publish(

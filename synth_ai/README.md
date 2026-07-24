@@ -9,7 +9,7 @@ The public first-mile surface is intentionally small:
 - `client.containers`
 - `client.tunnels`
 - `client.pools`
-- `synth_ai.managed_research`
+- `client.research`
 - `synth-ai` CLI
 
 Public docs live at https://docs.usesynth.ai/sdk/overview.
@@ -61,22 +61,23 @@ from synth_ai.sdk.pools import ContainerPoolsClient
 from synth_ai.sdk.tunnels import TunnelsClient
 ```
 
-Managed Research callers should use the Managed Research front door and its
-co-located billing namespace:
+Research callers go through the `SynthClient` front door and the Research
+facade:
 
 ```python
-from synth_ai.managed_research import ManagedResearchClient
+from synth_ai import SynthClient
 
-control = ManagedResearchClient()
-catalog = control.billing.catalog()
-plan = control.billing.plan()
+research = SynthClient().research
+catalog = research.advanced.economics.billing_catalog()
+plan = research.advanced.economics.billing_plan()
 ```
 
 ## Guidelines for New Code
 
 1. Put shared errors, URL handling, and environment helpers in `core/`.
 2. Put public HTTP clients and request/response contracts in `sdk/`.
-3. Put Managed Research SDK/client/model/MCP surfaces in `managed_research/`.
+3. Put Research contracts, clients, and operator session surfaces in `core/research/`;
+   the Research MCP delivery adapter lives in `mcp/research/`.
 4. Put front-door composition in `client.py`.
 5. Put terminal commands in `cli/`.
 6. Keep unreleased or internal compatibility APIs out of public README examples and public-first docs.

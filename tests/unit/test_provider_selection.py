@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from synth_ai.research import (
+from synth_ai.core.research.public import (
     CredentialProvider,
     InferenceProvider,
     ProviderBinding,
@@ -96,30 +96,30 @@ def test_tinker_cannot_be_selected_for_new_launches() -> None:
 
 
 def test_legacy_launch_models_match_provider_contract_and_tinker_ban() -> None:
-    from synth_ai.core.research._legacy.models.smr_credential_providers import (
+    from synth_ai.core.research.contracts.smr_credential_providers import (
         SmrCredentialProvider,
     )
-    from synth_ai.core.research._legacy.models.smr_inference_providers import (
+    from synth_ai.core.research.contracts.smr_inference_providers import (
         SmrInferenceProvider,
         coerce_smr_inference_provider,
     )
-    from synth_ai.core.research._legacy.models.run_state import (
+    from synth_ai.core.research.contracts.run_state import (
         ManagedResearchRun,
     )
-    from synth_ai.core.research._legacy.models.smr_providers import (
+    from synth_ai.core.research.contracts.smr_providers import (
         ResourceProvider as LegacyResourceProvider,
         ResourceProviderBinding as LegacyResourceProviderBinding,
         ResourceRoutingPolicy as LegacyResourceRoutingPolicy,
         default_provider_policy,
     )
-    from synth_ai.core.research._legacy.models.run_launch import (
+    from synth_ai.core.research.contracts.run_launch import (
         RunLaunchRequest as LegacyRunLaunchRequest,
     )
-    from synth_ai.core.research._legacy.models.smr_run_policy import (
+    from synth_ai.core.research.contracts.smr_run_policy import (
         SmrRunPolicy,
         SmrRunPolicyAccess,
     )
-    from synth_ai.core.research._legacy.models.smr_tool_providers import (
+    from synth_ai.core.research.contracts.smr_tool_providers import (
         SmrToolProvider,
     )
 
@@ -149,7 +149,7 @@ def test_legacy_launch_models_match_provider_contract_and_tinker_ban() -> None:
     )
     assert positional_launch.provider_policy == legacy_policy
     assert positional_launch.provider is None
-    from synth_ai.core.research._legacy.sdk.client import (
+    from synth_ai.core.research.session.client import (
         _build_project_run_payload,
     )
 
@@ -206,10 +206,10 @@ def test_legacy_launch_models_match_provider_contract_and_tinker_ban() -> None:
 
 
 def test_provider_selection_threads_through_legacy_and_mcp_launches() -> None:
-    from synth_ai.core.research._legacy.models.run_launch import (
+    from synth_ai.core.research.contracts.run_launch import (
         RunLaunchRequest as LegacyRunLaunchRequest,
     )
-    from synth_ai.core.research._legacy.sdk.client import (
+    from synth_ai.core.research.session.client import (
         _build_project_run_payload,
     )
     from synth_ai.mcp.research.request_models import (

@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any, List
 
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     Effort,
     EffortCreateRequest,
     GraduationProposal,
 )
-from synth_ai.core.research._legacy.sdk.client import (
-    ManagedResearchClient as LegacyResearchSession,
+from synth_ai.core.research.session.client import (
+    ResearchSession as LegacyResearchSession,
 )
 
 

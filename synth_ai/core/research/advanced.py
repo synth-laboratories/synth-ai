@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-from synth_ai.core.research._legacy.sdk.images import ImagesAPI
-from synth_ai.core.research._legacy.sdk.tag import TagAPI
 from synth_ai.core.research.advanced_factories import (
     ResearchFactoriesAPI as AdvancedFactoriesAPI,
 )
@@ -15,6 +12,9 @@ from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
 from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
 from synth_ai.core.research.efforts import Efforts
 from synth_ai.core.research.secrets import ResearchSecretsAPI
+from synth_ai.core.research.session.client import ResearchSession
+from synth_ai.core.research.session.images import ImagesAPI
+from synth_ai.core.research.session.tag import TagAPI
 from synth_ai.core.research.visuals import ResearchVisualsAPI
 
 
@@ -23,9 +23,9 @@ def open_advanced_session(
     api_key: str,
     base_url: str,
     timeout_seconds: float,
-) -> ManagedResearchClient:
+) -> ResearchSession:
     """Construct the compatibility session only after advanced access."""
-    return ManagedResearchClient(
+    return ResearchSession(
         api_key=api_key,
         backend_base=base_url,
         timeout_seconds=timeout_seconds,
@@ -38,7 +38,7 @@ class ResearchAdvancedAPI:
     def __init__(
         self,
         *,
-        open_session: Callable[[], ManagedResearchClient],
+        open_session: Callable[[], ResearchSession],
         limits: ResearchLimitsAPI,
         economics: ResearchEconomicsAPI,
     ) -> None:
@@ -53,7 +53,7 @@ class ResearchAdvancedAPI:
         self._visuals: ResearchVisualsAPI | None = None
 
     @property
-    def session(self) -> ManagedResearchClient:
+    def session(self) -> ResearchSession:
         """Low-level operator client; capabilities may change before 1.0."""
         return self._open_session()
 

@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.smr_actor_models import (
+from synth_ai.core.research.contracts.smr_actor_models import (
     SMR_ACTOR_SUBTYPE_VALUES,
     SMR_ACTOR_TYPE_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_agent_kinds import SMR_AGENT_KIND_VALUES
-from synth_ai.core.research._legacy.models.smr_agent_models import SMR_AGENT_MODEL_VALUES
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+from synth_ai.core.research.contracts.smr_agent_kinds import SMR_AGENT_KIND_VALUES
+from synth_ai.core.research.contracts.smr_agent_models import SMR_AGENT_MODEL_VALUES
+from synth_ai.core.research.contracts.smr_evidence_obligations import (
     EVIDENCE_OBLIGATION_KIND_VALUES,
     EVIDENCE_OBLIGATIONS_SCHEMA,
 )
-from synth_ai.core.research._legacy.models.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
-from synth_ai.core.research._legacy.models.smr_host_kinds import SMR_HOST_KIND_VALUES
-from synth_ai.core.research._legacy.models.smr_providers import PROVIDER_VALUES
-from synth_ai.core.research._legacy.models.smr_work_modes import SMR_WORK_MODE_VALUES
+from synth_ai.core.research.contracts.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
+from synth_ai.core.research.contracts.smr_host_kinds import SMR_HOST_KIND_VALUES
+from synth_ai.core.research.contracts.smr_providers import PROVIDER_VALUES
+from synth_ai.core.research.contracts.smr_work_modes import SMR_WORK_MODE_VALUES
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, List
 
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-
 
 class ResearchSecretsAPI:
     """Manage project-scoped secret references for provider and rollout auth.
@@ -15,7 +13,7 @@ class ResearchSecretsAPI:
     launch payloads. Attach refs here, then reference them from project setup.
     """
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def list(

@@ -8,8 +8,8 @@
 
 from __future__ import annotations
 
-from synth_ai.core.research._legacy.models.smr_host_kinds import SmrHostKind
-from synth_ai.core.research._legacy.models.smr_work_modes import SmrWorkMode
+from synth_ai.core.research.contracts.smr_host_kinds import SmrHostKind
+from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
 
 ResearchWorkMode = SmrWorkMode
 ResearchHostKind = SmrHostKind

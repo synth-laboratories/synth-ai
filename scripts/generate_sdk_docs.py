@@ -266,7 +266,7 @@ Set `actor_subtype` on a worker task in the kickoff contract:
 Python enums (SDK):
 
 ```python
-from synth_ai.managed_research.models.smr_actor_models import (
+from synth_ai.core.research.contracts.smr_actor_models import (
     SmrWorkerSubtype,
     SmrReviewerSubtype,
 )
@@ -403,8 +403,8 @@ def main() -> None:
             output = OUTPUT_DIR / "research"
         output.mkdir(parents=True, exist_ok=True)
         excludes = list(root.get("exclude_modules") or [])
-        if module == "synth_ai.research":
-            excludes.append("synth_ai.research.control")
+        if module == "synth_ai.core.research":
+            excludes.append("synth_ai.core.research.session")
         _run_mdxify(
             module,
             output,

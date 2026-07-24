@@ -703,6 +703,53 @@ class PlatformResolvedExecutionTarget:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundRuntimeExecutionTarget:
+    """Signed CloudDev runtime binding authored by the execution authority."""
+
+    attestation: Mapping[str, JsonValue]
+    kind: str = "bound_runtime"
+
+    def __post_init__(self) -> None:
+        if self.kind != "bound_runtime":
+            raise ValueError("bound execution_target.kind must be bound_runtime")
+        payload = dict(self.attestation)
+        constants = {
+            "schema_version": "smr.execution-target.v1",
+            "provider": "exe_dev",
+            "actor_host": "docker",
+            "capacity_authority": "bound_runtime",
+            "audience": "synth-smr-run-start",
+        }
+        for name, expected in constants.items():
+            if payload.get(name) != expected:
+                raise ValueError(f"bound execution_target.attestation.{name} must be {expected}")
+        for name in (
+            "attestation_id",
+            "provider_resource_id",
+            "control_slot_instance_id",
+            "slot_id",
+            "runtime_id",
+            "dispatch_pool",
+            "claim_id",
+            "runtime_generation",
+            "signer_key_id",
+            "signature",
+        ):
+            require_text(payload.get(name), field_name=f"execution target attestation {name}")
+        object.__setattr__(
+            self,
+            "attestation",
+            cast(Mapping[str, JsonValue], _freeze_json(cast(JsonObject, payload))),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "kind": "bound_runtime",
+            "attestation": cast(JsonObject, _thaw_json(cast(FrozenJsonValue, self.attestation))),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ActorImageBinding:
     """Admitted runtime image-release binding for one actor role."""
 
@@ -913,7 +960,7 @@ class SwarmSpec:
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
-    execution_target: PlatformResolvedExecutionTarget | None = None
+    execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
     )
@@ -946,9 +993,12 @@ class SwarmSpec:
         object.__setattr__(self, "provider", normalize_provider_selection(self.provider))
         if self.execution_target is not None and not isinstance(
             self.execution_target,
-            PlatformResolvedExecutionTarget,
+            (PlatformResolvedExecutionTarget, BoundRuntimeExecutionTarget),
         ):
-            raise ValueError("stable execution_target must be PlatformResolvedExecutionTarget")
+            raise ValueError(
+                "stable execution_target must be PlatformResolvedExecutionTarget "
+                "or BoundRuntimeExecutionTarget"
+            )
         if self.kickoff_artifact is not None and not isinstance(
             self.kickoff_artifact,
             KickoffArtifact,
@@ -1294,6 +1344,7 @@ __all__ = [
     "ActorSubtype",
     "ActorType",
     "BranchMode",
+    "BoundRuntimeExecutionTarget",
     "CredentialProvider",
     "DirectedEffortOutcomeSpec",
     "FundingSource",

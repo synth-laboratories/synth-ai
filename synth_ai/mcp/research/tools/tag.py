@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.tag import TagSessionCreateRequest
+from synth_ai.core.research.contracts.tag import TagSessionCreateRequest
 from synth_ai.mcp.research.registry import (
     READ_SCOPES,
     WRITE_SCOPES,

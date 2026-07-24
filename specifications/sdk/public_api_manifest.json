@@ -28,7 +28,7 @@
       "title": "ContainerPoolsClient"
     },
     {
-      "module": "synth_ai.research",
+      "module": "synth_ai.core.research",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Research API"
@@ -82,35 +82,35 @@
     {
       "group": "Research core",
       "pages": [
-        "reference/sdk/research/synth_ai-research-client",
-        "reference/sdk/research/synth_ai-research-async_client"
+        "reference/sdk/research/synth_ai-core-research-client",
+        "reference/sdk/research/synth_ai-core-research-async_client"
       ]
     },
     {
       "group": "Resources",
       "pages": [
-        "reference/sdk/research/synth_ai-research-projects",
-        "reference/sdk/research/synth_ai-research-swarms",
-        "reference/sdk/research/synth_ai-research-factories"
+        "reference/sdk/research/synth_ai-core-research-projects",
+        "reference/sdk/research/synth_ai-core-research-swarms",
+        "reference/sdk/research/synth_ai-core-research-factories"
       ]
     },
     {
       "group": "Types and errors",
       "pages": [
-        "reference/sdk/research/synth_ai-research-errors"
+        "reference/sdk/research/synth_ai-core-research-errors"
       ]
     }
   ],
   "docstring_coverage_required": [
-    "synth_ai/research/factories.py",
-    "synth_ai/research/client.py",
-    "synth_ai/research/projects.py",
-    "synth_ai/research/swarms.py",
+    "synth_ai/core/research/facade.py",
+    "synth_ai/core/research/client.py",
+    "synth_ai/core/research/projects.py",
+    "synth_ai/core/research/swarms.py",
+    "synth_ai/core/research/factories.py",
+    "synth_ai/core/research/errors.py",
     "synth_ai/client.py",
     "synth_ai/sdk/containers.py",
     "synth_ai/sdk/tunnels.py",
-    "synth_ai/sdk/pools.py",
-    "synth_ai/research/errors.py",
-    "synth_ai/research/async_client.py"
+    "synth_ai/sdk/pools.py"
   ]
 }

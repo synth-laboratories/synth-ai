@@ -6,17 +6,6 @@ import warnings
 from collections.abc import Iterator
 from typing import Any, List
 
-from synth_ai.core.research._legacy.models.canonical_usage import (
-    SmrResourceLimitProgress,
-    SmrResourceLimits,
-    SmrRunUsage,
-)
-from synth_ai.core.research._legacy.models.operator_evidence import SmrRunOperatorEvidence
-from synth_ai.core.research._legacy.models.run_diagnostics import (
-    SmrRunActorUsage,
-    SmrRunCostSummary,
-)
-from synth_ai.core.research._legacy.models.run_events import RunRuntimeStreamEvent
 from synth_ai.core.research.models import (
     ResearchArtifact,
     ResearchArtifactManifest,
@@ -34,7 +23,7 @@ class _RunReadoutBound:
 class ResearchRunUsageActorsAPI(_RunReadoutBound):
     """Per-actor usage breakdown for a run."""
 
-    def get(self) -> SmrRunActorUsage:
+    def get(self) -> Any:
         """Return token and cost usage grouped by runtime actor."""
         return self._handle.actor_usage()
 
@@ -42,7 +31,7 @@ class ResearchRunUsageActorsAPI(_RunReadoutBound):
 class ResearchRunUsageCostAPI(_RunReadoutBound):
     """Run-level cost summary readouts."""
 
-    def get(self) -> SmrRunCostSummary:
+    def get(self) -> Any:
         """Return aggregated cost fields for the run."""
         return self._handle.cost_summary()
 
@@ -50,11 +39,11 @@ class ResearchRunUsageCostAPI(_RunReadoutBound):
 class ResearchRunUsageLimitsAPI(_RunReadoutBound):
     """Org and run resource limit readouts."""
 
-    def get(self) -> SmrResourceLimits:
+    def get(self) -> Any:
         """Return configured resource limits applicable to the run."""
         return self._handle.resource_limits()
 
-    def progress(self) -> SmrResourceLimitProgress:
+    def progress(self) -> Any:
         """Return progress toward resource limits (tokens, spend, concurrency)."""
         return self._handle.progress_toward_resource_limits()
 
@@ -89,7 +78,7 @@ class ResearchRunUsageAPI(_RunReadoutBound):
             self._limits = ResearchRunUsageLimitsAPI(self._handle)
         return self._limits
 
-    def get(self) -> SmrRunUsage:
+    def get(self) -> Any:
         """Return canonical usage totals for the run."""
         return self._handle._client.get_run_usage(self._handle.run_id)
 
@@ -218,7 +207,7 @@ class ResearchRunEventsAPI(_RunReadoutBound):
         view: str = "operator",
         last_event_id: str | None = None,
         timeout: float | None = None,
-    ) -> Iterator[RunRuntimeStreamEvent]:
+    ) -> Iterator[Any]:
         """Stream runtime events over SSE.
 
         Args:
@@ -740,7 +729,7 @@ class ResearchRunEvidenceAPI(_RunReadoutBound):
         logical_timeline_limit: int | None = None,
         transcript_limit: int | None = None,
         reconciliation_limit: int | None = None,
-    ) -> SmrRunOperatorEvidence:
+    ) -> Any:
         """Return operator evidence with optional per-section limits."""
         return self._handle.operator_evidence(
             runtime_timeline_limit=runtime_timeline_limit,

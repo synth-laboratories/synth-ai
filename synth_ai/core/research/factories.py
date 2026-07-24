@@ -128,12 +128,28 @@ class FactoryEffortsAPI:
         self._transport = transport
 
     def create(self, request: EffortSpec) -> Effort:
+        """Create an Effort from a typed Effort specification.
+
+        Args:
+            request: Effort specification to serialize into the create request body.
+
+        Returns:
+            The created Effort.
+        """
         value = self._transport.execute(
             _request("create_effort", "/smr/efforts", body=request.to_wire())
         )
         return Effort.from_wire(value)
 
     def list(self, factory_id: FactoryId) -> tuple[Effort, ...]:
+        """List Efforts for a Factory.
+
+        Args:
+            factory_id: Factory whose Efforts to list.
+
+        Returns:
+            The Efforts returned by the backend.
+        """
         value = self._transport.execute(
             _request(
                 "list_factory_efforts",
@@ -143,10 +159,30 @@ class FactoryEffortsAPI:
         return _efforts(value)
 
     def retrieve(self, effort_id: EffortId) -> Effort:
+        """Retrieve an Effort.
+
+        Args:
+            effort_id: Effort to retrieve.
+
+        Returns:
+            The requested Effort.
+        """
         value = self._transport.execute(_request("retrieve_effort", f"/smr/efforts/{effort_id}"))
         return Effort.from_wire(value)
 
     def update(self, effort_id: EffortId, request: EffortPatch) -> Effort:
+        """Update mutable Effort fields from a typed Effort patch.
+
+        Args:
+            effort_id: Effort to update.
+            request: Effort patch to serialize into the update request body.
+
+        Returns:
+            The updated Effort.
+
+        Raises:
+            ValueError: If the Effort patch does not change any fields.
+        """
         value = self._transport.execute(
             _request(
                 "update_effort",
@@ -171,6 +207,17 @@ class FactoryCandidatesAPI:
         effort_id: EffortId | None = None,
         limit: int = 200,
     ) -> tuple[FactoryCandidate, ...]:
+        """List candidates for a Factory.
+
+        Args:
+            factory_id: Factory whose candidates to list.
+            grading_status: Optional grading status filter.
+            effort_id: Optional Effort filter.
+            limit: Maximum number of candidates to request.
+
+        Returns:
+            The candidates returned by the backend.
+        """
         query: JsonObject = {"limit": limit}
         if grading_status is not None:
             query["grading_status"] = (
@@ -195,6 +242,20 @@ class FactoryCandidatesAPI:
         candidate_id: FactoryCandidateId,
         request: FactoryCandidateGradingRequest | JsonObject,
     ) -> FactoryCandidate:
+        """Record benchmark-owned grading for a Factory candidate.
+
+        Args:
+            factory_id: Factory that owns the candidate.
+            candidate_id: Candidate to grade.
+            request: Grading request or mapping to serialize into the grading request body.
+
+        Returns:
+            The updated candidate.
+
+        Raises:
+            ValueError: If a mapping request lacks a grading object or contains invalid grading
+                details.
+        """
         value = self._transport.execute(
             _request(
                 "record_factory_candidate_grading",
@@ -216,6 +277,19 @@ class FactoryChampionsAPI:
         factory_id: FactoryId,
         request: FactoryChampionSelectRequest | JsonObject,
     ) -> FactoryChampionDecision:
+        """Select a champion for a Factory.
+
+        Args:
+            factory_id: Factory whose champion to select.
+            request: Champion selection request or mapping to serialize into the request body.
+
+        Returns:
+            The champion decision returned by the backend.
+
+        Raises:
+            ValueError: If a mapping request lacks a numeric baseline score or has an invalid
+                Effort id.
+        """
         value = self._transport.execute(
             _request(
                 "select_factory_champion",
@@ -230,6 +304,18 @@ class FactoryChampionsAPI:
         factory_id: FactoryId,
         request: FactoryChampionRollbackRequest | JsonObject,
     ) -> FactoryChampionDecision:
+        """Rollback a Factory champion to a candidate.
+
+        Args:
+            factory_id: Factory whose champion to rollback.
+            request: Champion rollback request or mapping to serialize into the request body.
+
+        Returns:
+            The champion decision returned by the backend.
+
+        Raises:
+            ValueError: If a mapping request lacks rollback fields or contains invalid field types.
+        """
         value = self._transport.execute(
             _request(
                 "rollback_factory_champion",
@@ -245,6 +331,15 @@ class FactoryChampionsAPI:
         *,
         limit: int = 100,
     ) -> tuple[FactoryChampionEvent, ...]:
+        """List champion events for a Factory.
+
+        Args:
+            factory_id: Factory whose champion events to list.
+            limit: Maximum number of champion events to request.
+
+        Returns:
+            The champion events returned by the backend.
+        """
         value = self._transport.execute(
             _request(
                 "list_factory_champion_events",
@@ -265,12 +360,28 @@ class FactoriesAPI:
         self.champions = FactoryChampionsAPI(transport)
 
     def create(self, request: FactorySpec) -> Factory:
+        """Create a Factory from a typed Factory specification.
+
+        Args:
+            request: Factory specification to serialize into the create request body.
+
+        Returns:
+            The created Factory.
+        """
         value = self._transport.execute(
             _request("create_factory", "/smr/factories", body=request.to_wire())
         )
         return Factory.from_wire(value)
 
     def list(self, *, include_archived: bool = False) -> tuple[Factory, ...]:
+        """List Factories visible to the authenticated organization.
+
+        Args:
+            include_archived: Whether to include archived Factories in the result.
+
+        Returns:
+            The Factories returned by the backend.
+        """
         value = self._transport.execute(
             _request(
                 "list_factories",
@@ -281,12 +392,29 @@ class FactoriesAPI:
         return _factories(value)
 
     def retrieve(self, factory_id: FactoryId) -> Factory:
+        """Retrieve a Factory.
+
+        Args:
+            factory_id: Factory to retrieve.
+
+        Returns:
+            The requested Factory.
+        """
         value = self._transport.execute(
             _request("retrieve_factory", f"/smr/factories/{factory_id}")
         )
         return Factory.from_wire(value)
 
     def update(self, factory_id: FactoryId, request: FactoryPatch) -> Factory:
+        """Update mutable Factory fields from a typed Factory patch.
+
+        Args:
+            factory_id: Factory to update.
+            request: Factory patch to serialize into the update request body.
+
+        Returns:
+            The updated Factory.
+        """
         value = self._transport.execute(
             _request(
                 "update_factory",
@@ -301,6 +429,15 @@ class FactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the start FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to start.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return self._transition(factory_id, "start", request)
 
     def pause(
@@ -308,6 +445,15 @@ class FactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the pause FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to pause.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return self._transition(factory_id, "pause", request)
 
     def resume(
@@ -315,6 +461,15 @@ class FactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the resume FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to resume.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return self._transition(factory_id, "resume", request)
 
     def archive(
@@ -322,6 +477,15 @@ class FactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the archive FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to archive.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return self._transition(factory_id, "archive", request)
 
     def _transition(
@@ -347,12 +511,28 @@ class AsyncFactoryEffortsAPI:
         self._transport = transport
 
     async def create(self, request: EffortSpec) -> Effort:
+        """Create an Effort from a typed Effort specification.
+
+        Args:
+            request: Effort specification to serialize into the create request body.
+
+        Returns:
+            The created Effort.
+        """
         value = await self._transport.execute(
             _request("create_effort", "/smr/efforts", body=request.to_wire())
         )
         return Effort.from_wire(value)
 
     async def list(self, factory_id: FactoryId) -> tuple[Effort, ...]:
+        """List Efforts for a Factory.
+
+        Args:
+            factory_id: Factory whose Efforts to list.
+
+        Returns:
+            The Efforts returned by the backend.
+        """
         value = await self._transport.execute(
             _request(
                 "list_factory_efforts",
@@ -362,12 +542,32 @@ class AsyncFactoryEffortsAPI:
         return _efforts(value)
 
     async def retrieve(self, effort_id: EffortId) -> Effort:
+        """Retrieve an Effort.
+
+        Args:
+            effort_id: Effort to retrieve.
+
+        Returns:
+            The requested Effort.
+        """
         value = await self._transport.execute(
             _request("retrieve_effort", f"/smr/efforts/{effort_id}")
         )
         return Effort.from_wire(value)
 
     async def update(self, effort_id: EffortId, request: EffortPatch) -> Effort:
+        """Update mutable Effort fields from a typed Effort patch.
+
+        Args:
+            effort_id: Effort to update.
+            request: Effort patch to serialize into the update request body.
+
+        Returns:
+            The updated Effort.
+
+        Raises:
+            ValueError: If the Effort patch does not change any fields.
+        """
         value = await self._transport.execute(
             _request(
                 "update_effort",
@@ -392,6 +592,17 @@ class AsyncFactoryCandidatesAPI:
         effort_id: EffortId | None = None,
         limit: int = 200,
     ) -> tuple[FactoryCandidate, ...]:
+        """List candidates for a Factory.
+
+        Args:
+            factory_id: Factory whose candidates to list.
+            grading_status: Optional grading status filter.
+            effort_id: Optional Effort filter.
+            limit: Maximum number of candidates to request.
+
+        Returns:
+            The candidates returned by the backend.
+        """
         query: JsonObject = {"limit": limit}
         if grading_status is not None:
             query["grading_status"] = (
@@ -416,6 +627,20 @@ class AsyncFactoryCandidatesAPI:
         candidate_id: FactoryCandidateId,
         request: FactoryCandidateGradingRequest | JsonObject,
     ) -> FactoryCandidate:
+        """Record benchmark-owned grading for a Factory candidate.
+
+        Args:
+            factory_id: Factory that owns the candidate.
+            candidate_id: Candidate to grade.
+            request: Grading request or mapping to serialize into the grading request body.
+
+        Returns:
+            The updated candidate.
+
+        Raises:
+            ValueError: If a mapping request lacks a grading object or contains invalid grading
+                details.
+        """
         value = await self._transport.execute(
             _request(
                 "record_factory_candidate_grading",
@@ -437,6 +662,19 @@ class AsyncFactoryChampionsAPI:
         factory_id: FactoryId,
         request: FactoryChampionSelectRequest | JsonObject,
     ) -> FactoryChampionDecision:
+        """Select a champion for a Factory.
+
+        Args:
+            factory_id: Factory whose champion to select.
+            request: Champion selection request or mapping to serialize into the request body.
+
+        Returns:
+            The champion decision returned by the backend.
+
+        Raises:
+            ValueError: If a mapping request lacks a numeric baseline score or has an invalid
+                Effort id.
+        """
         value = await self._transport.execute(
             _request(
                 "select_factory_champion",
@@ -451,6 +689,18 @@ class AsyncFactoryChampionsAPI:
         factory_id: FactoryId,
         request: FactoryChampionRollbackRequest | JsonObject,
     ) -> FactoryChampionDecision:
+        """Rollback a Factory champion to a candidate.
+
+        Args:
+            factory_id: Factory whose champion to rollback.
+            request: Champion rollback request or mapping to serialize into the request body.
+
+        Returns:
+            The champion decision returned by the backend.
+
+        Raises:
+            ValueError: If a mapping request lacks rollback fields or contains invalid field types.
+        """
         value = await self._transport.execute(
             _request(
                 "rollback_factory_champion",
@@ -466,6 +716,15 @@ class AsyncFactoryChampionsAPI:
         *,
         limit: int = 100,
     ) -> tuple[FactoryChampionEvent, ...]:
+        """List champion events for a Factory.
+
+        Args:
+            factory_id: Factory whose champion events to list.
+            limit: Maximum number of champion events to request.
+
+        Returns:
+            The champion events returned by the backend.
+        """
         value = await self._transport.execute(
             _request(
                 "list_factory_champion_events",
@@ -486,12 +745,28 @@ class AsyncFactoriesAPI:
         self.champions = AsyncFactoryChampionsAPI(transport)
 
     async def create(self, request: FactorySpec) -> Factory:
+        """Create a Factory from a typed Factory specification.
+
+        Args:
+            request: Factory specification to serialize into the create request body.
+
+        Returns:
+            The created Factory.
+        """
         value = await self._transport.execute(
             _request("create_factory", "/smr/factories", body=request.to_wire())
         )
         return Factory.from_wire(value)
 
     async def list(self, *, include_archived: bool = False) -> tuple[Factory, ...]:
+        """List Factories visible to the authenticated organization.
+
+        Args:
+            include_archived: Whether to include archived Factories in the result.
+
+        Returns:
+            The Factories returned by the backend.
+        """
         value = await self._transport.execute(
             _request(
                 "list_factories",
@@ -502,12 +777,29 @@ class AsyncFactoriesAPI:
         return _factories(value)
 
     async def retrieve(self, factory_id: FactoryId) -> Factory:
+        """Retrieve a Factory.
+
+        Args:
+            factory_id: Factory to retrieve.
+
+        Returns:
+            The requested Factory.
+        """
         value = await self._transport.execute(
             _request("retrieve_factory", f"/smr/factories/{factory_id}")
         )
         return Factory.from_wire(value)
 
     async def update(self, factory_id: FactoryId, request: FactoryPatch) -> Factory:
+        """Update mutable Factory fields from a typed Factory patch.
+
+        Args:
+            factory_id: Factory to update.
+            request: Factory patch to serialize into the update request body.
+
+        Returns:
+            The updated Factory.
+        """
         value = await self._transport.execute(
             _request(
                 "update_factory",
@@ -522,6 +814,15 @@ class AsyncFactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the start FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to start.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return await self._transition(factory_id, "start", request)
 
     async def pause(
@@ -529,6 +830,15 @@ class AsyncFactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the pause FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to pause.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return await self._transition(factory_id, "pause", request)
 
     async def resume(
@@ -536,6 +846,15 @@ class AsyncFactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the resume FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to resume.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return await self._transition(factory_id, "resume", request)
 
     async def archive(
@@ -543,6 +862,15 @@ class AsyncFactoriesAPI:
         factory_id: FactoryId,
         request: FactoryTransition | None = None,
     ) -> FactoryTransitionResult:
+        """Apply the archive FactoryLifecycle transition to a Factory.
+
+        Args:
+            factory_id: Factory to archive.
+            request: Optional Factory transition metadata and preview flag.
+
+        Returns:
+            The Factory transition result returned by the backend.
+        """
         return await self._transition(factory_id, "archive", request)
 
     async def _transition(
