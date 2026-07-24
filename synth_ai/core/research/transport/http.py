@@ -9,7 +9,7 @@ generic messages rather than failing the transport with a parse error.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 import httpx
@@ -240,16 +240,18 @@ class SmrHttpTransport(HttpTransport):
         self,
         path: str,
         *,
-        params: dict[str, JsonValue] | None = None,
+        params: Mapping[str, JsonValue] | None = None,
         last_event_id: str | None = None,
-        timeout: float | None = None,
+        timeout_seconds: float | None = None,
+        operation_id: str | None = None,
     ) -> Iterator[SseEvent]:
         try:
             yield from super().stream_sse(
                 path,
                 params=params,
                 last_event_id=last_event_id,
-                timeout_seconds=timeout,
+                timeout_seconds=timeout_seconds,
+                operation_id=operation_id,
             )
         except SmrApiError as error:
             if isinstance(error.__cause__, httpx.TimeoutException):

@@ -1676,7 +1676,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             path,
             params=params,
             last_event_id=last_event_id,
-            timeout=timeout,
+            timeout_seconds=timeout,
         )
 
     def get_backend_version(self) -> dict[str, Any]:
