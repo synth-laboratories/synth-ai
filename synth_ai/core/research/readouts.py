@@ -667,6 +667,7 @@ class ResearchRunLogsAPI(_RunReadoutBound):
         limit: int | None = None,
         cursor: str | None = None,
         min_level: str | None = None,
+        compact: bool | None = None,
     ) -> dict[str, Any]:
         """List log records with optional cursor pagination and severity floor."""
         return self._handle._client.get_run_logs(
@@ -675,6 +676,7 @@ class ResearchRunLogsAPI(_RunReadoutBound):
             limit=limit,
             cursor=cursor,
             min_level=min_level,
+            compact=compact,
         )
 
 
