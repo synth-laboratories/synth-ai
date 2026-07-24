@@ -17,9 +17,9 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
-from synth_ai.core.research._legacy.models.factories import FactoryWakeDueResult
-from synth_ai.core.research._legacy.models.types import SmrRunnableProjectRequest
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research.contracts.factory_operations import FactoryWakeDueResult
+from synth_ai.core.research.contracts.types import SmrRunnableProjectRequest
+from synth_ai.core.research.session.client import ResearchSession
 
 _BUILTIN_PLANS = {
     "rsi-synth-on-synth": "rsi_synth_on_synth.plan.json",
@@ -58,7 +58,7 @@ def _json_object(raw: str, *, field: str) -> dict[str, Any]:
             available = ", ".join(sorted(_BUILTIN_PLANS))
             raise ValueError(f"unknown built-in plan {plan_name!r}; available: {available}")
         value = (
-            resources.files("synth_ai.core.research._legacy.factory_plans")
+            resources.files("synth_ai.core.research.factory_plans")
             .joinpath(resource_name)
             .read_text(encoding="utf-8")
         )
@@ -1233,7 +1233,7 @@ def _wake_due_preview_kwargs(plan: Mapping[str, Any]) -> dict[str, Any]:
 
 def _confirm_wake_preview(
     *,
-    client: ManagedResearchClient,
+    client: ResearchSession,
     factory_id: str,
     preview: FactoryWakeDueResult,
 ) -> FactoryWakeDueResult:
@@ -1277,7 +1277,7 @@ def _wake_result_proof(result: FactoryWakeDueResult | None) -> Any:
 def execute_factory_standup(
     plan: Mapping[str, Any],
     *,
-    client: ManagedResearchClient,
+    client: ResearchSession,
     plan_inputs: Mapping[str, object] | None = None,
     dry_run: bool = False,
     wake_due: bool = False,
@@ -1403,7 +1403,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         plan = _json_object(args.plan, field="plan")
         plan_inputs = _parse_plan_inputs(args.plan_input)
-        client = ManagedResearchClient(api_key=args.api_key, backend_base=args.backend)
+        client = ResearchSession(api_key=args.api_key, backend_base=args.backend)
         proof = execute_factory_standup(
             plan,
             client=client,

@@ -8,15 +8,14 @@ docs-check: docs-gen
 	uv run python scripts/check_sdk_docstrings.py
 
 docs-dev:
-	@test -f docs/docs.json || (echo "Run make docs-gen first" && exit 1)
-	cd docs && mint dev
+	@echo "Local preview lives in the docs repo: cd ../docs/docs && npm run dev"
+	@echo "This repo only generates reference pages: make docs-gen"
 
 # SDK pytest suite lives in ../testing (see testing/backend/unit/synth_ai_sdk/README.md).
 test test-unit:
 	@if [ -d ../testing/backend/unit/synth_ai_sdk ]; then \
 		uv run python scripts/check_sdk_architecture.py && \
 		uv run python scripts/check_research_migration_boundaries.py && \
-		uv run python scripts/generate_managed_research_compatibility.py --check && \
 		uv run python scripts/check_research_openapi_contract.py && \
 		cd ../testing && uv run python scripts/validate_synth_ai_contract.py && \
 		uv run pytest --confcutdir=backend/unit/synth_ai_sdk backend/unit/synth_ai_sdk -v --maxfail=1; \

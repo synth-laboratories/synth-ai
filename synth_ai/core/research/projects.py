@@ -54,10 +54,20 @@ def _projects(value: object) -> tuple[Project, ...]:
 
 
 class ProjectSetupAPI:
+    """Project setup state retrieval and preparation."""
+
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
     def retrieve(self, project_id: ProjectId) -> ProjectSetup:
+        """Retrieve the setup state for a Project.
+
+        Args:
+            project_id: Project to inspect.
+
+        Returns:
+            The current Project setup state and blockers.
+        """
         value = self._transport.execute(
             _request(
                 "retrieve_project_setup",
@@ -67,6 +77,14 @@ class ProjectSetupAPI:
         return ProjectSetup.from_wire(value)
 
     def prepare(self, project_id: ProjectId) -> ProjectSetup:
+        """Prepare setup for a Project and return its setup state.
+
+        Args:
+            project_id: Project to prepare.
+
+        Returns:
+            The Project setup state after preparation.
+        """
         value = self._transport.execute(
             _request(
                 "prepare_project_setup",
@@ -77,6 +95,8 @@ class ProjectSetupAPI:
 
 
 class ProjectsAPI:
+    """Project lifecycle operations and nested data, setup, and workspace namespaces."""
+
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
         self.datasets = ProjectDatasetsAPI(transport)
@@ -85,6 +105,14 @@ class ProjectsAPI:
         self.workspace = ProjectWorkspaceAPI(transport)
 
     def create(self, request: ProjectSpec) -> Project:
+        """Create a runnable Project from a typed Project specification.
+
+        Args:
+            request: Project specification to serialize into the create request body.
+
+        Returns:
+            The created Project.
+        """
         value = self._transport.execute(
             _request("create_project", "/smr/projects:runnable", body=request.to_wire())
         )
@@ -97,6 +125,16 @@ class ProjectsAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[Project, ...]:
+        """List Projects visible to the authenticated organization.
+
+        Args:
+            include_archived: Whether to include archived Projects in the result.
+            limit: Maximum number of Projects to request.
+            cursor: Optional pagination cursor returned by the backend.
+
+        Returns:
+            The Projects returned by the backend.
+        """
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -104,6 +142,14 @@ class ProjectsAPI:
         return _projects(value)
 
     def retrieve(self, project_id: ProjectId) -> Project:
+        """Retrieve a Project.
+
+        Args:
+            project_id: Project to retrieve.
+
+        Returns:
+            The requested Project.
+        """
         value = self._transport.execute(_request("retrieve_project", f"/smr/projects/{project_id}"))
         return Project.from_wire(value)
 
@@ -112,6 +158,15 @@ class ProjectsAPI:
         project_id: ProjectId,
         request: ProjectPatch,
     ) -> Project:
+        """Update mutable Project fields from a typed Project patch.
+
+        Args:
+            project_id: Project to update.
+            request: Project patch to serialize into the update request body.
+
+        Returns:
+            The updated Project.
+        """
         value = self._transport.execute(
             _request(
                 "update_project",
@@ -122,6 +177,14 @@ class ProjectsAPI:
         return Project.from_wire(value)
 
     def archive(self, project_id: ProjectId) -> Project:
+        """Archive a Project with a deterministic idempotency key.
+
+        Args:
+            project_id: Project to archive.
+
+        Returns:
+            The archived Project.
+        """
         value = self._transport.execute(
             _request(
                 "archive_project",
@@ -132,6 +195,14 @@ class ProjectsAPI:
         return Project.from_wire(value)
 
     def unarchive(self, project_id: ProjectId) -> Project:
+        """Unarchive a Project.
+
+        Args:
+            project_id: Project to unarchive.
+
+        Returns:
+            The unarchived Project.
+        """
         value = self._transport.execute(
             _request("unarchive_project", f"/smr/projects/{project_id}/unarchive")
         )
@@ -139,16 +210,34 @@ class ProjectsAPI:
 
 
 class AsyncProjectSetupAPI:
+    """Project setup state retrieval and preparation."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
     async def retrieve(self, project_id: ProjectId) -> ProjectSetup:
+        """Retrieve the setup state for a Project.
+
+        Args:
+            project_id: Project to inspect.
+
+        Returns:
+            The current Project setup state and blockers.
+        """
         value = await self._transport.execute(
             _request("retrieve_project_setup", f"/smr/projects/{project_id}/setup")
         )
         return ProjectSetup.from_wire(value)
 
     async def prepare(self, project_id: ProjectId) -> ProjectSetup:
+        """Prepare setup for a Project and return its setup state.
+
+        Args:
+            project_id: Project to prepare.
+
+        Returns:
+            The Project setup state after preparation.
+        """
         value = await self._transport.execute(
             _request("prepare_project_setup", f"/smr/projects/{project_id}/setup/prepare")
         )
@@ -156,6 +245,8 @@ class AsyncProjectSetupAPI:
 
 
 class AsyncProjectsAPI:
+    """Project lifecycle operations and nested data, setup, and workspace namespaces."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
         self.datasets = AsyncProjectDatasetsAPI(transport)
@@ -164,6 +255,14 @@ class AsyncProjectsAPI:
         self.workspace = AsyncProjectWorkspaceAPI(transport)
 
     async def create(self, request: ProjectSpec) -> Project:
+        """Create a runnable Project from a typed Project specification.
+
+        Args:
+            request: Project specification to serialize into the create request body.
+
+        Returns:
+            The created Project.
+        """
         value = await self._transport.execute(
             _request("create_project", "/smr/projects:runnable", body=request.to_wire())
         )
@@ -176,6 +275,16 @@ class AsyncProjectsAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[Project, ...]:
+        """List Projects visible to the authenticated organization.
+
+        Args:
+            include_archived: Whether to include archived Projects in the result.
+            limit: Maximum number of Projects to request.
+            cursor: Optional pagination cursor returned by the backend.
+
+        Returns:
+            The Projects returned by the backend.
+        """
         query: JsonObject = {"include_archived": include_archived, "limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -185,6 +294,14 @@ class AsyncProjectsAPI:
         return _projects(value)
 
     async def retrieve(self, project_id: ProjectId) -> Project:
+        """Retrieve a Project.
+
+        Args:
+            project_id: Project to retrieve.
+
+        Returns:
+            The requested Project.
+        """
         value = await self._transport.execute(
             _request("retrieve_project", f"/smr/projects/{project_id}")
         )
@@ -195,12 +312,29 @@ class AsyncProjectsAPI:
         project_id: ProjectId,
         request: ProjectPatch,
     ) -> Project:
+        """Update mutable Project fields from a typed Project patch.
+
+        Args:
+            project_id: Project to update.
+            request: Project patch to serialize into the update request body.
+
+        Returns:
+            The updated Project.
+        """
         value = await self._transport.execute(
             _request("update_project", f"/smr/projects/{project_id}", body=request.to_wire())
         )
         return Project.from_wire(value)
 
     async def archive(self, project_id: ProjectId) -> Project:
+        """Archive a Project with a deterministic idempotency key.
+
+        Args:
+            project_id: Project to archive.
+
+        Returns:
+            The archived Project.
+        """
         value = await self._transport.execute(
             _request(
                 "archive_project",
@@ -211,6 +345,14 @@ class AsyncProjectsAPI:
         return Project.from_wire(value)
 
     async def unarchive(self, project_id: ProjectId) -> Project:
+        """Unarchive a Project.
+
+        Args:
+            project_id: Project to unarchive.
+
+        Returns:
+            The unarchived Project.
+        """
         value = await self._transport.execute(
             _request("unarchive_project", f"/smr/projects/{project_id}/unarchive")
         )

@@ -17,8 +17,7 @@ dependencies = [
 
 [project.scripts]
 synth-ai = "synth_ai.cli:cli"
-synth-ai-managed-research-mcp = "synth_ai.managed_research.mcp.server:main"
-synth-ai-mcp-managed-research = "synth_ai.managed_research.mcp.server:main"
+synth-ai-research-mcp = "synth_ai.mcp.research.server:main"
 synth-ai-research-factory-standup = "synth_ai.cli.research_factory_standup:main"
 
 [project.optional-dependencies]
@@ -83,9 +82,8 @@ include-package-data = true
 [tool.setuptools.package-data]
 "synth_ai" = [
     "py.typed",
-    "managed_research/py.typed",
-    "managed_research/factory_plans/*.json",
-    "managed_research/schemas/*",
+    "core/research/factory_plans/*.json",
+    "core/research/schemas/*",
 ]
 
 [tool.ruff]
@@ -125,30 +123,13 @@ ignore = [
 "synth_ai/http.py" = ["F403"]
 "**/__init__.py" = ["N999"]
 "**/__main__.py" = ["N999"]
-"synth_ai/research/advanced.py" = ["F401"]
-"synth_ai/research/runs.py" = ["F401"]
-"synth_ai/research/control.py" = ["F401"]
-"synth_ai/research/efforts.py" = ["F401"]
-"synth_ai/research/enums.py" = ["F401"]
-"synth_ai/research/errors.py" = ["F401"]
-"synth_ai/research/factories.py" = ["F401"]
-"synth_ai/research/hosted_artifacts.py" = ["F401"]
-"synth_ai/research/models.py" = ["F401"]
-"synth_ai/research/project_namespaces.py" = ["F401"]
-"synth_ai/research/projects.py" = ["F401"]
-"synth_ai/research/run_readouts.py" = ["F401"]
-"synth_ai/research/secrets.py" = ["F401"]
-"synth_ai/research/swarms.py" = ["F401"]
-"synth_ai/research/visuals.py" = ["F401"]
-"synth_ai/managed_research/__init__.py" = ["E402", "F401", "F403"]
 
 [tool.ty.src]
 include = ["synth_ai"]
 
 [[tool.ty.overrides]]
 include = [
-    "synth_ai/research/**",
-    "synth_ai/managed_research/sdk/tag.py",
+    "synth_ai/core/research/_legacy/sdk/tag.py",
 ]
 rules = { unresolved-import = "warn" }
 

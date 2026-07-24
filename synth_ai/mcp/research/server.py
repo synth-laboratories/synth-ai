@@ -7,19 +7,19 @@ import sys
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
-from synth_ai.core.research._legacy.auth import get_api_key
-from synth_ai.core.research._legacy.errors import SmrApiError
-from synth_ai.core.research._legacy.models.factories import FactoryWakeDueRequest
-from synth_ai.core.research._legacy.models.promotions import (
-    SmrPromotionDiscountPreviewRequest,
-)
-from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-from synth_ai.core.research._legacy.version import __version__
-from synth_ai.core.research.client import ResearchClient as CoreResearchClient
+from synth_ai.core.research.auth import get_api_key
+from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
 from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
+from synth_ai.core.research.contracts.factory_operations import FactoryWakeDueRequest
+from synth_ai.core.research.contracts.promotions import (
+    SmrPromotionDiscountPreviewRequest,
+)
+from synth_ai.core.research.contracts.run_control import ManagedResearchActorControlAction
 from synth_ai.core.research.contracts.transcript import TranscriptView
+from synth_ai.core.research.errors import SmrApiError
+from synth_ai.core.research.session.client import ResearchSession
+from synth_ai.core.research.version import __version__
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
     objective_tool_operation_from_wire,
@@ -338,10 +338,10 @@ class ResearchMcpServer:
     def call_tool(self, name: str, arguments: JSONDict | None = None) -> Any:
         return call_tool(self._advertised_tools(), name, arguments)
 
-    def _client_from_args(self, args: JSONDict) -> ManagedResearchClient:
+    def _client_from_args(self, args: JSONDict) -> ResearchSession:
         resolved_api_key = optional_string(args, "api_key") or self._default_api_key
         resolved_backend_base = optional_string(args, "backend_base") or self._default_backend_base
-        return ManagedResearchClient(
+        return ResearchSession(
             api_key=resolved_api_key,
             backend_base=resolved_backend_base,
         )
@@ -3490,12 +3490,8 @@ def main() -> None:
     ResearchMcpServer().serve_stdio()
 
 
-ManagedResearchMcpServer = ResearchMcpServer
-
-
 __all__ = [
     "DEFAULT_PROTOCOL_VERSION",
-    "ManagedResearchMcpServer",
     "ResearchMcpServer",
     "SERVER_NAME",
     "SUPPORTED_PROTOCOL_VERSIONS",

@@ -9,7 +9,7 @@ admission, budget, capacity, and terminal state.
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.research import Error, SwarmSpec
+from synth_ai.core.research.public import Error, SwarmSpec
 
 with SynthClient() as client:
     handle = None

@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.smr_actor_models import (
+from synth_ai.core.research.contracts.smr_actor_models import (
     SMR_ACTOR_SUBTYPE_VALUES,
     SMR_ACTOR_TYPE_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_agent_models import SMR_AGENT_MODEL_VALUES
-from synth_ai.core.research._legacy.models.smr_credential_providers import (
+from synth_ai.core.research.contracts.smr_agent_models import SMR_AGENT_MODEL_VALUES
+from synth_ai.core.research.contracts.smr_credential_providers import (
     SMR_CREDENTIAL_PROVIDER_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_environment_kinds import (
+from synth_ai.core.research.contracts.smr_environment_kinds import (
     SMR_ENVIRONMENT_KIND_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
-from synth_ai.core.research._legacy.models.smr_runtime_kinds import SMR_RUNTIME_KIND_VALUES
+from synth_ai.core.research.contracts.smr_funding_sources import SMR_FUNDING_SOURCE_VALUES
+from synth_ai.core.research.contracts.smr_runtime_kinds import SMR_RUNTIME_KIND_VALUES
 from synth_ai.mcp.research.objective_tools import ObjectiveToolOperation
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 

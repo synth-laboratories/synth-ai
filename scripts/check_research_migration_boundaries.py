@@ -15,8 +15,14 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 CORE_ROOT = ROOT / "synth_ai/core"
-LEGACY_ROOT = ROOT / "synth_ai/managed_research"
-INTERNAL_COMPATIBILITY_ROOT = ROOT / "synth_ai/core/research/_legacy"
+# Compatibility trees that must never come back. These were shrink-ratcheted
+# while they drained; they are now absence assertions.
+RETIRED_TREES = (
+    ROOT / "synth_ai/research",
+    ROOT / "synth_ai/managed_research",
+    ROOT / "synth_ai/core/research/_legacy",
+)
+RETIRED_MODULES = ROOT / "synth_ai/core/research/compat_advanced.py", ROOT / "synth_ai/core/research/control.py"
 LEDGER_PATH = ROOT / "specifications/sdk/research_capability_ledger.json"
 FORBIDDEN_CORE_IMPORTS = (
     "synth_ai.cli",
@@ -71,68 +77,16 @@ def _core_import_failures() -> list[str]:
     return failures
 
 
-def _legacy_failures(ledger: dict[str, object]) -> list[str]:
-    baseline = ledger["baseline"]
-    assert isinstance(baseline, dict)
-    allowed_raw = ledger["legacy_files"]
-    assert isinstance(allowed_raw, list)
-    allowed = {str(value) for value in allowed_raw}
-    current_paths = {
-        path.relative_to(ROOT).as_posix()
-        for path in _python_files(LEGACY_ROOT)
-    }
-    current_lines = sum(
-        len((ROOT / relative).read_text(encoding="utf-8").splitlines())
-        for relative in current_paths
-    )
+def _retired_tree_failures() -> list[str]:
+    """The compatibility packages must stay deleted, not merely stop growing."""
     failures: list[str] = []
-    additions = sorted(current_paths - allowed)
-    if additions:
-        failures.append(
-            "new managed_research implementation files are frozen: " + ", ".join(additions)
-        )
-    file_limit = int(baseline["legacy_implementation_files"])
-    line_limit = int(baseline["legacy_implementation_lines"])
-    if len(current_paths) > file_limit:
-        failures.append(f"legacy files increased: {len(current_paths)} > {file_limit}")
-    if current_lines > line_limit:
-        failures.append(f"legacy lines increased: {current_lines} > {line_limit}")
+    for tree in RETIRED_TREES:
+        if tree.exists():
+            failures.append(f"retired compatibility tree is back: {tree.relative_to(ROOT)}")
+    for module in RETIRED_MODULES:
+        if module.exists():
+            failures.append(f"retired compatibility module is back: {module.relative_to(ROOT)}")
     return failures
-
-
-def _internal_compatibility_failures(ledger: dict[str, object]) -> list[str]:
-    baseline = ledger["baseline"]
-    assert isinstance(baseline, dict)
-    allowed_raw = ledger.get("internal_compatibility_files")
-    if not isinstance(allowed_raw, list):
-        return ["internal compatibility inventory is missing"]
-    allowed = {str(value) for value in allowed_raw}
-    current_paths = {
-        path.relative_to(ROOT).as_posix()
-        for path in _python_files(INTERNAL_COMPATIBILITY_ROOT)
-    }
-    current_lines = sum(
-        len((ROOT / relative).read_text(encoding="utf-8").splitlines())
-        for relative in current_paths
-    )
-    failures: list[str] = []
-    additions = sorted(current_paths - allowed)
-    if additions:
-        failures.append(
-            "new internal compatibility implementation files are frozen: "
-            + ", ".join(additions)
-        )
-    file_limit = baseline.get("internal_compatibility_files")
-    line_limit = baseline.get("internal_compatibility_lines")
-    if file_limit is None or line_limit is None:
-        failures.append("internal compatibility ratchet baseline is missing")
-        return failures
-    if len(current_paths) > int(file_limit):
-        failures.append(f"internal compatibility files increased: {len(current_paths)} > {file_limit}")
-    if current_lines > int(line_limit):
-        failures.append(f"internal compatibility lines increased: {current_lines} > {line_limit}")
-    return failures
-
 
 def _consumer_import_count(root: Path) -> tuple[int, list[str]]:
     count = 0
@@ -142,17 +96,14 @@ def _consumer_import_count(root: Path) -> tuple[int, list[str]]:
             source = path.read_text(encoding="utf-8")
         except FileNotFoundError:
             continue
-        if "synth_ai.managed_research" not in source and "synth_ai.core" not in source:
+        if "synth_ai.core" not in source:
             continue
         tree = ast.parse(source, filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Import, ast.ImportFrom)):
                 continue
             names = _import_names(node)
-            if any(
-                name.startswith("synth_ai.managed_research") or name.startswith("synth_ai.core")
-                for name in names
-            ):
+            if any(name.startswith("synth_ai.core") for name in names):
                 count += 1
                 if len(samples) < 12:
                     samples.append(
@@ -207,8 +158,7 @@ def main() -> int:
     failures = [
         *_ledger_failures(ledger),
         *_core_import_failures(),
-        *_legacy_failures(ledger),
-        *_internal_compatibility_failures(ledger),
+        *_retired_tree_failures(),
         *_external_failures(ledger, arguments.backend_root, arguments.evals_root),
     ]
     if failures:

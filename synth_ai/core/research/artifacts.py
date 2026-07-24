@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, List
 
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-
 
 def _artifact_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     artifacts = payload.get("artifacts")
@@ -40,7 +38,7 @@ class ResearchHostedArtifactsAPI:
         ... )
     """
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def list(
