@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from synth_ai.core.research._legacy.models.run_state import (
     _int_value,
