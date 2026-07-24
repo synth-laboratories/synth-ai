@@ -1,7 +1,8 @@
 # Local SDK docs preview
 
-This directory is a **local Mintlify site** for previewing auto-generated SDK
-reference pages. Production docs live in the sibling [`docs`](https://github.com/synth-laboratories/docs) repo.
+This directory holds the auto-generated SDK reference pages. The published site
+is Blume, in the sibling [`docs`](https://github.com/synth-laboratories/docs)
+repo; preview there with `npm run dev`.
 
 Generated output (`reference/sdk/`, `docs.json`, `overview.mdx`) is produced by
 `scripts/generate_sdk_docs.py` from Python docstrings. See
@@ -11,7 +12,6 @@ Generated output (`reference/sdk/`, `docs.json`, `overview.mdx`) is produced by
 
 ```bash
 uv sync --group dev
-brew install mintlify  # or: npm i -g mintlify
 ```
 
 ## Generate reference
@@ -31,30 +31,17 @@ uv run python scripts/generate_sdk_docs.py --sync-docs-repo
 
 ## Local preview
 
-**Always run `make docs-gen` before starting the preview.** Do not run
-`make docs-gen` (or `--sync-docs-repo`) while `mint dev` is running.
-
-Regeneration deletes and recreates MDX files under `reference/sdk/`. If Mintlify
-is watching that tree, the file watcher thrashes, nav briefly points at missing
-pages, and the dev server can crash with:
-
-```text
-TypeError: controller[kState].transformAlgorithm is not a function
-```
-
-Workflow:
+Preview in the docs repo, which owns the Blume site:
 
 ```bash
 make docs-gen
-make docs-dev          # cd docs && mint dev
-# or explicitly:
-cd docs && mint dev --port 3000
+uv run python scripts/generate_sdk_docs.py --sync-docs-repo
+cd ../docs/docs && npm run dev
 ```
 
-Open **http://localhost:3000/overview** (redirects from `/`).
-
-If the preview keeps crashing, stop `mint dev`, run `make docs-gen` again, then
-restart. Consider `mint update` if Mintlify warns about an available update.
+Do not run `make docs-gen` or `--sync-docs-repo` while the preview server is
+running: regeneration deletes and recreates the MDX tree under `reference/sdk/`,
+so the file watcher thrashes and navigation briefly points at missing pages.
 
 ## What not to edit by hand
 
