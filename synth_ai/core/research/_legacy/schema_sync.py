@@ -342,10 +342,25 @@ def sync_smr_layered_enums(
     *,
     destination_dir: Path | None = None,
 ) -> list[Path]:
-    target_dir = destination_dir or (Path(__file__).resolve().parent / "models")
-    target_dir.mkdir(parents=True, exist_ok=True)
+    legacy_models_dir = Path(__file__).resolve().parent / "models"
+    contracts_dir = Path(__file__).resolve().parents[1] / "contracts"
+    contracts_enum_files = {
+        "smr_agent_kinds.py",
+        "smr_funding_sources.py",
+        "smr_credential_providers.py",
+        "smr_inference_providers.py",
+        "smr_tool_providers.py",
+        "smr_work_modes.py",
+    }
     generated: list[Path] = []
     for filename, class_name, field_name, values in _STATIC_ENUM_SPECS:
+        if destination_dir is not None:
+            target_dir = destination_dir
+        elif filename in contracts_enum_files:
+            target_dir = contracts_dir
+        else:
+            target_dir = legacy_models_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / filename
         target.write_text(
             _render_static_enum_module(
@@ -369,7 +384,7 @@ def sync_smr_agent_models(
 
     source = source_manifest or _default_backend_supported_models_path()
     destination = destination_file or (
-        Path(__file__).resolve().parent / "models" / "smr_agent_models.py"
+        Path(__file__).resolve().parents[1] / "contracts" / "smr_agent_models.py"
     )
     if source.suffix == ".py":
         module = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
@@ -467,7 +482,7 @@ def sync_smr_actor_model_policy(
     """
 
     destination = destination_file or (
-        Path(__file__).resolve().parent / "models" / "smr_actor_policy_data.py"
+        Path(__file__).resolve().parents[1] / "contracts" / "smr_actor_policy_data.py"
     )
     raw = _load_actor_policy_manifest(source_manifest)
     policies = raw.get("policies")

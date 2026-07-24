@@ -7,7 +7,7 @@ from synth_ai.core.research.contracts.smr_work_modes import (
 )
 
 __all__ = [
-    'SMR_WORK_MODE_VALUES',
-    'SmrWorkMode',
-    'coerce_smr_work_mode',
+    "SMR_WORK_MODE_VALUES",
+    "SmrWorkMode",
+    "coerce_smr_work_mode",
 ]
