@@ -4,6 +4,51 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.0 — 2026-07-24
+
+Breaking. `research.swarms.*` method names and return types both change from
+`0.16.1`. Read the migration table before upgrading.
+
+### Removed
+
+- **`synth_ai.research` and `synth_ai.managed_research` are gone.** The
+  supported import root is `synth_ai.core.research`. `SynthClient().research`
+  is unchanged.
+- **The `0.16.1` Swarm surface is withdrawn.** `0.16.1` moved the SDK wire
+  paths from `/smr/projects/{id}/runs` to `/smr/projects/{id}/swarms`, which
+  are backend *alias* routes; `/runs` is what the backend declares. The client
+  is back on the declared routes.
+
+### Changed — `research.swarms` migration
+
+| `0.16.1` | `0.17.0` |
+| --- | --- |
+| `get(...)` / `state(...)` / `public_state(...)` | `retrieve(...)` |
+| `stop(...)` | `cancel(...)` |
+| `check_preflight(...)` / `launch_preflight(...)` | `preflight(...)` |
+| `launch(...)` / `start(...)` / `start_run(...)` / `create_configured(...)` | `create(...)` |
+| `list_active(...)` | `list(...)` |
+| `stream_events(...)` | `events(...)` |
+
+Return types change with the names: `retrieve()` returns
+`core.research.contracts.swarms.Swarm`, not the former `ManagedResearchRun`.
+These are not aliases — the old names are removed, so an upgrade fails loudly
+at the call site rather than returning a differently-shaped object.
+
+### Added
+
+- `research.account`, `research.wiki`, `research.knowledge`,
+  `research.experiments`, and the Factory handle/usage namespaces, carried over
+  from the `0.16.x` line onto the current layout.
+- Fail-closed, serialized, idempotent PyPI publish workflow.
+
+### Notes
+
+- Install: `pip install synth-ai==0.17.0`.
+- Backends importing `synth_ai.mcp.research.server` must pin `>=0.17,<0.18`.
+  `0.16.1` does not contain that module.
+
+
 ### Added
 
 - **First-class Research inference provider selection** — `SwarmSpec.provider`
@@ -110,6 +155,22 @@ Prerelease. Install with `pip install --pre synth-ai` or pin
 - Pairs with backend hosted-artifacts routes and migration `20260628_add_smr_hosted_artifacts`.
 - Creation remains in-run via worker MCP `publish_hosted_artifact`; SDK covers operator read/update/delete after publish.
 
+## 0.14.2 — 2026-07-10
+
+### Added
+
+- Typed `SmrAgentModel` coverage for every model in the backend-owned supported-model
+  catalog, including `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and
+  `cursor/grok-4.5`.
+
+### Changed
+
+- The vendored Managed Research OpenAPI model enum now matches the backend catalog.
+- The retired BetterStack SDK-log ingestion endpoint and payload schemas are no
+  longer published; application logs use the backend-owned VictoriaLogs path.
+- Existing model values, including `gpt-5.4` and internal compatibility values, remain
+  importable so the daily release does not break existing typed callers.
+
 ## 0.14.0 — 2026-06-27
 
 ### Added
@@ -124,6 +185,22 @@ Prerelease. Install with `pip install --pre synth-ai` or pin
 ### Notes
 
 - Pairs with backend `GET /api/v1/managed_research/efforts/proposals`, `POST /api/v1/managed_research/efforts/from-runs`, and `GET /api/v1/managed_research/efforts/{effort_id}/runs` on the same release train.
+
+## 0.13.1 — 2026-07-09
+
+### Added
+
+- Typed `client.billing.plan()` support for the unified `economics_snapshot.v1`
+  contract, including plan policy, allowance windows, wallet, banked resets,
+  promotion state, usage summaries, block details, and recovery actions.
+- Typed read-only billing catalog and manual-grant preview models aligned with
+  the production backend contract.
+
+### Notes
+
+- The vendored Managed Research OpenAPI snapshot is generated from the backend
+  production promotion branch for this release train.
+- This release does not claim, grant, reset, or mutate customer billing state.
 
 ## 0.12.0 — 2026-06-25
 

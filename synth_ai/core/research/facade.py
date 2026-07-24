@@ -5,12 +5,16 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING
 
+from synth_ai.core.research.account import ResearchAccountAPI
 from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.environments import EnvironmentsAPI
+from synth_ai.core.research.experiments import ResearchExperimentsAPI
 from synth_ai.core.research.factories import FactoriesAPI
 from synth_ai.core.research.image_releases import ImageReleasesAPI
+from synth_ai.core.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
+from synth_ai.core.research.wiki import ResearchWikiAPI
 
 if TYPE_CHECKING:
     from synth_ai.core.research.advanced import (
@@ -50,6 +54,10 @@ class Client:
         )
         self._session: ResearchSession | None = None
         self._advanced: ResearchAdvancedAPI | None = None
+        self._account: ResearchAccountAPI | None = None
+        self._experiments: ResearchExperimentsAPI | None = None
+        self._knowledge: ResearchKnowledgeAPI | None = None
+        self._wiki: ResearchWikiAPI | None = None
 
     def _open_session(self) -> ResearchSession:
         if self._session is None:
@@ -74,6 +82,34 @@ class Client:
                 economics=self._core.economics,
             )
         return self._advanced
+
+    @property
+    def account(self) -> ResearchAccountAPI:
+        """Account-scoped reads and the API-key lifecycle."""
+        if self._account is None:
+            self._account = ResearchAccountAPI(self._open_session())
+        return self._account
+
+    @property
+    def experiments(self) -> ResearchExperimentsAPI:
+        """Experiment bundles, comparisons, and history."""
+        if self._experiments is None:
+            self._experiments = ResearchExperimentsAPI(self._open_session())
+        return self._experiments
+
+    @property
+    def knowledge(self) -> ResearchKnowledgeAPI:
+        """Durable typed knowledge carried between research cycles."""
+        if self._knowledge is None:
+            self._knowledge = ResearchKnowledgeAPI(self._open_session())
+        return self._knowledge
+
+    @property
+    def wiki(self) -> ResearchWikiAPI:
+        """Project wiki reads plus proposal intake."""
+        if self._wiki is None:
+            self._wiki = ResearchWikiAPI(self._open_session())
+        return self._wiki
 
     @property
     def factories(self) -> FactoriesAPI:
@@ -147,6 +183,10 @@ class Client:
             self._session.close()
         self._session = None
         self._advanced = None
+        self._account = None
+        self._experiments = None
+        self._knowledge = None
+        self._wiki = None
 
 
 ResearchClient = Client
