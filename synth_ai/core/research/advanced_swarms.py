@@ -7,26 +7,49 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterator
-from typing import Any, List, cast
+from dataclasses import dataclass
+from typing import Any, List, Protocol, cast
 
-from synth_ai.core.research._legacy.models.canonical_usage import (
-    SmrResourceLimitProgress,
-    SmrResourceLimits,
-)
-from synth_ai.core.research._legacy.models.run_control import (
-    ManagedResearchRunControlAck,
-)
-from synth_ai.core.research._legacy.models.run_events import RunRuntimeStreamEvent
-from synth_ai.core.research._legacy.models.run_observability import (
-    RunObservabilitySnapshot,
-)
-from synth_ai.core.research._legacy.sdk.client import (
-    ManagedResearchClient as LegacyResearchSession,
-)
-from synth_ai.core.research._legacy.sdk.runs import ProjectSelector, RunHandle
 from synth_ai.core.research.models import ResearchRun, ResearchRunbookPreset
 from synth_ai.core.research.readouts import ResearchRunReadoutsMixin, _deprecated_method
 from synth_ai.sdk.pagination import SyncPage
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectSelector:
+    """Explicit project identity for advanced compatibility run operations."""
+
+    project_id: str = "misc"
+
+    def __post_init__(self) -> None:
+        if not str(self.project_id or "").strip():
+            raise ValueError("project_id is required")
+
+    @classmethod
+    def misc(cls) -> ProjectSelector:
+        return cls()
+
+    @classmethod
+    def from_project_id(cls, project_id: str) -> ProjectSelector:
+        return cls(str(project_id or "").strip())
+
+
+class _RunHandle(Protocol):
+    _client: Any
+    project_id: str
+    run_id: str
+
+
+class _ResearchSession(Protocol):
+    runs: Any
+
+    def run(self, project_id: str, run_id: str) -> _RunHandle: ...
+
+
+def _session_project(project: ProjectSelector | str | None) -> str | None:
+    if isinstance(project, ProjectSelector):
+        return project.project_id
+    return project
 
 
 def _text(value: object) -> str:
@@ -110,15 +133,21 @@ def _research_run_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
+class ResearchRunHandle(ResearchRunReadoutsMixin):
     """Run-scoped readouts and lifecycle (public hero session type).
 
-    Prefer ``ResearchRunSession`` in type hints — ``RunHandle`` is not part of
-    the public hero surface.
+    Prefer ``ResearchRunSession`` in type hints. The implementation wraps the
+    advanced session's internal handle instead of inheriting its legacy type.
     """
 
-    def __init__(self, handle: RunHandle) -> None:
-        super().__init__(handle._client, handle.project_id, handle.run_id)
+    def __init__(self, handle: _RunHandle) -> None:
+        self._handle = handle
+        self._client = handle._client
+        self.project_id = handle.project_id
+        self.run_id = handle.run_id
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._handle, name)
 
     def progress_snapshot(
         self,
@@ -146,7 +175,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
             message_limit=message_limit,
         )
 
-    def full_progress(self) -> RunObservabilitySnapshot:
+    def full_progress(self) -> Any:
         """Return the full observability snapshot (deprecated path — use ``snapshots.get(detail='full')``)."""
         return self.snapshots.get(detail="full")
 
@@ -214,7 +243,7 @@ class ResearchRunHandle(ResearchRunReadoutsMixin, RunHandle):
 class ResearchRunsAPI:
     """Public Research run methods (alpha must-have)."""
 
-    def __init__(self, session: LegacyResearchSession) -> None:
+    def __init__(self, session: _ResearchSession) -> None:
         self._session = session
 
     def runbook_presets(self) -> tuple[ResearchRunbookPreset, ...]:
@@ -244,7 +273,7 @@ class ResearchRunsAPI:
         """
         return self._session.runs.launch_preflight(
             project_id,
-            project=project,
+            project=_session_project(project),
             **_research_run_kwargs(kwargs),
         )
 
@@ -263,7 +292,7 @@ class ResearchRunsAPI:
         )
         return self.check_preflight(
             project_id,
-            project=project,
+            project=_session_project(project),
             **kwargs,
         )
 
@@ -300,13 +329,13 @@ class ResearchRunsAPI:
             handle = self._session.runs.start(
                 objective,
                 project_id=project_id,
-                project=project,
+                project=_session_project(project),
                 **run_kwargs,
             )
             return ResearchRunHandle(handle)
         return self._session.runs.trigger(
             project_id,
-            project=project,
+            project=_session_project(project),
             **run_kwargs,
         )
 
@@ -320,7 +349,7 @@ class ResearchRunsAPI:
         """Launch the project's configured run and return a typed handle."""
         wire = self._session.runs.trigger(
             project_id,
-            project=project,
+            project=_session_project(project),
             **_research_run_kwargs(kwargs),
         )
         run = ResearchRun.from_wire(wire)
@@ -343,7 +372,7 @@ class ResearchRunsAPI:
         handle = self._session.runs.start(
             objective,
             project_id=project_id,
-            project=project,
+            project=_session_project(project),
             **_research_run_kwargs(kwargs),
         )
         return ResearchRunHandle(handle)
@@ -365,7 +394,7 @@ class ResearchRunsAPI:
         return self.start(
             objective,
             project_id=project_id,
-            project=project,
+            project=_session_project(project),
             **kwargs,
         )
 
@@ -384,7 +413,7 @@ class ResearchRunsAPI:
         )
         return self._session.runs.trigger(
             project_id,
-            project=project,
+            project=_session_project(project),
             **_research_run_kwargs(kwargs),
         )
 
@@ -403,7 +432,7 @@ class ResearchRunsAPI:
         )
         return self._session.runs.start_run(
             project_id,
-            project=project,
+            project=_session_project(project),
             **_research_run_kwargs(kwargs),
         )
 
@@ -554,7 +583,7 @@ class ResearchRunsAPI:
         view: str = "operator",
         last_event_id: str | None = None,
         timeout: float | None = None,
-    ) -> Iterator[RunRuntimeStreamEvent]:
+    ) -> Iterator[Any]:
         """Stream runtime events for a run (prefer ``handle.events.stream``)."""
         return self.get(run_id=run_id, project_id=project_id, project=project).stream_events(
             transcript_cursor=transcript_cursor,
@@ -569,7 +598,7 @@ class ResearchRunsAPI:
         *,
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
-    ) -> SmrResourceLimits:
+    ) -> Any:
         """Return configured resource limits for the run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).resource_limits()
 
@@ -579,7 +608,7 @@ class ResearchRunsAPI:
         *,
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
-    ) -> SmrResourceLimitProgress:
+    ) -> Any:
         """Return progress toward resource limits for the run."""
         return self.get(
             run_id=run_id,
@@ -593,7 +622,7 @@ class ResearchRunsAPI:
         *,
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
-    ) -> ManagedResearchRunControlAck:
+    ) -> Any:
         """Request graceful stop for a run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).stop()
 
@@ -603,7 +632,7 @@ class ResearchRunsAPI:
         *,
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
-    ) -> ManagedResearchRunControlAck:
+    ) -> Any:
         """Pause a running run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).pause()
 
@@ -613,7 +642,7 @@ class ResearchRunsAPI:
         *,
         project_id: str | None = None,
         project: ProjectSelector | str | None = None,
-    ) -> ManagedResearchRunControlAck:
+    ) -> Any:
         """Resume a paused run."""
         return self.get(run_id=run_id, project_id=project_id, project=project).resume()
 
@@ -688,4 +717,9 @@ class ResearchRunsAPI:
 
 ResearchRunSession = ResearchRunHandle
 
-__all__ = ["ResearchRunHandle", "ResearchRunSession", "ResearchRunsAPI"]
+__all__ = [
+    "ProjectSelector",
+    "ResearchRunHandle",
+    "ResearchRunSession",
+    "ResearchRunsAPI",
+]
