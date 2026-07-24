@@ -70,9 +70,15 @@ class Client:
 
     @property
     def credential(self) -> ApiCredential:
+        """Return the resolved API credential used by this client.
+
+        Returns:
+            The API credential that supplied authorization headers for the transport.
+        """
         return self._credential
 
     def close(self) -> None:
+        """Close the underlying HTTP transport."""
         self._transport.close()
 
     def __enter__(self) -> Client:
@@ -126,9 +132,15 @@ class AsyncClient:
 
     @property
     def credential(self) -> ApiCredential:
+        """Return the resolved API credential used by this client.
+
+        Returns:
+            The API credential that supplied authorization headers for the transport.
+        """
         return self._credential
 
     async def close(self) -> None:
+        """Close the underlying HTTP transport."""
         await self._transport.close()
 
     async def __aenter__(self) -> AsyncClient:
