@@ -2,7 +2,7 @@
 
 Source of truth: backend/packages/smr/config/actor_configurations/actor_role_gates.py
 
-Regenerate: python -m synth_ai.core.research._legacy.schema_sync
+Regenerate: python -m synth_ai.core.research.schema_sync
 """
 
 from __future__ import annotations

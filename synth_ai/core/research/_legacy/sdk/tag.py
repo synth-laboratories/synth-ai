@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from synth_ai.core.research._legacy.models.tag import (
+from synth_ai.core.research.contracts.tag import (
     TagFactoryContext,
     TagMessageRequest,
     TagScope,

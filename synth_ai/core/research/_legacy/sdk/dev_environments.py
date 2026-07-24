@@ -5,14 +5,14 @@ from __future__ import annotations
 import time
 from typing import Any, List, Mapping
 
-from synth_ai.core.research._legacy.models.billing import (
+from synth_ai.core.research.contracts.billing import (
     SmrBillingDrawdown,
     SmrBillingPreflight,
 )
-from synth_ai.core.research._legacy.models.dev_environment_evidence import (
+from synth_ai.core.research.contracts.dev_environment_evidence import (
     DevEnvironmentEvidence,
 )
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.types import (
     DevEnvironment,
     DevEnvironmentAttach,
     DevEnvironmentCollection,

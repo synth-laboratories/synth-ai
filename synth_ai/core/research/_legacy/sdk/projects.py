@@ -5,16 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, List
 
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     BillingEntitlementSnapshot,
     SmrProjectUsage,
 )
-from synth_ai.core.research._legacy.models.project import (
+from synth_ai.core.research.contracts.project import (
     CreateRunnableResult,
     ManagedResearchProject,
 )
-from synth_ai.core.research._legacy.models.project_workspace import ProjectWorkspaceProjection
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.project_workspace import ProjectWorkspaceProjection
+from synth_ai.core.research.contracts.types import (
     ProjectCodeSource,
     ProjectDataPoolUploadResult,
     ProjectLaunchProfile,

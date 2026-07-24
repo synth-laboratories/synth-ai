@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.types import SmrProjectSetup
+from synth_ai.core.research.contracts.types import SmrProjectSetup
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 

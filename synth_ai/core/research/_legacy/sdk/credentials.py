@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from synth_ai.core.research._legacy.models.types import CredentialRef, RunCredentialBinding
+from synth_ai.core.research.contracts.types import CredentialRef, RunCredentialBinding
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 

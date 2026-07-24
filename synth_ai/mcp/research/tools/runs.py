@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.run_control import ManagedResearchActorControlAction
-from synth_ai.core.research._legacy.models.runtime_intent import (
+from synth_ai.core.research.contracts.run_control import ManagedResearchActorControlAction
+from synth_ai.core.research.contracts.runtime_intent import (
     RuntimeIntentKind,
     RuntimeIntentStatus,
     RuntimeMessageMode,

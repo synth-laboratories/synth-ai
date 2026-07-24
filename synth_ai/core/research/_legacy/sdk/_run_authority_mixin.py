@@ -11,12 +11,12 @@ from typing import Any
 
 import httpx
 
-from synth_ai.core.research._legacy.errors import SmrApiError
-from synth_ai.core.research._legacy.models import Checkpoint
-from synth_ai.core.research._legacy.models.operator_evidence import SmrRunOperatorEvidence
-from synth_ai.core.research._legacy.models.run_authority import ManagedResearchRunTask
-from synth_ai.core.research._legacy.models.run_control import ManagedResearchRunControlError
-from synth_ai.core.research._legacy.models.run_diagnostics import (
+from synth_ai.core.research.errors import SmrApiError
+from synth_ai.core.research.contracts.wire_models import Checkpoint
+from synth_ai.core.research.contracts.operator_evidence import SmrRunOperatorEvidence
+from synth_ai.core.research.contracts.run_authority import ManagedResearchRunTask
+from synth_ai.core.research.contracts.run_control import ManagedResearchRunControlError
+from synth_ai.core.research.contracts.run_diagnostics import (
     SmrRunActorLogs,
     SmrRunActorUsage,
     SmrRunArtifactProgress,
@@ -24,8 +24,8 @@ from synth_ai.core.research._legacy.models.run_diagnostics import (
     SmrRunParticipants,
     SmrRunTraces,
 )
-from synth_ai.core.research._legacy.models.run_events import RunRuntimeStreamEvent
-from synth_ai.core.research._legacy.models.run_observability import (
+from synth_ai.core.research.contracts.run_events import RunRuntimeStreamEvent
+from synth_ai.core.research.contracts.run_observability import (
     MessageQueueInteraction,
     MessageQueueMessage,
     MessageQueueThread,
@@ -33,14 +33,14 @@ from synth_ai.core.research._legacy.models.run_observability import (
     RunObservationCursor,
     TaskSummary,
 )
-from synth_ai.core.research._legacy.models.run_timeline import (
+from synth_ai.core.research.contracts.run_timeline import (
     SmrAuthorityReadouts,
     SmrBranchMode,
     SmrLogicalTimeline,
     SmrRunBranchResponse,
     SmrRunEventLog,
 )
-from synth_ai.core.research._legacy.models.runtime_intent import (
+from synth_ai.core.research.contracts.runtime_intent import (
     RuntimeIntent,
     RuntimeIntentReceipt,
     RuntimeIntentView,
@@ -52,8 +52,8 @@ from synth_ai.core.research._legacy.sdk._client_helpers import (
     _optional_mapping,
     _require_non_empty_string,
 )
-from synth_ai.core.research._legacy.transport.http import _raise_for_error_response
-from synth_ai.core.research._legacy.transport.pagination import build_query_params
+from synth_ai.core.research.transport.http import _raise_for_error_response
+from synth_ai.core.research.transport.pagination import build_query_params
 
 
 class ManagedResearchRunAuthorityMixin:

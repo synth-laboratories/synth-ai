@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from synth_ai.core.research._legacy.models.billing import (
+from synth_ai.core.research.contracts.billing import (
     SmrBillingCatalog,
     SmrBillingDrawdown,
     SmrBillingPlanSnapshot,
@@ -15,7 +15,7 @@ from synth_ai.core.research._legacy.models.billing import (
     SmrManualBillingGrantPreview,
     SmrManualBillingGrantPreviewRequest,
 )
-from synth_ai.core.research._legacy.models.promotions import (
+from synth_ai.core.research.contracts.promotions import (
     SmrPromotionDiscountPreview,
     SmrPromotionDiscountPreviewRequest,
 )

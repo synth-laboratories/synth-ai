@@ -10,7 +10,7 @@ from typing import Literal, NotRequired, TypedDict, cast
 
 import httpx
 
-from synth_ai.core.research._legacy.errors import SmrApiError
+from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")

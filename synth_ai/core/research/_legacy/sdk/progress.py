@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from synth_ai.core.research._legacy.models.types import SmrLaunchPreflight, SmrProjectSetup
+from synth_ai.core.research.contracts.types import SmrLaunchPreflight, SmrProjectSetup
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 

@@ -2,4 +2,4 @@
 
 from __future__ import annotations
 
-from synth_ai.core.research._legacy.auth import *  # noqa: F403
+from synth_ai.core.research.auth import *  # noqa: F403

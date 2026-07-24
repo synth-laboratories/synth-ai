@@ -9,24 +9,24 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List
 
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     SmrProjectUsage,
 )
-from synth_ai.core.research._legacy.models.project import ManagedResearchProject
-from synth_ai.core.research._legacy.models.project_workspace import ProjectWorkspaceProjection
-from synth_ai.core.research._legacy.models.run_control import (
+from synth_ai.core.research.contracts.project import ManagedResearchProject
+from synth_ai.core.research.contracts.project_workspace import ProjectWorkspaceProjection
+from synth_ai.core.research.contracts.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
 )
-from synth_ai.core.research._legacy.models.run_launch import (
+from synth_ai.core.research.contracts.run_launch import (
     Output,
     OutputKind,
     OutputListRequest,
     RunLaunchRequest,
     RunLaunchResult,
 )
-from synth_ai.core.research._legacy.models.run_state import ManagedResearchRun
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.run_state import ManagedResearchRun
+from synth_ai.core.research.contracts.types import (
     ProjectCodeSource,
     ProjectDataPoolUploadResult,
     ProjectLaunchProfile,

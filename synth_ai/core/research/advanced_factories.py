@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     Effort,
     EffortStatus,
     EffortType,
@@ -28,7 +28,7 @@ from synth_ai.core.research._legacy.models.factories import (
     FactoryTransitionResponse,
     FactoryWakeDueResult,
 )
-from synth_ai.core.research._legacy.models.tag import (
+from synth_ai.core.research.contracts.tag import (
     TagFactoryContext,
     TagMessageRequest,
     TagScope,

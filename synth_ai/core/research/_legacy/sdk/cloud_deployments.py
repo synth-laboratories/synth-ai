@@ -15,11 +15,11 @@ from collections.abc import Sequence
 from contextlib import contextmanager
 from typing import Any, Iterator, List, Literal, Mapping, TypedDict
 
-from synth_ai.core.research._legacy.models.cloud_deployment_claims import (
+from synth_ai.core.research.contracts.cloud_deployment_claims import (
     ClaimProjection,
     CloudDeploymentClaim,
 )
-from synth_ai.core.research._legacy.models.cloud_deployments import (
+from synth_ai.core.research.contracts.cloud_deployments import (
     CloudDeploymentTopologySource,
 )
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace

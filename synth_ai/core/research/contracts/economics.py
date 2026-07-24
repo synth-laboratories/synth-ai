@@ -7,22 +7,22 @@ identity while consumers migrate.
 
 from __future__ import annotations
 
-from synth_ai.core.research._legacy.models.billing import (
+from synth_ai.core.research.contracts.billing import (
     SmrBillingCatalog as ResearchBillingCatalog,
 )
-from synth_ai.core.research._legacy.models.billing import (
+from synth_ai.core.research.contracts.billing import (
     SmrBillingDrawdown as ResearchBillingDrawdown,
 )
-from synth_ai.core.research._legacy.models.billing import (
+from synth_ai.core.research.contracts.billing import (
     SmrBillingPlanSnapshot as ResearchBillingPlan,
 )
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     BillingEntitlementSnapshot as ResearchBillingEntitlements,
 )
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     OrgLimits as ResearchOrgLimits,
 )
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     SmrProjectEconomics as ResearchProjectEconomics,
 )
 

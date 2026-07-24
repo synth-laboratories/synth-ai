@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from synth_ai.core.research._legacy.errors import SmrApiError
-from synth_ai.core.research._legacy.models import (
+from synth_ai.core.research.errors import SmrApiError
+from synth_ai.core.research.contracts.wire_models import (
     BillingEntitlementSnapshot,
     OrgLimits,
     SmrProjectUsage,

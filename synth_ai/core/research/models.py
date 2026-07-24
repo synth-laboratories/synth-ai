@@ -1,6 +1,6 @@
 """Research API model aliases.
 
-Typed wire models live in the canonical ``synth_ai.core.research._legacy.models`` package.
+Typed wire models live in the canonical ``synth_ai.core.research.contracts.wire_models`` package.
 Import these names from ``synth_ai.core.research.models`` in customer code.
 
 | Public name | Role |
@@ -32,30 +32,30 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
-from synth_ai.core.research._legacy.models.project import (
+from synth_ai.core.research.contracts.project import (
     CreateRunnableResult as ResearchCreateProjectResult,
 )
-from synth_ai.core.research._legacy.models.project import (
+from synth_ai.core.research.contracts.project import (
     ManagedResearchProject as ResearchProject,
 )
-from synth_ai.core.research._legacy.models.run_launch import (
+from synth_ai.core.research.contracts.run_launch import (
     RunLaunchRequest as ResearchRunLaunchRequest,
 )
-from synth_ai.core.research._legacy.models.run_state import ManagedResearchRun as ResearchRun
-from synth_ai.core.research._legacy.models.run_timeline import (
+from synth_ai.core.research.contracts.run_state import ManagedResearchRun as ResearchRun
+from synth_ai.core.research.contracts.run_timeline import (
     SmrAuthorityReadouts as ResearchAuthorityReadouts,
 )
-from synth_ai.core.research._legacy.models.tag import (
+from synth_ai.core.research.contracts.tag import (
     TagSessionCreateRequest as ResearchTagSessionCreateRequest,
 )
-from synth_ai.core.research._legacy.models.types import RunArtifact as ResearchArtifact
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.types import RunArtifact as ResearchArtifact
+from synth_ai.core.research.contracts.types import (
     RunArtifactManifest as ResearchArtifactManifest,
 )
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.types import (
     RunProgress,
 )
-from synth_ai.core.research._legacy.models.work_products import (
+from synth_ai.core.research.contracts.work_products import (
     ManagedResearchRunWorkProduct as ResearchWorkProduct,
 )
 from synth_ai.core.research.contracts.economics import (

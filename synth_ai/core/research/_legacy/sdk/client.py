@@ -15,11 +15,11 @@ from typing import Any, cast
 
 import httpx
 
-from synth_ai.core.research._legacy.errors import (
+from synth_ai.core.research.errors import (
     SmrApiError,
     raise_cloud_deployment_claim_error,
 )
-from synth_ai.core.research._legacy.models import (
+from synth_ai.core.research.contracts.wire_models import (
     BillingEntitlementSnapshot,
     EffortCreateRequest,
     EffortFromRunsRequest,
@@ -49,17 +49,17 @@ from synth_ai.core.research._legacy.models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
-from synth_ai.core.research._legacy.models.actor_images import (
+from synth_ai.core.research.contracts.actor_images import (
     ActorImageBinding,
     ActorImageBindings,
     actor_image_overrides_payload,
     image_override_payload,
 )
-from synth_ai.core.research._legacy.models.cloud_deployment_claims import ClaimAcquireRequest
-from synth_ai.core.research._legacy.models.cloud_deployments import (
+from synth_ai.core.research.contracts.cloud_deployment_claims import ClaimAcquireRequest
+from synth_ai.core.research.contracts.cloud_deployments import (
     cloud_deployment_topology_source_from_wire,
 )
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     effort_create_payload,
     effort_from_runs_payload,
     effort_patch_payload,
@@ -80,57 +80,57 @@ from synth_ai.core.research._legacy.models.factories import (
     factory_transition_payload,
     factory_wake_due_payload,
 )
-from synth_ai.core.research._legacy.models.local_execution_profile import (
+from synth_ai.core.research.contracts.local_execution_profile import (
     LocalExecutionProfile,
 )
-from synth_ai.core.research._legacy.models.run_execution import RunExecutionProjection
-from synth_ai.core.research._legacy.models.run_launch import (
+from synth_ai.core.research.contracts.run_execution import RunExecutionProjection
+from synth_ai.core.research.contracts.run_launch import (
     RunLaunchRequest,
     RunLaunchResult,
 )
-from synth_ai.core.research._legacy.models.run_observability import (
+from synth_ai.core.research.contracts.run_observability import (
     ManagedResearchRunContract,
     RunObservabilitySnapshot,
     RunTickingStatus,
     RunTickingUpdate,
     RunTickMode,
 )
-from synth_ai.core.research._legacy.models.run_state import ManagedResearchRun
-from synth_ai.core.research._legacy.models.smr_actor_models import (
+from synth_ai.core.research.contracts.run_state import ManagedResearchRun
+from synth_ai.core.research.contracts.smr_actor_models import (
     SmrActorModelAssignment,
     normalize_actor_model_assignments,
     validate_shared_top_level_agent_model,
 )
-from synth_ai.core.research._legacy.models.smr_agent_harnesses import (
+from synth_ai.core.research.contracts.smr_agent_harnesses import (
     SmrAgentHarness,
     coerce_smr_agent_harness,
 )
-from synth_ai.core.research._legacy.models.smr_agent_kinds import (
+from synth_ai.core.research.contracts.smr_agent_kinds import (
     SmrAgentKind,
     coerce_smr_agent_kind,
 )
-from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
-from synth_ai.core.research._legacy.models.smr_credential_providers import (
+from synth_ai.core.research.contracts.smr_agent_models import SmrAgentModel
+from synth_ai.core.research.contracts.smr_credential_providers import (
     SmrCredentialProvider,
     coerce_smr_credential_provider,
 )
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+from synth_ai.core.research.contracts.smr_evidence_obligations import (
     EvidenceObligations,
     coerce_evidence_obligations,
 )
-from synth_ai.core.research._legacy.models.smr_funding_sources import (
+from synth_ai.core.research.contracts.smr_funding_sources import (
     SmrFundingSource,
     coerce_smr_funding_source,
 )
-from synth_ai.core.research._legacy.models.smr_horizons import (
+from synth_ai.core.research.contracts.smr_horizons import (
     SmrIntendedHorizonHours,
     coerce_intended_horizon_hours,
 )
-from synth_ai.core.research._legacy.models.smr_host_kinds import (
+from synth_ai.core.research.contracts.smr_host_kinds import (
     SmrHostKind,
     coerce_smr_host_kind,
 )
-from synth_ai.core.research._legacy.models.smr_providers import (
+from synth_ai.core.research.contracts.smr_providers import (
     ProviderBinding,
     ProviderPolicy,
     UsageLimit,
@@ -138,24 +138,24 @@ from synth_ai.core.research._legacy.models.smr_providers import (
     coerce_provider_policy,
     coerce_usage_limit,
 )
-from synth_ai.core.research._legacy.models.smr_roles import (
+from synth_ai.core.research.contracts.smr_roles import (
     SmrRoleBindings,
     coerce_smr_role_bindings,
 )
-from synth_ai.core.research._legacy.models.smr_run_policy import (
+from synth_ai.core.research.contracts.smr_run_policy import (
     SmrRunPolicy,
     coerce_smr_run_policy,
 )
-from synth_ai.core.research._legacy.models.smr_runbooks import (
+from synth_ai.core.research.contracts.smr_runbooks import (
     SmrRunbookKind,
     SmrRunbookPreset,
     coerce_smr_runbook_kind,
 )
-from synth_ai.core.research._legacy.models.smr_work_modes import (
+from synth_ai.core.research.contracts.smr_work_modes import (
     SmrWorkMode,
     coerce_smr_work_mode,
 )
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.types import (
     KickoffContract,
     RequiredWorkProductSpec,
     RunArtifact,
@@ -244,11 +244,11 @@ from synth_ai.core.research._legacy.sdk.transport import build_http_transport
 from synth_ai.core.research._legacy.sdk.usage import UsageAPI
 from synth_ai.core.research._legacy.sdk.work_products import WorkProductsAPI
 from synth_ai.core.research._legacy.sdk.workspace_inputs import WorkspaceInputsAPI
-from synth_ai.core.research._legacy.transport.http import (
+from synth_ai.core.research.transport.http import (
     SmrHttpTransport,
     _raise_for_error_response,
 )
-from synth_ai.core.research._legacy.transport.pagination import build_query_params
+from synth_ai.core.research.transport.pagination import build_query_params
 
 ACTIVE_RUN_STATES = {
     "queued",
@@ -3512,7 +3512,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             files={"html": ("index.html", content, "text/html")},
         )
         if response.is_error:
-            from synth_ai.core.research._legacy.transport.http import (
+            from synth_ai.core.research.transport.http import (
                 _raise_for_error_response,
             )
 

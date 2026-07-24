@@ -24,7 +24,7 @@ from typing import Any, List
 
 import httpx
 
-from synth_ai.core.research._legacy.errors import SmrApiError
+from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 try:

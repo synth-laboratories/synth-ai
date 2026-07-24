@@ -9,28 +9,28 @@ from typing import Any, List, cast
 
 import httpx
 
-from synth_ai.core.research._legacy.errors import SmrApiError, SmrStructuredDenialError
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.errors import SmrApiError, SmrStructuredDenialError
+from synth_ai.core.research.contracts.canonical_usage import (
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
     SmrResourceLimits,
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
-from synth_ai.core.research._legacy.models.checkpoints import Checkpoint
-from synth_ai.core.research._legacy.models.factories import Effort, FactoryResult
-from synth_ai.core.research._legacy.models.operator_evidence import SmrRunOperatorEvidence
-from synth_ai.core.research._legacy.models.run_authority import (
+from synth_ai.core.research.contracts.checkpoints import Checkpoint
+from synth_ai.core.research.contracts.factory_operations import Effort, FactoryResult
+from synth_ai.core.research.contracts.operator_evidence import SmrRunOperatorEvidence
+from synth_ai.core.research.contracts.run_authority import (
     ManagedResearchAuthorityTask,
     ManagedResearchExecutionTurn,
     ManagedResearchRunTask,
 )
-from synth_ai.core.research._legacy.models.run_control import (
+from synth_ai.core.research.contracts.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
     ManagedResearchRunControlAck,
 )
-from synth_ai.core.research._legacy.models.run_diagnostics import (
+from synth_ai.core.research.contracts.run_diagnostics import (
     SmrRunActorLogs,
     SmrRunActorUsage,
     SmrRunArtifactProgress,
@@ -38,8 +38,8 @@ from synth_ai.core.research._legacy.models.run_diagnostics import (
     SmrRunParticipants,
     SmrRunTraces,
 )
-from synth_ai.core.research._legacy.models.run_execution import RunExecutionProjection
-from synth_ai.core.research._legacy.models.run_launch import (
+from synth_ai.core.research.contracts.run_execution import RunExecutionProjection
+from synth_ai.core.research.contracts.run_launch import (
     EventStream,
     EventStreamRequest,
     RunLaunchRequest,
@@ -48,7 +48,7 @@ from synth_ai.core.research._legacy.models.run_launch import (
     RunRef,
     RunSnapshot,
 )
-from synth_ai.core.research._legacy.models.run_observability import (
+from synth_ai.core.research.contracts.run_observability import (
     ManagedResearchRunContract,
     MessageQueueInteraction,
     MessageQueueMessage,
@@ -60,30 +60,30 @@ from synth_ai.core.research._legacy.models.run_observability import (
     RunTickMode,
     TaskSummary,
 )
-from synth_ai.core.research._legacy.models.run_state import ManagedResearchRun
-from synth_ai.core.research._legacy.models.run_timeline import (
+from synth_ai.core.research.contracts.run_state import ManagedResearchRun
+from synth_ai.core.research.contracts.run_timeline import (
     SmrAuthorityReadouts,
     SmrBranchMode,
     SmrLogicalTimeline,
     SmrRunBranchResponse,
     SmrRunEventLog,
 )
-from synth_ai.core.research._legacy.models.runtime_intent import (
+from synth_ai.core.research.contracts.runtime_intent import (
     RuntimeIntent,
     RuntimeIntentReceipt,
     RuntimeIntentView,
 )
-from synth_ai.core.research._legacy.models.smr_host_kinds import SmrHostKind
-from synth_ai.core.research._legacy.models.smr_network_topology import SmrNetworkTopology
-from synth_ai.core.research._legacy.models.smr_providers import (
+from synth_ai.core.research.contracts.smr_host_kinds import SmrHostKind
+from synth_ai.core.research.contracts.smr_network_topology import SmrNetworkTopology
+from synth_ai.core.research.contracts.smr_providers import (
     ActorResourceCapability,
     ProviderBinding,
     UsageLimit,
 )
-from synth_ai.core.research._legacy.models.smr_runbooks import SmrRunbookPreset
-from synth_ai.core.research._legacy.models.smr_work_modes import SmrWorkMode
-from synth_ai.core.research._legacy.models.types import RunArtifact, RunArtifactManifest
-from synth_ai.core.research._legacy.models.work_products import ManagedResearchRunWorkProduct
+from synth_ai.core.research.contracts.smr_runbooks import SmrRunbookPreset
+from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
+from synth_ai.core.research.contracts.types import RunArtifact, RunArtifactManifest
+from synth_ai.core.research.contracts.work_products import ManagedResearchRunWorkProduct
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 from synth_ai.core.research._legacy.sdk.config import DEFAULT_MISC_PROJECT_ALIAS
 

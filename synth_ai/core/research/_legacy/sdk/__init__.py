@@ -1,6 +1,6 @@
 """SDK exports for the rewritten Managed Research package."""
 
-from synth_ai.core.research._legacy.models.canonical_usage import (
+from synth_ai.core.research.contracts.canonical_usage import (
     BillingEntitlementAsset,
     BillingEntitlementProfile,
     BillingEntitlementSnapshot,
@@ -19,12 +19,12 @@ from synth_ai.core.research._legacy.models.canonical_usage import (
     SmrRunCostTotals,
     SmrRunUsage,
 )
-from synth_ai.core.research._legacy.models.checkpoints import (
+from synth_ai.core.research.contracts.checkpoints import (
     Checkpoint,
     CheckpointCadenceSource,
     CheckpointScope,
 )
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     BudgetPolicy,
     CapPolicy,
@@ -71,7 +71,7 @@ from synth_ai.core.research._legacy.models.factories import (
     PublicationPolicy,
     RecurrencePolicy,
 )
-from synth_ai.core.research._legacy.models.factory_evidence import (
+from synth_ai.core.research.contracts.factory_evidence import (
     ActorContainerRunBinding,
     AppliedBudgetOwnerReceipt,
     AppliedExperimentRegistrationReceipt,
@@ -91,7 +91,7 @@ from synth_ai.core.research._legacy.models.factory_evidence import (
     assemble_factory_evidence_packet,
     assemble_factory_launch_readiness,
 )
-from synth_ai.core.research._legacy.models.local_execution_profile import (
+from synth_ai.core.research.contracts.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,
     LOCAL_EVAL_CONTRACT_ENV_VARS,
     LOCAL_EVAL_CONTRACT_SCHEMA_VERSION,
@@ -114,13 +114,13 @@ from synth_ai.core.research._legacy.models.local_execution_profile import (
     local_execution_payload,
     local_execution_profile_payload,
 )
-from synth_ai.core.research._legacy.models.open_research_visual import (
+from synth_ai.core.research.contracts.open_research_visual import (
     OPEN_RESEARCH_VISUAL_SCHEMA_VERSION,
     OpenResearchVisualClaim,
     OpenResearchVisualManifest,
     is_open_research_visual_manifest,
 )
-from synth_ai.core.research._legacy.models.operator_evidence import (
+from synth_ai.core.research.contracts.operator_evidence import (
     OperatorEvidenceDiagnostic,
     ProjectionEvidenceReceipt,
     ReportBenchWitnessEvidence,
@@ -128,11 +128,11 @@ from synth_ai.core.research._legacy.models.operator_evidence import (
     TraceCoverageEvidence,
     TranscriptCoverageEvidence,
 )
-from synth_ai.core.research._legacy.models.project import (
+from synth_ai.core.research.contracts.project import (
     CreateRunnableResult,
     ManagedResearchProject,
 )
-from synth_ai.core.research._legacy.models.project_workspace import (
+from synth_ai.core.research.contracts.project_workspace import (
     ProjectWorkspaceActor,
     ProjectWorkspaceAuthority,
     ProjectWorkspaceCanonChange,
@@ -151,19 +151,19 @@ from synth_ai.core.research._legacy.models.project_workspace import (
     ProjectWorkspaceRun,
     ProjectWorkspaceSummary,
 )
-from synth_ai.core.research._legacy.models.run_authority import (
+from synth_ai.core.research.contracts.run_authority import (
     ManagedResearchAuthorityTask,
     ManagedResearchExecutionTurn,
     ManagedResearchRunTask,
     ManagedResearchRuntimeAuthority,
 )
-from synth_ai.core.research._legacy.models.run_control import (
+from synth_ai.core.research.contracts.run_control import (
     ManagedResearchActorControlAck,
     ManagedResearchActorControlAction,
     ManagedResearchRunControlAck,
     ManagedResearchRunControlEnqueueStatus,
 )
-from synth_ai.core.research._legacy.models.run_diagnostics import (
+from synth_ai.core.research.contracts.run_diagnostics import (
     SmrActorUsageSummary,
     SmrRunActorLogEvent,
     SmrRunActorLogs,
@@ -176,7 +176,7 @@ from synth_ai.core.research._legacy.models.run_diagnostics import (
     SmrRunTraceItem,
     SmrRunTraces,
 )
-from synth_ai.core.research._legacy.models.run_observability import (
+from synth_ai.core.research.contracts.run_observability import (
     ActorCollectionSnapshot,
     ActorSnapshot,
     CandidatePublicationOutcome,
@@ -207,7 +207,7 @@ from synth_ai.core.research._legacy.models.run_observability import (
     TaskCollectionSnapshot,
     TaskSnapshot,
 )
-from synth_ai.core.research._legacy.models.run_state import (
+from synth_ai.core.research.contracts.run_state import (
     ManagedResearchEvidenceSummary,
     ManagedResearchLaunchContext,
     ManagedResearchOutputObligation,
@@ -220,7 +220,7 @@ from synth_ai.core.research._legacy.models.run_state import (
     ManagedResearchRunTerminalOutcome,
     RunState,
 )
-from synth_ai.core.research._legacy.models.run_timeline import (
+from synth_ai.core.research.contracts.run_timeline import (
     SmrAuthorityReadouts,
     SmrBranchMode,
     SmrLogicalTimeline,
@@ -230,7 +230,7 @@ from synth_ai.core.research._legacy.models.run_timeline import (
     SmrRunEventLog,
     SmrRunEventLogEntry,
 )
-from synth_ai.core.research._legacy.models.runtime_intent import (
+from synth_ai.core.research.contracts.runtime_intent import (
     RuntimeIntent,
     RuntimeIntentKind,
     RuntimeIntentReceipt,
@@ -238,7 +238,7 @@ from synth_ai.core.research._legacy.models.runtime_intent import (
     RuntimeIntentView,
     RuntimeMessageMode,
 )
-from synth_ai.core.research._legacy.models.smr_actor_models import (
+from synth_ai.core.research.contracts.smr_actor_models import (
     SmrActorModelAssignment,
     SmrActorSubtype,
     SmrActorType,
@@ -246,16 +246,16 @@ from synth_ai.core.research._legacy.models.smr_actor_models import (
     SmrReviewerSubtype,
     SmrWorkerSubtype,
 )
-from synth_ai.core.research._legacy.models.smr_agent_harnesses import SmrAgentHarness
-from synth_ai.core.research._legacy.models.smr_agent_kinds import SmrAgentKind
-from synth_ai.core.research._legacy.models.smr_agent_models import SmrAgentModel
-from synth_ai.core.research._legacy.models.smr_credential_providers import SmrCredentialProvider
-from synth_ai.core.research._legacy.models.smr_environment_kinds import SmrEnvironmentKind
-from synth_ai.core.research._legacy.models.smr_funding_sources import SmrFundingSource
-from synth_ai.core.research._legacy.models.smr_horizons import SmrIntendedHorizonHours
-from synth_ai.core.research._legacy.models.smr_host_kinds import SmrHostKind
-from synth_ai.core.research._legacy.models.smr_network_topology import SmrNetworkTopology
-from synth_ai.core.research._legacy.models.smr_providers import (
+from synth_ai.core.research.contracts.smr_agent_harnesses import SmrAgentHarness
+from synth_ai.core.research.contracts.smr_agent_kinds import SmrAgentKind
+from synth_ai.core.research.contracts.smr_agent_models import SmrAgentModel
+from synth_ai.core.research.contracts.smr_credential_providers import SmrCredentialProvider
+from synth_ai.core.research.contracts.smr_environment_kinds import SmrEnvironmentKind
+from synth_ai.core.research.contracts.smr_funding_sources import SmrFundingSource
+from synth_ai.core.research.contracts.smr_horizons import SmrIntendedHorizonHours
+from synth_ai.core.research.contracts.smr_host_kinds import SmrHostKind
+from synth_ai.core.research.contracts.smr_network_topology import SmrNetworkTopology
+from synth_ai.core.research.contracts.smr_providers import (
     ActorResourceCapability,
     OpenRouterConfig,
     Provider,
@@ -264,29 +264,29 @@ from synth_ai.core.research._legacy.models.smr_providers import (
     TinkerConfig,
     UsageLimit,
 )
-from synth_ai.core.research._legacy.models.smr_resource_kinds import SmrResourceKind
-from synth_ai.core.research._legacy.models.smr_roles import (
+from synth_ai.core.research.contracts.smr_resource_kinds import SmrResourceKind
+from synth_ai.core.research.contracts.smr_roles import (
     RoleBinding,
     RoleProviderRequirement,
     SmrRoleBindings,
     WorkerRolePalette,
 )
-from synth_ai.core.research._legacy.models.smr_run_policy import (
+from synth_ai.core.research.contracts.smr_run_policy import (
     SmrRunPolicy,
     SmrRunPolicyAccess,
     SmrRunPolicyLimits,
 )
-from synth_ai.core.research._legacy.models.smr_runbooks import (
+from synth_ai.core.research.contracts.smr_runbooks import (
     SMR_RUNBOOK_KIND_VALUES,
     SmrRunbookKind,
     SmrRunbookLimitSummary,
     SmrRunbookPreset,
     coerce_smr_runbook_kind,
 )
-from synth_ai.core.research._legacy.models.smr_runtime_kinds import SmrRuntimeKind
-from synth_ai.core.research._legacy.models.smr_tool_providers import SmrToolProvider
-from synth_ai.core.research._legacy.models.smr_work_modes import SmrWorkMode
-from synth_ai.core.research._legacy.models.types import (
+from synth_ai.core.research.contracts.smr_runtime_kinds import SmrRuntimeKind
+from synth_ai.core.research.contracts.smr_tool_providers import SmrToolProvider
+from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
+from synth_ai.core.research.contracts.types import (
     DevEnvironment,
     DevEnvironmentCollection,
     DevEnvironmentMaterializationQueue,
@@ -315,7 +315,7 @@ from synth_ai.core.research._legacy.models.types import (
     SmrProjectSetupStatus,
     SmrRunnableProjectRequest,
 )
-from synth_ai.core.research._legacy.models.work_products import (
+from synth_ai.core.research.contracts.work_products import (
     ManagedResearchContainerEvalPackage,
     ManagedResearchRunWorkProduct,
     ManagedResearchTrainedModel,

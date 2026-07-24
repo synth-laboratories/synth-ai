@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from synth_ai.core.research._legacy.sdk.config import auth_headers
-from synth_ai.core.research._legacy.transport.http import SmrHttpTransport
+from synth_ai.core.research.transport.http import SmrHttpTransport
 
 
 def build_http_transport(

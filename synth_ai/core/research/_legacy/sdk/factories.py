@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime
 from typing import Any, List, cast
 
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     Effort,
     EffortCreateRequest,

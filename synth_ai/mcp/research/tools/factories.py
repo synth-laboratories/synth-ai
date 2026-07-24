@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.factories import (
+from synth_ai.core.research.contracts.factory_operations import (
     EFFORT_STATUS_VALUES,
     EFFORT_TYPE_VALUES,
     FACTORY_ACTOR_OUTPUT_KIND_VALUES,

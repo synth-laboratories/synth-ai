@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from os import PathLike
 from typing import Any
 
-from synth_ai.core.research._legacy.models.types import WorkspaceInputsState, WorkspaceUploadResult
+from synth_ai.core.research.contracts.types import WorkspaceInputsState, WorkspaceUploadResult
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 

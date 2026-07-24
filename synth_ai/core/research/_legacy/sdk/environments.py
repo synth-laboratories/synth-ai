@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, List, Mapping
 
-from synth_ai.core.research._legacy.models.types import Environment, EnvironmentPreflight
+from synth_ai.core.research.contracts.types import Environment, EnvironmentPreflight
 from synth_ai.core.research._legacy.sdk._base import _ClientNamespace
 
 

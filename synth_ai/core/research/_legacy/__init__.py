@@ -5,7 +5,7 @@
 # errors, contracts, and naming where they apply to the Python SDK surface.
 """
 
-from synth_ai.core.research._legacy.errors import (
+from synth_ai.core.research.errors import (
     ClaimConflictError,
     ClaimExpiredError,
     ClaimSupersededError,
@@ -24,7 +24,7 @@ from synth_ai.core.research._legacy.errors import (
     SmrProjectMonthlyBudgetExhaustedError,
     SmrStructuredDenialError,
 )
-from synth_ai.core.research._legacy.models import (
+from synth_ai.core.research.contracts.wire_models import (
     EVIDENCE_OBLIGATION_KIND_VALUES,
     EVIDENCE_OBLIGATIONS_SCHEMA,
     ActorCollectionSnapshot,
@@ -375,7 +375,7 @@ from synth_ai.core.research._legacy.models import (
     default_provider_policy,
     default_provider_routing_policy,
 )
-from synth_ai.core.research._legacy.models.smr_agent_harnesses import SmrAgentHarness
+from synth_ai.core.research.contracts.smr_agent_harnesses import SmrAgentHarness
 from synth_ai.core.research._legacy.sdk import (
     ACTIVE_RUN_STATES,
     DEFAULT_TIMEOUT_SECONDS,
@@ -442,7 +442,7 @@ from synth_ai.core.research._legacy.sdk import (
     first_id,
     image_release_declaration,
 )
-from synth_ai.core.research._legacy.version import __version__
+from synth_ai.core.research.version import __version__
 
 __all__ = [
     "ACTIVE_RUN_STATES",

@@ -7,8 +7,8 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Any, cast
 
-from synth_ai.core.research._legacy.errors import SmrApiError, SmrHostedModelOverridesError
-from synth_ai.core.research._legacy.models.run_timeline import (
+from synth_ai.core.research.errors import SmrApiError, SmrHostedModelOverridesError
+from synth_ai.core.research.contracts.run_timeline import (
     SmrBranchMode,
     SmrRunBranchRequest,
 )
