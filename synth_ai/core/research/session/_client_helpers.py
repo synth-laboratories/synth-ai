@@ -44,12 +44,13 @@ def _payload_selects_provider(payload: Any, *, provider: str) -> bool:
     if isinstance(payload, Mapping):
         for key, value in payload.items():
             if key == "provider" and isinstance(value, Mapping):
-                selected = str(
-                    value.get("provider_id")
-                    or value.get("provider")
-                    or value.get("kind")
-                    or ""
-                ).strip().lower()
+                selected = (
+                    str(
+                        value.get("provider_id") or value.get("provider") or value.get("kind") or ""
+                    )
+                    .strip()
+                    .lower()
+                )
                 if selected == provider.lower():
                     return True
             if _payload_selects_provider(value, provider=provider):

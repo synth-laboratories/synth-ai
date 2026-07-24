@@ -15,6 +15,7 @@ from typing import Any, cast
 
 import httpx
 
+from synth_ai.core.research._internal.crypto import encrypt_for_backend
 from synth_ai.core.research.contracts.actor_images import (
     ActorImageBinding,
     ActorImageBindings,
@@ -685,10 +686,7 @@ def _build_project_run_payload(
             field_name="providers",
         )
         reject_deprecated_provider_bindings(normalized_provider_bindings)
-        payload["providers"] = [
-            binding.to_wire()
-            for binding in normalized_provider_bindings
-        ]
+        payload["providers"] = [binding.to_wire() for binding in normalized_provider_bindings]
     normalized_provider_selection = provider_selection_payload(provider)
     if normalized_provider_selection is not None:
         payload["provider"] = normalized_provider_selection
@@ -5474,12 +5472,34 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             funding_source,
             field_name="funding_source",
         )
+        if api_key and api_key.strip() and encrypted_key_b64 and encrypted_key_b64.strip():
+            raise ValueError("set_provider_key accepts api_key or encrypted_key_b64, not both")
         payload: dict[str, Any] = {
             "provider": normalized_provider.value,
             "funding_source": normalized_funding_source.value,
         }
         if api_key and api_key.strip():
-            payload["api_key"] = api_key.strip()
+            # Seal locally: plaintext provider secrets never cross the API boundary.
+            public_key_response = _coerce_dict(
+                self._request_json("GET", "/api/v1/crypto/public-key"),
+                label="backend crypto public key",
+            )
+            algorithm = _require_non_empty_string(
+                public_key_response.get("alg"),
+                field_name="backend crypto public key alg",
+            )
+            if algorithm != "libsodium.sealedbox.v1":
+                raise ValueError(
+                    f"unsupported backend provider-key encryption algorithm: {algorithm}"
+                )
+            public_key_b64 = _require_non_empty_string(
+                public_key_response.get("public_key"),
+                field_name="backend crypto public key",
+            )
+            payload["encrypted_key_b64"] = encrypt_for_backend(
+                public_key_b64,
+                api_key.strip(),
+            )
         if encrypted_key_b64 and encrypted_key_b64.strip():
             payload["encrypted_key_b64"] = encrypted_key_b64.strip()
         if "api_key" not in payload and "encrypted_key_b64" not in payload:

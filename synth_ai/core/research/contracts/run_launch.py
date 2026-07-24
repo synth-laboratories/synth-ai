@@ -47,12 +47,12 @@ from synth_ai.core.research.contracts.smr_roles import SmrRoleBindings
 from synth_ai.core.research.contracts.smr_run_policy import SmrRunPolicy
 from synth_ai.core.research.contracts.smr_runbooks import SmrRunbookKind
 from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
+from synth_ai.core.research.contracts.swarms import normalize_provider_selection
 from synth_ai.core.research.contracts.types import (
     KickoffContract,
     KickoffContractFile,
     RunResourceBindings,
 )
-from synth_ai.core.research.contracts.swarms import normalize_provider_selection
 
 WirePayload: TypeAlias = dict[str, object]
 WireMapping: TypeAlias = Mapping[str, object]
