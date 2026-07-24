@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from synth_ai.core.research._legacy.models.run_state import (
     _int_value,
@@ -21,6 +21,9 @@ from synth_ai.core.research._legacy.models.scientific_integrity import (
     SmrEvaluationMode,
     grading_record_evaluation_mode,
 )
+
+if TYPE_CHECKING:
+    from .factory_evidence import ConfirmedProjectGitPushReceipt
 
 
 class FactoryKind(StrEnum):
@@ -1864,6 +1867,55 @@ class FactoryOperatingWindow:
 
 
 @dataclass(frozen=True)
+class FactoryRunCleanupReceipt:
+    run_id: str
+    status: str
+    observed_at: datetime
+    reason: str
+    resources: tuple[dict[str, object], ...] = ()
+    schema_version: str = "factory_run_cleanup_receipt.v1"
+    raw: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: object) -> FactoryRunCleanupReceipt:
+        mapping = _require_mapping(payload, label="factory run cleanup receipt")
+        schema_version = _require_string(
+            mapping,
+            "schema_version",
+            label="factory run cleanup receipt schema_version",
+        )
+        if schema_version != "factory_run_cleanup_receipt.v1":
+            raise ValueError(
+                "factory run cleanup receipt schema_version must be "
+                "factory_run_cleanup_receipt.v1"
+            )
+        status = _require_string(
+            mapping, "status", label="factory run cleanup receipt status"
+        )
+        if status not in {"cleaned", "not_required", "pending", "failed"}:
+            raise ValueError(f"factory run cleanup receipt status is invalid: {status!r}")
+        observed_at = _optional_datetime(mapping, "observed_at")
+        if observed_at is None:
+            raise ValueError("factory run cleanup receipt requires observed_at")
+        return cls(
+            run_id=_require_string(
+                mapping, "run_id", label="factory run cleanup receipt run_id"
+            ),
+            status=status,
+            observed_at=observed_at,
+            reason=_require_string(
+                mapping, "reason", label="factory run cleanup receipt reason"
+            ),
+            resources=_optional_object_tuple(
+                mapping.get("resources"),
+                label="factory run cleanup receipt resources",
+            ),
+            schema_version=schema_version,
+            raw=dict(mapping),
+        )
+
+
+@dataclass(frozen=True)
 class FactoryStatus:
     factory: Factory
     projects: tuple[FactoryProjectSummary, ...] = ()
@@ -1891,12 +1943,24 @@ class FactoryStatus:
     results: tuple[FactoryResult, ...] = ()
     current_best: FactoryResult | None = None
     raw: dict[str, object] = field(default_factory=dict)
+    candidate_gradings: tuple[FactoryCandidate, ...] = ()
+    candidate_gradings_truncated: bool = False
+    git_server_receipt: dict[str, object] | None = None
+    run_cleanup_receipts: tuple[FactoryRunCleanupReceipt, ...] = ()
 
     @property
     def typed_runtime(self) -> FactoryRuntimeStatus:
         """Return the typed backend scheduler/reactor owner-route payload."""
 
         return FactoryRuntimeStatus.from_wire(self.runtime)
+
+    @property
+    def typed_git_server_receipt(self) -> ConfirmedProjectGitPushReceipt | None:
+        if self.git_server_receipt is None:
+            return None
+        from .factory_evidence import ConfirmedProjectGitPushReceipt
+
+        return ConfirmedProjectGitPushReceipt.from_wire(self.git_server_receipt)
 
     @classmethod
     def from_wire(cls, payload: object) -> FactoryStatus:
@@ -1988,6 +2052,25 @@ class FactoryStatus:
                 FactoryOperatingWindow.from_wire(mapping.get("operating_window"))
                 if mapping.get("operating_window") is not None
                 else None
+            ),
+            candidate_gradings=tuple(
+                FactoryCandidate.from_wire(item)
+                for item in list(mapping.get("candidate_gradings") or [])
+            ),
+            candidate_gradings_truncated=bool(
+                _optional_bool(mapping, "candidate_gradings_truncated")
+            ),
+            git_server_receipt=(
+                _optional_object_dict(
+                    mapping.get("git_server_receipt"),
+                    label="factory status git_server_receipt",
+                )
+                if mapping.get("git_server_receipt") is not None
+                else None
+            ),
+            run_cleanup_receipts=tuple(
+                FactoryRunCleanupReceipt.from_wire(item)
+                for item in list(mapping.get("run_cleanup_receipts") or [])
             ),
             results=tuple(
                 FactoryResult.from_wire(item) for item in list(mapping.get("results") or [])
@@ -2905,6 +2988,7 @@ __all__ = [
     "FactoryHealth",
     "FactoryMaintenanceAction",
     "FactoryOperatingWindow",
+    "FactoryRunCleanupReceipt",
     "FactoryControlLoopFlags",
     "FactoryReactorReceipt",
     "FactoryReactorStatus",
