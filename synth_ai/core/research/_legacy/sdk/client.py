@@ -921,9 +921,17 @@ def _build_project_run_payload(
         payload["primary_parent"] = normalized_primary_parent
     if effort_id and effort_id.strip():
         payload["effort_id"] = effort_id.strip()
+    # Maintenance is owned by the Factory wake-due flow. Public run-start
+    # callers must not advertise a path the backend authority rejects.
     normalized_run_kind = str(run_kind or "research").strip().lower()
-    if normalized_run_kind not in {"research", "maintenance"}:
-        raise ValueError("run_kind must be 'research' or 'maintenance'")
+    if normalized_run_kind == "maintenance":
+        raise ValueError(
+            "run_kind='maintenance' is Factory wake-due owned; "
+            "use factories.preview_wake / factories.wake_due instead of the "
+            "public run-start / launch path"
+        )
+    if normalized_run_kind != "research":
+        raise ValueError("run_kind must be 'research'")
     payload["run_kind"] = normalized_run_kind
     if idempotency_key_run_create and idempotency_key_run_create.strip():
         payload["idempotency_key_run_create"] = idempotency_key_run_create.strip()

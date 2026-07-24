@@ -1127,13 +1127,15 @@ class EffortsAPI(_ClientNamespace):
         *,
         objective: str | None = None,
         **kwargs: Any,
-    ):
-        """Send a typed external signal to start maintenance on one Effort."""
-        return self.launch(
-            effort_id,
-            objective=objective,
-            run_kind="maintenance",
-            **kwargs,
+    ) -> None:
+        # Keep a migration stub so callers get a clear local refusal instead
+        # of an HTTP 400 from a forbidden client run_kind=maintenance start.
+        _ = (objective, kwargs)
+        raise ValueError(
+            f"launch_maintenance({effort_id!r}) is not supported; maintenance "
+            "is Factory wake-due owned. Use factories.preview_wake / "
+            "factories.wake_due instead of efforts.launch(..., "
+            "run_kind='maintenance')"
         )
 
 
