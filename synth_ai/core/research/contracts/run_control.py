@@ -13,13 +13,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
-from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research.contracts.run_state import (
     ManagedResearchRun,
     _optional_string,
     _require_mapping,
     _require_string,
 )
+from synth_ai.core.research.errors import SmrApiError
 
 
 class ManagedResearchRunControlEnqueueStatus(StrEnum):

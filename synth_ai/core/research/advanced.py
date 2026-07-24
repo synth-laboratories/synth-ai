@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.session.client import ResearchSession
-from synth_ai.core.research.session.images import ImagesAPI
-from synth_ai.core.research.session.tag import TagAPI
 from synth_ai.core.research.advanced_factories import (
     ResearchFactoriesAPI as AdvancedFactoriesAPI,
 )
@@ -15,6 +12,9 @@ from synth_ai.core.research.artifacts import ResearchHostedArtifactsAPI
 from synth_ai.core.research.economics import ResearchEconomicsAPI, ResearchLimitsAPI
 from synth_ai.core.research.efforts import Efforts
 from synth_ai.core.research.secrets import ResearchSecretsAPI
+from synth_ai.core.research.session.client import ResearchSession
+from synth_ai.core.research.session.images import ImagesAPI
+from synth_ai.core.research.session.tag import TagAPI
 from synth_ai.core.research.visuals import ResearchVisualsAPI
 
 

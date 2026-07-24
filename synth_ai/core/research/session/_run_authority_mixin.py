@@ -11,8 +11,6 @@ from typing import Any
 
 import httpx
 
-from synth_ai.core.research.errors import SmrApiError
-from synth_ai.core.research.contracts.wire_models import Checkpoint
 from synth_ai.core.research.contracts.operator_evidence import SmrRunOperatorEvidence
 from synth_ai.core.research.contracts.run_authority import ManagedResearchRunTask
 from synth_ai.core.research.contracts.run_control import ManagedResearchRunControlError
@@ -45,6 +43,8 @@ from synth_ai.core.research.contracts.runtime_intent import (
     RuntimeIntentReceipt,
     RuntimeIntentView,
 )
+from synth_ai.core.research.contracts.wire_models import Checkpoint
+from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research.session._client_helpers import (
     _coerce_branch_request,
     _coerce_dict,

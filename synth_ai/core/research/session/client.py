@@ -15,40 +15,6 @@ from typing import Any, cast
 
 import httpx
 
-from synth_ai.core.research.errors import (
-    SmrApiError,
-    raise_cloud_deployment_claim_error,
-)
-from synth_ai.core.research.contracts.wire_models import (
-    BillingEntitlementSnapshot,
-    EffortCreateRequest,
-    EffortFromRunsRequest,
-    EffortPatchRequest,
-    FactoryActorOutputCreateRequest,
-    FactoryActorOutputPatchRequest,
-    FactoryCandidateGradingRequest,
-    FactoryChampionRollbackRequest,
-    FactoryChampionSelectRequest,
-    FactoryCreateRequest,
-    FactoryIdeaCreateRequest,
-    FactoryIdeaPatchRequest,
-    FactoryLifecycleState,
-    FactoryPatchRequest,
-    FactoryProjectLinkRequest,
-    FactoryProjectPatchRequest,
-    FactoryResultEvaluateRequest,
-    FactoryResultRestoreRequest,
-    FactoryResultSelectRequest,
-    FactoryTransitionRequest,
-    FactoryWakeDueRequest,
-    SmrProjectEconomics,
-    SmrProjectUsage,
-    SmrResourceLimitExtension,
-    SmrResourceLimitProgress,
-    SmrResourceLimits,
-    SmrResourceLimitSelector,
-    SmrRunUsage,
-)
 from synth_ai.core.research.contracts.actor_images import (
     ActorImageBinding,
     ActorImageBindings,
@@ -162,6 +128,40 @@ from synth_ai.core.research.contracts.types import (
     RunArtifactManifest,
     RunResourceBindings,
     SmrRunnableProjectRequest,
+)
+from synth_ai.core.research.contracts.wire_models import (
+    BillingEntitlementSnapshot,
+    EffortCreateRequest,
+    EffortFromRunsRequest,
+    EffortPatchRequest,
+    FactoryActorOutputCreateRequest,
+    FactoryActorOutputPatchRequest,
+    FactoryCandidateGradingRequest,
+    FactoryChampionRollbackRequest,
+    FactoryChampionSelectRequest,
+    FactoryCreateRequest,
+    FactoryIdeaCreateRequest,
+    FactoryIdeaPatchRequest,
+    FactoryLifecycleState,
+    FactoryPatchRequest,
+    FactoryProjectLinkRequest,
+    FactoryProjectPatchRequest,
+    FactoryResultEvaluateRequest,
+    FactoryResultRestoreRequest,
+    FactoryResultSelectRequest,
+    FactoryTransitionRequest,
+    FactoryWakeDueRequest,
+    SmrProjectEconomics,
+    SmrProjectUsage,
+    SmrResourceLimitExtension,
+    SmrResourceLimitProgress,
+    SmrResourceLimits,
+    SmrResourceLimitSelector,
+    SmrRunUsage,
+)
+from synth_ai.core.research.errors import (
+    SmrApiError,
+    raise_cloud_deployment_claim_error,
 )
 from synth_ai.core.research.session._client_helpers import (
     _coerce_dict,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, List
 
+
 def _artifact_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
     artifacts = payload.get("artifacts")
     if isinstance(artifacts, list):

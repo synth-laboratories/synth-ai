@@ -32,8 +32,6 @@ from synth_ai.core.errors import (
 )
 
 
-
-
 class ResearchApiError(SynthError, RuntimeError):
     """Raised when the Managed Research API returns an error response.
 

@@ -24,6 +24,26 @@ from synth_ai.core.research.contracts.checkpoints import (
     CheckpointCadenceSource,
     CheckpointScope,
 )
+from synth_ai.core.research.contracts.factory_evidence import (
+    ActorContainerRunBinding,
+    AppliedBudgetOwnerReceipt,
+    AppliedExperimentRegistrationReceipt,
+    AppliedSynthWikiReceipt,
+    ArtifactBackedWorkProduct,
+    ArtifactBackedWorkProductIdentity,
+    ConfirmedProjectGitPushReceipt,
+    FactoryEvidencePacket,
+    FactoryEvidenceReadSet,
+    FactoryEvidenceTier,
+    FactoryEvidenceValidationError,
+    FactoryLaunchReadiness,
+    FactoryLaunchTarget,
+    RunCostIdentity,
+    RuntimeImageIdentity,
+    SourceIdentity,
+    assemble_factory_evidence_packet,
+    assemble_factory_launch_readiness,
+)
 from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     BudgetPolicy,
@@ -70,26 +90,6 @@ from synth_ai.core.research.contracts.factory_operations import (
     FactoryWorkspace,
     PublicationPolicy,
     RecurrencePolicy,
-)
-from synth_ai.core.research.contracts.factory_evidence import (
-    ActorContainerRunBinding,
-    AppliedBudgetOwnerReceipt,
-    AppliedExperimentRegistrationReceipt,
-    AppliedSynthWikiReceipt,
-    ArtifactBackedWorkProduct,
-    ArtifactBackedWorkProductIdentity,
-    ConfirmedProjectGitPushReceipt,
-    FactoryEvidencePacket,
-    FactoryEvidenceReadSet,
-    FactoryEvidenceTier,
-    FactoryEvidenceValidationError,
-    FactoryLaunchReadiness,
-    FactoryLaunchTarget,
-    RunCostIdentity,
-    RuntimeImageIdentity,
-    SourceIdentity,
-    assemble_factory_evidence_packet,
-    assemble_factory_launch_readiness,
 )
 from synth_ai.core.research.contracts.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,
@@ -332,8 +332,8 @@ from synth_ai.core.research.session.client import (
     OPENAI_TRANSPORT_MODE_AUTO,
     OPENAI_TRANSPORT_MODE_BACKEND_BFF,
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
-    ResearchSession,
     ResearchControlSession,
+    ResearchSession,
     first_id,
 )
 from synth_ai.core.research.session.cloud_deployments import (

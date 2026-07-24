@@ -644,9 +644,7 @@ class BoundRuntimeExecutionTarget:
         }
         for name, expected in constants.items():
             if payload.get(name) != expected:
-                raise ValueError(
-                    f"bound execution_target.attestation.{name} must be {expected}"
-                )
+                raise ValueError(f"bound execution_target.attestation.{name} must be {expected}")
         for name in (
             "attestation_id",
             "provider_resource_id",
@@ -884,9 +882,7 @@ class SwarmSpec:
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
-    execution_target: (
-        PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None
-    ) = None
+    execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
     )

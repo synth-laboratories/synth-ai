@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from os import PathLike
 from typing import Any, List
 
+
 class ResearchProjectsSetupAPI:
     """Prepare projects for launch (onboarding + runnable setup)."""
 

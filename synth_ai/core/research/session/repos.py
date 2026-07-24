@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any, List
 from urllib.parse import urlparse
 
-from synth_ai.core.research.errors import UnsupportedProvider
 from synth_ai.core.research.contracts.types import Repository
+from synth_ai.core.research.errors import UnsupportedProvider
 from synth_ai.core.research.session._base import _ClientNamespace
 
 

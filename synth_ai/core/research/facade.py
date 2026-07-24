@@ -14,8 +14,8 @@ from synth_ai.core.research.swarms import ResearchSwarmsAPI
 
 if TYPE_CHECKING:
     from synth_ai.core.research.advanced import (
-        ResearchSession,
         ResearchAdvancedAPI,
+        ResearchSession,
     )
 
 

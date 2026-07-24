@@ -32,6 +32,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
+from synth_ai.core.research.contracts.economics import (
+    ResearchBillingCatalog,
+    ResearchBillingDrawdown,
+    ResearchBillingEntitlements,
+    ResearchBillingPlan,
+    ResearchOrgLimits,
+    ResearchProjectEconomics,
+)
 from synth_ai.core.research.contracts.project import (
     CreateRunnableResult as ResearchCreateProjectResult,
 )
@@ -44,27 +52,6 @@ from synth_ai.core.research.contracts.run_launch import (
 from synth_ai.core.research.contracts.run_state import ManagedResearchRun as ResearchRun
 from synth_ai.core.research.contracts.run_timeline import (
     SmrAuthorityReadouts as ResearchAuthorityReadouts,
-)
-from synth_ai.core.research.contracts.tag import (
-    TagSessionCreateRequest as ResearchTagSessionCreateRequest,
-)
-from synth_ai.core.research.contracts.types import RunArtifact as ResearchArtifact
-from synth_ai.core.research.contracts.types import (
-    RunArtifactManifest as ResearchArtifactManifest,
-)
-from synth_ai.core.research.contracts.types import (
-    RunProgress,
-)
-from synth_ai.core.research.contracts.work_products import (
-    ManagedResearchRunWorkProduct as ResearchWorkProduct,
-)
-from synth_ai.core.research.contracts.economics import (
-    ResearchBillingCatalog,
-    ResearchBillingDrawdown,
-    ResearchBillingEntitlements,
-    ResearchBillingPlan,
-    ResearchOrgLimits,
-    ResearchProjectEconomics,
 )
 from synth_ai.core.research.contracts.smr_agent_harnesses import (
     SmrAgentHarness as ResearchAgentHarness,
@@ -95,6 +82,19 @@ from synth_ai.core.research.contracts.smr_runnable_project import (
 )
 from synth_ai.core.research.contracts.smr_runtime_kinds import (
     SmrRuntimeKind as ResearchRuntimeKind,
+)
+from synth_ai.core.research.contracts.tag import (
+    TagSessionCreateRequest as ResearchTagSessionCreateRequest,
+)
+from synth_ai.core.research.contracts.types import RunArtifact as ResearchArtifact
+from synth_ai.core.research.contracts.types import (
+    RunArtifactManifest as ResearchArtifactManifest,
+)
+from synth_ai.core.research.contracts.types import (
+    RunProgress,
+)
+from synth_ai.core.research.contracts.work_products import (
+    ManagedResearchRunWorkProduct as ResearchWorkProduct,
 )
 
 

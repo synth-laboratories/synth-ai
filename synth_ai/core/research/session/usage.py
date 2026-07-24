@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research.contracts.wire_models import (
     BillingEntitlementSnapshot,
     OrgLimits,
@@ -15,6 +14,7 @@ from synth_ai.core.research.contracts.wire_models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
+from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research.session._base import _ClientNamespace
 
 

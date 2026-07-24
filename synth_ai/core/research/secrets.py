@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, List
 
+
 class ResearchSecretsAPI:
     """Manage project-scoped secret references for provider and rollout auth.
 

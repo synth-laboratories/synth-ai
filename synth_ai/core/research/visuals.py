@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, List
 
+
 class ResearchVisualsAPI:
     def __init__(self, session: Any) -> None:
         self._session = session

@@ -9,7 +9,6 @@ from typing import Any, List, cast
 
 import httpx
 
-from synth_ai.core.research.errors import SmrApiError, SmrStructuredDenialError
 from synth_ai.core.research.contracts.canonical_usage import (
     SmrResourceLimitExtension,
     SmrResourceLimitProgress,
@@ -84,6 +83,7 @@ from synth_ai.core.research.contracts.smr_runbooks import SmrRunbookPreset
 from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
 from synth_ai.core.research.contracts.types import RunArtifact, RunArtifactManifest
 from synth_ai.core.research.contracts.work_products import ManagedResearchRunWorkProduct
+from synth_ai.core.research.errors import SmrApiError, SmrStructuredDenialError
 from synth_ai.core.research.session._base import _ClientNamespace
 from synth_ai.core.research.session.config import DEFAULT_MISC_PROJECT_ALIAS
 

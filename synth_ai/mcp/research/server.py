@@ -8,18 +8,18 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from synth_ai.core.research.auth import get_api_key
-from synth_ai.core.research.errors import SmrApiError
+from synth_ai.core.research.client import Client as CoreResearchClient
+from synth_ai.core.research.contracts.activity import ActivityWindow
+from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
 from synth_ai.core.research.contracts.factory_operations import FactoryWakeDueRequest
 from synth_ai.core.research.contracts.promotions import (
     SmrPromotionDiscountPreviewRequest,
 )
 from synth_ai.core.research.contracts.run_control import ManagedResearchActorControlAction
+from synth_ai.core.research.contracts.transcript import TranscriptView
+from synth_ai.core.research.errors import SmrApiError
 from synth_ai.core.research.session.client import ResearchSession
 from synth_ai.core.research.version import __version__
-from synth_ai.core.research.client import Client as CoreResearchClient
-from synth_ai.core.research.contracts.activity import ActivityWindow
-from synth_ai.core.research.contracts.common import ParticipantSessionId, SwarmId
-from synth_ai.core.research.contracts.transcript import TranscriptView
 from synth_ai.mcp.research.objective_tools import (
     ObjectiveToolOperation,
     objective_tool_operation_from_wire,
@@ -3488,8 +3488,6 @@ class ResearchMcpServer:
 def main() -> None:
     """CLI entrypoint for the stdio MCP server."""
     ResearchMcpServer().serve_stdio()
-
-
 
 
 __all__ = [

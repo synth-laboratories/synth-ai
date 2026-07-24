@@ -32,7 +32,7 @@ from synth_ai.core.research.contracts.smr_providers import (
     coerce_provider_bindings,
     coerce_usage_limit,
 )
-from synth_ai.core.research.contracts.smr_runnable_project import (
+from synth_ai.core.research.contracts.smr_runnable_project import (  # noqa: F401 - re-exported
     SmrAgentProfileBindings,
     SmrRunnableProjectRequest,
 )

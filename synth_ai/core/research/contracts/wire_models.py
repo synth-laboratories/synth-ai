@@ -75,6 +75,26 @@ from synth_ai.core.research.contracts.cloud_deployments import (
 from synth_ai.core.research.contracts.dev_environment_evidence import (
     DevEnvironmentEvidence,
 )
+from synth_ai.core.research.contracts.factory_evidence import (
+    ActorContainerRunBinding,
+    AppliedBudgetOwnerReceipt,
+    AppliedExperimentRegistrationReceipt,
+    AppliedSynthWikiReceipt,
+    ArtifactBackedWorkProduct,
+    ArtifactBackedWorkProductIdentity,
+    ConfirmedProjectGitPushReceipt,
+    FactoryEvidencePacket,
+    FactoryEvidenceReadSet,
+    FactoryEvidenceTier,
+    FactoryEvidenceValidationError,
+    FactoryLaunchReadiness,
+    FactoryLaunchTarget,
+    RunCostIdentity,
+    RuntimeImageIdentity,
+    SourceIdentity,
+    assemble_factory_evidence_packet,
+    assemble_factory_launch_readiness,
+)
 from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     BudgetPolicy,
@@ -151,26 +171,6 @@ from synth_ai.core.research.contracts.factory_operations import (
     GraduationProposal,
     PublicationPolicy,
     RecurrencePolicy,
-)
-from synth_ai.core.research.contracts.factory_evidence import (
-    ActorContainerRunBinding,
-    AppliedBudgetOwnerReceipt,
-    AppliedExperimentRegistrationReceipt,
-    AppliedSynthWikiReceipt,
-    ArtifactBackedWorkProduct,
-    ArtifactBackedWorkProductIdentity,
-    ConfirmedProjectGitPushReceipt,
-    FactoryEvidencePacket,
-    FactoryEvidenceReadSet,
-    FactoryEvidenceTier,
-    FactoryEvidenceValidationError,
-    FactoryLaunchReadiness,
-    FactoryLaunchTarget,
-    RunCostIdentity,
-    RuntimeImageIdentity,
-    SourceIdentity,
-    assemble_factory_evidence_packet,
-    assemble_factory_launch_readiness,
 )
 from synth_ai.core.research.contracts.local_execution_profile import (
     LEGACY_LOCAL_EXECUTION_PROFILE_SCHEMA_VERSION,

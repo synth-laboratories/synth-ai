@@ -24,6 +24,7 @@ from synth_ai.core.errors import (
 from synth_ai.core.errors import (
     SynthFailure as Failure,
 )
+from synth_ai.core.research.client import AsyncClient
 from synth_ai.core.research.contracts import (
     ENVIRONMENT_SCHEMA_VERSION,
     WORKSPACE_BATCH_UPLOAD_FILE_LIMIT,
@@ -53,8 +54,8 @@ from synth_ai.core.research.contracts import (
     ActorUsage,
     ActorUsageMoney,
     ArtifactId,
-    BranchSpec,
     BoundRuntimeExecutionTarget,
+    BranchSpec,
     BudgetPolicy,
     CapacityPolicy,
     ConfigurationVersionId,
@@ -240,10 +241,9 @@ from synth_ai.core.research.events import (
     SwarmEvent,
     SwarmEventKind,
 )
+from synth_ai.core.research.facade import Client
 from synth_ai.core.research.project_workspaces import WorkspaceBatchUploadError
 from synth_ai.core.research.swarms import SwarmHandle
-from synth_ai.core.research.client import AsyncClient
-from synth_ai.core.research.facade import Client
 
 __all__ = [
     "ActivityActor",
