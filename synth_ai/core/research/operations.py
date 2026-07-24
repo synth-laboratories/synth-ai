@@ -84,6 +84,18 @@ RESEARCH_OPERATIONS = {
             "/smr/factories/{factory_id}/efforts",
             idempotent=True,
         ),
+        _operation(
+            "list_factory_candidates",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/candidates",
+            idempotent=True,
+        ),
+        _operation(
+            "list_factory_champion_events",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/champion/events",
+            idempotent=True,
+        ),
         _operation("list_jobs", HttpMethod.GET, "/smr/jobs", idempotent=True),
         _operation(
             "list_project_active_runs",
@@ -134,6 +146,18 @@ RESEARCH_OPERATIONS = {
         ),
         _operation(
             "resume_factory", HttpMethod.POST, "/smr/factories/{factory_id}/resume", mutation=True
+        ),
+        _operation(
+            "record_factory_candidate_grading",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/candidates/{candidate_id}/grading",
+            mutation=True,
+        ),
+        _operation(
+            "rollback_factory_champion",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/champion/rollback",
+            mutation=True,
         ),
         _operation("resume_run", HttpMethod.POST, "/smr/runs/{run_id}/resume", mutation=True),
         _operation(
@@ -271,6 +295,12 @@ RESEARCH_OPERATIONS = {
         ),
         _operation(
             "start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True
+        ),
+        _operation(
+            "select_factory_champion",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/champion/select",
+            mutation=True,
         ),
         _operation(
             "set_project_workspace_source_repository",

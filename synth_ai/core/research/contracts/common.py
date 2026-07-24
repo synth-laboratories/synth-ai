@@ -71,6 +71,10 @@ class FactoryId(str):
     """Backend-owned Research Factory identifier."""
 
 
+class FactoryCandidateId(str):
+    """Backend-owned immutable Factory candidate identifier."""
+
+
 class OrganizationId(str):
     """Backend-owned organization identifier."""
 
@@ -124,6 +128,7 @@ __all__ = [
     "EnvironmentId",
     "EnvironmentKind",
     "EnvironmentName",
+    "FactoryCandidateId",
     "FactoryId",
     "MessageId",
     "OrganizationId",
