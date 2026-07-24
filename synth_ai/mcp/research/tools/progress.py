@@ -102,8 +102,7 @@ def _provider_selection_schema() -> dict[str, Any]:
             },
         ],
         "description": (
-            "Inference provider: auto, a strict pin, or an ordered hard "
-            "allowlist used at launch."
+            "Inference provider: auto, a strict pin, or an ordered hard allowlist used at launch."
         ),
     }
 
