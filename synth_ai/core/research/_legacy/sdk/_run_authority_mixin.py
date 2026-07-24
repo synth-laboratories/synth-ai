@@ -155,12 +155,13 @@ class ManagedResearchRunAuthorityMixin:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        min_level: str | None = None,
     ) -> dict[str, Any]:
         return _coerce_dict(
             self._request_json(
                 "GET",
                 f"/smr/projects/{project_id}/runs/{run_id}/logs",
-                params=build_query_params(limit=limit, cursor=cursor),
+                params=build_query_params(limit=limit, cursor=cursor, min_level=min_level),
             ),
             label="get_run_logs",
         )
