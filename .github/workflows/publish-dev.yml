@@ -47,13 +47,25 @@ jobs:
         id: check
         run: |
           LOCAL="${{ steps.local.outputs.version }}"
-          # Publish when the EXACT local version is not yet on PyPI. Comparing
-          # against .info.version (the latest STABLE) would re-fire on every dev
-          # push because a .dev prerelease never becomes .info.version, so the
-          # same prerelease would be rebuilt/republished repeatedly. Checking
-          # .releases[$LOCAL] is correct for both stable and .dev versions.
-          if curl -fsSL https://pypi.org/pypi/synth-ai/json \
-               | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null 2>&1; then
+          # Fail closed: a metadata lookup failure must fail this job, never
+          # be read as "version absent" (which would publish on a PyPI blip).
+          # Bounded retry distinguishes a transient outage from real absence.
+          META=""
+          for attempt in 1 2 3; do
+            if META=$(curl -fsSL --max-time 30 https://pypi.org/pypi/synth-ai/json); then
+              break
+            fi
+            META=""
+            echo "PyPI metadata fetch failed (attempt $attempt/3); retrying in 10s"
+            sleep 10
+          done
+          if [ -z "$META" ]; then
+            echo "::error::PyPI metadata unavailable after 3 attempts; refusing to decide publish"
+            exit 1
+          fi
+          # Check the EXACT release, not .info.version (latest stable): exact
+          # lookup is correct for both stable and .dev versions.
+          if printf '%s' "$META" | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null; then
             echo "needs_publish=false" >> $GITHUB_OUTPUT
             echo "Version $LOCAL already on PyPI - skipping publish"
           else
