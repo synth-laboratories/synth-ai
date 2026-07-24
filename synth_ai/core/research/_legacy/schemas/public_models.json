@@ -161,6 +161,45 @@
       }
     },
     {
+      "id": "gpt-5.4",
+      "display_name": "GPT-5.4",
+      "display_group": "standard_codex",
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.4",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": null,
+      "route_regions": [],
+      "zdr_supported": null,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": 128000,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.0000025",
+        "cached_input_usd": "0.00000125",
+        "output_usd": "0.00001",
+        "reasoning_output_usd": "0.00001",
+        "source": "synth_contract_estimate",
+        "observed_at": "2026-04-24"
+      }
+    },
+    {
       "id": "gpt-5.4-mini",
       "display_name": "GPT-5.4 Mini",
       "display_group": "standard_codex",
