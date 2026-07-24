@@ -7,10 +7,14 @@ from enum import StrEnum
 
 class SmrInferenceProvider(StrEnum):
     BASETEN = "baseten"
+    CURSOR = "cursor"
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
+    POOLSIDE = "poolside"
+    SYNTH = "synth"
+    SYNTH_INTERNAL = "synth_internal"
     XAI = "xai"
 
 

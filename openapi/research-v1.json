@@ -1608,6 +1608,18 @@
             "title": "Denied Providers",
             "type": "array"
           },
+          "max_retention_days": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retention Days"
+          },
           "preferred_models": {
             "items": {
               "type": "string"
@@ -1621,6 +1633,17 @@
             },
             "title": "Preferred Providers",
             "type": "array"
+          },
+          "require_no_training": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require No Training"
           },
           "require_zdr": {
             "anyOf": [
@@ -5236,11 +5259,13 @@
       "SmrInferenceProvider": {
         "enum": [
           "baseten",
+          "cursor",
           "deepseek",
           "openai",
           "google",
           "openrouter",
           "poolside",
+          "synth",
           "synth_internal",
           "xai"
         ],
@@ -6844,7 +6869,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -7121,6 +7146,24 @@
               }
             ]
           },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Inference provider selection. Use 'auto' for backend-owned GA routing, one provider id for strict pinning, or an ordered provider list as a hard allowlist with fallback during launch resolution.",
+            "title": "Provider"
+          },
           "provider_policy": {
             "anyOf": [
               {
@@ -7133,7 +7176,7 @@
             "description": "Declarative provider routing preferences. Use agent_inference for agent actor traffic and experiment_inference for benchmark/eval model traffic. Defaults require ZDR and US domicile/region for OpenAI, Baseten, Gemini, and Grok-family providers."
           },
           "providers": {
-            "description": "Run-scoped provider bindings. Supported public providers are openrouter, xai, tinker, synth_ai, cursor, deepseek, baseten, and openai_chatgpt.",
+            "description": "Run-scoped resource bindings. This is independent from the inference provider selector.",
             "items": {
               "$ref": "#/components/schemas/ResourceProviderBinding"
             },

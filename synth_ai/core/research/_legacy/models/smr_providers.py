@@ -48,7 +48,11 @@ DEFAULT_PROVIDER_POLICY_ALLOWED_PROVIDERS: tuple[str, ...] = (
     "openai",
     "baseten",
     "gemini",
+    "synth",
+    "synth_internal",
+    "xai",
     "grok",
+    "cursor",
 )
 DEFAULT_PROVIDER_POLICY_ALLOWED_DOMICILES: tuple[str, ...] = ("us",)
 DEFAULT_PROVIDER_POLICY_ALLOWED_REGIONS: tuple[str, ...] = ("us",)
@@ -248,6 +252,8 @@ class ResourceRoutingPolicy:
     denied_models: tuple[str, ...] | None = None
     preferred_models: tuple[str, ...] | None = None
     require_zdr: bool | None = None
+    require_no_training: bool | None = None
+    max_retention_days: int | None = None
     allowed_domiciles: tuple[str, ...] | None = None
     allowed_regions: tuple[str, ...] | None = None
 
@@ -281,6 +287,12 @@ class ResourceRoutingPolicy:
             raise ValueError("allowed_models and denied_models must not overlap")
         if preferred_models.intersection(denied_models):
             raise ValueError("preferred_models and denied_models must not overlap")
+        if self.max_retention_days is not None and (
+            isinstance(self.max_retention_days, bool)
+            or not isinstance(self.max_retention_days, int)
+            or self.max_retention_days < 0
+        ):
+            raise ValueError("max_retention_days must be a non-negative integer")
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {}
@@ -298,6 +310,10 @@ class ResourceRoutingPolicy:
             payload["preferred_models"] = list(self.preferred_models)
         if self.require_zdr is not None:
             payload["require_zdr"] = bool(self.require_zdr)
+        if self.require_no_training is not None:
+            payload["require_no_training"] = bool(self.require_no_training)
+        if self.max_retention_days is not None:
+            payload["max_retention_days"] = self.max_retention_days
         if self.allowed_domiciles is not None:
             payload["allowed_domiciles"] = list(self.allowed_domiciles)
         if self.allowed_regions is not None:
@@ -519,6 +535,14 @@ def _coerce_routing_policy(
         require_zdr=_optional_bool(
             value.get("require_zdr"),
             field_name=f"{field_name}.require_zdr",
+        ),
+        require_no_training=_optional_bool(
+            value.get("require_no_training"),
+            field_name=f"{field_name}.require_no_training",
+        ),
+        max_retention_days=_optional_int(
+            value.get("max_retention_days"),
+            field_name=f"{field_name}.max_retention_days",
         ),
         allowed_domiciles=_lower_string_tuple(
             value.get("allowed_domiciles"),

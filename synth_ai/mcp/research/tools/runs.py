@@ -167,6 +167,25 @@ def _provider_bindings_schema() -> dict[str, Any]:
     }
 
 
+def _provider_selection_schema() -> dict[str, Any]:
+    public = ["auto", "openai", "synth", "xai", "cursor"]
+    return {
+        "oneOf": [
+            {"type": "string", "enum": public},
+            {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string", "enum": public[1:]},
+            },
+        ],
+        "description": (
+            "Inference provider: auto, a strict pin, or an ordered hard "
+            "allowlist used at launch."
+        ),
+    }
+
+
 def _usage_limit_schema() -> dict[str, Any]:
     return {
         "type": "object",
@@ -279,6 +298,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Authenticated API execution host kind for this run.",
                     },
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     "timebox_seconds": {
                         "type": "integer",
@@ -325,6 +345,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "items": {"type": "object"},
                     },
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     "worker_pool_id": {
                         "type": "string",
@@ -431,6 +452,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                         "items": {"type": "object"},
                     },
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     "worker_pool_id": {
                         "type": "string",
@@ -532,6 +554,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     },
                     **_horizon_launch_properties(),
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     **_objective_launch_properties(),
                     "worker_pool_id": {
@@ -666,6 +689,7 @@ def build_run_tools(server: Any) -> list[ToolDefinition]:
                     },
                     **_horizon_launch_properties(),
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     **_objective_launch_properties(),
                     "worker_pool_id": {

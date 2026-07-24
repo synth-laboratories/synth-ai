@@ -241,6 +241,47 @@
       }
     },
     {
+      "id": "cursor/composer-2.5",
+      "display_name": "Cursor Composer 2.5",
+      "display_group": "additional_first_launch",
+      "public": true,
+      "provider": "cursor",
+      "provider_model_id": "composer-2.5",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "cursor_pool",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "cursor"
+      ],
+      "aliases": [
+        "composer-2.5",
+        "cursor-composer-2.5",
+        "composer-2",
+        "cursor-composer-2"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": 64000,
+      "usage_required": false,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "5.0E-7",
+        "cached_input_usd": "5.0E-7",
+        "output_usd": "0.00000250",
+        "reasoning_output_usd": "0.00000250",
+        "source": "cursor_changelog_composer_2_5_standard",
+        "observed_at": "2026-05-23"
+      }
+    },
+    {
       "id": "x-ai/grok-4.3",
       "display_name": "Grok 4.3",
       "display_group": "additional_first_launch",
@@ -362,47 +403,6 @@
         "reasoning_output_usd": "0.000004655",
         "source": "openrouter_catalog",
         "observed_at": "2026-04-23"
-      }
-    },
-    {
-      "id": "baseten/zai-org/GLM-5.2",
-      "display_name": "GLM 5.2 (Baseten)",
-      "display_group": "standard_baseten_direct",
-      "public": true,
-      "provider": "baseten",
-      "provider_model_id": "zai-org/GLM-5.2",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "baseten_api_pool",
-      "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "codex",
-        "opencode_sdk"
-      ],
-      "aliases": [
-        "zai-org/GLM-5.2",
-        "glm-5.2",
-        "baseten-glm-5.2"
-      ],
-      "supported_reasoning_efforts": [],
-      "default_reasoning_effort": null,
-      "context_window_tokens": 262144,
-      "max_output_tokens": 131072,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.0000015",
-        "cached_input_usd": "3E-7",
-        "output_usd": "0.0000045",
-        "reasoning_output_usd": "0.0000045",
-        "source": "baseten_model_api_pricing",
-        "observed_at": "2026-06-23"
       }
     }
   ]

@@ -169,6 +169,10 @@ from synth_ai.core.research._legacy.sdk._client_helpers import (
     _optional_mapping,
     _require_non_empty_string,
     assert_hosted_launch_surface,
+    provider_selection_payload,
+    reject_deprecated_provider_bindings,
+    reject_deprecated_provider_payload,
+    reject_deprecated_run_policy_payload,
 )
 from synth_ai.core.research._legacy.sdk._run_authority_mixin import (
     ManagedResearchRunAuthorityMixin,
@@ -556,6 +560,7 @@ def _build_project_run_payload(
     mode: SmrWorkMode | str | None = None,
     intended_horizon_hours: SmrIntendedHorizonHours | int | None = None,
     providers: Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None = None,
+    provider: str | tuple[str, ...] | list[str] | None = None,
     provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
     limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
     worker_pool_id: str | None = None,
@@ -675,13 +680,18 @@ def _build_project_run_payload(
 
     provider_values = list(providers) if providers is not None else None
     if provider_values is not None:
+        normalized_provider_bindings = coerce_provider_bindings(
+            provider_values,
+            field_name="providers",
+        )
+        reject_deprecated_provider_bindings(normalized_provider_bindings)
         payload["providers"] = [
             binding.to_wire()
-            for binding in coerce_provider_bindings(
-                provider_values,
-                field_name="providers",
-            )
+            for binding in normalized_provider_bindings
         ]
+    normalized_provider_selection = provider_selection_payload(provider)
+    if normalized_provider_selection is not None:
+        payload["provider"] = normalized_provider_selection
     if provider_policy is not None:
         normalized_provider_policy = coerce_provider_policy(
             provider_policy,
@@ -701,7 +711,9 @@ def _build_project_run_payload(
         actor_model_overrides,
         field_name="actor_model_overrides",
     )
+    reject_deprecated_provider_payload(normalized_actor_model_overrides)
     normalized_roles = _normalized_roles_payload(roles, field_name="roles")
+    reject_deprecated_provider_payload(normalized_roles)
     if normalized_roles and normalized_actor_model_overrides:
         raise ValueError("roles cannot be combined with actor_model_overrides")
     if normalized_roles and (
@@ -811,7 +823,9 @@ def _build_project_run_payload(
         payload["dev_environment_id"] = normalized_dev_environment_id
     normalized_run_policy = coerce_smr_run_policy(run_policy, field_name="run_policy")
     if normalized_run_policy is not None:
-        payload["run_policy"] = normalized_run_policy.to_dict()
+        run_policy_payload = normalized_run_policy.to_dict()
+        reject_deprecated_run_policy_payload(run_policy_payload)
+        payload["run_policy"] = run_policy_payload
     normalized_required_work_products = _required_work_product_payloads(
         required_work_products,
         field_name="required_work_products",
@@ -5517,6 +5531,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         providers: (
             Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
         ) = None,
+        provider: str | tuple[str, ...] | list[str] | None = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -5569,6 +5584,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             mode=mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            provider=provider,
             provider_policy=provider_policy,
             limit=limit,
             worker_pool_id=worker_pool_id,
@@ -5674,6 +5690,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
         providers: (
             Iterable[ProviderBinding | str | Mapping[str, Any] | dict[str, Any]] | None
         ) = None,
+        provider: str | tuple[str, ...] | list[str] | None = None,
         provider_policy: ProviderPolicy | Mapping[str, Any] | dict[str, Any] | None = None,
         limit: UsageLimit | Mapping[str, Any] | dict[str, Any] | None = None,
         worker_pool_id: str | None = None,
@@ -5742,6 +5759,7 @@ class ManagedResearchClient(ManagedResearchRunAuthorityMixin):
             mode=mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            provider=provider,
             provider_policy=provider_policy,
             limit=limit,
             worker_pool_id=worker_pool_id,

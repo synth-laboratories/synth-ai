@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import StrEnum
 from typing import Any, cast
 
@@ -12,6 +12,11 @@ from synth_ai.core.research._legacy.models.run_timeline import (
     SmrBranchMode,
     SmrRunBranchRequest,
 )
+from synth_ai.core.research._legacy.models.smr_providers import (
+    ProviderBinding,
+    ResourceProvider,
+)
+from synth_ai.core.research.contracts.swarms import normalize_provider_selection
 
 
 class SmrLaunchMode(StrEnum):
@@ -19,6 +24,60 @@ class SmrLaunchMode(StrEnum):
 
     HOSTED = "hosted"
     LOCAL = "local"
+
+
+def provider_selection_payload(
+    provider: str | tuple[str, ...] | list[str] | None,
+) -> str | list[str] | None:
+    normalized = normalize_provider_selection(provider)
+    return list(normalized) if isinstance(normalized, tuple) else normalized
+
+
+def reject_deprecated_provider_bindings(
+    bindings: Sequence[ProviderBinding],
+) -> None:
+    if any(binding.provider is ResourceProvider.TINKER for binding in bindings):
+        raise ValueError("tinker is deprecated and cannot be selected for new runs")
+
+
+def _payload_selects_provider(payload: Any, *, provider: str) -> bool:
+    if isinstance(payload, Mapping):
+        for key, value in payload.items():
+            if key == "provider" and isinstance(value, Mapping):
+                selected = str(
+                    value.get("provider_id")
+                    or value.get("provider")
+                    or value.get("kind")
+                    or ""
+                ).strip().lower()
+                if selected == provider.lower():
+                    return True
+            if _payload_selects_provider(value, provider=provider):
+                return True
+    elif isinstance(payload, Sequence) and not isinstance(
+        payload,
+        (str, bytes, bytearray),
+    ):
+        return any(_payload_selects_provider(value, provider=provider) for value in payload)
+    return False
+
+
+def reject_deprecated_provider_payload(payload: Any) -> None:
+    if _payload_selects_provider(payload, provider=ResourceProvider.TINKER.value):
+        raise ValueError("tinker is deprecated and cannot be selected for new runs")
+
+
+def reject_deprecated_run_policy_payload(payload: Mapping[str, Any]) -> None:
+    access = payload.get("access")
+    if isinstance(access, Mapping) and any(
+        ResourceProvider.TINKER.value in (access.get(field_name) or ())
+        for field_name in (
+            "credential_providers",
+            "inference_providers",
+            "tool_providers",
+        )
+    ):
+        raise ValueError("tinker is deprecated and cannot be selected for new runs")
 
 
 def derive_launch_mode(*, local_execution: Mapping[str, Any] | None) -> SmrLaunchMode:

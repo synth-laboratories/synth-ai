@@ -89,6 +89,25 @@ def _provider_bindings_schema() -> dict[str, Any]:
     }
 
 
+def _provider_selection_schema() -> dict[str, Any]:
+    public = ["auto", "openai", "synth", "xai", "cursor"]
+    return {
+        "oneOf": [
+            {"type": "string", "enum": public},
+            {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string", "enum": public[1:]},
+            },
+        ],
+        "description": (
+            "Inference provider: auto, a strict pin, or an ordered hard "
+            "allowlist used at launch."
+        ),
+    }
+
+
 def _objective_launch_properties() -> dict[str, Any]:
     return {
         "objective": {
@@ -198,6 +217,7 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Customer-facing intended horizon. Allowed values: 1, 4, 8, 24, or 168.",
                     },
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     **_objective_launch_properties(),
                     "worker_pool_id": {

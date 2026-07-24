@@ -52,6 +52,7 @@ from synth_ai.core.research._legacy.models.types import (
     KickoffContractFile,
     RunResourceBindings,
 )
+from synth_ai.core.research.contracts.swarms import normalize_provider_selection
 
 WirePayload: TypeAlias = dict[str, object]
 WireMapping: TypeAlias = Mapping[str, object]
@@ -246,8 +247,14 @@ class RunLaunchRequest(CommandRequest):
     primary_parent: WireMapping | None = None
     idempotency_key_run_create: str | None = None
     idempotency_key: str | None = None
+    provider: str | tuple[str, ...] | list[str] | None = None
 
     def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "provider",
+            normalize_provider_selection(self.provider),
+        )
         _validate_launch_text(self.worker_pool_id, field_name="worker_pool_id")
         _validate_launch_text(self.dev_environment_id, field_name="dev_environment_id")
         _validate_launch_text(self.runbook_preset, field_name="runbook_preset")
@@ -275,6 +282,7 @@ class RunLaunchRequest(CommandRequest):
             mode=self.mode,
             intended_horizon_hours=self.intended_horizon_hours,
             providers=tuple(self.providers) if self.providers else None,
+            provider=self.provider,
             provider_policy=self._provider_policy_payload(),
             limit=self.limit,
             worker_pool_id=self.worker_pool_id,

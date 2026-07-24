@@ -29,6 +29,7 @@ from synth_ai.core.research._legacy.models.smr_run_policy import coerce_smr_run_
 from synth_ai.core.research._legacy.models.smr_runbooks import coerce_smr_runbook_kind
 from synth_ai.core.research._legacy.models.smr_work_modes import coerce_smr_work_mode
 from synth_ai.core.research._legacy.models.types import SmrRunnableProjectRequest
+from synth_ai.core.research.contracts.swarms import normalize_provider_selection
 from synth_ai.mcp.research.registry import JSONDict
 
 
@@ -71,6 +72,13 @@ def optional_bool(payload: JSONDict, key: str, *, default: bool = False) -> bool
     if not isinstance(value, bool):
         raise ValueError(f"'{key}' must be a boolean when provided")
     return value
+
+
+def _provider_selection(payload: JSONDict) -> str | list[str] | None:
+    normalized = normalize_provider_selection(payload.get("provider"))
+    if isinstance(normalized, tuple):
+        return list(normalized)
+    return normalized
 
 
 def parse_branch_run_request(payload: JSONDict) -> SmrRunBranchRequest:
@@ -404,6 +412,7 @@ class RunLaunchRequest:
     effort_id: str | None = None
     idempotency_key_run_create: str | None = None
     idempotency_key: str | None = None
+    provider: str | list[str] | None = None
 
     @classmethod
     def from_payload(cls, payload: JSONDict) -> RunLaunchRequest:
@@ -438,6 +447,7 @@ class RunLaunchRequest:
             work_mode=work_mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            provider=_provider_selection(payload),
             objective=optional_string(payload, "objective"),
             runbook=optional_smr_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
@@ -485,6 +495,7 @@ class RunLaunchRequest:
             "work_mode": self.work_mode,
             "intended_horizon_hours": self.intended_horizon_hours,
             "providers": self.providers,
+            "provider": self.provider,
             "objective": self.objective,
             "runbook": self.runbook,
             "runbook_preset": self.runbook_preset,
@@ -568,6 +579,7 @@ class OneOffRunLaunchRequest:
     effort_id: str | None = None
     idempotency_key_run_create: str | None = None
     idempotency_key: str | None = None
+    provider: str | list[str] | None = None
 
     @classmethod
     def from_payload(cls, payload: JSONDict) -> OneOffRunLaunchRequest:
@@ -601,6 +613,7 @@ class OneOffRunLaunchRequest:
             work_mode=work_mode,
             intended_horizon_hours=intended_horizon_hours,
             providers=providers,
+            provider=_provider_selection(payload),
             objective=optional_string(payload, "objective"),
             runbook=optional_smr_runbook_kind(payload, "runbook"),
             runbook_preset=runbook_preset,
@@ -648,6 +661,7 @@ class OneOffRunLaunchRequest:
             "work_mode": self.work_mode,
             "intended_horizon_hours": self.intended_horizon_hours,
             "providers": self.providers,
+            "provider": self.provider,
             "objective": self.objective,
             "runbook": self.runbook,
             "runbook_preset": self.runbook_preset,

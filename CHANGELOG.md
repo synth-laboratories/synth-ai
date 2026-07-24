@@ -4,6 +4,20 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+### Added
+
+- **First-class Research inference provider selection** — `SwarmSpec.provider`
+  accepts `auto`, a strict provider pin, or an ordered hard allowlist across
+  OpenAI (GA), Synth (alpha), xAI and Cursor (beta). Factory recurrence launch
+  specs use the same contract. Routing policy can additionally require ZDR,
+  no-training handling, a maximum retention window, domicile, and regions.
+
+### Changed
+
+- **Tinker is deprecated for new Research launches.** Historical enum values
+  remain readable, while new provider bindings and run-policy grants fail
+  before a request is sent.
+
 ## 0.15.3.dev0 — 2026-07-17
 
 Prerelease. Install with `pip install --pre synth-ai` or pin

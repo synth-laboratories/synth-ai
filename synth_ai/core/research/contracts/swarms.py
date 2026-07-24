@@ -146,11 +146,14 @@ class CredentialProvider(StrEnum):
 
 
 class InferenceProvider(StrEnum):
+    AUTO = "auto"
     BASETEN = "baseten"
+    CURSOR = "cursor"
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
+    SYNTH = "synth"
     XAI = "xai"
 
 
@@ -164,6 +167,53 @@ class KickoffMessageMode(StrEnum):
     QUEUE = "queue"
     INTERRUPT = "interrupt"
     STEER = "steer"
+
+
+_PUBLIC_PROVIDER_SELECTIONS = frozenset(
+    {
+        InferenceProvider.AUTO.value,
+        InferenceProvider.OPENAI.value,
+        InferenceProvider.SYNTH.value,
+        InferenceProvider.XAI.value,
+        InferenceProvider.CURSOR.value,
+    }
+)
+
+
+def normalize_provider_selection(
+    value: (
+        InferenceProvider
+        | str
+        | tuple[InferenceProvider | str, ...]
+        | list[InferenceProvider | str]
+        | None
+    ),
+) -> str | tuple[str, ...] | None:
+    if value is None:
+        return None
+    raw_values = value if isinstance(value, (tuple, list)) else (value,)
+    if not raw_values:
+        raise ValueError("provider allowlist cannot be empty")
+    normalized = tuple(
+        require_text(
+            item.value if isinstance(item, InferenceProvider) else item,
+            field_name="provider",
+        ).lower()
+        for item in raw_values
+    )
+    unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
+    if unsupported:
+        raise ValueError(
+            "provider supports auto, openai, synth, xai, and cursor; "
+            f"unsupported: {', '.join(unsupported)}"
+        )
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("provider allowlist cannot contain duplicates")
+    if isinstance(value, (tuple, list)) and InferenceProvider.AUTO.value in normalized:
+        raise ValueError("auto must be provided as a scalar provider selection")
+    if isinstance(value, (tuple, list)):
+        return normalized
+    return normalized[0]
 
 
 class SwarmState(StrEnum):
@@ -255,6 +305,18 @@ class RunPolicyAccess:
     inference_providers: tuple[InferenceProvider, ...] | None = None
     tool_providers: tuple[ToolProvider, ...] | None = None
 
+    def __post_init__(self) -> None:
+        if self.inference_providers is not None and InferenceProvider.AUTO in (
+            self.inference_providers
+        ):
+            raise ValueError("auto is a selection policy, not an inference provider grant")
+        if self.credential_providers is not None and CredentialProvider.TINKER in (
+            self.credential_providers
+        ):
+            raise ValueError("tinker is deprecated and cannot be granted to new runs")
+        if self.tool_providers is not None and ToolProvider.TINKER in self.tool_providers:
+            raise ValueError("tinker is deprecated and cannot be granted to new runs")
+
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {}
         for name, values in (
@@ -303,6 +365,10 @@ class ProviderBinding:
     provider: ResourceProvider
     limit: ResourceLimit | None = None
 
+    def __post_init__(self) -> None:
+        if self.provider is ResourceProvider.TINKER:
+            raise ValueError("tinker is deprecated and cannot be selected for new runs")
+
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {"provider": self.provider.value}
         if self.limit is not None:
@@ -319,6 +385,8 @@ class ResourceRoutingPolicy:
     denied_models: tuple[str, ...] = ()
     preferred_models: tuple[str, ...] = ()
     require_zdr: bool | None = None
+    require_no_training: bool | None = None
+    max_retention_days: int | None = None
     allowed_domiciles: tuple[str, ...] = ()
     allowed_regions: tuple[str, ...] = ()
 
@@ -337,6 +405,12 @@ class ResourceRoutingPolicy:
                 require_text(item, field_name=field_name) for item in getattr(self, field_name)
             )
             object.__setattr__(self, field_name, values)
+        if self.max_retention_days is not None and (
+            isinstance(self.max_retention_days, bool)
+            or not isinstance(self.max_retention_days, int)
+            or self.max_retention_days < 0
+        ):
+            raise ValueError("max_retention_days must be a non-negative integer")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {}
@@ -355,6 +429,10 @@ class ResourceRoutingPolicy:
                 payload[name] = list(values)
         if self.require_zdr is not None:
             payload["require_zdr"] = self.require_zdr
+        if self.require_no_training is not None:
+            payload["require_no_training"] = self.require_no_training
+        if self.max_retention_days is not None:
+            payload["max_retention_days"] = self.max_retention_days
         return payload
 
 
@@ -849,6 +927,13 @@ class SwarmSpec:
     dev_environment_id: str | None = None
     effort_id: EffortId | None = None
     idempotency_key: str | None = None
+    provider: (
+        InferenceProvider
+        | str
+        | tuple[InferenceProvider | str, ...]
+        | list[InferenceProvider | str]
+        | None
+    ) = None
 
     def __post_init__(self) -> None:
         require_text(self.objective, field_name="objective")
@@ -858,6 +943,7 @@ class SwarmSpec:
             raise ValueError("timebox_seconds must be positive")
         if self.roles is not None and not isinstance(self.roles, RoleBindings):
             raise ValueError("roles must be RoleBindings")
+        object.__setattr__(self, "provider", normalize_provider_selection(self.provider))
         if self.execution_target is not None and not isinstance(
             self.execution_target,
             PlatformResolvedExecutionTarget,
@@ -967,6 +1053,10 @@ class SwarmSpec:
             payload["actor_model_overrides"] = [
                 assignment.to_wire() for assignment in self.actor_model_assignments
             ]
+        if isinstance(self.provider, tuple):
+            payload["provider"] = list(self.provider)
+        elif self.provider is not None:
+            payload["provider"] = self.provider
         if self.providers:
             payload["providers"] = [provider.to_wire() for provider in self.providers]
         if self.provider_policy is not None:
@@ -1248,4 +1338,5 @@ __all__ = [
     "ToolProvider",
     "WorkMode",
     "WorkerRolePalette",
+    "normalize_provider_selection",
 ]
