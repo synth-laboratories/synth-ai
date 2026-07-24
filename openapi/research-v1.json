@@ -1913,7 +1913,8 @@
           "deepseek/deepseek-v4-pro-direct",
           "deepseek/deepseek-chat",
           "deepseek/deepseek-reasoner",
-          "poolside/laguna-s-2.1"
+          "poolside/laguna-s-2.1",
+          "synth_internal/laguna-s-2.1-nvfp4"
         ],
         "title": "SmrAgentModel",
         "type": "string"
@@ -3052,6 +3053,7 @@
           "openai",
           "openrouter",
           "poolside",
+          "synth_internal",
           "xai",
           "tinker"
         ],
@@ -4388,6 +4390,420 @@
         "title": "SmrExternalRepositoryResponse",
         "type": "object"
       },
+      "SmrFactoryCandidateGradingRequest": {
+        "description": "Typed intake for a benchmark-owned factorybench.candidate_grading.v1\nrecord. The record must carry the same candidate_id and git_sha as the\nroute-owned registry row. The backend never grades; it stores what the\ngrader proved.",
+        "properties": {
+          "grading": {
+            "additionalProperties": true,
+            "title": "Grading",
+            "type": "object"
+          }
+        },
+        "required": [
+          "grading"
+        ],
+        "title": "SmrFactoryCandidateGradingRequest",
+        "type": "object"
+      },
+      "SmrFactoryCandidateResponse": {
+        "properties": {
+          "artifact_ids": {
+            "items": {},
+            "title": "Artifact Ids",
+            "type": "array"
+          },
+          "baseline_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Score"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "candidate_key": {
+            "title": "Candidate Key",
+            "type": "string"
+          },
+          "champion_selected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Champion Selected At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          },
+          "entrypoint": {
+            "title": "Entrypoint",
+            "type": "string"
+          },
+          "execution_contract_version": {
+            "title": "Execution Contract Version",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "git_remote": {
+            "title": "Git Remote",
+            "type": "string"
+          },
+          "git_sha": {
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "graded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graded At"
+          },
+          "grading": {
+            "additionalProperties": true,
+            "title": "Grading",
+            "type": "object"
+          },
+          "grading_status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "graded",
+              "failed",
+              "timeout"
+            ],
+            "title": "Grading Status",
+            "type": "string"
+          },
+          "grading_target": {
+            "additionalProperties": true,
+            "title": "Grading Target",
+            "type": "object"
+          },
+          "held_out_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Out Score"
+          },
+          "is_champion": {
+            "default": false,
+            "title": "Is Champion",
+            "type": "boolean"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "parent_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Candidate Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Product Id"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "org_id",
+          "factory_id",
+          "candidate_key",
+          "git_remote",
+          "git_sha",
+          "entrypoint",
+          "execution_contract_version",
+          "published_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SmrFactoryCandidateResponse",
+        "type": "object"
+      },
+      "SmrFactoryChampionDecisionResponse": {
+        "properties": {
+          "action": {
+            "enum": [
+              "promote",
+              "rollback",
+              "no_lift"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "champion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrFactoryCandidateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "reason",
+          "changed"
+        ],
+        "title": "SmrFactoryChampionDecisionResponse",
+        "type": "object"
+      },
+      "SmrFactoryChampionEventResponse": {
+        "properties": {
+          "action": {
+            "enum": [
+              "promote",
+              "rollback",
+              "no_lift"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "baseline_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Score"
+          },
+          "candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "git_sha": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Sha"
+          },
+          "held_out_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Out Score"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "event_id",
+          "org_id",
+          "factory_id",
+          "action",
+          "created_at"
+        ],
+        "title": "SmrFactoryChampionEventResponse",
+        "type": "object"
+      },
+      "SmrFactoryChampionRollbackRequest": {
+        "properties": {
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "to_candidate_id": {
+            "title": "To Candidate Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "to_candidate_id",
+          "reason"
+        ],
+        "title": "SmrFactoryChampionRollbackRequest",
+        "type": "object"
+      },
+      "SmrFactoryChampionSelectRequest": {
+        "properties": {
+          "baseline_score": {
+            "title": "Baseline Score",
+            "type": "number"
+          },
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          }
+        },
+        "required": [
+          "baseline_score"
+        ],
+        "title": "SmrFactoryChampionSelectRequest",
+        "type": "object"
+      },
       "SmrFactoryCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4825,6 +5241,7 @@
           "google",
           "openrouter",
           "poolside",
+          "synth_internal",
           "xai"
         ],
         "title": "SmrInferenceProvider",
@@ -6427,7 +6844,7 @@
                 "type": "null"
               }
             ],
-            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
+            "description": "Override one shared agent model for this run. Shared top-level values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1', 'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'. Use actor_model_overrides for actor-specific model selection."
           },
           "agent_model_params": {
             "anyOf": [
@@ -6754,7 +7171,7 @@
           },
           "run_kind": {
             "default": "research",
-            "description": "Kind of work performed by a Factory-linked run. Maintenance runs start with an orchestrator that decides whether to stop early, act, or delegate stewardship work.",
+            "description": "Kind of work performed by a Factory-linked run. Direct /smr/runs must use research. Maintenance is Factory-owned: configure it on the Effort recurrence policy and launch only through Factory wake-due. Maintenance runs start with an orchestrator that decides whether to stop early, act, or delegate stewardship work.",
             "enum": [
               "research",
               "maintenance"
@@ -14606,6 +15023,320 @@
           }
         },
         "summary": "Archive Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/candidates": {
+      "get": {
+        "operationId": "list_factory_candidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "grading_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grading Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrFactoryCandidateResponse"
+                  },
+                  "title": "Response List Factory Candidates Smr Factories  Factory Id  Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factory Candidates",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/candidates/{candidate_id}/grading": {
+      "post": {
+        "operationId": "record_factory_candidate_grading",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryCandidateGradingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Factory Candidate Grading",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/champion/events": {
+      "get": {
+        "operationId": "list_factory_champion_events",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrFactoryChampionEventResponse"
+                  },
+                  "title": "Response List Factory Champion Events Smr Factories  Factory Id  Champion Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factory Champion Events",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/champion/rollback": {
+      "post": {
+        "operationId": "rollback_factory_champion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryChampionRollbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryChampionDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Factory Champion",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/champion/select": {
+      "post": {
+        "operationId": "select_factory_champion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryChampionSelectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryChampionDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Factory Champion",
         "tags": [
           "smr",
           "factories"

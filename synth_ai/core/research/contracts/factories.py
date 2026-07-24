@@ -13,12 +13,15 @@ from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.research.contracts._wire import (
     object_value,
     optional_bool,
+    optional_datetime,
     optional_text,
+    required_bool,
     required_datetime,
     required_text,
 )
 from synth_ai.core.research.contracts.common import (
     EffortId,
+    FactoryCandidateId,
     FactoryId,
     OrganizationId,
     ProjectId,
@@ -71,6 +74,19 @@ class FactoryTransitionDecision(StrEnum):
     APPLIED = "applied"
     NOOP = "noop"
     PREVIEW_APPLIED = "preview_applied"
+
+
+class FactoryCandidateGradingStatus(StrEnum):
+    PENDING = "pending"
+    GRADED = "graded"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+
+
+class FactoryChampionAction(StrEnum):
+    PROMOTE = "promote"
+    ROLLBACK = "rollback"
+    NO_LIFT = "no_lift"
 
 
 @dataclass(frozen=True, slots=True)
@@ -345,6 +361,219 @@ class FactoryTransitionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class FactoryCandidateGradingRequest:
+    """Benchmark-owned grading record for one immutable candidate."""
+
+    grading: JsonObject
+
+    def __post_init__(self) -> None:
+        status = str(self.grading.get("status") or "").strip().lower()
+        if status != FactoryCandidateGradingStatus.GRADED.value:
+            return
+        evaluation_mode = str(self.grading.get("evaluation_mode") or "").strip().lower()
+        allowed_modes = {"live", "mock", "fixture", "offline_fallback"}
+        if not evaluation_mode:
+            raise ValueError(
+                "grading_evaluation_mode_missing: status 'graded' requires evaluation_mode"
+            )
+        if evaluation_mode not in allowed_modes:
+            raise ValueError(
+                "grading_evaluation_mode_invalid: evaluation_mode must be one of "
+                f"{sorted(allowed_modes)}"
+            )
+
+    def to_wire(self) -> JsonObject:
+        return {"grading": dict(self.grading)}
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryChampionSelectRequest:
+    baseline_score: float
+    effort_id: EffortId | None = None
+
+    def to_wire(self) -> JsonObject:
+        value: JsonObject = {"baseline_score": float(self.baseline_score)}
+        if self.effort_id is not None:
+            value["effort_id"] = self.effort_id
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryChampionRollbackRequest:
+    to_candidate_id: FactoryCandidateId
+    reason: str
+    effort_id: EffortId | None = None
+
+    def __post_init__(self) -> None:
+        require_text(self.to_candidate_id, field_name="to_candidate_id")
+        require_text(self.reason, field_name="reason")
+
+    def to_wire(self) -> JsonObject:
+        value: JsonObject = {
+            "to_candidate_id": self.to_candidate_id,
+            "reason": self.reason,
+        }
+        if self.effort_id is not None:
+            value["effort_id"] = self.effort_id
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryCandidate:
+    candidate_id: FactoryCandidateId
+    organization_id: OrganizationId
+    factory_id: FactoryId
+    candidate_key: str
+    git_remote: str
+    git_sha: str
+    entrypoint: str
+    execution_contract_version: str
+    grading_status: FactoryCandidateGradingStatus
+    published_at: datetime
+    created_at: datetime
+    updated_at: datetime
+    project_id: ProjectId | None = None
+    effort_id: EffortId | None = None
+    swarm_id: SwarmId | None = None
+    work_product_id: str | None = None
+    parent_candidate_id: FactoryCandidateId | None = None
+    grading_target: JsonObject = field(default_factory=dict)
+    artifact_ids: tuple[JsonValue, ...] = ()
+    grading: JsonObject = field(default_factory=dict)
+    held_out_score: float | None = None
+    baseline_score: float | None = None
+    graded_at: datetime | None = None
+    is_champion: bool = False
+    champion_selected_at: datetime | None = None
+    raw: JsonObject = field(default_factory=dict)
+
+    @property
+    def run_id(self) -> SwarmId | None:
+        """Temporary wire-name compatibility alias."""
+        return self.swarm_id
+
+    @classmethod
+    def from_wire(cls, payload: JsonValue) -> FactoryCandidate:
+        value = object_value(payload, operation_id="decode_factory_candidate")
+        artifact_ids = value.get("artifact_ids")
+        if artifact_ids is None:
+            artifact_ids = []
+        if not isinstance(artifact_ids, list):
+            raise ValueError("factory candidate artifact_ids must be an array")
+        project_id = optional_text(value, "project_id")
+        effort_id = optional_text(value, "effort_id")
+        swarm_id = optional_text(value, "run_id")
+        parent_candidate_id = optional_text(value, "parent_candidate_id")
+        return cls(
+            candidate_id=FactoryCandidateId(required_text(value, "candidate_id")),
+            organization_id=OrganizationId(required_text(value, "org_id")),
+            factory_id=FactoryId(required_text(value, "factory_id")),
+            project_id=ProjectId(project_id) if project_id is not None else None,
+            effort_id=EffortId(effort_id) if effort_id is not None else None,
+            swarm_id=SwarmId(swarm_id) if swarm_id is not None else None,
+            work_product_id=optional_text(value, "work_product_id"),
+            candidate_key=required_text(value, "candidate_key"),
+            git_remote=required_text(value, "git_remote"),
+            git_sha=required_text(value, "git_sha"),
+            entrypoint=required_text(value, "entrypoint"),
+            execution_contract_version=required_text(value, "execution_contract_version"),
+            parent_candidate_id=(
+                FactoryCandidateId(parent_candidate_id)
+                if parent_candidate_id is not None
+                else None
+            ),
+            grading_target=_optional_object(
+                value,
+                "grading_target",
+                operation_id="decode_factory_candidate",
+            ),
+            artifact_ids=tuple(artifact_ids),
+            grading_status=FactoryCandidateGradingStatus(
+                required_text(value, "grading_status")
+            ),
+            grading=_optional_object(
+                value,
+                "grading",
+                operation_id="decode_factory_candidate",
+            ),
+            held_out_score=_optional_number(value, "held_out_score"),
+            baseline_score=_optional_number(value, "baseline_score"),
+            graded_at=optional_datetime(value, "graded_at"),
+            is_champion=optional_bool(value, "is_champion"),
+            champion_selected_at=optional_datetime(value, "champion_selected_at"),
+            published_at=required_datetime(value, "published_at"),
+            created_at=required_datetime(value, "created_at"),
+            updated_at=required_datetime(value, "updated_at"),
+            raw=dict(value),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryChampionEvent:
+    event_id: str
+    organization_id: OrganizationId
+    factory_id: FactoryId
+    action: FactoryChampionAction
+    created_at: datetime
+    effort_id: EffortId | None = None
+    candidate_id: FactoryCandidateId | None = None
+    git_sha: str | None = None
+    held_out_score: float | None = None
+    baseline_score: float | None = None
+    reason: str | None = None
+    payload: JsonObject = field(default_factory=dict)
+    raw: JsonObject = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: JsonValue) -> FactoryChampionEvent:
+        value = object_value(payload, operation_id="decode_factory_champion_event")
+        effort_id = optional_text(value, "effort_id")
+        candidate_id = optional_text(value, "candidate_id")
+        return cls(
+            event_id=required_text(value, "event_id"),
+            organization_id=OrganizationId(required_text(value, "org_id")),
+            factory_id=FactoryId(required_text(value, "factory_id")),
+            effort_id=EffortId(effort_id) if effort_id is not None else None,
+            candidate_id=(
+                FactoryCandidateId(candidate_id) if candidate_id is not None else None
+            ),
+            action=FactoryChampionAction(required_text(value, "action")),
+            git_sha=optional_text(value, "git_sha"),
+            held_out_score=_optional_number(value, "held_out_score"),
+            baseline_score=_optional_number(value, "baseline_score"),
+            reason=optional_text(value, "reason"),
+            payload=_optional_object(
+                value,
+                "payload",
+                operation_id="decode_factory_champion_event",
+            ),
+            created_at=required_datetime(value, "created_at"),
+            raw=dict(value),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class FactoryChampionDecision:
+    action: FactoryChampionAction
+    reason: str
+    changed: bool
+    champion: FactoryCandidate | None = None
+    raw: JsonObject = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, payload: JsonValue) -> FactoryChampionDecision:
+        value = object_value(payload, operation_id="decode_factory_champion_decision")
+        champion = value.get("champion")
+        return cls(
+            action=FactoryChampionAction(required_text(value, "action")),
+            reason=required_text(value, "reason"),
+            changed=required_bool(value, "changed"),
+            champion=FactoryCandidate.from_wire(champion) if champion is not None else None,
+            raw=dict(value),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class EffortSpec:
     factory_id: FactoryId
     project_id: ProjectId
@@ -495,6 +724,15 @@ def _optional_object(value: JsonObject, name: str, *, operation_id: str) -> Json
     return object_value(field_value, operation_id=f"{operation_id}.{name}")
 
 
+def _optional_number(value: JsonObject, name: str) -> float | None:
+    field_value = value.get(name)
+    if field_value is None:
+        return None
+    if isinstance(field_value, bool) or not isinstance(field_value, (int, float)):
+        raise ValueError(f"{name} must be a number when provided")
+    return float(field_value)
+
+
 # Compatibility names remain exact aliases through the declared removal window.
 FactoryCreateRequest = FactorySpec
 FactoryPatchRequest = FactoryPatch
@@ -518,6 +756,14 @@ __all__ = [
     "EffortStatus",
     "EffortType",
     "Factory",
+    "FactoryCandidate",
+    "FactoryCandidateGradingRequest",
+    "FactoryCandidateGradingStatus",
+    "FactoryChampionAction",
+    "FactoryChampionDecision",
+    "FactoryChampionEvent",
+    "FactoryChampionRollbackRequest",
+    "FactoryChampionSelectRequest",
     "FactoryCreateRequest",
     "FactoryCreateState",
     "FactoryBudgetPolicy",
