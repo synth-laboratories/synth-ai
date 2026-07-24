@@ -70,6 +70,7 @@ class ActorModel(StrEnum):
     DEEPSEEK_V4_PRO_DIRECT = "deepseek/deepseek-v4-pro-direct"
     DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
+    LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
