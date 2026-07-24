@@ -1,17 +1,13 @@
-"""Public agent-harness compatibility surface."""
+"""Compatibility re-export; implementation lives in contracts.smr_agent_harnesses."""
 
-from synth_ai.core.research._legacy.models.smr_agent_kinds import (
-    SMR_AGENT_KIND_VALUES as SMR_AGENT_HARNESS_VALUES,
-)
-from synth_ai.core.research._legacy.models.smr_agent_kinds import (
-    SmrAgentKind as SmrAgentHarness,
-)
-from synth_ai.core.research._legacy.models.smr_agent_kinds import (
-    coerce_smr_agent_kind as coerce_smr_agent_harness,
+from synth_ai.core.research.contracts.smr_agent_harnesses import (
+    SMR_AGENT_HARNESS_VALUES,
+    SmrAgentHarness,
+    coerce_smr_agent_harness,
 )
 
 __all__ = [
-    "SMR_AGENT_HARNESS_VALUES",
-    "SmrAgentHarness",
-    "coerce_smr_agent_harness",
+    'SMR_AGENT_HARNESS_VALUES',
+    'SmrAgentHarness',
+    'coerce_smr_agent_harness',
 ]

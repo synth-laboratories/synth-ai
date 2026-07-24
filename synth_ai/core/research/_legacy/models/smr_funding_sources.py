@@ -1,41 +1,13 @@
-"""Public Managed Research funding-source enum."""
+"""Compatibility re-export; implementation lives in contracts.smr_funding_sources."""
 
-from __future__ import annotations
-
-from enum import StrEnum
-
-
-class SmrFundingSource(StrEnum):
-    SYNTH_MANAGED = "synth_managed"
-    CUSTOMER_BYOK = "customer_byok"
-    USER_CONNECTED = "user_connected"
-
-
-SMR_FUNDING_SOURCE_VALUES: tuple[str, ...] = tuple(source.value for source in SmrFundingSource)
-
-
-def coerce_smr_funding_source(
-    value: SmrFundingSource | str | None,
-    *,
-    field_name: str = "funding_source",
-) -> SmrFundingSource | None:
-    if value is None:
-        return None
-    if isinstance(value, SmrFundingSource):
-        return value
-    normalized = str(value).strip()
-    if not normalized:
-        return None
-    try:
-        return SmrFundingSource(normalized)
-    except ValueError as exc:
-        raise ValueError(
-            f"{field_name} must be one of: {', '.join(SMR_FUNDING_SOURCE_VALUES)}"
-        ) from exc
-
+from synth_ai.core.research.contracts.smr_funding_sources import (
+    SMR_FUNDING_SOURCE_VALUES,
+    SmrFundingSource,
+    coerce_smr_funding_source,
+)
 
 __all__ = [
-    "SMR_FUNDING_SOURCE_VALUES",
-    "SmrFundingSource",
-    "coerce_smr_funding_source",
+    'SMR_FUNDING_SOURCE_VALUES',
+    'SmrFundingSource',
+    'coerce_smr_funding_source',
 ]
