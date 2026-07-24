@@ -478,9 +478,7 @@ class FactoryCandidate:
             entrypoint=required_text(value, "entrypoint"),
             execution_contract_version=required_text(value, "execution_contract_version"),
             parent_candidate_id=(
-                FactoryCandidateId(parent_candidate_id)
-                if parent_candidate_id is not None
-                else None
+                FactoryCandidateId(parent_candidate_id) if parent_candidate_id is not None else None
             ),
             grading_target=_optional_object(
                 value,
@@ -488,9 +486,7 @@ class FactoryCandidate:
                 operation_id="decode_factory_candidate",
             ),
             artifact_ids=tuple(artifact_ids),
-            grading_status=FactoryCandidateGradingStatus(
-                required_text(value, "grading_status")
-            ),
+            grading_status=FactoryCandidateGradingStatus(required_text(value, "grading_status")),
             grading=_optional_object(
                 value,
                 "grading",
@@ -534,9 +530,7 @@ class FactoryChampionEvent:
             organization_id=OrganizationId(required_text(value, "org_id")),
             factory_id=FactoryId(required_text(value, "factory_id")),
             effort_id=EffortId(effort_id) if effort_id is not None else None,
-            candidate_id=(
-                FactoryCandidateId(candidate_id) if candidate_id is not None else None
-            ),
+            candidate_id=(FactoryCandidateId(candidate_id) if candidate_id is not None else None),
             action=FactoryChampionAction(required_text(value, "action")),
             git_sha=optional_text(value, "git_sha"),
             held_out_score=_optional_number(value, "held_out_score"),
