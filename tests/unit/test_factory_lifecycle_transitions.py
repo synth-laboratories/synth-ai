@@ -8,13 +8,15 @@ from __future__ import annotations
 
 import pytest
 
-from synth_ai.managed_research import (
+from synth_ai.core.research.contracts.factory_operations import (
     FactoryLifecycleState,
     FactoryTransitionResponse,
-    SmrApiError,
-    SmrControlClient,
-    SmrStructuredDenialError,
 )
+from synth_ai.core.research.errors import (
+    ResearchApiError,
+    ResearchStructuredDenialError,
+)
+from synth_ai.core.research.session.client import ResearchControlSession
 
 
 def _factory_wire(*, status: str) -> dict[str, object]:
@@ -56,7 +58,7 @@ def test_factories_transition_posts_named_route(
     path_suffix: str,
     to_status: str,
 ) -> None:
-    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    client = ResearchControlSession(api_key="test-key", backend_base="http://localhost:8000")
     calls: list[tuple[str, str, dict[str, object]]] = []
 
     def _request(method: str, path: str, **kwargs):
@@ -83,7 +85,7 @@ def test_factories_transition_posts_named_route(
 
 
 def test_factories_start_dry_run_is_preview(monkeypatch: pytest.MonkeyPatch) -> None:
-    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    client = ResearchControlSession(api_key="test-key", backend_base="http://localhost:8000")
     bodies: list[dict[str, object]] = []
 
     def _request(method: str, path: str, **kwargs):
@@ -100,10 +102,10 @@ def test_factories_start_dry_run_is_preview(monkeypatch: pytest.MonkeyPatch) -> 
 def test_factories_transition_refusal_surfaces_typed_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    client = SmrControlClient(api_key="test-key", backend_base="http://localhost:8000")
+    client = ResearchControlSession(api_key="test-key", backend_base="http://localhost:8000")
 
     def _request(method: str, path: str, **_kwargs):
-        raise SmrStructuredDenialError(
+        raise ResearchStructuredDenialError(
             "factory lifecycle transition refused",
             status_code=409,
             detail={
@@ -113,7 +115,7 @@ def test_factories_transition_refusal_surfaces_typed_error(
         )
 
     monkeypatch.setattr(client, "_request_json", _request)
-    with pytest.raises(SmrApiError) as exc_info:
+    with pytest.raises(ResearchApiError) as exc_info:
         client.factories.archive("fac_1")
     err = exc_info.value
     assert err.status_code == 409

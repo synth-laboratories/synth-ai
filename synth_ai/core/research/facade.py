@@ -14,7 +14,7 @@ from synth_ai.core.research.swarms import ResearchSwarmsAPI
 
 if TYPE_CHECKING:
     from synth_ai.core.research.advanced import (
-        ManagedResearchClient,
+        ResearchSession,
         ResearchAdvancedAPI,
     )
 
@@ -48,10 +48,10 @@ class Client:
             base_url=base_url,
             timeout_seconds=timeout_seconds,
         )
-        self._session: ManagedResearchClient | None = None
+        self._session: ResearchSession | None = None
         self._advanced: ResearchAdvancedAPI | None = None
 
-    def _open_session(self) -> ManagedResearchClient:
+    def _open_session(self) -> ResearchSession:
         if self._session is None:
             from synth_ai.core.research.advanced import open_advanced_session
 

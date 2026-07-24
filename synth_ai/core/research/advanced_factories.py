@@ -38,13 +38,13 @@ from synth_ai.core.research.contracts.tag import (
     TagSessionWatch,
     TagSteeringTarget,
 )
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
+from synth_ai.core.research.session.client import ResearchSession
 
 
 class ResearchFactoriesTagSessionsMessagesAPI:
     """Send steering messages to an active Factory Tag session."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
 
     def send(
@@ -79,7 +79,7 @@ class ResearchFactoriesTagSessionsMessagesAPI:
 class ResearchFactoriesTagSessionsAPI:
     """Create and inspect Factory Tag sessions."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
         self._messages: ResearchFactoriesTagSessionsMessagesAPI | None = None
 
@@ -179,7 +179,7 @@ class ResearchFactoriesTagSessionsAPI:
 class ResearchFactoriesTagScopesAPI:
     """Resolve default Tag scopes for an organization."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
 
     def get_default(self) -> TagScope:
@@ -194,7 +194,7 @@ class ResearchFactoriesTagScopesAPI:
 class ResearchFactoriesTagAPI:
     """Factory Tag namespace — delegate short research tasks from your IDE."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
         self._sessions: ResearchFactoriesTagSessionsAPI | None = None
         self._scopes: ResearchFactoriesTagScopesAPI | None = None
@@ -217,7 +217,7 @@ class ResearchFactoriesTagAPI:
 class ResearchFactoryCandidatesAPI:
     """Immutable Factory candidates and benchmark-owned grading intake."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
 
     def list(
@@ -255,7 +255,7 @@ class ResearchFactoryCandidatesAPI:
 class ResearchFactoryChampionsAPI:
     """Deterministic champion selection and append-only decision history."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
 
     def select(
@@ -294,7 +294,7 @@ class ResearchFactoryResultsAPI:
     candidate/champion surfaces, so there is never a second source of truth.
     """
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
 
     def list(
@@ -407,7 +407,7 @@ class ResearchFactoriesAPI:
     all come from the backend rather than being reconstructed by each client.
     """
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: ResearchSession) -> None:
         self._session = session
         self._tag: ResearchFactoriesTagAPI | None = None
         self._candidates: ResearchFactoryCandidatesAPI | None = None

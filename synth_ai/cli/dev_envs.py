@@ -387,9 +387,9 @@ def _dev_environment_run_options(fn):
 
 
 def _client(api_key: str | None, backend_url: str | None):
-    from synth_ai.core.research._legacy import ManagedResearchClient
+    from synth_ai.core.research.session.client import ResearchSession
 
-    return ManagedResearchClient(
+    return ResearchSession(
         api_key=_resolve_api_key(api_key),
         backend_base=_resolve_backend_url(backend_url),
     )

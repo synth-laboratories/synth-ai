@@ -1,9 +1,8 @@
-"""Public Research types (moved from ``synth_ai.research``).
+"""Public Research types for ``SynthClient().research``.
 
 The hero workflow is ``Project -> Swarm -> events/result``.  Factory is the
-durable optimization loop that creates and evaluates Efforts.  Names prefixed
-with ``Research`` remain lazily importable through the 0.17 compatibility line
-but are intentionally absent from public discovery.
+durable optimization loop that creates and evaluates Efforts.  Names prefixed with
+``Research`` are the canonical domain vocabulary.
 """
 
 from __future__ import annotations

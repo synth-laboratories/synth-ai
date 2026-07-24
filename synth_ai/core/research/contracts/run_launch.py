@@ -342,7 +342,7 @@ class RunLaunchRequest(CommandRequest):
         return payload
 
     def to_wire(self) -> WirePayload:
-        from synth_ai.core.research._legacy.sdk.client import _build_project_run_payload
+        from synth_ai.core.research.session.client import _build_project_run_payload
 
         return _build_project_run_payload(**self.to_client_kwargs())
 

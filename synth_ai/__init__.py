@@ -44,15 +44,12 @@ __all__ = [
     "ContainerPoolsClient",
     "ContainersClient",
     "HorizonsPrivateClient",
-    "ManagedResearchClient",
-    "ManagedResearchError",
-    "ManagedResearchMcpServer",
+    "ResearchApiError",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
-    "ResearchApiError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
@@ -66,16 +63,6 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
-    "ManagedResearchClient": (
-        "synth_ai.managed_research.sdk.client",
-        "ManagedResearchClient",
-    ),
-    "SmrControlClient": ("synth_ai.managed_research.sdk.client", "SmrControlClient"),
-    "ManagedResearchMcpServer": (
-        "synth_ai.managed_research.mcp.server",
-        "ManagedResearchMcpServer",
-    ),
-    "ManagedResearchError": ("synth_ai.managed_research.errors", "ManagedResearchError"),
     "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (
         "synth_ai.core.research.errors",

@@ -1,5 +1,0 @@
-"""Deprecated exact re-exports from the core Research implementation."""
-
-from __future__ import annotations
-
-from synth_ai.core.research.version import *  # noqa: F403
