@@ -4,6 +4,21 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.2 — 2026-07-25
+
+### Removed
+
+- **Open Research is retired.** The SDK no longer exposes its public artifact,
+  visual, runtime-image, session-image, or Factory-operation contracts. Hosted
+  artifacts remain available for internal operator review without a public
+  promotion path.
+
+### Changed
+
+- **The vendored SMR OpenAPI now matches the retirement backend candidate
+  byte-for-byte.** The package no longer advertises removed Open Research
+  routes, schemas, enum values, or redaction profiles.
+
 ## 0.17.1 — 2026-07-25
 
 Both fixes were found by running a real Managed Research eval against a deployed
