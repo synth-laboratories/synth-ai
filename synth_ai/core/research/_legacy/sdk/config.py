@@ -18,11 +18,53 @@ OPENAI_VALID_TRANSPORT_MODES = {
 }
 
 
+REQUIRE_EXPLICIT_BACKEND_ENV = "SYNTH_REQUIRE_EXPLICIT_BACKEND"
+
+
+def _require_explicit_backend() -> bool:
+    """Opt-in strictness for internal tooling.
+
+    Customer code wants the prod default: pip install, call, reach production.
+    Internal tooling (evals, dock, operator scripts) wants the opposite — an
+    unnamed backend should be an error, not a silent prod call. Such callers
+    set SYNTH_REQUIRE_EXPLICIT_BACKEND=1 and pass backend_base explicitly.
+    """
+    return str(os.getenv(REQUIRE_EXPLICIT_BACKEND_ENV) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
 def resolve_backend_base(backend_base: str | None) -> str:
-    candidate = str(backend_base or os.getenv("SYNTH_BACKEND_URL") or BACKEND_URL_BASE).strip()
-    if not candidate:
-        candidate = "https://api.usesynth.ai"
-    return normalize_backend_base(candidate).rstrip("/")
+    """Resolve the backend base URL from, in order: explicit argument,
+    SYNTH_BACKEND_URL, then the package default (prod unless configured
+    otherwise via SYNTH_BACKEND_URL_OVERRIDE / environment detection).
+
+    The package default is deliberate for customers. It is a hazard for
+    internal callers, who should set SYNTH_REQUIRE_EXPLICIT_BACKEND=1 so that
+    reaching this fallback raises instead of silently targeting production.
+    """
+    explicit = str(backend_base or "").strip()
+    if explicit:
+        return normalize_backend_base(explicit).rstrip("/")
+
+    from_env = str(os.getenv("SYNTH_BACKEND_URL") or "").strip()
+    if from_env:
+        return normalize_backend_base(from_env).rstrip("/")
+
+    if _require_explicit_backend():
+        raise ValueError(
+            "synth_backend_base_unspecified: no backend_base argument and no "
+            "SYNTH_BACKEND_URL, and " + REQUIRE_EXPLICIT_BACKEND_ENV + " is set. "
+            "Refusing to fall back to the package default, which resolves to "
+            f"{BACKEND_URL_BASE!r}. Pass backend_base explicitly."
+        )
+
+    # Single default path. Previously a third fallback hardcoded the prod URL
+    # here, which bypassed BACKEND_URL_BASE entirely and could target prod even
+    # when the package was configured for another environment.
+    return normalize_backend_base(BACKEND_URL_BASE).rstrip("/")
 
 
 def resolve_api_key(api_key: str | None) -> str:
