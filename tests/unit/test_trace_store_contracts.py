@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -7,10 +8,13 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from synth_ai.core.http.retry import RetryPolicy, idempotency_key_from_request
 from synth_ai.core.research.contracts.traces import (
     TraceBundleDownload,
     TraceBundleDownloadObject,
+    TraceBundleObjectDeclaration,
     TraceBundleObjectKind,
+    TraceBundlePrepareRequest,
     TraceCatalogProvider,
     TraceDownload,
     TraceStoreAccessReceipt,
@@ -19,6 +23,7 @@ from synth_ai.core.research.contracts.traces import (
 )
 from synth_ai.core.research.operations import RESEARCH_OPERATIONS
 from synth_ai.core.research.traces import (
+    AsyncFactoryTraceStoreAPI,
     FactoryTraceStoreAPI,
     _materialize_download,
     _transfer_timeout_seconds,
@@ -175,6 +180,16 @@ class RecordingTransport:
         return self.response
 
 
+class RecordingAsyncTransport:
+    def __init__(self, response: dict[str, Any]) -> None:
+        self.response = response
+        self.requests: list[Any] = []
+
+    async def execute(self, request: Any) -> dict[str, Any]:
+        self.requests.append(request)
+        return self.response
+
+
 def test_factory_trace_query_sends_all_typed_filters() -> None:
     transport = RecordingTransport(
         {
@@ -220,6 +235,125 @@ def test_factory_trace_query_sends_all_typed_filters() -> None:
         "workflow_address": "map/child/0",
         "limit": 17,
     }
+
+
+def test_bundle_prepare_and_finalize_send_deterministic_idempotency_keys() -> None:
+    digest = "sha256:" + "1" * 64
+    transport = RecordingTransport(
+        {
+            "publication_id": "publication-a",
+            "store_id": "store-a",
+            "factory_id": "factory-a",
+            "bundle_id": "bundle-a",
+            "manifest_digest": digest,
+            "manifest_uri": "s3://traces/manifests/a.json",
+            "status": "pending",
+            "upload_objects": [],
+            "created_at": "2026-07-25T00:00:00Z",
+        }
+    )
+    api = FactoryTraceStoreAPI(transport, "factory-a")  # type: ignore[arg-type]
+    request = TraceBundlePrepareRequest(
+        bundle_id="bundle-a",
+        manifest_digest=digest,
+        manifest={"content_digest": digest},
+        objects=[
+            TraceBundleObjectDeclaration(
+                digest=digest,
+                path="traces/trace.json",
+                size_bytes=1,
+                media_type="application/json",
+                kind=TraceBundleObjectKind.TRACE,
+            )
+        ],
+    )
+
+    api.prepare(request)
+    prepare_http_request = transport.requests[-1]
+    assert prepare_http_request.headers == {
+        "Idempotency-Key": f"trace-bundle-prepare:{digest}"
+    }
+    assert RetryPolicy().permits(
+        prepare_http_request.operation,
+        idempotency_key=idempotency_key_from_request(prepare_http_request),
+    )
+
+    transport.response = {
+        "publication_id": "publication-a",
+        "store_id": "store-a",
+        "factory_id": "factory-a",
+        "bundle_id": "bundle-a",
+        "manifest_digest": digest,
+        "object_digests": [digest],
+        "trace_digests": [],
+        "evidence_digests": [],
+        "catalog_provider": "none",
+        "catalog_generation": 1,
+        "committed_at": "2026-07-25T00:00:01Z",
+        "receipt_digest": "sha256:" + "2" * 64,
+        "receipt_uri": "s3://traces/receipts/a.json",
+    }
+    api.finalize("publication-a")
+    finalize_http_request = transport.requests[-1]
+    assert finalize_http_request.headers == {
+        "Idempotency-Key": "trace-bundle-finalize:publication-a"
+    }
+    assert RetryPolicy().permits(
+        finalize_http_request.operation,
+        idempotency_key=idempotency_key_from_request(finalize_http_request),
+    )
+
+
+def test_async_bundle_prepare_and_finalize_send_deterministic_idempotency_keys() -> None:
+    digest = "sha256:" + "1" * 64
+    transport = RecordingAsyncTransport(
+        {
+            "publication_id": "publication-a",
+            "store_id": "store-a",
+            "factory_id": "factory-a",
+            "bundle_id": "bundle-a",
+            "manifest_digest": digest,
+            "manifest_uri": "s3://traces/manifests/a.json",
+            "status": "pending",
+            "upload_objects": [],
+            "created_at": "2026-07-25T00:00:00Z",
+        }
+    )
+    api = AsyncFactoryTraceStoreAPI(transport, "factory-a")  # type: ignore[arg-type]
+    request = TraceBundlePrepareRequest(
+        bundle_id="bundle-a",
+        manifest_digest=digest,
+        manifest={"content_digest": digest},
+        objects=[],
+    )
+
+    async def exercise() -> None:
+        await api.prepare(request)
+        assert transport.requests[-1].headers == {
+            "Idempotency-Key": f"trace-bundle-prepare:{digest}"
+        }
+
+        transport.response = {
+            "publication_id": "publication-a",
+            "store_id": "store-a",
+            "factory_id": "factory-a",
+            "bundle_id": "bundle-a",
+            "manifest_digest": digest,
+            "object_digests": [digest],
+            "trace_digests": [],
+            "evidence_digests": [],
+            "catalog_provider": "none",
+            "catalog_generation": 1,
+            "committed_at": "2026-07-25T00:00:01Z",
+            "receipt_digest": "sha256:" + "2" * 64,
+            "receipt_uri": "s3://traces/receipts/a.json",
+        }
+        await api.finalize("publication-a")
+        assert transport.requests[-1].headers == {
+            "Idempotency-Key": "trace-bundle-finalize:publication-a"
+        }
+
+    asyncio.run(exercise())
 
 
 def test_exact_cloud_bundle_materialization_preserves_object_bytes(

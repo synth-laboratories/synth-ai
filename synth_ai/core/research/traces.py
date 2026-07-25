@@ -50,12 +50,14 @@ def _request(
     *,
     query: JsonObject | None = None,
     body: JsonObject | None = None,
+    headers: dict[str, str] | None = None,
 ) -> HttpRequest:
     return HttpRequest(
         research_operation(operation_id),
         path,
         query=query or {},
         body=body,
+        headers=headers or {},
     )
 
 
@@ -252,6 +254,11 @@ class FactoryTraceStoreAPI:
                 "prepare_factory_trace_bundle",
                 f"{self._base}/trace-bundles:prepare-upload",
                 body=request.to_wire(),
+                headers={
+                    "Idempotency-Key": (
+                        f"trace-bundle-prepare:{request.manifest_digest}"
+                    )
+                },
             )
         )
         return TraceBundlePublication.from_wire(value)
@@ -262,6 +269,9 @@ class FactoryTraceStoreAPI:
                 "finalize_factory_trace_bundle",
                 f"{self._base}/trace-bundles:finalize",
                 body={"publication_id": publication_id},
+                headers={
+                    "Idempotency-Key": f"trace-bundle-finalize:{publication_id}"
+                },
             )
         )
         return TracePromotionReceipt.from_wire(value)
@@ -531,6 +541,11 @@ class AsyncFactoryTraceStoreAPI:
                 "prepare_factory_trace_bundle",
                 f"{self._base}/trace-bundles:prepare-upload",
                 body=request.to_wire(),
+                headers={
+                    "Idempotency-Key": (
+                        f"trace-bundle-prepare:{request.manifest_digest}"
+                    )
+                },
             )
         )
         return TraceBundlePublication.from_wire(value)
@@ -541,6 +556,9 @@ class AsyncFactoryTraceStoreAPI:
                 "finalize_factory_trace_bundle",
                 f"{self._base}/trace-bundles:finalize",
                 body={"publication_id": publication_id},
+                headers={
+                    "Idempotency-Key": f"trace-bundle-finalize:{publication_id}"
+                },
             )
         )
         return TracePromotionReceipt.from_wire(value)
