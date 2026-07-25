@@ -85,6 +85,38 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "define_factory_evaluation_lens",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/lenses",
+            mutation=True,
+        ),
+        _operation(
+            "list_factory_evaluation_lenses",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/lenses",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_factory_best_results",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/results/best-so-far",
+            idempotent=True,
+        ),
+        _operation(
+            "record_factory_result_preference",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/results/prefer",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "record_factory_result_evaluation",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/results/{result_id}/evaluations",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "list_factory_candidates",
             HttpMethod.GET,
             "/smr/factories/{factory_id}/candidates",

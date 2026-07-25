@@ -28,6 +28,15 @@ from synth_ai.core.research.contracts.factories import (
     FactoryTransition,
     FactoryTransitionResult,
 )
+from synth_ai.core.research.contracts.factory_lenses import (
+    FactoryBestResults,
+    FactoryEvaluationLens,
+    FactoryLensSpec,
+    FactoryPreferenceEvent,
+    FactoryPreferenceRequest,
+    FactoryResultEvaluation,
+    FactoryResultEvaluationRequest,
+)
 from synth_ai.core.research.operations import research_operation
 
 
@@ -62,6 +71,13 @@ def _candidates(value: JsonValue) -> tuple[FactoryCandidate, ...]:
     return tuple(
         FactoryCandidate.from_wire(item)
         for item in array_value(value, operation_id="list_factory_candidates")
+    )
+
+
+def _lenses(value: JsonValue) -> tuple[FactoryEvaluationLens, ...]:
+    return tuple(
+        FactoryEvaluationLens.from_wire(item)
+        for item in array_value(value, operation_id="list_factory_evaluation_lenses")
     )
 
 
@@ -350,6 +366,145 @@ class FactoryChampionsAPI:
         return _champion_events(value)
 
 
+class FactoryLensesAPI:
+    """Optional optimization lens, derived best-so-far, and human preference.
+
+    Every method here requires the Factory to be on the champion-free Result
+    authority; the backend returns a typed 409 otherwise rather than storing
+    configuration that could never take effect.
+
+    A Factory that optimizes nothing never touches this namespace. That is the
+    ordinary case: ``results.best_so_far`` answers ``optimizes=False`` and the
+    Factory works exactly as well.
+    """
+
+    def __init__(self, transport: HttpTransport) -> None:
+        self._transport = transport
+
+    def define(self, factory_id: FactoryId, request: FactoryLensSpec) -> FactoryEvaluationLens:
+        """Declare how this Factory compares its Results.
+
+        Re-declaring an existing ``lens_key`` appends a new immutable version
+        rather than editing the old one, so a best-so-far answer computed under
+        an earlier version stays reproducible.
+
+        Args:
+            factory_id: Factory to declare the lens on.
+            request: Lens specification.
+
+        Returns:
+            The stored lens version.
+        """
+        value = self._transport.execute(
+            _request(
+                "define_factory_evaluation_lens",
+                f"/smr/factories/{factory_id}/lenses",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryEvaluationLens.from_wire(value)
+
+    def list(
+        self,
+        factory_id: FactoryId,
+        *,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> tuple[FactoryEvaluationLens, ...]:
+        """List lens versions, newest per key.
+
+        Args:
+            factory_id: Factory whose lenses to list.
+            include_superseded: Include older versions. Needed to audit a
+                best-so-far answer produced under a definition since replaced.
+            limit: Maximum number of rows to request.
+
+        Returns:
+            The lens versions returned by the backend.
+        """
+        value = self._transport.execute(
+            _request(
+                "list_factory_evaluation_lenses",
+                f"/smr/factories/{factory_id}/lenses",
+                query={"include_superseded": include_superseded, "limit": limit},
+            )
+        )
+        return _lenses(value)
+
+    def best_so_far(self, factory_id: FactoryId) -> FactoryBestResults:
+        """Derived best-so-far for every lens this Factory declares.
+
+        Args:
+            factory_id: Factory to query.
+
+        Returns:
+            Per-lens outcomes. ``optimizes is False`` means the Factory
+            hillclimbs nothing, which is a valid steady state and must render
+            differently from "no results yet".
+        """
+        value = self._transport.execute(
+            _request(
+                "retrieve_factory_best_results",
+                f"/smr/factories/{factory_id}/results/best-so-far",
+            )
+        )
+        return FactoryBestResults.from_wire(value)
+
+    def record_evaluation(
+        self,
+        factory_id: FactoryId,
+        result_id: str,
+        request: FactoryResultEvaluationRequest,
+    ) -> FactoryResultEvaluation:
+        """Post one externally owned verdict for a Result under a lens.
+
+        Idempotent under ``attempt_key``: a retrying evaluator converges on one
+        row. A correction uses a *new* attempt key, so the record of what was
+        believed when survives.
+
+        Args:
+            factory_id: Factory that owns the Result.
+            result_id: Result envelope id, or the WorkProduct id it pins.
+            request: The verdict to store.
+
+        Returns:
+            The stored evaluation.
+        """
+        value = self._transport.execute(
+            _request(
+                "record_factory_result_evaluation",
+                f"/smr/factories/{factory_id}/results/{result_id}/evaluations",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryResultEvaluation.from_wire(value)
+
+    def prefer(
+        self, factory_id: FactoryId, request: FactoryPreferenceRequest
+    ) -> FactoryPreferenceEvent:
+        """Record a human preference beside the derived best.
+
+        Preference does not overwrite the derived best. A reviewer choosing one
+        Result while a lens computes another is real information; collapsing
+        them into one pointer destroys it.
+
+        Args:
+            factory_id: Factory to record the preference on.
+            request: The preference event.
+
+        Returns:
+            The stored event.
+        """
+        value = self._transport.execute(
+            _request(
+                "record_factory_result_preference",
+                f"/smr/factories/{factory_id}/results/prefer",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryPreferenceEvent.from_wire(value)
+
+
 class FactoriesAPI:
     """Stable Factory lifecycle, Efforts, candidates, and champion decisions."""
 
@@ -358,6 +513,7 @@ class FactoriesAPI:
         self.efforts = FactoryEffortsAPI(transport)
         self.candidates = FactoryCandidatesAPI(transport)
         self.champions = FactoryChampionsAPI(transport)
+        self.lenses = FactoryLensesAPI(transport)
 
     def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.
@@ -735,6 +891,147 @@ class AsyncFactoryChampionsAPI:
         return _champion_events(value)
 
 
+class AsyncFactoryLensesAPI:
+    """Optional optimization lens, derived best-so-far, and human preference.
+
+    Every method here requires the Factory to be on the champion-free Result
+    authority; the backend returns a typed 409 otherwise rather than storing
+    configuration that could never take effect.
+
+    A Factory that optimizes nothing never touches this namespace. That is the
+    ordinary case: ``results.best_so_far`` answers ``optimizes=False`` and the
+    Factory works exactly as well.
+    """
+
+    def __init__(self, transport: AsyncHttpTransport) -> None:
+        self._transport = transport
+
+    async def define(
+        self, factory_id: FactoryId, request: FactoryLensSpec
+    ) -> FactoryEvaluationLens:
+        """Declare how this Factory compares its Results.
+
+        Re-declaring an existing ``lens_key`` appends a new immutable version
+        rather than editing the old one, so a best-so-far answer computed under
+        an earlier version stays reproducible.
+
+        Args:
+            factory_id: Factory to declare the lens on.
+            request: Lens specification.
+
+        Returns:
+            The stored lens version.
+        """
+        value = await self._transport.execute(
+            _request(
+                "define_factory_evaluation_lens",
+                f"/smr/factories/{factory_id}/lenses",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryEvaluationLens.from_wire(value)
+
+    async def list(
+        self,
+        factory_id: FactoryId,
+        *,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> tuple[FactoryEvaluationLens, ...]:
+        """List lens versions, newest per key.
+
+        Args:
+            factory_id: Factory whose lenses to list.
+            include_superseded: Include older versions. Needed to audit a
+                best-so-far answer produced under a definition since replaced.
+            limit: Maximum number of rows to request.
+
+        Returns:
+            The lens versions returned by the backend.
+        """
+        value = await self._transport.execute(
+            _request(
+                "list_factory_evaluation_lenses",
+                f"/smr/factories/{factory_id}/lenses",
+                query={"include_superseded": include_superseded, "limit": limit},
+            )
+        )
+        return _lenses(value)
+
+    async def best_so_far(self, factory_id: FactoryId) -> FactoryBestResults:
+        """Derived best-so-far for every lens this Factory declares.
+
+        Args:
+            factory_id: Factory to query.
+
+        Returns:
+            Per-lens outcomes. ``optimizes is False`` means the Factory
+            hillclimbs nothing, which is a valid steady state and must render
+            differently from "no results yet".
+        """
+        value = await self._transport.execute(
+            _request(
+                "retrieve_factory_best_results",
+                f"/smr/factories/{factory_id}/results/best-so-far",
+            )
+        )
+        return FactoryBestResults.from_wire(value)
+
+    async def record_evaluation(
+        self,
+        factory_id: FactoryId,
+        result_id: str,
+        request: FactoryResultEvaluationRequest,
+    ) -> FactoryResultEvaluation:
+        """Post one externally owned verdict for a Result under a lens.
+
+        Idempotent under ``attempt_key``: a retrying evaluator converges on one
+        row. A correction uses a *new* attempt key, so the record of what was
+        believed when survives.
+
+        Args:
+            factory_id: Factory that owns the Result.
+            result_id: Result envelope id, or the WorkProduct id it pins.
+            request: The verdict to store.
+
+        Returns:
+            The stored evaluation.
+        """
+        value = await self._transport.execute(
+            _request(
+                "record_factory_result_evaluation",
+                f"/smr/factories/{factory_id}/results/{result_id}/evaluations",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryResultEvaluation.from_wire(value)
+
+    async def prefer(
+        self, factory_id: FactoryId, request: FactoryPreferenceRequest
+    ) -> FactoryPreferenceEvent:
+        """Record a human preference beside the derived best.
+
+        Preference does not overwrite the derived best. A reviewer choosing one
+        Result while a lens computes another is real information; collapsing
+        them into one pointer destroys it.
+
+        Args:
+            factory_id: Factory to record the preference on.
+            request: The preference event.
+
+        Returns:
+            The stored event.
+        """
+        value = await self._transport.execute(
+            _request(
+                "record_factory_result_preference",
+                f"/smr/factories/{factory_id}/results/prefer",
+                body=request.to_wire(),
+            )
+        )
+        return FactoryPreferenceEvent.from_wire(value)
+
+
 class AsyncFactoriesAPI:
     """Native asynchronous Factory lifecycle with sync surface parity."""
 
@@ -743,6 +1040,7 @@ class AsyncFactoriesAPI:
         self.efforts = AsyncFactoryEffortsAPI(transport)
         self.candidates = AsyncFactoryCandidatesAPI(transport)
         self.champions = AsyncFactoryChampionsAPI(transport)
+        self.lenses = AsyncFactoryLensesAPI(transport)
 
     async def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.
@@ -898,10 +1196,12 @@ __all__ = [
     "AsyncFactoryCandidatesAPI",
     "AsyncFactoryChampionsAPI",
     "AsyncFactoryEffortsAPI",
+    "AsyncFactoryLensesAPI",
     "AsyncResearchFactoriesAPI",
     "FactoriesAPI",
     "FactoryCandidatesAPI",
     "FactoryChampionsAPI",
     "FactoryEffortsAPI",
+    "FactoryLensesAPI",
     "ResearchFactoriesAPI",
 ]

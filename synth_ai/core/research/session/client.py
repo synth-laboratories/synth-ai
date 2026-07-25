@@ -2008,6 +2008,77 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             label="list_factory_results",
         )
 
+    def define_factory_evaluation_lens(
+        self,
+        factory_id: str,
+        request: Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/lenses",
+                json_body=dict(request),
+            ),
+            label="define_factory_evaluation_lens",
+        )
+
+    def list_factory_evaluation_lenses(
+        self,
+        factory_id: str,
+        *,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        return _coerce_dict_list(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/lenses",
+                params=build_query_params(
+                    include_superseded=include_superseded,
+                    limit=limit,
+                ),
+            ),
+            label="list_factory_evaluation_lenses",
+        )
+
+    def get_factory_best_results(self, factory_id: str) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "GET",
+                f"/smr/factories/{factory_id}/results/best-so-far",
+            ),
+            label="get_factory_best_results",
+        )
+
+    def record_factory_result_evaluation(
+        self,
+        factory_id: str,
+        result_id: str,
+        request: Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/results/{result_id}/evaluations",
+                json_body=dict(request),
+            ),
+            label="record_factory_result_evaluation",
+        )
+
+    def record_factory_result_preference(
+        self,
+        factory_id: str,
+        request: Mapping[str, Any] | dict[str, Any],
+    ) -> dict[str, Any]:
+        return _coerce_dict(
+            self._request_json(
+                "POST",
+                f"/smr/factories/{factory_id}/results/prefer",
+                json_body=dict(request),
+            ),
+            label="record_factory_result_preference",
+        )
+
     def get_factory_result(
         self,
         factory_id: str,

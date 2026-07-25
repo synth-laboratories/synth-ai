@@ -227,6 +227,7 @@ class SwarmState(StrEnum):
     PAUSED = "paused"
     FINALIZING = "finalizing"
     DONE = "done"
+    COMPLETED = "completed"
     PARTIAL = "partial"
     FAILED = "failed"
     STOPPED = "stopped"
@@ -237,6 +238,7 @@ class SwarmState(StrEnum):
     def is_terminal(self) -> bool:
         return self in {
             SwarmState.DONE,
+            SwarmState.COMPLETED,
             SwarmState.PARTIAL,
             SwarmState.FAILED,
             SwarmState.STOPPED,

@@ -6,6 +6,15 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from synth_ai.core.research.contracts.factory_lenses import (
+    FactoryBestResults,
+    FactoryEvaluationLens,
+    FactoryLensSpec,
+    FactoryPreferenceEvent,
+    FactoryPreferenceRequest,
+    FactoryResultEvaluation,
+    FactoryResultEvaluationRequest,
+)
 from synth_ai.core.research.contracts.factory_operations import (
     Effort,
     EffortStatus,
@@ -284,6 +293,52 @@ class ResearchFactoryChampionsAPI:
         return tuple(self._session.factories.list_champion_events(factory_id, limit=limit))
 
 
+class ResearchFactoryLensesAPI:
+    """Evaluation lenses, derived best-so-far, and human preference.
+
+    Present only for Factories that optimize something. A Factory with no lens
+    reports ``optimizes=False`` and works exactly as well.
+    """
+
+    def __init__(self, session: ResearchSession) -> None:
+        self._session = session
+
+    def define(self, factory_id: str, spec: FactoryLensSpec) -> FactoryEvaluationLens:
+        """Declare how this Factory compares Results, appending a new version."""
+        return self._session.factories.lenses.define(factory_id, spec)
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> tuple[FactoryEvaluationLens, ...]:
+        """List lens versions, newest per key unless superseded are requested."""
+        return tuple(
+            self._session.factories.lenses.list(
+                factory_id, include_superseded=include_superseded, limit=limit
+            )
+        )
+
+    def best_so_far(self, factory_id: str) -> FactoryBestResults:
+        """Derived best-so-far per lens; ``optimizes=False`` is a valid answer."""
+        return self._session.factories.lenses.best_so_far(factory_id)
+
+    def record_evaluation(
+        self,
+        factory_id: str,
+        result_id: str,
+        request: FactoryResultEvaluationRequest,
+    ) -> FactoryResultEvaluation:
+        """Store one externally owned verdict, idempotent under attempt_key."""
+        return self._session.factories.lenses.record_evaluation(factory_id, result_id, request)
+
+    def prefer(self, factory_id: str, request: FactoryPreferenceRequest) -> FactoryPreferenceEvent:
+        """Append an immutable preference event beside the derived best."""
+        return self._session.factories.lenses.prefer(factory_id, request)
+
+
 class ResearchFactoryResultsAPI:
     """Factory Results — the public objects a Factory produces.
 
@@ -413,6 +468,7 @@ class ResearchFactoriesAPI:
         self._candidates: ResearchFactoryCandidatesAPI | None = None
         self._champions: ResearchFactoryChampionsAPI | None = None
         self._results: ResearchFactoryResultsAPI | None = None
+        self._lenses: ResearchFactoryLensesAPI | None = None
 
     @property
     def results(self) -> ResearchFactoryResultsAPI:
@@ -424,6 +480,13 @@ class ResearchFactoriesAPI:
         if self._results is None:
             self._results = ResearchFactoryResultsAPI(self._session)
         return self._results
+
+    @property
+    def lenses(self) -> ResearchFactoryLensesAPI:
+        """Optional optimization lens. Most Factories never declare one."""
+        if self._lenses is None:
+            self._lenses = ResearchFactoryLensesAPI(self._session)
+        return self._lenses
 
     @property
     def candidates(self) -> ResearchFactoryCandidatesAPI:
