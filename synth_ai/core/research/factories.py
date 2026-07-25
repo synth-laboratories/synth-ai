@@ -38,6 +38,10 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluationRequest,
 )
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.traces import (
+    AsyncFactoryTraceStoreAPI,
+    FactoryTraceStoreAPI,
+)
 
 
 def _request(
@@ -514,6 +518,10 @@ class FactoriesAPI:
         self.candidates = FactoryCandidatesAPI(transport)
         self.champions = FactoryChampionsAPI(transport)
         self.lenses = FactoryLensesAPI(transport)
+
+    def trace_store(self, factory_id: FactoryId) -> FactoryTraceStoreAPI:
+        """Open the Factory's managed Trace V5 store (no network call)."""
+        return FactoryTraceStoreAPI(self._transport, str(factory_id))
 
     def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.
@@ -1039,6 +1047,10 @@ class AsyncFactoriesAPI:
         self.candidates = AsyncFactoryCandidatesAPI(transport)
         self.champions = AsyncFactoryChampionsAPI(transport)
         self.lenses = AsyncFactoryLensesAPI(transport)
+
+    def trace_store(self, factory_id: FactoryId) -> AsyncFactoryTraceStoreAPI:
+        """Open the Factory's async managed Trace V5 store (no network call)."""
+        return AsyncFactoryTraceStoreAPI(self._transport, str(factory_id))
 
     async def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.

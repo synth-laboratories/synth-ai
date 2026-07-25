@@ -47,6 +47,10 @@ analytics = [
 research = [
     # Compatibility extra retained so `synth-ai[research]` remains valid.
 ]
+traces = [
+    # Canonical local bundle validation and exact materialization.
+    "synth-containers==0.3.0.20260725",
+]
 
 [project.urls]
 Homepage = "https://github.com/synth-laboratories/synth-ai"
@@ -56,6 +60,9 @@ Issues = "https://github.com/synth-laboratories/synth-ai/issues"
 [build-system]
 requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+synth-containers = { git = "https://github.com/synth-laboratories/containers.git", rev = "b3875dbc609b5586a8b3822398398700a993ee4c" }
 
 [tool.setuptools.packages.find]
 include = ["synth_ai", "synth_ai.*"]
