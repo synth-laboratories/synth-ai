@@ -34,7 +34,6 @@ from synth_ai.core.research.contracts.swarms import SwarmSpec
 class FactoryKind(StrEnum):
     CUSTOMER = "customer"
     INTERNAL = "internal"
-    OPEN_RESEARCH = "open_research"
 
 
 class FactoryLifecycleState(StrEnum):
@@ -62,7 +61,6 @@ class EffortType(StrEnum):
     RESEARCH = "research"
     EVAL_FACTORY = "eval_factory"
     OPTIMIZER = "optimizer"
-    OPEN_RESEARCH = "open_research"
 
 
 class EffortRunClass(StrEnum):

@@ -413,7 +413,7 @@ paths:
       tags:
       - billing
       summary: Get Billing Entitlements
-      operationId: retrieve_billing_entitlements
+      operationId: get_billing_entitlements_api_v1_billing_entitlements_get
       responses:
         '200':
           description: Successful Response
@@ -1694,6 +1694,92 @@ paths:
                 type: object
                 additionalProperties: true
                 title: Response Delete Org Lora Api V1 Vllm Loras  Lora Id  Delete
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal List Inference Models
+      operationId: internal_list_inference_models_api_v1_internal_inference_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Internal List Inference Models Api V1 Internal Inference
+                  Models Get
+      security:
+      - HTTPBearer: []
+  /api/v1/internal/inference/models/{model}:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal Get Inference Model
+      operationId: internal_get_inference_model_api_v1_internal_inference_models__model__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Get Inference Model Api V1 Internal Inference
+                  Models  Model  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models/{model}/lifecycle:
+    post:
+      tags:
+      - internal-inference
+      summary: Internal Control Inference Model
+      operationId: internal_control_inference_model_api_v1_internal_inference_models__model__lifecycle_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceLifecycleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Control Inference Model Api V1 Internal Inference
+                  Models  Model  Lifecycle Post
         '422':
           description: Validation Error
           content:
@@ -4141,7 +4227,7 @@ paths:
       tags:
       - smr
       summary: Get Limits
-      operationId: retrieve_research_limits
+      operationId: get_limits_smr_limits_get
       responses:
         '200':
           description: Successful Response
@@ -4208,7 +4294,7 @@ paths:
       tags:
       - smr
       summary: Archive Project
-      operationId: archive_project
+      operationId: archive_project_smr_projects__project_id__archive_post
       parameters:
       - name: project_id
         in: path
@@ -4234,7 +4320,7 @@ paths:
       tags:
       - smr
       summary: Unarchive Project
-      operationId: unarchive_project
+      operationId: unarchive_project_smr_projects__project_id__unarchive_post
       parameters:
       - name: project_id
         in: path
@@ -4607,7 +4693,7 @@ paths:
       tags:
       - smr
       summary: Get Project Economics
-      operationId: retrieve_project_economics
+      operationId: get_project_economics_smr_projects__project_id__economics_get
       parameters:
       - name: project_id
         in: path
@@ -4844,7 +4930,7 @@ paths:
       tags:
       - smr
       summary: Workspace Confirm Push
-      operationId: confirm_project_workspace_push
+      operationId: workspace_confirm_push_smr_projects__project_id__workspace_confirm_push_post
       parameters:
       - name: project_id
         in: path
@@ -5336,7 +5422,7 @@ paths:
       - smr
       - billing
       summary: Get Billing Catalog
-      operationId: retrieve_billing_catalog
+      operationId: get_billing_catalog_smr_billing_catalog_get
       responses:
         '200':
           description: Successful Response
@@ -5350,7 +5436,7 @@ paths:
       - smr
       - billing
       summary: Get Billing Plan Snapshot
-      operationId: retrieve_billing_plan
+      operationId: get_billing_plan_snapshot_smr_billing_plan_get
       responses:
         '200':
           description: Successful Response
@@ -5364,7 +5450,7 @@ paths:
       - smr
       - billing
       summary: Get Run Billing Drawdown
-      operationId: retrieve_swarm_billing_drawdown
+      operationId: get_run_billing_drawdown_smr_billing_runs__run_id__drawdown_get
       parameters:
       - name: run_id
         in: path
@@ -5480,7 +5566,7 @@ paths:
       - smr
       - billing
       summary: Get Factory Effort Billing Drawdown
-      operationId: retrieve_effort_billing_drawdown
+      operationId: get_factory_effort_billing_drawdown_smr_billing_factory_efforts__factory_effort_id__drawdown_get
       parameters:
       - name: factory_effort_id
         in: path
@@ -5594,7 +5680,7 @@ paths:
       - smr
       - factories
       summary: Create Factory
-      operationId: create_factory
+      operationId: create_factory_smr_factories_post
       requestBody:
         required: true
         content:
@@ -5619,7 +5705,7 @@ paths:
       - smr
       - factories
       summary: List Factories
-      operationId: list_factories
+      operationId: list_factories_smr_factories_get
       parameters:
       - name: include_archived
         in: query
@@ -5650,7 +5736,7 @@ paths:
       - smr
       - factories
       summary: Get Factory
-      operationId: retrieve_factory
+      operationId: get_factory_smr_factories__factory_id__get
       parameters:
       - name: factory_id
         in: path
@@ -5676,7 +5762,7 @@ paths:
       - smr
       - factories
       summary: Patch Factory
-      operationId: update_factory
+      operationId: patch_factory_smr_factories__factory_id__patch
       parameters:
       - name: factory_id
         in: path
@@ -5709,7 +5795,7 @@ paths:
       - smr
       - factories
       summary: Start Factory
-      operationId: start_factory
+      operationId: start_factory_smr_factories__factory_id__start_post
       parameters:
       - name: factory_id
         in: path
@@ -5744,7 +5830,7 @@ paths:
       - smr
       - factories
       summary: Pause Factory
-      operationId: pause_factory
+      operationId: pause_factory_smr_factories__factory_id__pause_post
       parameters:
       - name: factory_id
         in: path
@@ -5779,7 +5865,7 @@ paths:
       - smr
       - factories
       summary: Resume Factory
-      operationId: resume_factory
+      operationId: resume_factory_smr_factories__factory_id__resume_post
       parameters:
       - name: factory_id
         in: path
@@ -5814,7 +5900,7 @@ paths:
       - smr
       - factories
       summary: Archive Factory
-      operationId: archive_factory
+      operationId: archive_factory_smr_factories__factory_id__archive_post
       parameters:
       - name: factory_id
         in: path
@@ -6399,7 +6485,7 @@ paths:
       - smr
       - factories
       summary: Create Effort
-      operationId: create_effort
+      operationId: create_effort_smr_efforts_post
       requestBody:
         content:
           application/json:
@@ -6425,7 +6511,7 @@ paths:
       - smr
       - factories
       summary: List Efforts For Factory
-      operationId: list_factory_efforts
+      operationId: list_efforts_for_factory_smr_factories__factory_id__efforts_get
       parameters:
       - name: factory_id
         in: path
@@ -6456,7 +6542,7 @@ paths:
       - smr
       - factories
       summary: Get Effort
-      operationId: retrieve_effort
+      operationId: get_effort_smr_efforts__effort_id__get
       parameters:
       - name: effort_id
         in: path
@@ -6482,7 +6568,7 @@ paths:
       - smr
       - factories
       summary: Patch Effort
-      operationId: update_effort
+      operationId: patch_effort_smr_efforts__effort_id__patch
       parameters:
       - name: effort_id
         in: path
@@ -6753,7 +6839,7 @@ paths:
       - smr
       - factories
       summary: List Factory Candidates
-      operationId: list_factory_candidates
+      operationId: list_factory_candidates_smr_factories__factory_id__candidates_get
       parameters:
       - name: factory_id
         in: path
@@ -6807,7 +6893,7 @@ paths:
       - smr
       - factories
       summary: Record Factory Candidate Grading
-      operationId: record_factory_candidate_grading
+      operationId: record_factory_candidate_grading_smr_factories__factory_id__candidates__candidate_id__grading_post
       parameters:
       - name: factory_id
         in: path
@@ -6846,7 +6932,7 @@ paths:
       - smr
       - factories
       summary: Select Factory Champion
-      operationId: select_factory_champion
+      operationId: select_factory_champion_smr_factories__factory_id__champion_select_post
       parameters:
       - name: factory_id
         in: path
@@ -6879,7 +6965,7 @@ paths:
       - smr
       - factories
       summary: Rollback Factory Champion
-      operationId: rollback_factory_champion
+      operationId: rollback_factory_champion_smr_factories__factory_id__champion_rollback_post
       parameters:
       - name: factory_id
         in: path
@@ -6912,7 +6998,7 @@ paths:
       - smr
       - factories
       summary: List Factory Champion Events
-      operationId: list_factory_champion_events
+      operationId: list_factory_champion_events_smr_factories__factory_id__champion_events_get
       parameters:
       - name: factory_id
         in: path
@@ -8785,7 +8871,7 @@ paths:
       tags:
       - smr
       summary: List Environments
-      operationId: list_research_environments
+      operationId: list_environments_smr_environments_get
       parameters:
       - name: limit
         in: query
@@ -8816,7 +8902,7 @@ paths:
       tags:
       - smr
       summary: Create Environment
-      operationId: create_research_environment
+      operationId: create_environment_smr_environments_post
       requestBody:
         required: true
         content:
@@ -8841,7 +8927,7 @@ paths:
       tags:
       - smr
       summary: Get Environment
-      operationId: retrieve_research_environment
+      operationId: get_environment_smr_environments__name__get
       parameters:
       - name: name
         in: path
@@ -8883,7 +8969,7 @@ paths:
       tags:
       - smr
       summary: Preflight Environment
-      operationId: preflight_research_environment
+      operationId: preflight_environment_smr_environments__name__preflight_post
       parameters:
       - name: name
         in: path
@@ -9052,7 +9138,7 @@ paths:
       tags:
       - smr
       summary: List Project Datasets
-      operationId: list_project_datasets
+      operationId: list_project_datasets_smr_projects__project_id__datasets_get
       parameters:
       - name: project_id
         in: path
@@ -9081,7 +9167,7 @@ paths:
       tags:
       - smr
       summary: Create Project Dataset
-      operationId: create_project_dataset
+      operationId: create_project_dataset_smr_projects__project_id__datasets_post
       parameters:
       - name: project_id
         in: path
@@ -9178,7 +9264,7 @@ paths:
       tags:
       - smr
       summary: Download Project Dataset
-      operationId: retrieve_project_dataset_content
+      operationId: download_project_dataset_smr_projects__project_id__datasets__dataset_id__download_get
       parameters:
       - name: project_id
         in: path
@@ -9196,10 +9282,8 @@ paths:
         '200':
           description: Successful Response
           content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
+            application/json:
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -9838,7 +9922,7 @@ paths:
       - smr
       - work_products
       summary: Get Run Work Product Content
-      operationId: retrieve_swarm_work_product_content
+      operationId: get_run_work_product_content_smr_work_products__work_product_id__content_get
       parameters:
       - name: work_product_id
         in: path
@@ -10254,22 +10338,6 @@ paths:
           minimum: 1
           default: 80
           title: Limit
-      - name: learning_family
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Learning Family
-      - name: max_chars
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 24000
-          title: Max Chars
       responses:
         '200':
           description: Successful Response
@@ -11305,7 +11373,7 @@ paths:
       tags:
       - smr
       summary: List Project External Repositories
-      operationId: list_project_external_repositories
+      operationId: list_project_external_repositories_smr_projects__project_id__external_repositories_get
       parameters:
       - name: project_id
         in: path
@@ -11334,7 +11402,7 @@ paths:
       tags:
       - smr
       summary: Create Project External Repository
-      operationId: create_project_external_repository
+      operationId: create_project_external_repository_smr_projects__project_id__external_repositories_post
       parameters:
       - name: project_id
         in: path
@@ -11366,7 +11434,7 @@ paths:
       tags:
       - smr
       summary: Patch Project External Repository
-      operationId: update_project_external_repository
+      operationId: patch_project_external_repository_smr_projects__project_id__external_repositories__repository_id__patch
       parameters:
       - name: project_id
         in: path
@@ -11403,7 +11471,7 @@ paths:
       tags:
       - smr
       summary: Delete Project External Repository
-      operationId: delete_project_external_repository
+      operationId: delete_project_external_repository_smr_projects__project_id__external_repositories__repository_id__delete
       parameters:
       - name: project_id
         in: path
@@ -11423,7 +11491,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmrExternalRepositoryDeleteResponse'
+                type: object
+                additionalProperties: true
+                title: Response Delete Project External Repository Smr Projects  Project
+                  Id  External Repositories  Repository Id  Delete
         '422':
           description: Validation Error
           content:
@@ -12044,7 +12115,7 @@ paths:
       summary: List public runbook presets
       description: Return the backend-owned public SMR run-start profiles available
         to SDK and MCP launch callers.
-      operationId: list_runbook_presets
+      operationId: runbook_presets_smr_runbook_presets_get
       responses:
         '200':
           description: Successful Response
@@ -12059,7 +12130,7 @@ paths:
       summary: Get project setup authority
       description: Canonical setup-authority projection for the managed-research run-start
         flow.
-      operationId: retrieve_project_setup
+      operationId: project_setup_smr_projects__project_id__setup_get
       parameters:
       - name: project_id
         in: path
@@ -12087,7 +12158,7 @@ paths:
       summary: Prepare project setup authority
       description: Canonical explicit setup-preparation step before launch preflight
         and trigger.
-      operationId: prepare_project_setup
+      operationId: prepare_project_setup_smr_projects__project_id__setup_prepare_post
       parameters:
       - name: project_id
         in: path
@@ -12149,7 +12220,7 @@ paths:
       summary: Get project launch preflight
       description: Canonical launch-preflight evaluation for a concrete project-scoped
         run request.
-      operationId: preflight_project_run
+      operationId: project_launch_preflight_smr_projects__project_id__launch_preflight_post
       parameters:
       - name: project_id
         in: path
@@ -12184,7 +12255,7 @@ paths:
       description: Project-optional launch-preflight entrypoint. The backend resolves
         the run to the caller's canonical miscellaneous project before evaluating
         limits, capacity, setup, and launch policy.
-      operationId: preflight_one_off_run
+      operationId: one_off_launch_preflight_smr_runs_one_off_launch_preflight_post
       requestBody:
         content:
           application/json:
@@ -12212,7 +12283,7 @@ paths:
       description: Project-optional run trigger. The backend still resolves every
         run to org_id and a canonical project_id; callers that do not choose a project
         are routed to their miscellaneous project.
-      operationId: trigger_one_off_run
+      operationId: trigger_one_off_run_smr_runs_one_off_post
       requestBody:
         content:
           application/json:
@@ -13044,7 +13115,7 @@ paths:
       tags:
       - smr
       summary: Pause Run
-      operationId: pause_run
+      operationId: pause_run_smr_runs__run_id__pause_post
       parameters:
       - name: run_id
         in: path
@@ -13070,7 +13141,7 @@ paths:
       tags:
       - smr
       summary: Resume Run
-      operationId: resume_run
+      operationId: resume_run_smr_runs__run_id__resume_post
       parameters:
       - name: run_id
         in: path
@@ -13193,7 +13264,7 @@ paths:
       tags:
       - smr
       summary: Branch Run From Checkpoint
-      operationId: branch_run
+      operationId: branch_run_from_checkpoint_smr_runs__run_id__branches_post
       parameters:
       - name: run_id
         in: path
@@ -13250,7 +13321,7 @@ paths:
       tags:
       - smr
       summary: Stop Run
-      operationId: stop_run
+      operationId: stop_run_smr_runs__run_id__stop_post
       parameters:
       - name: run_id
         in: path
@@ -15247,42 +15318,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/hosted-artifacts/{hosted_artifact_id}/publish-public:
-    post:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: Publish Hosted Artifact Public
-      operationId: publish_hosted_artifact_public_smr_hosted_artifacts__hosted_artifact_id__publish_public_post
-      parameters:
-      - name: hosted_artifact_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Hosted Artifact Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrPublishPublicArtifactRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Publish Hosted Artifact Public Smr Hosted Artifacts  Hosted
-                  Artifact Id  Publish Public Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /smr/hosted-artifacts/{hosted_artifact_id}/assign-reviewer:
     post:
       tags:
@@ -15313,42 +15348,6 @@ paths:
                 additionalProperties: true
                 title: Response Assign Hosted Artifact Reviewer Smr Hosted Artifacts  Hosted
                   Artifact Id  Assign Reviewer Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/public/artifacts/{slug}/pageview:
-    post:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: Record Public Artifact Pageview
-      operationId: record_public_artifact_pageview_smr_public_artifacts__slug__pageview_post
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrRecordArtifactPageviewRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Record Public Artifact Pageview Smr Public Artifacts  Slug  Pageview
-                  Post
         '422':
           description: Validation Error
           content:
@@ -16918,7 +16917,7 @@ paths:
       tags:
       - smr
       summary: Create Image Release Upload
-      operationId: create_image_release_upload
+      operationId: create_image_release_upload_smr_v1_image_releases_upload_url_post
       requestBody:
         content:
           application/json:
@@ -16938,37 +16937,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/v1/image-releases/upload-url-v3:
-    post:
-      tags:
-      - smr
-      summary: Create Image Release Upload V3
-      operationId: create_image_release_upload_v3_smr_v1_image_releases_upload_url_v3_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ImageReleaseUploadRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ImageReleaseUploadV3Response'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /smr/v1/image-releases/finalize:
     post:
       tags:
       - smr
       summary: Finalize Image Release
-      operationId: finalize_image_release
+      operationId: finalize_image_release_smr_v1_image_releases_finalize_post
       requestBody:
         content:
           application/json:
@@ -16993,7 +16967,7 @@ paths:
       tags:
       - smr
       summary: List Customer Actor Images
-      operationId: list_customer_actor_images
+      operationId: list_customer_actor_images_smr_v1_image_releases_get
       responses:
         '200':
           description: Successful Response
@@ -17006,7 +16980,7 @@ paths:
       tags:
       - smr
       summary: Archive Customer Actor Image
-      operationId: archive_customer_actor_image
+      operationId: archive_customer_actor_image_smr_v1_image_releases__runtime_image_release_id__archive_post
       parameters:
       - name: runtime_image_release_id
         in: path
@@ -17032,7 +17006,7 @@ paths:
       tags:
       - smr
       summary: Get Image Release
-      operationId: retrieve_image_release
+      operationId: get_image_release_smr_v1_image_releases__release_id__get
       parameters:
       - name: release_id
         in: path
@@ -17046,10 +17020,7 @@ paths:
           content:
             application/json:
               schema:
-                anyOf:
-                - $ref: '#/components/schemas/CraftaxScorerImageReleaseResponse'
-                - $ref: '#/components/schemas/ActorRuntimeImageReleaseResponse'
-                title: Response Get Image Release Smr V1 Image Releases  Release Id  Get
+                $ref: '#/components/schemas/ImageReleaseResponse'
         '422':
           description: Validation Error
           content:
@@ -17551,7 +17522,7 @@ paths:
       - smr
       summary: Get Workspace Inputs
       description: Fetch the current workspace bootstrap inputs for a project.
-      operationId: retrieve_project_workspace_inputs
+      operationId: get_workspace_inputs_smr_projects__project_id__workspace_inputs_get
       parameters:
       - name: project_id
         in: path
@@ -17578,7 +17549,7 @@ paths:
       - smr
       summary: Workspace Inputs Source Repo
       description: Attach a source repo to a project's workspace inputs.
-      operationId: set_project_workspace_source_repository
+      operationId: workspace_inputs_source_repo_smr_projects__project_id__workspace_inputs_source_repo_put
       parameters:
       - name: project_id
         in: path
@@ -17598,7 +17569,10 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmrWorkspaceSourceRepoReceipt'
+                type: object
+                additionalProperties: true
+                title: Response Workspace Inputs Source Repo Smr Projects  Project
+                  Id  Workspace Inputs Source Repo Put
         '422':
           description: Validation Error
           content:
@@ -17611,7 +17585,7 @@ paths:
       - smr
       summary: Workspace Inputs Upload Files
       description: Upload workspace input files to a project's git repo.
-      operationId: upload_project_workspace_files
+      operationId: workspace_inputs_upload_files_smr_projects__project_id__workspace_inputs_files_upload_post
       parameters:
       - name: project_id
         in: path
@@ -17619,19 +17593,16 @@ paths:
         schema:
           type: string
           title: Project Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrWorkspaceInputFilesUploadRequest'
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmrWorkspaceFilesUploadResponse'
+                type: object
+                additionalProperties: true
+                title: Response Workspace Inputs Upload Files Smr Projects  Project
+                  Id  Workspace Inputs Files Upload Post
         '422':
           description: Validation Error
           content:
@@ -18203,7 +18174,7 @@ paths:
       tags:
       - smr
       summary: Get Artifact Content
-      operationId: retrieve_swarm_artifact_content
+      operationId: get_artifact_content_smr_artifacts__artifact_id__content_get
       parameters:
       - name: artifact_id
         in: path
@@ -18393,7 +18364,7 @@ paths:
       tags:
       - smr
       summary: Download Run Workspace Archive
-      operationId: retrieve_swarm_workspace_archive
+      operationId: download_run_workspace_archive_smr_runs__run_id__workspace_archive_get
       parameters:
       - name: run_id
         in: path
@@ -19615,7 +19586,7 @@ paths:
                       redaction_profile:
                         anyOf:
                         - enum:
-                          - open_research_public
+                          - public_default
                           - operator_default
                           - debug_operator
                           type: string
@@ -27443,7 +27414,7 @@ paths:
                       redaction_profile:
                         anyOf:
                         - enum:
-                          - open_research_public
+                          - public_default
                           - operator_default
                           - debug_operator
                           type: string
@@ -33844,353 +33815,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/projects:
-    get:
-      tags:
-      - open-research-public
-      summary: List Projects
-      operationId: list_projects_api_open_research_v1_projects_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListProjectsResponse'
-  /api/open-research/v1/projects/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Project
-      operationId: get_project_api_open_research_v1_projects__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Project Api Open Research V1 Projects  Slug  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/queues:
-    get:
-      tags:
-      - open-research-public
-      summary: List Queues
-      operationId: list_queues_api_open_research_v1_queues_get
-      parameters:
-      - name: project_slug
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListQueuesResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/projects/{slug}/loop:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Project Loop
-      operationId: get_project_loop_api_open_research_v1_projects__slug__loop_get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProjectLoopResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/submissions:
-    post:
-      tags:
-      - open-research-public
-      summary: Submit Question
-      operationId: submit_question_api_open_research_v1_submissions_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubmitQuestionRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubmitQuestionResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/submissions/{submission_id}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Submission Endpoint
-      operationId: get_submission_endpoint_api_open_research_v1_submissions__submission_id__get
-      parameters:
-      - name: submission_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Submission Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubmissionDetailResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments:
-    get:
-      tags:
-      - open-research-public
-      summary: List Experiments
-      operationId: list_experiments_api_open_research_v1_experiments_get
-      parameters:
-      - name: project_slug
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Slug
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          pattern: ^(running|done|failed|all)$
-          default: all
-          title: Status
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 100
-          minimum: 1
-          default: 25
-          title: Limit
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Cursor
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response List Experiments Api Open Research V1 Experiments
-                  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Experiment
-      operationId: get_experiment_api_open_research_v1_experiments__experiment_id__get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Experiment Api Open Research V1 Experiments  Experiment
-                  Id  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}/receipt:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Receipt
-      operationId: get_receipt_api_open_research_v1_experiments__experiment_id__receipt_get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Receipt Api Open Research V1 Experiments  Experiment
-                  Id  Receipt Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}/bundle:
-    get:
-      tags:
-      - open-research-public
-      summary: Download Experiment Bundle
-      operationId: download_experiment_bundle_api_open_research_v1_experiments__experiment_id__bundle_get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/artifacts:
-    get:
-      tags:
-      - open-research-public
-      summary: List Public Artifacts
-      operationId: list_public_artifacts_api_open_research_v1_artifacts_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-                title: Response List Public Artifacts Api Open Research V1 Artifacts
-                  Get
-  /api/open-research/v1/artifacts/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Public Artifact
-      operationId: get_public_artifact_api_open_research_v1_artifacts__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Public Artifact Api Open Research V1 Artifacts  Slug  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/artifact-pages/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Public Artifact Page
-      operationId: get_public_artifact_page_api_open_research_v1_artifact_pages__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            text/html:
-              schema:
-                type: string
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/credentials:
     get:
       tags:
@@ -36091,263 +35715,6 @@ components:
       - resume
       - interrupt
       title: ActorControlAction
-    ActorRuntimeImageMaterialization:
-      properties:
-        schema_version:
-          type: string
-          const: smr-actor-image-materialization-v1
-          title: Schema Version
-        runtime_image_release_id:
-          type: string
-          format: uuid
-          title: Runtime Image Release Id
-        status:
-          type: string
-          enum:
-          - active
-          - archived
-          title: Status
-        image_ref:
-          type: string
-          minLength: 3
-          title: Image Ref
-        resolved_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Resolved Digest
-        interface_mode:
-          type: string
-          const: synth_actor_runtime
-          title: Interface Mode
-        actor_role:
-          type: string
-          const: worker
-          title: Actor Role
-        selection_kind:
-          type: string
-          const: customer_actor_runtime
-          title: Selection Kind
-        capabilities:
-          items:
-            type: string
-            enum:
-            - codex_cli
-            - craftax_eval
-            - crafter_eval
-            - dungeongrid_eval
-            - image_artifacts
-            - jax_cpu
-            - managed_research_sdk
-            - mcp_client
-            - modal_client
-            - nethack_eval
-            - numpy_stack
-            - opencode
-            - openrouter_client
-            - synth_sdk
-            - video_artifacts
-          type: array
-          maxItems: 32
-          minItems: 1
-          title: Capabilities
-        python_packages:
-          items:
-            type: string
-            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
-          type: array
-          maxItems: 32
-          title: Python Packages
-        package_release_timestamps:
-          additionalProperties:
-            type: string
-            format: date-time
-          type: object
-          title: Package Release Timestamps
-        recipe_digest:
-          anyOf:
-          - type: string
-            pattern: ^sha256:[0-9a-f]{64}$
-          - type: 'null'
-          title: Recipe Digest
-        image_release_id:
-          type: string
-          pattern: ^imgrel_[0-9a-f]{64}$
-          title: Image Release Id
-        image_substrates:
-          items:
-            type: string
-            enum:
-            - org_registry
-            - wasabi_artifact
-          type: array
-          title: Image Substrates
-        daytona_pullable:
-          type: boolean
-          title: Daytona Pullable
-      additionalProperties: false
-      type: object
-      required:
-      - schema_version
-      - runtime_image_release_id
-      - status
-      - image_ref
-      - resolved_digest
-      - interface_mode
-      - actor_role
-      - selection_kind
-      - capabilities
-      - python_packages
-      - image_release_id
-      - image_substrates
-      - daytona_pullable
-      title: ActorRuntimeImageMaterialization
-    ActorRuntimeImageReleaseDeclaration:
-      properties:
-        archive_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          title: Archive Sha256
-        archive_size_bytes:
-          type: integer
-          maximum: 5000000000.0
-          exclusiveMinimum: 0.0
-          title: Archive Size Bytes
-        image_manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Image Manifest Digest
-        image_ref:
-          type: string
-          maxLength: 255
-          minLength: 3
-          title: Image Ref
-        platform_os:
-          type: string
-          const: linux
-          title: Platform Os
-        platform_architecture:
-          type: string
-          enum:
-          - amd64
-          - arm64
-          title: Platform Architecture
-        source_repository:
-          type: string
-          maxLength: 512
-          minLength: 20
-          title: Source Repository
-        source_commit_sha:
-          type: string
-          pattern: ^[0-9a-f]{40}$
-          title: Source Commit Sha
-        kind:
-          type: string
-          const: actor_runtime
-          title: Kind
-        actor_role:
-          type: string
-          const: worker
-          title: Actor Role
-        interface_mode:
-          type: string
-          const: synth_actor_runtime
-          title: Interface Mode
-        capabilities:
-          items:
-            type: string
-            enum:
-            - codex_cli
-            - craftax_eval
-            - crafter_eval
-            - dungeongrid_eval
-            - image_artifacts
-            - jax_cpu
-            - managed_research_sdk
-            - mcp_client
-            - modal_client
-            - nethack_eval
-            - numpy_stack
-            - opencode
-            - openrouter_client
-            - synth_sdk
-            - video_artifacts
-          type: array
-          maxItems: 32
-          minItems: 1
-          title: Capabilities
-        python_packages:
-          items:
-            type: string
-            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
-          type: array
-          maxItems: 32
-          title: Python Packages
-        recipe_digest:
-          anyOf:
-          - type: string
-            pattern: ^sha256:[0-9a-f]{64}$
-          - type: 'null'
-          title: Recipe Digest
-      additionalProperties: false
-      type: object
-      required:
-      - archive_sha256
-      - archive_size_bytes
-      - image_manifest_digest
-      - image_ref
-      - platform_os
-      - platform_architecture
-      - source_repository
-      - source_commit_sha
-      - kind
-      - actor_role
-      - interface_mode
-      - capabilities
-      - python_packages
-      title: ActorRuntimeImageReleaseDeclaration
-    ActorRuntimeImageReleaseResponse:
-      properties:
-        schema_version:
-          type: string
-          const: smr-image-release-v1
-          title: Schema Version
-        release_id:
-          type: string
-          pattern: ^imgrel_[0-9a-f]{64}$
-          title: Release Id
-        org_id:
-          type: string
-          format: uuid
-          title: Org Id
-        artifact:
-          $ref: '#/components/schemas/ImageReleaseArtifact'
-        inspection:
-          $ref: '#/components/schemas/ImageReleaseInspection'
-        storage:
-          anyOf:
-          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
-          - type: 'null'
-        package_release_timestamps:
-          additionalProperties:
-            type: string
-            format: date-time
-          type: object
-          title: Package Release Timestamps
-        declaration:
-          $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-        runtime_image_release:
-          $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
-      additionalProperties: false
-      type: object
-      required:
-      - schema_version
-      - release_id
-      - org_id
-      - artifact
-      - inspection
-      - declaration
-      - runtime_image_release
-      title: ActorRuntimeImageReleaseResponse
     AddCreditsRequest:
       properties:
         org_id:
@@ -38440,112 +37807,6 @@ components:
       - status
       - validation_status
       title: ContainerEvalPackageResponse
-    CraftaxScorerImageReleaseDeclaration:
-      properties:
-        archive_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          title: Archive Sha256
-        archive_size_bytes:
-          type: integer
-          maximum: 5000000000.0
-          exclusiveMinimum: 0.0
-          title: Archive Size Bytes
-        image_manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Image Manifest Digest
-        image_ref:
-          type: string
-          maxLength: 255
-          minLength: 3
-          title: Image Ref
-        platform_os:
-          type: string
-          const: linux
-          title: Platform Os
-        platform_architecture:
-          type: string
-          enum:
-          - amd64
-          - arm64
-          title: Platform Architecture
-        source_repository:
-          type: string
-          maxLength: 512
-          minLength: 20
-          title: Source Repository
-        source_commit_sha:
-          type: string
-          pattern: ^[0-9a-f]{40}$
-          title: Source Commit Sha
-        kind:
-          type: string
-          const: craftax_scorer
-          title: Kind
-        fixture_manifest_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          title: Fixture Manifest Sha256
-        fixture_binary_sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          title: Fixture Binary Sha256
-      additionalProperties: false
-      type: object
-      required:
-      - archive_sha256
-      - archive_size_bytes
-      - image_manifest_digest
-      - image_ref
-      - platform_os
-      - platform_architecture
-      - source_repository
-      - source_commit_sha
-      - kind
-      - fixture_manifest_sha256
-      - fixture_binary_sha256
-      title: CraftaxScorerImageReleaseDeclaration
-    CraftaxScorerImageReleaseResponse:
-      properties:
-        schema_version:
-          type: string
-          const: smr-image-release-v1
-          title: Schema Version
-        release_id:
-          type: string
-          pattern: ^imgrel_[0-9a-f]{64}$
-          title: Release Id
-        org_id:
-          type: string
-          format: uuid
-          title: Org Id
-        artifact:
-          $ref: '#/components/schemas/ImageReleaseArtifact'
-        inspection:
-          $ref: '#/components/schemas/ImageReleaseInspection'
-        storage:
-          anyOf:
-          - $ref: '#/components/schemas/ImageReleaseStorageIdentity'
-          - type: 'null'
-        package_release_timestamps:
-          additionalProperties:
-            type: string
-            format: date-time
-          type: object
-          title: Package Release Timestamps
-        declaration:
-          $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-      additionalProperties: false
-      type: object
-      required:
-      - schema_version
-      - release_id
-      - org_id
-      - artifact
-      - inspection
-      - declaration
-      title: CraftaxScorerImageReleaseResponse
     CreateCredentialRequest:
       properties:
         credential_name:
@@ -38665,7 +37926,6 @@ components:
         context_tar_base64:
           anyOf:
           - type: string
-            maxLength: 188743680
           - type: 'null'
           title: Context Tar Base64
           description: Optional build context as base64-encoded .tar.gz. If absent,
@@ -39630,8 +38890,7 @@ components:
         preflight:
           $ref: '#/components/schemas/EnvironmentPreflightSpec'
         metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Metadata
       additionalProperties: false
@@ -40389,28 +39648,96 @@ components:
       type: object
       title: HeartbeatResponse
       description: Response for lease heartbeat.
-    ImageReleaseArtifact:
+    ImageReleaseDeclarationRequest:
       properties:
-        artifact_id:
+        kind:
           type: string
-          pattern: ^imgobj_[0-9a-f]{64}$
-          title: Artifact Id
+          enum:
+          - craftax_scorer
+          - actor_runtime
+          title: Kind
         archive_sha256:
           type: string
           pattern: ^[0-9a-f]{64}$
           title: Archive Sha256
         archive_size_bytes:
           type: integer
-          maximum: 5000000000.0
+          maximum: 17179869184.0
           exclusiveMinimum: 0.0
           title: Archive Size Bytes
+        image_manifest_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Image Manifest Digest
+        image_ref:
+          type: string
+          maxLength: 255
+          minLength: 3
+          title: Image Ref
+        platform_os:
+          type: string
+          const: linux
+          title: Platform Os
+        platform_architecture:
+          type: string
+          enum:
+          - amd64
+          - arm64
+          title: Platform Architecture
+        source_repository:
+          type: string
+          maxLength: 512
+          minLength: 20
+          title: Source Repository
+        source_commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Commit Sha
+        fixture_manifest_sha256:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          title: Fixture Manifest Sha256
+        fixture_binary_sha256:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{64}$
+          - type: 'null'
+          title: Fixture Binary Sha256
+        actor_role:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Actor Role
+        interface_mode:
+          anyOf:
+          - type: string
+            maxLength: 64
+          - type: 'null'
+          title: Interface Mode
+        capabilities:
+          anyOf:
+          - items:
+              type: string
+            type: array
+            maxItems: 32
+          - type: 'null'
+          title: Capabilities
       additionalProperties: false
       type: object
       required:
-      - artifact_id
+      - kind
       - archive_sha256
       - archive_size_bytes
-      title: ImageReleaseArtifact
+      - image_manifest_digest
+      - image_ref
+      - platform_os
+      - platform_architecture
+      - source_repository
+      - source_commit_sha
+      title: ImageReleaseDeclarationRequest
     ImageReleaseFinalizeRequest:
       properties:
         upload_id:
@@ -40418,15 +39745,7 @@ components:
           pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         declaration:
-          oneOf:
-          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-          title: Declaration
-          discriminator:
-            propertyName: kind
-            mapping:
-              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
       additionalProperties: false
       type: object
       required:
@@ -40440,125 +39759,77 @@ components:
           const: smr-image-release-finalize-v1
           title: Schema Version
         release:
-          anyOf:
-          - $ref: '#/components/schemas/CraftaxScorerImageReleaseResponse'
-          - $ref: '#/components/schemas/ActorRuntimeImageReleaseResponse'
-          title: Release
-        upload_reconciliation:
-          $ref: '#/components/schemas/ImageReleaseUploadReconciliationResponse'
+          $ref: '#/components/schemas/ImageReleaseResponse'
+        staging_cleanup:
+          $ref: '#/components/schemas/ImageReleaseStagingCleanupResponse'
       additionalProperties: false
       type: object
       required:
       - schema_version
       - release
-      - upload_reconciliation
+      - staging_cleanup
       title: ImageReleaseFinalizeResponse
-    ImageReleaseInspection:
+    ImageReleaseResponse:
       properties:
-        archive_format:
+        schema_version:
           type: string
-          const: oci-image-layout-tar-v1
-          title: Archive Format
-        image_manifest_digest:
+          const: smr-image-release-v1
+          title: Schema Version
+        release_id:
           type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Image Manifest Digest
-        image_config_digest:
+          title: Release Id
+        org_id:
           type: string
-          pattern: ^sha256:[0-9a-f]{64}$
-          title: Image Config Digest
-        image_ref:
-          type: string
-          maxLength: 255
-          minLength: 3
-          title: Image Ref
-        python_packages:
-          items:
-            type: string
-            pattern: ^[a-z0-9][a-z0-9._-]*==[A-Za-z0-9][A-Za-z0-9.!+_-]{0,127}$
-          type: array
-          maxItems: 32
-          title: Python Packages
-        platform_os:
-          type: string
-          const: linux
-          title: Platform Os
-        platform_architecture:
-          type: string
-          enum:
-          - amd64
-          - arm64
-          title: Platform Architecture
+          title: Org Id
+        artifact:
+          additionalProperties: true
+          type: object
+          title: Artifact
+        declaration:
+          additionalProperties: true
+          type: object
+          title: Declaration
+        inspection:
+          additionalProperties: true
+          type: object
+          title: Inspection
+        runtime_image_release:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Runtime Image Release
       additionalProperties: false
       type: object
       required:
-      - archive_format
-      - image_manifest_digest
-      - image_config_digest
-      - image_ref
-      - python_packages
-      - platform_os
-      - platform_architecture
-      title: ImageReleaseInspection
-    ImageReleaseStorageIdentity:
-      properties:
-        object_key:
-          type: string
-          pattern: ^smr/env-images/objects/[0-9a-f]{64}\.tar$
-          title: Object Key
-        etag:
-          type: string
-          maxLength: 256
-          minLength: 1
-          title: Etag
-        size_bytes:
-          type: integer
-          maximum: 5000000000.0
-          exclusiveMinimum: 0.0
-          title: Size Bytes
-      additionalProperties: false
-      type: object
-      required:
-      - object_key
-      - etag
-      - size_bytes
-      title: ImageReleaseStorageIdentity
-      description: Provider-reported identity of the published canonical archive object.
-    ImageReleaseUploadReconciliationResponse:
+      - schema_version
+      - release_id
+      - org_id
+      - artifact
+      - declaration
+      - inspection
+      title: ImageReleaseResponse
+    ImageReleaseStagingCleanupResponse:
       properties:
         upload_id:
           type: string
-          pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         status:
           type: string
           enum:
-          - verified_and_published
-          - already_published
+          - deleted
+          - absent
           title: Status
-        object_key:
-          type: string
-          minLength: 1
-          title: Object Key
       additionalProperties: false
       type: object
       required:
       - upload_id
       - status
-      - object_key
-      title: ImageReleaseUploadReconciliationResponse
+      title: ImageReleaseStagingCleanupResponse
     ImageReleaseUploadRequest:
       properties:
         declaration:
-          oneOf:
-          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-          title: Declaration
-          discriminator:
-            propertyName: kind
-            mapping:
-              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
+          $ref: '#/components/schemas/ImageReleaseDeclarationRequest'
         expires_in:
           type: integer
           maximum: 86400.0
@@ -40574,54 +39845,24 @@ components:
       properties:
         schema_version:
           type: string
-          const: smr-image-release-upload-v2
+          const: smr-image-release-upload-v1
           title: Schema Version
         upload_id:
           type: string
-          pattern: ^imgup_[0-9a-f]{32}$
           title: Upload Id
         release_id:
           type: string
-          pattern: ^imgrel_[0-9a-f]{64}$
           title: Release Id
         upload_url:
           type: string
-          minLength: 1
           title: Upload Url
-        upload_required:
-          type: boolean
-          title: Upload Required
-        upload_mode:
-          type: string
-          const: content_addressed_quarantine
-          title: Upload Mode
-        storage_admission:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Storage Admission
         expires_in:
           type: integer
-          maximum: 86400.0
-          minimum: 60.0
           title: Expires In
         declaration:
-          oneOf:
-          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-          title: Declaration
-          discriminator:
-            propertyName: kind
-            mapping:
-              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-        package_release_timestamps:
-          additionalProperties:
-            type: string
-            format: date-time
+          additionalProperties: true
           type: object
-          title: Package Release Timestamps
+          title: Declaration
       additionalProperties: false
       type: object
       required:
@@ -40629,116 +39870,9 @@ components:
       - upload_id
       - release_id
       - upload_url
-      - upload_required
-      - upload_mode
       - expires_in
       - declaration
       title: ImageReleaseUploadResponse
-    ImageReleaseUploadV3Headers:
-      properties:
-        Content-Length:
-          type: string
-          pattern: ^[1-9][0-9]*$
-          title: Content-Length
-        If-None-Match:
-          type: string
-          const: '*'
-          title: If-None-Match
-        x-amz-meta-synth-upload-id:
-          type: string
-          pattern: ^imgup_[0-9a-f]{32}$
-          title: X-Amz-Meta-Synth-Upload-Id
-        x-amz-meta-synth-declaration-sha256:
-          type: string
-          pattern: ^[0-9a-f]{64}$
-          title: X-Amz-Meta-Synth-Declaration-Sha256
-      additionalProperties: false
-      type: object
-      required:
-      - Content-Length
-      - If-None-Match
-      - x-amz-meta-synth-upload-id
-      - x-amz-meta-synth-declaration-sha256
-      title: ImageReleaseUploadV3Headers
-      description: Exact signed headers that a v3 client must send unchanged.
-    ImageReleaseUploadV3Response:
-      properties:
-        schema_version:
-          type: string
-          const: smr-image-release-upload-v3
-          title: Schema Version
-        upload_id:
-          type: string
-          pattern: ^imgup_[0-9a-f]{32}$
-          title: Upload Id
-        release_id:
-          type: string
-          pattern: ^imgrel_[0-9a-f]{64}$
-          title: Release Id
-        upload_url:
-          anyOf:
-          - type: string
-            minLength: 1
-          - type: 'null'
-          title: Upload Url
-        upload_required:
-          type: boolean
-          title: Upload Required
-        upload_mode:
-          type: string
-          const: content_addressed_quarantine
-          title: Upload Mode
-        storage_admission:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Storage Admission
-        expires_in:
-          type: integer
-          maximum: 86400.0
-          minimum: 60.0
-          title: Expires In
-        declaration:
-          oneOf:
-          - $ref: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-          - $ref: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-          title: Declaration
-          discriminator:
-            propertyName: kind
-            mapping:
-              actor_runtime: '#/components/schemas/ActorRuntimeImageReleaseDeclaration'
-              craftax_scorer: '#/components/schemas/CraftaxScorerImageReleaseDeclaration'
-        package_release_timestamps:
-          additionalProperties:
-            type: string
-            format: date-time
-          type: object
-          title: Package Release Timestamps
-        upload_headers:
-          anyOf:
-          - $ref: '#/components/schemas/ImageReleaseUploadV3Headers'
-          - type: 'null'
-        finalize_deadline_at:
-          type: string
-          format: date-time
-          title: Finalize Deadline At
-      additionalProperties: false
-      type: object
-      required:
-      - schema_version
-      - upload_id
-      - release_id
-      - upload_url
-      - upload_required
-      - upload_mode
-      - expires_in
-      - declaration
-      - upload_headers
-      - finalize_deadline_at
-      title: ImageReleaseUploadV3Response
-      description: 'Internal create-only contract: the upload capability is withheld
-        on reuse.'
     IncreaseLimitRequest:
       properties:
         metric_type:
@@ -40757,6 +39891,27 @@ components:
       - increase_by
       title: IncreaseLimitRequest
       description: Request to increase a limit.
+    InferenceLifecycleAction:
+      type: string
+      enum:
+      - pause
+      - resume
+      title: InferenceLifecycleAction
+    InferenceLifecycleRequest:
+      properties:
+        action:
+          $ref: '#/components/schemas/InferenceLifecycleAction'
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - reason
+      title: InferenceLifecycleRequest
     InteractionIntent:
       type: string
       enum:
@@ -41341,28 +40496,6 @@ components:
       - byok_enabled
       title: ListKeysResponse
       description: Response containing list of stored provider keys.
-    ListProjectsResponse:
-      properties:
-        projects:
-          items:
-            $ref: '#/components/schemas/ProjectSummary'
-          type: array
-          title: Projects
-      type: object
-      required:
-      - projects
-      title: ListProjectsResponse
-    ListQueuesResponse:
-      properties:
-        queues:
-          items:
-            $ref: '#/components/schemas/QueueSummary'
-          type: array
-          title: Queues
-      type: object
-      required:
-      - queues
-      title: ListQueuesResponse
     LocalTarget:
       properties:
         host:
@@ -41378,201 +40511,6 @@ components:
       required:
       - port
       title: LocalTarget
-    LoopIdeaSummary:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        status:
-          type: string
-          title: Status
-        source:
-          type: string
-          enum:
-          - computer_use
-          - mcp
-          - signed_in_web
-          title: Source
-        submitter_handle:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submitter Handle
-        prompt:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Prompt
-        hypothesis:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Hypothesis
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        submitted_at:
-          type: string
-          title: Submitted At
-        reviewed_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reviewed At
-        scheduled_for:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Scheduled For
-        launched_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Launched At
-      type: object
-      required:
-      - submission_id
-      - project_slug
-      - queue_id
-      - status
-      - source
-      - submitter_handle
-      - prompt
-      - hypothesis
-      - review_verdict
-      - experiment_id
-      - objective_id
-      - submitted_at
-      - reviewed_at
-      - scheduled_for
-      - launched_at
-      title: LoopIdeaSummary
-    LoopRunSummary:
-      properties:
-        experiment_id:
-          type: string
-          title: Experiment Id
-        project_slug:
-          type: string
-          title: Project Slug
-        submitter_handle:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submitter Handle
-        submission_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submission Id
-        queue_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Queue Id
-        source:
-          type: string
-          enum:
-          - computer_use
-          - mcp
-          - signed_in_web
-          title: Source
-        status:
-          type: string
-          enum:
-          - running
-          - done
-          - failed
-          - canceled
-          title: Status
-        score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Score
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        review_summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Review Summary
-        review_feedback:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Review Feedback
-        submitted_at:
-          type: string
-          title: Submitted At
-        started_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Started At
-        finished_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Finished At
-        wallclock_seconds_used:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Wallclock Seconds Used
-        wallclock_seconds_budget:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Wallclock Seconds Budget
-      type: object
-      required:
-      - experiment_id
-      - project_slug
-      - submitter_handle
-      - submission_id
-      - queue_id
-      - source
-      - status
-      - score
-      - objective_id
-      - review_verdict
-      - review_summary
-      - review_feedback
-      - submitted_at
-      - started_at
-      - finished_at
-      - wallclock_seconds_used
-      - wallclock_seconds_budget
-      title: LoopRunSummary
     ManderqueueAckRequest:
       properties:
         message_id:
@@ -43012,53 +41950,6 @@ components:
       - created_at
       - updated_at
       title: ProjectChangeSetResponse
-    ProjectLoopResponse:
-      properties:
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        now:
-          type: string
-          title: Now
-        next_run_at:
-          type: string
-          title: Next Run At
-        queue_depth:
-          type: integer
-          title: Queue Depth
-        current_run:
-          anyOf:
-          - $ref: '#/components/schemas/LoopRunSummary'
-          - type: 'null'
-        last_completed_run:
-          anyOf:
-          - $ref: '#/components/schemas/LoopRunSummary'
-          - type: 'null'
-        ideas:
-          items:
-            $ref: '#/components/schemas/LoopIdeaSummary'
-          type: array
-          title: Ideas
-        recent_experiments:
-          items:
-            $ref: '#/components/schemas/LoopRunSummary'
-          type: array
-          title: Recent Experiments
-      type: object
-      required:
-      - project_slug
-      - queue_id
-      - now
-      - next_run_at
-      - queue_depth
-      - current_run
-      - last_completed_run
-      - ideas
-      - recent_experiments
-      title: ProjectLoopResponse
     ProjectSetupStatus:
       type: string
       enum:
@@ -43067,55 +41958,6 @@ components:
       - blocked
       - ready
       title: ProjectSetupStatus
-    ProjectSummary:
-      properties:
-        slug:
-          type: string
-          title: Slug
-        name:
-          type: string
-          title: Name
-        tagline:
-          type: string
-          title: Tagline
-        challenge_url:
-          type: string
-          title: Challenge Url
-        baseline_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Baseline Score
-        current_best_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Current Best Score
-        best_experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Best Experiment Id
-        default_queue_id:
-          type: string
-          title: Default Queue Id
-        supported_queue_ids:
-          items:
-            type: string
-          type: array
-          title: Supported Queue Ids
-      type: object
-      required:
-      - slug
-      - name
-      - tagline
-      - challenge_url
-      - baseline_score
-      - current_best_score
-      - best_experiment_id
-      - default_queue_id
-      - supported_queue_ids
-      title: ProjectSummary
     ProjectWorkspaceActor:
       properties:
         actor_id:
@@ -44050,38 +42892,6 @@ components:
           title: Client Metadata
       type: object
       title: PublishManderqueueMessageRequest
-    QueueSummary:
-      properties:
-        id:
-          type: string
-          title: Id
-        project_slug:
-          type: string
-          title: Project Slug
-        horizon_seconds:
-          type: integer
-          title: Horizon Seconds
-        work_mode:
-          type: string
-          title: Work Mode
-        entitlement:
-          type: string
-          title: Entitlement
-        unsigned_in_allowed:
-          type: boolean
-          title: Unsigned In Allowed
-        admission:
-          $ref: '#/components/schemas/_QueueAdmission'
-      type: object
-      required:
-      - id
-      - project_slug
-      - horizon_seconds
-      - work_mode
-      - entitlement
-      - unsigned_in_allowed
-      - admission
-      title: QueueSummary
     RecordUsageRequest:
       properties:
         metric_type:
@@ -44663,7 +43473,9 @@ components:
           const: smr-actor-image-archive-v1
           title: Schema Version
         runtime_image_release:
-          $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
+          additionalProperties: true
+          type: object
+          title: Runtime Image Release
       additionalProperties: false
       type: object
       required:
@@ -44678,7 +43490,8 @@ components:
           title: Schema Version
         releases:
           items:
-            $ref: '#/components/schemas/ActorRuntimeImageMaterialization'
+            additionalProperties: true
+            type: object
           type: array
           title: Releases
       additionalProperties: false
@@ -45320,12 +44133,6 @@ components:
             type: object
           - type: 'null'
           title: Runtime Bootstrap
-        status_detail:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Status Detail
         assigned_at:
           anyOf:
           - type: string
@@ -47499,7 +46306,6 @@ components:
           - research
           - eval_factory
           - optimizer
-          - open_research
           title: Effort Type
           default: research
         recurrence_policy:
@@ -47628,7 +46434,6 @@ components:
             - research
             - eval_factory
             - optimizer
-            - open_research
           - type: 'null'
           title: Effort Type
         recurrence_policy:
@@ -47740,7 +46545,6 @@ components:
           - research
           - eval_factory
           - optimizer
-          - open_research
           title: Effort Type
         recurrence_policy:
           additionalProperties: true
@@ -47825,12 +46629,6 @@ components:
       - created_at
       - updated_at
       title: SmrEffortResponse
-    SmrEmptyWorkspaceProjectRepoResponse:
-      properties: {}
-      additionalProperties: false
-      type: object
-      title: SmrEmptyWorkspaceProjectRepoResponse
-      description: Explicit empty alternative before a project repository exists.
     SmrEnsureProjectGitResponse:
       properties:
         ok:
@@ -47857,7 +46655,6 @@ components:
       properties:
         manifest:
           $ref: '#/components/schemas/EnvironmentManifest'
-      additionalProperties: false
       type: object
       required:
       - manifest
@@ -47872,11 +46669,11 @@ components:
           title: Name
         digest:
           type: string
-          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Manifest Digest
         org_id:
           anyOf:
@@ -47889,53 +46686,21 @@ components:
           - type: 'null'
           title: Created By User Id
         spec:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Spec
         created_at:
-          type: string
-          format: date-time
           title: Created At
         manifest:
           $ref: '#/components/schemas/EnvironmentManifest'
-      additionalProperties: false
       type: object
       required:
       - environment_id
       - name
       - digest
-      - manifest_digest
       - created_at
       - manifest
       title: SmrEnvironmentDetailResponse
-    SmrEnvironmentPreflightError:
-      properties:
-        error_code:
-          type: string
-          title: Error Code
-        responsible_party:
-          type: string
-          enum:
-          - infra
-          - project
-          - user
-          title: Responsible Party
-        message:
-          type: string
-          title: Message
-        details:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
-          type: object
-          title: Details
-      additionalProperties: false
-      type: object
-      required:
-      - error_code
-      - responsible_party
-      - message
-      title: SmrEnvironmentPreflightError
     SmrEnvironmentPreflightResponse:
       properties:
         name:
@@ -47943,37 +46708,32 @@ components:
           title: Name
         digest:
           type: string
-          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Manifest Digest
         ok:
           type: boolean
           title: Ok
         result:
           type: string
-          enum:
-          - failed
-          - ok
-          - skipped
           title: Result
         details:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Details
         error:
           anyOf:
-          - $ref: '#/components/schemas/SmrEnvironmentPreflightError'
+          - additionalProperties: true
+            type: object
           - type: 'null'
-      additionalProperties: false
+          title: Error
       type: object
       required:
       - name
       - digest
-      - manifest_digest
       - ok
       - result
       title: SmrEnvironmentPreflightResponse
@@ -48022,11 +46782,11 @@ components:
           title: Name
         digest:
           type: string
-          pattern: ^sha256:[0-9a-f]{64}$
           title: Digest
         manifest_digest:
-          type: string
-          pattern: ^sha256:[0-9a-f]{64}$
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Manifest Digest
         org_id:
           anyOf:
@@ -48039,21 +46799,16 @@ components:
           - type: 'null'
           title: Created By User Id
         spec:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Spec
         created_at:
-          type: string
-          format: date-time
           title: Created At
-      additionalProperties: false
       type: object
       required:
       - environment_id
       - name
       - digest
-      - manifest_digest
       - created_at
       title: SmrEnvironmentResponse
     SmrEvidenceObligationsRequest:
@@ -48629,43 +47384,22 @@ components:
           title: Default Branch
         role:
           type: string
-          enum:
-          - primary
-          - dependency
           title: Role
           default: dependency
         metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Metadata
-      additionalProperties: false
       type: object
       required:
       - name
       - url
       title: SmrExternalRepositoryCreateRequest
-    SmrExternalRepositoryDeleteResponse:
-      properties:
-        deleted:
-          type: boolean
-          const: true
-          title: Deleted
-        repository_id:
-          type: string
-          title: Repository Id
-      additionalProperties: false
-      type: object
-      required:
-      - deleted
-      - repository_id
-      title: SmrExternalRepositoryDeleteResponse
     SmrExternalRepositoryPatchRequest:
       properties:
         url:
           anyOf:
           - type: string
-            minLength: 1
           - type: 'null'
           title: Url
         default_branch:
@@ -48676,19 +47410,14 @@ components:
         role:
           anyOf:
           - type: string
-            enum:
-            - primary
-            - dependency
           - type: 'null'
           title: Role
         metadata:
           anyOf:
-          - additionalProperties:
-              $ref: '#/components/schemas/JsonValue'
+          - additionalProperties: true
             type: object
           - type: 'null'
           title: Metadata
-      additionalProperties: false
       type: object
       title: SmrExternalRepositoryPatchRequest
     SmrExternalRepositoryResponse:
@@ -48709,9 +47438,6 @@ components:
           title: Run Id
         scope_kind:
           type: string
-          enum:
-          - project
-          - run
           title: Scope Kind
         name:
           type: string
@@ -48726,24 +47452,15 @@ components:
           title: Default Branch
         role:
           type: string
-          enum:
-          - primary
-          - dependency
           title: Role
         metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Metadata
         created_at:
-          type: string
-          format: date-time
           title: Created At
         updated_at:
-          type: string
-          format: date-time
           title: Updated At
-      additionalProperties: false
       type: object
       required:
       - repository_id
@@ -49364,7 +48081,6 @@ components:
           enum:
           - customer
           - internal
-          - open_research
           title: Kind
           default: customer
         status:
@@ -50297,7 +49013,6 @@ components:
           enum:
           - customer
           - internal
-          - open_research
           title: Kind
         status:
           type: string
@@ -50768,44 +49483,6 @@ components:
       - action
       - created_at
       title: SmrFactoryResultSelectionEventResponse
-    SmrFactoryRunCleanupReceiptResponse:
-      properties:
-        schema_version:
-          type: string
-          const: factory_run_cleanup_receipt.v1
-          title: Schema Version
-          default: factory_run_cleanup_receipt.v1
-        run_id:
-          type: string
-          title: Run Id
-        status:
-          type: string
-          enum:
-          - cleaned
-          - not_required
-          - pending
-          - failed
-          title: Status
-        observed_at:
-          type: string
-          format: date-time
-          title: Observed At
-        reason:
-          type: string
-          title: Reason
-        resources:
-          items:
-            additionalProperties: true
-            type: object
-          type: array
-          title: Resources
-      type: object
-      required:
-      - run_id
-      - status
-      - observed_at
-      - reason
-      title: SmrFactoryRunCleanupReceiptResponse
     SmrFactoryRunSummaryResponse:
       properties:
         run_id:
@@ -50930,14 +49607,6 @@ components:
           additionalProperties: true
           type: object
           title: Runtime
-        proof_readiness:
-          additionalProperties: true
-          type: object
-          title: Proof Readiness
-        public_visuals:
-          additionalProperties: true
-          type: object
-          title: Public Visuals
         experiment_observability:
           additionalProperties: true
           type: object
@@ -50962,26 +49631,6 @@ components:
           anyOf:
           - $ref: '#/components/schemas/SmrFactoryOperatingWindowResponse'
           - type: 'null'
-        candidate_gradings:
-          items:
-            $ref: '#/components/schemas/SmrFactoryCandidateResponse'
-          type: array
-          title: Candidate Gradings
-        candidate_gradings_truncated:
-          type: boolean
-          title: Candidate Gradings Truncated
-          default: false
-        git_server_receipt:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Git Server Receipt
-        run_cleanup_receipts:
-          items:
-            $ref: '#/components/schemas/SmrFactoryRunCleanupReceiptResponse'
-          type: array
-          title: Run Cleanup Receipts
         results:
           items:
             $ref: '#/components/schemas/SmrFactoryResultResponse'
@@ -51931,7 +50580,6 @@ components:
             - research
             - eval_factory
             - optimizer
-            - open_research
           - type: 'null'
           title: Effort Type
         rationale:
@@ -53819,24 +52467,6 @@ components:
             type: object
           - type: 'null'
           title: Metadata
-        theme:
-          anyOf:
-          - type: string
-            maxLength: 200
-          - type: 'null'
-          title: Theme
-        summary:
-          anyOf:
-          - type: string
-            maxLength: 4000
-          - type: 'null'
-          title: Summary
-        kind:
-          anyOf:
-          - type: string
-            maxLength: 40
-          - type: 'null'
-          title: Kind
         visibility:
           anyOf:
           - type: string
@@ -54157,7 +52787,6 @@ components:
           title: Run Id
         name:
           type: string
-          minLength: 1
           title: Name
         source_kind:
           type: string
@@ -54172,13 +52801,11 @@ components:
         row_count:
           anyOf:
           - type: integer
-            minimum: 0.0
           - type: 'null'
           title: Row Count
         size_bytes:
           anyOf:
           - type: integer
-            minimum: 0.0
           - type: 'null'
           title: Size Bytes
         mount_path:
@@ -54191,32 +52818,27 @@ components:
           format: date-time
           title: Created At
         download_url:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Download Url
-      additionalProperties: false
       type: object
       required:
       - id
       - project_id
       - name
       - created_at
-      - download_url
       title: SmrProjectDatasetResponse
     SmrProjectDatasetUploadRequest:
       properties:
         name:
           type: string
-          minLength: 1
           title: Name
         content:
           type: string
           title: Content
         encoding:
           type: string
-          enum:
-          - base64
-          - text
-          - utf-8
           title: Encoding
           default: text
         content_type:
@@ -54232,15 +52854,12 @@ components:
         row_count:
           anyOf:
           - type: integer
-            minimum: 0.0
           - type: 'null'
           title: Row Count
         metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
+          additionalProperties: true
           type: object
           title: Metadata
-      additionalProperties: false
       type: object
       required:
       - name
@@ -55808,11 +54427,9 @@ components:
           - research
           - maintenance
           title: Run Kind
-          description: 'Kind of work performed by a Factory-linked run. Direct /smr/runs
-            must use research. Maintenance is Factory-owned: configure it on the Effort
-            recurrence policy and launch only through Factory wake-due. Maintenance
+          description: Kind of work performed by a Factory-linked run. Maintenance
             runs start with an orchestrator that decides whether to stop early, act,
-            or delegate stewardship work.'
+            or delegate stewardship work.
           default: research
         intended_horizon_hours:
           anyOf:
@@ -56503,41 +55120,6 @@ components:
       - funding_source
       - configured
       title: SmrProviderKeyStatusResponse
-    SmrPublishPublicArtifactRequest:
-      properties:
-        slug:
-          type: string
-          maxLength: 120
-          minLength: 1
-          title: Slug
-        kind:
-          type: string
-          title: Kind
-          default: result
-        theme:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Theme
-        summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Summary
-        factory_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-      type: object
-      required:
-      - slug
-      title: SmrPublishPublicArtifactRequest
     SmrQuestionRespondRequest:
       properties:
         response_text:
@@ -56755,15 +55337,6 @@ components:
       - label
       - href
       title: SmrReadinessCta
-    SmrRecordArtifactPageviewRequest:
-      properties:
-        session_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Session Id
-      type: object
-      title: SmrRecordArtifactPageviewRequest
     SmrRepoAddRequest:
       properties:
         repo:
@@ -61062,12 +59635,6 @@ components:
           additionalProperties: true
           type: object
           title: Execution Metadata
-        open_research:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Open Research
         diagnostics:
           additionalProperties: true
           type: object
@@ -65437,7 +64004,7 @@ components:
           anyOf:
           - type: string
             enum:
-            - open_research_public
+            - public_default
             - operator_default
             - debug_operator
           - type: 'null'
@@ -67166,131 +65733,6 @@ components:
       required:
       - rollup_kind
       title: SmrWorkerUpsertUsageRollupRequest
-    SmrWorkspaceFilesUploadResponse:
-      properties:
-        project_id:
-          type: string
-          title: Project Id
-        branch:
-          type: string
-          title: Branch
-        commit_sha:
-          type: string
-          pattern: ^[0-9a-f]{40}$
-          title: Commit Sha
-        files:
-          items:
-            type: string
-          type: array
-          title: Files
-        committed:
-          type: boolean
-          title: Committed
-        file_count:
-          type: integer
-          minimum: 0.0
-          title: File Count
-        bytes_uploaded:
-          type: integer
-          minimum: 0.0
-          title: Bytes Uploaded
-        uploaded_files:
-          items:
-            $ref: '#/components/schemas/SmrWorkspaceStoredFileResponse'
-          type: array
-          title: Uploaded Files
-        project_event_id:
-          type: string
-          title: Project Event Id
-        event_summary:
-          type: string
-          title: Event Summary
-        message_for_agents:
-          type: string
-          title: Message For Agents
-        fanout_runs:
-          items:
-            type: string
-          type: array
-          title: Fanout Runs
-      additionalProperties: false
-      type: object
-      required:
-      - project_id
-      - branch
-      - commit_sha
-      - files
-      - committed
-      - file_count
-      - bytes_uploaded
-      - uploaded_files
-      - project_event_id
-      - event_summary
-      - message_for_agents
-      - fanout_runs
-      title: SmrWorkspaceFilesUploadResponse
-    SmrWorkspaceInputFileItem:
-      properties:
-        path:
-          type: string
-          minLength: 1
-          title: Path
-        content:
-          type: string
-          title: Content
-        content_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Content Type
-        encoding:
-          anyOf:
-          - type: string
-            enum:
-            - base64
-            - utf-8
-          - type: 'null'
-          title: Encoding
-        kind:
-          anyOf:
-          - type: string
-            enum:
-            - file
-            - source_bundle
-          - type: 'null'
-          title: Kind
-        metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
-          type: object
-          title: Metadata
-      additionalProperties: false
-      type: object
-      required:
-      - path
-      - content
-      title: SmrWorkspaceInputFileItem
-    SmrWorkspaceInputFilesUploadRequest:
-      properties:
-        files:
-          items:
-            $ref: '#/components/schemas/SmrWorkspaceInputFileItem'
-          type: array
-          maxItems: 100
-          minItems: 1
-          title: Files
-        idempotency_key:
-          anyOf:
-          - type: string
-            maxLength: 128
-            minLength: 1
-          - type: 'null'
-          title: Idempotency Key
-      additionalProperties: false
-      type: object
-      required:
-      - files
-      title: SmrWorkspaceInputFilesUploadRequest
     SmrWorkspaceInputSourceRepoRequest:
       properties:
         url:
@@ -67300,16 +65742,13 @@ components:
         default_branch:
           anyOf:
           - type: string
-            minLength: 1
           - type: 'null'
           title: Default Branch
         commit_sha:
           anyOf:
           - type: string
-            pattern: ^[0-9a-f]{40}$
           - type: 'null'
           title: Commit Sha
-      additionalProperties: false
       type: object
       required:
       - url
@@ -67321,299 +65760,37 @@ components:
           title: Project Id
         state:
           type: string
-          enum:
-          - empty
-          - configured
           title: State
         source_repo:
           anyOf:
-          - $ref: '#/components/schemas/SmrWorkspaceSourceRepoResponse'
+          - additionalProperties: true
+            type: object
           - type: 'null'
+          title: Source Repo
         files:
           items:
-            $ref: '#/components/schemas/SmrWorkspaceStoredFileResponse'
+            additionalProperties: true
+            type: object
           type: array
           title: Files
         file_count:
           type: integer
-          minimum: 0.0
           title: File Count
+          default: 0
         project_repo:
-          anyOf:
-          - $ref: '#/components/schemas/SmrWorkspaceProjectRepoResponse'
-          - $ref: '#/components/schemas/SmrEmptyWorkspaceProjectRepoResponse'
+          additionalProperties: true
+          type: object
           title: Project Repo
         updated_at:
           anyOf:
           - type: string
-            format: date-time
           - type: 'null'
           title: Updated At
-      additionalProperties: false
       type: object
       required:
       - project_id
       - state
-      - source_repo
-      - files
-      - file_count
-      - project_repo
-      - updated_at
       title: SmrWorkspaceInputsResponse
-    SmrWorkspaceProjectRepoResponse:
-      properties:
-        repo_id:
-          type: string
-          title: Repo Id
-        repo_org_slug:
-          type: string
-          title: Repo Org Slug
-        repo_project_slug:
-          type: string
-          title: Repo Project Slug
-        storage_backend:
-          type: string
-          title: Storage Backend
-        s3_bucket:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: S3 Bucket
-        s3_prefix:
-          type: string
-          title: S3 Prefix
-        vcs_provider:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Vcs Provider
-        remote_repo:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Remote Repo
-        default_branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Default Branch
-        current_archive_key:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Current Archive Key
-        current_manifest_key:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Current Manifest Key
-        current_commit_sha:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{40}$
-          - type: 'null'
-          title: Current Commit Sha
-        metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
-          type: object
-          title: Metadata
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      additionalProperties: false
-      type: object
-      required:
-      - repo_id
-      - repo_org_slug
-      - repo_project_slug
-      - storage_backend
-      - s3_bucket
-      - s3_prefix
-      - vcs_provider
-      - remote_repo
-      - default_branch
-      - current_archive_key
-      - current_manifest_key
-      - metadata
-      - updated_at
-      title: SmrWorkspaceProjectRepoResponse
-    SmrWorkspaceSourceRepoReceipt:
-      properties:
-        ok:
-          type: boolean
-          const: true
-          title: Ok
-        url:
-          type: string
-          title: Url
-        default_branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Default Branch
-        commit_sha:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{40}$
-          - type: 'null'
-          title: Commit Sha
-        config_version_id:
-          type: string
-          title: Config Version Id
-      additionalProperties: false
-      type: object
-      required:
-      - ok
-      - url
-      - default_branch
-      - config_version_id
-      title: SmrWorkspaceSourceRepoReceipt
-    SmrWorkspaceSourceRepoResponse:
-      properties:
-        kind:
-          type: string
-          const: external_git
-          title: Kind
-        url:
-          type: string
-          title: Url
-        display_url:
-          type: string
-          title: Display Url
-        public:
-          type: boolean
-          title: Public
-        auth_mode:
-          type: string
-          const: none
-          title: Auth Mode
-        bootstrap_mode:
-          type: string
-          const: workspace_clone
-          title: Bootstrap Mode
-        remote_name:
-          type: string
-          title: Remote Name
-        default_branch:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Default Branch
-        commit_sha:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{40}$
-          - type: 'null'
-          title: Commit Sha
-      additionalProperties: false
-      type: object
-      required:
-      - kind
-      - url
-      - display_url
-      - public
-      - auth_mode
-      - bootstrap_mode
-      - remote_name
-      - default_branch
-      title: SmrWorkspaceSourceRepoResponse
-    SmrWorkspaceStoredFileResponse:
-      properties:
-        file_id:
-          type: string
-          title: File Id
-        org_id:
-          type: string
-          title: Org Id
-        project_id:
-          type: string
-          title: Project Id
-        run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Run Id
-        scope_kind:
-          type: string
-          enum:
-          - project
-          - run
-          title: Scope Kind
-        path:
-          type: string
-          title: Path
-        logical_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Logical Name
-        content_type:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Content Type
-        encoding:
-          anyOf:
-          - type: string
-            enum:
-            - base64
-            - utf-8
-          - type: 'null'
-          title: Encoding
-        visibility:
-          type: string
-          enum:
-          - model
-          - verifier
-          title: Visibility
-        storage_backend:
-          type: string
-          title: Storage Backend
-        content_sha256:
-          anyOf:
-          - type: string
-            pattern: ^[0-9a-f]{64}$
-          - type: 'null'
-          title: Content Sha256
-        content_bytes:
-          anyOf:
-          - type: integer
-            minimum: 0.0
-          - type: 'null'
-          title: Content Bytes
-        metadata:
-          additionalProperties:
-            $ref: '#/components/schemas/JsonValue'
-          type: object
-          title: Metadata
-        created_at:
-          type: string
-          format: date-time
-          title: Created At
-        updated_at:
-          type: string
-          format: date-time
-          title: Updated At
-      additionalProperties: false
-      type: object
-      required:
-      - file_id
-      - org_id
-      - project_id
-      - run_id
-      - scope_kind
-      - path
-      - logical_name
-      - content_type
-      - encoding
-      - visibility
-      - storage_backend
-      - metadata
-      - created_at
-      - updated_at
-      title: SmrWorkspaceStoredFileResponse
     SpendSummaryResponse:
       properties:
         today_nominal_usd:
@@ -68017,138 +66194,6 @@ components:
       - created_at
       title: StoredKeyInfo
       description: Information about a stored provider key (no decrypted key exposed).
-    SubmissionDetailResponse:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        status:
-          type: string
-          title: Status
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        submitted_at:
-          type: string
-          title: Submitted At
-        launched_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Launched At
-      type: object
-      required:
-      - submission_id
-      - project_slug
-      - queue_id
-      - status
-      - review_verdict
-      - experiment_id
-      - objective_id
-      - submitted_at
-      - launched_at
-      title: SubmissionDetailResponse
-    SubmitQuestionRequest:
-      properties:
-        project_slug:
-          type: string
-          maxLength: 64
-          minLength: 1
-          title: Project Slug
-        queue_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Queue Id
-        prompt:
-          type: string
-          maxLength: 2000
-          minLength: 1
-          title: Prompt
-        hypothesis:
-          type: string
-          maxLength: 1000
-          title: Hypothesis
-          default: ''
-        metric_target:
-          $ref: '#/components/schemas/_MetricTargetIn'
-        deo_kind:
-          type: string
-          const: open_ended_discovery
-          title: Deo Kind
-        rubric_acknowledged:
-          type: boolean
-          title: Rubric Acknowledged
-        submitter:
-          $ref: '#/components/schemas/_SubmitterIn'
-      type: object
-      required:
-      - project_slug
-      - queue_id
-      - prompt
-      - metric_target
-      - deo_kind
-      - rubric_acknowledged
-      title: SubmitQuestionRequest
-    SubmitQuestionResponse:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        status:
-          type: string
-          enum:
-          - review_pending
-          - approved
-          - rejected
-          - needs_revision
-          - duplicate
-          - launched
-          title: Status
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        duplicate:
-          type: boolean
-          title: Duplicate
-        idempotency_key:
-          type: string
-          title: Idempotency Key
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-      type: object
-      required:
-      - submission_id
-      - status
-      - review_verdict
-      - duplicate
-      - idempotency_key
-      title: SubmitQuestionResponse
     SupportedProvider:
       type: string
       enum:
@@ -70299,7 +68344,6 @@ components:
       enum:
       - report
       - model
-      - candidate
       - container_eval
       title: WorkProductKind
     WorkProductReadiness:
@@ -70338,73 +68382,6 @@ components:
       required:
       - commit_sha
       title: WorkspaceConfirmPushRequest
-    _MetricTargetIn:
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 1
-          title: Name
-        operator:
-          type: string
-          enum:
-          - '>='
-          - <=
-          - ==
-          title: Operator
-        value:
-          type: number
-          title: Value
-      type: object
-      required:
-      - name
-      - operator
-      - value
-      title: _MetricTargetIn
-    _QueueAdmission:
-      properties:
-        open:
-          type: boolean
-          title: Open
-        depth:
-          type: integer
-          title: Depth
-        estimated_wait_seconds:
-          type: integer
-          title: Estimated Wait Seconds
-        dispatch_pool_capacity_ok:
-          type: boolean
-          title: Dispatch Pool Capacity Ok
-        runtime_readiness_ok:
-          type: boolean
-          title: Runtime Readiness Ok
-        resource_availability_ok:
-          type: boolean
-          title: Resource Availability Ok
-      type: object
-      required:
-      - open
-      - depth
-      - estimated_wait_seconds
-      - dispatch_pool_capacity_ok
-      - runtime_readiness_ok
-      - resource_availability_ok
-      title: _QueueAdmission
-    _SubmitterIn:
-      properties:
-        handle:
-          anyOf:
-          - type: string
-            maxLength: 64
-          - type: 'null'
-          title: Handle
-        fingerprint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Fingerprint
-      type: object
-      title: _SubmitterIn
   securitySchemes:
     HTTPBearer:
       type: http

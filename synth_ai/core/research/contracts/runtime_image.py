@@ -25,11 +25,6 @@ class RuntimeImageError(ValueError):
 
 class ActorImageId(StrEnum):
     DEFAULT = "default"
-    OPEN_RESEARCH = "open_research"
-    OPEN_RESEARCH_CRAFTER = "open_research_crafter"
-    OPEN_RESEARCH_CRAFTAX = "open_research_craftax"
-    OPEN_RESEARCH_NETHACK = "open_research_nethack"
-    OPEN_RESEARCH_DUNGEONBENCH = "open_research_dungeonbench"
 
 
 class RuntimePackageId(StrEnum):
@@ -98,74 +93,6 @@ ACTOR_IMAGE_CATALOG: dict[ActorImageId, ActorImageCatalogEntry] = {
         runtime_image_ref="synth-local-smr-runtime:latest",
         dependency_set_id="default_2026_05",
         label="Default SMR actor runtime",
-    ),
-    ActorImageId.OPEN_RESEARCH: ActorImageCatalogEntry(
-        image_id=ActorImageId.OPEN_RESEARCH,
-        runtime_image_ref="synth-local-smr-runtime:latest",
-        dependency_set_id="open_research_2026_05",
-        label="Open Research actor runtime",
-        extends=ActorImageId.DEFAULT,
-        packages=frozenset(
-            {
-                RuntimePackageId.IMAGEIO,
-                RuntimePackageId.IMAGEIO_FFMPEG,
-                RuntimePackageId.PILLOW,
-                RuntimePackageId.PYYAML,
-            }
-        ),
-    ),
-    ActorImageId.OPEN_RESEARCH_CRAFTER: ActorImageCatalogEntry(
-        image_id=ActorImageId.OPEN_RESEARCH_CRAFTER,
-        runtime_image_ref="synth-local-open-research-crafter:latest",
-        dependency_set_id="open_research_crafter_2026_05",
-        label="Open Research Crafter actor runtime",
-        environment_name="symbolic-crafter-py311",
-        extends=ActorImageId.OPEN_RESEARCH,
-        packages=frozenset(
-            {
-                RuntimePackageId.CRAFTER,
-                RuntimePackageId.NUMPY,
-                RuntimePackageId.IMAGEIO,
-            }
-        ),
-    ),
-    ActorImageId.OPEN_RESEARCH_CRAFTAX: ActorImageCatalogEntry(
-        image_id=ActorImageId.OPEN_RESEARCH_CRAFTAX,
-        runtime_image_ref="synth-local-open-research-craftax:latest",
-        dependency_set_id="open_research_craftax_2026_05",
-        label="Open Research Craftax actor runtime",
-        environment_name="symbolic-craftax-py311",
-        extends=ActorImageId.OPEN_RESEARCH,
-        packages=frozenset(
-            {
-                RuntimePackageId.JAX_CPU,
-                RuntimePackageId.CHEX,
-                RuntimePackageId.CRAFTAX,
-                RuntimePackageId.DISTRAX,
-                RuntimePackageId.FLAX,
-                RuntimePackageId.GYMNAX,
-                RuntimePackageId.MODAL,
-                RuntimePackageId.OPTAX,
-                RuntimePackageId.ORBAX_CHECKPOINT,
-            }
-        ),
-    ),
-    ActorImageId.OPEN_RESEARCH_NETHACK: ActorImageCatalogEntry(
-        image_id=ActorImageId.OPEN_RESEARCH_NETHACK,
-        runtime_image_ref="synth-local-open-research-nethack:latest",
-        dependency_set_id="open_research_nethack_2026_05",
-        label="Open Research NetHack actor runtime",
-        environment_name="symbolic-nethack-py311",
-        extends=ActorImageId.OPEN_RESEARCH,
-        packages=frozenset({RuntimePackageId.GYMNASIUM, RuntimePackageId.NLE}),
-    ),
-    ActorImageId.OPEN_RESEARCH_DUNGEONBENCH: ActorImageCatalogEntry(
-        image_id=ActorImageId.OPEN_RESEARCH_DUNGEONBENCH,
-        runtime_image_ref="synth-local-open-research-dungeongrid:latest",
-        dependency_set_id="open_research_dungeonbench_2026_05",
-        label="Open Research DungeonGrid actor runtime",
-        extends=ActorImageId.OPEN_RESEARCH,
-        packages=frozenset(),
     ),
 }
 
