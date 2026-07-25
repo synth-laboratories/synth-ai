@@ -15,6 +15,7 @@ from synth_ai.core.research.image_releases import (
 )
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
+from synth_ai.core.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class Client:
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
         self.image_releases = ImageReleasesAPI(self._transport)
+        self.traces = ResearchTracesAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
 
@@ -70,9 +72,15 @@ class Client:
 
     @property
     def credential(self) -> ApiCredential:
+        """Return the resolved API credential used by this client.
+
+        Returns:
+            The API credential that supplied authorization headers for the transport.
+        """
         return self._credential
 
     def close(self) -> None:
+        """Close the underlying HTTP transport."""
         self._transport.close()
 
     def __enter__(self) -> Client:
@@ -103,6 +111,7 @@ class AsyncClient:
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)
         self.image_releases = AsyncImageReleasesAPI(self._transport)
+        self.traces = AsyncResearchTracesAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
 
@@ -126,9 +135,15 @@ class AsyncClient:
 
     @property
     def credential(self) -> ApiCredential:
+        """Return the resolved API credential used by this client.
+
+        Returns:
+            The API credential that supplied authorization headers for the transport.
+        """
         return self._credential
 
     async def close(self) -> None:
+        """Close the underlying HTTP transport."""
         await self._transport.close()
 
     async def __aenter__(self) -> AsyncClient:
@@ -138,8 +153,7 @@ class AsyncClient:
         await self.close()
 
 
-ResearchClient = Client
-AsyncResearchClient = AsyncClient
+# Public SynthClient().research facade is synth_ai.core.research.facade.ResearchClient.
+# This module is the typed HTTP transport client only.
 
-
-__all__ = ["AsyncClient", "AsyncResearchClient", "Client", "ResearchClient"]
+__all__ = ["AsyncClient", "Client"]

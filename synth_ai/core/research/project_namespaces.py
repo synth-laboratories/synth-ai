@@ -6,26 +6,18 @@ from collections.abc import Iterable, Mapping
 from os import PathLike
 from typing import Any, List
 
-from synth_ai.core.research._legacy.models.project_workspace import ProjectWorkspaceProjection
-from synth_ai.core.research._legacy.models.types import (
-    SmrProjectSetup,
-    WorkspaceInputsState,
-    WorkspaceUploadResult,
-)
-from synth_ai.core.research._legacy.sdk.client import ManagedResearchClient
-
 
 class ResearchProjectsSetupAPI:
     """Prepare projects for launch (onboarding + runnable setup)."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
-    def get(self, project_id: str) -> SmrProjectSetup:
+    def get(self, project_id: str) -> Any:
         """Return current setup/onboarding state for a project."""
         return self._session.setup.get(project_id)
 
-    def prepare(self, project_id: str) -> SmrProjectSetup:
+    def prepare(self, project_id: str) -> Any:
         """Run setup steps required before ``runs.check_preflight`` succeeds."""
         return self._session.setup.prepare(project_id)
 
@@ -68,10 +60,10 @@ class ResearchProjectsSetupAPI:
 class ResearchProjectsWorkspaceAPI:
     """Upload and download project workspace inputs and archives."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
-    def get(self, project_id: str) -> ProjectWorkspaceProjection:
+    def get(self, project_id: str) -> Any:
         """Return the current workspace projection for a project."""
         return self._session.projects.get_workspace(project_id)
 
@@ -79,7 +71,7 @@ class ResearchProjectsWorkspaceAPI:
         self,
         project_id: str,
         files: Iterable[Mapping[str, object]],
-    ) -> WorkspaceUploadResult:
+    ) -> Any:
         """Removed from stable discovery — use projects.workspace.upload_batches.
 
         Args:
@@ -96,7 +88,7 @@ class ResearchProjectsWorkspaceAPI:
         self,
         project_id: str,
         directory: str | PathLike[str],
-    ) -> WorkspaceUploadResult:
+    ) -> Any:
         """Upload an entire local directory into the project workspace."""
         return self._session.workspace_inputs.upload_directory(project_id, directory)
 
@@ -108,7 +100,7 @@ class ResearchProjectsWorkspaceAPI:
         """Download the project workspace archive to a local path."""
         return self._session.projects.download_workspace_archive(project_id, destination)
 
-    def inputs(self, project_id: str) -> WorkspaceInputsState:
+    def inputs(self, project_id: str) -> Any:
         """Return workspace input state (uploaded files, git linkage)."""
         return self._session.workspace_inputs.get(project_id)
 
@@ -140,7 +132,7 @@ class ResearchProjectsWorkspaceAPI:
 class ResearchProjectsReposAPI:
     """Attach external source repositories to a project workspace."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def attach(
@@ -169,7 +161,7 @@ class ResearchProjectsReposAPI:
 class ResearchProjectsGitAPI:
     """Project git source connection and metadata."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def get(self, project_id: str) -> dict[str, Any]:
@@ -200,7 +192,7 @@ class ResearchProjectsGitAPI:
 class ResearchProjectsCodeAPI:
     """Download project code archives."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def download(
@@ -215,7 +207,7 @@ class ResearchProjectsCodeAPI:
 class ResearchProjectsObjectivesAPI:
     """Directed effort outcomes and objective status for a project."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def list_directed_effort_outcomes(
@@ -282,7 +274,7 @@ class ResearchProjectsObjectivesAPI:
 class ResearchProjectsMilestonesAPI:
     """Project and run-scoped milestones."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def list(
@@ -303,7 +295,7 @@ class ResearchProjectsMilestonesAPI:
 class ResearchProjectsRunsAPI:
     """List runs belonging to a project."""
 
-    def __init__(self, session: ManagedResearchClient) -> None:
+    def __init__(self, session: Any) -> None:
         self._session = session
 
     def list(

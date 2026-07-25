@@ -103,7 +103,7 @@ title: AsyncResearchClient
 sidebarTitle: AsyncResearchClient
 ---
 
-# `synth_ai.research.async_client`
+# `synth_ai.core.research.client`
 
 `AsyncResearchClient` is the native asynchronous Research client. It has the
 same resource namespaces as the typed core synchronous client, but network
@@ -126,7 +126,7 @@ deprecated `runs` alias; use the typed namespaces below.
 ```python
 import asyncio
 
-from synth_ai.research.async_client import AsyncResearchClient
+from synth_ai.core.research import AsyncResearchClient
 
 
 async def main() -> None:

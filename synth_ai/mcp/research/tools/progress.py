@@ -4,20 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from synth_ai.core.research._legacy.models.smr_actor_models import (
+from synth_ai.core.research.contracts.smr_actor_models import (
     SMR_ACTOR_SUBTYPE_VALUES,
     SMR_ACTOR_TYPE_VALUES,
 )
-from synth_ai.core.research._legacy.models.smr_agent_kinds import SMR_AGENT_KIND_VALUES
-from synth_ai.core.research._legacy.models.smr_agent_models import SMR_AGENT_MODEL_VALUES
-from synth_ai.core.research._legacy.models.smr_evidence_obligations import (
+from synth_ai.core.research.contracts.smr_agent_kinds import SMR_AGENT_KIND_VALUES
+from synth_ai.core.research.contracts.smr_agent_models import SMR_AGENT_MODEL_VALUES
+from synth_ai.core.research.contracts.smr_evidence_obligations import (
     EVIDENCE_OBLIGATION_KIND_VALUES,
     EVIDENCE_OBLIGATIONS_SCHEMA,
 )
-from synth_ai.core.research._legacy.models.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
-from synth_ai.core.research._legacy.models.smr_host_kinds import SMR_HOST_KIND_VALUES
-from synth_ai.core.research._legacy.models.smr_providers import PROVIDER_VALUES
-from synth_ai.core.research._legacy.models.smr_work_modes import SMR_WORK_MODE_VALUES
+from synth_ai.core.research.contracts.smr_horizons import SMR_INTENDED_HORIZON_HOURS_VALUES
+from synth_ai.core.research.contracts.smr_host_kinds import SMR_HOST_KIND_VALUES
+from synth_ai.core.research.contracts.smr_providers import PROVIDER_VALUES
+from synth_ai.core.research.contracts.smr_work_modes import SMR_WORK_MODE_VALUES
 from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 from synth_ai.mcp.research.tools.smr_policy_schemas import run_policy_input_schema
 
@@ -86,6 +86,24 @@ def _provider_bindings_schema() -> dict[str, Any]:
             },
             "required": ["provider"],
         },
+    }
+
+
+def _provider_selection_schema() -> dict[str, Any]:
+    public = ["auto", "openai", "synth", "xai", "cursor"]
+    return {
+        "oneOf": [
+            {"type": "string", "enum": public},
+            {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": True,
+                "items": {"type": "string", "enum": public[1:]},
+            },
+        ],
+        "description": (
+            "Inference provider: auto, a strict pin, or an ordered hard allowlist used at launch."
+        ),
     }
 
 
@@ -198,6 +216,7 @@ def build_progress_tools(server: Any) -> list[ToolDefinition]:
                         "description": "Customer-facing intended horizon. Allowed values: 1, 4, 8, 24, or 168.",
                     },
                     "providers": _provider_bindings_schema(),
+                    "provider": _provider_selection_schema(),
                     "limit": _usage_limit_schema(),
                     **_objective_launch_properties(),
                     "worker_pool_id": {

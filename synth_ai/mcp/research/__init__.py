@@ -1,5 +1,5 @@
 """Research MCP exports."""
 
-from synth_ai.mcp.research.server import ManagedResearchMcpServer, ResearchMcpServer
+from synth_ai.mcp.research.server import ResearchMcpServer
 
-__all__ = ["ResearchMcpServer", "ManagedResearchMcpServer"]
+__all__ = ["ResearchMcpServer"]

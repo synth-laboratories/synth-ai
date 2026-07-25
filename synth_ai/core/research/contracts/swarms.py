@@ -70,6 +70,7 @@ class ActorModel(StrEnum):
     DEEPSEEK_V4_PRO_DIRECT = "deepseek/deepseek-v4-pro-direct"
     DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
+    LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
     CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
@@ -146,11 +147,14 @@ class CredentialProvider(StrEnum):
 
 
 class InferenceProvider(StrEnum):
+    AUTO = "auto"
     BASETEN = "baseten"
+    CURSOR = "cursor"
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
+    SYNTH = "synth"
     XAI = "xai"
 
 
@@ -164,6 +168,53 @@ class KickoffMessageMode(StrEnum):
     QUEUE = "queue"
     INTERRUPT = "interrupt"
     STEER = "steer"
+
+
+_PUBLIC_PROVIDER_SELECTIONS = frozenset(
+    {
+        InferenceProvider.AUTO.value,
+        InferenceProvider.OPENAI.value,
+        InferenceProvider.SYNTH.value,
+        InferenceProvider.XAI.value,
+        InferenceProvider.CURSOR.value,
+    }
+)
+
+
+def normalize_provider_selection(
+    value: (
+        InferenceProvider
+        | str
+        | tuple[InferenceProvider | str, ...]
+        | list[InferenceProvider | str]
+        | None
+    ),
+) -> str | tuple[str, ...] | None:
+    if value is None:
+        return None
+    raw_values = value if isinstance(value, (tuple, list)) else (value,)
+    if not raw_values:
+        raise ValueError("provider allowlist cannot be empty")
+    normalized = tuple(
+        require_text(
+            item.value if isinstance(item, InferenceProvider) else item,
+            field_name="provider",
+        ).lower()
+        for item in raw_values
+    )
+    unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
+    if unsupported:
+        raise ValueError(
+            "provider supports auto, openai, synth, xai, and cursor; "
+            f"unsupported: {', '.join(unsupported)}"
+        )
+    if len(set(normalized)) != len(normalized):
+        raise ValueError("provider allowlist cannot contain duplicates")
+    if isinstance(value, (tuple, list)) and InferenceProvider.AUTO.value in normalized:
+        raise ValueError("auto must be provided as a scalar provider selection")
+    if isinstance(value, (tuple, list)):
+        return normalized
+    return normalized[0]
 
 
 class SwarmState(StrEnum):
@@ -257,6 +308,18 @@ class RunPolicyAccess:
     inference_providers: tuple[InferenceProvider, ...] | None = None
     tool_providers: tuple[ToolProvider, ...] | None = None
 
+    def __post_init__(self) -> None:
+        if self.inference_providers is not None and InferenceProvider.AUTO in (
+            self.inference_providers
+        ):
+            raise ValueError("auto is a selection policy, not an inference provider grant")
+        if self.credential_providers is not None and CredentialProvider.TINKER in (
+            self.credential_providers
+        ):
+            raise ValueError("tinker is deprecated and cannot be granted to new runs")
+        if self.tool_providers is not None and ToolProvider.TINKER in self.tool_providers:
+            raise ValueError("tinker is deprecated and cannot be granted to new runs")
+
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {}
         for name, values in (
@@ -305,6 +368,10 @@ class ProviderBinding:
     provider: ResourceProvider
     limit: ResourceLimit | None = None
 
+    def __post_init__(self) -> None:
+        if self.provider is ResourceProvider.TINKER:
+            raise ValueError("tinker is deprecated and cannot be selected for new runs")
+
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {"provider": self.provider.value}
         if self.limit is not None:
@@ -321,6 +388,8 @@ class ResourceRoutingPolicy:
     denied_models: tuple[str, ...] = ()
     preferred_models: tuple[str, ...] = ()
     require_zdr: bool | None = None
+    require_no_training: bool | None = None
+    max_retention_days: int | None = None
     allowed_domiciles: tuple[str, ...] = ()
     allowed_regions: tuple[str, ...] = ()
 
@@ -339,6 +408,12 @@ class ResourceRoutingPolicy:
                 require_text(item, field_name=field_name) for item in getattr(self, field_name)
             )
             object.__setattr__(self, field_name, values)
+        if self.max_retention_days is not None and (
+            isinstance(self.max_retention_days, bool)
+            or not isinstance(self.max_retention_days, int)
+            or self.max_retention_days < 0
+        ):
+            raise ValueError("max_retention_days must be a non-negative integer")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {}
@@ -357,6 +432,10 @@ class ResourceRoutingPolicy:
                 payload[name] = list(values)
         if self.require_zdr is not None:
             payload["require_zdr"] = self.require_zdr
+        if self.require_no_training is not None:
+            payload["require_no_training"] = self.require_no_training
+        if self.max_retention_days is not None:
+            payload["max_retention_days"] = self.max_retention_days
         return payload
 
 
@@ -627,6 +706,53 @@ class PlatformResolvedExecutionTarget:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundRuntimeExecutionTarget:
+    """Signed CloudDev runtime binding authored by the execution authority."""
+
+    attestation: Mapping[str, JsonValue]
+    kind: str = "bound_runtime"
+
+    def __post_init__(self) -> None:
+        if self.kind != "bound_runtime":
+            raise ValueError("bound execution_target.kind must be bound_runtime")
+        payload = dict(self.attestation)
+        constants = {
+            "schema_version": "smr.execution-target.v1",
+            "provider": "exe_dev",
+            "actor_host": "docker",
+            "capacity_authority": "bound_runtime",
+            "audience": "synth-smr-run-start",
+        }
+        for name, expected in constants.items():
+            if payload.get(name) != expected:
+                raise ValueError(f"bound execution_target.attestation.{name} must be {expected}")
+        for name in (
+            "attestation_id",
+            "provider_resource_id",
+            "control_slot_instance_id",
+            "slot_id",
+            "runtime_id",
+            "dispatch_pool",
+            "claim_id",
+            "runtime_generation",
+            "signer_key_id",
+            "signature",
+        ):
+            require_text(payload.get(name), field_name=f"execution target attestation {name}")
+        object.__setattr__(
+            self,
+            "attestation",
+            cast(Mapping[str, JsonValue], _freeze_json(cast(JsonObject, payload))),
+        )
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "kind": "bound_runtime",
+            "attestation": cast(JsonObject, _thaw_json(cast(FrozenJsonValue, self.attestation))),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ActorImageBinding:
     """Admitted runtime image-release binding for one actor role."""
 
@@ -837,7 +963,7 @@ class SwarmSpec:
     required_capabilities: tuple[str, ...] = ()
     kickoff_messages: tuple[KickoffMessage, ...] = ()
     kickoff_artifact: KickoffArtifact | None = None
-    execution_target: PlatformResolvedExecutionTarget | None = None
+    execution_target: PlatformResolvedExecutionTarget | BoundRuntimeExecutionTarget | None = None
     actor_image_overrides: Mapping[str, ActorImageBinding] = field(
         default_factory=lambda: MappingProxyType({})
     )
@@ -851,6 +977,13 @@ class SwarmSpec:
     dev_environment_id: str | None = None
     effort_id: EffortId | None = None
     idempotency_key: str | None = None
+    provider: (
+        InferenceProvider
+        | str
+        | tuple[InferenceProvider | str, ...]
+        | list[InferenceProvider | str]
+        | None
+    ) = None
 
     def __post_init__(self) -> None:
         require_text(self.objective, field_name="objective")
@@ -860,11 +993,15 @@ class SwarmSpec:
             raise ValueError("timebox_seconds must be positive")
         if self.roles is not None and not isinstance(self.roles, RoleBindings):
             raise ValueError("roles must be RoleBindings")
+        object.__setattr__(self, "provider", normalize_provider_selection(self.provider))
         if self.execution_target is not None and not isinstance(
             self.execution_target,
-            PlatformResolvedExecutionTarget,
+            (PlatformResolvedExecutionTarget, BoundRuntimeExecutionTarget),
         ):
-            raise ValueError("stable execution_target must be PlatformResolvedExecutionTarget")
+            raise ValueError(
+                "stable execution_target must be PlatformResolvedExecutionTarget "
+                "or BoundRuntimeExecutionTarget"
+            )
         if self.kickoff_artifact is not None and not isinstance(
             self.kickoff_artifact,
             KickoffArtifact,
@@ -969,6 +1106,10 @@ class SwarmSpec:
             payload["actor_model_overrides"] = [
                 assignment.to_wire() for assignment in self.actor_model_assignments
             ]
+        if isinstance(self.provider, tuple):
+            payload["provider"] = list(self.provider)
+        elif self.provider is not None:
+            payload["provider"] = self.provider
         if self.providers:
             payload["providers"] = [provider.to_wire() for provider in self.providers]
         if self.provider_policy is not None:
@@ -1206,6 +1347,7 @@ __all__ = [
     "ActorSubtype",
     "ActorType",
     "BranchMode",
+    "BoundRuntimeExecutionTarget",
     "CredentialProvider",
     "DirectedEffortOutcomeSpec",
     "FundingSource",
@@ -1250,4 +1392,5 @@ __all__ = [
     "ToolProvider",
     "WorkMode",
     "WorkerRolePalette",
+    "normalize_provider_selection",
 ]

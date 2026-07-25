@@ -1,6 +1,6 @@
 """Research API model aliases.
 
-Typed wire models live in the canonical ``synth_ai.core.research._legacy.models`` package.
+Typed wire models live in the canonical ``synth_ai.core.research.contracts.wire_models`` package.
 Import these names from ``synth_ai.core.research.models`` in customer code.
 
 | Public name | Role |
@@ -32,62 +32,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import cast
 
-from synth_ai.core.research._legacy.models.project import (
-    CreateRunnableResult as ResearchCreateProjectResult,
-)
-from synth_ai.core.research._legacy.models.project import (
-    ManagedResearchProject as ResearchProject,
-)
-from synth_ai.core.research._legacy.models.run_launch import (
-    RunLaunchRequest as ResearchRunLaunchRequest,
-)
-from synth_ai.core.research._legacy.models.run_state import ManagedResearchRun as ResearchRun
-from synth_ai.core.research._legacy.models.run_timeline import (
-    SmrAuthorityReadouts as ResearchAuthorityReadouts,
-)
-from synth_ai.core.research._legacy.models.smr_agent_harnesses import (
-    SmrAgentHarness as ResearchAgentHarness,
-)
-from synth_ai.core.research._legacy.models.smr_agent_models import (
-    SmrAgentModel as ResearchAgentModel,
-)
-from synth_ai.core.research._legacy.models.smr_environment_kinds import (
-    SmrEnvironmentKind as ResearchEnvironmentKind,
-)
-from synth_ai.core.research._legacy.models.smr_roles import (
-    RoleBinding as ResearchRoleBinding,
-)
-from synth_ai.core.research._legacy.models.smr_roles import (
-    SmrRoleBindings as ResearchRoleBindings,
-)
-from synth_ai.core.research._legacy.models.smr_roles import (
-    WorkerRolePalette as ResearchWorkerRolePalette,
-)
-from synth_ai.core.research._legacy.models.smr_runbooks import (
-    SmrRunbookPreset as ResearchRunbookPreset,
-)
-from synth_ai.core.research._legacy.models.smr_runtime_kinds import (
-    SmrRuntimeKind as ResearchRuntimeKind,
-)
-from synth_ai.core.research._legacy.models.tag import (
-    TagSessionCreateRequest as ResearchTagSessionCreateRequest,
-)
-from synth_ai.core.research._legacy.models.types import RunArtifact as ResearchArtifact
-from synth_ai.core.research._legacy.models.types import (
-    RunArtifactManifest as ResearchArtifactManifest,
-)
-from synth_ai.core.research._legacy.models.types import (
-    RunProgress,
-)
-from synth_ai.core.research._legacy.models.types import (
-    SmrAgentProfileBindings as ResearchAgentProfileBindings,
-)
-from synth_ai.core.research._legacy.models.types import (
-    SmrRunnableProjectRequest as ResearchRunnableProjectRequest,
-)
-from synth_ai.core.research._legacy.models.work_products import (
-    ManagedResearchRunWorkProduct as ResearchWorkProduct,
-)
 from synth_ai.core.research.contracts.economics import (
     ResearchBillingCatalog,
     ResearchBillingDrawdown,
@@ -95,6 +39,62 @@ from synth_ai.core.research.contracts.economics import (
     ResearchBillingPlan,
     ResearchOrgLimits,
     ResearchProjectEconomics,
+)
+from synth_ai.core.research.contracts.project import (
+    CreateRunnableResult as ResearchCreateProjectResult,
+)
+from synth_ai.core.research.contracts.project import (
+    ManagedResearchProject as ResearchProject,
+)
+from synth_ai.core.research.contracts.run_launch import (
+    RunLaunchRequest as ResearchRunLaunchRequest,
+)
+from synth_ai.core.research.contracts.run_state import ManagedResearchRun as ResearchRun
+from synth_ai.core.research.contracts.run_timeline import (
+    SmrAuthorityReadouts as ResearchAuthorityReadouts,
+)
+from synth_ai.core.research.contracts.smr_agent_harnesses import (
+    SmrAgentHarness as ResearchAgentHarness,
+)
+from synth_ai.core.research.contracts.smr_agent_models import (
+    SmrAgentModel as ResearchAgentModel,
+)
+from synth_ai.core.research.contracts.smr_environment_kinds import (
+    SmrEnvironmentKind as ResearchEnvironmentKind,
+)
+from synth_ai.core.research.contracts.smr_roles import (
+    RoleBinding as ResearchRoleBinding,
+)
+from synth_ai.core.research.contracts.smr_roles import (
+    SmrRoleBindings as ResearchRoleBindings,
+)
+from synth_ai.core.research.contracts.smr_roles import (
+    WorkerRolePalette as ResearchWorkerRolePalette,
+)
+from synth_ai.core.research.contracts.smr_runbooks import (
+    SmrRunbookPreset as ResearchRunbookPreset,
+)
+from synth_ai.core.research.contracts.smr_runnable_project import (
+    SmrAgentProfileBindings as ResearchAgentProfileBindings,
+)
+from synth_ai.core.research.contracts.smr_runnable_project import (
+    SmrRunnableProjectRequest as ResearchRunnableProjectRequest,
+)
+from synth_ai.core.research.contracts.smr_runtime_kinds import (
+    SmrRuntimeKind as ResearchRuntimeKind,
+)
+from synth_ai.core.research.contracts.tag import (
+    TagSessionCreateRequest as ResearchTagSessionCreateRequest,
+)
+from synth_ai.core.research.contracts.types import RunArtifact as ResearchArtifact
+from synth_ai.core.research.contracts.types import (
+    RunArtifactManifest as ResearchArtifactManifest,
+)
+from synth_ai.core.research.contracts.types import (
+    RunProgress,
+)
+from synth_ai.core.research.contracts.work_products import (
+    ManagedResearchRunWorkProduct as ResearchWorkProduct,
 )
 
 

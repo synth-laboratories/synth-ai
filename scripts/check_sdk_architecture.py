@@ -9,9 +9,17 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-RESEARCH_ROOT = ROOT / "synth_ai" / "research"
-MONOLITH_CLIENT = ROOT / "synth_ai" / "core" / "research" / "_legacy" / "sdk" / "client.py"
+RESEARCH_ROOT = ROOT / "synth_ai" / "core" / "research"
+MONOLITH_CLIENT = RESEARCH_ROOT / "session" / "client.py"
 MONOLITH_LINE_CEILING = 6150
+
+# The hero lint covers the public Research surface. The operator session, the
+# transports, and the generated wire contracts are plumbing that graduates
+# module by module; linting them here would gate the migration on renames that
+# belong to their own slices.
+HERO_LINT_EXCLUDED = frozenset(
+    {"session", "transport", "contracts", "schemas", "factory_plans", "_internal"}
+)
 
 FORBIDDEN_NAME_FRAGMENTS = (
     "manderqueue",
@@ -26,11 +34,13 @@ FORBIDDEN_HERO_METHODS = (
 CAMEL_CASE_DEF = re.compile(r"^def ([a-z]+[A-Z][A-Za-z0-9_]*)\(")
 
 REQUIRED_HERO_FILES = (
+    RESEARCH_ROOT / "facade.py",
     RESEARCH_ROOT / "client.py",
+    RESEARCH_ROOT / "projects.py",
+    RESEARCH_ROOT / "swarms.py",
     RESEARCH_ROOT / "factories.py",
-    RESEARCH_ROOT / "limits.py",
+    RESEARCH_ROOT / "economics.py",
     RESEARCH_ROOT / "secrets.py",
-    RESEARCH_ROOT / "async_client.py",
 )
 
 
@@ -49,7 +59,7 @@ def _failures_for_source(path: Path) -> list[str]:
                 f"{rel}:{index}: public hero methods must be snake_case (found {match.group(1)!r})"
             )
 
-    if path.name == "client.py" and path.parent.name == "research":
+    if path.name == "facade.py" and path.parent.name == "research":
         for fragment in FORBIDDEN_HERO_METHODS:
             if fragment in text:
                 failures.append(f"{rel}: public hero must not expose {fragment!r}")
@@ -114,6 +124,8 @@ def main() -> int:
 
     if RESEARCH_ROOT.is_dir():
         for path in sorted(RESEARCH_ROOT.rglob("*.py")):
+            if any(part in HERO_LINT_EXCLUDED for part in path.relative_to(RESEARCH_ROOT).parts):
+                continue
             failures.extend(_failures_for_source(path))
 
     failures.extend(_top_level_export_violations())

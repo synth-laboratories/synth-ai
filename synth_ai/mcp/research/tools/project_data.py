@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 
-from synth_ai.core.research.client import ResearchClient
+from synth_ai.core.research.client import Client as ResearchClient
 from synth_ai.core.research.contracts.common import (
     ProjectDatasetId,
     ProjectId,

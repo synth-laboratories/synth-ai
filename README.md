@@ -1,6 +1,6 @@
 # Synth AI SDK
 
-<!-- CI release pins: PyPI-0.15.2-orange synth-ai==0.15.2 -->
+<!-- CI release pins: PyPI-0.17.0-orange synth-ai==0.17.0 -->
 
 [![PyPI version](https://img.shields.io/pypi/v/synth-ai.svg)](https://pypi.org/project/synth-ai/)
 [![License](https://img.shields.io/pypi/l/synth-ai.svg)](https://pypi.org/project/synth-ai/)
@@ -50,7 +50,7 @@ The CLI also reads `SYNTH_BACKEND_URL` and accepts `--backend-url`.
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.research import SwarmSpec
+from synth_ai.core.research.public import SwarmSpec
 
 with SynthClient() as client:
     swarm = client.research.swarms.create(
@@ -91,7 +91,7 @@ Create a durable project when work needs reusable configuration:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.research import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
+from synth_ai.core.research.public import EnvironmentKind, ProjectSpec, RuntimeKind, SwarmSpec
 
 with SynthClient() as client:
     project = client.research.projects.create(
@@ -116,7 +116,7 @@ parity:
 
 ```python
 from synth_ai import SynthClient
-from synth_ai.research import EffortSpec, FactorySpec, ProjectId
+from synth_ai.core.research.public import EffortSpec, FactorySpec, ProjectId
 
 with SynthClient() as client:
     factory = client.research.factories.create(

@@ -7,6 +7,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -39,6 +40,11 @@ from synth_ai.core.research.contracts.transcript import (
 from synth_ai.core.research.contracts.usage import SwarmUsage
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.contracts.traces import TraceQueryResult
+from synth_ai.core.research.traces import (
+    AsyncFactoryTraceStoreAPI,
+    FactoryTraceStoreAPI,
+)
 
 
 def _request(
@@ -80,6 +86,8 @@ def _stream_timeout(timeout_seconds: float | None) -> float | None:
 
 
 class SwarmHandle:
+    """Handle returned when creating a Swarm."""
+
     def __init__(self, api: SwarmsAPI, swarm: Swarm) -> None:
         self._api = api
         self.swarm_id = swarm.swarm_id
@@ -87,6 +95,11 @@ class SwarmHandle:
         self.initial = swarm
 
     def retrieve(self) -> Swarm:
+        """Retrieve the current Swarm.
+
+        Returns:
+            The current Swarm.
+        """
         return self._api.retrieve(self.swarm_id)
 
     def configuration(self) -> ResolvedSwarmConfiguration:
@@ -100,6 +113,38 @@ class SwarmHandle:
     def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return self._api.evidence(self.swarm_id)
+
+    def trace_store(self, factory_id: str) -> FactoryTraceStoreAPI:
+        """Open a Factory trace store for this Swarm's Trace V5 records."""
+        return FactoryTraceStoreAPI(self._api._transport, factory_id)
+
+    def traces(
+        self,
+        factory_id: str,
+        *,
+        actor_id: str | None = None,
+        session_id: str | None = None,
+        criterion_id: str | None = None,
+        annotation_label: str | None = None,
+        reward_id: str | None = None,
+        reward_min: float | None = None,
+        reward_max: float | None = None,
+        workflow_address: str | None = None,
+        limit: int = 100,
+    ) -> TraceQueryResult:
+        """Query this Swarm's traces from one Factory-owned store."""
+        return self.trace_store(factory_id).query(
+            run_id=str(self.swarm_id),
+            actor_id=actor_id,
+            session_id=session_id,
+            criterion_id=criterion_id,
+            annotation_label=annotation_label,
+            reward_id=reward_id,
+            reward_min=reward_min,
+            reward_max=reward_max,
+            workflow_address=workflow_address,
+            limit=limit,
+        )
 
     def activity(
         self,
@@ -142,6 +187,25 @@ class SwarmHandle:
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
     ) -> Swarm:
+        """Wait for the Swarm to reach a terminal state.
+
+        Polls the Swarm until it reaches done, partial, failed, stopped, or
+        canceled. After each non-terminal poll, raises `TimeoutError` if the
+        timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
+        before polling again.
+
+        Args:
+            timeout_seconds: Positive deadline in seconds checked after each
+                non-terminal poll.
+            poll_interval_seconds: Positive seconds to sleep between non-terminal polls.
+
+        Returns:
+            The terminal Swarm.
+
+        Raises:
+            ValueError: If either polling parameter is not positive.
+            TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+        """
         return self._api.wait(
             self.swarm_id,
             timeout_seconds=timeout_seconds,
@@ -149,12 +213,27 @@ class SwarmHandle:
         )
 
     def pause(self) -> Swarm:
+        """Pause the Swarm.
+
+        Returns:
+            The paused Swarm.
+        """
         return self._api.pause(self.swarm_id)
 
     def resume(self) -> Swarm:
+        """Resume the Swarm.
+
+        Returns:
+            The resumed Swarm.
+        """
         return self._api.resume(self.swarm_id)
 
     def cancel(self) -> Swarm:
+        """Cancel the Swarm.
+
+        Returns:
+            The Swarm after cancellation is requested.
+        """
         return self._api.cancel(self.swarm_id)
 
     def events(
@@ -165,6 +244,20 @@ class SwarmHandle:
         last_event_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> Iterator[SwarmEvent]:
+        """Stream decoded Swarm events.
+
+        Args:
+            transcript_cursor: Optional transcript cursor used to begin the event stream.
+            view: Transcript view to request from the backend.
+            last_event_id: Optional server-sent event id used to resume a stream.
+            timeout_seconds: Optional positive stream timeout.
+
+        Returns:
+            An iterator of decoded Swarm events.
+
+        Raises:
+            ValueError: If `timeout_seconds` is provided and is not positive.
+        """
         yield from self._api.events(
             self.swarm_id,
             transcript_cursor=transcript_cursor,
@@ -175,6 +268,8 @@ class SwarmHandle:
 
 
 class SwarmsAPI:
+    """Swarm lifecycle operations."""
+
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
 
@@ -184,6 +279,15 @@ class SwarmsAPI:
         *,
         project_id: ProjectId | None = None,
     ) -> SwarmPreflight:
+        """Validate a typed Swarm specification before creation.
+
+        Args:
+            request: Swarm specification to serialize into the preflight request body.
+            project_id: Optional Project that should own the Swarm.
+
+        Returns:
+            The preflight result returned by the backend.
+        """
         if project_id is None:
             operation_id = "preflight_one_off_run"
             path = "/smr/runs:one-off/launch-preflight"
@@ -199,6 +303,15 @@ class SwarmsAPI:
         *,
         project_id: ProjectId | None = None,
     ) -> SwarmHandle:
+        """Create a Swarm from a typed Swarm specification.
+
+        Args:
+            request: Swarm specification to serialize into the create request body.
+            project_id: Optional Project that should own the Swarm.
+
+        Returns:
+            A handle for the created Swarm.
+        """
         if project_id is None:
             operation_id = "trigger_one_off_run"
             path = "/smr/runs:one-off"
@@ -215,6 +328,16 @@ class SwarmsAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[Swarm, ...]:
+        """List Swarms for a Project.
+
+        Args:
+            project_id: Project whose Swarms to list.
+            limit: Maximum number of Swarms to request.
+            cursor: Optional pagination cursor returned by the backend.
+
+        Returns:
+            The Swarms returned by the backend.
+        """
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -228,6 +351,14 @@ class SwarmsAPI:
         return _swarms(value, operation_id="list_project_runs")
 
     def retrieve(self, swarm_id: SwarmId) -> Swarm:
+        """Retrieve a Swarm.
+
+        Args:
+            swarm_id: Swarm to retrieve.
+
+        Returns:
+            The requested Swarm.
+        """
         value = self._transport.execute(_request("retrieve_run", f"/smr/runs/{swarm_id}"))
         return Swarm.from_wire(value)
 
@@ -368,10 +499,47 @@ class SwarmsAPI:
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
     ) -> Swarm:
+        """Wait for a Swarm to reach a terminal state.
+
+        Polls the Swarm until it reaches done, partial, failed, stopped, or
+        canceled. After each non-terminal poll, raises `TimeoutError` if the
+        timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
+        before polling again.
+
+        A retryable failure on one poll — a lost DNS lookup, a reset
+        connection, a 5xx — describes the caller's transport, not the Swarm, so
+        the loop absorbs it and polls again inside the same deadline. A poll
+        loop is its own retry; a wait with nineteen minutes left should not end
+        because one request did.
+
+        Args:
+            swarm_id: Swarm to wait for.
+            timeout_seconds: Positive deadline in seconds checked after each
+                non-terminal poll.
+            poll_interval_seconds: Positive seconds to sleep between non-terminal polls.
+
+        Returns:
+            The terminal Swarm.
+
+        Raises:
+            ValueError: If either polling parameter is not positive.
+            TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+            SynthError: The last retryable failure, when the deadline elapses
+                without any poll reading the Swarm. Callers deciding whether to
+                cancel durable work depend on this distinction: `TimeoutError`
+                means the Swarm was read and was not terminal, while a
+                retryable error means its state was never established.
+        """
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
-            swarm = self.retrieve(swarm_id)
+            try:
+                swarm = self.retrieve(swarm_id)
+            except SynthError as error:
+                if not error.retryable or time.monotonic() >= deadline:
+                    raise
+                time.sleep(poll_interval_seconds)
+                continue
             if swarm.state.is_terminal:
                 return swarm
             if time.monotonic() >= deadline:
@@ -379,14 +547,38 @@ class SwarmsAPI:
             time.sleep(poll_interval_seconds)
 
     def pause(self, swarm_id: SwarmId) -> Swarm:
+        """Pause a Swarm.
+
+        Args:
+            swarm_id: Swarm to pause.
+
+        Returns:
+            The paused Swarm.
+        """
         value = self._transport.execute(_request("pause_run", f"/smr/runs/{swarm_id}/pause"))
         return Swarm.from_wire(value)
 
     def resume(self, swarm_id: SwarmId) -> Swarm:
+        """Resume a Swarm.
+
+        Args:
+            swarm_id: Swarm to resume.
+
+        Returns:
+            The resumed Swarm.
+        """
         value = self._transport.execute(_request("resume_run", f"/smr/runs/{swarm_id}/resume"))
         return Swarm.from_wire(value)
 
     def cancel(self, swarm_id: SwarmId) -> Swarm:
+        """Cancel a Swarm.
+
+        Args:
+            swarm_id: Swarm to cancel.
+
+        Returns:
+            The Swarm after cancellation is requested.
+        """
         self._transport.execute(_request("stop_run", f"/smr/runs/{swarm_id}/stop"))
         return self.retrieve(swarm_id)
 
@@ -395,6 +587,15 @@ class SwarmsAPI:
         swarm_id: SwarmId,
         request: BranchSpec,
     ) -> BranchResult:
+        """Create a branch from a Swarm.
+
+        Args:
+            swarm_id: Swarm to branch from.
+            request: Branch specification to serialize into the branch request body.
+
+        Returns:
+            The branch result returned by the backend.
+        """
         value = self._transport.execute(
             _request(
                 "branch_run",
@@ -413,6 +614,21 @@ class SwarmsAPI:
         last_event_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> Iterator[SwarmEvent]:
+        """Stream decoded events for a Swarm.
+
+        Args:
+            swarm_id: Swarm whose events to stream.
+            transcript_cursor: Optional transcript cursor used to begin the event stream.
+            view: Transcript view to request from the backend.
+            last_event_id: Optional server-sent event id used to resume a stream.
+            timeout_seconds: Optional positive stream timeout.
+
+        Returns:
+            An iterator of decoded Swarm events.
+
+        Raises:
+            ValueError: If `timeout_seconds` is provided and is not positive.
+        """
         query: JsonObject = {"view": TranscriptView(view).value}
         if transcript_cursor is not None:
             query["transcript_cursor"] = transcript_cursor
@@ -427,6 +643,8 @@ class SwarmsAPI:
 
 
 class AsyncSwarmHandle:
+    """Handle returned when creating a Swarm."""
+
     def __init__(self, api: AsyncSwarmsAPI, swarm: Swarm) -> None:
         self._api = api
         self.swarm_id = swarm.swarm_id
@@ -434,6 +652,11 @@ class AsyncSwarmHandle:
         self.initial = swarm
 
     async def retrieve(self) -> Swarm:
+        """Retrieve the current Swarm.
+
+        Returns:
+            The current Swarm.
+        """
         return await self._api.retrieve(self.swarm_id)
 
     async def configuration(self) -> ResolvedSwarmConfiguration:
@@ -447,6 +670,38 @@ class AsyncSwarmHandle:
     async def evidence(self) -> SwarmEvidence:
         """Return durable artifact and WorkProduct evidence."""
         return await self._api.evidence(self.swarm_id)
+
+    def trace_store(self, factory_id: str) -> AsyncFactoryTraceStoreAPI:
+        """Open an async Factory trace store for this Swarm's Trace V5 records."""
+        return AsyncFactoryTraceStoreAPI(self._api._transport, factory_id)
+
+    async def traces(
+        self,
+        factory_id: str,
+        *,
+        actor_id: str | None = None,
+        session_id: str | None = None,
+        criterion_id: str | None = None,
+        annotation_label: str | None = None,
+        reward_id: str | None = None,
+        reward_min: float | None = None,
+        reward_max: float | None = None,
+        workflow_address: str | None = None,
+        limit: int = 100,
+    ) -> TraceQueryResult:
+        """Query this Swarm's traces from one Factory-owned store."""
+        return await self.trace_store(factory_id).query(
+            run_id=str(self.swarm_id),
+            actor_id=actor_id,
+            session_id=session_id,
+            criterion_id=criterion_id,
+            annotation_label=annotation_label,
+            reward_id=reward_id,
+            reward_min=reward_min,
+            reward_max=reward_max,
+            workflow_address=workflow_address,
+            limit=limit,
+        )
 
     async def activity(
         self,
@@ -493,6 +748,25 @@ class AsyncSwarmHandle:
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
     ) -> Swarm:
+        """Wait for the Swarm to reach a terminal state.
+
+        Polls the Swarm until it reaches done, partial, failed, stopped, or
+        canceled. After each non-terminal poll, raises `TimeoutError` if the
+        timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
+        before polling again.
+
+        Args:
+            timeout_seconds: Positive deadline in seconds checked after each
+                non-terminal poll.
+            poll_interval_seconds: Positive seconds to sleep between non-terminal polls.
+
+        Returns:
+            The terminal Swarm.
+
+        Raises:
+            ValueError: If either polling parameter is not positive.
+            TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+        """
         return await self._api.wait(
             self.swarm_id,
             timeout_seconds=timeout_seconds,
@@ -500,12 +774,27 @@ class AsyncSwarmHandle:
         )
 
     async def pause(self) -> Swarm:
+        """Pause the Swarm.
+
+        Returns:
+            The paused Swarm.
+        """
         return await self._api.pause(self.swarm_id)
 
     async def resume(self) -> Swarm:
+        """Resume the Swarm.
+
+        Returns:
+            The resumed Swarm.
+        """
         return await self._api.resume(self.swarm_id)
 
     async def cancel(self) -> Swarm:
+        """Cancel the Swarm.
+
+        Returns:
+            The Swarm after cancellation is requested.
+        """
         return await self._api.cancel(self.swarm_id)
 
     async def events(
@@ -516,6 +805,20 @@ class AsyncSwarmHandle:
         last_event_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> AsyncIterator[SwarmEvent]:
+        """Stream decoded Swarm events.
+
+        Args:
+            transcript_cursor: Optional transcript cursor used to begin the event stream.
+            view: Transcript view to request from the backend.
+            last_event_id: Optional server-sent event id used to resume a stream.
+            timeout_seconds: Optional positive stream timeout.
+
+        Returns:
+            An async iterator of decoded Swarm events.
+
+        Raises:
+            ValueError: If `timeout_seconds` is provided and is not positive.
+        """
         async for event in self._api.events(
             self.swarm_id,
             transcript_cursor=transcript_cursor,
@@ -527,6 +830,8 @@ class AsyncSwarmHandle:
 
 
 class AsyncSwarmsAPI:
+    """Swarm lifecycle operations."""
+
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
@@ -536,6 +841,15 @@ class AsyncSwarmsAPI:
         *,
         project_id: ProjectId | None = None,
     ) -> SwarmPreflight:
+        """Validate a typed Swarm specification before creation.
+
+        Args:
+            request: Swarm specification to serialize into the preflight request body.
+            project_id: Optional Project that should own the Swarm.
+
+        Returns:
+            The preflight result returned by the backend.
+        """
         if project_id is None:
             operation_id = "preflight_one_off_run"
             path = "/smr/runs:one-off/launch-preflight"
@@ -551,6 +865,15 @@ class AsyncSwarmsAPI:
         *,
         project_id: ProjectId | None = None,
     ) -> AsyncSwarmHandle:
+        """Create a Swarm from a typed Swarm specification.
+
+        Args:
+            request: Swarm specification to serialize into the create request body.
+            project_id: Optional Project that should own the Swarm.
+
+        Returns:
+            A handle for the created Swarm.
+        """
         if project_id is None:
             operation_id = "trigger_one_off_run"
             path = "/smr/runs:one-off"
@@ -567,6 +890,16 @@ class AsyncSwarmsAPI:
         limit: int = 100,
         cursor: str | None = None,
     ) -> tuple[Swarm, ...]:
+        """List Swarms for a Project.
+
+        Args:
+            project_id: Project whose Swarms to list.
+            limit: Maximum number of Swarms to request.
+            cursor: Optional pagination cursor returned by the backend.
+
+        Returns:
+            The Swarms returned by the backend.
+        """
         query: JsonObject = {"limit": limit}
         if cursor is not None:
             query["cursor"] = cursor
@@ -576,6 +909,14 @@ class AsyncSwarmsAPI:
         return _swarms(value, operation_id="list_project_runs")
 
     async def retrieve(self, swarm_id: SwarmId) -> Swarm:
+        """Retrieve a Swarm.
+
+        Args:
+            swarm_id: Swarm to retrieve.
+
+        Returns:
+            The requested Swarm.
+        """
         value = await self._transport.execute(_request("retrieve_run", f"/smr/runs/{swarm_id}"))
         return Swarm.from_wire(value)
 
@@ -716,10 +1057,45 @@ class AsyncSwarmsAPI:
         timeout_seconds: float = 3600.0,
         poll_interval_seconds: float = 2.0,
     ) -> Swarm:
+        """Wait for a Swarm to reach a terminal state.
+
+        Polls the Swarm until it reaches done, partial, failed, stopped, or
+        canceled. After each non-terminal poll, raises `TimeoutError` if the
+        timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
+        before polling again.
+
+        A retryable failure on one poll — a lost DNS lookup, a reset
+        connection, a 5xx — describes the caller's transport, not the Swarm, so
+        the loop absorbs it and polls again inside the same deadline.
+
+        Args:
+            swarm_id: Swarm to wait for.
+            timeout_seconds: Positive deadline in seconds checked after each
+                non-terminal poll.
+            poll_interval_seconds: Positive seconds to sleep between non-terminal polls.
+
+        Returns:
+            The terminal Swarm.
+
+        Raises:
+            ValueError: If either polling parameter is not positive.
+            TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+            SynthError: The last retryable failure, when the deadline elapses
+                without any poll reading the Swarm. Callers deciding whether to
+                cancel durable work depend on this distinction: `TimeoutError`
+                means the Swarm was read and was not terminal, while a
+                retryable error means its state was never established.
+        """
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
-            swarm = await self.retrieve(swarm_id)
+            try:
+                swarm = await self.retrieve(swarm_id)
+            except SynthError as error:
+                if not error.retryable or time.monotonic() >= deadline:
+                    raise
+                await asyncio.sleep(poll_interval_seconds)
+                continue
             if swarm.state.is_terminal:
                 return swarm
             if time.monotonic() >= deadline:
@@ -727,16 +1103,40 @@ class AsyncSwarmsAPI:
             await asyncio.sleep(poll_interval_seconds)
 
     async def pause(self, swarm_id: SwarmId) -> Swarm:
+        """Pause a Swarm.
+
+        Args:
+            swarm_id: Swarm to pause.
+
+        Returns:
+            The paused Swarm.
+        """
         value = await self._transport.execute(_request("pause_run", f"/smr/runs/{swarm_id}/pause"))
         return Swarm.from_wire(value)
 
     async def resume(self, swarm_id: SwarmId) -> Swarm:
+        """Resume a Swarm.
+
+        Args:
+            swarm_id: Swarm to resume.
+
+        Returns:
+            The resumed Swarm.
+        """
         value = await self._transport.execute(
             _request("resume_run", f"/smr/runs/{swarm_id}/resume")
         )
         return Swarm.from_wire(value)
 
     async def cancel(self, swarm_id: SwarmId) -> Swarm:
+        """Cancel a Swarm.
+
+        Args:
+            swarm_id: Swarm to cancel.
+
+        Returns:
+            The Swarm after cancellation is requested.
+        """
         await self._transport.execute(_request("stop_run", f"/smr/runs/{swarm_id}/stop"))
         return await self.retrieve(swarm_id)
 
@@ -745,6 +1145,15 @@ class AsyncSwarmsAPI:
         swarm_id: SwarmId,
         request: BranchSpec,
     ) -> BranchResult:
+        """Create a branch from a Swarm.
+
+        Args:
+            swarm_id: Swarm to branch from.
+            request: Branch specification to serialize into the branch request body.
+
+        Returns:
+            The branch result returned by the backend.
+        """
         value = await self._transport.execute(
             _request("branch_run", f"/smr/runs/{swarm_id}/branches", body=request.to_wire())
         )
@@ -759,6 +1168,21 @@ class AsyncSwarmsAPI:
         last_event_id: str | None = None,
         timeout_seconds: float | None = None,
     ) -> AsyncIterator[SwarmEvent]:
+        """Stream decoded events for a Swarm.
+
+        Args:
+            swarm_id: Swarm whose events to stream.
+            transcript_cursor: Optional transcript cursor used to begin the event stream.
+            view: Transcript view to request from the backend.
+            last_event_id: Optional server-sent event id used to resume a stream.
+            timeout_seconds: Optional positive stream timeout.
+
+        Returns:
+            An async iterator of decoded Swarm events.
+
+        Raises:
+            ValueError: If `timeout_seconds` is provided and is not positive.
+        """
         query: JsonObject = {"view": TranscriptView(view).value}
         if transcript_cursor is not None:
             query["transcript_cursor"] = transcript_cursor

@@ -44,15 +44,12 @@ __all__ = [
     "ContainerPoolsClient",
     "ContainersClient",
     "HorizonsPrivateClient",
-    "ManagedResearchClient",
-    "ManagedResearchError",
-    "ManagedResearchMcpServer",
+    "ResearchApiError",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
-    "ResearchApiError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
@@ -66,37 +63,27 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
-    "ManagedResearchClient": (
-        "synth_ai.managed_research.sdk.client",
-        "ManagedResearchClient",
-    ),
-    "SmrControlClient": ("synth_ai.managed_research.sdk.client", "SmrControlClient"),
-    "ManagedResearchMcpServer": (
-        "synth_ai.managed_research.mcp.server",
-        "ManagedResearchMcpServer",
-    ),
-    "ManagedResearchError": ("synth_ai.managed_research.errors", "ManagedResearchError"),
-    "ResearchApiError": ("synth_ai.research.errors", "ResearchApiError"),
+    "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchConcurrentRunLimitExceededError",
     ),
     "ResearchInsufficientCreditsError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchInsufficientCreditsError",
     ),
-    "ResearchLimitExceededError": ("synth_ai.research.errors", "ResearchLimitExceededError"),
-    "SmrApiError": ("synth_ai.research.errors", "ResearchApiError"),
+    "ResearchLimitExceededError": ("synth_ai.core.research.errors", "ResearchLimitExceededError"),
+    "SmrApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "SmrConcurrentRunLimitExceededError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchConcurrentRunLimitExceededError",
     ),
     "SmrInsufficientCreditsError": (
-        "synth_ai.research.errors",
+        "synth_ai.core.research.errors",
         "ResearchInsufficientCreditsError",
     ),
-    "SmrLimitExceededError": ("synth_ai.research.errors", "ResearchLimitExceededError"),
-    "ResearchClient": ("synth_ai.research.client", "ResearchClient"),
+    "SmrLimitExceededError": ("synth_ai.core.research.errors", "ResearchLimitExceededError"),
+    "ResearchClient": ("synth_ai.core.research.facade", "ResearchClient"),
     "ResearchProjectCreateRequest": (
         "synth_ai.core.research.contracts",
         "ResearchProjectCreateRequest",

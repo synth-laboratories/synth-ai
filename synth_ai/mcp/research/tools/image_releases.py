@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from synth_ai.core.research.client import ResearchClient
+from synth_ai.core.research.client import Client as ResearchClient
 from synth_ai.core.research.contracts.image_releases import (
     ImageReleaseFinalizeRequest,
     ImageReleaseId,

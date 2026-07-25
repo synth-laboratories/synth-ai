@@ -1,6 +1,7 @@
 name: Auto-publish to PyPI
 
 on:
+  workflow_dispatch:
   push:
     # main publishes stable versions; dev publishes .dev prereleases so the
     # latest fixes are installable (with --pre / an exact pin) before promotion.
@@ -9,6 +10,12 @@ on:
 permissions:
   contents: write
   id-token: write
+
+# Publishes must never race: a second push while one publish is in flight
+# waits instead of double-uploading.
+concurrency:
+  group: publish-pypi-synth-ai
+  cancel-in-progress: false
 
 jobs:
   check-version:
