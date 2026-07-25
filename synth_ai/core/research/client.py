@@ -15,6 +15,7 @@ from synth_ai.core.research.image_releases import (
 )
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
+from synth_ai.core.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class Client:
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
         self.image_releases = ImageReleasesAPI(self._transport)
+        self.traces = ResearchTracesAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
 
@@ -109,6 +111,7 @@ class AsyncClient:
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)
         self.image_releases = AsyncImageReleasesAPI(self._transport)
+        self.traces = AsyncResearchTracesAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
 

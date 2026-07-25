@@ -47,6 +47,10 @@ analytics = [
 research = [
     # Compatibility extra retained so `synth-ai[research]` remains valid.
 ]
+traces = [
+    # Canonical bundle validation and exact materialization.
+    "synth-containers @ git+https://github.com/synth-laboratories/containers.git@7a327c471c8850a1e8ea62fcea6813539c2a652e",
+]
 
 [project.urls]
 Homepage = "https://github.com/synth-laboratories/synth-ai"

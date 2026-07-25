@@ -14,6 +14,7 @@ from synth_ai.core.research.image_releases import ImageReleasesAPI
 from synth_ai.core.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
+from synth_ai.core.research.traces import ResearchTracesAPI
 from synth_ai.core.research.wiki import ResearchWikiAPI
 
 if TYPE_CHECKING:
@@ -135,6 +136,11 @@ class Client:
     def swarms(self) -> ResearchSwarmsAPI:
         """Launch and control typed Research swarms."""
         return self._core.swarms
+
+    @property
+    def traces(self) -> ResearchTracesAPI:
+        """Factory-scoped Trace V5 storage, query, and bundle transfer."""
+        return self._core.traces
 
     @property
     def runs(self) -> ResearchSwarmsAPI:

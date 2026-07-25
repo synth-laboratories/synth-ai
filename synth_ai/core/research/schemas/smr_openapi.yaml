@@ -1700,6 +1700,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal List Inference Models
+      operationId: internal_list_inference_models_api_v1_internal_inference_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Internal List Inference Models Api V1 Internal Inference
+                  Models Get
+      security:
+      - HTTPBearer: []
+  /api/v1/internal/inference/models/{model}:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal Get Inference Model
+      operationId: internal_get_inference_model_api_v1_internal_inference_models__model__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Get Inference Model Api V1 Internal Inference
+                  Models  Model  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models/{model}/lifecycle:
+    post:
+      tags:
+      - internal-inference
+      summary: Internal Control Inference Model
+      operationId: internal_control_inference_model_api_v1_internal_inference_models__model__lifecycle_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceLifecycleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Control Inference Model Api V1 Internal Inference
+                  Models  Model  Lifecycle Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/crypto/public-key:
     get:
       tags:
@@ -7134,6 +7220,143 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/lenses:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Define Factory Lens
+      operationId: define_factory_evaluation_lens
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryLensDefineRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryLensResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - factories
+      summary: List Factory Lenses
+      operationId: list_factory_evaluation_lenses
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: include_superseded
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Superseded
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SmrFactoryLensResponse'
+                title: Response List Factory Lenses Smr Factories  Factory Id  Lenses
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/best-so-far:
+    get:
+      tags:
+      - smr
+      - factories
+      summary: Factory Best Results
+      operationId: retrieve_factory_best_results
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryBestResultsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/prefer:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Record Factory Preference
+      operationId: record_factory_result_preference
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryPreferenceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryPreferenceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/factories/{factory_id}/results/{result_id}:
     get:
       tags:
@@ -7200,6 +7423,511 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrFactoryResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/results/{result_id}/evaluations:
+    post:
+      tags:
+      - smr
+      - factories
+      summary: Record Factory Result Evaluation Under Lens
+      operationId: record_factory_result_evaluation
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: result_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Result Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrFactoryResultEvaluationRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrFactoryResultEvaluationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:
+    get:
+      tags:
+      - smr
+      - traces
+      summary: Get Factory Trace Store
+      operationId: get_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreDescriptorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:provision:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Provision Factory Trace Store
+      operationId: provision_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceStoreProvisionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreProvisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:rotate-credential:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Rotate Factory Trace Store Credential
+      operationId: rotate_factory_trace_store_credential
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:invalidate-credential:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Invalidate Factory Trace Store Credential
+      operationId: invalidate_factory_trace_store_credential
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:tombstone:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Tombstone Factory Trace Store
+      operationId: tombstone_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:rebuild:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Rebuild Factory Trace Store
+      operationId: rebuild_factory_trace_store
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-bundles:prepare-upload:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Prepare Factory Trace Bundle
+      operationId: prepare_factory_trace_bundle
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceBundlePrepareRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceBundlePublicationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-bundles:finalize:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Finalize Factory Trace Bundle
+      operationId: finalize_factory_trace_bundle
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceBundleFinalizeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TracePromotionReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/traces:
+    get:
+      tags:
+      - smr
+      - traces
+      summary: List Factory Traces
+      operationId: list_factory_traces
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: run_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+      - name: correlation_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correlation Id
+      - name: trace_kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Kind
+      - name: task_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+      - name: actor_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+      - name: session_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Session Id
+      - name: criterion_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Criterion Id
+      - name: annotation_label
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Annotation Label
+      - name: reward_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reward Id
+      - name: reward_min
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Reward Min
+      - name: reward_max
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Reward Max
+      - name: workflow_address
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Workflow Address
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceQueryResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/traces/{trace_digest}:download-url:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Create Factory Trace Download
+      operationId: create_factory_trace_download
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: trace_digest
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Trace Digest
+      - name: expires_in_seconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 86400
+          minimum: 60
+          default: 3600
+          title: Expires In Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceDownloadResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-bundles/{publication_id}:download:
+    get:
+      tags:
+      - smr
+      - traces
+      summary: Download Factory Trace Bundle
+      operationId: download_factory_trace_bundle
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: publication_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Publication Id
+      - name: expires_in_seconds
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 86400
+          minimum: 60
+          default: 3600
+          title: Expires In Seconds
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceBundleDownloadResponse'
         '422':
           description: Validation Error
           content:
@@ -40757,6 +41485,27 @@ components:
       - increase_by
       title: IncreaseLimitRequest
       description: Request to increase a limit.
+    InferenceLifecycleAction:
+      type: string
+      enum:
+      - pause
+      - resume
+      title: InferenceLifecycleAction
+    InferenceLifecycleRequest:
+      properties:
+        action:
+          $ref: '#/components/schemas/InferenceLifecycleAction'
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - reason
+      title: InferenceLifecycleRequest
     InteractionIntent:
       type: string
       enum:
@@ -49084,6 +49833,99 @@ components:
       - created_at
       - updated_at
       title: SmrFactoryActorOutputResponse
+    SmrFactoryBestResultResponse:
+      properties:
+        lens_key:
+          type: string
+          title: Lens Key
+        lens_version:
+          type: integer
+          title: Lens Version
+        direction:
+          type: string
+          enum:
+          - maximize
+          - minimize
+          title: Direction
+        objective:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective
+        outcome:
+          type: string
+          enum:
+          - best
+          - no_eligible_results
+          - no_scored_results
+          title: Outcome
+        reason:
+          type: string
+          title: Reason
+        result_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result Id
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        considered:
+          type: integer
+          title: Considered
+        eligible:
+          type: integer
+          title: Eligible
+        scored:
+          type: integer
+          title: Scored
+      type: object
+      required:
+      - lens_key
+      - lens_version
+      - direction
+      - outcome
+      - reason
+      - considered
+      - eligible
+      - scored
+      title: SmrFactoryBestResultResponse
+      description: 'Derived best-so-far under one lens version.
+
+
+        ``outcome`` is total and always populated. ``result_id`` is null for every
+
+        outcome but ``best``, so a caller cannot dereference a winner that does not
+
+        exist. The counts are reported for all three outcomes because an operator
+
+        needs to see what was considered, not only what won.'
+    SmrFactoryBestResultsResponse:
+      properties:
+        factory_id:
+          type: string
+          title: Factory Id
+        optimizes:
+          type: boolean
+          title: Optimizes
+        lenses:
+          items:
+            $ref: '#/components/schemas/SmrFactoryBestResultResponse'
+          type: array
+          title: Lenses
+      type: object
+      required:
+      - factory_id
+      - optimizes
+      title: SmrFactoryBestResultsResponse
+      description: 'Best-so-far for every lens the Factory declares.
+
+
+        An empty ``lenses`` list means the Factory does not optimize anything. That
+
+        is a valid steady state and must not be rendered as "no results".'
     SmrFactoryCandidateGradingRequest:
       properties:
         grading:
@@ -49808,6 +50650,137 @@ components:
       - created_at
       - updated_at
       title: SmrFactoryIdeaResponse
+    SmrFactoryLensDefineRequest:
+      properties:
+        lens_key:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Lens Key
+        direction:
+          type: string
+          enum:
+          - maximize
+          - minimize
+          title: Direction
+        objective:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          title: Objective
+        missing_policy:
+          type: string
+          enum:
+          - ineligible
+          - worst
+          title: Missing Policy
+          default: ineligible
+        tie_break:
+          type: string
+          enum:
+          - earliest_result
+          - latest_result
+          - lowest_result_id
+          title: Tie Break
+          default: earliest_result
+        eligible_result_kinds:
+          items:
+            type: string
+            enum:
+            - report
+            - code_change
+            - dataset
+            - model
+            - prompt
+            - policy
+            - artifact
+          type: array
+          title: Eligible Result Kinds
+        definition:
+          additionalProperties: true
+          type: object
+          title: Definition
+      additionalProperties: false
+      type: object
+      required:
+      - lens_key
+      - direction
+      title: SmrFactoryLensDefineRequest
+      description: 'Declare (or re-declare) how a Factory compares its Results.
+
+
+        Re-declaring appends a new immutable version rather than editing the old
+
+        one, so a best-so-far answer computed under v1 stays reproducible after v2
+
+        exists.'
+    SmrFactoryLensResponse:
+      properties:
+        lens_id:
+          type: string
+          title: Lens Id
+        factory_id:
+          type: string
+          title: Factory Id
+        lens_key:
+          type: string
+          title: Lens Key
+        lens_version:
+          type: integer
+          title: Lens Version
+        objective:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Objective
+        direction:
+          type: string
+          enum:
+          - maximize
+          - minimize
+          title: Direction
+        missing_policy:
+          type: string
+          enum:
+          - ineligible
+          - worst
+          title: Missing Policy
+        tie_break:
+          type: string
+          enum:
+          - earliest_result
+          - latest_result
+          - lowest_result_id
+          title: Tie Break
+        eligible_result_kinds:
+          items:
+            type: string
+          type: array
+          title: Eligible Result Kinds
+        status:
+          type: string
+          title: Status
+        definition:
+          additionalProperties: true
+          type: object
+          title: Definition
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - lens_id
+      - factory_id
+      - lens_key
+      - lens_version
+      - direction
+      - missing_policy
+      - tie_break
+      - status
+      - created_at
+      title: SmrFactoryLensResponse
     SmrFactoryMaintenanceActionResponse:
       properties:
         vital:
@@ -49999,6 +50972,100 @@ components:
       additionalProperties: false
       type: object
       title: SmrFactoryPatchRequest
+    SmrFactoryPreferenceRequest:
+      properties:
+        action:
+          type: string
+          enum:
+          - prefer
+          - retract
+          title: Action
+          default: prefer
+        result_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result Id
+        lens_key:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Lens Key
+        idempotency_key:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Idempotency Key
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - reason
+      title: SmrFactoryPreferenceRequest
+      description: Record a human preference beside the derived best, not instead
+        of it.
+    SmrFactoryPreferenceResponse:
+      properties:
+        event_id:
+          type: string
+          title: Event Id
+        factory_id:
+          type: string
+          title: Factory Id
+        result_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Result Id
+        lens_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Lens Id
+        action:
+          type: string
+          enum:
+          - prefer
+          - retract
+          title: Action
+        actor_kind:
+          type: string
+          enum:
+          - human
+          - system
+          title: Actor Kind
+        actor_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - event_id
+      - factory_id
+      - action
+      - actor_kind
+      - idempotency_key
+      - created_at
+      title: SmrFactoryPreferenceResponse
     SmrFactoryProjectLinkRequest:
       properties:
         project_id:
@@ -50470,6 +51537,127 @@ components:
         The backend never grades; it surfaces the typed grading record an external
 
         grader posted back, plus the registry-computed score fields.'
+    SmrFactoryResultEvaluationRequest:
+      properties:
+        lens_key:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Lens Key
+        attempt_key:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Attempt Key
+        status:
+          type: string
+          enum:
+          - pending
+          - evaluated
+          - failed
+          - timeout
+          title: Status
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        evaluator:
+          anyOf:
+          - type: string
+            maxLength: 500
+          - type: 'null'
+          title: Evaluator
+        record:
+          additionalProperties: true
+          type: object
+          title: Record
+      additionalProperties: false
+      type: object
+      required:
+      - lens_key
+      - attempt_key
+      - status
+      title: SmrFactoryResultEvaluationRequest
+      description: 'Post one externally owned verdict for a Result under a lens.
+
+
+        ``attempt_key`` makes retries idempotent. Corrections use a *new* attempt
+
+        key so the record of what was believed when stays intact.'
+    SmrFactoryResultEvaluationResponse:
+      properties:
+        evaluation_id:
+          type: string
+          title: Evaluation Id
+        result_id:
+          type: string
+          title: Result Id
+        lens_id:
+          type: string
+          title: Lens Id
+        lens_key:
+          type: string
+          title: Lens Key
+        lens_version:
+          type: integer
+          title: Lens Version
+        attempt_key:
+          type: string
+          title: Attempt Key
+        status:
+          type: string
+          enum:
+          - pending
+          - evaluated
+          - failed
+          - timeout
+          title: Status
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Score
+        baseline_score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Baseline Score
+        evaluator:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Evaluator
+        record:
+          additionalProperties: true
+          type: object
+          title: Record
+        evaluated_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Evaluated At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      type: object
+      required:
+      - evaluation_id
+      - result_id
+      - lens_id
+      - lens_key
+      - lens_version
+      - attempt_key
+      - status
+      - created_at
+      title: SmrFactoryResultEvaluationResponse
     SmrFactoryResultResponse:
       properties:
         result_id:
@@ -68603,6 +69791,507 @@ components:
       - access_token
       title: Token
       description: JWT token response model.
+    TraceBundleDownloadObject:
+      properties:
+        path:
+          type: string
+          title: Path
+        digest:
+          type: string
+          title: Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          minLength: 1
+          title: Media Type
+        kind:
+          $ref: '#/components/schemas/TraceBundleObjectKind'
+        download_url:
+          type: string
+          title: Download Url
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - path
+      - digest
+      - size_bytes
+      - media_type
+      - kind
+      - download_url
+      - expires_at
+      title: TraceBundleDownloadObject
+    TraceBundleDownloadResponse:
+      properties:
+        publication_id:
+          type: string
+          title: Publication Id
+        bundle_id:
+          type: string
+          title: Bundle Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        manifest:
+          additionalProperties: true
+          type: object
+          title: Manifest
+        objects:
+          items:
+            $ref: '#/components/schemas/TraceBundleDownloadObject'
+          type: array
+          title: Objects
+        receipt:
+          $ref: '#/components/schemas/TraceStoreAccessReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      - bundle_id
+      - manifest_digest
+      - manifest
+      - objects
+      - receipt
+      title: TraceBundleDownloadResponse
+    TraceBundleFinalizeRequest:
+      properties:
+        publication_id:
+          type: string
+          title: Publication Id
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      title: TraceBundleFinalizeRequest
+    TraceBundleObjectDeclaration:
+      properties:
+        digest:
+          type: string
+          title: Digest
+        path:
+          type: string
+          title: Path
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          minLength: 1
+          title: Media Type
+          default: application/octet-stream
+        kind:
+          $ref: '#/components/schemas/TraceBundleObjectKind'
+      additionalProperties: false
+      type: object
+      required:
+      - digest
+      - path
+      - size_bytes
+      - kind
+      title: TraceBundleObjectDeclaration
+    TraceBundleObjectKind:
+      type: string
+      enum:
+      - trace
+      - evidence
+      - blob
+      - binding
+      - segment
+      - projection
+      - receipt
+      title: TraceBundleObjectKind
+    TraceBundlePrepareRequest:
+      properties:
+        bundle_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Bundle Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        manifest:
+          additionalProperties: true
+          type: object
+          title: Manifest
+        objects:
+          items:
+            $ref: '#/components/schemas/TraceBundleObjectDeclaration'
+          type: array
+          title: Objects
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        effort_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - bundle_id
+      - manifest_digest
+      - manifest
+      title: TraceBundlePrepareRequest
+    TraceBundlePublicationResponse:
+      properties:
+        publication_id:
+          type: string
+          title: Publication Id
+        store_id:
+          type: string
+          title: Store Id
+        factory_id:
+          type: string
+          title: Factory Id
+        bundle_id:
+          type: string
+          title: Bundle Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        manifest_uri:
+          type: string
+          title: Manifest Uri
+        status:
+          $ref: '#/components/schemas/TraceBundlePublicationStatus'
+        upload_objects:
+          items:
+            $ref: '#/components/schemas/TraceObjectUploadResponse'
+          type: array
+          title: Upload Objects
+        trace_count:
+          type: integer
+          title: Trace Count
+          default: 0
+        evidence_count:
+          type: integer
+          title: Evidence Count
+          default: 0
+        receipt_uri:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Uri
+        receipt_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Receipt Digest
+        failure_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Code
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        committed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Committed At
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      - store_id
+      - factory_id
+      - bundle_id
+      - manifest_digest
+      - manifest_uri
+      - status
+      - created_at
+      title: TraceBundlePublicationResponse
+    TraceBundlePublicationStatus:
+      type: string
+      enum:
+      - pending
+      - committed
+      - failed
+      title: TraceBundlePublicationStatus
+    TraceCatalogProvider:
+      type: string
+      enum:
+      - none
+      - turso
+      title: TraceCatalogProvider
+    TraceDownloadResponse:
+      properties:
+        trace_digest:
+          type: string
+          title: Trace Digest
+        bytes_digest:
+          type: string
+          title: Bytes Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          minLength: 1
+          title: Media Type
+        s3_uri:
+          type: string
+          title: S3 Uri
+        download_url:
+          type: string
+          title: Download Url
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+        receipt:
+          $ref: '#/components/schemas/TraceStoreAccessReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - trace_digest
+      - bytes_digest
+      - size_bytes
+      - media_type
+      - s3_uri
+      - download_url
+      - expires_at
+      - receipt
+      title: TraceDownloadResponse
+    TraceObjectUploadResponse:
+      properties:
+        digest:
+          type: string
+          title: Digest
+        s3_uri:
+          type: string
+          title: S3 Uri
+        upload_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Upload Url
+        required_headers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Required Headers
+        already_present:
+          type: boolean
+          title: Already Present
+          default: false
+      additionalProperties: false
+      type: object
+      required:
+      - digest
+      - s3_uri
+      title: TraceObjectUploadResponse
+    TracePromotionReceipt:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: synth.trace-promotion-receipt.v1
+        publication_id:
+          type: string
+          title: Publication Id
+        store_id:
+          type: string
+          title: Store Id
+        factory_id:
+          type: string
+          title: Factory Id
+        bundle_id:
+          type: string
+          title: Bundle Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        object_digests:
+          items:
+            type: string
+          type: array
+          title: Object Digests
+        trace_digests:
+          items:
+            type: string
+          type: array
+          title: Trace Digests
+        evidence_digests:
+          items:
+            type: string
+          type: array
+          title: Evidence Digests
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+        catalog_generation:
+          type: integer
+          title: Catalog Generation
+        committed_at:
+          type: string
+          format: date-time
+          title: Committed At
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+        receipt_uri:
+          type: string
+          title: Receipt Uri
+      additionalProperties: false
+      type: object
+      required:
+      - publication_id
+      - store_id
+      - factory_id
+      - bundle_id
+      - manifest_digest
+      - object_digests
+      - trace_digests
+      - evidence_digests
+      - catalog_provider
+      - catalog_generation
+      - committed_at
+      - receipt_digest
+      - receipt_uri
+      title: TracePromotionReceipt
+    TraceQueryResponse:
+      properties:
+        factory_id:
+          type: string
+          title: Factory Id
+        count:
+          type: integer
+          title: Count
+        traces:
+          items:
+            $ref: '#/components/schemas/TraceRecordSummary'
+          type: array
+          title: Traces
+        receipt:
+          $ref: '#/components/schemas/TraceStoreAccessReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - count
+      - receipt
+      title: TraceQueryResponse
+    TraceRecordSummary:
+      properties:
+        trace_id:
+          type: string
+          title: Trace Id
+        trace_digest:
+          type: string
+          title: Trace Digest
+        trace_kind:
+          type: string
+          title: Trace Kind
+        schema_version:
+          type: string
+          title: Schema Version
+        lifecycle_status:
+          type: string
+          title: Lifecycle Status
+        capture_status:
+          type: string
+          title: Capture Status
+        capture_id:
+          type: string
+          title: Capture Id
+        started_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Started At
+        ended_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Ended At
+        actor_count:
+          type: integer
+          title: Actor Count
+          default: 0
+        span_count:
+          type: integer
+          title: Span Count
+          default: 0
+        event_count:
+          type: integer
+          title: Event Count
+          default: 0
+        message_count:
+          type: integer
+          title: Message Count
+          default: 0
+        artifact_count:
+          type: integer
+          title: Artifact Count
+          default: 0
+        prompt_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Prompt Tokens
+        completion_tokens:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Completion Tokens
+        task_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Task Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        correlation_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Correlation Id
+        publication_id:
+          type: string
+          title: Publication Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+      additionalProperties: false
+      type: object
+      required:
+      - trace_id
+      - trace_digest
+      - trace_kind
+      - schema_version
+      - lifecycle_status
+      - capture_status
+      - capture_id
+      - publication_id
+      - manifest_digest
+      title: TraceRecordSummary
     TraceRetrievalMode:
       type: string
       enum:
@@ -68611,6 +70300,241 @@ components:
       - urls
       - images
       title: TraceRetrievalMode
+    TraceStoreAccessReceipt:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: synth.trace-store-access-receipt.v1
+        action:
+          type: string
+          title: Action
+        store_id:
+          type: string
+          title: Store Id
+        factory_id:
+          type: string
+          title: Factory Id
+        org_id:
+          type: string
+          title: Org Id
+        principal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Principal Id
+        request_digest:
+          type: string
+          title: Request Digest
+        result_digest:
+          type: string
+          title: Result Digest
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+        content_digest:
+          type: string
+          title: Content Digest
+        receipt_uri:
+          type: string
+          title: Receipt Uri
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - store_id
+      - factory_id
+      - org_id
+      - request_digest
+      - result_digest
+      - occurred_at
+      - content_digest
+      - receipt_uri
+      title: TraceStoreAccessReceipt
+    TraceStoreDescriptorResponse:
+      properties:
+        store_id:
+          type: string
+          title: Store Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        store_schema_version:
+          type: string
+          title: Store Schema Version
+        bundle_schema_version:
+          type: string
+          title: Bundle Schema Version
+        blob_provider:
+          type: string
+          title: Blob Provider
+        blob_bucket:
+          type: string
+          title: Blob Bucket
+        blob_prefix:
+          type: string
+          title: Blob Prefix
+        blob_region:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blob Region
+        blob_endpoint_profile:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Blob Endpoint Profile
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+        catalog_database_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Catalog Database Name
+        catalog_group_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Catalog Group Name
+        catalog_region:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Catalog Region
+        provisioning_status:
+          $ref: '#/components/schemas/TraceStoreProvisioningStatus'
+        provisioning_version:
+          type: integer
+          title: Provisioning Version
+        migration_generation:
+          type: integer
+          title: Migration Generation
+        retention_policy:
+          additionalProperties: true
+          type: object
+          title: Retention Policy
+        visibility_policy:
+          additionalProperties: true
+          type: object
+          title: Visibility Policy
+        encryption_policy:
+          additionalProperties: true
+          type: object
+          title: Encryption Policy
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - store_id
+      - org_id
+      - factory_id
+      - store_schema_version
+      - bundle_schema_version
+      - blob_provider
+      - blob_bucket
+      - blob_prefix
+      - catalog_provider
+      - provisioning_status
+      - provisioning_version
+      - migration_generation
+      - created_at
+      - updated_at
+      title: TraceStoreDescriptorResponse
+    TraceStoreLifecycleReceipt:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+          default: synth.trace-store-lifecycle-receipt.v1
+        action:
+          type: string
+          title: Action
+        store_id:
+          type: string
+          title: Store Id
+        factory_id:
+          type: string
+          title: Factory Id
+        org_id:
+          type: string
+          title: Org Id
+        principal_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Principal Id
+        generation:
+          type: integer
+          title: Generation
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+        content_digest:
+          type: string
+          title: Content Digest
+        receipt_uri:
+          type: string
+          title: Receipt Uri
+        details:
+          additionalProperties: true
+          type: object
+          title: Details
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - store_id
+      - factory_id
+      - org_id
+      - generation
+      - occurred_at
+      - content_digest
+      - receipt_uri
+      title: TraceStoreLifecycleReceipt
+    TraceStoreProvisionRequest:
+      properties:
+        catalog_provider:
+          $ref: '#/components/schemas/TraceCatalogProvider'
+          default: none
+      additionalProperties: false
+      type: object
+      title: TraceStoreProvisionRequest
+    TraceStoreProvisionResponse:
+      properties:
+        descriptor:
+          $ref: '#/components/schemas/TraceStoreDescriptorResponse'
+        receipt:
+          $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - descriptor
+      - receipt
+      title: TraceStoreProvisionResponse
+    TraceStoreProvisioningStatus:
+      type: string
+      enum:
+      - ready
+      - deleting
+      - credential_invalidated
+      - error
+      title: TraceStoreProvisioningStatus
     TrainedModelAdapterUploadUrlBody:
       properties:
         expires_in:
