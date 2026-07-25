@@ -1157,7 +1157,6 @@ class EffortsAPI(_ClientNamespace):
         )
 
 
-
 class FactoryLensesAPI(_ClientNamespace):
     """Evaluation lenses, derived best-so-far, and human preference.
 
@@ -1198,9 +1197,7 @@ class FactoryLensesAPI(_ClientNamespace):
         steady state, not an empty result set.
         """
 
-        return FactoryBestResults.from_wire(
-            self._client.get_factory_best_results(factory_id)
-        )
+        return FactoryBestResults.from_wire(self._client.get_factory_best_results(factory_id))
 
     def record_evaluation(
         self,
@@ -1211,18 +1208,15 @@ class FactoryLensesAPI(_ClientNamespace):
         """Store one externally owned verdict, idempotent under attempt_key."""
 
         return FactoryResultEvaluation.from_wire(
-            self._client.record_factory_result_evaluation(
-                factory_id, result_id, request.to_wire()
-            )
+            self._client.record_factory_result_evaluation(factory_id, result_id, request.to_wire())
         )
 
-    def prefer(
-        self, factory_id: str, request: FactoryPreferenceRequest
-    ) -> FactoryPreferenceEvent:
+    def prefer(self, factory_id: str, request: FactoryPreferenceRequest) -> FactoryPreferenceEvent:
         """Append an immutable preference event beside the derived best."""
 
         return FactoryPreferenceEvent.from_wire(
             self._client.record_factory_result_preference(factory_id, request.to_wire())
         )
+
 
 __all__ = ["EffortsAPI", "FactoriesAPI", "FactoryResultsAPI"]

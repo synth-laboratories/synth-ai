@@ -7,6 +7,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.errors import SynthError
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
@@ -505,6 +506,12 @@ class SwarmsAPI:
         timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
         before polling again.
 
+        A retryable failure on one poll — a lost DNS lookup, a reset
+        connection, a 5xx — describes the caller's transport, not the Swarm, so
+        the loop absorbs it and polls again inside the same deadline. A poll
+        loop is its own retry; a wait with nineteen minutes left should not end
+        because one request did.
+
         Args:
             swarm_id: Swarm to wait for.
             timeout_seconds: Positive deadline in seconds checked after each
@@ -517,11 +524,22 @@ class SwarmsAPI:
         Raises:
             ValueError: If either polling parameter is not positive.
             TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+            SynthError: The last retryable failure, when the deadline elapses
+                without any poll reading the Swarm. Callers deciding whether to
+                cancel durable work depend on this distinction: `TimeoutError`
+                means the Swarm was read and was not terminal, while a
+                retryable error means its state was never established.
         """
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
-            swarm = self.retrieve(swarm_id)
+            try:
+                swarm = self.retrieve(swarm_id)
+            except SynthError as error:
+                if not error.retryable or time.monotonic() >= deadline:
+                    raise
+                time.sleep(poll_interval_seconds)
+                continue
             if swarm.state.is_terminal:
                 return swarm
             if time.monotonic() >= deadline:
@@ -1046,6 +1064,10 @@ class AsyncSwarmsAPI:
         timeout deadline has elapsed; otherwise sleeps `poll_interval_seconds`
         before polling again.
 
+        A retryable failure on one poll — a lost DNS lookup, a reset
+        connection, a 5xx — describes the caller's transport, not the Swarm, so
+        the loop absorbs it and polls again inside the same deadline.
+
         Args:
             swarm_id: Swarm to wait for.
             timeout_seconds: Positive deadline in seconds checked after each
@@ -1058,11 +1080,22 @@ class AsyncSwarmsAPI:
         Raises:
             ValueError: If either polling parameter is not positive.
             TimeoutError: If a non-terminal poll occurs after the timeout deadline.
+            SynthError: The last retryable failure, when the deadline elapses
+                without any poll reading the Swarm. Callers deciding whether to
+                cancel durable work depend on this distinction: `TimeoutError`
+                means the Swarm was read and was not terminal, while a
+                retryable error means its state was never established.
         """
         _wait_arguments(timeout_seconds, poll_interval_seconds)
         deadline = time.monotonic() + timeout_seconds
         while True:
-            swarm = await self.retrieve(swarm_id)
+            try:
+                swarm = await self.retrieve(swarm_id)
+            except SynthError as error:
+                if not error.retryable or time.monotonic() >= deadline:
+                    raise
+                await asyncio.sleep(poll_interval_seconds)
+                continue
             if swarm.state.is_terminal:
                 return swarm
             if time.monotonic() >= deadline:
