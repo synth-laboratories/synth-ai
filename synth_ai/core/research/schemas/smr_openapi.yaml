@@ -15975,42 +15975,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/hosted-artifacts/{hosted_artifact_id}/publish-public:
-    post:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: Publish Hosted Artifact Public
-      operationId: publish_hosted_artifact_public_smr_hosted_artifacts__hosted_artifact_id__publish_public_post
-      parameters:
-      - name: hosted_artifact_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Hosted Artifact Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrPublishPublicArtifactRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Publish Hosted Artifact Public Smr Hosted Artifacts  Hosted
-                  Artifact Id  Publish Public Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /smr/hosted-artifacts/{hosted_artifact_id}/assign-reviewer:
     post:
       tags:
@@ -16041,42 +16005,6 @@ paths:
                 additionalProperties: true
                 title: Response Assign Hosted Artifact Reviewer Smr Hosted Artifacts  Hosted
                   Artifact Id  Assign Reviewer Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /smr/public/artifacts/{slug}/pageview:
-    post:
-      tags:
-      - smr
-      - hosted-artifacts
-      summary: Record Public Artifact Pageview
-      operationId: record_public_artifact_pageview_smr_public_artifacts__slug__pageview_post
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SmrRecordArtifactPageviewRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Record Public Artifact Pageview Smr Public Artifacts  Slug  Pageview
-                  Post
         '422':
           description: Validation Error
           content:
@@ -20343,7 +20271,7 @@ paths:
                       redaction_profile:
                         anyOf:
                         - enum:
-                          - open_research_public
+                          - public_default
                           - operator_default
                           - debug_operator
                           type: string
@@ -28171,7 +28099,7 @@ paths:
                       redaction_profile:
                         anyOf:
                         - enum:
-                          - open_research_public
+                          - public_default
                           - operator_default
                           - debug_operator
                           type: string
@@ -34566,353 +34494,6 @@ paths:
               schema:
                 title: Response Synth Research Chat Completions V1 Api Synth Research
                   V1 Chat Completions Post
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/projects:
-    get:
-      tags:
-      - open-research-public
-      summary: List Projects
-      operationId: list_projects_api_open_research_v1_projects_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListProjectsResponse'
-  /api/open-research/v1/projects/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Project
-      operationId: get_project_api_open_research_v1_projects__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Project Api Open Research V1 Projects  Slug  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/queues:
-    get:
-      tags:
-      - open-research-public
-      summary: List Queues
-      operationId: list_queues_api_open_research_v1_queues_get
-      parameters:
-      - name: project_slug
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListQueuesResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/projects/{slug}/loop:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Project Loop
-      operationId: get_project_loop_api_open_research_v1_projects__slug__loop_get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProjectLoopResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/submissions:
-    post:
-      tags:
-      - open-research-public
-      summary: Submit Question
-      operationId: submit_question_api_open_research_v1_submissions_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SubmitQuestionRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubmitQuestionResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/submissions/{submission_id}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Submission Endpoint
-      operationId: get_submission_endpoint_api_open_research_v1_submissions__submission_id__get
-      parameters:
-      - name: submission_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Submission Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SubmissionDetailResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments:
-    get:
-      tags:
-      - open-research-public
-      summary: List Experiments
-      operationId: list_experiments_api_open_research_v1_experiments_get
-      parameters:
-      - name: project_slug
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Slug
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          pattern: ^(running|done|failed|all)$
-          default: all
-          title: Status
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          maximum: 100
-          minimum: 1
-          default: 25
-          title: Limit
-      - name: cursor
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Cursor
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response List Experiments Api Open Research V1 Experiments
-                  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Experiment
-      operationId: get_experiment_api_open_research_v1_experiments__experiment_id__get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Experiment Api Open Research V1 Experiments  Experiment
-                  Id  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}/receipt:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Receipt
-      operationId: get_receipt_api_open_research_v1_experiments__experiment_id__receipt_get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                title: Response Get Receipt Api Open Research V1 Experiments  Experiment
-                  Id  Receipt Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/experiments/{experiment_id}/bundle:
-    get:
-      tags:
-      - open-research-public
-      summary: Download Experiment Bundle
-      operationId: download_experiment_bundle_api_open_research_v1_experiments__experiment_id__bundle_get
-      parameters:
-      - name: experiment_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Experiment Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/artifacts:
-    get:
-      tags:
-      - open-research-public
-      summary: List Public Artifacts
-      operationId: list_public_artifacts_api_open_research_v1_artifacts_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                additionalProperties: true
-                type: object
-                title: Response List Public Artifacts Api Open Research V1 Artifacts
-                  Get
-  /api/open-research/v1/artifacts/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Public Artifact
-      operationId: get_public_artifact_api_open_research_v1_artifacts__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Public Artifact Api Open Research V1 Artifacts  Slug  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/open-research/v1/artifact-pages/{slug}:
-    get:
-      tags:
-      - open-research-public
-      summary: Get Public Artifact Page
-      operationId: get_public_artifact_page_api_open_research_v1_artifact_pages__slug__get
-      parameters:
-      - name: slug
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Slug
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            text/html:
-              schema:
-                type: string
         '422':
           description: Validation Error
           content:
@@ -42090,28 +41671,6 @@ components:
       - byok_enabled
       title: ListKeysResponse
       description: Response containing list of stored provider keys.
-    ListProjectsResponse:
-      properties:
-        projects:
-          items:
-            $ref: '#/components/schemas/ProjectSummary'
-          type: array
-          title: Projects
-      type: object
-      required:
-      - projects
-      title: ListProjectsResponse
-    ListQueuesResponse:
-      properties:
-        queues:
-          items:
-            $ref: '#/components/schemas/QueueSummary'
-          type: array
-          title: Queues
-      type: object
-      required:
-      - queues
-      title: ListQueuesResponse
     LocalTarget:
       properties:
         host:
@@ -42127,201 +41686,6 @@ components:
       required:
       - port
       title: LocalTarget
-    LoopIdeaSummary:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        status:
-          type: string
-          title: Status
-        source:
-          type: string
-          enum:
-          - computer_use
-          - mcp
-          - signed_in_web
-          title: Source
-        submitter_handle:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submitter Handle
-        prompt:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Prompt
-        hypothesis:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Hypothesis
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        submitted_at:
-          type: string
-          title: Submitted At
-        reviewed_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Reviewed At
-        scheduled_for:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Scheduled For
-        launched_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Launched At
-      type: object
-      required:
-      - submission_id
-      - project_slug
-      - queue_id
-      - status
-      - source
-      - submitter_handle
-      - prompt
-      - hypothesis
-      - review_verdict
-      - experiment_id
-      - objective_id
-      - submitted_at
-      - reviewed_at
-      - scheduled_for
-      - launched_at
-      title: LoopIdeaSummary
-    LoopRunSummary:
-      properties:
-        experiment_id:
-          type: string
-          title: Experiment Id
-        project_slug:
-          type: string
-          title: Project Slug
-        submitter_handle:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submitter Handle
-        submission_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Submission Id
-        queue_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Queue Id
-        source:
-          type: string
-          enum:
-          - computer_use
-          - mcp
-          - signed_in_web
-          title: Source
-        status:
-          type: string
-          enum:
-          - running
-          - done
-          - failed
-          - canceled
-          title: Status
-        score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Score
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        review_summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Review Summary
-        review_feedback:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Review Feedback
-        submitted_at:
-          type: string
-          title: Submitted At
-        started_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Started At
-        finished_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Finished At
-        wallclock_seconds_used:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Wallclock Seconds Used
-        wallclock_seconds_budget:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Wallclock Seconds Budget
-      type: object
-      required:
-      - experiment_id
-      - project_slug
-      - submitter_handle
-      - submission_id
-      - queue_id
-      - source
-      - status
-      - score
-      - objective_id
-      - review_verdict
-      - review_summary
-      - review_feedback
-      - submitted_at
-      - started_at
-      - finished_at
-      - wallclock_seconds_used
-      - wallclock_seconds_budget
-      title: LoopRunSummary
     ManderqueueAckRequest:
       properties:
         message_id:
@@ -43761,53 +43125,6 @@ components:
       - created_at
       - updated_at
       title: ProjectChangeSetResponse
-    ProjectLoopResponse:
-      properties:
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        now:
-          type: string
-          title: Now
-        next_run_at:
-          type: string
-          title: Next Run At
-        queue_depth:
-          type: integer
-          title: Queue Depth
-        current_run:
-          anyOf:
-          - $ref: '#/components/schemas/LoopRunSummary'
-          - type: 'null'
-        last_completed_run:
-          anyOf:
-          - $ref: '#/components/schemas/LoopRunSummary'
-          - type: 'null'
-        ideas:
-          items:
-            $ref: '#/components/schemas/LoopIdeaSummary'
-          type: array
-          title: Ideas
-        recent_experiments:
-          items:
-            $ref: '#/components/schemas/LoopRunSummary'
-          type: array
-          title: Recent Experiments
-      type: object
-      required:
-      - project_slug
-      - queue_id
-      - now
-      - next_run_at
-      - queue_depth
-      - current_run
-      - last_completed_run
-      - ideas
-      - recent_experiments
-      title: ProjectLoopResponse
     ProjectSetupStatus:
       type: string
       enum:
@@ -43816,55 +43133,6 @@ components:
       - blocked
       - ready
       title: ProjectSetupStatus
-    ProjectSummary:
-      properties:
-        slug:
-          type: string
-          title: Slug
-        name:
-          type: string
-          title: Name
-        tagline:
-          type: string
-          title: Tagline
-        challenge_url:
-          type: string
-          title: Challenge Url
-        baseline_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Baseline Score
-        current_best_score:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Current Best Score
-        best_experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Best Experiment Id
-        default_queue_id:
-          type: string
-          title: Default Queue Id
-        supported_queue_ids:
-          items:
-            type: string
-          type: array
-          title: Supported Queue Ids
-      type: object
-      required:
-      - slug
-      - name
-      - tagline
-      - challenge_url
-      - baseline_score
-      - current_best_score
-      - best_experiment_id
-      - default_queue_id
-      - supported_queue_ids
-      title: ProjectSummary
     ProjectWorkspaceActor:
       properties:
         actor_id:
@@ -44799,38 +44067,6 @@ components:
           title: Client Metadata
       type: object
       title: PublishManderqueueMessageRequest
-    QueueSummary:
-      properties:
-        id:
-          type: string
-          title: Id
-        project_slug:
-          type: string
-          title: Project Slug
-        horizon_seconds:
-          type: integer
-          title: Horizon Seconds
-        work_mode:
-          type: string
-          title: Work Mode
-        entitlement:
-          type: string
-          title: Entitlement
-        unsigned_in_allowed:
-          type: boolean
-          title: Unsigned In Allowed
-        admission:
-          $ref: '#/components/schemas/_QueueAdmission'
-      type: object
-      required:
-      - id
-      - project_slug
-      - horizon_seconds
-      - work_mode
-      - entitlement
-      - unsigned_in_allowed
-      - admission
-      title: QueueSummary
     RecordUsageRequest:
       properties:
         metric_type:
@@ -48248,7 +47484,6 @@ components:
           - research
           - eval_factory
           - optimizer
-          - open_research
           title: Effort Type
           default: research
         recurrence_policy:
@@ -48377,7 +47612,6 @@ components:
             - research
             - eval_factory
             - optimizer
-            - open_research
           - type: 'null'
           title: Effort Type
         recurrence_policy:
@@ -48489,7 +47723,6 @@ components:
           - research
           - eval_factory
           - optimizer
-          - open_research
           title: Effort Type
         recurrence_policy:
           additionalProperties: true
@@ -50206,7 +49439,6 @@ components:
           enum:
           - customer
           - internal
-          - open_research
           title: Kind
           default: customer
         status:
@@ -51364,7 +50596,6 @@ components:
           enum:
           - customer
           - internal
-          - open_research
           title: Kind
         status:
           type: string
@@ -52118,14 +51349,6 @@ components:
           additionalProperties: true
           type: object
           title: Runtime
-        proof_readiness:
-          additionalProperties: true
-          type: object
-          title: Proof Readiness
-        public_visuals:
-          additionalProperties: true
-          type: object
-          title: Public Visuals
         experiment_observability:
           additionalProperties: true
           type: object
@@ -53119,7 +52342,6 @@ components:
             - research
             - eval_factory
             - optimizer
-            - open_research
           - type: 'null'
           title: Effort Type
         rationale:
@@ -55007,24 +54229,6 @@ components:
             type: object
           - type: 'null'
           title: Metadata
-        theme:
-          anyOf:
-          - type: string
-            maxLength: 200
-          - type: 'null'
-          title: Theme
-        summary:
-          anyOf:
-          - type: string
-            maxLength: 4000
-          - type: 'null'
-          title: Summary
-        kind:
-          anyOf:
-          - type: string
-            maxLength: 40
-          - type: 'null'
-          title: Kind
         visibility:
           anyOf:
           - type: string
@@ -57691,41 +56895,6 @@ components:
       - funding_source
       - configured
       title: SmrProviderKeyStatusResponse
-    SmrPublishPublicArtifactRequest:
-      properties:
-        slug:
-          type: string
-          maxLength: 120
-          minLength: 1
-          title: Slug
-        kind:
-          type: string
-          title: Kind
-          default: result
-        theme:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Theme
-        summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Summary
-        factory_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Factory Id
-        effort_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Effort Id
-      type: object
-      required:
-      - slug
-      title: SmrPublishPublicArtifactRequest
     SmrQuestionRespondRequest:
       properties:
         response_text:
@@ -57943,15 +57112,6 @@ components:
       - label
       - href
       title: SmrReadinessCta
-    SmrRecordArtifactPageviewRequest:
-      properties:
-        session_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Session Id
-      type: object
-      title: SmrRecordArtifactPageviewRequest
     SmrRepoAddRequest:
       properties:
         repo:
@@ -62250,12 +61410,6 @@ components:
           additionalProperties: true
           type: object
           title: Execution Metadata
-        open_research:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Open Research
         diagnostics:
           additionalProperties: true
           type: object
@@ -66625,7 +65779,7 @@ components:
           anyOf:
           - type: string
             enum:
-            - open_research_public
+            - public_default
             - operator_default
             - debug_operator
           - type: 'null'
@@ -69205,138 +68359,6 @@ components:
       - created_at
       title: StoredKeyInfo
       description: Information about a stored provider key (no decrypted key exposed).
-    SubmissionDetailResponse:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        project_slug:
-          type: string
-          title: Project Slug
-        queue_id:
-          type: string
-          title: Queue Id
-        status:
-          type: string
-          title: Status
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-        objective_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Objective Id
-        submitted_at:
-          type: string
-          title: Submitted At
-        launched_at:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Launched At
-      type: object
-      required:
-      - submission_id
-      - project_slug
-      - queue_id
-      - status
-      - review_verdict
-      - experiment_id
-      - objective_id
-      - submitted_at
-      - launched_at
-      title: SubmissionDetailResponse
-    SubmitQuestionRequest:
-      properties:
-        project_slug:
-          type: string
-          maxLength: 64
-          minLength: 1
-          title: Project Slug
-        queue_id:
-          type: string
-          maxLength: 128
-          minLength: 1
-          title: Queue Id
-        prompt:
-          type: string
-          maxLength: 2000
-          minLength: 1
-          title: Prompt
-        hypothesis:
-          type: string
-          maxLength: 1000
-          title: Hypothesis
-          default: ''
-        metric_target:
-          $ref: '#/components/schemas/_MetricTargetIn'
-        deo_kind:
-          type: string
-          const: open_ended_discovery
-          title: Deo Kind
-        rubric_acknowledged:
-          type: boolean
-          title: Rubric Acknowledged
-        submitter:
-          $ref: '#/components/schemas/_SubmitterIn'
-      type: object
-      required:
-      - project_slug
-      - queue_id
-      - prompt
-      - metric_target
-      - deo_kind
-      - rubric_acknowledged
-      title: SubmitQuestionRequest
-    SubmitQuestionResponse:
-      properties:
-        submission_id:
-          type: string
-          title: Submission Id
-        status:
-          type: string
-          enum:
-          - review_pending
-          - approved
-          - rejected
-          - needs_revision
-          - duplicate
-          - launched
-          title: Status
-        review_verdict:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Review Verdict
-        duplicate:
-          type: boolean
-          title: Duplicate
-        idempotency_key:
-          type: string
-          title: Idempotency Key
-        experiment_id:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Experiment Id
-      type: object
-      required:
-      - submission_id
-      - status
-      - review_verdict
-      - duplicate
-      - idempotency_key
-      title: SubmitQuestionResponse
     SupportedProvider:
       type: string
       enum:
@@ -72262,73 +71284,6 @@ components:
       required:
       - commit_sha
       title: WorkspaceConfirmPushRequest
-    _MetricTargetIn:
-      properties:
-        name:
-          type: string
-          maxLength: 120
-          minLength: 1
-          title: Name
-        operator:
-          type: string
-          enum:
-          - '>='
-          - <=
-          - ==
-          title: Operator
-        value:
-          type: number
-          title: Value
-      type: object
-      required:
-      - name
-      - operator
-      - value
-      title: _MetricTargetIn
-    _QueueAdmission:
-      properties:
-        open:
-          type: boolean
-          title: Open
-        depth:
-          type: integer
-          title: Depth
-        estimated_wait_seconds:
-          type: integer
-          title: Estimated Wait Seconds
-        dispatch_pool_capacity_ok:
-          type: boolean
-          title: Dispatch Pool Capacity Ok
-        runtime_readiness_ok:
-          type: boolean
-          title: Runtime Readiness Ok
-        resource_availability_ok:
-          type: boolean
-          title: Resource Availability Ok
-      type: object
-      required:
-      - open
-      - depth
-      - estimated_wait_seconds
-      - dispatch_pool_capacity_ok
-      - runtime_readiness_ok
-      - resource_availability_ok
-      title: _QueueAdmission
-    _SubmitterIn:
-      properties:
-        handle:
-          anyOf:
-          - type: string
-            maxLength: 64
-          - type: 'null'
-          title: Handle
-        fingerprint:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Fingerprint
-      type: object
-      title: _SubmitterIn
   securitySchemes:
     HTTPBearer:
       type: http

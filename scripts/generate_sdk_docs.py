@@ -150,7 +150,7 @@ Entrypoint: **`client.research`**
 | Namespace | Description | Reference |
 | --- | --- | --- |
 | `research.runs` | Launch, wait, lifecycle | [Runs](/reference/sdk/research/synth_ai-research-runs) |
-| `research.hosted_artifacts` | Open Research hosted artifact CRUD (alpha) | [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) |
+| `research.hosted_artifacts` | Hosted artifact CRUD (alpha) | [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts) |
 | `handle.*` | Usage, progress, queue, artifacts | [Run readouts](/reference/sdk/research/synth_ai-research-run_readouts) |
 
 ### Types
@@ -197,9 +197,9 @@ limits = research.limits.get()
 | **Guides** | [docs.usesynth.ai](https://docs.usesynth.ai/managed-research/sdk) — quickstarts and concepts |
 | **Reference** | Auto-generated from docstrings — [SDK Reference](/reference/sdk/index) |
 
-## Open Research hosted artifacts (alpha)
+## Hosted artifacts (alpha)
 
-Workers with subtype `artifact_builder` publish HTML proof pages; operators promote public slugs for the Open Research index. See [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts).
+Workers with subtype `artifact_builder` publish HTML proof pages for operator review. See [Hosted artifacts](/reference/sdk/research/synth_ai-research-hosted-artifacts).
 
 ## Local preview
 
@@ -220,20 +220,20 @@ sidebarTitle: Hosted artifacts
 tag: "ALPHA"
 ---
 
-# Open Research hosted artifacts
+# Hosted artifacts
 
 <Badge color="yellow" icon="triangle-exclamation">Alpha</Badge>
 
-SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run. Operators promote a public slug for the Open Research index at `/openresearch/artifacts/{slug}`.
+SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run.
 
 ## CRUD matrix (alpha)
 
 | Operation | Supported | How |
 | --- | --- | --- |
 | **Create** | Yes (in-run) | Worker MCP ``publish_hosted_artifact`` during an ``artifact_builder`` task |
-| **Read** | Yes | ``list``, ``get``, ``get_for_run``, ``get_content``, public index/slug |
-| **Update** | Yes | ``update`` (``PATCH`` metadata), ``publish_public``, ``assign_reviewer`` |
-| **Delete** | Yes | ``delete`` removes artifact row, public shell, and stored HTML |
+| **Read** | Yes | ``list``, ``get``, ``get_for_run``, ``get_content`` |
+| **Update** | Yes | ``update`` (``PATCH`` metadata), ``assign_reviewer`` |
+| **Delete** | Yes | ``delete`` removes the artifact row and stored HTML |
 
 ## Python SDK
 
@@ -241,13 +241,12 @@ SMR **`artifact_builder`** workers publish HTML hosted artifacts during a run. O
 research = client.research
 
 for artifact in research.hosted_artifacts.list(project_id=project_id):
-    print(artifact["hosted_url"], artifact.get("public_url"))
+    print(artifact["hosted_url"])
 
 artifact = research.hosted_artifacts.get(hosted_artifact_id)
 research.hosted_artifacts.update(
     hosted_artifact_id,
     title="Revised title",
-    summary="Updated public card",
 )
 research.hosted_artifacts.delete(hosted_artifact_id)
 ```
@@ -261,7 +260,7 @@ Set `actor_subtype` on a worker task in the kickoff contract:
 | Subtype | Role |
 | --- | --- |
 | `artifact_builder` | Build HTML and call `publish_hosted_artifact` |
-| `artifact_reviewer` | Review hosted artifact before public promote (orchestrator dispatch) |
+| `artifact_reviewer` | Review hosted artifact (orchestrator dispatch) |
 
 Python enums (SDK):
 
@@ -292,15 +291,12 @@ Example kickoff task snippet:
 | --- | --- | --- |
 | `GET` | `/smr/hosted-artifacts` | List org artifacts (`?project_id=` optional) |
 | `GET` | `/smr/projects/{project_id}/hosted-artifacts` | List artifacts for one project |
-| `GET` | `/smr/hosted-artifacts/{id}` | Receipt with hosted/public URLs |
-| `PATCH` | `/smr/hosted-artifacts/{id}` | Patch title, metadata, public fields, visibility |
-| `DELETE` | `/smr/hosted-artifacts/{id}` | Delete artifact + public shell + HTML |
+| `GET` | `/smr/hosted-artifacts/{id}` | Hosted artifact receipt |
+| `PATCH` | `/smr/hosted-artifacts/{id}` | Patch title, metadata, and visibility |
+| `DELETE` | `/smr/hosted-artifacts/{id}` | Delete artifact + HTML |
 | `GET` | `/smr/runs/{run_id}/hosted-artifact` | Run-scoped receipt |
 | `GET` | `/smr/hosted-artifacts/{id}/content` | Serve HTML |
-| `POST` | `/smr/hosted-artifacts/{id}/publish-public` | Promote public slug |
 | `POST` | `/smr/hosted-artifacts/{id}/assign-reviewer` | Dispatch `artifact_reviewer` |
-| `GET` | `/api/open-research/v1/artifacts` | Public index JSON |
-| `GET` | `/api/open-research/v1/artifacts/{slug}` | Public slug bundle |
 
 ## Local smoke
 

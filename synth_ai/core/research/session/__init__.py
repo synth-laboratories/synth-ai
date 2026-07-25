@@ -114,12 +114,6 @@ from synth_ai.core.research.contracts.local_execution_profile import (
     local_execution_payload,
     local_execution_profile_payload,
 )
-from synth_ai.core.research.contracts.open_research_visual import (
-    OPEN_RESEARCH_VISUAL_SCHEMA_VERSION,
-    OpenResearchVisualClaim,
-    OpenResearchVisualManifest,
-    is_open_research_visual_manifest,
-)
 from synth_ai.core.research.contracts.operator_evidence import (
     OperatorEvidenceDiagnostic,
     ProjectionEvidenceReceipt,
@@ -497,9 +491,6 @@ __all__ = [
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
     "OPENAI_TRANSPORT_MODE_DIRECT_HP",
-    "OPEN_RESEARCH_VISUAL_SCHEMA_VERSION",
-    "OpenResearchVisualClaim",
-    "OpenResearchVisualManifest",
     "BillingEntitlementAsset",
     "BillingEntitlementProfile",
     "BillingEntitlementSnapshot",
@@ -864,7 +855,6 @@ __all__ = [
     "assemble_factory_evidence_packet",
     "assemble_factory_launch_readiness",
     "first_id",
-    "is_open_research_visual_manifest",
 ]
 
 __all__ = sorted(

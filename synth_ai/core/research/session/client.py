@@ -3470,43 +3470,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             label="get_hosted_artifact_content",
         )
 
-    def publish_hosted_artifact_public(
-        self,
-        hosted_artifact_id: str,
-        *,
-        slug: str,
-        kind: str = "result",
-        theme: str | None = None,
-        summary: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Promote a hosted artifact to the public Open Research index."""
-        hosted_artifact_id = _require_non_empty_string(
-            hosted_artifact_id,
-            field_name="hosted_artifact_id",
-        )
-        body: dict[str, Any] = {
-            "slug": _require_non_empty_string(slug, field_name="slug"),
-            "kind": kind,
-        }
-        if theme is not None:
-            body["theme"] = theme
-        if summary is not None:
-            body["summary"] = summary
-        if factory_id is not None:
-            body["factory_id"] = factory_id
-        if effort_id is not None:
-            body["effort_id"] = effort_id
-        return _coerce_dict(
-            self._request_json(
-                "POST",
-                f"/smr/hosted-artifacts/{hosted_artifact_id}/publish-public",
-                json_body=body,
-            ),
-            label="publish_hosted_artifact_public",
-        )
-
     def assign_hosted_artifact_reviewer(
         self,
         hosted_artifact_id: str,
@@ -3531,23 +3494,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 json_body=body,
             ),
             label="assign_hosted_artifact_reviewer",
-        )
-
-    def list_public_hosted_artifacts(self) -> dict[str, Any]:
-        """List public Open Research hosted artifacts."""
-        return _coerce_dict(
-            self._request_json("GET", "/api/open-research/v1/artifacts"),
-            label="list_public_hosted_artifacts",
-        )
-
-    def get_public_hosted_artifact(self, slug: str) -> dict[str, Any]:
-        """Read one public hosted artifact bundle by slug."""
-        return _coerce_dict(
-            self._request_json(
-                "GET",
-                f"/api/open-research/v1/artifacts/{_require_non_empty_string(slug, field_name='slug')}",
-            ),
-            label="get_public_hosted_artifact",
         )
 
     def list_hosted_artifacts(
@@ -3666,12 +3612,9 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         *,
         title: str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
-        theme: str | None = None,
-        summary: str | None = None,
-        kind: str | None = None,
         visibility: str | None = None,
     ) -> dict[str, Any]:
-        """Patch hosted artifact metadata and optional public shell fields."""
+        """Patch hosted artifact metadata."""
         hosted_artifact_id = _require_non_empty_string(
             hosted_artifact_id,
             field_name="hosted_artifact_id",
@@ -3681,12 +3624,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
             body["title"] = title
         if metadata is not None:
             body["metadata"] = dict(metadata)
-        if theme is not None:
-            body["theme"] = theme
-        if summary is not None:
-            body["summary"] = summary
-        if kind is not None:
-            body["kind"] = kind
         if visibility is not None:
             body["visibility"] = visibility
         return _coerce_dict(
@@ -3699,7 +3636,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         )
 
     def delete_hosted_artifact(self, hosted_artifact_id: str) -> dict[str, Any]:
-        """Delete a hosted artifact, its public shell, and stored HTML."""
+        """Delete a hosted artifact and its stored HTML."""
         hosted_artifact_id = _require_non_empty_string(
             hosted_artifact_id,
             field_name="hosted_artifact_id",

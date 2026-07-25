@@ -516,34 +516,6 @@ class ResearchRunHostedArtifactsAPI(_RunReadoutBound):
         text = str(content)
         return text if as_text else text.encode("utf-8")
 
-    def publish_public(
-        self,
-        slug: str,
-        *,
-        hosted_artifact_id: str | None = None,
-        kind: str = "result",
-        theme: str | None = None,
-        summary: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Promote this run's hosted artifact to the public index."""
-        artifact_id = hosted_artifact_id
-        if artifact_id is None:
-            status = self.get()
-            artifact_id = str(status.get("hosted_artifact_id") or "").strip()
-            if not artifact_id:
-                raise ValueError("run has no hosted_artifact_id yet")
-        return self._handle._client.publish_hosted_artifact_public(
-            artifact_id,
-            slug=slug,
-            kind=kind,
-            theme=theme,
-            summary=summary,
-            factory_id=factory_id,
-            effort_id=effort_id,
-        )
-
     def assign_reviewer(
         self,
         reason: str,
@@ -874,7 +846,7 @@ class ResearchRunReadoutsMixin:
 
     @property
     def hosted_artifact(self) -> ResearchRunHostedArtifactsAPI:
-        """Hosted Open Research artifact receipt for the run."""
+        """Hosted artifact receipt for the run."""
         if self._hosted_artifact_api is None:
             self._hosted_artifact_api = ResearchRunHostedArtifactsAPI(self)  # type: ignore[arg-type]
         return self._hosted_artifact_api
