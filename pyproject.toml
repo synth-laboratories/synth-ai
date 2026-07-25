@@ -49,7 +49,7 @@ research = [
 ]
 traces = [
     # Canonical bundle validation and exact materialization.
-    "synth-containers @ git+https://github.com/synth-laboratories/containers.git@7a327c471c8850a1e8ea62fcea6813539c2a652e",
+    "synth-containers @ git+https://github.com/synth-laboratories/containers.git@0456dc5ea4900e54714acc26867345d84a07b9ff",
 ]
 
 [project.urls]
