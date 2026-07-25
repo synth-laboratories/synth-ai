@@ -1700,6 +1700,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal List Inference Models
+      operationId: internal_list_inference_models_api_v1_internal_inference_models_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+                title: Response Internal List Inference Models Api V1 Internal Inference
+                  Models Get
+      security:
+      - HTTPBearer: []
+  /api/v1/internal/inference/models/{model}:
+    get:
+      tags:
+      - internal-inference
+      summary: Internal Get Inference Model
+      operationId: internal_get_inference_model_api_v1_internal_inference_models__model__get
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Get Inference Model Api V1 Internal Inference
+                  Models  Model  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/internal/inference/models/{model}/lifecycle:
+    post:
+      tags:
+      - internal-inference
+      summary: Internal Control Inference Model
+      operationId: internal_control_inference_model_api_v1_internal_inference_models__model__lifecycle_post
+      security:
+      - HTTPBearer: []
+      parameters:
+      - name: model
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InferenceLifecycleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                title: Response Internal Control Inference Model Api V1 Internal Inference
+                  Models  Model  Lifecycle Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/v1/crypto/public-key:
     get:
       tags:
@@ -39805,6 +39891,27 @@ components:
       - increase_by
       title: IncreaseLimitRequest
       description: Request to increase a limit.
+    InferenceLifecycleAction:
+      type: string
+      enum:
+      - pause
+      - resume
+      title: InferenceLifecycleAction
+    InferenceLifecycleRequest:
+      properties:
+        action:
+          $ref: '#/components/schemas/InferenceLifecycleAction'
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - action
+      - reason
+      title: InferenceLifecycleRequest
     InteractionIntent:
       type: string
       enum:
@@ -43055,6 +43162,17 @@ components:
           - type: boolean
           - type: 'null'
           title: Require Zdr
+        require_no_training:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Require No Training
+        max_retention_days:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Max Retention Days
         allowed_domiciles:
           items:
             type: string
@@ -44513,6 +44631,8 @@ components:
       - deepseek/deepseek-v4-pro-direct
       - deepseek/deepseek-chat
       - deepseek/deepseek-reasoner
+      - poolside/laguna-s-2.1
+      - synth_internal/laguna-s-2.1-nvfp4
       title: SmrAgentModel
     SmrAgentModelCatalogEntry:
       properties:
@@ -44543,6 +44663,29 @@ components:
         route_kind:
           type: string
           title: Route Kind
+        provider_lifecycle:
+          type: string
+          title: Provider Lifecycle
+        upstream_provider:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Upstream Provider
+        provider_domicile:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Provider Domicile
+        route_regions:
+          items:
+            type: string
+          type: array
+          title: Route Regions
+        zdr_supported:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Zdr Supported
         harnesses:
           items:
             type: string
@@ -44586,6 +44729,7 @@ components:
       - compute_pool_kind
       - compute_pool_id
       - route_kind
+      - provider_lifecycle
       - usage_required
       - pricing_present
       title: SmrAgentModelCatalogEntry
@@ -44595,6 +44739,11 @@ components:
           type: integer
           title: Version
           default: 1
+        providers:
+          items:
+            $ref: '#/components/schemas/SmrInferenceProviderCatalogEntry'
+          type: array
+          title: Providers
         models:
           items:
             $ref: '#/components/schemas/SmrAgentModelCatalogEntry'
@@ -45901,6 +46050,8 @@ components:
       - deepseek
       - openai
       - openrouter
+      - poolside
+      - synth_internal
       - xai
       - tinker
       title: SmrCredentialProvider
@@ -50539,12 +50690,58 @@ components:
       type: string
       enum:
       - baseten
+      - cursor
       - deepseek
       - openai
       - google
       - openrouter
+      - poolside
+      - synth
+      - synth_internal
       - xai
       title: SmrInferenceProvider
+    SmrInferenceProviderCatalogEntry:
+      properties:
+        id:
+          type: string
+          title: Id
+        display_name:
+          type: string
+          title: Display Name
+        lifecycle:
+          type: string
+          title: Lifecycle
+        customer_selectable:
+          type: boolean
+          title: Customer Selectable
+        default_model_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Model Id
+        default_profile_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Profile Id
+        default_harness:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Default Harness
+        routes:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Routes
+      type: object
+      required:
+      - id
+      - display_name
+      - lifecycle
+      - customer_selectable
+      title: SmrInferenceProviderCatalogEntry
     SmrInitialRuntimeMessageRequest:
       properties:
         topic:
@@ -54265,9 +54462,10 @@ components:
           - $ref: '#/components/schemas/SmrAgentModel'
           - type: 'null'
           description: Override one shared agent model for this run. Shared top-level
-            values are 'baseten/zai-org/GLM-5.2', 'deepseek/deepseek-v4-flash', 'deepseek/deepseek-v4-flash-direct',
-            'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct', 'gpt-5.4',
-            'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'x-ai/grok-4.3', 'x-ai/grok-build'.
+            values are 'baseten/zai-org/GLM-5.2', 'cursor/composer-2.5', 'deepseek/deepseek-v4-flash',
+            'deepseek/deepseek-v4-flash-direct', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-pro-direct',
+            'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5', 'gpt-5.6-luna', 'poolside/laguna-s-2.1',
+            'synth_internal/laguna-s-2.1-nvfp4', 'x-ai/grok-4.3', 'x-ai/grok-build'.
             Use actor_model_overrides for actor-specific model selection.
         agent_harness:
           anyOf:
@@ -54330,8 +54528,19 @@ components:
             $ref: '#/components/schemas/ResourceProviderBinding'
           type: array
           title: Providers
-          description: Run-scoped provider bindings. Supported public providers are
-            openrouter, xai, tinker, synth_ai, cursor, deepseek, baseten, and openai_chatgpt.
+          description: Run-scoped resource bindings. This is independent from the
+            inference provider selector.
+        provider:
+          anyOf:
+          - type: string
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Provider
+          description: Inference provider selection. Use 'auto' for backend-owned
+            GA routing, one provider id for strict pinning, or an ordered provider
+            list as a hard allowlist with fallback during launch resolution.
         provider_policy:
           anyOf:
           - $ref: '#/components/schemas/ResourceProviderPolicy'
