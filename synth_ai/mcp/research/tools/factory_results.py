@@ -89,9 +89,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
                     missing_policy=FactoryLensMissingPolicy(
                         str(args.get("missing_policy") or "ineligible")
                     ),
-                    tie_break=FactoryLensTieBreak(
-                        str(args.get("tie_break") or "earliest_result")
-                    ),
+                    tie_break=FactoryLensTieBreak(str(args.get("tie_break") or "earliest_result")),
                     eligible_result_kinds=tuple(
                         FactoryResultKind(str(kind))
                         for kind in (args.get("eligible_result_kinds") or [])
@@ -145,9 +143,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
                     FactoryPreferenceRequest(
                         idempotency_key=str(args["idempotency_key"]),
                         reason=str(args["reason"]),
-                        action=FactoryPreferenceAction(
-                            str(args.get("action") or "prefer")
-                        ),
+                        action=FactoryPreferenceAction(str(args.get("action") or "prefer")),
                         result_id=args.get("result_id"),
                         lens_key=args.get("lens_key"),
                     ),
@@ -199,8 +195,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
                     "tie_break": {
                         "type": "string",
                         "description": (
-                            "earliest_result (default), latest_result, or "
-                            "lowest_result_id."
+                            "earliest_result (default), latest_result, or lowest_result_id."
                         ),
                     },
                     "eligible_result_kinds": {

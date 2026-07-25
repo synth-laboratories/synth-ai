@@ -332,13 +332,9 @@ class ResearchFactoryLensesAPI:
         request: FactoryResultEvaluationRequest,
     ) -> FactoryResultEvaluation:
         """Store one externally owned verdict, idempotent under attempt_key."""
-        return self._session.factories.lenses.record_evaluation(
-            factory_id, result_id, request
-        )
+        return self._session.factories.lenses.record_evaluation(factory_id, result_id, request)
 
-    def prefer(
-        self, factory_id: str, request: FactoryPreferenceRequest
-    ) -> FactoryPreferenceEvent:
+    def prefer(self, factory_id: str, request: FactoryPreferenceRequest) -> FactoryPreferenceEvent:
         """Append an immutable preference event beside the derived best."""
         return self._session.factories.lenses.prefer(factory_id, request)
 

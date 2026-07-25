@@ -174,9 +174,7 @@ class FactoryEvaluationLens:
             lens_key=required_text(value, "lens_key"),
             lens_version=_required_int(value, "lens_version"),
             direction=FactoryLensDirection(required_text(value, "direction")),
-            missing_policy=FactoryLensMissingPolicy(
-                required_text(value, "missing_policy")
-            ),
+            missing_policy=FactoryLensMissingPolicy(required_text(value, "missing_policy")),
             tie_break=FactoryLensTieBreak(required_text(value, "tie_break")),
             status=required_text(value, "status"),
             created_at=required_datetime(value, "created_at"),
@@ -276,9 +274,7 @@ class FactoryResultEvaluationRequest:
         require_text(self.lens_key, field_name="lens_key")
         require_text(self.attempt_key, field_name="attempt_key")
         if self.status is FactoryEvaluationStatus.EVALUATED and self.score is None:
-            raise ValueError(
-                "evaluation_score_required: an 'evaluated' verdict must carry a score"
-            )
+            raise ValueError("evaluation_score_required: an 'evaluated' verdict must carry a score")
 
     def to_wire(self) -> JsonObject:
         value: JsonObject = {
@@ -349,9 +345,7 @@ class FactoryPreferenceRequest:
         require_text(self.idempotency_key, field_name="idempotency_key")
         require_text(self.reason, field_name="reason")
         if self.action is FactoryPreferenceAction.PREFER and not self.result_id:
-            raise ValueError(
-                "preference_result_required: a 'prefer' event must name a Result"
-            )
+            raise ValueError("preference_result_required: a 'prefer' event must name a Result")
 
     def to_wire(self) -> JsonObject:
         value: JsonObject = {
