@@ -62,7 +62,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
-synth-containers = { git = "https://github.com/synth-laboratories/containers.git", rev = "b3875dbc609b5586a8b3822398398700a993ee4c" }
+synth-containers = { git = "https://github.com/synth-laboratories/containers.git", rev = "7a327c471c8850a1e8ea62fcea6813539c2a652e" }
 
 [tool.setuptools.packages.find]
 include = ["synth_ai", "synth_ai.*"]

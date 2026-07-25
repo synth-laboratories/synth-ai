@@ -2493,7 +2493,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pynacl", specifier = ">=1.5.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
-    { name = "synth-containers", marker = "extra == 'traces'", git = "https://github.com/synth-laboratories/containers.git?rev=b3875dbc609b5586a8b3822398398700a993ee4c" },
+    { name = "synth-containers", marker = "extra == 'traces'", git = "https://github.com/synth-laboratories/containers.git?rev=7a327c471c8850a1e8ea62fcea6813539c2a652e" },
     { name = "twine", marker = "extra == 'dev'", specifier = ">=4.0.0" },
 ]
 provides-extras = ["schemas", "providers", "dev", "all", "analytics", "research", "traces"]
@@ -2521,7 +2521,7 @@ dev = [
 [[package]]
 name = "synth-containers"
 version = "0.3.0.20260725"
-source = { git = "https://github.com/synth-laboratories/containers.git?rev=b3875dbc609b5586a8b3822398398700a993ee4c#b3875dbc609b5586a8b3822398398700a993ee4c" }
+source = { git = "https://github.com/synth-laboratories/containers.git?rev=7a327c471c8850a1e8ea62fcea6813539c2a652e#7a327c471c8850a1e8ea62fcea6813539c2a652e" }
 dependencies = [
     { name = "certifi" },
     { name = "fastapi" },
