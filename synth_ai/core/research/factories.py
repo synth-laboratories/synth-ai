@@ -906,7 +906,9 @@ class AsyncFactoryLensesAPI:
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
 
-    async def define(self, factory_id: FactoryId, request: FactoryLensSpec) -> FactoryEvaluationLens:
+    async def define(
+        self, factory_id: FactoryId, request: FactoryLensSpec
+    ) -> FactoryEvaluationLens:
         """Declare how this Factory compares its Results.
 
         Re-declaring an existing ``lens_key`` appends a new immutable version
