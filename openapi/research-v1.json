@@ -3232,8 +3232,7 @@
             "enum": [
               "research",
               "eval_factory",
-              "optimizer",
-              "open_research"
+              "optimizer"
             ],
             "title": "Effort Type",
             "type": "string"
@@ -3414,8 +3413,7 @@
                 "enum": [
                   "research",
                   "eval_factory",
-                  "optimizer",
-                  "open_research"
+                  "optimizer"
                 ],
                 "type": "string"
               },
@@ -3611,8 +3609,7 @@
             "enum": [
               "research",
               "eval_factory",
-              "optimizer",
-              "open_research"
+              "optimizer"
             ],
             "title": "Effort Type",
             "type": "string"
@@ -4983,8 +4980,7 @@
             "default": "customer",
             "enum": [
               "customer",
-              "internal",
-              "open_research"
+              "internal"
             ],
             "title": "Kind",
             "type": "string"
@@ -5496,8 +5492,7 @@
           "kind": {
             "enum": [
               "customer",
-              "internal",
-              "open_research"
+              "internal"
             ],
             "title": "Kind",
             "type": "string"
@@ -10166,18 +10161,6 @@
             ],
             "title": "Network Topology"
           },
-          "open_research": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Open Research"
-          },
           "org_id": {
             "title": "Org Id",
             "type": "string"
@@ -13500,7 +13483,7 @@
             "anyOf": [
               {
                 "enum": [
-                  "open_research_public",
+                  "public_default",
                   "operator_default",
                   "debug_operator"
                 ],
@@ -20928,7 +20911,7 @@
                           "anyOf": [
                             {
                               "enum": [
-                                "open_research_public",
+                                "public_default",
                                 "operator_default",
                                 "debug_operator"
                               ],

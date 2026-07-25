@@ -53,7 +53,7 @@ class TranscriptCursorKind(StrEnum):
 
 
 class TranscriptRedactionProfile(StrEnum):
-    OPEN_RESEARCH_PUBLIC = "open_research_public"
+    PUBLIC_DEFAULT = "public_default"
     OPERATOR_DEFAULT = "operator_default"
     DEBUG_OPERATOR = "debug_operator"
 

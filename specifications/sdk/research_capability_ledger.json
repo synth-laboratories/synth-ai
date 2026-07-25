@@ -25030,30 +25030,6 @@
     },
     {
       "canonical_noun": "artifacts",
-      "canonical_target": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.get_public",
-      "canonical_targets": [
-        "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.get_public"
-      ],
-      "definition_status": "source_defined",
-      "disposition": "core_implementation",
-      "handler": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.get_public",
-      "id": "core_research:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.get_public",
-      "invoked_capabilities": [],
-      "invoked_capability_status": "not_applicable",
-      "legacy_alias_target": null,
-      "line": 196,
-      "operation_id": null,
-      "operation_ids": [],
-      "reason": "core Research source definition",
-      "runtime_availability": "unresolved",
-      "source_path": "synth_ai/core/research/artifacts.py",
-      "surface": "core_research",
-      "symbol": "ResearchHostedArtifactsAPI.get_public",
-      "target_disposition": "core_implementation",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "artifacts",
       "canonical_target": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list",
       "canonical_targets": [
         "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list"
@@ -25073,54 +25049,6 @@
       "source_path": "synth_ai/core/research/artifacts.py",
       "surface": "core_research",
       "symbol": "ResearchHostedArtifactsAPI.list",
-      "target_disposition": "core_implementation",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "artifacts",
-      "canonical_target": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list_public",
-      "canonical_targets": [
-        "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list_public"
-      ],
-      "definition_status": "source_defined",
-      "disposition": "core_implementation",
-      "handler": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list_public",
-      "id": "core_research:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.list_public",
-      "invoked_capabilities": [],
-      "invoked_capability_status": "not_applicable",
-      "legacy_alias_target": null,
-      "line": 191,
-      "operation_id": null,
-      "operation_ids": [],
-      "reason": "core Research source definition",
-      "runtime_availability": "unresolved",
-      "source_path": "synth_ai/core/research/artifacts.py",
-      "surface": "core_research",
-      "symbol": "ResearchHostedArtifactsAPI.list_public",
-      "target_disposition": "core_implementation",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "artifacts",
-      "canonical_target": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.publish_public",
-      "canonical_targets": [
-        "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.publish_public"
-      ],
-      "definition_status": "source_defined",
-      "disposition": "core_implementation",
-      "handler": "python:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.publish_public",
-      "id": "core_research:synth_ai/core/research/artifacts.py:ResearchHostedArtifactsAPI.publish_public",
-      "invoked_capabilities": [],
-      "invoked_capability_status": "not_applicable",
-      "legacy_alias_target": null,
-      "line": 144,
-      "operation_id": null,
-      "operation_ids": [],
-      "reason": "core Research source definition",
-      "runtime_availability": "unresolved",
-      "source_path": "synth_ai/core/research/artifacts.py",
-      "surface": "core_research",
-      "symbol": "ResearchHostedArtifactsAPI.publish_public",
       "target_disposition": "core_implementation",
       "target_removal_version": null
     },
@@ -35451,30 +35379,6 @@
       "source_path": "synth_ai/core/research/readouts.py",
       "surface": "core_research",
       "symbol": "ResearchRunHostedArtifactsAPI.get",
-      "target_disposition": "core_implementation",
-      "target_removal_version": null
-    },
-    {
-      "canonical_noun": "swarms",
-      "canonical_target": "python:synth_ai/core/research/readouts.py:ResearchRunHostedArtifactsAPI.publish_public",
-      "canonical_targets": [
-        "python:synth_ai/core/research/readouts.py:ResearchRunHostedArtifactsAPI.publish_public"
-      ],
-      "definition_status": "source_defined",
-      "disposition": "core_implementation",
-      "handler": "python:synth_ai/core/research/readouts.py:ResearchRunHostedArtifactsAPI.publish_public",
-      "id": "core_research:synth_ai/core/research/readouts.py:ResearchRunHostedArtifactsAPI.publish_public",
-      "invoked_capabilities": [],
-      "invoked_capability_status": "not_applicable",
-      "legacy_alias_target": null,
-      "line": 530,
-      "operation_id": null,
-      "operation_ids": [],
-      "reason": "core Research source definition",
-      "runtime_availability": "unresolved",
-      "source_path": "synth_ai/core/research/readouts.py",
-      "surface": "core_research",
-      "symbol": "ResearchRunHostedArtifactsAPI.publish_public",
       "target_disposition": "core_implementation",
       "target_removal_version": null
     },
@@ -63820,31 +63724,6 @@
       "target_removal_version": "0.18.0"
     },
     {
-      "canonical_noun": "research",
-      "canonical_target": "python:synth_ai.core.research._legacy.models.open_research_visual",
-      "canonical_targets": [
-        "python:synth_ai.core.research._legacy.models.open_research_visual"
-      ],
-      "definition_status": "source_alias",
-      "disposition": "compatibility_alias",
-      "handler": null,
-      "id": "legacy_alias_module:synth_ai.managed_research.models.open_research_visual",
-      "invoked_capabilities": [],
-      "invoked_capability_status": "not_applicable",
-      "legacy_alias_target": "python:synth_ai.core.research._legacy.models.open_research_visual",
-      "line": 5,
-      "operation_id": null,
-      "operation_ids": [],
-      "owner": "synth-ai/research-compatibility",
-      "reason": "exact deprecated module alias scheduled for removal",
-      "runtime_availability": "unresolved",
-      "source_path": "synth_ai/managed_research/models/open_research_visual.py",
-      "surface": "legacy_alias_module",
-      "symbol": "synth_ai.managed_research.models.open_research_visual",
-      "target_disposition": "remove_compatibility_alias",
-      "target_removal_version": "0.18.0"
-    },
-    {
       "canonical_noun": "evidence",
       "canonical_target": "python:synth_ai.core.research._legacy.models.operator_evidence",
       "canonical_targets": [
@@ -74958,39 +74837,39 @@
   },
   "summary": {
     "by_definition_status": {
-      "source_alias": 204,
-      "source_defined": 2484,
+      "source_alias": 203,
+      "source_defined": 2480,
       "source_reference": 294
     },
     "by_disposition": {
       "advanced": 168,
       "advanced_adapter": 242,
       "backend_only": 366,
-      "compatibility_alias": 205,
+      "compatibility_alias": 204,
       "compatibility_migrate": 1051,
-      "core_implementation": 564,
+      "core_implementation": 560,
       "public": 73,
       "public_adapter": 60,
       "supported_public": 253
     },
     "by_runtime_availability": {
-      "unresolved": 2982
+      "unresolved": 2977
     },
     "by_surface": {
       "backend_consumer": 25,
       "backend_route": 476,
-      "core_research": 647,
+      "core_research": 643,
       "evals_consumer": 269,
       "internal_compatibility_sdk": 1051,
-      "legacy_alias_module": 150,
+      "legacy_alias_module": 149,
       "mcp_tool": 302,
       "public_compatibility_alias": 54,
       "public_research": 8
     },
     "by_target_disposition": {
       "backend_internal": 366,
-      "core_implementation": 564,
-      "remove_compatibility_alias": 205,
+      "core_implementation": 560,
+      "remove_compatibility_alias": 204,
       "replace_with_stable_operation": 171,
       "stable_public_adapter": 60,
       "stable_public_operation": 67,
@@ -75008,8 +74887,8 @@
       "list_customer_actor_images",
       "retrieve_image_release"
     ],
-    "rows": 2982,
-    "runtime_availability_unresolved": 2982,
+    "rows": 2977,
+    "runtime_availability_unresolved": 2977,
     "source_classification_unresolved": 0,
     "stable_mcp_adapters_without_operation_mapping": [],
     "target_disposition_unresolved": 1290,
