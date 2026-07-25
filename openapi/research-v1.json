@@ -4413,6 +4413,123 @@
         "title": "SmrExternalRepositoryResponse",
         "type": "object"
       },
+      "SmrFactoryBestResultResponse": {
+        "description": "Derived best-so-far under one lens version.\n\n``outcome`` is total and always populated. ``result_id`` is null for every\noutcome but ``best``, so a caller cannot dereference a winner that does not\nexist. The counts are reported for all three outcomes because an operator\nneeds to see what was considered, not only what won.",
+        "properties": {
+          "considered": {
+            "title": "Considered",
+            "type": "integer"
+          },
+          "direction": {
+            "enum": [
+              "maximize",
+              "minimize"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "integer"
+          },
+          "lens_key": {
+            "title": "Lens Key",
+            "type": "string"
+          },
+          "lens_version": {
+            "title": "Lens Version",
+            "type": "integer"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective"
+          },
+          "outcome": {
+            "enum": [
+              "best",
+              "no_eligible_results",
+              "no_scored_results"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "result_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Id"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "scored": {
+            "title": "Scored",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lens_key",
+          "lens_version",
+          "direction",
+          "outcome",
+          "reason",
+          "considered",
+          "eligible",
+          "scored"
+        ],
+        "title": "SmrFactoryBestResultResponse",
+        "type": "object"
+      },
+      "SmrFactoryBestResultsResponse": {
+        "description": "Best-so-far for every lens the Factory declares.\n\nAn empty ``lenses`` list means the Factory does not optimize anything. That\nis a valid steady state and must not be rendered as \"no results\".",
+        "properties": {
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "lenses": {
+            "items": {
+              "$ref": "#/components/schemas/SmrFactoryBestResultResponse"
+            },
+            "title": "Lenses",
+            "type": "array"
+          },
+          "optimizes": {
+            "title": "Optimizes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "factory_id",
+          "optimizes"
+        ],
+        "title": "SmrFactoryBestResultsResponse",
+        "type": "object"
+      },
       "SmrFactoryCandidateGradingRequest": {
         "description": "Typed intake for a benchmark-owned factorybench.candidate_grading.v1\nrecord. The record must carry the same candidate_id and git_sha as the\nroute-owned registry row. The backend never grades; it stores what the\ngrader proved.",
         "properties": {
@@ -4904,6 +5021,174 @@
         "title": "SmrFactoryCreateRequest",
         "type": "object"
       },
+      "SmrFactoryLensDefineRequest": {
+        "additionalProperties": false,
+        "description": "Declare (or re-declare) how a Factory compares its Results.\n\nRe-declaring appends a new immutable version rather than editing the old\none, so a best-so-far answer computed under v1 stays reproducible after v2\nexists.",
+        "properties": {
+          "definition": {
+            "additionalProperties": true,
+            "title": "Definition",
+            "type": "object"
+          },
+          "direction": {
+            "enum": [
+              "maximize",
+              "minimize"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "eligible_result_kinds": {
+            "items": {
+              "enum": [
+                "report",
+                "code_change",
+                "dataset",
+                "model",
+                "prompt",
+                "policy",
+                "artifact"
+              ],
+              "type": "string"
+            },
+            "title": "Eligible Result Kinds",
+            "type": "array"
+          },
+          "lens_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Lens Key",
+            "type": "string"
+          },
+          "missing_policy": {
+            "default": "ineligible",
+            "enum": [
+              "ineligible",
+              "worst"
+            ],
+            "title": "Missing Policy",
+            "type": "string"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective"
+          },
+          "tie_break": {
+            "default": "earliest_result",
+            "enum": [
+              "earliest_result",
+              "latest_result",
+              "lowest_result_id"
+            ],
+            "title": "Tie Break",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lens_key",
+          "direction"
+        ],
+        "title": "SmrFactoryLensDefineRequest",
+        "type": "object"
+      },
+      "SmrFactoryLensResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "definition": {
+            "additionalProperties": true,
+            "title": "Definition",
+            "type": "object"
+          },
+          "direction": {
+            "enum": [
+              "maximize",
+              "minimize"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "eligible_result_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Eligible Result Kinds",
+            "type": "array"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "lens_id": {
+            "title": "Lens Id",
+            "type": "string"
+          },
+          "lens_key": {
+            "title": "Lens Key",
+            "type": "string"
+          },
+          "lens_version": {
+            "title": "Lens Version",
+            "type": "integer"
+          },
+          "missing_policy": {
+            "enum": [
+              "ineligible",
+              "worst"
+            ],
+            "title": "Missing Policy",
+            "type": "string"
+          },
+          "objective": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Objective"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "tie_break": {
+            "enum": [
+              "earliest_result",
+              "latest_result",
+              "lowest_result_id"
+            ],
+            "title": "Tie Break",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lens_id",
+          "factory_id",
+          "lens_key",
+          "lens_version",
+          "direction",
+          "missing_policy",
+          "tie_break",
+          "status",
+          "created_at"
+        ],
+        "title": "SmrFactoryLensResponse",
+        "type": "object"
+      },
       "SmrFactoryPatchRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5006,6 +5291,153 @@
           }
         },
         "title": "SmrFactoryPatchRequest",
+        "type": "object"
+      },
+      "SmrFactoryPreferenceRequest": {
+        "additionalProperties": false,
+        "description": "Record a human preference beside the derived best, not instead of it.",
+        "properties": {
+          "action": {
+            "default": "prefer",
+            "enum": [
+              "prefer",
+              "retract"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lens_key": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lens Key"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "result_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Id"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "reason"
+        ],
+        "title": "SmrFactoryPreferenceRequest",
+        "type": "object"
+      },
+      "SmrFactoryPreferenceResponse": {
+        "properties": {
+          "action": {
+            "enum": [
+              "prefer",
+              "retract"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_kind": {
+            "enum": [
+              "human",
+              "system"
+            ],
+            "title": "Actor Kind",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lens_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lens Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "result_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Id"
+          }
+        },
+        "required": [
+          "event_id",
+          "factory_id",
+          "action",
+          "actor_kind",
+          "idempotency_key",
+          "created_at"
+        ],
+        "title": "SmrFactoryPreferenceResponse",
         "type": "object"
       },
       "SmrFactoryResponse": {
@@ -5114,6 +5546,185 @@
           "updated_at"
         ],
         "title": "SmrFactoryResponse",
+        "type": "object"
+      },
+      "SmrFactoryResultEvaluationRequest": {
+        "additionalProperties": false,
+        "description": "Post one externally owned verdict for a Result under a lens.\n\n``attempt_key`` makes retries idempotent. Corrections use a *new* attempt\nkey so the record of what was believed when stays intact.",
+        "properties": {
+          "attempt_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Attempt Key",
+            "type": "string"
+          },
+          "baseline_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Score"
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluator"
+          },
+          "lens_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Lens Key",
+            "type": "string"
+          },
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "evaluated",
+              "failed",
+              "timeout"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lens_key",
+          "attempt_key",
+          "status"
+        ],
+        "title": "SmrFactoryResultEvaluationRequest",
+        "type": "object"
+      },
+      "SmrFactoryResultEvaluationResponse": {
+        "properties": {
+          "attempt_key": {
+            "title": "Attempt Key",
+            "type": "string"
+          },
+          "baseline_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Score"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "evaluated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluated At"
+          },
+          "evaluation_id": {
+            "title": "Evaluation Id",
+            "type": "string"
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluator"
+          },
+          "lens_id": {
+            "title": "Lens Id",
+            "type": "string"
+          },
+          "lens_key": {
+            "title": "Lens Key",
+            "type": "string"
+          },
+          "lens_version": {
+            "title": "Lens Version",
+            "type": "integer"
+          },
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "evaluated",
+              "failed",
+              "timeout"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evaluation_id",
+          "result_id",
+          "lens_id",
+          "lens_key",
+          "lens_version",
+          "attempt_key",
+          "status",
+          "created_at"
+        ],
+        "title": "SmrFactoryResultEvaluationResponse",
         "type": "object"
       },
       "SmrFactoryTransitionRequest": {
@@ -14030,6 +14641,1057 @@
         "title": "SmrWorkspaceStoredFileResponse",
         "type": "object"
       },
+      "TraceBundleDownloadObject": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TraceBundleObjectKind"
+          },
+          "media_type": {
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "digest",
+          "size_bytes",
+          "media_type",
+          "kind",
+          "download_url",
+          "expires_at"
+        ],
+        "title": "TraceBundleDownloadObject",
+        "type": "object"
+      },
+      "TraceBundleDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/TraceBundleDownloadObject"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "publication_id": {
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/TraceStoreAccessReceipt"
+          }
+        },
+        "required": [
+          "publication_id",
+          "bundle_id",
+          "manifest_digest",
+          "manifest",
+          "objects",
+          "receipt"
+        ],
+        "title": "TraceBundleDownloadResponse",
+        "type": "object"
+      },
+      "TraceBundleFinalizeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "publication_id": {
+            "title": "Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "publication_id"
+        ],
+        "title": "TraceBundleFinalizeRequest",
+        "type": "object"
+      },
+      "TraceBundleObjectDeclaration": {
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TraceBundleObjectKind"
+          },
+          "media_type": {
+            "default": "application/octet-stream",
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "digest",
+          "path",
+          "size_bytes",
+          "kind"
+        ],
+        "title": "TraceBundleObjectDeclaration",
+        "type": "object"
+      },
+      "TraceBundleObjectKind": {
+        "enum": [
+          "trace",
+          "evidence",
+          "blob",
+          "binding",
+          "segment",
+          "projection",
+          "receipt"
+        ],
+        "title": "TraceBundleObjectKind",
+        "type": "string"
+      },
+      "TraceBundlePrepareRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "effort_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effort Id"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/TraceBundleObjectDeclaration"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "bundle_id",
+          "manifest_digest",
+          "manifest"
+        ],
+        "title": "TraceBundlePrepareRequest",
+        "type": "object"
+      },
+      "TraceBundlePublicationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "committed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Committed At"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "evidence_count": {
+            "default": 0,
+            "title": "Evidence Count",
+            "type": "integer"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Code"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "manifest_uri": {
+            "title": "Manifest Uri",
+            "type": "string"
+          },
+          "publication_id": {
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Digest"
+          },
+          "receipt_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receipt Uri"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TraceBundlePublicationStatus"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "string"
+          },
+          "trace_count": {
+            "default": 0,
+            "title": "Trace Count",
+            "type": "integer"
+          },
+          "upload_objects": {
+            "items": {
+              "$ref": "#/components/schemas/TraceObjectUploadResponse"
+            },
+            "title": "Upload Objects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "publication_id",
+          "store_id",
+          "factory_id",
+          "bundle_id",
+          "manifest_digest",
+          "manifest_uri",
+          "status",
+          "created_at"
+        ],
+        "title": "TraceBundlePublicationResponse",
+        "type": "object"
+      },
+      "TraceBundlePublicationStatus": {
+        "enum": [
+          "pending",
+          "committed",
+          "failed"
+        ],
+        "title": "TraceBundlePublicationStatus",
+        "type": "string"
+      },
+      "TraceCatalogProvider": {
+        "enum": [
+          "none",
+          "turso"
+        ],
+        "title": "TraceCatalogProvider",
+        "type": "string"
+      },
+      "TraceDownloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bytes_digest": {
+            "title": "Bytes Digest",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "media_type": {
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/TraceStoreAccessReceipt"
+          },
+          "s3_uri": {
+            "title": "S3 Uri",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "trace_digest": {
+            "title": "Trace Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_digest",
+          "bytes_digest",
+          "size_bytes",
+          "media_type",
+          "s3_uri",
+          "download_url",
+          "expires_at",
+          "receipt"
+        ],
+        "title": "TraceDownloadResponse",
+        "type": "object"
+      },
+      "TraceObjectUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "already_present": {
+            "default": false,
+            "title": "Already Present",
+            "type": "boolean"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "required_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Required Headers",
+            "type": "object"
+          },
+          "s3_uri": {
+            "title": "S3 Uri",
+            "type": "string"
+          },
+          "upload_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upload Url"
+          }
+        },
+        "required": [
+          "digest",
+          "s3_uri"
+        ],
+        "title": "TraceObjectUploadResponse",
+        "type": "object"
+      },
+      "TracePromotionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "bundle_id": {
+            "title": "Bundle Id",
+            "type": "string"
+          },
+          "catalog_generation": {
+            "title": "Catalog Generation",
+            "type": "integer"
+          },
+          "catalog_provider": {
+            "$ref": "#/components/schemas/TraceCatalogProvider"
+          },
+          "committed_at": {
+            "format": "date-time",
+            "title": "Committed At",
+            "type": "string"
+          },
+          "evidence_digests": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Digests",
+            "type": "array"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "object_digests": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Object Digests",
+            "type": "array"
+          },
+          "publication_id": {
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_uri": {
+            "title": "Receipt Uri",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "synth.trace-promotion-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "string"
+          },
+          "trace_digests": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Trace Digests",
+            "type": "array"
+          }
+        },
+        "required": [
+          "publication_id",
+          "store_id",
+          "factory_id",
+          "bundle_id",
+          "manifest_digest",
+          "object_digests",
+          "trace_digests",
+          "evidence_digests",
+          "catalog_provider",
+          "catalog_generation",
+          "committed_at",
+          "receipt_digest",
+          "receipt_uri"
+        ],
+        "title": "TracePromotionReceipt",
+        "type": "object"
+      },
+      "TraceQueryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/TraceStoreAccessReceipt"
+          },
+          "traces": {
+            "items": {
+              "$ref": "#/components/schemas/TraceRecordSummary"
+            },
+            "title": "Traces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "factory_id",
+          "count",
+          "receipt"
+        ],
+        "title": "TraceQueryResponse",
+        "type": "object"
+      },
+      "TraceRecordSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_count": {
+            "default": 0,
+            "title": "Actor Count",
+            "type": "integer"
+          },
+          "artifact_count": {
+            "default": 0,
+            "title": "Artifact Count",
+            "type": "integer"
+          },
+          "capture_id": {
+            "title": "Capture Id",
+            "type": "string"
+          },
+          "capture_status": {
+            "title": "Capture Status",
+            "type": "string"
+          },
+          "completion_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Tokens"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "event_count": {
+            "default": 0,
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "lifecycle_status": {
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "message_count": {
+            "default": 0,
+            "title": "Message Count",
+            "type": "integer"
+          },
+          "prompt_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt Tokens"
+          },
+          "publication_id": {
+            "title": "Publication Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "span_count": {
+            "default": 0,
+            "title": "Span Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "trace_digest": {
+            "title": "Trace Digest",
+            "type": "string"
+          },
+          "trace_id": {
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "trace_kind": {
+            "title": "Trace Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "trace_id",
+          "trace_digest",
+          "trace_kind",
+          "schema_version",
+          "lifecycle_status",
+          "capture_status",
+          "capture_id",
+          "publication_id",
+          "manifest_digest"
+        ],
+        "title": "TraceRecordSummary",
+        "type": "object"
+      },
+      "TraceStoreAccessReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "principal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Id"
+          },
+          "receipt_uri": {
+            "title": "Receipt Uri",
+            "type": "string"
+          },
+          "request_digest": {
+            "title": "Request Digest",
+            "type": "string"
+          },
+          "result_digest": {
+            "title": "Result Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "synth.trace-store-access-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "store_id",
+          "factory_id",
+          "org_id",
+          "request_digest",
+          "result_digest",
+          "occurred_at",
+          "content_digest",
+          "receipt_uri"
+        ],
+        "title": "TraceStoreAccessReceipt",
+        "type": "object"
+      },
+      "TraceStoreDescriptorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blob_bucket": {
+            "title": "Blob Bucket",
+            "type": "string"
+          },
+          "blob_endpoint_profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blob Endpoint Profile"
+          },
+          "blob_prefix": {
+            "title": "Blob Prefix",
+            "type": "string"
+          },
+          "blob_provider": {
+            "title": "Blob Provider",
+            "type": "string"
+          },
+          "blob_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blob Region"
+          },
+          "bundle_schema_version": {
+            "title": "Bundle Schema Version",
+            "type": "string"
+          },
+          "catalog_database_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Database Name"
+          },
+          "catalog_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Group Name"
+          },
+          "catalog_provider": {
+            "$ref": "#/components/schemas/TraceCatalogProvider"
+          },
+          "catalog_region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Catalog Region"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "encryption_policy": {
+            "additionalProperties": true,
+            "title": "Encryption Policy",
+            "type": "object"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "migration_generation": {
+            "title": "Migration Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "provisioning_status": {
+            "$ref": "#/components/schemas/TraceStoreProvisioningStatus"
+          },
+          "provisioning_version": {
+            "title": "Provisioning Version",
+            "type": "integer"
+          },
+          "retention_policy": {
+            "additionalProperties": true,
+            "title": "Retention Policy",
+            "type": "object"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "string"
+          },
+          "store_schema_version": {
+            "title": "Store Schema Version",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "visibility_policy": {
+            "additionalProperties": true,
+            "title": "Visibility Policy",
+            "type": "object"
+          }
+        },
+        "required": [
+          "store_id",
+          "org_id",
+          "factory_id",
+          "store_schema_version",
+          "bundle_schema_version",
+          "blob_provider",
+          "blob_bucket",
+          "blob_prefix",
+          "catalog_provider",
+          "provisioning_status",
+          "provisioning_version",
+          "migration_generation",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TraceStoreDescriptorResponse",
+        "type": "object"
+      },
+      "TraceStoreLifecycleReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "principal_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Principal Id"
+          },
+          "receipt_uri": {
+            "title": "Receipt Uri",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": "synth.trace-store-lifecycle-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "store_id": {
+            "title": "Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action",
+          "store_id",
+          "factory_id",
+          "org_id",
+          "generation",
+          "occurred_at",
+          "content_digest",
+          "receipt_uri"
+        ],
+        "title": "TraceStoreLifecycleReceipt",
+        "type": "object"
+      },
+      "TraceStoreProvisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "catalog_provider": {
+            "$ref": "#/components/schemas/TraceCatalogProvider",
+            "default": "none"
+          }
+        },
+        "title": "TraceStoreProvisionRequest",
+        "type": "object"
+      },
+      "TraceStoreProvisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "descriptor": {
+            "$ref": "#/components/schemas/TraceStoreDescriptorResponse"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+          }
+        },
+        "required": [
+          "descriptor",
+          "receipt"
+        ],
+        "title": "TraceStoreProvisionResponse",
+        "type": "object"
+      },
+      "TraceStoreProvisioningStatus": {
+        "enum": [
+          "ready",
+          "deleting",
+          "credential_invalidated",
+          "error"
+        ],
+        "title": "TraceStoreProvisioningStatus",
+        "type": "string"
+      },
       "TranscriptCursorKind": {
         "description": "Opaque cursor namespace returned by a transcript page.",
         "enum": [
@@ -15433,6 +17095,124 @@
         ]
       }
     },
+    "/smr/factories/{factory_id}/lenses": {
+      "get": {
+        "operationId": "list_factory_evaluation_lenses",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_superseded",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Superseded",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SmrFactoryLensResponse"
+                  },
+                  "title": "Response List Factory Lenses Smr Factories  Factory Id  Lenses Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factory Lenses",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      },
+      "post": {
+        "operationId": "define_factory_evaluation_lens",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryLensDefineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryLensResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Define Factory Lens",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
     "/smr/factories/{factory_id}/pause": {
       "post": {
         "operationId": "pause_factory",
@@ -15487,6 +17267,164 @@
           }
         },
         "summary": "Pause Factory",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/results/best-so-far": {
+      "get": {
+        "operationId": "retrieve_factory_best_results",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryBestResultsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Factory Best Results",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/results/prefer": {
+      "post": {
+        "operationId": "record_factory_result_preference",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryPreferenceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryPreferenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Factory Preference",
+        "tags": [
+          "smr",
+          "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/results/{result_id}/evaluations": {
+      "post": {
+        "operationId": "record_factory_result_evaluation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "result_id",
+            "required": true,
+            "schema": {
+              "title": "Result Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrFactoryResultEvaluationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrFactoryResultEvaluationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Factory Result Evaluation Under Lens",
         "tags": [
           "smr",
           "factories"
@@ -15610,6 +17548,787 @@
         "tags": [
           "smr",
           "factories"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-bundles/{publication_id}:download": {
+      "get": {
+        "operationId": "download_factory_trace_bundle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "publication_id",
+            "required": true,
+            "schema": {
+              "title": "Publication Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expires_in_seconds",
+            "required": false,
+            "schema": {
+              "default": 3600,
+              "maximum": 86400,
+              "minimum": 60,
+              "title": "Expires In Seconds",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceBundleDownloadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Factory Trace Bundle",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-bundles:finalize": {
+      "post": {
+        "operationId": "finalize_factory_trace_bundle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceBundleFinalizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TracePromotionReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Factory Trace Bundle",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-bundles:prepare-upload": {
+      "post": {
+        "operationId": "prepare_factory_trace_bundle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceBundlePrepareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceBundlePublicationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Factory Trace Bundle",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store": {
+      "get": {
+        "operationId": "get_factory_trace_store",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreDescriptorResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Factory Trace Store",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:invalidate-credential": {
+      "post": {
+        "operationId": "invalidate_factory_trace_store_credential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invalidate Factory Trace Store Credential",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:provision": {
+      "post": {
+        "operationId": "provision_factory_trace_store",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceStoreProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreProvisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provision Factory Trace Store",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:rebuild": {
+      "post": {
+        "operationId": "rebuild_factory_trace_store",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rebuild Factory Trace Store",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:rotate-credential": {
+      "post": {
+        "operationId": "rotate_factory_trace_store_credential",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rotate Factory Trace Store Credential",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:tombstone": {
+      "post": {
+        "operationId": "tombstone_factory_trace_store",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tombstone Factory Trace Store",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/traces": {
+      "get": {
+        "operationId": "list_factory_traces",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "correlation_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Correlation Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trace_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trace Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "task_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Task Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "session_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "criterion_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Criterion Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "annotation_label",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Annotation Label"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reward_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reward Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reward_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reward Min"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reward_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reward Max"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workflow_address",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workflow Address"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factory Traces",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/traces/{trace_digest}:download-url": {
+      "post": {
+        "operationId": "create_factory_trace_download",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "trace_digest",
+            "required": true,
+            "schema": {
+              "title": "Trace Digest",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expires_in_seconds",
+            "required": false,
+            "schema": {
+              "default": 3600,
+              "maximum": 86400,
+              "minimum": 60,
+              "title": "Expires In Seconds",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceDownloadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Factory Trace Download",
+        "tags": [
+          "smr",
+          "traces"
         ]
       }
     },
