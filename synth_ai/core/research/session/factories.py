@@ -7,6 +7,15 @@ from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime
 from typing import Any, List, cast
 
+from synth_ai.core.research.contracts.factory_lenses import (
+    FactoryBestResults,
+    FactoryEvaluationLens,
+    FactoryLensSpec,
+    FactoryPreferenceEvent,
+    FactoryPreferenceRequest,
+    FactoryResultEvaluation,
+    FactoryResultEvaluationRequest,
+)
 from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     Effort,
@@ -169,6 +178,15 @@ class FactoriesAPI(_ClientNamespace):
         """Public Result surface: ``research.factories.results.list(factory_id)``."""
 
         return FactoryResultsAPI(self._client)
+
+    @property
+    def lenses(self) -> FactoryLensesAPI:
+        """Optional optimization lens: ``research.factories.lenses``.
+
+        Absent for the majority of Factories, which optimize nothing.
+        """
+
+        return FactoryLensesAPI(self._client)
 
     def link_project(
         self,
@@ -1138,5 +1156,73 @@ class EffortsAPI(_ClientNamespace):
             "run_kind='maintenance')"
         )
 
+
+
+class FactoryLensesAPI(_ClientNamespace):
+    """Evaluation lenses, derived best-so-far, and human preference.
+
+    Requires the Factory to be on the champion-free Result authority; the
+    backend answers a typed 409 otherwise rather than storing a lens that could
+    never take effect.
+    """
+
+    def define(self, factory_id: str, spec: FactoryLensSpec) -> FactoryEvaluationLens:
+        """Declare how this Factory compares Results, appending a new version."""
+
+        return FactoryEvaluationLens.from_wire(
+            self._client.define_factory_evaluation_lens(factory_id, spec.to_wire())
+        )
+
+    def list(
+        self,
+        factory_id: str,
+        *,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> List[FactoryEvaluationLens]:
+        """List lens versions, newest per key unless superseded are requested."""
+
+        return [
+            FactoryEvaluationLens.from_wire(item)
+            for item in self._client.list_factory_evaluation_lenses(
+                factory_id,
+                include_superseded=include_superseded,
+                limit=limit,
+            )
+        ]
+
+    def best_so_far(self, factory_id: str) -> FactoryBestResults:
+        """Derived best-so-far per lens.
+
+        ``optimizes is False`` means the Factory hillclimbs nothing — a valid
+        steady state, not an empty result set.
+        """
+
+        return FactoryBestResults.from_wire(
+            self._client.get_factory_best_results(factory_id)
+        )
+
+    def record_evaluation(
+        self,
+        factory_id: str,
+        result_id: str,
+        request: FactoryResultEvaluationRequest,
+    ) -> FactoryResultEvaluation:
+        """Store one externally owned verdict, idempotent under attempt_key."""
+
+        return FactoryResultEvaluation.from_wire(
+            self._client.record_factory_result_evaluation(
+                factory_id, result_id, request.to_wire()
+            )
+        )
+
+    def prefer(
+        self, factory_id: str, request: FactoryPreferenceRequest
+    ) -> FactoryPreferenceEvent:
+        """Append an immutable preference event beside the derived best."""
+
+        return FactoryPreferenceEvent.from_wire(
+            self._client.record_factory_result_preference(factory_id, request.to_wire())
+        )
 
 __all__ = ["EffortsAPI", "FactoriesAPI", "FactoryResultsAPI"]
