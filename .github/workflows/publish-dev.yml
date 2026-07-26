@@ -63,6 +63,11 @@ jobs:
             echo "::error::PyPI metadata unavailable after 3 attempts; refusing to decide publish"
             exit 1
           fi
+          if ! printf '%s' "$META" | jq -e \
+               'type == "object" and (.releases | type == "object")' >/dev/null; then
+            echo "::error::PyPI metadata is malformed; refusing to decide publish"
+            exit 1
+          fi
           # Check the EXACT release, not .info.version (latest stable): exact
           # lookup is correct for both stable and .dev versions.
           if printf '%s' "$META" | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null; then

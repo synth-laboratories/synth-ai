@@ -48825,6 +48825,13 @@ components:
           - active
           title: Status
           default: active
+        result_authority_generation:
+          type: string
+          enum:
+          - legacy
+          - result_authority
+          title: Result Authority Generation
+          default: legacy
         budget_policy:
           additionalProperties: true
           type: object
@@ -49982,6 +49989,12 @@ components:
           - paused
           - archived
           title: Status
+        result_authority_generation:
+          type: string
+          enum:
+          - legacy
+          - result_authority
+          title: Result Authority Generation
         budget_policy:
           additionalProperties: true
           type: object
@@ -50026,6 +50039,7 @@ components:
       - name
       - kind
       - status
+      - result_authority_generation
       - created_at
       - updated_at
       title: SmrFactoryResponse

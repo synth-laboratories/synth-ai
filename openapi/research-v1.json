@@ -5001,6 +5001,15 @@
             "title": "Publication Policy",
             "type": "object"
           },
+          "result_authority_generation": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "result_authority"
+            ],
+            "title": "Result Authority Generation",
+            "type": "string"
+          },
           "status": {
             "default": "active",
             "enum": [
@@ -5515,6 +5524,14 @@
             "title": "Publication Policy",
             "type": "object"
           },
+          "result_authority_generation": {
+            "enum": [
+              "legacy",
+              "result_authority"
+            ],
+            "title": "Result Authority Generation",
+            "type": "string"
+          },
           "status": {
             "enum": [
               "configured",
@@ -5537,6 +5554,7 @@
           "name",
           "kind",
           "status",
+          "result_authority_generation",
           "created_at",
           "updated_at"
         ],

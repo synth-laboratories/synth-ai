@@ -67,6 +67,7 @@ from synth_ai.core.research.contracts.factory_operations import (
     FactoryWakeDueResult,
     FactoryWorkspace,
     GraduationProposal,
+    RecurrencePolicy,
 )
 from synth_ai.core.research.session._base import _ClientNamespace
 
@@ -90,7 +91,11 @@ def _effort_recurrence_payload(
     *,
     recurrence: EffortRecurrence | None,
     recurrence_policy: (
-        EffortRecurrence | Mapping[str, Any] | dict[str, Any] | None
+        EffortRecurrence
+        | RecurrencePolicy
+        | Mapping[str, Any]
+        | dict[str, Any]
+        | None
     ),
 ) -> dict[str, Any]:
     if recurrence is not None and recurrence_policy is not None:
@@ -800,7 +805,11 @@ class FactoriesAPI(_ClientNamespace):
         status: EffortStatus | str = EffortStatus.ACTIVE,
         recurrence: EffortRecurrence | None = None,
         recurrence_policy: (
-            EffortRecurrence | Mapping[str, Any] | dict[str, Any] | None
+            EffortRecurrence
+            | RecurrencePolicy
+            | Mapping[str, Any]
+            | dict[str, Any]
+            | None
         ) = None,
         next_wake_at: datetime | str | None = None,
         latest_run_id: str | None = None,
