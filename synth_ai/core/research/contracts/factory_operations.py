@@ -368,11 +368,8 @@ class RecurrencePolicy:
             "launch_request",
             "maintenance",
             "max_active_runs",
-            "on_failure",
             "on_run_complete",
-            "on_run_complete_delay_seconds",
             "research",
-            "success_delay_seconds",
             "timezone",
             "trigger",
         }
