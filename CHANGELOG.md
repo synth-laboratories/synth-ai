@@ -19,6 +19,9 @@ Prerelease development line following `0.17.2`.
 - `FactoryBudgetPolicy` exposes a typed recurring accounting period so
   always-on internal Factories can use a resettable code-owned spend envelope
   instead of an eventual all-time stop.
+- `FactorySpec` can select the native Result authority at creation, allowing a
+  new optimization Factory to define evaluation lenses without an operator
+  backfill or compatibility cutover.
 
 ### Changed
 

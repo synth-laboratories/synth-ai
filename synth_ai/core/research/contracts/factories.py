@@ -48,6 +48,13 @@ class FactoryCreateState(StrEnum):
     ACTIVE = "active"
 
 
+class FactoryResultAuthorityGeneration(StrEnum):
+    """Persistence authority selected when a Factory is created."""
+
+    LEGACY = "legacy"
+    RESULT_AUTHORITY = "result_authority"
+
+
 class EffortStatus(StrEnum):
     ACTIVE = "active"
     PAUSED = "paused"
@@ -397,6 +404,9 @@ class FactorySpec:
     description: str | None = None
     kind: FactoryKind = FactoryKind.CUSTOMER
     state: FactoryCreateState = FactoryCreateState.ACTIVE
+    result_authority_generation: FactoryResultAuthorityGeneration = (
+        FactoryResultAuthorityGeneration.LEGACY
+    )
     budget: BudgetPolicy | FactoryBudgetPolicy | None = None
     capacity: CapacityPolicy | None = None
     metadata: JsonObject = field(default_factory=dict)
@@ -409,6 +419,7 @@ class FactorySpec:
             "name": self.name,
             "kind": self.kind.value,
             "status": self.state.value,
+            "result_authority_generation": self.result_authority_generation.value,
             "budget_policy": self.budget.to_wire() if self.budget is not None else {},
             "cap_policy": self.capacity.to_wire() if self.capacity is not None else {},
             "homeostasis_policy": {},
@@ -482,6 +493,7 @@ class Factory:
     name: str
     kind: FactoryKind
     state: FactoryLifecycleState
+    result_authority_generation: FactoryResultAuthorityGeneration
     created_at: datetime
     updated_at: datetime
     description: str | None = None
@@ -499,6 +511,10 @@ class Factory:
             description=optional_text(value, "description"),
             kind=FactoryKind(required_text(value, "kind")),
             state=FactoryLifecycleState(required_text(value, "status")),
+            result_authority_generation=FactoryResultAuthorityGeneration(
+                optional_text(value, "result_authority_generation")
+                or FactoryResultAuthorityGeneration.LEGACY.value
+            ),
             budget_policy=_optional_object(value, "budget_policy", operation_id="decode_factory"),
             capacity_policy=_optional_object(value, "cap_policy", operation_id="decode_factory"),
             metadata=_optional_object(value, "metadata", operation_id="decode_factory"),
@@ -941,6 +957,7 @@ __all__ = [
     "FactoryBudgetPolicy",
     "FactoryKind",
     "FactoryLifecycleState",
+    "FactoryResultAuthorityGeneration",
     "FactoryPatch",
     "FactoryPatchRequest",
     "FactorySpec",
