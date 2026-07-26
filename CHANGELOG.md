@@ -16,6 +16,9 @@ Prerelease development line following `0.17.2`.
 - `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
   facade accept the typed recurrence without changing its provider, profile,
   model, or role selections.
+- `FactoryBudgetPolicy` exposes a typed recurring accounting period so
+  always-on internal Factories can use a resettable code-owned spend envelope
+  instead of an eventual all-time stop.
 
 ### Changed
 

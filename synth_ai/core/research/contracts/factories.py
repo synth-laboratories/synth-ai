@@ -68,6 +68,15 @@ class EffortRunClass(StrEnum):
     TINKER_SFT = "tinker_sft"
 
 
+class FactoryBudgetPeriod(StrEnum):
+    """Accounting window for a Factory's aggregate spend envelope."""
+
+    ALL_TIME = "all_time"
+    DAILY = "daily"
+    LAST_7D = "last_7d"
+    MONTHLY = "monthly"
+
+
 class FactoryTransitionDecision(StrEnum):
     APPLIED = "applied"
     NOOP = "noop"
@@ -117,6 +126,7 @@ class FactoryBudgetPolicy:
     factory_limit_usd: float
     ordinary_run_limit_usd: float
     ordinary_run_target_usd: float
+    period: FactoryBudgetPeriod | None = None
     tinker_sft_run_limit_usd: float | None = None
     tinker_sft_runs_per_window: int | None = None
 
@@ -130,6 +140,10 @@ class FactoryBudgetPolicy:
             value = getattr(self, name)
             if value is not None and value < 0:
                 raise ValueError(f"{name} must be non-negative")
+        if self.period is not None and not isinstance(
+            self.period, FactoryBudgetPeriod
+        ):
+            object.__setattr__(self, "period", FactoryBudgetPeriod(self.period))
         if self.tinker_sft_runs_per_window is not None and self.tinker_sft_runs_per_window < 0:
             raise ValueError("tinker_sft_runs_per_window must be non-negative")
 
@@ -139,6 +153,8 @@ class FactoryBudgetPolicy:
             "ordinary_run_limit_usd": self.ordinary_run_limit_usd,
             "ordinary_run_target_usd": self.ordinary_run_target_usd,
         }
+        if self.period is not None:
+            value["period"] = self.period.value
         if self.tinker_sft_run_limit_usd is not None:
             value["tinker_sft_run_limit_usd"] = self.tinker_sft_run_limit_usd
         if self.tinker_sft_runs_per_window is not None:
@@ -921,6 +937,7 @@ __all__ = [
     "FactoryChampionSelectRequest",
     "FactoryCreateRequest",
     "FactoryCreateState",
+    "FactoryBudgetPeriod",
     "FactoryBudgetPolicy",
     "FactoryKind",
     "FactoryLifecycleState",
