@@ -363,12 +363,12 @@ class RecurrencePolicy:
                 "success_delay_seconds",
                 "on_run_complete_delay_seconds",
             ):
-                if alias in normalized_metadata:
+                if normalized_metadata.get(alias) is not None:
                     normalized_metadata["delay_seconds"] = normalized_metadata[alias]
                     break
         if (
             "failure_policy" not in normalized_metadata
-            and "on_failure" in normalized_metadata
+            and normalized_metadata.get("on_failure") is not None
         ):
             normalized_metadata["failure_policy"] = normalized_metadata["on_failure"]
         for alias in (
