@@ -182,31 +182,194 @@ class CapacityPolicy:
         return value
 
 
-@dataclass(frozen=True, slots=True)
+_EFFORT_RECURRENCE_DELAY_SECONDS_MAX = 7 * 24 * 60 * 60
+
+
+def _bounded_recurrence_seconds(
+    value: int | None,
+    *,
+    field_name: str,
+    minimum: int,
+) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field_name} must be an integer")
+    if value < minimum or value > _EFFORT_RECURRENCE_DELAY_SECONDS_MAX:
+        raise ValueError(
+            f"{field_name} must be between {minimum} and "
+            f"{_EFFORT_RECURRENCE_DELAY_SECONDS_MAX} seconds"
+        )
+    return value
+
+
+@dataclass(frozen=True, slots=True, init=False)
 class EffortRecurrence:
-    """Typed recurring launch policy for one Effort."""
+    """Typed recurring launch policy for one Effort.
+
+    ``launch`` is serialized through :class:`SwarmSpec` without changing its
+    provider, profile, model, or role bindings. A scalar provider therefore
+    remains a strict provider pin; this layer never adds a fallback.
+    """
 
     cadence: str | None = None
     timezone: str | None = None
     max_active_swarms: int | None = None
+    trigger: str | None = None
+    on_run_complete: bool | None = None
+    event_triggers: tuple[str | JsonObject, ...] = ()
+    event_scope: str | None = None
+    cooldown_seconds: int | None = None
+    success_delay_seconds: int | None = None
+    failure_backoff_seconds: int | None = None
+    enabled: bool = True
+    metadata: JsonObject = field(default_factory=dict)
     launch: SwarmSpec | None = None
+
+    def __init__(
+        self,
+        *,
+        cadence: str | None = None,
+        timezone: str | None = None,
+        max_active_swarms: int | None = None,
+        max_active_runs: int | None = None,
+        trigger: str | None = None,
+        on_run_complete: bool | None = None,
+        event_triggers: tuple[str | JsonObject, ...] = (),
+        event_scope: str | None = None,
+        cooldown_seconds: int | None = None,
+        success_delay_seconds: int | None = None,
+        failure_backoff_seconds: int | None = None,
+        enabled: bool = True,
+        metadata: JsonObject | None = None,
+        launch: SwarmSpec | None = None,
+    ) -> None:
+        if (
+            max_active_swarms is not None
+            and max_active_runs is not None
+            and max_active_swarms != max_active_runs
+        ):
+            raise ValueError("max_active_swarms and max_active_runs must match")
+        object.__setattr__(
+            self,
+            "max_active_swarms",
+            max_active_swarms if max_active_swarms is not None else max_active_runs,
+        )
+        object.__setattr__(self, "cadence", cadence)
+        object.__setattr__(self, "timezone", timezone)
+        object.__setattr__(self, "trigger", trigger)
+        object.__setattr__(self, "on_run_complete", on_run_complete)
+        object.__setattr__(self, "event_triggers", tuple(event_triggers))
+        object.__setattr__(self, "event_scope", event_scope)
+        object.__setattr__(self, "cooldown_seconds", cooldown_seconds)
+        object.__setattr__(self, "success_delay_seconds", success_delay_seconds)
+        object.__setattr__(self, "failure_backoff_seconds", failure_backoff_seconds)
+        object.__setattr__(self, "enabled", enabled)
+        object.__setattr__(self, "metadata", dict(metadata or {}))
+        object.__setattr__(self, "launch", launch)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         if self.cadence is not None:
             require_text(self.cadence, field_name="cadence")
         if self.timezone is not None:
             require_text(self.timezone, field_name="timezone")
+        if self.trigger is not None:
+            require_text(self.trigger, field_name="trigger")
+        if self.event_scope is not None:
+            require_text(self.event_scope, field_name="event_scope")
         if self.max_active_swarms is not None and self.max_active_swarms < 1:
             raise ValueError("max_active_swarms must be positive")
+        if not isinstance(self.enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        if self.on_run_complete is not None and not isinstance(
+            self.on_run_complete, bool
+        ):
+            raise ValueError("on_run_complete must be a boolean")
+        if self.trigger == "on_run_complete" and self.on_run_complete is False:
+            raise ValueError(
+                "on_run_complete cannot be false when trigger is on_run_complete"
+            )
+        if self.on_run_complete is True and self.trigger not in {
+            None,
+            "on_run_complete",
+        }:
+            raise ValueError("on_run_complete cannot be combined with another trigger")
+        for index, event_trigger in enumerate(self.event_triggers):
+            if isinstance(event_trigger, str):
+                require_text(
+                    event_trigger,
+                    field_name=f"event_triggers[{index}]",
+                )
+            elif not isinstance(event_trigger, dict):
+                raise ValueError(
+                    f"event_triggers[{index}] must be a string or JSON object"
+                )
+        object.__setattr__(
+            self,
+            "cooldown_seconds",
+            _bounded_recurrence_seconds(
+                self.cooldown_seconds,
+                field_name="cooldown_seconds",
+                minimum=0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "success_delay_seconds",
+            _bounded_recurrence_seconds(
+                self.success_delay_seconds,
+                field_name="success_delay_seconds",
+                minimum=0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "failure_backoff_seconds",
+            _bounded_recurrence_seconds(
+                self.failure_backoff_seconds,
+                field_name="failure_backoff_seconds",
+                minimum=1,
+            ),
+        )
+        if self.launch is not None and not isinstance(self.launch, SwarmSpec):
+            raise ValueError("launch must be SwarmSpec")
+
+    @property
+    def max_active_runs(self) -> int | None:
+        """Compatibility spelling for the backend wire field."""
+        return self.max_active_swarms
 
     def to_wire(self) -> JsonObject:
-        value: JsonObject = {}
+        value: JsonObject = {"enabled": self.enabled}
         if self.cadence is not None:
             value["cadence"] = self.cadence
         if self.timezone is not None:
             value["timezone"] = self.timezone
         if self.max_active_swarms is not None:
             value["max_active_runs"] = self.max_active_swarms
+        if self.trigger is not None:
+            value["trigger"] = self.trigger
+        if self.on_run_complete is not None:
+            value["on_run_complete"] = self.on_run_complete
+        if self.event_triggers:
+            value["event_triggers"] = [
+                dict(item) if isinstance(item, dict) else item
+                for item in self.event_triggers
+            ]
+        if self.event_scope is not None:
+            value["event_scope"] = self.event_scope
+        if self.cooldown_seconds is not None:
+            value["cooldown_seconds"] = self.cooldown_seconds
+        if self.success_delay_seconds is not None:
+            value["delay_seconds"] = self.success_delay_seconds
+        if self.failure_backoff_seconds is not None:
+            value["failure_policy"] = {
+                "action": "backoff",
+                "backoff_seconds": self.failure_backoff_seconds,
+            }
+        if self.metadata:
+            value["metadata"] = dict(self.metadata)
         if self.launch is not None:
             value["launch_request"] = self.launch.to_wire()
         return value

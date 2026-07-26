@@ -4,6 +4,24 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.3.dev1 — 2026-07-26
+
+Prerelease development line following `0.17.2`.
+
+### Added
+
+- A canonical typed Effort recurrence contract now covers cadence, timezone,
+  concurrency, completion-triggered launches, success delay, bounded failure
+  backoff, metadata, and an exact typed `SwarmSpec` launch request.
+- `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
+  facade accept the typed recurrence without changing its provider, profile,
+  model, or role selections.
+
+### Changed
+
+- The advanced/session `RecurrencePolicy` name is now a compatibility re-export
+  of the stable `EffortRecurrence` contract instead of a second wire model.
+
 ## 0.17.0 — 2026-07-24
 
 Breaking. `research.swarms.*` method names and return types both change from

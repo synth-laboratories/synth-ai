@@ -2422,7 +2422,7 @@ wheels = [
 
 [[package]]
 name = "synth-ai"
-version = "0.17.0"
+version = "0.17.3.dev1"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

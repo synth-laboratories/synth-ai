@@ -15,6 +15,7 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
+from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_operations import (
     Effort,
     EffortStatus,
@@ -677,6 +678,7 @@ class ResearchFactoriesAPI:
         hypothesis_or_topic: str | None = None,
         effort_type: EffortType | str = EffortType.RESEARCH,
         status: EffortStatus | str = EffortStatus.ACTIVE,
+        recurrence: EffortRecurrence | None = None,
         next_wake_at: datetime | str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
@@ -689,6 +691,8 @@ class ResearchFactoriesAPI:
             hypothesis_or_topic: Optional research hypothesis text.
             effort_type: Effort type (default research).
             status: Initial Effort status.
+            recurrence: Typed recurrence policy, including the exact launch
+                SwarmSpec.
             next_wake_at: Optional first wake time.
             metadata: Optional metadata bag.
 
@@ -702,6 +706,7 @@ class ResearchFactoriesAPI:
             hypothesis_or_topic=hypothesis_or_topic,
             effort_type=effort_type,
             status=status,
+            recurrence=recurrence,
             next_wake_at=next_wake_at,
             metadata=metadata,
         )

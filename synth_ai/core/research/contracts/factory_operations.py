@@ -5,7 +5,8 @@ Factory, Effort, Idea, Result, and Champion projections used by the advanced
 Research namespaces. The stable, id-typed Factory contract lives in
 ``synth_ai.core.research.contracts.factories``; the overlapping ``Factory``
 and ``Effort`` shapes in the two modules still need one reconciliation pass
-before the advanced namespaces can fold into the stable contract.
+before the advanced namespaces can fold into the stable contract. Recurrence
+is already canonical there and is only re-exported here for compatibility.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.run_state import (
     _int_value,
     _optional_bool,
@@ -326,35 +328,9 @@ class FactoryTransitionResponse:
         )
 
 
-@dataclass(frozen=True)
-class RecurrencePolicy:
-    cadence: str | None = None
-    timezone: str | None = None
-    max_active_runs: int | None = None
-    trigger: str | None = None
-    event_triggers: tuple[str | dict[str, Any], ...] = ()
-    event_scope: str | None = None
-    cooldown_seconds: int | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_wire(self) -> dict[str, Any]:
-        payload = dict(self.metadata)
-        for key, value in (
-            ("cadence", self.cadence),
-            ("timezone", self.timezone),
-            ("max_active_runs", self.max_active_runs),
-            ("trigger", self.trigger),
-            ("event_scope", self.event_scope),
-            ("cooldown_seconds", self.cooldown_seconds),
-        ):
-            if value is not None:
-                payload[key] = value
-        if self.event_triggers:
-            payload["event_triggers"] = [
-                dict(item) if isinstance(item, Mapping) else str(item)
-                for item in self.event_triggers
-            ]
-        return payload
+# Compatibility name for advanced/session imports. The stable Factory contract
+# is the only recurrence implementation and wire authority.
+RecurrencePolicy = EffortRecurrence
 
 
 @dataclass(frozen=True)
@@ -575,7 +551,7 @@ class EffortCreateRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str = EffortStatus.ACTIVE
     effort_type: EffortType | str = EffortType.RESEARCH
-    recurrence_policy: RecurrencePolicy | dict[str, Any] = field(default_factory=dict)
+    recurrence_policy: EffortRecurrence | dict[str, Any] = field(default_factory=dict)
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -628,7 +604,7 @@ class EffortPatchRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str | None = None
     effort_type: EffortType | str | None = None
-    recurrence_policy: RecurrencePolicy | dict[str, Any] | None = None
+    recurrence_policy: EffortRecurrence | dict[str, Any] | None = None
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
