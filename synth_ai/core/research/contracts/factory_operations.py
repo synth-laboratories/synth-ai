@@ -357,6 +357,26 @@ class RecurrencePolicy:
     failure_backoff_multiplier: float | None = None
 
     def to_wire(self) -> dict[str, Any]:
+        normalized_metadata = dict(self.metadata)
+        if "delay_seconds" not in normalized_metadata:
+            for alias in (
+                "success_delay_seconds",
+                "on_run_complete_delay_seconds",
+            ):
+                if alias in normalized_metadata:
+                    normalized_metadata["delay_seconds"] = normalized_metadata[alias]
+                    break
+        if (
+            "failure_policy" not in normalized_metadata
+            and "on_failure" in normalized_metadata
+        ):
+            normalized_metadata["failure_policy"] = normalized_metadata["on_failure"]
+        for alias in (
+            "success_delay_seconds",
+            "on_run_complete_delay_seconds",
+            "on_failure",
+        ):
+            normalized_metadata.pop(alias, None)
         strict_root_fields = {
             "cadence",
             "cooldown_seconds",
@@ -375,12 +395,12 @@ class RecurrencePolicy:
         }
         legacy_root = {
             key: value
-            for key, value in self.metadata.items()
+            for key, value in normalized_metadata.items()
             if key in strict_root_fields
         }
         opaque_metadata = {
             key: value
-            for key, value in self.metadata.items()
+            for key, value in normalized_metadata.items()
             if key not in strict_root_fields
         }
         typed = EffortRecurrence(
