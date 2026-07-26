@@ -375,14 +375,13 @@ class RecurrencePolicy:
             failure_backoff_max_seconds=self.failure_backoff_max_seconds,
             failure_backoff_multiplier=self.failure_backoff_multiplier,
             enabled=self.enabled if self.enabled is not None else True,
+            metadata=self.metadata,
             research=self.research,
             maintenance=self.maintenance,
         ).to_wire()
         if self.enabled is None:
             typed.pop("enabled", None)
-        payload = dict(self.metadata)
-        payload.update(typed)
-        return payload
+        return typed
 
 
 @dataclass(frozen=True)
