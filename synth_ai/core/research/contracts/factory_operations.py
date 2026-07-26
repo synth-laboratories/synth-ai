@@ -336,7 +336,7 @@ class FactoryTransitionResponse:
 
 @dataclass(frozen=True)
 class RecurrencePolicy:
-    """Legacy recurrence constructor with root-expanded metadata semantics."""
+    """Legacy recurrence constructor with strict-root metadata compatibility."""
 
     cadence: str | None = None
     timezone: str | None = None
@@ -357,6 +357,35 @@ class RecurrencePolicy:
     failure_backoff_multiplier: float | None = None
 
     def to_wire(self) -> dict[str, Any]:
+        strict_root_fields = {
+            "cadence",
+            "cooldown_seconds",
+            "delay_seconds",
+            "enabled",
+            "event_scope",
+            "event_triggers",
+            "failure_policy",
+            "launch_request",
+            "maintenance",
+            "max_active_runs",
+            "on_failure",
+            "on_run_complete",
+            "on_run_complete_delay_seconds",
+            "research",
+            "success_delay_seconds",
+            "timezone",
+            "trigger",
+        }
+        legacy_root = {
+            key: value
+            for key, value in self.metadata.items()
+            if key in strict_root_fields
+        }
+        opaque_metadata = {
+            key: value
+            for key, value in self.metadata.items()
+            if key not in strict_root_fields
+        }
         typed = EffortRecurrence(
             cadence=self.cadence,
             timezone=self.timezone,
@@ -375,13 +404,14 @@ class RecurrencePolicy:
             failure_backoff_max_seconds=self.failure_backoff_max_seconds,
             failure_backoff_multiplier=self.failure_backoff_multiplier,
             enabled=self.enabled if self.enabled is not None else True,
-            metadata=self.metadata,
+            metadata=opaque_metadata,
             research=self.research,
             maintenance=self.maintenance,
         ).to_wire()
         if self.enabled is None:
             typed.pop("enabled", None)
-        return typed
+        legacy_root.update(typed)
+        return legacy_root
 
 
 @dataclass(frozen=True)
