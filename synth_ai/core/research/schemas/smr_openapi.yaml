@@ -47487,9 +47487,9 @@ components:
           title: Effort Type
           default: research
         recurrence_policy:
-          additionalProperties: true
-          type: object
-          title: Recurrence Policy
+          anyOf:
+          - $ref: '#/components/schemas/SmrEffortRecurrencePolicy'
+          - type: 'null'
         next_wake_at:
           anyOf:
           - type: string
@@ -47548,6 +47548,38 @@ components:
       - project_id
       - name
       title: SmrEffortCreateRequest
+    SmrEffortFailureBackoff:
+      properties:
+        action:
+          type: string
+          enum:
+          - backoff
+          - retry
+          title: Action
+          default: backoff
+        backoff_seconds:
+          type: integer
+          maximum: 86400.0
+          minimum: 1.0
+          title: Backoff Seconds
+          default: 300
+        multiplier:
+          type: number
+          maximum: 16.0
+          minimum: 1.0
+          title: Multiplier
+          default: 2.0
+        max_backoff_seconds:
+          anyOf:
+          - type: integer
+            maximum: 604800.0
+            minimum: 1.0
+          - type: 'null'
+          title: Max Backoff Seconds
+      additionalProperties: false
+      type: object
+      title: SmrEffortFailureBackoff
+      description: Finite retry envelope for one terminal-run failure streak.
     SmrEffortFromRunsRequest:
       properties:
         project_id:
@@ -47616,10 +47648,8 @@ components:
           title: Effort Type
         recurrence_policy:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - $ref: '#/components/schemas/SmrEffortRecurrencePolicy'
           - type: 'null'
-          title: Recurrence Policy
         next_wake_at:
           anyOf:
           - type: string
@@ -47685,6 +47715,99 @@ components:
       additionalProperties: false
       type: object
       title: SmrEffortPatchRequest
+    SmrEffortRecurrencePolicy:
+      properties:
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        cadence:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 1
+          - type: 'null'
+          title: Cadence
+        timezone:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Timezone
+          default: UTC
+        max_active_runs:
+          type: integer
+          maximum: 100.0
+          minimum: 1.0
+          title: Max Active Runs
+          default: 1
+        trigger:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 1
+          - type: 'null'
+          title: Trigger
+        on_run_complete:
+          type: boolean
+          title: On Run Complete
+          default: false
+        event_triggers:
+          items:
+            anyOf:
+            - type: string
+            - additionalProperties: true
+              type: object
+          type: array
+          title: Event Triggers
+        event_scope:
+          anyOf:
+          - type: string
+            maxLength: 128
+            minLength: 1
+          - type: 'null'
+          title: Event Scope
+        cooldown_seconds:
+          anyOf:
+          - type: integer
+            maximum: 604800.0
+            minimum: 0.0
+          - type: 'null'
+          title: Cooldown Seconds
+        delay_seconds:
+          type: integer
+          maximum: 604800.0
+          minimum: 0.0
+          title: Delay Seconds
+          default: 0
+        failure_policy:
+          $ref: '#/components/schemas/SmrEffortFailureBackoff'
+        launch_request:
+          anyOf:
+          - $ref: '#/components/schemas/SmrProjectTriggerRequest'
+          - type: 'null'
+        research:
+          additionalProperties: true
+          type: object
+          title: Research
+        maintenance:
+          additionalProperties: true
+          type: object
+          title: Maintenance
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: SmrEffortRecurrencePolicy
+      description: 'Canonical synth-ai-compatible recurring Factory launch contract.
+
+
+        The embedded launch request is the exact backend ``SwarmSpec`` transport
+
+        contract used by ``POST /smr/projects/{project_id}/trigger``. This boundary
+
+        therefore cannot persist a launch-shaped arbitrary mapping.'
     SmrEffortResponse:
       properties:
         effort_id:
@@ -49448,6 +49571,13 @@ components:
           - active
           title: Status
           default: active
+        result_authority_generation:
+          type: string
+          enum:
+          - legacy
+          - result_authority
+          title: Result Authority Generation
+          default: legacy
         budget_policy:
           additionalProperties: true
           type: object
@@ -50605,6 +50735,12 @@ components:
           - paused
           - archived
           title: Status
+        result_authority_generation:
+          type: string
+          enum:
+          - legacy
+          - result_authority
+          title: Result Authority Generation
         budget_policy:
           additionalProperties: true
           type: object
@@ -50649,6 +50785,7 @@ components:
       - name
       - kind
       - status
+      - result_authority_generation
       - created_at
       - updated_at
       title: SmrFactoryResponse
@@ -56311,6 +56448,7 @@ components:
           - items:
               type: string
             type: array
+          - $ref: '#/components/schemas/SmrProviderCredentialRefRequest'
           - type: 'null'
           title: Provider
           description: Inference provider selection. Use 'auto' for backend-owned
@@ -56820,6 +56958,20 @@ components:
       - claim_window_start_at
       - claim_window_end_at
       title: SmrPromotionUpsertRequest
+    SmrProviderCredentialRefRequest:
+      properties:
+        credential_ref:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Credential Ref
+      additionalProperties: false
+      type: object
+      required:
+      - credential_ref
+      title: SmrProviderCredentialRefRequest
+      description: Secure inference-provider selection through a persisted credential
+        ref.
     SmrProviderKeySetRequest:
       properties:
         provider:
@@ -57213,6 +57365,11 @@ components:
           - type: string
           - type: 'null'
           title: Default Worker Profile Id
+        role_profile_ids:
+          additionalProperties:
+            type: string
+          type: object
+          title: Role Profile Ids
       type: object
       required:
       - orchestrator
