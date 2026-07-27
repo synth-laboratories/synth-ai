@@ -26,6 +26,7 @@ class SmrAgentModel(StrEnum):
     X_AI_GROK_BUILD = "x-ai/grok-build"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"
     BASETEN_MOONSHOTAI_KIMI_K3 = "baseten/moonshotai/Kimi-K3"
+    MODAL_MOONSHOTAI_KIMI_K3 = "modal/moonshotai/Kimi-K3"
     BASETEN_ZAI_ORG_GLM_5_2 = "baseten/zai-org/GLM-5.2"
     MODAL_ZAI_ORG_GLM_5_2_FP8 = "modal/zai-org/GLM-5.2-FP8"
     DEEPSEEK_DEEPSEEK_V4_FLASH_DIRECT = "deepseek/deepseek-v4-flash-direct"
