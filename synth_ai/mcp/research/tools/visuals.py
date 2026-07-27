@@ -30,6 +30,8 @@ from synth_ai.mcp.research.request_models import (
 )
 
 CoreClientFactory = Callable[[JSONDict], ResearchClient]
+_MCP_BINARY_CHUNK_BYTES_DEFAULT = 65_536
+_MCP_BINARY_CHUNK_BYTES_MAX = 131_072
 
 
 def _optional_visibility(args: JSONDict) -> VisualVisibility | None:
@@ -42,18 +44,45 @@ def _content_payload(
     content: bytes,
     *,
     content_type: str,
+    offset: int,
+    max_bytes: int,
+    include_content_digest: bool,
 ) -> JSONDict:
-    return {
+    if offset < 0:
+        raise ValueError("offset must be a non-negative integer")
+    if max_bytes < 1 or max_bytes > _MCP_BINARY_CHUNK_BYTES_MAX:
+        raise ValueError(
+            f"max_bytes must be between 1 and {_MCP_BINARY_CHUNK_BYTES_MAX}"
+        )
+    chunk = content[offset : offset + max_bytes]
+    next_offset = offset + len(chunk)
+    payload: JSONDict = {
+        "schema_version": "visual-content-chunk-v1",
         "hosted_artifact_id": str(visual.hosted_artifact_id),
         "root_artifact_id": str(visual.root_artifact_id),
         "project_id": str(visual.project_id),
         "artifact_version": visual.artifact_version,
         "content_type": content_type,
         "encoding": "base64",
-        "content_base64": base64.b64encode(content).decode("ascii"),
+        "content_base64": base64.b64encode(chunk).decode("ascii"),
         "size_bytes": len(content),
-        "content_digest": visual.content_digest,
+        "offset": offset,
+        "bytes_returned": len(chunk),
+        "eof": next_offset >= len(content),
+        "next_offset": next_offset if next_offset < len(content) else None,
     }
+    if include_content_digest:
+        payload["content_digest"] = visual.content_digest
+    return payload
+
+
+def _chunk_request(args: JSONDict) -> tuple[int, int]:
+    offset = optional_int(args, "offset")
+    max_bytes = optional_int(args, "max_bytes")
+    return (
+        offset if offset is not None else 0,
+        max_bytes if max_bytes is not None else _MCP_BINARY_CHUNK_BYTES_DEFAULT,
+    )
 
 
 def build_visual_tools(
@@ -85,21 +114,50 @@ def build_visual_tools(
 
     def get_visual_content(args: JSONDict) -> JSONDict:
         visual_id = ArtifactId(require_string(args, "visual_id"))
+        offset, max_bytes = _chunk_request(args)
         with client_from_args(args) as client:
             visual = client.visuals.retrieve(visual_id)
             content = client.visuals.retrieve_content(visual_id)
-        return _content_payload(visual, content, content_type="text/html")
+        return _content_payload(
+            visual,
+            content,
+            content_type="text/html",
+            offset=offset,
+            max_bytes=max_bytes,
+            include_content_digest=True,
+        )
 
     def get_visual_preview(args: JSONDict) -> JSONDict:
         visual_id = ArtifactId(require_string(args, "visual_id"))
+        offset, max_bytes = _chunk_request(args)
         with client_from_args(args) as client:
             visual = client.visuals.retrieve(visual_id)
             content = client.visuals.retrieve_preview(visual_id)
-        return _content_payload(visual, content, content_type="image/png")
+        return _content_payload(
+            visual,
+            content,
+            content_type="image/png",
+            offset=offset,
+            max_bytes=max_bytes,
+            include_content_digest=False,
+        )
 
     visual_id_schema = {
         "type": "string",
         "description": "Stable hosted artifact identifier for one Visual version.",
+    }
+    chunk_schema = {
+        "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+        },
+        "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": _MCP_BINARY_CHUNK_BYTES_MAX,
+            "default": _MCP_BINARY_CHUNK_BYTES_DEFAULT,
+        },
     }
     return [
         ToolDefinition(
@@ -136,9 +194,9 @@ def build_visual_tools(
         ),
         ToolDefinition(
             name="smr_get_visual_content",
-            description="Retrieve authenticated Visual HTML as an explicit base64 payload.",
+            description="Read one bounded base64 chunk of authenticated Visual HTML.",
             input_schema=tool_schema(
-                {"visual_id": visual_id_schema},
+                {"visual_id": visual_id_schema, **chunk_schema},
                 required=["visual_id"],
             ),
             handler=get_visual_content,
@@ -146,9 +204,9 @@ def build_visual_tools(
         ),
         ToolDefinition(
             name="smr_get_visual_preview",
-            description="Retrieve an authenticated Visual PNG preview as an explicit base64 payload.",
+            description="Read one bounded base64 chunk of an authenticated Visual PNG preview.",
             input_schema=tool_schema(
-                {"visual_id": visual_id_schema},
+                {"visual_id": visual_id_schema, **chunk_schema},
                 required=["visual_id"],
             ),
             handler=get_visual_preview,

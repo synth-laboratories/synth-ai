@@ -7,6 +7,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from synth_ai.core.errors import SynthError
 from synth_ai.core.research.auth import get_api_key
 from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
@@ -174,6 +175,33 @@ def _mcp_structured_trigger_error_payload(exc: SmrApiError) -> dict[str, Any]:
     status = getattr(exc, "status_code", None)
     if isinstance(status, int):
         out["http_status"] = status
+    return out
+
+
+def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
+    """Preserve the shared typed transport failure at the MCP boundary."""
+    failure = exc.failure
+    detail = getattr(exc, "detail", None)
+    detail_dict: dict[str, Any] = dict(detail) if isinstance(detail, dict) else {}
+    code = str(failure.code) if failure is not None else "synth_error"
+    out: dict[str, Any] = {
+        "error": code,
+        "detail": detail_dict,
+        "message": str(exc),
+    }
+    if failure is not None:
+        out.update(
+            {
+                "category": failure.category.value,
+                "operation": failure.operation,
+                "request_id": failure.request_id,
+                "correlation_id": failure.correlation_id,
+                "retryable": failure.retry.retryable,
+                "retry_after_seconds": failure.retry.retry_after_seconds,
+            }
+        )
+        if failure.status is not None:
+            out["http_status"] = failure.status
     return out
 
 
@@ -3474,6 +3502,17 @@ class ResearchMcpServer:
             # Without this, non-launch tools flatten to a generic -32000 text
             # error and drop plan/cap/current-count fields.
             payload = _mcp_structured_trigger_error_payload(exc)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32010,
+                    "message": payload.get("message", str(exc)),
+                    "data": payload,
+                },
+            }
+        except SynthError as exc:
+            payload = _mcp_structured_core_error_payload(exc)
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
