@@ -8,6 +8,10 @@ import re
 import shutil
 from pathlib import Path
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_RESEARCH_ROOT = _REPO_ROOT / "synth_ai" / "core" / "research"
+_WORKSPACE_ROOT = _REPO_ROOT.parent
+
 
 def sync_public_schemas(
     *,
@@ -45,20 +49,22 @@ def _enum_member_name(model_id: str) -> str:
 
 
 def _default_backend_manifest_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_supported_models.json"
+    return _WORKSPACE_ROOT / "backend" / "config" / "smr_supported_models.json"
 
 
 def _default_backend_supported_models_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
+        _WORKSPACE_ROOT
+        / "backend"
+        / "packages"
+        / "smr"
+        / "config"
+        / "supported_models_catalog.py"
     )
 
 
 def _default_backend_public_models_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_public_models.json"
+    return _WORKSPACE_ROOT / "backend" / "config" / "smr_public_models.json"
 
 
 def _default_backend_actor_policy_path() -> Path:
@@ -68,14 +74,12 @@ def _default_backend_actor_policy_path() -> Path:
     only as an explicit override for offline sync when a exported manifest is provided.
     """
 
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_actor_model_policy.json"
+    return _WORKSPACE_ROOT / "backend" / "config" / "smr_actor_model_policy.json"
 
 
 def _default_backend_actor_role_gates_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root
+        _WORKSPACE_ROOT
         / "backend"
         / "packages"
         / "smr"
@@ -85,13 +89,16 @@ def _default_backend_actor_role_gates_path() -> Path:
     )
 
 
-def _backend_python_import_paths() -> tuple[Path, ...]:
-    workspace_root = Path(__file__).resolve().parents[3]
-    backend_root = workspace_root / "backend"
-    return (backend_root / "packages", backend_root)
+def _backend_python_import_paths(
+    backend_root: Path | None = None,
+) -> tuple[Path, ...]:
+    resolved_backend_root = backend_root or (_WORKSPACE_ROOT / "backend")
+    return (resolved_backend_root / "packages", resolved_backend_root)
 
 
-def _load_actor_policy_manifest_from_backend_python() -> dict[str, object]:
+def _load_actor_policy_manifest_from_backend_python(
+    *, backend_root: Path | None = None
+) -> dict[str, object]:
     """Load the live actor-policy manifest from backend code-first registries.
 
     Authority: `backend/packages/smr/config/actor_configurations/actor_role_gates.py`
@@ -100,7 +107,7 @@ def _load_actor_policy_manifest_from_backend_python() -> dict[str, object]:
 
     import sys
 
-    import_paths = _backend_python_import_paths()
+    import_paths = _backend_python_import_paths(backend_root)
     missing = [str(path) for path in import_paths if not path.is_dir()]
     if missing:
         raise FileNotFoundError(
@@ -147,14 +154,18 @@ def _load_actor_policy_manifest_from_backend_python() -> dict[str, object]:
     }
 
 
-def _load_actor_policy_manifest(source: Path | None) -> dict[str, object]:
+def _load_actor_policy_manifest(
+    source: Path | None, *, backend_root: Path | None = None
+) -> dict[str, object]:
     if source is not None:
         raw = json.loads(source.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise ValueError("Actor model policy manifest must be a JSON object")
         return raw
     try:
-        return _load_actor_policy_manifest_from_backend_python()
+        return _load_actor_policy_manifest_from_backend_python(
+            backend_root=backend_root
+        )
     except Exception as primary_exc:
         legacy = _default_backend_actor_policy_path()
         if legacy.is_file():
@@ -353,24 +364,13 @@ def sync_smr_layered_enums(
     *,
     destination_dir: Path | None = None,
 ) -> list[Path]:
-    legacy_models_dir = Path(__file__).resolve().parent / "models"
-    contracts_dir = Path(__file__).resolve().parents[1] / "contracts"
-    contracts_enum_files = {
-        "smr_agent_kinds.py",
-        "smr_funding_sources.py",
-        "smr_credential_providers.py",
-        "smr_inference_providers.py",
-        "smr_tool_providers.py",
-        "smr_work_modes.py",
-    }
+    contracts_dir = _RESEARCH_ROOT / "contracts"
     generated: list[Path] = []
     for filename, class_name, field_name, values in _STATIC_ENUM_SPECS:
         if destination_dir is not None:
             target_dir = destination_dir
-        elif filename in contracts_enum_files:
-            target_dir = contracts_dir
         else:
-            target_dir = legacy_models_dir
+            target_dir = contracts_dir
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / filename
         target.write_text(
@@ -395,33 +395,64 @@ def sync_smr_agent_models(
 
     source = source_manifest or _default_backend_supported_models_path()
     destination = destination_file or (
-        Path(__file__).resolve().parents[1] / "contracts" / "smr_agent_models.py"
+        _RESEARCH_ROOT / "contracts" / "smr_agent_models.py"
     )
     if source.suffix == ".py":
         module = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
-        models = None
+        model_ids: list[str] | None = None
         for node in module.body:
-            if isinstance(node, ast.AnnAssign):
-                if (
-                    isinstance(node.target, ast.Name)
-                    and node.target.id == "SUPPORTED_MODEL_ENTRIES"
-                    and node.value is not None
-                ):
-                    models = ast.literal_eval(node.value)
-                    break
+            value: ast.expr | None = None
+            if (
+                isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "SUPPORTED_MODEL_ENTRIES"
+            ):
+                value = node.value
             elif isinstance(node, ast.Assign) and any(
                 isinstance(target, ast.Name) and target.id == "SUPPORTED_MODEL_ENTRIES"
                 for target in node.targets
             ):
-                models = ast.literal_eval(node.value)
-                break
+                value = node.value
+            if value is None:
+                continue
+            if not isinstance(value, (ast.List, ast.Tuple)):
+                raise ValueError(
+                    "Backend SUPPORTED_MODEL_ENTRIES must be a list or tuple"
+                )
+            model_ids = []
+            for index, item in enumerate(value.elts):
+                if not isinstance(item, ast.Dict):
+                    raise ValueError(
+                        f"Backend supported-model entry {index} must be a dict literal"
+                    )
+                model_id: str | None = None
+                for key, child in zip(item.keys, item.values, strict=True):
+                    if (
+                        isinstance(key, ast.Constant)
+                        and key.value == "id"
+                        and isinstance(child, ast.Constant)
+                        and isinstance(child.value, str)
+                    ):
+                        model_id = child.value.strip()
+                        break
+                if not model_id:
+                    raise ValueError(
+                        f"Backend supported-model entry {index} requires a literal id"
+                    )
+                model_ids.append(model_id)
+            break
     else:
         raw = json.loads(source.read_text(encoding="utf-8"))
         models = raw.get("models")
-    if not isinstance(models, (list, tuple)) or not models:
-        raise ValueError("Managed Research supported-model source must contain non-empty models")
-
-    model_ids = [str(item.get("id") or "").strip() for item in models if isinstance(item, dict)]
+        if not isinstance(models, (list, tuple)) or not models:
+            raise ValueError(
+                "Managed Research supported-model source must contain non-empty models"
+            )
+        model_ids = [
+            str(item.get("id") or "").strip()
+            for item in models
+            if isinstance(item, dict)
+        ]
     if not model_ids or any(not model_id for model_id in model_ids):
         raise ValueError("Managed Research supported-model entries require non-empty ids")
     model_ids.extend(
@@ -483,6 +514,7 @@ def sync_smr_actor_model_policy(
     *,
     source_manifest: Path | None = None,
     destination_file: Path | None = None,
+    backend_root: Path | None = None,
 ) -> Path:
     """Generate actor policy constants from backend code-first actor role gates.
 
@@ -493,9 +525,9 @@ def sync_smr_actor_model_policy(
     """
 
     destination = destination_file or (
-        Path(__file__).resolve().parents[1] / "contracts" / "smr_actor_policy_data.py"
+        _RESEARCH_ROOT / "contracts" / "smr_actor_policy_data.py"
     )
-    raw = _load_actor_policy_manifest(source_manifest)
+    raw = _load_actor_policy_manifest(source_manifest, backend_root=backend_root)
     policies = raw.get("policies")
     if not isinstance(policies, list) or not policies:
         raise ValueError(
@@ -573,7 +605,7 @@ def sync_smr_public_models_snapshot(
 
     source = source_manifest or _default_backend_public_models_path()
     destination = destination_file or (
-        Path(__file__).resolve().parent / "schemas" / "public_models.json"
+        _RESEARCH_ROOT / "schemas" / "public_models.json"
     )
     raw = json.loads(source.read_text(encoding="utf-8"))
     models = raw.get("models")
