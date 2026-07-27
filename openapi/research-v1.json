@@ -11596,15 +11596,8 @@
             "title": "Run Id"
           },
           "size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Size Bytes"
+            "title": "Size Bytes",
+            "type": "integer"
           },
           "source_run_ids": {
             "items": {
@@ -17797,15 +17790,8 @@
             "title": "Run Id"
           },
           "size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Size Bytes"
+            "title": "Size Bytes",
+            "type": "integer"
           },
           "source_run_ids": {
             "items": {

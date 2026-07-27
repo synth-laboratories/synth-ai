@@ -68,12 +68,6 @@ def _required_integer(payload: JsonObject, name: str, *, minimum: int) -> int:
     return value
 
 
-def _optional_integer(payload: JsonObject, name: str, *, minimum: int) -> int | None:
-    if payload.get(name) is None:
-        return None
-    return _required_integer(payload, name, minimum=minimum)
-
-
 def _optional_string(payload: JsonObject, name: str) -> str | None:
     value = payload.get(name)
     if value is None:
@@ -104,7 +98,7 @@ class Visual:
     canonical_url: str
     summary: str | None
     content_digest: str | None
-    size_bytes: int | None
+    size_bytes: int
     blob_state: VisualBlobState
     source_run_ids: tuple[SwarmId, ...]
     superseded_by_id: ArtifactId | None
@@ -150,7 +144,7 @@ class Visual:
             canonical_url=required_text(payload, "canonical_url"),
             summary=_optional_string(payload, "summary"),
             content_digest=optional_text(payload, "content_digest"),
-            size_bytes=_optional_integer(payload, "size_bytes", minimum=0),
+            size_bytes=_required_integer(payload, "size_bytes", minimum=0),
             blob_state=VisualBlobState(required_text(payload, "blob_state")),
             source_run_ids=source_run_ids,
             superseded_by_id=cast(
