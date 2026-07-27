@@ -38583,6 +38583,12 @@ components:
           maxLength: 500
           minLength: 1
           title: Title
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
         html:
           type: string
           format: binary
@@ -38623,6 +38629,12 @@ components:
           maxLength: 500
           minLength: 1
           title: Title
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
         html:
           type: string
           format: binary
@@ -38668,6 +38680,12 @@ components:
           maxLength: 500
           minLength: 1
           title: Title
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
         html:
           type: string
           format: binary

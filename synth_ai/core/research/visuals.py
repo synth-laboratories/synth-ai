@@ -63,6 +63,7 @@ def _preview_png_bytes(preview_png: bytes | Path) -> bytes:
 def _upload_parts(
     *,
     title: str,
+    summary: str | None,
     html: str | bytes | Path,
     visual_kind: str,
     source_run_ids: Iterable[SwarmId | str],
@@ -82,6 +83,8 @@ def _upload_parts(
         "source_run_ids_json": json.dumps([str(item) for item in source_run_ids]),
         "metadata_json": json.dumps(dict(metadata or {})),
     }
+    if summary is not None:
+        data["summary"] = summary
     if root_artifact_id is not None:
         data["root_artifact_id"] = str(root_artifact_id)
     files = {"html": ("index.html", _html_bytes(html), "text/html")}
@@ -140,6 +143,7 @@ class VisualsAPI:
         run_id: SwarmId,
         *,
         title: str,
+        summary: str | None = None,
         html: str | bytes | Path,
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
@@ -150,6 +154,7 @@ class VisualsAPI:
         """Publish self-contained HTML produced by a Research run."""
         data, files = _upload_parts(
             title=title,
+            summary=summary,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
@@ -173,6 +178,7 @@ class VisualsAPI:
         project_id: ProjectId,
         *,
         title: str,
+        summary: str | None = None,
         html: str | bytes | Path,
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
@@ -183,6 +189,7 @@ class VisualsAPI:
         """Publish a project-owned Visual without requiring a run."""
         data, files = _upload_parts(
             title=title,
+            summary=summary,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
@@ -336,6 +343,7 @@ class AsyncVisualsAPI:
         run_id: SwarmId,
         *,
         title: str,
+        summary: str | None = None,
         html: str | bytes | Path,
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
@@ -345,6 +353,7 @@ class AsyncVisualsAPI:
     ) -> Visual:
         data, files = _upload_parts(
             title=title,
+            summary=summary,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
@@ -365,6 +374,7 @@ class AsyncVisualsAPI:
         project_id: ProjectId,
         *,
         title: str,
+        summary: str | None = None,
         html: str | bytes | Path,
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
@@ -374,6 +384,7 @@ class AsyncVisualsAPI:
     ) -> Visual:
         data, files = _upload_parts(
             title=title,
+            summary=summary,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,

@@ -615,6 +615,18 @@
             "title": "Source Run Ids Json",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "title": {
             "maxLength": 500,
             "minLength": 1,
@@ -674,6 +686,18 @@
             "default": "[]",
             "title": "Source Run Ids Json",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "title": {
             "maxLength": 500,
