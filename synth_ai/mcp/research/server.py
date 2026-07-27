@@ -77,6 +77,7 @@ from synth_ai.mcp.research.tools.runs import build_run_tools
 from synth_ai.mcp.research.tools.tag import build_tag_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
+from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
@@ -113,6 +114,9 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_project_dataset_content",
         "research_get_project_setup",
         "research_get_workspace_inputs",
+        "research_get_visual",
+        "research_get_visual_content",
+        "research_get_visual_preview",
         "research_get_run",
         "research_get_run_transcript",
         "research_get_swarm_activity",
@@ -130,6 +134,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_project_datasets",
         "research_list_project_repositories",
         "research_list_runs",
+        "research_list_visuals",
         "research_patch_effort",
         "research_patch_factory",
         "research_patch_project",
@@ -387,6 +392,7 @@ class ResearchMcpServer:
             *build_project_data_tools(self._core_client_from_args),
             *build_environment_tools(self._core_client_from_args),
             *build_image_release_tools(self._core_client_from_args),
+            *build_visual_tools(self._core_client_from_args),
             *build_log_tools(self),
             *build_approval_tools(self),
             *build_artifact_tools(self),
