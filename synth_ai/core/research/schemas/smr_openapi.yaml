@@ -16612,42 +16612,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /smr/visuals:
+  /smr/visual-storage:
     get:
       tags:
       - smr
       - hosted-artifacts
-      summary: List Visuals
-      operationId: list_visuals_smr_visuals_get
-      parameters:
-      - name: project_id
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Project Id
-      - name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          default: 100
-          title: Limit
+      summary: Get Visual Storage
+      description: 'Per-org Visual storage measurement (P7: measure, do not cap).'
+      operationId: get_visual_storage_smr_visual_storage_get
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmrVisualListResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+                $ref: '#/components/schemas/SmrVisualStorageResponse'
   /smr/visuals/{visual_id}:
     get:
       tags:
@@ -61243,9 +61222,7 @@ components:
           - type: 'null'
           title: Content Digest
         size_bytes:
-          anyOf:
-          - type: integer
-          - type: 'null'
+          type: integer
           title: Size Bytes
         blob_state:
           type: string
@@ -70651,9 +70628,7 @@ components:
           - type: 'null'
           title: Content Digest
         size_bytes:
-          anyOf:
-          - type: integer
-          - type: 'null'
+          type: integer
           title: Size Bytes
         blob_state:
           type: string
@@ -70700,6 +70675,29 @@ components:
       - created_at
       - updated_at
       title: SmrVisualResponse
+    SmrVisualStorageResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        visual_count:
+          type: integer
+          title: Visual Count
+        total_bytes:
+          type: integer
+          title: Total Bytes
+        bundle_limit_bytes:
+          type: integer
+          title: Bundle Limit Bytes
+      type: object
+      required:
+      - org_id
+      - visual_count
+      - total_bytes
+      - bundle_limit_bytes
+      title: SmrVisualStorageResponse
+      description: Per-org Visual storage measurement. Measured, never enforced, in
+        v1 (P7).
     SmrVisualVersionListResponse:
       properties:
         root_artifact_id:
