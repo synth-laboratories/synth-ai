@@ -12509,6 +12509,7 @@
         "type": "object"
       },
       "SmrPublicVisualResponse": {
+        "description": "Wire model for the unauthenticated public Visual surface.\n\nNever carries evidence: evidence is org-scoped and served only on the\nauthenticated SmrVisualResponse surface.",
         "properties": {
           "artifact_version": {
             "title": "Artifact Version",
@@ -16216,7 +16217,10 @@
             "type": "string"
           },
           "provider": {
-            "const": "exe_dev",
+            "enum": [
+              "exe_dev",
+              "local_slot_manager"
+            ],
             "title": "Provider",
             "type": "string"
           },
@@ -18600,6 +18604,24 @@
         "title": "SmrUsageResponse",
         "type": "object"
       },
+      "SmrVisualEvidencePayload": {
+        "properties": {
+          "evidence": {
+            "additionalProperties": true,
+            "title": "Evidence",
+            "type": "object"
+          },
+          "source_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Run Ids",
+            "type": "array"
+          }
+        },
+        "title": "SmrVisualEvidencePayload",
+        "type": "object"
+      },
       "SmrVisualListResponse": {
         "properties": {
           "next_cursor": {
@@ -18703,6 +18725,7 @@
         "type": "object"
       },
       "SmrVisualResponse": {
+        "description": "Org-scoped Visual read model: the public surface plus evidence.",
         "properties": {
           "artifact_version": {
             "title": "Artifact Version",
@@ -18752,6 +18775,16 @@
               }
             ],
             "title": "Deleted At"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrVisualEvidencePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hosted_artifact_id": {
             "title": "Hosted Artifact Id",

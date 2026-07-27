@@ -313,7 +313,10 @@ class VisualsAPI:
                 f"/smr/public/visuals/{normalized_slug}",
             )
         )
-        return Visual.from_wire(value)
+        visual = Visual.from_wire(value)
+        if visual.evidence is not None:
+            raise ValueError("public Visual surface must not carry org-scoped evidence")
+        return visual
 
     def retrieve_public_content(self, slug: str) -> bytes:
         normalized_slug = _slug(slug)
@@ -509,7 +512,7 @@ class AsyncVisualsAPI:
 
     async def retrieve_public(self, slug: str) -> Visual:
         normalized_slug = _slug(slug)
-        return Visual.from_wire(
+        visual = Visual.from_wire(
             await self._transport.execute(
                 _request(
                     "retrieve_public_visual",
@@ -517,6 +520,9 @@ class AsyncVisualsAPI:
                 )
             )
         )
+        if visual.evidence is not None:
+            raise ValueError("public Visual surface must not carry org-scoped evidence")
+        return visual
 
     async def retrieve_public_content(self, slug: str) -> bytes:
         normalized_slug = _slug(slug)

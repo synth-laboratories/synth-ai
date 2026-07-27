@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import cast
@@ -78,6 +78,40 @@ def _optional_string(payload: JsonObject, name: str) -> str | None:
 
 
 @dataclass(frozen=True, slots=True)
+class VisualEvidencePayload:
+    """Org-scoped evidence attached to a Visual.
+
+    Mirrors the backend ``SmrVisualEvidencePayload``. Evidence is served only
+    on the authenticated org Visual surface; the unauthenticated public
+    surface never carries it.
+    """
+
+    source_run_ids: tuple[SwarmId, ...] = ()
+    evidence: JsonObject = field(default_factory=dict)
+
+    @classmethod
+    def from_wire(cls, value: JsonValue) -> VisualEvidencePayload:
+        payload = object_value(value, operation_id="visual.evidence")
+        source_run_ids = tuple(
+            SwarmId(required_text({"source_run_id": item}, "source_run_id"))
+            for item in array_value(
+                cast(JsonValue, payload.get("source_run_ids", [])),
+                operation_id="visual.evidence.source_run_ids",
+            )
+        )
+        evidence = payload.get("evidence", {})
+        if not isinstance(evidence, dict):
+            raise ValueError("visual evidence must be an object")
+        return cls(source_run_ids=source_run_ids, evidence=evidence)
+
+    def to_wire(self) -> JsonObject:
+        return {
+            "source_run_ids": [str(item) for item in self.source_run_ids],
+            "evidence": dict(self.evidence),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class Visual:
     """One immutable Visual version returned by the backend authority."""
 
@@ -105,6 +139,7 @@ class Visual:
     deleted_at: datetime | None
     published_at: datetime | None
     created_at: datetime
+    evidence: VisualEvidencePayload | None = None
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Visual:
@@ -154,6 +189,11 @@ class Visual:
             deleted_at=optional_datetime(payload, "deleted_at"),
             published_at=optional_datetime(payload, "published_at"),
             created_at=required_datetime(payload, "created_at"),
+            evidence=(
+                VisualEvidencePayload.from_wire(cast(JsonValue, payload["evidence"]))
+                if payload.get("evidence") is not None
+                else None
+            ),
         )
         if visual.visibility is VisualVisibility.PUBLIC:
             if visual.public_slug is None or visual.public_url is None:
@@ -163,7 +203,7 @@ class Visual:
         return visual
 
     def to_wire(self) -> JsonObject:
-        """Serialize the safe public Visual projection."""
+        """Serialize the decoded Visual surface; evidence stays None off-org."""
         return {
             "hosted_artifact_id": str(self.hosted_artifact_id),
             "root_artifact_id": str(self.root_artifact_id),
@@ -197,6 +237,7 @@ class Visual:
                 self.published_at.isoformat() if self.published_at is not None else None
             ),
             "created_at": self.created_at.isoformat(),
+            "evidence": self.evidence.to_wire() if self.evidence is not None else None,
         }
 
 
@@ -322,6 +363,7 @@ __all__ = [
     "ResearchVisualVersions",
     "Visual",
     "VisualBlobState",
+    "VisualEvidencePayload",
     "VisualPage",
     "VisualPatch",
     "VisualPromotion",
