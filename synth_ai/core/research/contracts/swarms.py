@@ -155,6 +155,7 @@ class InferenceProvider(StrEnum):
     DEEPSEEK = "deepseek"
     OPENAI = "openai"
     GOOGLE = "google"
+    MODAL = "modal"
     OPENROUTER = "openrouter"
     SYNTH = "synth"
     XAI = "xai"
@@ -176,6 +177,7 @@ _PUBLIC_PROVIDER_SELECTIONS = frozenset(
     {
         InferenceProvider.AUTO.value,
         InferenceProvider.OPENAI.value,
+        InferenceProvider.MODAL.value,
         InferenceProvider.SYNTH.value,
         InferenceProvider.XAI.value,
         InferenceProvider.CURSOR.value,
@@ -207,7 +209,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, openai, synth, xai, and cursor; "
+            "provider supports auto, openai, modal, synth, xai, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
