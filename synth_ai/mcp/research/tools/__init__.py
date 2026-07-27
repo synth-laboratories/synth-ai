@@ -19,6 +19,7 @@ from synth_ai.mcp.research.tools.prs import build_pr_tools
 from synth_ai.mcp.research.tools.readiness import build_readiness_tools
 from synth_ai.mcp.research.tools.repos import build_repo_tools
 from synth_ai.mcp.research.tools.runs import build_run_tools
+from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
 
 __all__ = [
@@ -39,5 +40,6 @@ __all__ = [
     "build_readiness_tools",
     "build_repo_tools",
     "build_run_tools",
+    "build_visual_tools",
     "build_workspace_input_tools",
 ]
