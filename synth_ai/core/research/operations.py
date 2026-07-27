@@ -95,6 +95,19 @@ RESEARCH_OPERATIONS = {
             "/smr/research-intern/decisions",
             idempotent=True,
         ),
+        _operation(
+            "mint_factory_role_receipt",
+            HttpMethod.POST,
+            "/smr/research-intern/factories/{factory_id}/role-receipts",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_factory_role_receipts",
+            HttpMethod.GET,
+            "/smr/research-intern/factories/{factory_id}/role-receipts",
+            idempotent=True,
+        ),
         _operation("create_project", HttpMethod.POST, "/smr/projects:runnable", mutation=True),
         _operation(
             "provision_project_computer",

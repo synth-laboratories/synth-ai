@@ -170,6 +170,13 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluationRequest,
     FactoryResultKind,
 )
+from synth_ai.core.research.contracts.factory_role_receipts import (
+    FactoryLunaRole,
+    FactoryRoleReceiptMintRequest,
+    FactoryRoleReceiptProvenance,
+    FactoryRoleReceiptResponse,
+    FactoryRoleReceiptRuntimeEvidence,
+)
 from synth_ai.core.research.contracts.image_releases import (
     ActorRuntimeImageMaterialization,
     ActorRuntimeImageRelease,
@@ -631,7 +638,12 @@ __all__ = [
     "FactoryId",
     "FactoryKind",
     "FactoryLifecycleState",
+    "FactoryLunaRole",
     "FactoryResultAuthorityGeneration",
+    "FactoryRoleReceiptMintRequest",
+    "FactoryRoleReceiptProvenance",
+    "FactoryRoleReceiptResponse",
+    "FactoryRoleReceiptRuntimeEvidence",
     "FactoryPatch",
     "FactoryPatchRequest",
     "FactorySpec",

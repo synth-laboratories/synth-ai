@@ -34,6 +34,10 @@ from synth_ai.core.research.contracts.dataset_revisions import (
     DatasetRevisionPreparationResponse,
     DatasetRevisionPrepareRequest,
 )
+from synth_ai.core.research.contracts.factory_role_receipts import (
+    FactoryRoleReceiptMintRequest,
+    FactoryRoleReceiptResponse,
+)
 from synth_ai.core.research.contracts.project_runtime import (
     ProjectComputerExecuteRequest,
     ProjectComputerInspectRequest,
@@ -120,6 +124,16 @@ def _decisions(value: object) -> tuple[MagiDecisionReceiptResponse, ...]:
     )
 
 
+def _role_receipts(value: object) -> tuple[FactoryRoleReceiptResponse, ...]:
+    return tuple(
+        FactoryRoleReceiptResponse.from_wire(item)
+        for item in array_value(
+            cast(JsonValue, value),
+            operation_id="list_factory_role_receipts",
+        )
+    )
+
+
 def _data_bindings(value: object) -> tuple[DataBindingResponse, ...]:
     return tuple(
         DataBindingResponse.from_wire(item)
@@ -169,6 +183,57 @@ class ResearchInternFactoriesAPI:
                 )
             )
         )
+
+    def mint_role_receipt(
+        self,
+        factory_id: FactoryId,
+        request: FactoryRoleReceiptMintRequest,
+    ) -> FactoryRoleReceiptResponse:
+        """Mint one idempotent Factory role receipt from owner runtime evidence."""
+        receipt = FactoryRoleReceiptResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "mint_factory_role_receipt",
+                    f"/smr/research-intern/factories/{factory_id}/role-receipts",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            receipt.factory_id != str(factory_id)
+            or receipt.idempotency_key != request.idempotency_key
+            or receipt.candidate_id != request.candidate_id
+            or receipt.role != request.role
+            or receipt.runtime_evidence.run_id != request.run_id
+        ):
+            raise ValueError("Factory role receipt identity drifted")
+        return receipt
+
+    def list_role_receipts(
+        self,
+        factory_id: FactoryId,
+        candidate_id: str | None = None,
+    ) -> tuple[FactoryRoleReceiptResponse, ...]:
+        """List durable Factory role receipts, optionally for one candidate."""
+        query: JsonObject = {}
+        if candidate_id is not None:
+            query["candidate_id"] = candidate_id
+        receipts = _role_receipts(
+            self._transport.execute(
+                _request(
+                    "list_factory_role_receipts",
+                    f"/smr/research-intern/factories/{factory_id}/role-receipts",
+                    query=query,
+                )
+            )
+        )
+        if any(
+            receipt.factory_id != str(factory_id)
+            or (candidate_id is not None and receipt.candidate_id != candidate_id)
+            for receipt in receipts
+        ):
+            raise ValueError("Factory role receipt list crossed its requested boundary")
+        return receipts
 
 
 class ResearchInternDecisionsAPI:
@@ -723,6 +788,57 @@ class AsyncResearchInternFactoriesAPI:
                 )
             )
         )
+
+    async def mint_role_receipt(
+        self,
+        factory_id: FactoryId,
+        request: FactoryRoleReceiptMintRequest,
+    ) -> FactoryRoleReceiptResponse:
+        """Mint one idempotent Factory role receipt from owner runtime evidence."""
+        receipt = FactoryRoleReceiptResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "mint_factory_role_receipt",
+                    f"/smr/research-intern/factories/{factory_id}/role-receipts",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            receipt.factory_id != str(factory_id)
+            or receipt.idempotency_key != request.idempotency_key
+            or receipt.candidate_id != request.candidate_id
+            or receipt.role != request.role
+            or receipt.runtime_evidence.run_id != request.run_id
+        ):
+            raise ValueError("Factory role receipt identity drifted")
+        return receipt
+
+    async def list_role_receipts(
+        self,
+        factory_id: FactoryId,
+        candidate_id: str | None = None,
+    ) -> tuple[FactoryRoleReceiptResponse, ...]:
+        """List durable Factory role receipts, optionally for one candidate."""
+        query: JsonObject = {}
+        if candidate_id is not None:
+            query["candidate_id"] = candidate_id
+        receipts = _role_receipts(
+            await self._transport.execute(
+                _request(
+                    "list_factory_role_receipts",
+                    f"/smr/research-intern/factories/{factory_id}/role-receipts",
+                    query=query,
+                )
+            )
+        )
+        if any(
+            receipt.factory_id != str(factory_id)
+            or (candidate_id is not None and receipt.candidate_id != candidate_id)
+            for receipt in receipts
+        ):
+            raise ValueError("Factory role receipt list crossed its requested boundary")
+        return receipts
 
 
 class AsyncResearchInternDecisionsAPI:

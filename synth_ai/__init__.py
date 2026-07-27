@@ -50,6 +50,11 @@ __all__ = [
     "DatasetRevisionPrepareRequest",
     "DraftDeliveryAuthorityResponse",
     "EnsureDraftDeliveryRequest",
+    "FactoryLunaRole",
+    "FactoryRoleReceiptMintRequest",
+    "FactoryRoleReceiptProvenance",
+    "FactoryRoleReceiptResponse",
+    "FactoryRoleReceiptRuntimeEvidence",
     "FactoryStorageAuthorityResponse",
     "HorizonsPrivateClient",
     "ResearchApiError",
@@ -119,6 +124,26 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "EnsureDraftDeliveryRequest": (
         "synth_ai.core.research.contracts",
         "EnsureDraftDeliveryRequest",
+    ),
+    "FactoryLunaRole": (
+        "synth_ai.core.research.contracts",
+        "FactoryLunaRole",
+    ),
+    "FactoryRoleReceiptMintRequest": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptMintRequest",
+    ),
+    "FactoryRoleReceiptProvenance": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptProvenance",
+    ),
+    "FactoryRoleReceiptResponse": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptResponse",
+    ),
+    "FactoryRoleReceiptRuntimeEvidence": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptRuntimeEvidence",
     ),
     "FactoryStorageAuthorityResponse": (
         "synth_ai.core.research.contracts",

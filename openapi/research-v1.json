@@ -2392,6 +2392,265 @@
         "title": "FactoryProjectMembershipReceiptRef",
         "type": "object"
       },
+      "FactoryRoleReceiptMintRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "researcher",
+              "data_engineer",
+              "reviewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "candidate_id",
+          "role",
+          "run_id"
+        ],
+        "title": "FactoryRoleReceiptMintRequest",
+        "type": "object"
+      },
+      "FactoryRoleReceiptProvenance": {
+        "additionalProperties": false,
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "content_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "receipt_url": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Receipt Url",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.factory-role-receipt.provenance.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "service_origin": {
+            "const": "urn:synth:research-intern",
+            "title": "Service Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "service_origin",
+          "content_digest",
+          "receipt_url",
+          "captured_at"
+        ],
+        "title": "FactoryRoleReceiptProvenance",
+        "type": "object"
+      },
+      "FactoryRoleReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "const": "research_intern",
+            "title": "Authority",
+            "type": "string"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "owner_service": {
+            "const": "research_intern",
+            "title": "Owner Service",
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/FactoryRoleReceiptProvenance"
+          },
+          "receipt_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "receipt_url": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Receipt Url",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "researcher",
+              "data_engineer",
+              "reviewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "runtime_evidence": {
+            "$ref": "#/components/schemas/FactoryRoleReceiptRuntimeEvidence"
+          },
+          "schema_version": {
+            "const": "smr.factory-role-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "owner_service",
+          "authority",
+          "receipt_id",
+          "receipt_digest",
+          "receipt_url",
+          "role",
+          "candidate_id",
+          "org_id",
+          "research_intern_id",
+          "factory_id",
+          "idempotency_key",
+          "runtime_evidence",
+          "provenance",
+          "created_at"
+        ],
+        "title": "FactoryRoleReceiptResponse",
+        "type": "object"
+      },
+      "FactoryRoleReceiptRuntimeEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_key": {
+            "title": "Actor Key",
+            "type": "string"
+          },
+          "actor_subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Subtype"
+          },
+          "actor_type": {
+            "enum": [
+              "worker",
+              "reviewer"
+            ],
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "attempt_number": {
+            "minimum": 1.0,
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "completion_status": {
+            "const": "succeeded",
+            "title": "Completion Status",
+            "type": "string"
+          },
+          "finished_at": {
+            "format": "date-time",
+            "title": "Finished At",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "state": {
+            "const": "completed",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "project_id",
+          "actor_id",
+          "actor_key",
+          "actor_type",
+          "attempt_number",
+          "state",
+          "completion_status",
+          "finished_at"
+        ],
+        "title": "FactoryRoleReceiptRuntimeEvidence",
+        "type": "object"
+      },
       "FactoryStorageAuthorityDescriptor": {
         "additionalProperties": false,
         "description": "One org-owned storage authority descriptor per Factory.",
@@ -26927,6 +27186,121 @@
           }
         },
         "summary": "Cleanup Factory Project Computers",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/factories/{factory_id}/role-receipts": {
+      "get": {
+        "operationId": "list_factory_role_receipts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "candidate_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Candidate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FactoryRoleReceiptResponse"
+                  },
+                  "title": "Response List Factory Role Receipts Smr Research Intern Factories  Factory Id  Role Receipts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Factory Role Receipts",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "mint_factory_role_receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactoryRoleReceiptMintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryRoleReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mint Factory Role Receipt",
         "tags": [
           "smr",
           "research-intern"
