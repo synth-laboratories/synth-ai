@@ -51,7 +51,105 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation("create_factory", HttpMethod.POST, "/smr/factories", mutation=True),
+        _operation(
+            "provision_research_intern",
+            HttpMethod.POST,
+            "/smr/research-intern",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_research_intern",
+            HttpMethod.GET,
+            "/smr/research-intern",
+            idempotent=True,
+        ),
+        _operation(
+            "patch_research_intern",
+            HttpMethod.PATCH,
+            "/smr/research-intern",
+            mutation=True,
+        ),
+        _operation(
+            "attach_research_intern_factory",
+            HttpMethod.POST,
+            "/smr/research-intern/factories/{factory_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_research_intern_factories",
+            HttpMethod.GET,
+            "/smr/research-intern/factories",
+            idempotent=True,
+        ),
+        _operation(
+            "record_magi_decision",
+            HttpMethod.POST,
+            "/smr/research-intern/decisions",
+            mutation=True,
+        ),
+        _operation(
+            "list_magi_decisions",
+            HttpMethod.GET,
+            "/smr/research-intern/decisions",
+            idempotent=True,
+        ),
         _operation("create_project", HttpMethod.POST, "/smr/projects:runnable", mutation=True),
+        _operation(
+            "provision_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer",
+            mutation=True,
+        ),
+        _operation(
+            "get_project_computer",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/computer",
+            idempotent=True,
+        ),
+        _operation(
+            "replace_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/replace",
+            mutation=True,
+        ),
+        _operation(
+            "retire_project_computer",
+            HttpMethod.DELETE,
+            "/smr/projects/{project_id}/computer",
+            mutation=True,
+        ),
+        _operation(
+            "create_data_binding",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/data-bindings",
+            mutation=True,
+        ),
+        _operation(
+            "list_data_bindings",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings",
+            idempotent=True,
+        ),
+        _operation(
+            "create_dataset_revision",
+            HttpMethod.POST,
+            (
+                "/smr/projects/{project_id}/data-bindings/"
+                "{data_binding_id}/revisions"
+            ),
+            mutation=True,
+        ),
+        _operation(
+            "list_dataset_revisions",
+            HttpMethod.GET,
+            (
+                "/smr/projects/{project_id}/data-bindings/"
+                "{data_binding_id}/revisions"
+            ),
+            idempotent=True,
+        ),
         _operation(
             "create_project_dataset",
             HttpMethod.POST,
@@ -376,6 +474,12 @@ RESEARCH_OPERATIONS = {
         ),
         _operation("retrieve_research_limits", HttpMethod.GET, "/smr/limits", idempotent=True),
         _operation("retrieve_run", HttpMethod.GET, "/smr/runs/{run_id}", idempotent=True),
+        _operation(
+            "stream_run_trace_capture",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/traces/{capture_id}/stream",
+            idempotent=True,
+        ),
         _operation(
             "retrieve_swarm_artifact_content",
             HttpMethod.GET,

@@ -43,16 +43,25 @@ __all__ = [
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
+    "DataBindingCreateRequest",
+    "DatasetRevisionCreateRequest",
     "HorizonsPrivateClient",
     "ResearchApiError",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
+    "MagiDecisionRequest",
+    "MagiMode",
+    "ProjectComputerProvisionRequest",
+    "ProjectComputerReplaceRequest",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
+    "ResearchInternProvisionRequest",
+    "ResearchInternResponse",
+    "ResearchInternStatus",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
     "ResearchVisual",
@@ -68,6 +77,27 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "DataBindingCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DataBindingCreateRequest",
+    ),
+    "DatasetRevisionCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionCreateRequest",
+    ),
+    "MagiDecisionRequest": (
+        "synth_ai.core.research.contracts",
+        "MagiDecisionRequest",
+    ),
+    "MagiMode": ("synth_ai.core.research.contracts", "MagiMode"),
+    "ProjectComputerProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerProvisionRequest",
+    ),
+    "ProjectComputerReplaceRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerReplaceRequest",
+    ),
     "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (
         "synth_ai.core.research.errors",
@@ -92,6 +122,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchProjectCreateRequest": (
         "synth_ai.core.research.contracts",
         "ResearchProjectCreateRequest",
+    ),
+    "ResearchInternProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternProvisionRequest",
+    ),
+    "ResearchInternResponse": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternResponse",
+    ),
+    "ResearchInternStatus": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternStatus",
     ),
     "ResearchSwarmLaunchRequest": (
         "synth_ai.core.research.contracts",

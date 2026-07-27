@@ -13,6 +13,7 @@ from synth_ai.core.research.factories import FactoriesAPI
 from synth_ai.core.research.image_releases import ImageReleasesAPI
 from synth_ai.core.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
+from synth_ai.core.research.research_intern import ResearchInternAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
 from synth_ai.core.research.traces import ResearchTracesAPI
 from synth_ai.core.research.visuals import VisualsAPI
@@ -117,6 +118,11 @@ class Client:
     def factories(self) -> FactoriesAPI:
         """Stable Factory lifecycle and typed Efforts."""
         return self._core.factories
+
+    @property
+    def intern(self) -> ResearchInternAPI:
+        """The organization's durable Research Intern and its Magi receipts."""
+        return self._core.intern
 
     @property
     def environments(self) -> EnvironmentsAPI:

@@ -74,6 +74,12 @@
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Visuals"
+    },
+    {
+      "module": "synth_ai.core.research.research_intern",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Research Intern"
     }
   ],
   "exclude_patterns": [
@@ -98,6 +104,7 @@
         "reference/sdk/research/synth_ai-core-research-projects",
         "reference/sdk/research/synth_ai-core-research-swarms",
         "reference/sdk/research/synth_ai-core-research-factories",
+        "reference/sdk/research/synth_ai-core-research-research_intern",
         "reference/sdk/research/synth_ai-core-research-visuals"
       ]
     },
@@ -114,6 +121,7 @@
     "synth_ai/core/research/projects.py",
     "synth_ai/core/research/swarms.py",
     "synth_ai/core/research/factories.py",
+    "synth_ai/core/research/research_intern.py",
     "synth_ai/core/research/visuals.py",
     "synth_ai/core/research/errors.py",
     "synth_ai/client.py",

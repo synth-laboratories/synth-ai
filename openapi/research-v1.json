@@ -924,6 +924,235 @@
         "title": "CraftaxScorerImageReleaseResponse",
         "type": "object"
       },
+      "DataBindingCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "access_policy": {
+            "additionalProperties": true,
+            "title": "Access Policy",
+            "type": "object"
+          },
+          "authority_ref": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Authority Ref",
+            "type": "string"
+          },
+          "binding_kind": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Binding Kind",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "name",
+          "binding_kind",
+          "authority_ref"
+        ],
+        "title": "DataBindingCreateRequest",
+        "type": "object"
+      },
+      "DataBindingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "access_policy": {
+            "additionalProperties": true,
+            "title": "Access Policy",
+            "type": "object"
+          },
+          "authority_ref": {
+            "title": "Authority Ref",
+            "type": "string"
+          },
+          "binding_kind": {
+            "title": "Binding Kind",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_binding_id": {
+            "title": "Data Binding Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_binding_id",
+          "org_id",
+          "research_intern_id",
+          "factory_id",
+          "project_id",
+          "name",
+          "binding_kind",
+          "authority_ref",
+          "access_policy",
+          "metadata",
+          "created_at"
+        ],
+        "title": "DataBindingResponse",
+        "type": "object"
+      },
+      "DatasetRevisionCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_uri": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Manifest Uri",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "revision_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision_digest",
+          "manifest_uri",
+          "schema_version"
+        ],
+        "title": "DatasetRevisionCreateRequest",
+        "type": "object"
+      },
+      "DatasetRevisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_binding_id": {
+            "title": "Data Binding Id",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "manifest_uri": {
+            "title": "Manifest Uri",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "parent_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Revision Id"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_digest": {
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_revision_id",
+          "data_binding_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "revision_digest",
+          "manifest_uri",
+          "schema_version",
+          "metadata",
+          "created_at"
+        ],
+        "title": "DatasetRevisionResponse",
+        "type": "object"
+      },
       "EntitlementAssetId": {
         "enum": [
           "usage",
@@ -1558,6 +1787,275 @@
         "type": "object"
       },
       "JsonValue": {},
+      "MagiCanonicalUser": {
+        "enum": [
+          "Casper",
+          "Melchior",
+          "Balthasar"
+        ],
+        "title": "MagiCanonicalUser",
+        "type": "string"
+      },
+      "MagiDecisionKind": {
+        "enum": [
+          "delegate",
+          "inspect",
+          "pause",
+          "intervene",
+          "resume",
+          "verdict",
+          "revise"
+        ],
+        "title": "MagiDecisionKind",
+        "type": "string"
+      },
+      "MagiDecisionReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_user": {
+            "$ref": "#/components/schemas/MagiCanonicalUser"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decided_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By User Id"
+          },
+          "decision_kind": {
+            "$ref": "#/components/schemas/MagiDecisionKind"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "factory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factory Id"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/MagiMode"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "state_generation": {
+            "title": "State Generation",
+            "type": "integer"
+          },
+          "state_patch": {
+            "additionalProperties": true,
+            "title": "State Patch",
+            "type": "object"
+          },
+          "uncertainty": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "research_intern_id",
+          "org_id",
+          "mode",
+          "canonical_user",
+          "decision_kind",
+          "idempotency_key",
+          "state_generation",
+          "evidence_refs",
+          "state_patch",
+          "rationale",
+          "created_at"
+        ],
+        "title": "MagiDecisionReceiptResponse",
+        "type": "object"
+      },
+      "MagiDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_kind": {
+            "$ref": "#/components/schemas/MagiDecisionKind"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "factory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Factory Id"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/MagiMode"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "rationale": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "state_patch": {
+            "additionalProperties": true,
+            "title": "State Patch",
+            "type": "object"
+          },
+          "uncertainty": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "mode",
+          "decision_kind",
+          "idempotency_key",
+          "rationale"
+        ],
+        "title": "MagiDecisionRequest",
+        "type": "object"
+      },
+      "MagiMode": {
+        "enum": [
+          "sync",
+          "async",
+          "seraph"
+        ],
+        "title": "MagiMode",
+        "type": "string"
+      },
       "ParentObjectiveKind": {
         "enum": [
           "open_ended_question",
@@ -1565,6 +2063,234 @@
         ],
         "title": "ParentObjectiveKind",
         "type": "string"
+      },
+      "ProjectComputerLifecycle": {
+        "enum": [
+          "provisioning",
+          "ready",
+          "replacing",
+          "retired",
+          "error"
+        ],
+        "title": "ProjectComputerLifecycle",
+        "type": "string"
+      },
+      "ProjectComputerProvisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "provider_kind": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Digest"
+          },
+          "source_repository_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Repository Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "provider_kind",
+          "adapter_kind",
+          "source_repository_id",
+          "source_revision"
+        ],
+        "title": "ProjectComputerProvisionRequest",
+        "type": "object"
+      },
+      "ProjectComputerReplaceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "provider_kind": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "source_repository_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Repository Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Revision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "provider_kind",
+          "adapter_kind",
+          "source_repository_id",
+          "source_revision",
+          "snapshot_digest"
+        ],
+        "title": "ProjectComputerReplaceRequest",
+        "type": "object"
+      },
+      "ProjectComputerResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/ProjectComputerLifecycle"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_computer_id": {
+            "title": "Project Computer Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider_kind": {
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_resource_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Resource Ref"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Digest"
+          },
+          "source_repository_id": {
+            "title": "Source Repository Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "title": "Source Revision",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_computer_id",
+          "org_id",
+          "research_intern_id",
+          "factory_id",
+          "project_id",
+          "provider_kind",
+          "adapter_kind",
+          "source_repository_id",
+          "source_revision",
+          "lifecycle",
+          "generation",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProjectComputerResponse",
+        "type": "object"
       },
       "ProjectSetupStatus": {
         "enum": [
@@ -1574,6 +2300,298 @@
           "ready"
         ],
         "title": "ProjectSetupStatus",
+        "type": "string"
+      },
+      "ResearchInternFactoryMembershipResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attached_at": {
+            "format": "date-time",
+            "title": "Attached At",
+            "type": "string"
+          },
+          "attached_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attached By User Id"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "research_intern_id",
+          "org_id",
+          "factory_id",
+          "role",
+          "attached_at"
+        ],
+        "title": "ResearchInternFactoryMembershipResponse",
+        "type": "object"
+      },
+      "ResearchInternPatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution_team_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Team Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "policies": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchInternPolicySet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchInternStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ResearchInternPatchRequest",
+        "type": "object"
+      },
+      "ResearchInternPolicySet": {
+        "additionalProperties": false,
+        "description": "Policy scopes remain attributable instead of being merged implicitly.",
+        "properties": {
+          "organization": {
+            "additionalProperties": true,
+            "title": "Organization",
+            "type": "object"
+          },
+          "organization_policy_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Policy Ref"
+          },
+          "team": {
+            "additionalProperties": true,
+            "title": "Team",
+            "type": "object"
+          },
+          "team_policy_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Policy Ref"
+          },
+          "user": {
+            "additionalProperties": true,
+            "title": "User",
+            "type": "object"
+          },
+          "user_policy_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Policy Ref"
+          }
+        },
+        "title": "ResearchInternPolicySet",
+        "type": "object"
+      },
+      "ResearchInternProvisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution_team_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Team Id"
+          },
+          "display_name": {
+            "default": "Research Intern",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "policies": {
+            "$ref": "#/components/schemas/ResearchInternPolicySet"
+          }
+        },
+        "title": "ResearchInternProvisionRequest",
+        "type": "object"
+      },
+      "ResearchInternResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attribution_team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution Team Id"
+          },
+          "attribution_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution User Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "durable_state": {
+            "additionalProperties": true,
+            "title": "Durable State",
+            "type": "object"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "policies": {
+            "$ref": "#/components/schemas/ResearchInternPolicySet"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "state_generation": {
+            "title": "State Generation",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ResearchInternStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "research_intern_id",
+          "org_id",
+          "display_name",
+          "status",
+          "policies",
+          "state_generation",
+          "durable_state",
+          "metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ResearchInternResponse",
+        "type": "object"
+      },
+      "ResearchInternStatus": {
+        "enum": [
+          "active",
+          "paused",
+          "archived"
+        ],
+        "title": "ResearchInternStatus",
         "type": "string"
       },
       "ResourceCapability": {
@@ -15632,6 +16650,17 @@
             ],
             "title": "Effort Id"
           },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
           "manifest": {
             "additionalProperties": true,
             "title": "Manifest",
@@ -19580,6 +20609,428 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/computer": {
+      "delete": {
+        "operationId": "retire_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retire Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "get": {
+        "operationId": "get_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "provision_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provision Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/replace": {
+      "post": {
+        "operationId": "replace_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerReplaceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replace Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-bindings": {
+      "get": {
+        "operationId": "list_data_bindings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DataBindingResponse"
+                  },
+                  "title": "Response List Data Bindings Smr Projects  Project Id  Data Bindings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Data Bindings",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "create_data_binding",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DataBindingCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataBindingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Data Binding",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions": {
+      "get": {
+        "operationId": "list_dataset_revisions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DatasetRevisionResponse"
+                  },
+                  "title": "Response List Dataset Revisions Smr Projects  Project Id  Data Bindings  Data Binding Id  Revisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dataset Revisions",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "create_dataset_revision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatasetRevisionCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Dataset Revision",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/datasets": {
       "get": {
         "operationId": "list_project_datasets",
@@ -21003,6 +22454,267 @@
         "tags": [
           "smr",
           "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/research-intern": {
+      "get": {
+        "operationId": "get_research_intern",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchInternResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Research Intern",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_research_intern",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchInternPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchInternResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Research Intern",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "provision_research_intern",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchInternProvisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchInternResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provision Research Intern",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/decisions": {
+      "get": {
+        "operationId": "list_magi_decisions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MagiDecisionReceiptResponse"
+                  },
+                  "title": "Response List Magi Decisions Smr Research Intern Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Magi Decisions",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      },
+      "post": {
+        "operationId": "record_magi_decision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MagiDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MagiDecisionReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Magi Decision",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/factories": {
+      "get": {
+        "operationId": "list_research_intern_factories",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResearchInternFactoryMembershipResponse"
+                  },
+                  "title": "Response List Research Intern Factories Smr Research Intern Factories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Research Intern Factories",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/factories/{factory_id}": {
+      "post": {
+        "operationId": "attach_research_intern_factory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchInternFactoryMembershipResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach Research Intern Factory",
+        "tags": [
+          "smr",
+          "research-intern"
         ]
       }
     },
