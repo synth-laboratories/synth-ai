@@ -17,6 +17,7 @@ from synth_ai.core.research.contracts._wire import (
     object_value,
     optional_datetime,
     optional_text,
+    required_datetime,
     required_text,
 )
 from synth_ai.core.research.contracts.common import (
@@ -100,6 +101,8 @@ class Visual:
     public_slug: str | None
     public_url: str | None
     preview_url: str | None
+    canonical_url: str
+    summary: str | None
     content_digest: str | None
     size_bytes: int | None
     blob_state: VisualBlobState
@@ -107,6 +110,7 @@ class Visual:
     superseded_by_id: ArtifactId | None
     deleted_at: datetime | None
     published_at: datetime | None
+    created_at: datetime
 
     @classmethod
     def from_wire(cls, value: JsonValue) -> Visual:
@@ -143,6 +147,8 @@ class Visual:
             public_slug=optional_text(payload, "public_slug"),
             public_url=optional_text(payload, "public_url"),
             preview_url=optional_text(payload, "preview_url"),
+            canonical_url=required_text(payload, "canonical_url"),
+            summary=_optional_string(payload, "summary"),
             content_digest=optional_text(payload, "content_digest"),
             size_bytes=_optional_integer(payload, "size_bytes", minimum=0),
             blob_state=VisualBlobState(required_text(payload, "blob_state")),
@@ -153,14 +159,12 @@ class Visual:
             ),
             deleted_at=optional_datetime(payload, "deleted_at"),
             published_at=optional_datetime(payload, "published_at"),
+            created_at=required_datetime(payload, "created_at"),
         )
         if visual.visibility is VisualVisibility.PUBLIC:
-            if visual.public_slug is None or visual.public_url is None or visual.preview_url is None:
-                raise ValueError("public Visual responses require slug and safe public URLs")
-        elif any(
-            value is not None
-            for value in (visual.public_slug, visual.public_url, visual.preview_url)
-        ):
+            if visual.public_slug is None or visual.public_url is None:
+                raise ValueError("public Visual responses require slug and a safe public URL")
+        elif any(value is not None for value in (visual.public_slug, visual.public_url)):
             raise ValueError("organization Visual responses must not expose public URLs")
         return visual
 
@@ -185,6 +189,8 @@ class Visual:
             "public_slug": self.public_slug,
             "public_url": self.public_url,
             "preview_url": self.preview_url,
+            "canonical_url": self.canonical_url,
+            "summary": self.summary,
             "content_digest": self.content_digest,
             "size_bytes": self.size_bytes,
             "blob_state": self.blob_state.value,
@@ -196,6 +202,7 @@ class Visual:
             "published_at": (
                 self.published_at.isoformat() if self.published_at is not None else None
             ),
+            "created_at": self.created_at.isoformat(),
         }
 
 

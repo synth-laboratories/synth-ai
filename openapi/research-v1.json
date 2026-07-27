@@ -587,6 +587,18 @@
             "title": "Metadata Json",
             "type": "string"
           },
+          "preview": {
+            "anyOf": [
+              {
+                "format": "binary",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
           "root_artifact_id": {
             "anyOf": [
               {
@@ -602,6 +614,18 @@
             "default": "[]",
             "title": "Source Run Ids Json",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "title": {
             "maxLength": 500,
@@ -635,6 +659,18 @@
             "title": "Metadata Json",
             "type": "string"
           },
+          "preview": {
+            "anyOf": [
+              {
+                "format": "binary",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview"
+          },
           "root_artifact_id": {
             "anyOf": [
               {
@@ -650,6 +686,18 @@
             "default": "[]",
             "title": "Source Run Ids Json",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           },
           "title": {
             "maxLength": 500,
@@ -11458,6 +11506,10 @@
             ],
             "title": "Content Digest"
           },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
           "deleted_at": {
             "anyOf": [
               {
@@ -11569,6 +11621,17 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "superseded_by_id": {
             "anyOf": [
               {
@@ -11615,7 +11678,8 @@
           "status",
           "canonical_url",
           "size_bytes",
-          "blob_state"
+          "blob_state",
+          "created_at"
         ],
         "title": "SmrPublicVisualResponse",
         "type": "object"
@@ -17563,6 +17627,10 @@
             ],
             "title": "Content Digest"
           },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
           "deleted_at": {
             "anyOf": [
               {
@@ -17674,6 +17742,17 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "superseded_by_id": {
             "anyOf": [
               {
@@ -17720,7 +17799,8 @@
           "status",
           "canonical_url",
           "size_bytes",
-          "blob_state"
+          "blob_state",
+          "created_at"
         ],
         "title": "SmrVisualResponse",
         "type": "object"
@@ -27593,6 +27673,47 @@
           }
         },
         "summary": "Get Visual Content",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/preview": {
+      "get": {
+        "operationId": "retrieve_visual_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Visual Preview",
         "tags": [
           "smr",
           "hosted-artifacts"

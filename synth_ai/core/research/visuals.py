@@ -54,6 +54,12 @@ def _html_bytes(html: str | bytes | Path) -> bytes:
     return bytes(html)
 
 
+def _preview_png_bytes(preview_png: bytes | Path) -> bytes:
+    if isinstance(preview_png, Path):
+        return preview_png.read_bytes()
+    return bytes(preview_png)
+
+
 def _upload_parts(
     *,
     title: str,
@@ -61,6 +67,9 @@ def _upload_parts(
     visual_kind: str,
     source_run_ids: Iterable[SwarmId | str],
     metadata: Mapping[str, JsonValue] | None,
+    root_artifact_id: ArtifactId | None,
+    preview_png: bytes | Path | None,
+    summary: str | None,
 ) -> tuple[dict[str, str], dict[str, tuple[str, bytes, str]]]:
     normalized_title = title.strip()
     if not normalized_title:
@@ -74,7 +83,18 @@ def _upload_parts(
         "source_run_ids_json": json.dumps([str(item) for item in source_run_ids]),
         "metadata_json": json.dumps(dict(metadata or {})),
     }
-    return data, {"html": ("index.html", _html_bytes(html), "text/html")}
+    if root_artifact_id is not None:
+        data["root_artifact_id"] = str(root_artifact_id)
+    if summary is not None:
+        data["summary"] = summary
+    files = {"html": ("index.html", _html_bytes(html), "text/html")}
+    if preview_png is not None:
+        files["preview"] = (
+            "preview.png",
+            _preview_png_bytes(preview_png),
+            "image/png",
+        )
+    return data, files
 
 
 def _list_query(
@@ -127,6 +147,9 @@ class VisualsAPI:
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
         metadata: Mapping[str, JsonValue] | None = None,
+        root_artifact_id: ArtifactId | None = None,
+        preview_png: bytes | Path | None = None,
+        summary: str | None = None,
     ) -> Visual:
         """Publish self-contained HTML produced by a Research run."""
         data, files = _upload_parts(
@@ -135,6 +158,9 @@ class VisualsAPI:
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
             metadata=metadata,
+            root_artifact_id=root_artifact_id,
+            preview_png=preview_png,
+            summary=summary,
         )
         data["visibility"] = VisualVisibility.ORGANIZATION.value
         value = self._transport.request_multipart_json(
@@ -156,6 +182,9 @@ class VisualsAPI:
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
         metadata: Mapping[str, JsonValue] | None = None,
+        root_artifact_id: ArtifactId | None = None,
+        preview_png: bytes | Path | None = None,
+        summary: str | None = None,
     ) -> Visual:
         """Publish a project-owned Visual without requiring a run."""
         data, files = _upload_parts(
@@ -164,6 +193,9 @@ class VisualsAPI:
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
             metadata=metadata,
+            root_artifact_id=root_artifact_id,
+            preview_png=preview_png,
+            summary=summary,
         )
         value = self._transport.request_multipart_json(
             _request(
@@ -206,14 +238,12 @@ class VisualsAPI:
         return VisualPage.from_wire(value)
 
     def retrieve(self, visual_id: ArtifactId) -> Visual:
-        """Retrieve one organization-authorized Visual."""
         value = self._transport.execute(
             _request("retrieve_visual", f"/smr/visuals/{visual_id}")
         )
         return Visual.from_wire(value)
 
     def list_versions(self, visual_id: ArtifactId) -> VisualVersions:
-        """List immutable versions for a Visual lineage."""
         value = self._transport.execute(
             _request(
                 "list_visual_versions",
@@ -223,7 +253,6 @@ class VisualsAPI:
         return VisualVersions.from_wire(value)
 
     def update(self, visual_id: ArtifactId, request: VisualPatch) -> Visual:
-        """Update mutable Visual metadata."""
         value = self._transport.execute(
             _request(
                 "update_visual",
@@ -234,13 +263,11 @@ class VisualsAPI:
         return Visual.from_wire(value)
 
     def delete(self, visual_id: ArtifactId) -> None:
-        """Soft-delete a Visual and schedule blob cleanup."""
         self._transport.execute(
             _request("delete_visual", f"/smr/visuals/{visual_id}")
         )
 
     def restore(self, visual_id: ArtifactId) -> Visual:
-        """Restore a soft-deleted Visual while its blob remains available."""
         value = self._transport.execute(
             _request("restore_visual", f"/smr/visuals/{visual_id}/restore")
         )
@@ -258,14 +285,12 @@ class VisualsAPI:
         return Visual.from_wire(value)
 
     def unpublish(self, visual_id: ArtifactId) -> Visual:
-        """Remove public access while retaining the organization Visual."""
         value = self._transport.execute(
             _request("unpublish_visual", f"/smr/visuals/{visual_id}/unpublish")
         )
         return Visual.from_wire(value)
 
     def retrieve_content(self, visual_id: ArtifactId) -> bytes:
-        """Download organization-authorized self-contained HTML."""
         operation_id = "retrieve_visual_content"
         return self._transport.request_bytes(
             "GET",
@@ -273,8 +298,14 @@ class VisualsAPI:
             operation_id=operation_id,
         )
 
+    def retrieve_preview(self, visual_id: ArtifactId) -> bytes:
+        return self._transport.request_bytes(
+            "GET",
+            f"/smr/visuals/{visual_id}/preview",
+            operation_id="retrieve_visual_preview",
+        )
+
     def retrieve_public(self, slug: str) -> Visual:
-        """Retrieve the safe public projection for a promoted slug."""
         normalized_slug = _slug(slug)
         value = self._transport.execute(
             _request(
@@ -285,7 +316,6 @@ class VisualsAPI:
         return Visual.from_wire(value)
 
     def retrieve_public_content(self, slug: str) -> bytes:
-        """Download public self-contained HTML for a promoted slug."""
         normalized_slug = _slug(slug)
         return self._transport.request_bytes(
             "GET",
@@ -294,7 +324,6 @@ class VisualsAPI:
         )
 
     def retrieve_public_preview(self, slug: str) -> bytes:
-        """Download the service-authored public preview image."""
         normalized_slug = _slug(slug)
         return self._transport.request_bytes(
             "GET",
@@ -318,14 +347,19 @@ class AsyncVisualsAPI:
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
         metadata: Mapping[str, JsonValue] | None = None,
+        root_artifact_id: ArtifactId | None = None,
+        preview_png: bytes | Path | None = None,
+        summary: str | None = None,
     ) -> Visual:
-        """Publish self-contained HTML produced by a Research run."""
         data, files = _upload_parts(
             title=title,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
             metadata=metadata,
+            root_artifact_id=root_artifact_id,
+            preview_png=preview_png,
+            summary=summary,
         )
         data["visibility"] = VisualVisibility.ORGANIZATION.value
         value = await self._transport.request_multipart_json(
@@ -344,14 +378,19 @@ class AsyncVisualsAPI:
         visual_kind: str = "research_visual",
         source_run_ids: Iterable[SwarmId | str] = (),
         metadata: Mapping[str, JsonValue] | None = None,
+        root_artifact_id: ArtifactId | None = None,
+        preview_png: bytes | Path | None = None,
+        summary: str | None = None,
     ) -> Visual:
-        """Publish a project-owned Visual without requiring a run."""
         data, files = _upload_parts(
             title=title,
             html=html,
             visual_kind=visual_kind,
             source_run_ids=source_run_ids,
             metadata=metadata,
+            root_artifact_id=root_artifact_id,
+            preview_png=preview_png,
+            summary=summary,
         )
         value = await self._transport.request_multipart_json(
             _request(
@@ -375,7 +414,6 @@ class AsyncVisualsAPI:
         cursor: str | None = None,
         limit: int = 100,
     ) -> VisualPage:
-        """List one cursor-paginated page of project Visuals."""
         value = await self._transport.execute(
             _request(
                 "list_project_visuals",
@@ -394,7 +432,6 @@ class AsyncVisualsAPI:
         return VisualPage.from_wire(value)
 
     async def retrieve(self, visual_id: ArtifactId) -> Visual:
-        """Retrieve one organization-authorized Visual."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request("retrieve_visual", f"/smr/visuals/{visual_id}")
@@ -402,7 +439,6 @@ class AsyncVisualsAPI:
         )
 
     async def list_versions(self, visual_id: ArtifactId) -> VisualVersions:
-        """List immutable versions for a Visual lineage."""
         return VisualVersions.from_wire(
             await self._transport.execute(
                 _request(
@@ -413,7 +449,6 @@ class AsyncVisualsAPI:
         )
 
     async def update(self, visual_id: ArtifactId, request: VisualPatch) -> Visual:
-        """Update mutable Visual metadata."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request(
@@ -425,13 +460,11 @@ class AsyncVisualsAPI:
         )
 
     async def delete(self, visual_id: ArtifactId) -> None:
-        """Soft-delete a Visual and schedule blob cleanup."""
         await self._transport.execute(
             _request("delete_visual", f"/smr/visuals/{visual_id}")
         )
 
     async def restore(self, visual_id: ArtifactId) -> Visual:
-        """Restore a soft-deleted Visual while its blob remains available."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request("restore_visual", f"/smr/visuals/{visual_id}/restore")
@@ -443,7 +476,6 @@ class AsyncVisualsAPI:
         visual_id: ArtifactId,
         request: VisualPromotion,
     ) -> Visual:
-        """Promote a Visual through the backend's ADMIN/OWNER authority."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request(
@@ -455,7 +487,6 @@ class AsyncVisualsAPI:
         )
 
     async def unpublish(self, visual_id: ArtifactId) -> Visual:
-        """Remove public access while retaining the organization Visual."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request("unpublish_visual", f"/smr/visuals/{visual_id}/unpublish")
@@ -463,15 +494,20 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_content(self, visual_id: ArtifactId) -> bytes:
-        """Download organization-authorized self-contained HTML."""
         return await self._transport.request_bytes(
             "GET",
             f"/smr/visuals/{visual_id}/content",
             operation_id="retrieve_visual_content",
         )
 
+    async def retrieve_preview(self, visual_id: ArtifactId) -> bytes:
+        return await self._transport.request_bytes(
+            "GET",
+            f"/smr/visuals/{visual_id}/preview",
+            operation_id="retrieve_visual_preview",
+        )
+
     async def retrieve_public(self, slug: str) -> Visual:
-        """Retrieve the safe public projection for a promoted slug."""
         normalized_slug = _slug(slug)
         return Visual.from_wire(
             await self._transport.execute(
@@ -483,7 +519,6 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_public_content(self, slug: str) -> bytes:
-        """Download public self-contained HTML for a promoted slug."""
         normalized_slug = _slug(slug)
         return await self._transport.request_bytes(
             "GET",
@@ -492,7 +527,6 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_public_preview(self, slug: str) -> bytes:
-        """Download the service-authored public preview image."""
         normalized_slug = _slug(slug)
         return await self._transport.request_bytes(
             "GET",
