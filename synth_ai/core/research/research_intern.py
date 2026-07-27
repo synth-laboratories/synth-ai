@@ -14,6 +14,7 @@ from synth_ai.core.research.contracts.research_intern import (
     DataBindingCreateRequest,
     DataBindingResponse,
     DatasetRevisionCreateRequest,
+    DatasetRevisionLifecycleRequest,
     DatasetRevisionResponse,
     MagiDecisionReceiptResponse,
     MagiDecisionRequest,
@@ -27,7 +28,27 @@ from synth_ai.core.research.contracts.research_intern import (
     ResearchInternProvisionRequest,
     ResearchInternResponse,
 )
-from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.contracts.dataset_revisions import (
+    DatasetRevisionFinalizeRequest,
+    DatasetRevisionFinalizeResponse,
+    DatasetRevisionPreparationResponse,
+    DatasetRevisionPrepareRequest,
+)
+from synth_ai.core.research.contracts.project_runtime import (
+    ProjectComputerExecuteRequest,
+    ProjectComputerInspectRequest,
+    ProjectComputerLeaseAcquireRequest,
+    ProjectComputerLeaseReleaseRequest,
+    ProjectComputerLeaseRenewRequest,
+    ProjectComputerLeaseResponse,
+    ProjectComputerOperationReconcileRequest,
+    ProjectRuntimeOperation,
+    ProjectRuntimeOperationReceipt,
+)
+from synth_ai.core.research.operations import (
+    dataset_revision_publication_operation,
+    research_operation,
+)
 
 
 def _request(
@@ -43,6 +64,40 @@ def _request(
         query=query or {},
         body=body,
     )
+
+
+def _dataset_publication_request(
+    operation_id: str,
+    path: str,
+    *,
+    body: JsonObject,
+) -> HttpRequest:
+    return HttpRequest(
+        dataset_revision_publication_operation(operation_id),
+        path,
+        body=body,
+    )
+
+
+def _validate_operation_receipt(
+    receipt: ProjectRuntimeOperationReceipt,
+    request: (
+        ProjectComputerInspectRequest
+        | ProjectComputerExecuteRequest
+        | ProjectComputerOperationReconcileRequest
+    ),
+    *,
+    operation: ProjectRuntimeOperation | None,
+) -> ProjectRuntimeOperationReceipt:
+    if (
+        receipt.operation_id != request.operation_id
+        or receipt.idempotency_key != request.idempotency_key
+        or receipt.resource_generation != request.expected_generation
+    ):
+        raise ValueError("Project Computer operation receipt identity drifted")
+    if operation is not None and receipt.operation is not operation:
+        raise ValueError("Project Computer operation receipt kind drifted")
+    return receipt
 
 
 def _memberships(value: object) -> tuple[ResearchInternFactoryMembershipResponse, ...]:
@@ -289,6 +344,143 @@ class ProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
+    def inspect(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerInspectRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Inspect one generation without crossing its Factory boundary."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "inspect_project_computer",
+                    f"/smr/projects/{project_id}/computer/inspect",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(
+            receipt,
+            request,
+            operation=ProjectRuntimeOperation.INSPECT,
+        )
+
+    def execute(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerExecuteRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Execute a bounded argv under an exact lease and fencing digest."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "execute_project_computer",
+                    f"/smr/projects/{project_id}/computer/execute",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(
+            receipt,
+            request,
+            operation=ProjectRuntimeOperation.EXECUTE,
+        )
+
+    def reconcile(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerOperationReconcileRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Observe an accepted operation with an unknown provider outcome."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            self._transport.execute(
+                _request(
+                    "reconcile_project_computer_operation",
+                    f"/smr/projects/{project_id}/computer/operations/reconcile",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(receipt, request, operation=None)
+
+    def acquire_lease(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerLeaseAcquireRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Acquire one generation-fenced execution lease."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "acquire_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.state != "active"
+        ):
+            raise ValueError("Project Computer lease acquisition identity drifted")
+        return lease
+
+    def renew_lease(
+        self,
+        project_id: ProjectId,
+        lease_id: str,
+        request: ProjectComputerLeaseRenewRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Renew one exact lease while preserving its fencing identity."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "renew_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases/{lease_id}/renew",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.lease_id != lease_id
+            or lease.fencing_token_digest != request.fencing_token_digest
+            or lease.state != "active"
+        ):
+            raise ValueError("Project Computer lease renewal identity drifted")
+        return lease
+
+    def release_lease(
+        self,
+        project_id: ProjectId,
+        lease_id: str,
+        request: ProjectComputerLeaseReleaseRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Release one exact lease and retain the final fencing identity."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "release_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases/{lease_id}/release",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.lease_id != lease_id
+            or lease.fencing_token_digest != request.fencing_token_digest
+            or lease.state != "released"
+        ):
+            raise ValueError("Project Computer lease release identity drifted")
+        return lease
+
     def cleanup(
         self,
         factory_id: FactoryId,
@@ -378,7 +570,7 @@ class ProjectDataBindingsAPI:
         )
         if (
             revision.project_id != str(project_id)
-            or revision.data_binding_id != data_binding_id
+            or str(revision.data_binding_id) != data_binding_id
         ):
             raise ValueError("Dataset Revision response identity drifted")
         return revision
@@ -402,11 +594,100 @@ class ProjectDataBindingsAPI:
         )
         if any(
             revision.project_id != str(project_id)
-            or revision.data_binding_id != data_binding_id
+            or str(revision.data_binding_id) != data_binding_id
             for revision in revisions
         ):
             raise ValueError("Dataset Revision list identity drifted")
         return revisions
+
+    def transition_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        dataset_revision_id: str,
+        request: DatasetRevisionLifecycleRequest,
+    ) -> DatasetRevisionResponse:
+        """Apply a fail-closed lifecycle transition to one exact revision."""
+        revision = DatasetRevisionResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "transition_dataset_revision_lifecycle",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                        f"revisions/{dataset_revision_id}/lifecycle"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            revision.project_id != str(project_id)
+            or str(revision.data_binding_id) != data_binding_id
+            or str(revision.dataset_revision_id) != dataset_revision_id
+            or revision.state is not request.target_state
+        ):
+            raise ValueError("DatasetRevision lifecycle response identity drifted")
+        return revision
+
+    def prepare_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        request: DatasetRevisionPrepareRequest,
+    ) -> DatasetRevisionPreparationResponse:
+        """Prepare immutable upload targets for one exact DatasetRevision draft."""
+        prepared = DatasetRevisionPreparationResponse.from_wire(
+            self._transport.execute(
+                _dataset_publication_request(
+                    "prepareDatasetRevisionPublication",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/"
+                        f"{data_binding_id}/revisions:prepare"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        draft = request.draft
+        if (
+            prepared.idempotency_key != request.idempotency_key
+            or prepared.project_id != str(project_id)
+            or str(prepared.data_binding_id) != data_binding_id
+            or prepared.dataset_revision_id != draft.dataset_revision_id
+            or prepared.factory_id != draft.factory_id
+            or prepared.org_id != draft.org_id
+        ):
+            raise ValueError("DatasetRevision preparation identity drifted")
+        return prepared
+
+    def finalize_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        preparation_id: str,
+        request: DatasetRevisionFinalizeRequest,
+    ) -> DatasetRevisionFinalizeResponse:
+        """Finalize one prepared DatasetRevision and verify all owner receipts."""
+        finalized = DatasetRevisionFinalizeResponse.from_wire(
+            self._transport.execute(
+                _dataset_publication_request(
+                    "finalizeDatasetRevisionPublication",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                        f"revision-preparations/{preparation_id}:finalize"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        sealed = finalized.sealed_revision
+        if (
+            str(finalized.preparation_id) != preparation_id
+            or sealed.project_id != str(project_id)
+            or str(sealed.binding_id) != data_binding_id
+        ):
+            raise ValueError("DatasetRevision finalization identity drifted")
+        return finalized
 
 
 class AsyncResearchInternFactoriesAPI:
@@ -626,6 +907,143 @@ class AsyncProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
+    async def inspect(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerInspectRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Inspect one generation without crossing its Factory boundary."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "inspect_project_computer",
+                    f"/smr/projects/{project_id}/computer/inspect",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(
+            receipt,
+            request,
+            operation=ProjectRuntimeOperation.INSPECT,
+        )
+
+    async def execute(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerExecuteRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Execute a bounded argv under an exact lease and fencing digest."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "execute_project_computer",
+                    f"/smr/projects/{project_id}/computer/execute",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(
+            receipt,
+            request,
+            operation=ProjectRuntimeOperation.EXECUTE,
+        )
+
+    async def reconcile(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerOperationReconcileRequest,
+    ) -> ProjectRuntimeOperationReceipt:
+        """Observe an accepted operation with an unknown provider outcome."""
+        receipt = ProjectRuntimeOperationReceipt.from_wire(
+            await self._transport.execute(
+                _request(
+                    "reconcile_project_computer_operation",
+                    f"/smr/projects/{project_id}/computer/operations/reconcile",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        return _validate_operation_receipt(receipt, request, operation=None)
+
+    async def acquire_lease(
+        self,
+        project_id: ProjectId,
+        request: ProjectComputerLeaseAcquireRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Acquire one generation-fenced execution lease."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "acquire_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.state != "active"
+        ):
+            raise ValueError("Project Computer lease acquisition identity drifted")
+        return lease
+
+    async def renew_lease(
+        self,
+        project_id: ProjectId,
+        lease_id: str,
+        request: ProjectComputerLeaseRenewRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Renew one exact lease while preserving its fencing identity."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "renew_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases/{lease_id}/renew",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.lease_id != lease_id
+            or lease.fencing_token_digest != request.fencing_token_digest
+            or lease.state != "active"
+        ):
+            raise ValueError("Project Computer lease renewal identity drifted")
+        return lease
+
+    async def release_lease(
+        self,
+        project_id: ProjectId,
+        lease_id: str,
+        request: ProjectComputerLeaseReleaseRequest,
+    ) -> ProjectComputerLeaseResponse:
+        """Release one exact lease and retain the final fencing identity."""
+        lease = ProjectComputerLeaseResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "release_project_computer_lease",
+                    f"/smr/projects/{project_id}/computer/leases/{lease_id}/release",
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            lease.project_id != str(project_id)
+            or lease.factory_id != request.factory_id
+            or lease.generation != request.expected_generation
+            or lease.lease_id != lease_id
+            or lease.fencing_token_digest != request.fencing_token_digest
+            or lease.state != "released"
+        ):
+            raise ValueError("Project Computer lease release identity drifted")
+        return lease
+
     async def cleanup(
         self,
         factory_id: FactoryId,
@@ -718,7 +1136,7 @@ class AsyncProjectDataBindingsAPI:
         )
         if (
             revision.project_id != str(project_id)
-            or revision.data_binding_id != data_binding_id
+            or str(revision.data_binding_id) != data_binding_id
         ):
             raise ValueError("Dataset Revision response identity drifted")
         return revision
@@ -742,11 +1160,100 @@ class AsyncProjectDataBindingsAPI:
         )
         if any(
             revision.project_id != str(project_id)
-            or revision.data_binding_id != data_binding_id
+            or str(revision.data_binding_id) != data_binding_id
             for revision in revisions
         ):
             raise ValueError("Dataset Revision list identity drifted")
         return revisions
+
+    async def transition_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        dataset_revision_id: str,
+        request: DatasetRevisionLifecycleRequest,
+    ) -> DatasetRevisionResponse:
+        """Apply a fail-closed lifecycle transition to one exact revision."""
+        revision = DatasetRevisionResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "transition_dataset_revision_lifecycle",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                        f"revisions/{dataset_revision_id}/lifecycle"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            revision.project_id != str(project_id)
+            or str(revision.data_binding_id) != data_binding_id
+            or str(revision.dataset_revision_id) != dataset_revision_id
+            or revision.state is not request.target_state
+        ):
+            raise ValueError("DatasetRevision lifecycle response identity drifted")
+        return revision
+
+    async def prepare_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        request: DatasetRevisionPrepareRequest,
+    ) -> DatasetRevisionPreparationResponse:
+        """Prepare immutable upload targets for one exact DatasetRevision draft."""
+        prepared = DatasetRevisionPreparationResponse.from_wire(
+            await self._transport.execute(
+                _dataset_publication_request(
+                    "prepareDatasetRevisionPublication",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/"
+                        f"{data_binding_id}/revisions:prepare"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        draft = request.draft
+        if (
+            prepared.idempotency_key != request.idempotency_key
+            or prepared.project_id != str(project_id)
+            or str(prepared.data_binding_id) != data_binding_id
+            or prepared.dataset_revision_id != draft.dataset_revision_id
+            or prepared.factory_id != draft.factory_id
+            or prepared.org_id != draft.org_id
+        ):
+            raise ValueError("DatasetRevision preparation identity drifted")
+        return prepared
+
+    async def finalize_revision(
+        self,
+        project_id: ProjectId,
+        data_binding_id: str,
+        preparation_id: str,
+        request: DatasetRevisionFinalizeRequest,
+    ) -> DatasetRevisionFinalizeResponse:
+        """Finalize one prepared DatasetRevision and verify all owner receipts."""
+        finalized = DatasetRevisionFinalizeResponse.from_wire(
+            await self._transport.execute(
+                _dataset_publication_request(
+                    "finalizeDatasetRevisionPublication",
+                    (
+                        f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                        f"revision-preparations/{preparation_id}:finalize"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        sealed = finalized.sealed_revision
+        if (
+            str(finalized.preparation_id) != preparation_id
+            or sealed.project_id != str(project_id)
+            or str(sealed.binding_id) != data_binding_id
+        ):
+            raise ValueError("DatasetRevision finalization identity drifted")
+        return finalized
 
 
 __all__ = [

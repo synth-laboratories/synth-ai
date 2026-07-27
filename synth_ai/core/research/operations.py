@@ -272,6 +272,13 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "verify_factory_trace_store_cross_factory_denial",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:verify-cross-factory-denial",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "rebuild_factory_trace_store",
             HttpMethod.POST,
             "/smr/factories/{factory_id}/trace-store:rebuild",
@@ -459,6 +466,25 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/v1/image-releases/finalize",
             mutation=True,
+        ),
+        _operation(
+            "ensure_project_draft_delivery",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/deliveries:ensure-draft",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_factory_storage_authority",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/storage-authority",
+            idempotent=True,
+        ),
+        _operation(
+            "get_project_draft_delivery",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/deliveries/{delivery_id}",
+            idempotent=True,
         ),
         _operation(
             "archive_customer_actor_image",
@@ -704,6 +730,29 @@ RESEARCH_OPERATIONS = {
 }
 
 
+# These operation IDs are authored by the full backend SMR contract. They are
+# intentionally separate from the smaller Research OpenAPI operation registry.
+DATASET_REVISION_PUBLICATION_OPERATIONS = {
+    OperationId("prepareDatasetRevisionPublication"): OperationMetadata(
+        OperationId("prepareDatasetRevisionPublication"),
+        HttpMethod.POST,
+        "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions:prepare",
+        mutation=True,
+        idempotent=True,
+    ),
+    OperationId("finalizeDatasetRevisionPublication"): OperationMetadata(
+        OperationId("finalizeDatasetRevisionPublication"),
+        HttpMethod.POST,
+        (
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+            "revision-preparations/{preparation_id}:finalize"
+        ),
+        mutation=True,
+        idempotent=True,
+    ),
+}
+
+
 def research_operation(operation_id: str) -> OperationMetadata:
     try:
         return RESEARCH_OPERATIONS[OperationId(operation_id)]
@@ -711,4 +760,18 @@ def research_operation(operation_id: str) -> OperationMetadata:
         raise ValueError(f"unknown Research operation_id {operation_id!r}") from error
 
 
-__all__ = ["RESEARCH_OPERATIONS", "research_operation"]
+def dataset_revision_publication_operation(operation_id: str) -> OperationMetadata:
+    try:
+        return DATASET_REVISION_PUBLICATION_OPERATIONS[OperationId(operation_id)]
+    except KeyError as error:
+        raise ValueError(
+            f"unknown DatasetRevision publication operation_id {operation_id!r}"
+        ) from error
+
+
+__all__ = [
+    "DATASET_REVISION_PUBLICATION_OPERATIONS",
+    "RESEARCH_OPERATIONS",
+    "dataset_revision_publication_operation",
+    "research_operation",
+]

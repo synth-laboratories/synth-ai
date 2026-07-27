@@ -38,6 +38,10 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluationRequest,
 )
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.factory_storage import (
+    AsyncFactoryStorageAPI,
+    FactoryStorageAPI,
+)
 from synth_ai.core.research.traces import (
     AsyncFactoryTraceStoreAPI,
     FactoryTraceStoreAPI,
@@ -514,6 +518,7 @@ class FactoriesAPI:
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
+        self.storage = FactoryStorageAPI(transport)
         self.efforts = FactoryEffortsAPI(transport)
         self.candidates = FactoryCandidatesAPI(transport)
         self.champions = FactoryChampionsAPI(transport)
@@ -1045,6 +1050,7 @@ class AsyncFactoriesAPI:
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
+        self.storage = AsyncFactoryStorageAPI(transport)
         self.efforts = AsyncFactoryEffortsAPI(transport)
         self.candidates = AsyncFactoryCandidatesAPI(transport)
         self.champions = AsyncFactoryChampionsAPI(transport)

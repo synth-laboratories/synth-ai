@@ -1619,6 +1619,426 @@
         "title": "DatasetRevisionState",
         "type": "string"
       },
+      "Delivery": {
+        "additionalProperties": false,
+        "description": "Product read model for one Code Factory coding session.",
+        "properties": {
+          "actor_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "codex_thread_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codex Thread Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_environment_lease_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Environment Lease Id"
+          },
+          "current_head_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{40}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Head Sha"
+          },
+          "current_workspace_revision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Workspace Revision Id"
+          },
+          "decision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "delivery_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Delivery Id",
+            "type": "string"
+          },
+          "last_event_cursor": {
+            "minimum": 0.0,
+            "title": "Last Event Cursor",
+            "type": "integer"
+          },
+          "objective": {
+            "minLength": 1,
+            "title": "Objective",
+            "type": "string"
+          },
+          "originating_run_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Originating Run Id",
+            "type": "string"
+          },
+          "repository_registration_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Repository Registration Id",
+            "type": "string"
+          },
+          "revision_admission_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Revision Admission Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DeliveryState"
+          },
+          "task_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "delivery_id",
+          "task_id",
+          "objective",
+          "actor_id",
+          "originating_run_id",
+          "decision_id",
+          "repository_registration_id",
+          "revision_admission_id",
+          "state",
+          "created_at",
+          "updated_at",
+          "last_event_cursor"
+        ],
+        "title": "Delivery",
+        "type": "object"
+      },
+      "DeliveryAction": {
+        "enum": [
+          "created",
+          "updated",
+          "ready",
+          "merged",
+          "closed"
+        ],
+        "title": "DeliveryAction",
+        "type": "string"
+      },
+      "DeliveryReceipt": {
+        "description": "Typed proof projection required by the RSI evidence join.",
+        "properties": {
+          "actor_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "internal-code-factory.milestone2.v1",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "decision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "delivery_revisions": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryRevision"
+            },
+            "minItems": 1,
+            "title": "Delivery Revisions",
+            "type": "array"
+          },
+          "emitted_at": {
+            "format": "date-time",
+            "title": "Emitted At",
+            "type": "string"
+          },
+          "event_contract_version": {
+            "const": "internal-code-factory.event.v2",
+            "title": "Event Contract Version",
+            "type": "string"
+          },
+          "fixture_terminal_action": {
+            "title": "Fixture Terminal Action",
+            "type": "null"
+          },
+          "foreign_resources_touched": {
+            "const": false,
+            "title": "Foreign Resources Touched",
+            "type": "boolean"
+          },
+          "github_observations": {
+            "items": {
+              "$ref": "#/components/schemas/GitHubObservation"
+            },
+            "minItems": 1,
+            "title": "Github Observations",
+            "type": "array"
+          },
+          "originating_run_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Originating Run Id",
+            "type": "string"
+          },
+          "pull_request_binding": {
+            "$ref": "#/components/schemas/PullRequestBinding"
+          },
+          "receipt_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "receipt_version": {
+            "const": "internal-code-factory.milestone2-receipt.v2",
+            "title": "Receipt Version",
+            "type": "string"
+          },
+          "task_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_version",
+          "receipt_version",
+          "event_contract_version",
+          "receipt_id",
+          "receipt_digest",
+          "task_id",
+          "originating_run_id",
+          "decision_id",
+          "delivery",
+          "actor_id",
+          "pull_request_binding",
+          "delivery_revisions",
+          "github_observations",
+          "foreign_resources_touched",
+          "fixture_terminal_action",
+          "emitted_at"
+        ],
+        "title": "DeliveryReceipt",
+        "type": "object"
+      },
+      "DeliveryRevision": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/DeliveryAction"
+          },
+          "base_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Base Sha",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "delivery_revision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Delivery Revision Id",
+            "type": "string"
+          },
+          "evidence_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Evidence Digest",
+            "type": "string"
+          },
+          "head_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Head Sha",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "provider_observed_head_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Provider Observed Head Sha",
+            "type": "string"
+          },
+          "provider_updated_at": {
+            "format": "date-time",
+            "title": "Provider Updated At",
+            "type": "string"
+          },
+          "pull_request_binding_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Pull Request Binding Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "workspace_revision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Workspace Revision Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "delivery_revision_id",
+          "pull_request_binding_id",
+          "request_id",
+          "idempotency_key",
+          "workspace_revision_id",
+          "base_sha",
+          "head_sha",
+          "evidence_digest",
+          "action",
+          "provider_observed_head_sha",
+          "provider_updated_at",
+          "created_at"
+        ],
+        "title": "DeliveryRevision",
+        "type": "object"
+      },
+      "DeliveryState": {
+        "enum": [
+          "queued",
+          "admitting",
+          "placing",
+          "starting",
+          "running",
+          "paused",
+          "waiting_for_ci",
+          "requires_attention",
+          "succeeded",
+          "failed",
+          "canceled"
+        ],
+        "title": "DeliveryState",
+        "type": "string"
+      },
+      "DraftDeliveryAuthorityResponse": {
+        "additionalProperties": false,
+        "description": "Accepted-decision-bound open-draft Delivery and its authority proof.",
+        "properties": {
+          "authority_receipt": {
+            "$ref": "#/components/schemas/DeliveryReceipt"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/Delivery"
+          },
+          "pull_request_binding": {
+            "$ref": "#/components/schemas/PullRequestBinding"
+          }
+        },
+        "required": [
+          "delivery",
+          "pull_request_binding",
+          "authority_receipt"
+        ],
+        "title": "DraftDeliveryAuthorityResponse",
+        "type": "object"
+      },
+      "EnsureDraftDeliveryRequest": {
+        "additionalProperties": false,
+        "description": "The only public creation intent accepted by Managed Research.",
+        "properties": {
+          "decision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id",
+          "idempotency_key"
+        ],
+        "title": "EnsureDraftDeliveryRequest",
+        "type": "object"
+      },
       "EntitlementAssetId": {
         "enum": [
           "usage",
@@ -1970,6 +2390,208 @@
           "authority_receipt_digest"
         ],
         "title": "FactoryProjectMembershipReceiptRef",
+        "type": "object"
+      },
+      "FactoryStorageAuthorityDescriptor": {
+        "additionalProperties": false,
+        "description": "One org-owned storage authority descriptor per Factory.",
+        "properties": {
+          "authorities": {
+            "items": {
+              "$ref": "#/components/schemas/FactoryStorageAuthorityRef"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Authorities",
+            "type": "array"
+          },
+          "descriptor_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Descriptor Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.factory-storage-authority.v1",
+            "default": "synth.factory-storage-authority.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "descriptor_id",
+          "org_id",
+          "factory_id",
+          "generation",
+          "authorities"
+        ],
+        "title": "FactoryStorageAuthorityDescriptor",
+        "type": "object"
+      },
+      "FactoryStorageAuthorityRef": {
+        "additionalProperties": false,
+        "properties": {
+          "disposable": {
+            "title": "Disposable",
+            "type": "boolean"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "opaque_locator_ref": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Opaque Locator Ref",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/FactoryStorageAuthorityRole"
+          },
+          "secret_ref_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret Ref Id"
+          },
+          "technology": {
+            "$ref": "#/components/schemas/FactoryStorageTechnology"
+          }
+        },
+        "required": [
+          "role",
+          "technology",
+          "opaque_locator_ref",
+          "generation",
+          "disposable"
+        ],
+        "title": "FactoryStorageAuthorityRef",
+        "type": "object"
+      },
+      "FactoryStorageAuthorityResponse": {
+        "additionalProperties": false,
+        "description": "Opaque generation-bound Factory storage authorities and owner receipt.",
+        "properties": {
+          "descriptor": {
+            "$ref": "#/components/schemas/FactoryStorageAuthorityDescriptor"
+          },
+          "descriptor_digest": {
+            "title": "Descriptor Digest",
+            "type": "string"
+          },
+          "lifecycle_receipt": {
+            "$ref": "#/components/schemas/TraceStoreLifecycleReceipt"
+          }
+        },
+        "required": [
+          "descriptor",
+          "descriptor_digest",
+          "lifecycle_receipt"
+        ],
+        "title": "FactoryStorageAuthorityResponse",
+        "type": "object"
+      },
+      "FactoryStorageAuthorityRole": {
+        "enum": [
+          "control_plane",
+          "immutable_objects",
+          "rebuildable_catalog"
+        ],
+        "title": "FactoryStorageAuthorityRole",
+        "type": "string"
+      },
+      "FactoryStorageTechnology": {
+        "enum": [
+          "postgres",
+          "s3",
+          "turso"
+        ],
+        "title": "FactoryStorageTechnology",
+        "type": "string"
+      },
+      "GitHubObservation": {
+        "description": "Exact-head fields selected from a digest-bearing GitHub observation.",
+        "properties": {
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "github_observation_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Github Observation Id",
+            "type": "string"
+          },
+          "observed_at": {
+            "format": "date-time",
+            "title": "Observed At",
+            "type": "string"
+          },
+          "observed_head_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Observed Head Sha",
+            "type": "string"
+          },
+          "payload_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Payload Digest",
+            "type": "string"
+          },
+          "pull_request_binding_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Pull Request Binding Id",
+            "type": "string"
+          },
+          "session_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PullRequestState"
+          }
+        },
+        "required": [
+          "github_observation_id",
+          "pull_request_binding_id",
+          "session_id",
+          "observed_head_sha",
+          "draft",
+          "state",
+          "observed_at",
+          "payload_digest"
+        ],
+        "title": "GitHubObservation",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4266,6 +4888,142 @@
         ],
         "title": "ProjectWorkspaceSnapshotManifest",
         "type": "object"
+      },
+      "PullRequestBinding": {
+        "additionalProperties": false,
+        "properties": {
+          "base_ref": {
+            "minLength": 1,
+            "title": "Base Ref",
+            "type": "string"
+          },
+          "contract_version": {
+            "const": "internal-code-factory.github-delivery.v1",
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "credential_reference_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Credential Reference Id",
+            "type": "string"
+          },
+          "current_delivery_revision_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Current Delivery Revision Id",
+            "type": "string"
+          },
+          "delivery_actor_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Delivery Actor Id",
+            "type": "string"
+          },
+          "draft": {
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "github_repository_id": {
+            "minimum": 1.0,
+            "title": "Github Repository Id",
+            "type": "integer"
+          },
+          "head_ref": {
+            "minLength": 1,
+            "title": "Head Ref",
+            "type": "string"
+          },
+          "policy_version": {
+            "minimum": 1.0,
+            "title": "Policy Version",
+            "type": "integer"
+          },
+          "pr_node_id": {
+            "minLength": 1,
+            "title": "Pr Node Id",
+            "type": "string"
+          },
+          "pr_number": {
+            "minimum": 1.0,
+            "title": "Pr Number",
+            "type": "integer"
+          },
+          "pull_request_binding_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Pull Request Binding Id",
+            "type": "string"
+          },
+          "repository_registration_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Repository Registration Id",
+            "type": "string"
+          },
+          "session_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+            "title": "Session Id",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/PullRequestState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_version",
+          "pull_request_binding_id",
+          "session_id",
+          "repository_registration_id",
+          "github_repository_id",
+          "pr_number",
+          "pr_node_id",
+          "url",
+          "base_ref",
+          "head_ref",
+          "draft",
+          "state",
+          "delivery_actor_id",
+          "credential_reference_id",
+          "policy_version",
+          "created_at",
+          "updated_at",
+          "current_delivery_revision_id"
+        ],
+        "title": "PullRequestBinding",
+        "type": "object"
+      },
+      "PullRequestState": {
+        "enum": [
+          "open",
+          "merged",
+          "closed"
+        ],
+        "title": "PullRequestState",
+        "type": "string"
       },
       "ResearchInternFactoryMembershipResponse": {
         "additionalProperties": false,
@@ -19758,6 +20516,109 @@
         "title": "TraceStoreAccessReceipt",
         "type": "object"
       },
+      "TraceStoreCrossFactoryDenialReceipt": {
+        "additionalProperties": false,
+        "description": "Actual Trace-store owner proof that source scope cannot read target data.",
+        "properties": {
+          "denial_code": {
+            "const": "trace_store_factory_scope_denied",
+            "default": "trace_store_factory_scope_denied",
+            "title": "Denial Code",
+            "type": "string"
+          },
+          "denied": {
+            "const": true,
+            "default": true,
+            "title": "Denied",
+            "type": "boolean"
+          },
+          "operation": {
+            "const": "read_trace_bundle_publication",
+            "default": "read_trace_bundle_publication",
+            "title": "Operation",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "owner_receipt": {
+            "$ref": "#/components/schemas/TraceStoreAccessReceipt"
+          },
+          "schema_version": {
+            "const": "synth.trace-store-cross-factory-denial.v1",
+            "default": "synth.trace-store-cross-factory-denial.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Factory Id",
+            "type": "string"
+          },
+          "source_store_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Store Id",
+            "type": "string"
+          },
+          "target_factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Factory Id",
+            "type": "string"
+          },
+          "target_publication_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Publication Id",
+            "type": "string"
+          },
+          "target_store_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Store Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "source_factory_id",
+          "source_store_id",
+          "target_factory_id",
+          "target_store_id",
+          "target_publication_id",
+          "owner_receipt"
+        ],
+        "title": "TraceStoreCrossFactoryDenialReceipt",
+        "type": "object"
+      },
+      "TraceStoreCrossFactoryDenialRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "target_factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Factory Id",
+            "type": "string"
+          },
+          "target_publication_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Publication Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_factory_id",
+          "target_publication_id"
+        ],
+        "title": "TraceStoreCrossFactoryDenialRequest",
+        "type": "object"
+      },
       "TraceStoreDescriptorResponse": {
         "additionalProperties": false,
         "properties": {
@@ -20194,38 +21055,224 @@
         "type": "string"
       },
       "WorkspaceConfirmPushRequest": {
+        "additionalProperties": false,
         "properties": {
           "archive_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Archive Key"
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Archive Key",
+            "type": "string"
+          },
+          "commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "commit_sha",
+          "archive_key",
+          "run_id"
+        ],
+        "title": "WorkspaceConfirmPushRequest",
+        "type": "object"
+      },
+      "WorkspaceGitServerProvenance": {
+        "additionalProperties": false,
+        "description": "Generation-bound identity observed through the internal Git authority.",
+        "properties": {
+          "authority": {
+            "const": "internal_git_server",
+            "default": "internal_git_server",
+            "title": "Authority",
+            "type": "string"
+          },
+          "branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Branch",
+            "type": "string"
+          },
+          "observed_head_sha": {
+            "title": "Observed Head Sha",
+            "type": "string"
+          },
+          "observed_tree_sha": {
+            "title": "Observed Tree Sha",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "org_slug": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Slug",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "project_slug": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Slug",
+            "type": "string"
+          },
+          "repository_generation_digest": {
+            "title": "Repository Generation Digest",
+            "type": "string"
+          },
+          "repository_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Repository Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "org_id",
+          "project_id",
+          "repository_id",
+          "org_slug",
+          "project_slug",
+          "branch",
+          "observed_head_sha",
+          "observed_tree_sha",
+          "repository_generation_digest"
+        ],
+        "title": "WorkspaceGitServerProvenance",
+        "type": "object"
+      },
+      "WorkspacePushConfirmationReceipt": {
+        "additionalProperties": false,
+        "description": "Exact Git/S3 evidence returned after a workspace push is confirmed.",
+        "properties": {
+          "archive_digest": {
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "minimum": 1.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "authority": {
+            "const": "project_workspace_control_plane",
+            "default": "project_workspace_control_plane",
+            "title": "Authority",
+            "type": "string"
           },
           "commit_sha": {
             "title": "Commit Sha",
             "type": "string"
           },
+          "confirmed_at": {
+            "format": "date-time",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "factory_project_membership_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Project Membership Id",
+            "type": "string"
+          },
+          "git_server_provenance": {
+            "$ref": "#/components/schemas/WorkspaceGitServerProvenance"
+          },
+          "immutable_archive_uri": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Immutable Archive Uri",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
           "run_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Run Id"
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.workspace-push-confirmation-receipt.v1",
+            "default": "synth.workspace-push-confirmation-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_manifest_digest": {
+            "title": "Snapshot Manifest Digest",
+            "type": "string"
+          },
+          "verified_internal_head_sha": {
+            "title": "Verified Internal Head Sha",
+            "type": "string"
+          },
+          "workspace_archive_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Workspace Archive Id",
+            "type": "string"
           }
         },
         "required": [
-          "commit_sha"
+          "receipt_id",
+          "org_id",
+          "factory_id",
+          "factory_project_membership_id",
+          "project_id",
+          "run_id",
+          "workspace_archive_id",
+          "commit_sha",
+          "verified_internal_head_sha",
+          "immutable_archive_uri",
+          "archive_digest",
+          "archive_size_bytes",
+          "snapshot_manifest_digest",
+          "git_server_provenance",
+          "confirmed_at",
+          "receipt_digest"
         ],
-        "title": "WorkspaceConfirmPushRequest",
+        "title": "WorkspacePushConfirmationReceipt",
         "type": "object"
       }
     }
@@ -21875,6 +22922,49 @@
         ]
       }
     },
+    "/smr/factories/{factory_id}/storage-authority": {
+      "get": {
+        "operationId": "get_factory_storage_authority",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactoryStorageAuthorityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Factory Storage Authority",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
     "/smr/factories/{factory_id}/trace-bundles/{publication_id}:download": {
       "get": {
         "operationId": "download_factory_trace_bundle",
@@ -22307,6 +23397,59 @@
           }
         },
         "summary": "Tombstone Factory Trace Store",
+        "tags": [
+          "smr",
+          "traces"
+        ]
+      }
+    },
+    "/smr/factories/{factory_id}/trace-store:verify-cross-factory-denial": {
+      "post": {
+        "operationId": "verify_factory_trace_store_cross_factory_denial",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TraceStoreCrossFactoryDenialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TraceStoreCrossFactoryDenialReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Factory Trace Store Cross Factory Denial",
         "tags": [
           "smr",
           "traces"
@@ -24054,6 +25197,109 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/deliveries/{delivery_id}": {
+      "get": {
+        "operationId": "get_project_draft_delivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "delivery_id",
+            "required": true,
+            "schema": {
+              "title": "Delivery Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftDeliveryAuthorityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Project Draft Delivery",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/deliveries:ensure-draft": {
+      "post": {
+        "operationId": "ensure_project_draft_delivery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnsureDraftDeliveryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftDeliveryAuthorityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ensure Project Draft Delivery",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/economics": {
       "get": {
         "operationId": "retrieve_project_economics",
@@ -25140,9 +26386,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Workspace Confirm Push Smr Projects  Project Id  Workspace Confirm Push Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/WorkspacePushConfirmationReceipt"
                 }
               }
             },

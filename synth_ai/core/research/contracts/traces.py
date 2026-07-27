@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 
@@ -41,6 +41,7 @@ class TraceStoreProvisioningStatus(StrEnum):
 
 class TraceBundlePublicationStatus(StrEnum):
     PENDING = "pending"
+    APPLYING = "applying"
     COMMITTED = "committed"
     FAILED = "failed"
 
@@ -117,6 +118,46 @@ class TraceBundleObjectDeclaration(_TraceContract):
         return normalized
 
 
+class TraceBundleSourceArtifactRef(_TraceContract):
+    artifact_id: str = Field(min_length=1, max_length=255)
+    locator_ref: str = Field(min_length=1, max_length=1024)
+    archive_digest: str
+    size_bytes: int = Field(ge=1)
+
+    _archive_digest = field_validator("archive_digest")(validate_sha256_digest)
+
+
+class TraceExperimentRevisionRef(_TraceContract):
+    experiment_id: str = Field(min_length=1, max_length=255)
+    revision: int = Field(ge=1)
+    experiment_run_id: str | None = Field(default=None, min_length=1, max_length=255)
+    role: str = Field(min_length=1, max_length=128)
+
+
+class TraceEvidenceAuthorityRef(_TraceContract):
+    authority_kind: str = Field(min_length=1, max_length=128)
+    authority_id: str = Field(min_length=1, max_length=255)
+    authority_version: str | None = Field(default=None, min_length=1, max_length=255)
+    locator_ref: str = Field(min_length=1, max_length=1024)
+    content_digest: str
+
+    _content_digest = field_validator("content_digest")(validate_sha256_digest)
+
+
+class TraceBundlePublicationLineage(_TraceContract):
+    source_artifact: TraceBundleSourceArtifactRef
+    task_id: str = Field(min_length=1, max_length=255)
+    task_key: str = Field(min_length=1, max_length=255)
+    capture_id: str = Field(min_length=1, max_length=255)
+    trace_id: str = Field(min_length=1, max_length=255)
+    actor_id: str = Field(min_length=1, max_length=255)
+    actor_session_id: str = Field(min_length=1, max_length=255)
+    turn_id: str | None = Field(default=None, min_length=1, max_length=255)
+    thread_id: str | None = Field(default=None, min_length=1, max_length=255)
+    experiment_revisions: list[TraceExperimentRevisionRef] = Field(default_factory=list)
+    evidence_authorities: list[TraceEvidenceAuthorityRef] = Field(default_factory=list)
+
+
 class TraceBundlePrepareRequest(_TraceContract):
     bundle_id: str = Field(min_length=1, max_length=255)
     manifest_digest: str
@@ -125,6 +166,8 @@ class TraceBundlePrepareRequest(_TraceContract):
     project_id: str | None = None
     run_id: str | None = None
     effort_id: str | None = None
+    lineage: TraceBundlePublicationLineage | None = None
+    experiment_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
@@ -173,6 +216,8 @@ class TracePromotionReceipt(_TraceContract):
     object_digests: list[str]
     trace_digests: list[str]
     evidence_digests: list[str]
+    experiment_id: str | None = None
+    experiment_revision: TraceExperimentRevisionRef | None = None
     catalog_provider: TraceCatalogProvider
     catalog_generation: int
     committed_at: datetime
@@ -188,6 +233,20 @@ class TracePromotionReceipt(_TraceContract):
         validate_sha256_digest_list
     )
     _receipt_digest = field_validator("receipt_digest")(validate_sha256_digest)
+
+    @model_validator(mode="after")
+    def validate_experiment_revision_identity(self) -> TracePromotionReceipt:
+        if self.experiment_id is None and self.experiment_revision is None:
+            return self
+        if self.experiment_id is None or self.experiment_revision is None:
+            raise ValueError(
+                "experiment_id and experiment_revision must be supplied together"
+            )
+        if self.experiment_revision.experiment_id != self.experiment_id:
+            raise ValueError("experiment_revision does not cite the receipt experiment")
+        if self.experiment_revision.experiment_run_id is None:
+            raise ValueError("experiment_revision requires experiment_run_id")
+        return self
 
 
 class TraceRecordSummary(_TraceContract):
@@ -307,10 +366,14 @@ __all__ = [
     "TraceBundleObjectDeclaration",
     "TraceBundleObjectKind",
     "TraceBundlePrepareRequest",
+    "TraceBundlePublicationLineage",
     "TraceBundlePublication",
     "TraceBundlePublicationStatus",
+    "TraceBundleSourceArtifactRef",
     "TraceCatalogProvider",
     "TraceDownload",
+    "TraceEvidenceAuthorityRef",
+    "TraceExperimentRevisionRef",
     "TraceObjectUpload",
     "TracePromotionReceipt",
     "TraceQueryResult",

@@ -9,10 +9,20 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-import re
 from typing import Any, Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from synth_ai.core.research.contracts.dataset_revisions import (
+    DatasetRevisionCreateRequest,
+    DatasetRevisionLifecycleRequest,
+    DatasetRevisionResponse,
+)
+from synth_ai.core.research.contracts.project_runtime import ProjectComputerState
+from synth_ai.core.research.contracts.project_workspace_evidence import (
+    ProjectComputerWorkspaceSnapshot,
+)
 
 
 class _StrictContract(BaseModel):
@@ -167,25 +177,33 @@ class MagiDecisionReceiptResponse(_StrictContract):
         return self
 
 
-class ProjectComputerLifecycle(StrEnum):
-    PROVISIONING = "provisioning"
-    READY = "ready"
-    REPLACING = "replacing"
-    RETIRED = "retired"
-    ERROR = "error"
+ProjectComputerLifecycle = ProjectComputerState
 
 
 class ProjectComputerProvisionRequest(_StrictContract):
-    factory_id: str
-    provider_kind: str = Field(min_length=1, max_length=100)
-    adapter_kind: str = Field(min_length=1, max_length=100)
+    factory_id: str = Field(min_length=1, max_length=255)
+    cloud_deployment_id: str = Field(min_length=1, max_length=255)
     source_repository_id: str = Field(min_length=1, max_length=255)
     source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     snapshot_digest: str | None = Field(
         default=None,
         pattern=r"^sha256:[0-9a-f]{64}$",
     )
+    workspace_snapshot: ProjectComputerWorkspaceSnapshot | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_snapshot_binding(self) -> ProjectComputerProvisionRequest:
+        if (self.snapshot_digest is None) != (self.workspace_snapshot is None):
+            raise ValueError(
+                "snapshot_digest and workspace_snapshot must be supplied together"
+            )
+        if self.workspace_snapshot is not None and (
+            self.snapshot_digest != self.workspace_snapshot.manifest.manifest_digest
+            or self.source_revision != self.workspace_snapshot.commit_sha
+        ):
+            raise ValueError("Project Computer source does not match its snapshot")
+        return self
 
 
 class ProjectComputerResponse(_StrictContract):
@@ -194,9 +212,8 @@ class ProjectComputerResponse(_StrictContract):
     research_intern_id: str
     factory_id: str
     project_id: str
-    provider_kind: str
+    cloud_deployment_id: str
     adapter_kind: str
-    provider_resource_ref: str | None = None
     source_repository_id: str
     source_revision: str
     snapshot_digest: str | None = None
@@ -207,37 +224,53 @@ class ProjectComputerResponse(_StrictContract):
     updated_at: datetime
 
 
-class ProjectComputerMaterializationReceipt(_StrictContract):
-    """Adapter-authored proof of the code and snapshot present on a computer."""
-
-    schema_version: Literal["smr.project-computer-materialization.v1"]
-    owner: str = Field(min_length=1, max_length=255)
-    provider_resource_ref: str = Field(min_length=1, max_length=1000)
-    source_repository_id: str = Field(min_length=1, max_length=255)
-    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
-    source_archive_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    snapshot_digest: str | None = Field(
-        default=None,
-        pattern=r"^sha256:[0-9a-f]{64}$",
-    )
-    workspace_path: str = Field(min_length=1, max_length=1000)
-    materialized: bool
-    receipt_ref: str = Field(min_length=1, max_length=1000)
-
-
-class ProjectComputerRetirementReceipt(_StrictContract):
-    schema_version: Literal["smr.project-computer-retirement.v1"]
-    owner: str = Field(min_length=1, max_length=255)
+class ProjectComputerProvisionReceipt(_StrictContract):
     org_id: str
     factory_id: str
     project_id: str
     generation: int
-    provider_kind: str
+    cloud_deployment_id: str
     adapter_kind: str
-    provider_resource_ref: str
-    disposition: Literal["retired", "already_absent"]
-    pre_inventory: dict[str, Any]
-    post_inventory: dict[str, Any]
+    deployment_state: str = Field(min_length=1, max_length=100)
+    source_repository_id: str = Field(min_length=1, max_length=255)
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    snapshot_digest: str | None = Field(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    ready: Literal[True]
+    workspace_head_sha: str = Field(pattern=r"^[0-9a-f]{40}$")
+    workspace_clean: Literal[True]
+    workspace_restore_receipt: dict[str, Any] | None = None
+    receipt_ref: str = Field(min_length=1, max_length=1000)
+
+
+class ProjectComputerRestorationReceipt(_StrictContract):
+    org_id: str
+    factory_id: str
+    project_id: str
+    generation: int
+    cloud_deployment_id: str
+    adapter_kind: str
+    deployment_state: str = Field(min_length=1, max_length=100)
+    source_repository_id: str
+    source_revision: str
+    snapshot_digest: str
+    restored: Literal[True]
+    workspace_restore_receipt: dict[str, Any]
+    previous_cloud_deployment_retired: Literal[True]
+    previous_retirement_receipt_ref: str = Field(min_length=1, max_length=1000)
+    receipt_ref: str = Field(min_length=1, max_length=1000)
+
+
+class ProjectComputerRetirementReceipt(_StrictContract):
+    org_id: str
+    factory_id: str
+    project_id: str
+    generation: int
+    cloud_deployment_id: str
+    adapter_kind: str
+    deployment_state: str = Field(min_length=1, max_length=100)
     retired: bool
     receipt_ref: str = Field(min_length=1, max_length=1000)
 
@@ -258,7 +291,9 @@ class ProjectComputerCleanupReceiptResponse(_StrictContract):
     factory_id: str
     idempotency_key: str
     pre_inventory: list[ProjectComputerResponse]
-    materialization_receipts: list[ProjectComputerMaterializationReceipt]
+    workspace_materialization_receipts: list[
+        ProjectComputerProvisionReceipt | ProjectComputerRestorationReceipt
+    ]
     retirement_receipts: list[ProjectComputerRetirementReceipt]
     post_inventory: list[ProjectComputerResponse]
     cleanup_complete: bool
@@ -282,24 +317,33 @@ class ProjectComputerCleanupReceiptResponse(_StrictContract):
             for receipt in self.retirement_receipts
         ):
             raise ValueError("retirement receipt crossed its Factory boundary")
-        if not all(receipt.materialized for receipt in self.materialization_receipts):
-            raise ValueError("cleanup receipt contains unmaterialized computer evidence")
         return self
 
 
 class ProjectComputerReplaceRequest(_StrictContract):
-    factory_id: str
-    provider_kind: str = Field(min_length=1, max_length=100)
-    adapter_kind: str = Field(min_length=1, max_length=100)
+    factory_id: str = Field(min_length=1, max_length=255)
+    cloud_deployment_id: str = Field(min_length=1, max_length=255)
     source_repository_id: str = Field(min_length=1, max_length=255)
     source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     snapshot_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    workspace_snapshot: ProjectComputerWorkspaceSnapshot
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_snapshot_binding(self) -> ProjectComputerReplaceRequest:
+        if (
+            self.snapshot_digest != self.workspace_snapshot.manifest.manifest_digest
+            or self.source_revision != self.workspace_snapshot.commit_sha
+        ):
+            raise ValueError("replacement source does not match its snapshot")
+        return self
 
 
 class DataBindingCreateRequest(_StrictContract):
     factory_id: str
     name: str = Field(min_length=1, max_length=255)
+    dataset_id: str = Field(min_length=1, max_length=255)
+    data_contract_version: str = Field(min_length=1, max_length=255)
     binding_kind: str = Field(min_length=1, max_length=100)
     authority_ref: str = Field(min_length=1, max_length=1000)
     access_policy: dict[str, Any] = Field(default_factory=dict)
@@ -307,12 +351,15 @@ class DataBindingCreateRequest(_StrictContract):
 
 
 class DataBindingResponse(_StrictContract):
-    data_binding_id: str
+    data_binding_id: UUID
     org_id: str
     research_intern_id: str
     factory_id: str
     project_id: str
     name: str
+    dataset_id: str
+    data_contract_version: str
+    generation: int = Field(ge=1)
     binding_kind: str
     authority_ref: str
     access_policy: dict[str, Any]
@@ -320,38 +367,11 @@ class DataBindingResponse(_StrictContract):
     created_at: datetime
 
 
-class DatasetRevisionCreateRequest(_StrictContract):
-    revision_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
-    manifest_uri: str = Field(min_length=1, max_length=2000)
-    schema_version: str = Field(min_length=1, max_length=255)
-    parent_revision_id: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class DatasetRevisionResponse(_StrictContract):
-    dataset_revision_id: str
-    data_binding_id: str
-    org_id: str
-    factory_id: str
-    project_id: str
-    revision_digest: str
-    manifest_uri: str
-    schema_version: str
-    parent_revision_id: str | None = None
-    metadata: dict[str, Any]
-    created_at: datetime
-
-    @model_validator(mode="after")
-    def validate_revision_digest(self) -> DatasetRevisionResponse:
-        if re.fullmatch(r"sha256:[0-9a-f]{64}", self.revision_digest) is None:
-            raise ValueError("revision_digest must be a sha256 digest")
-        return self
-
-
 __all__ = [
     "DataBindingCreateRequest",
     "DataBindingResponse",
     "DatasetRevisionCreateRequest",
+    "DatasetRevisionLifecycleRequest",
     "DatasetRevisionResponse",
     "MAGI_CANONICAL_USER_BY_MODE",
     "MagiCanonicalUser",
@@ -362,11 +382,13 @@ __all__ = [
     "ProjectComputerCleanupReceiptResponse",
     "ProjectComputerCleanupRequest",
     "ProjectComputerLifecycle",
-    "ProjectComputerMaterializationReceipt",
     "ProjectComputerProvisionRequest",
+    "ProjectComputerProvisionReceipt",
     "ProjectComputerReplaceRequest",
     "ProjectComputerResponse",
+    "ProjectComputerRestorationReceipt",
     "ProjectComputerRetirementReceipt",
+    "ProjectComputerWorkspaceSnapshot",
     "ResearchInternFactoryMembershipResponse",
     "ResearchInternPatchRequest",
     "ResearchInternPolicySet",

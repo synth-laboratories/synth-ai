@@ -45,6 +45,12 @@ __all__ = [
     "ContainersClient",
     "DataBindingCreateRequest",
     "DatasetRevisionCreateRequest",
+    "DatasetRevisionFinalizeRequest",
+    "DatasetRevisionLifecycleRequest",
+    "DatasetRevisionPrepareRequest",
+    "DraftDeliveryAuthorityResponse",
+    "EnsureDraftDeliveryRequest",
+    "FactoryStorageAuthorityResponse",
     "HorizonsPrivateClient",
     "ResearchApiError",
     "ManagedAgentsAnthropicClient",
@@ -54,8 +60,15 @@ __all__ = [
     "MagiMode",
     "ProjectComputerCleanupReceiptResponse",
     "ProjectComputerCleanupRequest",
+    "ProjectComputerExecuteRequest",
+    "ProjectComputerInspectRequest",
+    "ProjectComputerLeaseAcquireRequest",
+    "ProjectComputerLeaseReleaseRequest",
+    "ProjectComputerLeaseRenewRequest",
+    "ProjectComputerOperationReconcileRequest",
     "ProjectComputerProvisionRequest",
     "ProjectComputerReplaceRequest",
+    "WorkspacePushConfirmationReceipt",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
@@ -87,6 +100,30 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.core.research.contracts",
         "DatasetRevisionCreateRequest",
     ),
+    "DatasetRevisionFinalizeRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionFinalizeRequest",
+    ),
+    "DatasetRevisionLifecycleRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionLifecycleRequest",
+    ),
+    "DatasetRevisionPrepareRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionPrepareRequest",
+    ),
+    "DraftDeliveryAuthorityResponse": (
+        "synth_ai.core.research.contracts",
+        "DraftDeliveryAuthorityResponse",
+    ),
+    "EnsureDraftDeliveryRequest": (
+        "synth_ai.core.research.contracts",
+        "EnsureDraftDeliveryRequest",
+    ),
+    "FactoryStorageAuthorityResponse": (
+        "synth_ai.core.research.contracts",
+        "FactoryStorageAuthorityResponse",
+    ),
     "MagiDecisionRequest": (
         "synth_ai.core.research.contracts",
         "MagiDecisionRequest",
@@ -100,6 +137,30 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.core.research.contracts",
         "ProjectComputerCleanupRequest",
     ),
+    "ProjectComputerExecuteRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerExecuteRequest",
+    ),
+    "ProjectComputerInspectRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerInspectRequest",
+    ),
+    "ProjectComputerLeaseAcquireRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseAcquireRequest",
+    ),
+    "ProjectComputerLeaseReleaseRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseReleaseRequest",
+    ),
+    "ProjectComputerLeaseRenewRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseRenewRequest",
+    ),
+    "ProjectComputerOperationReconcileRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerOperationReconcileRequest",
+    ),
     "ProjectComputerProvisionRequest": (
         "synth_ai.core.research.contracts",
         "ProjectComputerProvisionRequest",
@@ -107,6 +168,10 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ProjectComputerReplaceRequest": (
         "synth_ai.core.research.contracts",
         "ProjectComputerReplaceRequest",
+    ),
+    "WorkspacePushConfirmationReceipt": (
+        "synth_ai.core.research.contracts",
+        "WorkspacePushConfirmationReceipt",
     ),
     "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (

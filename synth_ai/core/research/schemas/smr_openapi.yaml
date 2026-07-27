@@ -4950,10 +4950,71 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Workspace Confirm Push Smr Projects  Project Id  Workspace
-                  Confirm Push Post
+                $ref: '#/components/schemas/WorkspacePushConfirmationReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/deliveries:ensure-draft:
+    post:
+      tags:
+      - smr
+      summary: Ensure Project Draft Delivery
+      operationId: ensure_project_draft_delivery
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnsureDraftDeliveryRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftDeliveryAuthorityResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/deliveries/{delivery_id}:
+    get:
+      tags:
+      - smr
+      summary: Get Project Draft Delivery
+      operationId: get_project_draft_delivery
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: delivery_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Delivery Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftDeliveryAuthorityResponse'
         '422':
           description: Validation Error
           content:
@@ -8300,6 +8361,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TraceStoreDescriptorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/storage-authority:
+    get:
+      tags:
+      - smr
+      - traces
+      summary: Get Factory Storage Authority
+      operationId: get_factory_storage_authority
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactoryStorageAuthorityResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/factories/{factory_id}/trace-store:verify-cross-factory-denial:
+    post:
+      tags:
+      - smr
+      - traces
+      summary: Verify Factory Trace Store Cross Factory Denial
+      operationId: verify_factory_trace_store_cross_factory_denial
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TraceStoreCrossFactoryDenialRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceStoreCrossFactoryDenialReceipt'
         '422':
           description: Validation Error
           content:
@@ -41452,6 +41573,299 @@ components:
       - deleted_at
       title: DeleteTunnelResponse
       description: Response when deleting a tunnel.
+    Delivery:
+      properties:
+        delivery_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Delivery Id
+        task_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Task Id
+        objective:
+          type: string
+          minLength: 1
+          title: Objective
+        actor_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Actor Id
+        originating_run_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Originating Run Id
+        decision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Decision Id
+        repository_registration_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Repository Registration Id
+        revision_admission_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Revision Admission Id
+        state:
+          $ref: '#/components/schemas/DeliveryState'
+        current_workspace_revision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Workspace Revision Id
+        current_environment_lease_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Current Environment Lease Id
+        current_head_sha:
+          anyOf:
+          - type: string
+            pattern: ^[0-9a-f]{40}$
+          - type: 'null'
+          title: Current Head Sha
+        codex_thread_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Codex Thread Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        last_event_cursor:
+          type: integer
+          minimum: 0.0
+          title: Last Event Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - delivery_id
+      - task_id
+      - objective
+      - actor_id
+      - originating_run_id
+      - decision_id
+      - repository_registration_id
+      - revision_admission_id
+      - state
+      - created_at
+      - updated_at
+      - last_event_cursor
+      title: Delivery
+      description: Product read model for one Code Factory coding session.
+    DeliveryAction:
+      type: string
+      enum:
+      - created
+      - updated
+      - ready
+      - merged
+      - closed
+      title: DeliveryAction
+    DeliveryReceipt:
+      properties:
+        contract_version:
+          type: string
+          const: internal-code-factory.milestone2.v1
+          title: Contract Version
+        receipt_version:
+          type: string
+          const: internal-code-factory.milestone2-receipt.v2
+          title: Receipt Version
+        event_contract_version:
+          type: string
+          const: internal-code-factory.event.v2
+          title: Event Contract Version
+        receipt_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Receipt Id
+        receipt_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Digest
+        task_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Task Id
+        originating_run_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Originating Run Id
+        decision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Decision Id
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+        actor_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Actor Id
+        pull_request_binding:
+          $ref: '#/components/schemas/PullRequestBinding'
+        delivery_revisions:
+          items:
+            $ref: '#/components/schemas/DeliveryRevision'
+          type: array
+          minItems: 1
+          title: Delivery Revisions
+        github_observations:
+          items:
+            $ref: '#/components/schemas/GitHubObservation'
+          type: array
+          minItems: 1
+          title: Github Observations
+        foreign_resources_touched:
+          type: boolean
+          const: false
+          title: Foreign Resources Touched
+        fixture_terminal_action:
+          type: 'null'
+          title: Fixture Terminal Action
+        emitted_at:
+          type: string
+          format: date-time
+          title: Emitted At
+      type: object
+      required:
+      - contract_version
+      - receipt_version
+      - event_contract_version
+      - receipt_id
+      - receipt_digest
+      - task_id
+      - originating_run_id
+      - decision_id
+      - delivery
+      - actor_id
+      - pull_request_binding
+      - delivery_revisions
+      - github_observations
+      - foreign_resources_touched
+      - fixture_terminal_action
+      - emitted_at
+      title: DeliveryReceipt
+      description: Typed proof projection required by the RSI evidence join.
+    DeliveryRevision:
+      properties:
+        delivery_revision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Delivery Revision Id
+        pull_request_binding_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Pull Request Binding Id
+        request_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Request Id
+        idempotency_key:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Idempotency Key
+        workspace_revision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Workspace Revision Id
+        base_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Base Sha
+        head_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Head Sha
+        evidence_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Evidence Digest
+        action:
+          $ref: '#/components/schemas/DeliveryAction'
+        provider_observed_head_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Provider Observed Head Sha
+        provider_updated_at:
+          type: string
+          format: date-time
+          title: Provider Updated At
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - delivery_revision_id
+      - pull_request_binding_id
+      - request_id
+      - idempotency_key
+      - workspace_revision_id
+      - base_sha
+      - head_sha
+      - evidence_digest
+      - action
+      - provider_observed_head_sha
+      - provider_updated_at
+      - created_at
+      title: DeliveryRevision
+    DeliveryState:
+      type: string
+      enum:
+      - queued
+      - admitting
+      - placing
+      - starting
+      - running
+      - paused
+      - waiting_for_ci
+      - requires_attention
+      - succeeded
+      - failed
+      - canceled
+      title: DeliveryState
     DevEnvironmentActionRequest:
       properties:
         metadata:
@@ -41999,6 +42413,22 @@ components:
       - dev_environment_id
       - limit
       title: DevEnvironmentUsageResponse
+    DraftDeliveryAuthorityResponse:
+      properties:
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+        pull_request_binding:
+          $ref: '#/components/schemas/PullRequestBinding'
+        authority_receipt:
+          $ref: '#/components/schemas/DeliveryReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - delivery
+      - pull_request_binding
+      - authority_receipt
+      title: DraftDeliveryAuthorityResponse
+      description: Accepted-decision-bound open-draft Delivery and its authority proof.
     EnsureCustomerRequest:
       properties:
         org_id:
@@ -42027,6 +42457,27 @@ components:
       - org_id
       - customer_id
       title: EnsureCustomerResponse
+    EnsureDraftDeliveryRequest:
+      properties:
+        decision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Decision Id
+        idempotency_key:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - decision_id
+      - idempotency_key
+      title: EnsureDraftDeliveryRequest
+      description: The only public creation intent accepted by Managed Research.
     EntitlementAssetId:
       type: string
       enum:
@@ -42434,6 +42885,114 @@ components:
       - authority_receipt_digest
       title: FactoryProjectMembershipReceiptRef
       description: Control-plane proof that one active Factory owns the Project.
+    FactoryStorageAuthorityDescriptor:
+      properties:
+        schema_version:
+          type: string
+          const: synth.factory-storage-authority.v1
+          title: Schema Version
+          default: synth.factory-storage-authority.v1
+        descriptor_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Descriptor Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        generation:
+          type: integer
+          minimum: 1.0
+          title: Generation
+        authorities:
+          items:
+            $ref: '#/components/schemas/FactoryStorageAuthorityRef'
+          type: array
+          maxItems: 3
+          minItems: 3
+          title: Authorities
+      additionalProperties: false
+      type: object
+      required:
+      - descriptor_id
+      - org_id
+      - factory_id
+      - generation
+      - authorities
+      title: FactoryStorageAuthorityDescriptor
+      description: One org-owned storage authority descriptor per Factory.
+    FactoryStorageAuthorityRef:
+      properties:
+        role:
+          $ref: '#/components/schemas/FactoryStorageAuthorityRole'
+        technology:
+          $ref: '#/components/schemas/FactoryStorageTechnology'
+        opaque_locator_ref:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Opaque Locator Ref
+        secret_ref_id:
+          anyOf:
+          - type: string
+            maxLength: 512
+            minLength: 1
+          - type: 'null'
+          title: Secret Ref Id
+        generation:
+          type: integer
+          minimum: 1.0
+          title: Generation
+        disposable:
+          type: boolean
+          title: Disposable
+      additionalProperties: false
+      type: object
+      required:
+      - role
+      - technology
+      - opaque_locator_ref
+      - generation
+      - disposable
+      title: FactoryStorageAuthorityRef
+    FactoryStorageAuthorityResponse:
+      properties:
+        descriptor:
+          $ref: '#/components/schemas/FactoryStorageAuthorityDescriptor'
+        descriptor_digest:
+          type: string
+          title: Descriptor Digest
+        lifecycle_receipt:
+          $ref: '#/components/schemas/TraceStoreLifecycleReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - descriptor
+      - descriptor_digest
+      - lifecycle_receipt
+      title: FactoryStorageAuthorityResponse
+      description: Opaque generation-bound Factory storage authorities and owner receipt.
+    FactoryStorageAuthorityRole:
+      type: string
+      enum:
+      - control_plane
+      - immutable_objects
+      - rebuildable_catalog
+      title: FactoryStorageAuthorityRole
+    FactoryStorageTechnology:
+      type: string
+      enum:
+      - postgres
+      - s3
+      - turso
+      title: FactoryStorageTechnology
     FlushSSEStreamsResponse:
       properties:
         flushed_keys:
@@ -42741,6 +43300,55 @@ components:
       - autumn_product_id
       - autumn_feature_id
       title: GeloLaunchPromoStatusResponse
+    GitHubObservation:
+      properties:
+        github_observation_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Github Observation Id
+        pull_request_binding_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Pull Request Binding Id
+        session_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Session Id
+        observed_head_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Observed Head Sha
+        draft:
+          type: boolean
+          title: Draft
+        state:
+          $ref: '#/components/schemas/PullRequestState'
+        observed_at:
+          type: string
+          format: date-time
+          title: Observed At
+        payload_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Payload Digest
+      type: object
+      required:
+      - github_observation_id
+      - pull_request_binding_id
+      - session_id
+      - observed_head_sha
+      - draft
+      - state
+      - observed_at
+      - payload_digest
+      title: GitHubObservation
+      description: Exact-head fields selected from a digest-bearing GitHub observation.
     GrowthCtaEventRequest:
       properties:
         event_name:
@@ -47845,6 +48453,119 @@ components:
           title: Client Metadata
       type: object
       title: PublishManderqueueMessageRequest
+    PullRequestBinding:
+      properties:
+        contract_version:
+          type: string
+          const: internal-code-factory.github-delivery.v1
+          title: Contract Version
+        pull_request_binding_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Pull Request Binding Id
+        session_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Session Id
+        repository_registration_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Repository Registration Id
+        github_repository_id:
+          type: integer
+          minimum: 1.0
+          title: Github Repository Id
+        pr_number:
+          type: integer
+          minimum: 1.0
+          title: Pr Number
+        pr_node_id:
+          type: string
+          minLength: 1
+          title: Pr Node Id
+        url:
+          type: string
+          minLength: 1
+          format: uri
+          title: Url
+        base_ref:
+          type: string
+          minLength: 1
+          title: Base Ref
+        head_ref:
+          type: string
+          minLength: 1
+          title: Head Ref
+        draft:
+          type: boolean
+          title: Draft
+        state:
+          $ref: '#/components/schemas/PullRequestState'
+        delivery_actor_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Delivery Actor Id
+        credential_reference_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Credential Reference Id
+        policy_version:
+          type: integer
+          minimum: 1.0
+          title: Policy Version
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        current_delivery_revision_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._:-]*$
+          title: Current Delivery Revision Id
+      additionalProperties: false
+      type: object
+      required:
+      - contract_version
+      - pull_request_binding_id
+      - session_id
+      - repository_registration_id
+      - github_repository_id
+      - pr_number
+      - pr_node_id
+      - url
+      - base_ref
+      - head_ref
+      - draft
+      - state
+      - delivery_actor_id
+      - credential_reference_id
+      - policy_version
+      - created_at
+      - updated_at
+      - current_delivery_revision_id
+      title: PullRequestBinding
+    PullRequestState:
+      type: string
+      enum:
+      - open
+      - merged
+      - closed
+      title: PullRequestState
     RecordUsageRequest:
       properties:
         metric_type:
@@ -74310,6 +75031,91 @@ components:
       - content_digest
       - receipt_uri
       title: TraceStoreAccessReceipt
+    TraceStoreCrossFactoryDenialReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.trace-store-cross-factory-denial.v1
+          title: Schema Version
+          default: synth.trace-store-cross-factory-denial.v1
+        operation:
+          type: string
+          const: read_trace_bundle_publication
+          title: Operation
+          default: read_trace_bundle_publication
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        source_factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Source Factory Id
+        source_store_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Source Store Id
+        target_factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Target Factory Id
+        target_store_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Target Store Id
+        target_publication_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Target Publication Id
+        denied:
+          type: boolean
+          const: true
+          title: Denied
+          default: true
+        denial_code:
+          type: string
+          const: trace_store_factory_scope_denied
+          title: Denial Code
+          default: trace_store_factory_scope_denied
+        owner_receipt:
+          $ref: '#/components/schemas/TraceStoreAccessReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - source_factory_id
+      - source_store_id
+      - target_factory_id
+      - target_store_id
+      - target_publication_id
+      - owner_receipt
+      title: TraceStoreCrossFactoryDenialReceipt
+      description: Actual Trace-store owner proof that source scope cannot read target
+        data.
+    TraceStoreCrossFactoryDenialRequest:
+      properties:
+        target_factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Target Factory Id
+        target_publication_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Target Publication Id
+      additionalProperties: false
+      type: object
+      required:
+      - target_factory_id
+      - target_publication_id
+      title: TraceStoreCrossFactoryDenialRequest
     TraceStoreDescriptorResponse:
       properties:
         store_id:
@@ -76201,21 +77007,183 @@ components:
       properties:
         commit_sha:
           type: string
+          pattern: ^[0-9a-f]{40}$
           title: Commit Sha
         archive_key:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          maxLength: 2000
+          minLength: 1
           title: Archive Key
         run_id:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          maxLength: 255
+          minLength: 1
           title: Run Id
+      additionalProperties: false
       type: object
       required:
       - commit_sha
+      - archive_key
+      - run_id
       title: WorkspaceConfirmPushRequest
+    WorkspaceGitServerProvenance:
+      properties:
+        authority:
+          type: string
+          const: internal_git_server
+          title: Authority
+          default: internal_git_server
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        repository_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Repository Id
+        org_slug:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Slug
+        project_slug:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Slug
+        branch:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Branch
+        observed_head_sha:
+          type: string
+          title: Observed Head Sha
+        observed_tree_sha:
+          type: string
+          title: Observed Tree Sha
+        repository_generation_digest:
+          type: string
+          title: Repository Generation Digest
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - project_id
+      - repository_id
+      - org_slug
+      - project_slug
+      - branch
+      - observed_head_sha
+      - observed_tree_sha
+      - repository_generation_digest
+      title: WorkspaceGitServerProvenance
+      description: Generation-bound identity observed through the internal Git authority.
+    WorkspacePushConfirmationReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.workspace-push-confirmation-receipt.v1
+          title: Schema Version
+          default: synth.workspace-push-confirmation-receipt.v1
+        authority:
+          type: string
+          const: project_workspace_control_plane
+          title: Authority
+          default: project_workspace_control_plane
+        receipt_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Receipt Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        factory_project_membership_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Project Membership Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        run_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Run Id
+        workspace_archive_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Workspace Archive Id
+        commit_sha:
+          type: string
+          title: Commit Sha
+        verified_internal_head_sha:
+          type: string
+          title: Verified Internal Head Sha
+        immutable_archive_uri:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Immutable Archive Uri
+        archive_digest:
+          type: string
+          title: Archive Digest
+        archive_size_bytes:
+          type: integer
+          minimum: 1.0
+          title: Archive Size Bytes
+        snapshot_manifest_digest:
+          type: string
+          title: Snapshot Manifest Digest
+        git_server_provenance:
+          $ref: '#/components/schemas/WorkspaceGitServerProvenance'
+        confirmed_at:
+          type: string
+          format: date-time
+          title: Confirmed At
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - org_id
+      - factory_id
+      - factory_project_membership_id
+      - project_id
+      - run_id
+      - workspace_archive_id
+      - commit_sha
+      - verified_internal_head_sha
+      - immutable_archive_uri
+      - archive_digest
+      - archive_size_bytes
+      - snapshot_manifest_digest
+      - git_server_provenance
+      - confirmed_at
+      - receipt_digest
+      title: WorkspacePushConfirmationReceipt
+      description: Exact Git/S3 evidence returned after a workspace push is confirmed.
   securitySchemes:
     HTTPBearer:
       type: http
