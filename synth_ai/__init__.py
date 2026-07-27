@@ -52,6 +52,8 @@ __all__ = [
     "OpenAIAgentsSdkClient",
     "MagiDecisionRequest",
     "MagiMode",
+    "ProjectComputerCleanupReceiptResponse",
+    "ProjectComputerCleanupRequest",
     "ProjectComputerProvisionRequest",
     "ProjectComputerReplaceRequest",
     "ResearchClient",
@@ -90,6 +92,14 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "MagiDecisionRequest",
     ),
     "MagiMode": ("synth_ai.core.research.contracts", "MagiMode"),
+    "ProjectComputerCleanupReceiptResponse": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerCleanupReceiptResponse",
+    ),
+    "ProjectComputerCleanupRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerCleanupRequest",
+    ),
     "ProjectComputerProvisionRequest": (
         "synth_ai.core.research.contracts",
         "ProjectComputerProvisionRequest",

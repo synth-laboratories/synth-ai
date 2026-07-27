@@ -2064,6 +2064,130 @@
         "title": "ParentObjectiveKind",
         "type": "string"
       },
+      "ProjectComputerCleanupReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cleanup_complete": {
+            "title": "Cleanup Complete",
+            "type": "boolean"
+          },
+          "content_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "materialization_receipts": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectComputerMaterializationReceipt"
+            },
+            "title": "Materialization Receipts",
+            "type": "array"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "owner": {
+            "const": "research_intern_control_plane",
+            "title": "Owner",
+            "type": "string"
+          },
+          "post_inventory": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectComputerResponse"
+            },
+            "title": "Post Inventory",
+            "type": "array"
+          },
+          "pre_inventory": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectComputerResponse"
+            },
+            "title": "Pre Inventory",
+            "type": "array"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "receipt_uri": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Receipt Uri",
+            "type": "string"
+          },
+          "research_intern_id": {
+            "title": "Research Intern Id",
+            "type": "string"
+          },
+          "retirement_receipts": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectComputerRetirementReceipt"
+            },
+            "title": "Retirement Receipts",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "smr.project-computer-cleanup.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "service_origin": {
+            "const": "urn:synth:research-intern:project-computer",
+            "title": "Service Origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "service_origin",
+          "owner",
+          "receipt_id",
+          "content_digest",
+          "receipt_uri",
+          "org_id",
+          "research_intern_id",
+          "factory_id",
+          "idempotency_key",
+          "pre_inventory",
+          "materialization_receipts",
+          "retirement_receipts",
+          "post_inventory",
+          "cleanup_complete",
+          "created_at"
+        ],
+        "title": "ProjectComputerCleanupReceiptResponse",
+        "type": "object"
+      },
+      "ProjectComputerCleanupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key"
+        ],
+        "title": "ProjectComputerCleanupRequest",
+        "type": "object"
+      },
       "ProjectComputerLifecycle": {
         "enum": [
           "provisioning",
@@ -2074,6 +2198,86 @@
         ],
         "title": "ProjectComputerLifecycle",
         "type": "string"
+      },
+      "ProjectComputerMaterializationReceipt": {
+        "additionalProperties": false,
+        "description": "Adapter-authored proof of the code and snapshot present on a computer.",
+        "properties": {
+          "materialized": {
+            "title": "Materialized",
+            "type": "boolean"
+          },
+          "owner": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "provider_resource_ref": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Provider Resource Ref",
+            "type": "string"
+          },
+          "receipt_ref": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Receipt Ref",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "smr.project-computer-materialization.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_digest": {
+            "anyOf": [
+              {
+                "pattern": "^sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Digest"
+          },
+          "source_archive_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Source Archive Digest",
+            "type": "string"
+          },
+          "source_repository_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Repository Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Source Revision",
+            "type": "string"
+          },
+          "workspace_path": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Workspace Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "owner",
+          "provider_resource_ref",
+          "source_repository_id",
+          "source_revision",
+          "source_archive_digest",
+          "workspace_path",
+          "materialized",
+          "receipt_ref"
+        ],
+        "title": "ProjectComputerMaterializationReceipt",
+        "type": "object"
       },
       "ProjectComputerProvisionRequest": {
         "additionalProperties": false,
@@ -2290,6 +2494,93 @@
           "updated_at"
         ],
         "title": "ProjectComputerResponse",
+        "type": "object"
+      },
+      "ProjectComputerRetirementReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "disposition": {
+            "pattern": "^(retired|already_absent)$",
+            "title": "Disposition",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Owner",
+            "type": "string"
+          },
+          "post_inventory": {
+            "additionalProperties": true,
+            "title": "Post Inventory",
+            "type": "object"
+          },
+          "pre_inventory": {
+            "additionalProperties": true,
+            "title": "Pre Inventory",
+            "type": "object"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "provider_kind": {
+            "title": "Provider Kind",
+            "type": "string"
+          },
+          "provider_resource_ref": {
+            "title": "Provider Resource Ref",
+            "type": "string"
+          },
+          "receipt_ref": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Receipt Ref",
+            "type": "string"
+          },
+          "retired": {
+            "title": "Retired",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "smr.project-computer-retirement.v1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "owner",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "generation",
+          "provider_kind",
+          "adapter_kind",
+          "provider_resource_ref",
+          "disposition",
+          "pre_inventory",
+          "post_inventory",
+          "retired",
+          "receipt_ref"
+        ],
+        "title": "ProjectComputerRetirementReceipt",
         "type": "object"
       },
       "ProjectSetupStatus": {
@@ -22712,6 +23003,59 @@
           }
         },
         "summary": "Attach Research Intern Factory",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/research-intern/factories/{factory_id}/project-computers/cleanup": {
+      "post": {
+        "operationId": "cleanup_factory_project_computers",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "factory_id",
+            "required": true,
+            "schema": {
+              "title": "Factory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerCleanupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerCleanupReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cleanup Factory Project Computers",
         "tags": [
           "smr",
           "research-intern"
