@@ -468,6 +468,8 @@ def _sdk_rows(
 
 def _public_compatibility_alias_rows(sdk_root: Path) -> list[dict[str, Any]]:
     path = sdk_root / "synth_ai/research/__init__.py"
+    if not path.is_file():
+        return []
     relative = path.relative_to(sdk_root).as_posix()
     rows: list[dict[str, Any]] = []
     for node in _parse(path).body:

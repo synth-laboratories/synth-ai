@@ -4,6 +4,69 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.3.dev1 — 2026-07-26
+
+Prerelease development line following `0.17.2`.
+
+### Added
+
+- A canonical typed Effort recurrence contract now covers cadence, timezone,
+  concurrency, completion-triggered launches, success delay, bounded failure
+  backoff, metadata, and an exact typed `SwarmSpec` launch request.
+- `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
+  facade accept the typed recurrence without changing its provider, profile,
+  model, or role selections.
+- `FactoryBudgetPolicy` exposes a typed recurring accounting period so
+  always-on internal Factories can use a resettable code-owned spend envelope
+  instead of an eventual all-time stop.
+- `FactorySpec` can select the native Result authority at creation, allowing a
+  new optimization Factory to define evaluation lenses without an operator
+  backfill or compatibility cutover.
+
+### Changed
+
+- The advanced/session `RecurrencePolicy` name is now a compatibility re-export
+  of the stable `EffortRecurrence` contract instead of a second wire model.
+
+## 0.17.2 — 2026-07-25
+
+### Removed
+
+- **Open Research is retired.** The SDK no longer exposes its public artifact,
+  visual, runtime-image, session-image, or Factory-operation contracts. Hosted
+  artifacts remain available for internal operator review without a public
+  promotion path.
+
+### Changed
+
+- **The vendored SMR OpenAPI now matches the retirement backend candidate
+  byte-for-byte.** The package no longer advertises removed Open Research
+  routes, schemas, enum values, or redaction profiles.
+
+## 0.17.1 — 2026-07-25
+
+Both fixes were found by running a real Managed Research eval against a deployed
+backend on `0.17.0`. Neither is reachable from a mocked client.
+
+### Fixed
+
+- **`research.swarms.wait` no longer ends a long wait because one poll failed.**
+  A retryable failure on a single poll — a lost DNS lookup, a reset connection, a
+  5xx — describes the caller's transport, not the Swarm, so the loop now absorbs
+  it and polls again inside the same deadline. `RetryPolicy` never covered this:
+  it retries an individual request, and `wait` is a loop of requests, so a wait
+  with nineteen minutes left died on a momentary resolver failure.
+
+  The distinction the loop preserves matters to anyone deciding whether to cancel
+  durable work: `TimeoutError` means the Swarm *was* read and was not terminal,
+  while a `SynthError` out of `wait` means its state was never established. A
+  runner that treats those alike will destroy live work on a network blip.
+
+- **`research.swarms.activity` decodes the `completed` run state.** The backend
+  has been reporting `completed` all along; `SwarmState` had no such member, so
+  the strict decode turned a healthy read into
+  `ValueError: 'completed' is not a valid SwarmState`. It is a terminal state.
+
 ## 0.17.0 — 2026-07-24
 
 Breaking. `research.swarms.*` method names and return types both change from

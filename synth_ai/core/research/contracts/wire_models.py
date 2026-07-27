@@ -195,12 +195,6 @@ from synth_ai.core.research.contracts.local_execution_profile import (
     local_execution_payload,
     local_execution_profile_payload,
 )
-from synth_ai.core.research.contracts.open_research_visual import (
-    OPEN_RESEARCH_VISUAL_SCHEMA_VERSION,
-    OpenResearchVisualClaim,
-    OpenResearchVisualManifest,
-    is_open_research_visual_manifest,
-)
 from synth_ai.core.research.contracts.operator_evidence import (
     OperatorEvidenceDiagnostic,
     ProjectionEvidenceReceipt,
@@ -886,9 +880,6 @@ __all__ = [
     "LOCAL_LAUNCH_TARGET_HOST_KIND",
     "LOCAL_SOURCE_KIND_EXTERNAL_REPO",
     "LOCAL_SOURCE_KIND_SLOT_GIT_MIRROR",
-    "OPEN_RESEARCH_VISUAL_SCHEMA_VERSION",
-    "OpenResearchVisualClaim",
-    "OpenResearchVisualManifest",
     "SOURCE_BINDING_KIND_LOCAL_PRODUCT_SOURCE",
     "SOURCE_BINDING_KIND_NONE",
     "SOURCE_BINDING_KIND_TOOL_REPO",
@@ -1031,7 +1022,6 @@ __all__ = [
     "WorkspaceInputsState",
     "WorkspaceSourceRepo",
     "WorkspaceUploadResult",
-    "is_open_research_visual_manifest",
     "ActorContainerRunBinding",
     "AppliedBudgetOwnerReceipt",
     "AppliedExperimentRegistrationReceipt",

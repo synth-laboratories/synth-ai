@@ -3232,8 +3232,7 @@
             "enum": [
               "research",
               "eval_factory",
-              "optimizer",
-              "open_research"
+              "optimizer"
             ],
             "title": "Effort Type",
             "type": "string"
@@ -3320,9 +3319,14 @@
             "type": "object"
           },
           "recurrence_policy": {
-            "additionalProperties": true,
-            "title": "Recurrence Policy",
-            "type": "object"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrEffortRecurrencePolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "default": "active",
@@ -3344,6 +3348,50 @@
           "name"
         ],
         "title": "SmrEffortCreateRequest",
+        "type": "object"
+      },
+      "SmrEffortFailureBackoff": {
+        "additionalProperties": false,
+        "description": "Finite retry envelope for one terminal-run failure streak.",
+        "properties": {
+          "action": {
+            "default": "backoff",
+            "enum": [
+              "backoff",
+              "retry"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "backoff_seconds": {
+            "default": 300,
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Backoff Seconds",
+            "type": "integer"
+          },
+          "max_backoff_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Backoff Seconds"
+          },
+          "multiplier": {
+            "default": 2.0,
+            "maximum": 16.0,
+            "minimum": 1.0,
+            "title": "Multiplier",
+            "type": "number"
+          }
+        },
+        "title": "SmrEffortFailureBackoff",
         "type": "object"
       },
       "SmrEffortPatchRequest": {
@@ -3414,8 +3462,7 @@
                 "enum": [
                   "research",
                   "eval_factory",
-                  "optimizer",
-                  "open_research"
+                  "optimizer"
                 ],
                 "type": "string"
               },
@@ -3522,14 +3569,12 @@
           "recurrence_policy": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/SmrEffortRecurrencePolicy"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Recurrence Policy"
+            ]
           },
           "status": {
             "anyOf": [
@@ -3552,6 +3597,140 @@
           }
         },
         "title": "SmrEffortPatchRequest",
+        "type": "object"
+      },
+      "SmrEffortRecurrencePolicy": {
+        "additionalProperties": false,
+        "description": "Canonical synth-ai-compatible recurring Factory launch contract.\n\nThe embedded launch request is the exact backend ``SwarmSpec`` transport\ncontract used by ``POST /smr/projects/{project_id}/trigger``. This boundary\ntherefore cannot persist a launch-shaped arbitrary mapping.",
+        "properties": {
+          "cadence": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cadence"
+          },
+          "cooldown_seconds": {
+            "anyOf": [
+              {
+                "maximum": 604800.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cooldown Seconds"
+          },
+          "delay_seconds": {
+            "default": 0,
+            "maximum": 604800.0,
+            "minimum": 0.0,
+            "title": "Delay Seconds",
+            "type": "integer"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "event_scope": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Scope"
+          },
+          "event_triggers": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              ]
+            },
+            "title": "Event Triggers",
+            "type": "array"
+          },
+          "failure_policy": {
+            "$ref": "#/components/schemas/SmrEffortFailureBackoff"
+          },
+          "launch_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrProjectTriggerRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maintenance": {
+            "additionalProperties": true,
+            "title": "Maintenance",
+            "type": "object"
+          },
+          "max_active_runs": {
+            "default": 1,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Active Runs",
+            "type": "integer"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "on_run_complete": {
+            "default": false,
+            "title": "On Run Complete",
+            "type": "boolean"
+          },
+          "research": {
+            "additionalProperties": true,
+            "title": "Research",
+            "type": "object"
+          },
+          "timezone": {
+            "default": "UTC",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Timezone",
+            "type": "string"
+          },
+          "trigger": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger"
+          }
+        },
+        "title": "SmrEffortRecurrencePolicy",
         "type": "object"
       },
       "SmrEffortResponse": {
@@ -3611,8 +3790,7 @@
             "enum": [
               "research",
               "eval_factory",
-              "optimizer",
-              "open_research"
+              "optimizer"
             ],
             "title": "Effort Type",
             "type": "string"
@@ -4983,8 +5161,7 @@
             "default": "customer",
             "enum": [
               "customer",
-              "internal",
-              "open_research"
+              "internal"
             ],
             "title": "Kind",
             "type": "string"
@@ -5004,6 +5181,15 @@
             "additionalProperties": true,
             "title": "Publication Policy",
             "type": "object"
+          },
+          "result_authority_generation": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "result_authority"
+            ],
+            "title": "Result Authority Generation",
+            "type": "string"
           },
           "status": {
             "default": "active",
@@ -5496,8 +5682,7 @@
           "kind": {
             "enum": [
               "customer",
-              "internal",
-              "open_research"
+              "internal"
             ],
             "title": "Kind",
             "type": "string"
@@ -5519,6 +5704,14 @@
             "additionalProperties": true,
             "title": "Publication Policy",
             "type": "object"
+          },
+          "result_authority_generation": {
+            "enum": [
+              "legacy",
+              "result_authority"
+            ],
+            "title": "Result Authority Generation",
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -5542,6 +5735,7 @@
           "name",
           "kind",
           "status",
+          "result_authority_generation",
           "created_at",
           "updated_at"
         ],
@@ -7769,6 +7963,9 @@
                 "type": "array"
               },
               {
+                "$ref": "#/components/schemas/SmrProviderCredentialRefRequest"
+              },
+              {
                 "type": "null"
               }
             ],
@@ -7979,6 +8176,23 @@
         "title": "SmrProjectionInputResponse",
         "type": "object"
       },
+      "SmrProviderCredentialRefRequest": {
+        "additionalProperties": false,
+        "description": "Secure inference-provider selection through a persisted credential ref.",
+        "properties": {
+          "credential_ref": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Credential Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "credential_ref"
+        ],
+        "title": "SmrProviderCredentialRefRequest",
+        "type": "object"
+      },
       "SmrReadinessAttestationRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8044,6 +8258,13 @@
                 "type": "null"
               }
             ]
+          },
+          "role_profile_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Role Profile Ids",
+            "type": "object"
           },
           "workers": {
             "items": {
@@ -10165,18 +10386,6 @@
               }
             ],
             "title": "Network Topology"
-          },
-          "open_research": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Open Research"
           },
           "org_id": {
             "title": "Org Id",
@@ -13500,7 +13709,7 @@
             "anyOf": [
               {
                 "enum": [
-                  "open_research_public",
+                  "public_default",
                   "operator_default",
                   "debug_operator"
                 ],
@@ -20928,7 +21137,7 @@
                           "anyOf": [
                             {
                               "enum": [
-                                "open_research_public",
+                                "public_default",
                                 "operator_default",
                                 "debug_operator"
                               ],

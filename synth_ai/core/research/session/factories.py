@@ -16,6 +16,7 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
+from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     Effort,
@@ -84,6 +85,25 @@ def _wire_mapping_payload(value: object, *, field_name: str) -> dict[str, Any]:
     if not isinstance(wire_value, Mapping):
         raise TypeError(f"{field_name} must be a mapping or support to_wire()")
     return dict(cast(Mapping[str, Any], wire_value))
+
+
+def _effort_recurrence_payload(
+    *,
+    recurrence: EffortRecurrence | None,
+    recurrence_policy: (
+        EffortRecurrence
+        | RecurrencePolicy
+        | Mapping[str, Any]
+        | dict[str, Any]
+        | None
+    ),
+) -> dict[str, Any]:
+    if recurrence is not None and recurrence_policy is not None:
+        raise ValueError("recurrence cannot be combined with recurrence_policy")
+    selected = recurrence if recurrence is not None else recurrence_policy
+    if selected is None:
+        return {}
+    return _wire_mapping_payload(selected, field_name="recurrence")
 
 
 class FactoriesAPI(_ClientNamespace):
@@ -783,7 +803,14 @@ class FactoriesAPI(_ClientNamespace):
         hypothesis_or_topic: str | None = None,
         effort_type: EffortType | str = EffortType.RESEARCH,
         status: EffortStatus | str = EffortStatus.ACTIVE,
-        recurrence_policy: RecurrencePolicy | Mapping[str, Any] | dict[str, Any] | None = None,
+        recurrence: EffortRecurrence | None = None,
+        recurrence_policy: (
+            EffortRecurrence
+            | RecurrencePolicy
+            | Mapping[str, Any]
+            | dict[str, Any]
+            | None
+        ) = None,
         next_wake_at: datetime | str | None = None,
         latest_run_id: str | None = None,
         latest_report_id: str | None = None,
@@ -808,14 +835,10 @@ class FactoriesAPI(_ClientNamespace):
                 )
             workspace_project_id = workspace_project.project_id
 
-        policy_payload: dict[str, Any] = {}
-        if recurrence_policy is not None:
-            policy_payload.update(
-                _wire_mapping_payload(
-                    recurrence_policy,
-                    field_name="recurrence_policy",
-                )
-            )
+        policy_payload = _effort_recurrence_payload(
+            recurrence=recurrence,
+            recurrence_policy=recurrence_policy,
+        )
 
         return Effort.from_wire(
             self._client.create_effort(
@@ -1089,7 +1112,9 @@ class EffortsAPI(_ClientNamespace):
         effort_id: str,
         *,
         next_wake_at: datetime | str,
-        recurrence_policy: RecurrencePolicy | Mapping[str, Any] | dict[str, Any] | None = None,
+        recurrence_policy: (
+            EffortRecurrence | Mapping[str, Any] | dict[str, Any] | None
+        ) = None,
         launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
         policy: dict[str, Any] = {}

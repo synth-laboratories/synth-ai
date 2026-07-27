@@ -1,4 +1,4 @@
-"""``client.research.hosted_artifacts`` — Open Research hosted artifact operator API."""
+"""``client.research.hosted_artifacts`` — hosted artifact operator API."""
 
 from __future__ import annotations
 
@@ -14,18 +14,18 @@ def _artifact_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 class ResearchHostedArtifactsAPI:
-    """Operator CRUD access to SMR hosted artifacts (Open Research alpha).
+    """Operator CRUD access to SMR hosted artifacts.
 
     Hosted artifacts are HTML proof pages materialized by ``artifact_builder``
     workers during a run. Creation still happens in-run via the
     ``publish_hosted_artifact`` MCP tool; this namespace covers operator read,
-    metadata patch, promote, review dispatch, and delete.
+    metadata patch, review dispatch, and delete.
 
     | Operation | SDK | Backend |
     | --- | --- | --- |
     | **Create** | Worker MCP ``publish_hosted_artifact`` | In-run service write |
     | **Read** | ``list``, ``get``, ``get_for_run``, ``get_content`` | ``GET`` list/detail/receipt/content |
-    | **Update** | ``update``, ``publish_public``, ``assign_reviewer`` | ``PATCH`` + promote/review routes |
+    | **Update** | ``update``, ``assign_reviewer`` | ``PATCH`` + review routes |
     | **Delete** | ``delete`` | ``DELETE /smr/hosted-artifacts/{id}`` |
 
     Example:
@@ -54,8 +54,7 @@ class ResearchHostedArtifactsAPI:
             limit: Maximum rows to return (server capped at 250).
 
         Returns:
-            Artifact receipts with ``project_id``, ``hosted_url``, ``public_url``,
-            and ``slug`` when promoted.
+            Artifact receipts with ``project_id`` and ``hosted_url``.
         """
         if project_id:
             payload = self._session.list_project_hosted_artifacts(project_id, limit=limit)
@@ -109,22 +108,15 @@ class ResearchHostedArtifactsAPI:
         *,
         title: str | None = None,
         metadata: Mapping[str, Any] | dict[str, Any] | None = None,
-        theme: str | None = None,
-        summary: str | None = None,
-        kind: str | None = None,
         visibility: str | None = None,
     ) -> dict[str, Any]:
-        """Patch hosted artifact metadata and optional public shell fields.
+        """Patch hosted artifact metadata.
 
         Args:
             hosted_artifact_id: Artifact to update.
-            title: Replace artifact title (and public title when promoted).
+            title: Replace artifact title.
             metadata: Shallow-merge into artifact ``metadata``.
-            theme: Public index theme when a publication exists.
-            summary: Public summary when a publication exists.
-            kind: Public kind when a publication exists.
-            visibility: ``private``, ``org``, or ``public``. Demoting from
-                ``public`` removes the public shell row.
+            visibility: ``private``, ``org``, or ``public``.
 
         Returns:
             Updated receipt from ``PATCH /smr/hosted-artifacts/{id}``.
@@ -133,32 +125,7 @@ class ResearchHostedArtifactsAPI:
             hosted_artifact_id,
             title=title,
             metadata=metadata,
-            theme=theme,
-            summary=summary,
-            kind=kind,
             visibility=visibility,
-        )
-
-    def publish_public(
-        self,
-        hosted_artifact_id: str,
-        slug: str,
-        *,
-        kind: str = "result",
-        theme: str | None = None,
-        summary: str | None = None,
-        factory_id: str | None = None,
-        effort_id: str | None = None,
-    ) -> dict[str, Any]:
-        """Promote a hosted artifact to the public Open Research index."""
-        return self._session.publish_hosted_artifact_public(
-            hosted_artifact_id,
-            slug=slug,
-            kind=kind,
-            theme=theme,
-            summary=summary,
-            factory_id=factory_id,
-            effort_id=effort_id,
         )
 
     def assign_reviewer(
@@ -185,15 +152,5 @@ class ResearchHostedArtifactsAPI:
             Deletion receipt with ``deleted`` and ``hosted_artifact_id``.
         """
         return self._session.delete_hosted_artifact(hosted_artifact_id)
-
-    def list_public(self) -> List[dict[str, Any]]:
-        """List public Open Research artifacts (unauthenticated index JSON)."""
-        payload = self._session.list_public_hosted_artifacts()
-        return _artifact_items(payload)
-
-    def get_public(self, slug: str) -> dict[str, Any]:
-        """Read one public artifact bundle by slug."""
-        return self._session.get_public_hosted_artifact(slug)
-
 
 __all__ = ["ResearchHostedArtifactsAPI"]

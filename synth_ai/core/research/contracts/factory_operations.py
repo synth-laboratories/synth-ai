@@ -5,7 +5,9 @@ Factory, Effort, Idea, Result, and Champion projections used by the advanced
 Research namespaces. The stable, id-typed Factory contract lives in
 ``synth_ai.core.research.contracts.factories``; the overlapping ``Factory``
 and ``Effort`` shapes in the two modules still need one reconciliation pass
-before the advanced namespaces can fold into the stable contract.
+before the advanced namespaces can fold into the stable contract. The legacy
+recurrence wrapper below preserves its historical constructor and root metadata
+wire behavior while delegating typed fields to the stable contract.
 """
 
 from __future__ import annotations
@@ -16,6 +18,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from synth_ai.core.research.contracts.factories import (
+    EffortMaintenanceRecurrencePolicy,
+    EffortRecurrence,
+    EffortResearchRecurrencePolicy,
+)
 from synth_ai.core.research.contracts.run_state import (
     _int_value,
     _optional_bool,
@@ -29,6 +36,7 @@ from synth_ai.core.research.contracts.scientific_integrity import (
     SmrEvaluationMode,
     grading_record_evaluation_mode,
 )
+from synth_ai.core.research.contracts.swarms import SwarmSpec
 
 if TYPE_CHECKING:
     from .factory_evidence import ConfirmedProjectGitPushReceipt
@@ -37,7 +45,6 @@ if TYPE_CHECKING:
 class FactoryKind(StrEnum):
     CUSTOMER = "customer"
     INTERNAL = "internal"
-    OPEN_RESEARCH = "open_research"
 
 
 class FactoryLifecycleState(StrEnum):
@@ -124,7 +131,6 @@ class EffortType(StrEnum):
     RESEARCH = "research"
     EVAL_FACTORY = "eval_factory"
     OPTIMIZER = "optimizer"
-    OPEN_RESEARCH = "open_research"
 
 
 class FactoryRunKind(StrEnum):
@@ -330,33 +336,99 @@ class FactoryTransitionResponse:
 
 @dataclass(frozen=True)
 class RecurrencePolicy:
+    """Legacy recurrence constructor with strict-root metadata compatibility."""
+
     cadence: str | None = None
     timezone: str | None = None
     max_active_runs: int | None = None
     trigger: str | None = None
-    event_triggers: tuple[str | dict[str, Any], ...] = ()
+    event_triggers: tuple[str | Mapping[str, Any], ...] = ()
     event_scope: str | None = None
     cooldown_seconds: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    on_run_complete: bool | None = None
+    success_delay_seconds: int | None = None
+    failure_backoff_seconds: int | None = None
+    enabled: bool | None = None
+    launch: SwarmSpec | None = None
+    research: EffortResearchRecurrencePolicy | None = None
+    maintenance: EffortMaintenanceRecurrencePolicy | None = None
+    failure_backoff_max_seconds: int | None = None
+    failure_backoff_multiplier: float | None = None
 
     def to_wire(self) -> dict[str, Any]:
-        payload = dict(self.metadata)
-        for key, value in (
-            ("cadence", self.cadence),
-            ("timezone", self.timezone),
-            ("max_active_runs", self.max_active_runs),
-            ("trigger", self.trigger),
-            ("event_scope", self.event_scope),
-            ("cooldown_seconds", self.cooldown_seconds),
+        normalized_metadata = dict(self.metadata)
+        if "delay_seconds" not in normalized_metadata:
+            for alias in (
+                "success_delay_seconds",
+                "on_run_complete_delay_seconds",
+            ):
+                if normalized_metadata.get(alias) is not None:
+                    normalized_metadata["delay_seconds"] = normalized_metadata[alias]
+                    break
+        if (
+            "failure_policy" not in normalized_metadata
+            and normalized_metadata.get("on_failure") is not None
         ):
-            if value is not None:
-                payload[key] = value
-        if self.event_triggers:
-            payload["event_triggers"] = [
+            normalized_metadata["failure_policy"] = normalized_metadata["on_failure"]
+        for alias in (
+            "success_delay_seconds",
+            "on_run_complete_delay_seconds",
+            "on_failure",
+        ):
+            normalized_metadata.pop(alias, None)
+        strict_root_fields = {
+            "cadence",
+            "cooldown_seconds",
+            "delay_seconds",
+            "enabled",
+            "event_scope",
+            "event_triggers",
+            "failure_policy",
+            "launch_request",
+            "maintenance",
+            "max_active_runs",
+            "on_run_complete",
+            "research",
+            "timezone",
+            "trigger",
+        }
+        legacy_root = {
+            key: value
+            for key, value in normalized_metadata.items()
+            if key in strict_root_fields
+        }
+        opaque_metadata = {
+            key: value
+            for key, value in normalized_metadata.items()
+            if key not in strict_root_fields
+        }
+        typed = EffortRecurrence(
+            cadence=self.cadence,
+            timezone=self.timezone,
+            max_active_runs=self.max_active_runs,
+            launch=self.launch,
+            trigger=self.trigger,
+            on_run_complete=self.on_run_complete,
+            event_triggers=tuple(
                 dict(item) if isinstance(item, Mapping) else str(item)
                 for item in self.event_triggers
-            ]
-        return payload
+            ),
+            event_scope=self.event_scope,
+            cooldown_seconds=self.cooldown_seconds,
+            success_delay_seconds=self.success_delay_seconds,
+            failure_backoff_seconds=self.failure_backoff_seconds,
+            failure_backoff_max_seconds=self.failure_backoff_max_seconds,
+            failure_backoff_multiplier=self.failure_backoff_multiplier,
+            enabled=self.enabled if self.enabled is not None else True,
+            metadata=opaque_metadata,
+            research=self.research,
+            maintenance=self.maintenance,
+        ).to_wire()
+        if self.enabled is None:
+            typed.pop("enabled", None)
+        legacy_root.update(typed)
+        return legacy_root
 
 
 @dataclass(frozen=True)
@@ -577,7 +649,9 @@ class EffortCreateRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str = EffortStatus.ACTIVE
     effort_type: EffortType | str = EffortType.RESEARCH
-    recurrence_policy: RecurrencePolicy | dict[str, Any] = field(default_factory=dict)
+    recurrence_policy: EffortRecurrence | RecurrencePolicy | dict[str, Any] = field(
+        default_factory=dict
+    )
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -630,7 +704,9 @@ class EffortPatchRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str | None = None
     effort_type: EffortType | str | None = None
-    recurrence_policy: RecurrencePolicy | dict[str, Any] | None = None
+    recurrence_policy: (
+        EffortRecurrence | RecurrencePolicy | dict[str, Any] | None
+    ) = None
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -1936,8 +2012,6 @@ class FactoryStatus:
     publication_states: dict[str, object] = field(default_factory=dict)
     costs_limits: dict[str, object] = field(default_factory=dict)
     factory_health: FactoryHealth | None = None
-    proof_readiness: dict[str, object] = field(default_factory=dict)
-    public_visuals: dict[str, object] = field(default_factory=dict)
     experiment_observability: ExperimentBundle | None = None
     judgment_state: dict[str, object] = field(default_factory=dict)
     operating_window: FactoryOperatingWindow | None = None
@@ -2035,14 +2109,6 @@ class FactoryStatus:
                 FactoryHealth.from_wire(mapping.get("factory_health"))
                 if mapping.get("factory_health") is not None
                 else None
-            ),
-            proof_readiness=_optional_object_dict(
-                mapping.get("proof_readiness"),
-                label="factory status proof_readiness",
-            ),
-            public_visuals=_optional_object_dict(
-                mapping.get("public_visuals"),
-                label="factory status public_visuals",
             ),
             experiment_observability=experiment_observability,
             judgment_state=_optional_object_dict(
@@ -3041,71 +3107,6 @@ __all__ = [
     "factory_project_patch_payload",
     "factory_wake_due_payload",
 ]
-
-
-@dataclass(frozen=True)
-class FactoryPublicVisuals:
-    """Typed view over ``FactoryStatus.public_visuals``.
-
-    Mirrors the backend ``synth.open_research.factory_public_visuals.v1``
-    payload assembled by ``_open_frontier_public_visuals``. Forward-compatible:
-    unknown keys are preserved in ``raw``.
-    """
-
-    schema: str = ""
-    programme_id: str | None = None
-    current_run: dict[str, object] | None = None
-    next_scheduled_event: dict[str, object] | None = None
-    last_accepted_result: dict[str, object] | None = None
-    latest_report: dict[str, object] | None = None
-    score_trend: tuple[dict[str, object], ...] = ()
-    candidate_rejections: tuple[dict[str, object], ...] = ()
-    evidence_rejections: tuple[dict[str, object], ...] = ()
-    scheduler_decisions: tuple[dict[str, object], ...] = ()
-    public_data: tuple[str, ...] = ()
-    visualizations: tuple[dict[str, object], ...] = ()
-    raw: dict[str, object] = field(default_factory=dict)
-
-    @classmethod
-    def from_wire(cls, payload: object) -> FactoryPublicVisuals:
-        mapping = _require_mapping(payload, label="factory public visuals")
-
-        def _optional_mapping(key: str) -> dict[str, object] | None:
-            value = mapping.get(key)
-            if value is None:
-                return None
-            return _optional_object_dict(value, label=f"factory public visuals {key}")
-
-        return cls(
-            schema=str(mapping.get("schema") or ""),
-            programme_id=_optional_string(mapping, "programme_id"),
-            current_run=_optional_mapping("current_run"),
-            next_scheduled_event=_optional_mapping("next_scheduled_event"),
-            last_accepted_result=_optional_mapping("last_accepted_result"),
-            latest_report=_optional_mapping("latest_report"),
-            score_trend=_optional_object_tuple(
-                mapping.get("score_trend"), label="factory public visuals score_trend"
-            ),
-            candidate_rejections=_optional_object_tuple(
-                mapping.get("candidate_rejections"),
-                label="factory public visuals candidate_rejections",
-            ),
-            evidence_rejections=_optional_object_tuple(
-                mapping.get("evidence_rejections"),
-                label="factory public visuals evidence_rejections",
-            ),
-            scheduler_decisions=_optional_object_tuple(
-                mapping.get("scheduler_decisions"),
-                label="factory public visuals scheduler_decisions",
-            ),
-            public_data=_string_tuple(mapping.get("public_data")),
-            visualizations=_optional_object_tuple(
-                mapping.get("visualizations"),
-                label="factory public visuals visualizations",
-            ),
-            raw=dict(mapping),
-        )
-
 
 @dataclass(frozen=True)
 class FactoryCostsLimits:

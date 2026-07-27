@@ -34,7 +34,6 @@ from synth_ai.core.research.contracts.swarms import SwarmSpec
 class FactoryKind(StrEnum):
     CUSTOMER = "customer"
     INTERNAL = "internal"
-    OPEN_RESEARCH = "open_research"
 
 
 class FactoryLifecycleState(StrEnum):
@@ -47,6 +46,13 @@ class FactoryLifecycleState(StrEnum):
 class FactoryCreateState(StrEnum):
     CONFIGURED = "configured"
     ACTIVE = "active"
+
+
+class FactoryResultAuthorityGeneration(StrEnum):
+    """Persistence authority selected when a Factory is created."""
+
+    LEGACY = "legacy"
+    RESULT_AUTHORITY = "result_authority"
 
 
 class EffortStatus(StrEnum):
@@ -62,12 +68,20 @@ class EffortType(StrEnum):
     RESEARCH = "research"
     EVAL_FACTORY = "eval_factory"
     OPTIMIZER = "optimizer"
-    OPEN_RESEARCH = "open_research"
 
 
 class EffortRunClass(StrEnum):
     ORDINARY = "ordinary"
     TINKER_SFT = "tinker_sft"
+
+
+class FactoryBudgetPeriod(StrEnum):
+    """Accounting window for a Factory's aggregate spend envelope."""
+
+    ALL_TIME = "all_time"
+    DAILY = "daily"
+    LAST_7D = "last_7d"
+    MONTHLY = "monthly"
 
 
 class FactoryTransitionDecision(StrEnum):
@@ -121,6 +135,7 @@ class FactoryBudgetPolicy:
     ordinary_run_target_usd: float
     tinker_sft_run_limit_usd: float | None = None
     tinker_sft_runs_per_window: int | None = None
+    period: FactoryBudgetPeriod | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -132,6 +147,10 @@ class FactoryBudgetPolicy:
             value = getattr(self, name)
             if value is not None and value < 0:
                 raise ValueError(f"{name} must be non-negative")
+        if self.period is not None and not isinstance(
+            self.period, FactoryBudgetPeriod
+        ):
+            object.__setattr__(self, "period", FactoryBudgetPeriod(self.period))
         if self.tinker_sft_runs_per_window is not None and self.tinker_sft_runs_per_window < 0:
             raise ValueError("tinker_sft_runs_per_window must be non-negative")
 
@@ -141,6 +160,8 @@ class FactoryBudgetPolicy:
             "ordinary_run_limit_usd": self.ordinary_run_limit_usd,
             "ordinary_run_target_usd": self.ordinary_run_target_usd,
         }
+        if self.period is not None:
+            value["period"] = self.period.value
         if self.tinker_sft_run_limit_usd is not None:
             value["tinker_sft_run_limit_usd"] = self.tinker_sft_run_limit_usd
         if self.tinker_sft_runs_per_window is not None:
@@ -184,33 +205,353 @@ class CapacityPolicy:
         return value
 
 
+_EFFORT_RECURRENCE_DELAY_SECONDS_MAX = 7 * 24 * 60 * 60
+_EFFORT_RECURRENCE_INITIAL_FAILURE_BACKOFF_SECONDS_MAX = 24 * 60 * 60
+_EFFORT_RECURRENCE_DEFAULT_FAILURE_BACKOFF_SECONDS = 300
+
+
+def _bounded_recurrence_seconds(
+    value: int | None,
+    *,
+    field_name: str,
+    minimum: int,
+    maximum: int = _EFFORT_RECURRENCE_DELAY_SECONDS_MAX,
+) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field_name} must be an integer")
+    if value < minimum or value > maximum:
+        raise ValueError(
+            f"{field_name} must be between {minimum} and {maximum} seconds"
+        )
+    return value
+
+
 @dataclass(frozen=True, slots=True)
+class EffortResearchRecurrencePolicy:
+    """Research-lane overrides merged over the root recurrence policy."""
+
+    launch: SwarmSpec | None = None
+    metadata: JsonObject = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.launch is not None and not isinstance(self.launch, SwarmSpec):
+            raise ValueError("research launch must be SwarmSpec")
+
+    def to_wire(self) -> JsonObject:
+        value = dict(self.metadata)
+        if self.launch is not None:
+            value["launch_request"] = self.launch.to_wire()
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class EffortMaintenanceRecurrencePolicy:
+    """Maintenance cadence and launch overrides for one recurring Effort."""
+
+    enabled: bool | None = None
+    every_n_research_runs: int | None = None
+    launch: SwarmSpec | None = None
+    required_stewards: tuple[str, ...] = ()
+    metadata: JsonObject = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.enabled is not None and not isinstance(self.enabled, bool):
+            raise ValueError("maintenance enabled must be a boolean")
+        if (
+            self.every_n_research_runs is not None
+            and (
+                isinstance(self.every_n_research_runs, bool)
+                or not isinstance(self.every_n_research_runs, int)
+                or self.every_n_research_runs < 1
+            )
+        ):
+            raise ValueError("every_n_research_runs must be a positive integer")
+        if self.launch is not None and not isinstance(self.launch, SwarmSpec):
+            raise ValueError("maintenance launch must be SwarmSpec")
+        normalized_stewards = tuple(
+            require_text(
+                steward,
+                field_name=f"required_stewards[{index}]",
+            ).lower()
+            for index, steward in enumerate(self.required_stewards)
+        )
+        invalid_stewards = sorted(
+            set(normalized_stewards).difference({"gardener", "seraph"})
+        )
+        if invalid_stewards:
+            raise ValueError(
+                "required_stewards must contain only gardener or seraph"
+            )
+        object.__setattr__(self, "required_stewards", normalized_stewards)
+
+    def to_wire(self) -> JsonObject:
+        value = dict(self.metadata)
+        if self.enabled is not None:
+            value["enabled"] = self.enabled
+        if self.every_n_research_runs is not None:
+            value["every_n_research_runs"] = self.every_n_research_runs
+        if self.launch is not None:
+            value["launch_request"] = self.launch.to_wire()
+        if self.required_stewards:
+            value["required_stewards"] = list(self.required_stewards)
+        return value
+
+
+@dataclass(frozen=True, slots=True, init=False)
 class EffortRecurrence:
-    """Typed recurring launch policy for one Effort."""
+    """Typed recurring launch policy for one Effort.
+
+    ``launch`` is serialized through :class:`SwarmSpec` without changing its
+    provider, profile, model, or role bindings. A scalar provider therefore
+    remains a strict provider pin; this layer never adds a fallback.
+    """
 
     cadence: str | None = None
     timezone: str | None = None
     max_active_swarms: int | None = None
+    trigger: str | None = None
+    on_run_complete: bool | None = None
+    event_triggers: tuple[str | JsonObject, ...] = ()
+    event_scope: str | None = None
+    cooldown_seconds: int | None = None
+    success_delay_seconds: int | None = None
+    failure_backoff_seconds: int | None = None
+    failure_backoff_max_seconds: int | None = None
+    failure_backoff_multiplier: float | None = None
+    enabled: bool = True
+    metadata: JsonObject = field(default_factory=dict)
     launch: SwarmSpec | None = None
+    research: EffortResearchRecurrencePolicy | None = None
+    maintenance: EffortMaintenanceRecurrencePolicy | None = None
+
+    def __init__(
+        self,
+        cadence: str | None = None,
+        timezone: str | None = None,
+        max_active_swarms: int | None = None,
+        launch: SwarmSpec | None = None,
+        trigger: str | None = None,
+        on_run_complete: bool | None = None,
+        event_triggers: tuple[str | JsonObject, ...] = (),
+        event_scope: str | None = None,
+        cooldown_seconds: int | None = None,
+        success_delay_seconds: int | None = None,
+        failure_backoff_seconds: int | None = None,
+        failure_backoff_max_seconds: int | None = None,
+        failure_backoff_multiplier: float | None = None,
+        enabled: bool = True,
+        metadata: JsonObject | None = None,
+        research: EffortResearchRecurrencePolicy | None = None,
+        maintenance: EffortMaintenanceRecurrencePolicy | None = None,
+        max_active_runs: int | None = None,
+    ) -> None:
+        if (
+            max_active_swarms is not None
+            and max_active_runs is not None
+            and max_active_swarms != max_active_runs
+        ):
+            raise ValueError("max_active_swarms and max_active_runs must match")
+        object.__setattr__(
+            self,
+            "max_active_swarms",
+            max_active_swarms if max_active_swarms is not None else max_active_runs,
+        )
+        object.__setattr__(self, "cadence", cadence)
+        object.__setattr__(self, "timezone", timezone)
+        object.__setattr__(self, "trigger", trigger)
+        object.__setattr__(self, "on_run_complete", on_run_complete)
+        object.__setattr__(self, "event_triggers", tuple(event_triggers))
+        object.__setattr__(self, "event_scope", event_scope)
+        object.__setattr__(self, "cooldown_seconds", cooldown_seconds)
+        object.__setattr__(self, "success_delay_seconds", success_delay_seconds)
+        object.__setattr__(self, "failure_backoff_seconds", failure_backoff_seconds)
+        object.__setattr__(
+            self,
+            "failure_backoff_max_seconds",
+            failure_backoff_max_seconds,
+        )
+        object.__setattr__(
+            self,
+            "failure_backoff_multiplier",
+            failure_backoff_multiplier,
+        )
+        object.__setattr__(self, "enabled", enabled)
+        object.__setattr__(self, "metadata", dict(metadata or {}))
+        object.__setattr__(self, "launch", launch)
+        object.__setattr__(self, "research", research)
+        object.__setattr__(self, "maintenance", maintenance)
+        self.__post_init__()
 
     def __post_init__(self) -> None:
         if self.cadence is not None:
             require_text(self.cadence, field_name="cadence")
         if self.timezone is not None:
             require_text(self.timezone, field_name="timezone")
+        if self.trigger is not None:
+            require_text(self.trigger, field_name="trigger")
+        if self.event_scope is not None:
+            require_text(self.event_scope, field_name="event_scope")
         if self.max_active_swarms is not None and self.max_active_swarms < 1:
             raise ValueError("max_active_swarms must be positive")
+        if not isinstance(self.enabled, bool):
+            raise ValueError("enabled must be a boolean")
+        if self.on_run_complete is not None and not isinstance(
+            self.on_run_complete, bool
+        ):
+            raise ValueError("on_run_complete must be a boolean")
+        if self.trigger == "on_run_complete" and self.on_run_complete is False:
+            raise ValueError(
+                "on_run_complete cannot be false when trigger is on_run_complete"
+            )
+        if self.on_run_complete is True and self.trigger not in {
+            None,
+            "on_run_complete",
+        }:
+            raise ValueError("on_run_complete cannot be combined with another trigger")
+        for index, event_trigger in enumerate(self.event_triggers):
+            if isinstance(event_trigger, str):
+                require_text(
+                    event_trigger,
+                    field_name=f"event_triggers[{index}]",
+                )
+            elif not isinstance(event_trigger, dict):
+                raise ValueError(
+                    f"event_triggers[{index}] must be a string or JSON object"
+                )
+        object.__setattr__(
+            self,
+            "cooldown_seconds",
+            _bounded_recurrence_seconds(
+                self.cooldown_seconds,
+                field_name="cooldown_seconds",
+                minimum=0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "success_delay_seconds",
+            _bounded_recurrence_seconds(
+                self.success_delay_seconds,
+                field_name="success_delay_seconds",
+                minimum=0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "failure_backoff_seconds",
+            _bounded_recurrence_seconds(
+                self.failure_backoff_seconds,
+                field_name="failure_backoff_seconds",
+                minimum=1,
+                maximum=_EFFORT_RECURRENCE_INITIAL_FAILURE_BACKOFF_SECONDS_MAX,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "failure_backoff_max_seconds",
+            _bounded_recurrence_seconds(
+                self.failure_backoff_max_seconds,
+                field_name="failure_backoff_max_seconds",
+                minimum=1,
+            ),
+        )
+        initial_failure_backoff_seconds = (
+            self.failure_backoff_seconds
+            if self.failure_backoff_seconds is not None
+            else _EFFORT_RECURRENCE_DEFAULT_FAILURE_BACKOFF_SECONDS
+        )
+        if (
+            self.failure_backoff_max_seconds is not None
+            and self.failure_backoff_max_seconds < initial_failure_backoff_seconds
+        ):
+            raise ValueError(
+                "failure_backoff_max_seconds must be greater than or equal to "
+                "failure_backoff_seconds"
+            )
+        if self.failure_backoff_multiplier is not None:
+            if (
+                isinstance(self.failure_backoff_multiplier, bool)
+                or not isinstance(self.failure_backoff_multiplier, (int, float))
+                or not 1.0 <= float(self.failure_backoff_multiplier) <= 16.0
+            ):
+                raise ValueError(
+                    "failure_backoff_multiplier must be between 1 and 16"
+                )
+            object.__setattr__(
+                self,
+                "failure_backoff_multiplier",
+                float(self.failure_backoff_multiplier),
+            )
+        if self.launch is not None and not isinstance(self.launch, SwarmSpec):
+            raise ValueError("launch must be SwarmSpec")
+        if self.research is not None and not isinstance(
+            self.research,
+            EffortResearchRecurrencePolicy,
+        ):
+            raise ValueError(
+                "research must be EffortResearchRecurrencePolicy"
+            )
+        if self.maintenance is not None and not isinstance(
+            self.maintenance,
+            EffortMaintenanceRecurrencePolicy,
+        ):
+            raise ValueError(
+                "maintenance must be EffortMaintenanceRecurrencePolicy"
+            )
+
+    @property
+    def max_active_runs(self) -> int | None:
+        """Compatibility spelling for the backend wire field."""
+        return self.max_active_swarms
 
     def to_wire(self) -> JsonObject:
-        value: JsonObject = {}
+        value: JsonObject = {"enabled": self.enabled}
         if self.cadence is not None:
             value["cadence"] = self.cadence
         if self.timezone is not None:
             value["timezone"] = self.timezone
         if self.max_active_swarms is not None:
             value["max_active_runs"] = self.max_active_swarms
+        if self.trigger is not None:
+            value["trigger"] = self.trigger
+        if self.on_run_complete is not None:
+            value["on_run_complete"] = self.on_run_complete
+        if self.event_triggers:
+            value["event_triggers"] = [
+                dict(item) if isinstance(item, dict) else item
+                for item in self.event_triggers
+            ]
+        if self.event_scope is not None:
+            value["event_scope"] = self.event_scope
+        if self.cooldown_seconds is not None:
+            value["cooldown_seconds"] = self.cooldown_seconds
+        if self.success_delay_seconds is not None:
+            value["delay_seconds"] = self.success_delay_seconds
+        if (
+            self.failure_backoff_seconds is not None
+            or self.failure_backoff_max_seconds is not None
+            or self.failure_backoff_multiplier is not None
+        ):
+            failure_policy: JsonObject = {"action": "backoff"}
+            if self.failure_backoff_seconds is not None:
+                failure_policy["backoff_seconds"] = self.failure_backoff_seconds
+            if self.failure_backoff_max_seconds is not None:
+                failure_policy["max_backoff_seconds"] = (
+                    self.failure_backoff_max_seconds
+                )
+            if self.failure_backoff_multiplier is not None:
+                failure_policy["multiplier"] = self.failure_backoff_multiplier
+            value["failure_policy"] = failure_policy
+        if self.metadata:
+            value["metadata"] = dict(self.metadata)
         if self.launch is not None:
             value["launch_request"] = self.launch.to_wire()
+        if self.research is not None:
+            value["research"] = self.research.to_wire()
+        if self.maintenance is not None:
+            value["maintenance"] = self.maintenance.to_wire()
         return value
 
 
@@ -223,6 +564,9 @@ class FactorySpec:
     budget: BudgetPolicy | FactoryBudgetPolicy | None = None
     capacity: CapacityPolicy | None = None
     metadata: JsonObject = field(default_factory=dict)
+    result_authority_generation: FactoryResultAuthorityGeneration = (
+        FactoryResultAuthorityGeneration.LEGACY
+    )
 
     def __post_init__(self) -> None:
         require_text(self.name, field_name="factory name")
@@ -232,6 +576,7 @@ class FactorySpec:
             "name": self.name,
             "kind": self.kind.value,
             "status": self.state.value,
+            "result_authority_generation": self.result_authority_generation.value,
             "budget_policy": self.budget.to_wire() if self.budget is not None else {},
             "cap_policy": self.capacity.to_wire() if self.capacity is not None else {},
             "homeostasis_policy": {},
@@ -311,6 +656,9 @@ class Factory:
     budget_policy: JsonObject = field(default_factory=dict)
     capacity_policy: JsonObject = field(default_factory=dict)
     metadata: JsonObject = field(default_factory=dict)
+    result_authority_generation: FactoryResultAuthorityGeneration = (
+        FactoryResultAuthorityGeneration.LEGACY
+    )
 
     @classmethod
     def from_wire(cls, payload: JsonValue) -> Factory:
@@ -322,6 +670,10 @@ class Factory:
             description=optional_text(value, "description"),
             kind=FactoryKind(required_text(value, "kind")),
             state=FactoryLifecycleState(required_text(value, "status")),
+            result_authority_generation=FactoryResultAuthorityGeneration(
+                optional_text(value, "result_authority_generation")
+                or FactoryResultAuthorityGeneration.LEGACY.value
+            ),
             budget_policy=_optional_object(value, "budget_policy", operation_id="decode_factory"),
             capacity_policy=_optional_object(value, "cap_policy", operation_id="decode_factory"),
             metadata=_optional_object(value, "metadata", operation_id="decode_factory"),
@@ -745,6 +1097,8 @@ __all__ = [
     "EffortPatch",
     "EffortPatchRequest",
     "EffortRecurrence",
+    "EffortMaintenanceRecurrencePolicy",
+    "EffortResearchRecurrencePolicy",
     "EffortRunClass",
     "EffortSpec",
     "EffortStatus",
@@ -760,9 +1114,11 @@ __all__ = [
     "FactoryChampionSelectRequest",
     "FactoryCreateRequest",
     "FactoryCreateState",
+    "FactoryBudgetPeriod",
     "FactoryBudgetPolicy",
     "FactoryKind",
     "FactoryLifecycleState",
+    "FactoryResultAuthorityGeneration",
     "FactoryPatch",
     "FactoryPatchRequest",
     "FactorySpec",
