@@ -164,10 +164,7 @@ class Visual:
         if visual.visibility is VisualVisibility.PUBLIC:
             if visual.public_slug is None or visual.public_url is None:
                 raise ValueError("public Visual responses require slug and a safe public URL")
-        elif any(
-            value is not None
-            for value in (visual.public_slug, visual.public_url, visual.preview_url)
-        ):
+        elif any(value is not None for value in (visual.public_slug, visual.public_url)):
             raise ValueError("organization Visual responses must not expose public URLs")
         return visual
 
