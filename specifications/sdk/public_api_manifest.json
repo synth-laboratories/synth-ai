@@ -34,40 +34,52 @@
       "title": "Research API"
     },
     {
-      "module": "synth_ai.research.client",
+      "module": "synth_ai.core.research.facade",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Research Client"
     },
     {
-      "module": "synth_ai.research.async_client",
+      "module": "synth_ai.core.research.client",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Async Research Client"
     },
     {
-      "module": "synth_ai.research.projects",
+      "module": "synth_ai.core.research.projects",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Projects"
     },
     {
-      "module": "synth_ai.research.swarms",
+      "module": "synth_ai.core.research.swarms",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Swarms"
     },
     {
-      "module": "synth_ai.research.factories",
+      "module": "synth_ai.core.research.factories",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Factories and Efforts"
     },
     {
-      "module": "synth_ai.research.errors",
+      "module": "synth_ai.core.research.errors",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Failures"
+    },
+    {
+      "module": "synth_ai.core.research.visuals",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Visuals"
+    },
+    {
+      "module": "synth_ai.core.research.research_intern",
+      "output": "reference/sdk/research",
+      "all_modules": false,
+      "title": "Research Intern"
     }
   ],
   "exclude_patterns": [
@@ -82,8 +94,8 @@
     {
       "group": "Research core",
       "pages": [
-        "reference/sdk/research/synth_ai-core-research-client",
-        "reference/sdk/research/synth_ai-core-research-async_client"
+        "reference/sdk/research/synth_ai-core-research-facade",
+        "reference/sdk/research/synth_ai-core-research-client"
       ]
     },
     {
@@ -91,7 +103,9 @@
       "pages": [
         "reference/sdk/research/synth_ai-core-research-projects",
         "reference/sdk/research/synth_ai-core-research-swarms",
-        "reference/sdk/research/synth_ai-core-research-factories"
+        "reference/sdk/research/synth_ai-core-research-factories",
+        "reference/sdk/research/synth_ai-core-research-research_intern",
+        "reference/sdk/research/synth_ai-core-research-visuals"
       ]
     },
     {
@@ -107,6 +121,8 @@
     "synth_ai/core/research/projects.py",
     "synth_ai/core/research/swarms.py",
     "synth_ai/core/research/factories.py",
+    "synth_ai/core/research/research_intern.py",
+    "synth_ai/core/research/visuals.py",
     "synth_ai/core/research/errors.py",
     "synth_ai/client.py",
     "synth_ai/sdk/containers.py",

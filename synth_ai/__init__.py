@@ -43,18 +43,32 @@ __all__ = [
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
+    "DataBindingCreateRequest",
+    "DatasetRevisionCreateRequest",
     "HorizonsPrivateClient",
     "ResearchApiError",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
+    "MagiDecisionRequest",
+    "MagiMode",
+    "ProjectComputerProvisionRequest",
+    "ProjectComputerReplaceRequest",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
+    "ResearchInternProvisionRequest",
+    "ResearchInternResponse",
+    "ResearchInternStatus",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
+    "ResearchVisual",
+    "ResearchVisualPage",
+    "ResearchVisualPatchRequest",
+    "ResearchVisualPromotionRequest",
+    "ResearchVisualVersions",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
@@ -63,6 +77,27 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "DataBindingCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DataBindingCreateRequest",
+    ),
+    "DatasetRevisionCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionCreateRequest",
+    ),
+    "MagiDecisionRequest": (
+        "synth_ai.core.research.contracts",
+        "MagiDecisionRequest",
+    ),
+    "MagiMode": ("synth_ai.core.research.contracts", "MagiMode"),
+    "ProjectComputerProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerProvisionRequest",
+    ),
+    "ProjectComputerReplaceRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerReplaceRequest",
+    ),
     "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (
         "synth_ai.core.research.errors",
@@ -88,6 +123,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.core.research.contracts",
         "ResearchProjectCreateRequest",
     ),
+    "ResearchInternProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternProvisionRequest",
+    ),
+    "ResearchInternResponse": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternResponse",
+    ),
+    "ResearchInternStatus": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternStatus",
+    ),
     "ResearchSwarmLaunchRequest": (
         "synth_ai.core.research.contracts",
         "ResearchSwarmLaunchRequest",
@@ -95,6 +142,20 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchSwarmState": (
         "synth_ai.core.research.contracts",
         "ResearchSwarmState",
+    ),
+    "ResearchVisual": ("synth_ai.core.research.contracts", "ResearchVisual"),
+    "ResearchVisualPage": ("synth_ai.core.research.contracts", "ResearchVisualPage"),
+    "ResearchVisualPatchRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPatchRequest",
+    ),
+    "ResearchVisualPromotionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPromotionRequest",
+    ),
+    "ResearchVisualVersions": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualVersions",
     ),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),

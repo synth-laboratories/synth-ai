@@ -14,8 +14,13 @@ from synth_ai.core.research.image_releases import (
     ImageReleasesAPI,
 )
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
+from synth_ai.core.research.research_intern import (
+    AsyncResearchInternAPI,
+    ResearchInternAPI,
+)
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
 from synth_ai.core.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
+from synth_ai.core.research.visuals import AsyncVisualsAPI, VisualsAPI
 from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
 
 if TYPE_CHECKING:
@@ -44,11 +49,13 @@ class Client:
             timeout_seconds=timeout_seconds,
         )
         self.projects = ProjectsAPI(self._transport)
+        self.intern = ResearchInternAPI(self._transport)
         self.swarms = SwarmsAPI(self._transport)
         self.factories = FactoriesAPI(self._transport)
         self.environments = EnvironmentsAPI(self._transport)
         self.image_releases = ImageReleasesAPI(self._transport)
         self.traces = ResearchTracesAPI(self._transport)
+        self.visuals = VisualsAPI(self._transport)
         self._economics: EconomicsAPI | None = None
         self._limits: LimitsAPI | None = None
 
@@ -107,11 +114,13 @@ class AsyncClient:
             timeout_seconds=timeout_seconds,
         )
         self.projects = AsyncProjectsAPI(self._transport)
+        self.intern = AsyncResearchInternAPI(self._transport)
         self.swarms = AsyncSwarmsAPI(self._transport)
         self.factories = AsyncFactoriesAPI(self._transport)
         self.environments = AsyncEnvironmentsAPI(self._transport)
         self.image_releases = AsyncImageReleasesAPI(self._transport)
         self.traces = AsyncResearchTracesAPI(self._transport)
+        self.visuals = AsyncVisualsAPI(self._transport)
         self._economics: AsyncEconomicsAPI | None = None
         self._limits: AsyncLimitsAPI | None = None
 
