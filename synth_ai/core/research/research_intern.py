@@ -32,9 +32,15 @@ def _request(
     operation_id: str,
     path: str,
     *,
+    query: JsonObject | None = None,
     body: JsonObject | None = None,
 ) -> HttpRequest:
-    return HttpRequest(research_operation(operation_id), path, body=body)
+    return HttpRequest(
+        research_operation(operation_id),
+        path,
+        query=query or {},
+        body=body,
+    )
 
 
 def _memberships(value: object) -> tuple[ResearchInternFactoryMembershipResponse, ...]:
@@ -215,18 +221,26 @@ class ProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
-    def retrieve(self, project_id: ProjectId) -> ProjectComputerResponse:
-        """Retrieve the current Project Computer for a Project."""
+    def retrieve(
+        self,
+        project_id: ProjectId,
+        factory_id: FactoryId,
+    ) -> ProjectComputerResponse:
+        """Retrieve the current Project Computer for a Project and Factory."""
         computer = ProjectComputerResponse.from_wire(
             self._transport.execute(
                 _request(
                     "get_project_computer",
                     f"/smr/projects/{project_id}/computer",
+                    query={"factory_id": str(factory_id)},
                 )
             )
         )
-        if computer.project_id != str(project_id):
-            raise ValueError("Project Computer response crossed its project boundary")
+        if (
+            computer.project_id != str(project_id)
+            or computer.factory_id != str(factory_id)
+        ):
+            raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
     def replace(
@@ -251,18 +265,26 @@ class ProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
-    def retire(self, project_id: ProjectId) -> ProjectComputerResponse:
-        """Retire the current Project Computer while retaining its receipt."""
+    def retire(
+        self,
+        project_id: ProjectId,
+        factory_id: FactoryId,
+    ) -> ProjectComputerResponse:
+        """Retire the Project and Factory Computer while retaining its receipt."""
         computer = ProjectComputerResponse.from_wire(
             self._transport.execute(
                 _request(
                     "retire_project_computer",
                     f"/smr/projects/{project_id}/computer",
+                    query={"factory_id": str(factory_id)},
                 )
             )
         )
-        if computer.project_id != str(project_id):
-            raise ValueError("Project Computer response crossed its project boundary")
+        if (
+            computer.project_id != str(project_id)
+            or computer.factory_id != str(factory_id)
+        ):
+            raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
 
@@ -511,18 +533,26 @@ class AsyncProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
-    async def retrieve(self, project_id: ProjectId) -> ProjectComputerResponse:
-        """Retrieve the current Project Computer for a Project."""
+    async def retrieve(
+        self,
+        project_id: ProjectId,
+        factory_id: FactoryId,
+    ) -> ProjectComputerResponse:
+        """Retrieve the current Project Computer for a Project and Factory."""
         computer = ProjectComputerResponse.from_wire(
             await self._transport.execute(
                 _request(
                     "get_project_computer",
                     f"/smr/projects/{project_id}/computer",
+                    query={"factory_id": str(factory_id)},
                 )
             )
         )
-        if computer.project_id != str(project_id):
-            raise ValueError("Project Computer response crossed its project boundary")
+        if (
+            computer.project_id != str(project_id)
+            or computer.factory_id != str(factory_id)
+        ):
+            raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
     async def replace(
@@ -547,18 +577,26 @@ class AsyncProjectComputerAPI:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
-    async def retire(self, project_id: ProjectId) -> ProjectComputerResponse:
-        """Retire the current Project Computer while retaining its receipt."""
+    async def retire(
+        self,
+        project_id: ProjectId,
+        factory_id: FactoryId,
+    ) -> ProjectComputerResponse:
+        """Retire the Project and Factory Computer while retaining its receipt."""
         computer = ProjectComputerResponse.from_wire(
             await self._transport.execute(
                 _request(
                     "retire_project_computer",
                     f"/smr/projects/{project_id}/computer",
+                    query={"factory_id": str(factory_id)},
                 )
             )
         )
-        if computer.project_id != str(project_id):
-            raise ValueError("Project Computer response crossed its project boundary")
+        if (
+            computer.project_id != str(project_id)
+            or computer.factory_id != str(factory_id)
+        ):
+            raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
 
