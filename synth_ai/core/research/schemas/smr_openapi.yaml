@@ -8159,6 +8159,78 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/factories/{factory_id}/role-receipts:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Mint Factory Role Receipt
+      operationId: mint_factory_role_receipt
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactoryRoleReceiptMintRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FactoryRoleReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Factory Role Receipts
+      operationId: list_factory_role_receipts
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      - name: candidate_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            minLength: 1
+          - type: 'null'
+          title: Candidate Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FactoryRoleReceiptResponse'
+                title: Response List Factory Role Receipts Smr Research Intern Factories  Factory
+                  Id  Role Receipts Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/data-bindings:
     post:
       tags:
@@ -42885,6 +42957,205 @@ components:
       - authority_receipt_digest
       title: FactoryProjectMembershipReceiptRef
       description: Control-plane proof that one active Factory owns the Project.
+    FactoryRoleReceiptMintRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        candidate_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Candidate Id
+        role:
+          type: string
+          enum:
+          - researcher
+          - data_engineer
+          - reviewer
+          title: Role
+        run_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Run Id
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - candidate_id
+      - role
+      - run_id
+      title: FactoryRoleReceiptMintRequest
+    FactoryRoleReceiptProvenance:
+      properties:
+        schema_version:
+          type: string
+          const: smr.factory-role-receipt.provenance.v1
+          title: Schema Version
+        service_origin:
+          type: string
+          const: urn:synth:research-intern
+          title: Service Origin
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        receipt_url:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Receipt Url
+        captured_at:
+          type: string
+          format: date-time
+          title: Captured At
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - service_origin
+      - content_digest
+      - receipt_url
+      - captured_at
+      title: FactoryRoleReceiptProvenance
+    FactoryRoleReceiptResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.factory-role-receipt.v1
+          title: Schema Version
+        owner_service:
+          type: string
+          const: research_intern
+          title: Owner Service
+        authority:
+          type: string
+          const: research_intern
+          title: Authority
+        receipt_id:
+          type: string
+          title: Receipt Id
+        receipt_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Receipt Digest
+        receipt_url:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Receipt Url
+        role:
+          type: string
+          enum:
+          - researcher
+          - data_engineer
+          - reviewer
+          title: Role
+        candidate_id:
+          type: string
+          title: Candidate Id
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        factory_id:
+          type: string
+          title: Factory Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        runtime_evidence:
+          $ref: '#/components/schemas/FactoryRoleReceiptRuntimeEvidence'
+        provenance:
+          $ref: '#/components/schemas/FactoryRoleReceiptProvenance'
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - owner_service
+      - authority
+      - receipt_id
+      - receipt_digest
+      - receipt_url
+      - role
+      - candidate_id
+      - org_id
+      - research_intern_id
+      - factory_id
+      - idempotency_key
+      - runtime_evidence
+      - provenance
+      - created_at
+      title: FactoryRoleReceiptResponse
+    FactoryRoleReceiptRuntimeEvidence:
+      properties:
+        run_id:
+          type: string
+          title: Run Id
+        project_id:
+          type: string
+          title: Project Id
+        actor_id:
+          type: string
+          title: Actor Id
+        actor_key:
+          type: string
+          title: Actor Key
+        actor_type:
+          type: string
+          enum:
+          - worker
+          - reviewer
+          title: Actor Type
+        actor_subtype:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actor Subtype
+        attempt_number:
+          type: integer
+          minimum: 1.0
+          title: Attempt Number
+        state:
+          type: string
+          const: completed
+          title: State
+        completion_status:
+          type: string
+          const: succeeded
+          title: Completion Status
+        started_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Started At
+        finished_at:
+          type: string
+          format: date-time
+          title: Finished At
+      additionalProperties: false
+      type: object
+      required:
+      - run_id
+      - project_id
+      - actor_id
+      - actor_key
+      - actor_type
+      - attempt_number
+      - state
+      - completion_status
+      - finished_at
+      title: FactoryRoleReceiptRuntimeEvidence
     FactoryStorageAuthorityDescriptor:
       properties:
         schema_version:
@@ -62040,6 +62311,12 @@ components:
       - created_at
       - updated_at
       title: SmrPublicVisualResponse
+      description: 'Wire model for the unauthenticated public Visual surface.
+
+
+        Never carries evidence: evidence is org-scoped and served only on the
+
+        authenticated SmrVisualResponse surface.'
     SmrQuestionRespondRequest:
       properties:
         response_text:
@@ -68415,7 +68692,9 @@ components:
           title: Attestation Id
         provider:
           type: string
-          const: exe_dev
+          enum:
+          - exe_dev
+          - local_slot_manager
           title: Provider
         provider_resource_id:
           type: string
@@ -71255,6 +71534,19 @@ components:
       - per_run
       - stored_rollup_count
       title: SmrUsageRollupsResponse
+    SmrVisualEvidencePayload:
+      properties:
+        source_run_ids:
+          items:
+            type: string
+          type: array
+          title: Source Run Ids
+        evidence:
+          additionalProperties: true
+          type: object
+          title: Evidence
+      type: object
+      title: SmrVisualEvidencePayload
     SmrVisualListResponse:
       properties:
         visuals:
@@ -71430,6 +71722,10 @@ components:
         updated_at:
           type: string
           title: Updated At
+        evidence:
+          anyOf:
+          - $ref: '#/components/schemas/SmrVisualEvidencePayload'
+          - type: 'null'
       type: object
       required:
       - hosted_artifact_id
@@ -71446,6 +71742,7 @@ components:
       - created_at
       - updated_at
       title: SmrVisualResponse
+      description: 'Org-scoped Visual read model: the public surface plus evidence.'
     SmrVisualStorageResponse:
       properties:
         org_id:
