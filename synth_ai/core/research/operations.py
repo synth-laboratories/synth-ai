@@ -467,6 +467,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "retrieve_visual_preview",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/preview",
+            idempotent=True,
+        ),
+        _operation(
             "start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True
         ),
         _operation(

@@ -34,37 +34,37 @@
       "title": "Research API"
     },
     {
-      "module": "synth_ai.core.research.facade",
+      "module": "synth_ai.research.client",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Research Client"
     },
     {
-      "module": "synth_ai.core.research.client",
+      "module": "synth_ai.research.async_client",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Async Research Client"
     },
     {
-      "module": "synth_ai.core.research.projects",
+      "module": "synth_ai.research.projects",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Projects"
     },
     {
-      "module": "synth_ai.core.research.swarms",
+      "module": "synth_ai.research.swarms",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Swarms"
     },
     {
-      "module": "synth_ai.core.research.factories",
+      "module": "synth_ai.research.factories",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Factories and Efforts"
     },
     {
-      "module": "synth_ai.core.research.errors",
+      "module": "synth_ai.research.errors",
       "output": "reference/sdk/research",
       "all_modules": false,
       "title": "Failures"
@@ -88,8 +88,8 @@
     {
       "group": "Research core",
       "pages": [
-        "reference/sdk/research/synth_ai-core-research-facade",
-        "reference/sdk/research/synth_ai-core-research-client"
+        "reference/sdk/research/synth_ai-core-research-client",
+        "reference/sdk/research/synth_ai-core-research-async_client"
       ]
     },
     {
