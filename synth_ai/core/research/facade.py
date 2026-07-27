@@ -15,6 +15,7 @@ from synth_ai.core.research.knowledge import ResearchKnowledgeAPI
 from synth_ai.core.research.projects import ResearchProjectsAPI
 from synth_ai.core.research.swarms import ResearchSwarmsAPI
 from synth_ai.core.research.traces import ResearchTracesAPI
+from synth_ai.core.research.visuals import VisualsAPI
 from synth_ai.core.research.wiki import ResearchWikiAPI
 
 if TYPE_CHECKING:
@@ -143,6 +144,11 @@ class Client:
         return self._core.traces
 
     @property
+    def visuals(self) -> VisualsAPI:
+        """Publish, inspect, version, and share typed Research Visuals."""
+        return self._core.visuals
+
+    @property
     def runs(self) -> ResearchSwarmsAPI:
         """Deprecated alias for :attr:`swarms`."""
         warnings.warn(
@@ -161,7 +167,6 @@ class Client:
             "economics": "economics",
             "secrets": "secrets",
             "hosted_artifacts": "artifacts",
-            "visuals": "visuals",
             "images": "images",
             "tag": "tag",
         }

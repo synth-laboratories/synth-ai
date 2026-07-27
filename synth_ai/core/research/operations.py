@@ -59,6 +59,12 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "create_project_visual",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/visuals",
+            mutation=True,
+        ),
+        _operation(
             "create_project_external_repository",
             HttpMethod.POST,
             "/smr/projects/{project_id}/external-repositories",
@@ -68,6 +74,13 @@ RESEARCH_OPERATIONS = {
             "delete_project_external_repository",
             HttpMethod.DELETE,
             "/smr/projects/{project_id}/external-repositories/{repository_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "delete_visual",
+            HttpMethod.DELETE,
+            "/smr/visuals/{visual_id}",
             mutation=True,
             idempotent=True,
         ),
@@ -218,6 +231,18 @@ RESEARCH_OPERATIONS = {
         _operation(
             "list_project_runs", HttpMethod.GET, "/smr/projects/{project_id}/runs", idempotent=True
         ),
+        _operation(
+            "list_project_visuals",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/visuals",
+            idempotent=True,
+        ),
+        _operation(
+            "list_visual_versions",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/versions",
+            idempotent=True,
+        ),
         _operation("list_projects", HttpMethod.GET, "/smr/projects", idempotent=True),
         _operation(
             "list_run_transcript",
@@ -231,6 +256,18 @@ RESEARCH_OPERATIONS = {
             "pause_factory", HttpMethod.POST, "/smr/factories/{factory_id}/pause", mutation=True
         ),
         _operation("pause_run", HttpMethod.POST, "/smr/runs/{run_id}/pause", mutation=True),
+        _operation(
+            "promote_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/promote",
+            mutation=True,
+        ),
+        _operation(
+            "publish_run_visual",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/visuals",
+            mutation=True,
+        ),
         _operation("preflight_one_off_run", HttpMethod.POST, "/smr/runs:one-off/launch-preflight"),
         _operation(
             "preflight_project_run", HttpMethod.POST, "/smr/projects/{project_id}/launch-preflight"
@@ -394,6 +431,42 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "restore_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/restore",
+            mutation=True,
+        ),
+        _operation(
+            "retrieve_public_visual",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_public_visual_content",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_public_visual_preview",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}/preview",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual_content",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/content",
+            idempotent=True,
+        ),
+        _operation(
             "start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True
         ),
         _operation(
@@ -429,6 +502,12 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "unpublish_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/unpublish",
+            mutation=True,
+        ),
+        _operation(
             "upload_project_workspace_files",
             HttpMethod.POST,
             "/smr/projects/{project_id}/workspace-inputs/files:upload",
@@ -440,6 +519,12 @@ RESEARCH_OPERATIONS = {
             "update_factory", HttpMethod.PATCH, "/smr/factories/{factory_id}", mutation=True
         ),
         _operation("update_project", HttpMethod.PATCH, "/smr/projects/{project_id}", mutation=True),
+        _operation(
+            "update_visual",
+            HttpMethod.PATCH,
+            "/smr/visuals/{visual_id}",
+            mutation=True,
+        ),
         _operation(
             "update_project_external_repository",
             HttpMethod.PATCH,

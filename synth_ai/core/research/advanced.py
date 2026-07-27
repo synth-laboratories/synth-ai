@@ -15,7 +15,6 @@ from synth_ai.core.research.secrets import ResearchSecretsAPI
 from synth_ai.core.research.session.client import ResearchSession
 from synth_ai.core.research.session.images import ImagesAPI
 from synth_ai.core.research.session.tag import TagAPI
-from synth_ai.core.research.visuals import ResearchVisualsAPI
 
 
 def open_advanced_session(
@@ -50,7 +49,6 @@ class ResearchAdvancedAPI:
         self._runs: ResearchRunsAPI | None = None
         self._secrets: ResearchSecretsAPI | None = None
         self._artifacts: ResearchHostedArtifactsAPI | None = None
-        self._visuals: ResearchVisualsAPI | None = None
 
     @property
     def session(self) -> ResearchSession:
@@ -88,12 +86,6 @@ class ResearchAdvancedAPI:
         if self._artifacts is None:
             self._artifacts = ResearchHostedArtifactsAPI(self._open_session())
         return self._artifacts
-
-    @property
-    def visuals(self) -> ResearchVisualsAPI:
-        if self._visuals is None:
-            self._visuals = ResearchVisualsAPI(self._open_session())
-        return self._visuals
 
     @property
     def images(self) -> ImagesAPI:

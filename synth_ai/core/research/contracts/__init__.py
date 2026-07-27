@@ -330,6 +330,21 @@ from synth_ai.core.research.contracts.workspaces import (
     WorkspaceSourceRepositorySpec,
     WorkspaceStoredFile,
 )
+from synth_ai.core.research.contracts.visuals import (
+    ResearchVisual,
+    ResearchVisualPage,
+    ResearchVisualPatchRequest,
+    ResearchVisualPromotionRequest,
+    ResearchVisualVersions,
+    Visual,
+    VisualBlobState,
+    VisualPage,
+    VisualPatch,
+    VisualPromotion,
+    VisualStatus,
+    VisualVisibility,
+    VisualVersions,
+)
 
 ResearchRunLaunchRequest = ResearchSwarmLaunchRequest
 
@@ -541,6 +556,11 @@ __all__ = [
     "ResearchProjectPatchRequest",
     "ResearchProjectSetup",
     "ResearchRunLaunchRequest",
+    "ResearchVisual",
+    "ResearchVisualPage",
+    "ResearchVisualPatchRequest",
+    "ResearchVisualPromotionRequest",
+    "ResearchVisualVersions",
     "ResearchSwarm",
     "ResearchSwarmBranchRequest",
     "ResearchSwarmBranchResult",
@@ -622,6 +642,14 @@ __all__ = [
     "UsageMoney",
     "UsageSource",
     "UserId",
+    "Visual",
+    "VisualBlobState",
+    "VisualPage",
+    "VisualPatch",
+    "VisualPromotion",
+    "VisualStatus",
+    "VisualVisibility",
+    "VisualVersions",
     "WORKSPACE_BATCH_UPLOAD_FILE_LIMIT",
     "WORKSPACE_UPLOAD_FILE_LIMIT",
     "WorkspaceFileEncoding",

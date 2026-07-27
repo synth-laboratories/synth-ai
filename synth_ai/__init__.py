@@ -55,6 +55,11 @@ __all__ = [
     "ResearchProjectCreateRequest",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
+    "ResearchVisual",
+    "ResearchVisualPage",
+    "ResearchVisualPatchRequest",
+    "ResearchVisualPromotionRequest",
+    "ResearchVisualVersions",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
@@ -95,6 +100,20 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchSwarmState": (
         "synth_ai.core.research.contracts",
         "ResearchSwarmState",
+    ),
+    "ResearchVisual": ("synth_ai.core.research.contracts", "ResearchVisual"),
+    "ResearchVisualPage": ("synth_ai.core.research.contracts", "ResearchVisualPage"),
+    "ResearchVisualPatchRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPatchRequest",
+    ),
+    "ResearchVisualPromotionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPromotionRequest",
+    ),
+    "ResearchVisualVersions": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualVersions",
     ),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
