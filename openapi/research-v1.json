@@ -575,6 +575,108 @@
         "title": "BillingProfileSnapshot",
         "type": "object"
       },
+      "Body_publish_project_visual_smr_projects__project_id__visuals_post": {
+        "properties": {
+          "html": {
+            "format": "binary",
+            "title": "Html",
+            "type": "string"
+          },
+          "metadata_json": {
+            "default": "{}",
+            "title": "Metadata Json",
+            "type": "string"
+          },
+          "root_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Artifact Id"
+          },
+          "source_run_ids_json": {
+            "default": "[]",
+            "title": "Source Run Ids Json",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "visual_kind": {
+            "default": "research_visual",
+            "maxLength": 100,
+            "title": "Visual Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "html"
+        ],
+        "title": "Body_publish_project_visual_smr_projects__project_id__visuals_post",
+        "type": "object"
+      },
+      "Body_publish_run_visual_smr_runs__run_id__visuals_post": {
+        "properties": {
+          "html": {
+            "format": "binary",
+            "title": "Html",
+            "type": "string"
+          },
+          "metadata_json": {
+            "default": "{}",
+            "title": "Metadata Json",
+            "type": "string"
+          },
+          "root_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Artifact Id"
+          },
+          "source_run_ids_json": {
+            "default": "[]",
+            "title": "Source Run Ids Json",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "org",
+            "pattern": "^org$",
+            "title": "Visibility",
+            "type": "string"
+          },
+          "visual_kind": {
+            "default": "research_visual",
+            "maxLength": 100,
+            "title": "Visual Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "html"
+        ],
+        "title": "Body_publish_run_visual_smr_runs__run_id__visuals_post",
+        "type": "object"
+      },
       "CandidatePublicationOutcome": {
         "enum": [
           "running",
@@ -6754,6 +6856,50 @@
         "title": "SmrOpenEndedQuestionInlineCreateRequest",
         "type": "object"
       },
+      "SmrPatchVisualRequest": {
+        "properties": {
+          "summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "visual_kind": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visual Kind"
+          }
+        },
+        "title": "SmrPatchVisualRequest",
+        "type": "object"
+      },
       "SmrPlatformResolvedTargetRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8176,6 +8322,21 @@
         "title": "SmrProjectionInputResponse",
         "type": "object"
       },
+      "SmrPromoteVisualRequest": {
+        "properties": {
+          "slug": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "title": "SmrPromoteVisualRequest",
+        "type": "object"
+      },
       "SmrProviderCredentialRefRequest": {
         "additionalProperties": false,
         "description": "Secure inference-provider selection through a persisted credential ref.",
@@ -8191,6 +8352,204 @@
           "credential_ref"
         ],
         "title": "SmrProviderCredentialRefRequest",
+        "type": "object"
+      },
+      "SmrPublicVisualResponse": {
+        "properties": {
+          "artifact_version": {
+            "title": "Artifact Version",
+            "type": "integer"
+          },
+          "blob_state": {
+            "title": "Blob State",
+            "type": "string"
+          },
+          "built_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Built By Run Id"
+          },
+          "canonical_url": {
+            "title": "Canonical Url",
+            "type": "string"
+          },
+          "content_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Digest"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "hosted_artifact_id": {
+            "title": "Hosted Artifact Id",
+            "type": "string"
+          },
+          "hosted_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hosted Url"
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Url"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          },
+          "public_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "root_artifact_id": {
+            "title": "Root Artifact Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "source_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Run Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded_by_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "visual_kind": {
+            "title": "Visual Kind",
+            "type": "string"
+          },
+          "work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Product Id"
+          }
+        },
+        "required": [
+          "hosted_artifact_id",
+          "root_artifact_id",
+          "project_id",
+          "title",
+          "visual_kind",
+          "artifact_version",
+          "visibility",
+          "status",
+          "canonical_url",
+          "size_bytes",
+          "blob_state"
+        ],
+        "title": "SmrPublicVisualResponse",
         "type": "object"
       },
       "SmrReadinessAttestationRequest": {
@@ -13251,6 +13610,13 @@
           },
           "totals": {
             "$ref": "#/components/schemas/SmrSwarmTokenCountsResponse"
+          },
+          "unattributed_sessions": {
+            "default": 0,
+            "description": "Sessions whose token rows carry no resolved model.",
+            "minimum": 0.0,
+            "title": "Unattributed Sessions",
+            "type": "integer"
           }
         },
         "required": [
@@ -14064,6 +14430,252 @@
           "budgets"
         ],
         "title": "SmrUsageResponse",
+        "type": "object"
+      },
+      "SmrVisualListResponse": {
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "visuals": {
+            "items": {
+              "$ref": "#/components/schemas/SmrVisualResponse"
+            },
+            "title": "Visuals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "visuals"
+        ],
+        "title": "SmrVisualListResponse",
+        "type": "object"
+      },
+      "SmrVisualResponse": {
+        "properties": {
+          "artifact_version": {
+            "title": "Artifact Version",
+            "type": "integer"
+          },
+          "blob_state": {
+            "title": "Blob State",
+            "type": "string"
+          },
+          "built_by_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Built By Run Id"
+          },
+          "canonical_url": {
+            "title": "Canonical Url",
+            "type": "string"
+          },
+          "content_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Digest"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "hosted_artifact_id": {
+            "title": "Hosted Artifact Id",
+            "type": "string"
+          },
+          "hosted_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hosted Url"
+          },
+          "preview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Url"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "public_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Slug"
+          },
+          "public_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Url"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "root_artifact_id": {
+            "title": "Root Artifact Id",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "source_run_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Run Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded_by_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By Id"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "visual_kind": {
+            "title": "Visual Kind",
+            "type": "string"
+          },
+          "work_product_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Product Id"
+          }
+        },
+        "required": [
+          "hosted_artifact_id",
+          "root_artifact_id",
+          "project_id",
+          "title",
+          "visual_kind",
+          "artifact_version",
+          "visibility",
+          "status",
+          "canonical_url",
+          "size_bytes",
+          "blob_state"
+        ],
+        "title": "SmrVisualResponse",
+        "type": "object"
+      },
+      "SmrVisualVersionListResponse": {
+        "properties": {
+          "root_artifact_id": {
+            "title": "Root Artifact Id",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/SmrVisualResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "root_artifact_id",
+          "versions"
+        ],
+        "title": "SmrVisualVersionListResponse",
         "type": "object"
       },
       "SmrWorkerRolePaletteRequest": {
@@ -19827,6 +20439,203 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/visuals": {
+      "get": {
+        "operationId": "list_project_visuals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "visual_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Visual Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "visibility",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(org|public)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Visibility"
+            }
+          },
+          {
+            "in": "query",
+            "name": "factory_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Factory Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "effort_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Effort Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_deleted",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Deleted",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 250,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Project Visuals",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      },
+      "post": {
+        "operationId": "create_project_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_publish_project_visual_smr_projects__project_id__visuals_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Project Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/workspace-inputs": {
       "get": {
         "description": "Fetch the current workspace bootstrap inputs for a project.",
@@ -20069,6 +20878,131 @@
         "summary": "Create runnable project",
         "tags": [
           "smr"
+        ]
+      }
+    },
+    "/smr/public/visuals/{slug}": {
+      "get": {
+        "operationId": "retrieve_public_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrPublicVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/public/visuals/{slug}/content": {
+      "get": {
+        "operationId": "retrieve_public_visual_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Visual Content",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/public/visuals/{slug}/preview": {
+      "get": {
+        "operationId": "retrieve_public_visual_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Public Visual Preview",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
         ]
       }
     },
@@ -21516,6 +22450,103 @@
         ]
       }
     },
+    "/smr/runs/{run_id}/traces/{capture_id}/stream": {
+      "get": {
+        "operationId": "stream_run_trace_capture",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_ordinal",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": -1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "After Ordinal"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1000,
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Last-Event-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Last-Event-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "format": "event-stream",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Exact synth.capture.raw.v1 envelopes replayed from the run's durable Trace V5 bundle. Last-Event-ID wins over after_ordinal."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Run Trace Capture",
+        "tags": [
+          "smr"
+        ]
+      }
+    },
     "/smr/runs/{run_id}/usage-summary": {
       "get": {
         "description": "Return typed cost, token, actor, and freshness evidence for a swarm.",
@@ -21556,6 +22587,59 @@
         "summary": "Get Swarm Usage",
         "tags": [
           "smr"
+        ]
+      }
+    },
+    "/smr/runs/{run_id}/visuals": {
+      "post": {
+        "operationId": "publish_run_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_publish_run_visual_smr_runs__run_id__visuals_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Publish Run Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
         ]
       }
     },
@@ -21875,6 +22959,357 @@
         "summary": "Archive Customer Actor Image",
         "tags": [
           "smr"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}": {
+      "delete": {
+        "operationId": "delete_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      },
+      "get": {
+        "operationId": "retrieve_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      },
+      "patch": {
+        "operationId": "update_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrPatchVisualRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/content": {
+      "get": {
+        "operationId": "retrieve_visual_content",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Visual Content",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/promote": {
+      "post": {
+        "operationId": "promote_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmrPromoteVisualRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/restore": {
+      "post": {
+        "operationId": "restore_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/unpublish": {
+      "post": {
+        "operationId": "unpublish_visual",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unpublish Visual",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/versions": {
+      "get": {
+        "operationId": "list_visual_versions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualVersionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Visual Versions",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
         ]
       }
     },
