@@ -706,9 +706,19 @@ class PlatformResolvedExecutionTarget:
         return {"kind": "platform_resolved"}
 
 
+# Providers whose runtime bindings this contract accepts. exe_dev is the cloud
+# slot provider; local_slot_manager attests a local docker slot.
+_BOUND_RUNTIME_PROVIDERS = frozenset({"exe_dev", "local_slot_manager"})
+
+
 @dataclass(frozen=True, slots=True)
 class BoundRuntimeExecutionTarget:
-    """Signed CloudDev runtime binding authored by the execution authority."""
+    """Signed runtime binding authored by the execution authority.
+
+    Covers any runtime the caller owns and can attest, cloud or local. The
+    providers differ only in who signs: ``exe_dev`` for a CloudDev slot,
+    ``local_slot_manager`` for a local docker slot.
+    """
 
     attestation: Mapping[str, JsonValue]
     kind: str = "bound_runtime"
@@ -719,7 +729,6 @@ class BoundRuntimeExecutionTarget:
         payload = dict(self.attestation)
         constants = {
             "schema_version": "smr.execution-target.v1",
-            "provider": "exe_dev",
             "actor_host": "docker",
             "capacity_authority": "bound_runtime",
             "audience": "synth-smr-run-start",
@@ -727,6 +736,16 @@ class BoundRuntimeExecutionTarget:
         for name, expected in constants.items():
             if payload.get(name) != expected:
                 raise ValueError(f"bound execution_target.attestation.{name} must be {expected}")
+        # `provider` is a SET, not a constant. Pinning it to "exe_dev" made a
+        # caller-bound runtime synonymous with a cloud one, which left a local
+        # docker slot with no expressible execution_target: the platform kind
+        # forbids caller placement fields, so the local dock lane could only
+        # send `execution_target=None` and be refused `execution_target_required`.
+        if payload.get("provider") not in _BOUND_RUNTIME_PROVIDERS:
+            raise ValueError(
+                "bound execution_target.attestation.provider must be one of "
+                + ", ".join(sorted(_BOUND_RUNTIME_PROVIDERS))
+            )
         for name in (
             "attestation_id",
             "provider_resource_id",
