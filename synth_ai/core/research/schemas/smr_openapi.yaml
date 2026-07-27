@@ -16641,9 +16641,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response List Visuals Smr Visuals Get
+                $ref: '#/components/schemas/SmrVisualListResponse'
         '422':
           description: Validation Error
           content:
@@ -16871,6 +16869,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/preview:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Visual Preview
+      operationId: retrieve_visual_preview
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Immutable Visual preview PNG.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: The Visual or preview does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewMessageResponse'
+        '502':
+          description: The immutable preview failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewIntegrityFailureResponse'
+        '503':
+          description: The preview storage provider is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewProviderFailureResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/public/visuals/{slug}:
     get:
       tags:
@@ -16940,10 +16984,36 @@ paths:
           title: Slug
       responses:
         '200':
-          description: Successful Response
+          description: Immutable Visual preview PNG.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: The Visual or preview does not exist.
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewMessageResponse'
+        '502':
+          description: The immutable preview failed integrity verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewIntegrityFailureResponse'
+        '503':
+          description: Public admission or the preview storage provider is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPublicVisualPreviewUnavailableResponse'
+        '429':
+          description: The public Visual request limit was exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualPreviewMessageResponse'
         '422':
           description: Validation Error
           content:
@@ -38538,6 +38608,12 @@ components:
           type: string
           format: binary
           title: Html
+        preview_png:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: Preview Png
         visual_kind:
           type: string
           maxLength: 100
@@ -38572,6 +38648,12 @@ components:
           type: string
           format: binary
           title: Html
+        preview_png:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: Preview Png
         visual_kind:
           type: string
           maxLength: 100
@@ -38611,6 +38693,12 @@ components:
           type: string
           format: binary
           title: Html
+        preview_png:
+          anyOf:
+          - type: string
+            format: binary
+          - type: 'null'
+          title: Preview Png
         visual_kind:
           type: string
           maxLength: 100
@@ -61069,6 +61157,17 @@ components:
       - funding_source
       - configured
       title: SmrProviderKeyStatusResponse
+    SmrPublicVisualPreviewUnavailableResponse:
+      properties:
+        detail:
+          anyOf:
+          - $ref: '#/components/schemas/SmrVisualPreviewProviderFailureDetail'
+          - type: string
+          title: Detail
+      type: object
+      required:
+      - detail
+      title: SmrPublicVisualPreviewUnavailableResponse
     SmrPublicVisualResponse:
       properties:
         hosted_artifact_id:
@@ -61098,6 +61197,11 @@ components:
         title:
           type: string
           title: Title
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
         visual_kind:
           type: string
           title: Visual Kind
@@ -61166,6 +61270,12 @@ components:
           - type: string
           - type: 'null'
           title: Published At
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
       type: object
       required:
       - hosted_artifact_id
@@ -61179,6 +61289,8 @@ components:
       - canonical_url
       - size_bytes
       - blob_state
+      - created_at
+      - updated_at
       title: SmrPublicVisualResponse
     SmrQuestionRespondRequest:
       properties:
@@ -70411,6 +70523,59 @@ components:
       required:
       - visuals
       title: SmrVisualListResponse
+    SmrVisualPreviewIntegrityFailureDetail:
+      properties:
+        error_code:
+          type: string
+          const: visual_preview_integrity_failed
+          title: Error Code
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - error_code
+      - message
+      title: SmrVisualPreviewIntegrityFailureDetail
+    SmrVisualPreviewIntegrityFailureResponse:
+      properties:
+        detail:
+          $ref: '#/components/schemas/SmrVisualPreviewIntegrityFailureDetail'
+      type: object
+      required:
+      - detail
+      title: SmrVisualPreviewIntegrityFailureResponse
+    SmrVisualPreviewMessageResponse:
+      properties:
+        detail:
+          type: string
+          title: Detail
+      type: object
+      required:
+      - detail
+      title: SmrVisualPreviewMessageResponse
+    SmrVisualPreviewProviderFailureDetail:
+      properties:
+        error_code:
+          type: string
+          const: visual_preview_provider_unavailable
+          title: Error Code
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+      - error_code
+      - message
+      title: SmrVisualPreviewProviderFailureDetail
+    SmrVisualPreviewProviderFailureResponse:
+      properties:
+        detail:
+          $ref: '#/components/schemas/SmrVisualPreviewProviderFailureDetail'
+      type: object
+      required:
+      - detail
+      title: SmrVisualPreviewProviderFailureResponse
     SmrVisualResponse:
       properties:
         hosted_artifact_id:
@@ -70440,6 +70605,11 @@ components:
         title:
           type: string
           title: Title
+        summary:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Summary
         visual_kind:
           type: string
           title: Visual Kind
@@ -70508,6 +70678,12 @@ components:
           - type: string
           - type: 'null'
           title: Published At
+        created_at:
+          type: string
+          title: Created At
+        updated_at:
+          type: string
+          title: Updated At
       type: object
       required:
       - hosted_artifact_id
@@ -70521,6 +70697,8 @@ components:
       - canonical_url
       - size_bytes
       - blob_state
+      - created_at
+      - updated_at
       title: SmrVisualResponse
     SmrVisualVersionListResponse:
       properties:

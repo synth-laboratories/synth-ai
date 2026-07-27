@@ -587,7 +587,7 @@
             "title": "Metadata Json",
             "type": "string"
           },
-          "preview": {
+          "preview_png": {
             "anyOf": [
               {
                 "format": "binary",
@@ -597,7 +597,7 @@
                 "type": "null"
               }
             ],
-            "title": "Preview"
+            "title": "Preview Png"
           },
           "root_artifact_id": {
             "anyOf": [
@@ -614,18 +614,6 @@
             "default": "[]",
             "title": "Source Run Ids Json",
             "type": "string"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "maxLength": 4000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
           },
           "title": {
             "maxLength": 500,
@@ -659,7 +647,7 @@
             "title": "Metadata Json",
             "type": "string"
           },
-          "preview": {
+          "preview_png": {
             "anyOf": [
               {
                 "format": "binary",
@@ -669,7 +657,7 @@
                 "type": "null"
               }
             ],
-            "title": "Preview"
+            "title": "Preview Png"
           },
           "root_artifact_id": {
             "anyOf": [
@@ -686,18 +674,6 @@
             "default": "[]",
             "title": "Source Run Ids Json",
             "type": "string"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "maxLength": 4000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
           },
           "title": {
             "maxLength": 500,
@@ -11470,6 +11446,26 @@
         "title": "SmrProviderCredentialRefRequest",
         "type": "object"
       },
+      "SmrPublicVisualPreviewUnavailableResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureDetail"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrPublicVisualPreviewUnavailableResponse",
+        "type": "object"
+      },
       "SmrPublicVisualResponse": {
         "properties": {
           "artifact_version": {
@@ -11647,6 +11643,10 @@
             "title": "Title",
             "type": "string"
           },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
           "visibility": {
             "title": "Visibility",
             "type": "string"
@@ -11679,7 +11679,8 @@
           "canonical_url",
           "size_bytes",
           "blob_state",
-          "created_at"
+          "created_at",
+          "updated_at"
         ],
         "title": "SmrPublicVisualResponse",
         "type": "object"
@@ -17591,6 +17592,81 @@
         "title": "SmrVisualListResponse",
         "type": "object"
       },
+      "SmrVisualPreviewIntegrityFailureDetail": {
+        "properties": {
+          "error_code": {
+            "const": "visual_preview_integrity_failed",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "SmrVisualPreviewIntegrityFailureDetail",
+        "type": "object"
+      },
+      "SmrVisualPreviewIntegrityFailureResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewIntegrityFailureResponse",
+        "type": "object"
+      },
+      "SmrVisualPreviewMessageResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewMessageResponse",
+        "type": "object"
+      },
+      "SmrVisualPreviewProviderFailureDetail": {
+        "properties": {
+          "error_code": {
+            "const": "visual_preview_provider_unavailable",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "SmrVisualPreviewProviderFailureDetail",
+        "type": "object"
+      },
+      "SmrVisualPreviewProviderFailureResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewProviderFailureResponse",
+        "type": "object"
+      },
       "SmrVisualResponse": {
         "properties": {
           "artifact_version": {
@@ -17768,6 +17844,10 @@
             "title": "Title",
             "type": "string"
           },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
           "visibility": {
             "title": "Visibility",
             "type": "string"
@@ -17800,7 +17880,8 @@
           "canonical_url",
           "size_bytes",
           "blob_state",
-          "created_at"
+          "created_at",
+          "updated_at"
         ],
         "title": "SmrVisualResponse",
         "type": "object"
@@ -25216,11 +25297,24 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Immutable Visual preview PNG."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The Visual or preview does not exist."
           },
           "422": {
             "content": {
@@ -25231,6 +25325,36 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The public Visual request limit was exceeded."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureResponse"
+                }
+              }
+            },
+            "description": "The immutable preview failed integrity verification."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrPublicVisualPreviewUnavailableResponse"
+                }
+              }
+            },
+            "description": "Public admission or the preview storage provider is unavailable."
           }
         },
         "summary": "Get Public Visual Preview",
@@ -27696,11 +27820,24 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Immutable Visual preview PNG."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The Visual or preview does not exist."
           },
           "422": {
             "content": {
@@ -27711,6 +27848,26 @@
               }
             },
             "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureResponse"
+                }
+              }
+            },
+            "description": "The immutable preview failed integrity verification."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureResponse"
+                }
+              }
+            },
+            "description": "The preview storage provider is unavailable."
           }
         },
         "summary": "Get Visual Preview",

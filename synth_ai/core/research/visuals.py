@@ -69,7 +69,6 @@ def _upload_parts(
     metadata: Mapping[str, JsonValue] | None,
     root_artifact_id: ArtifactId | None,
     preview_png: bytes | Path | None,
-    summary: str | None,
 ) -> tuple[dict[str, str], dict[str, tuple[str, bytes, str]]]:
     normalized_title = title.strip()
     if not normalized_title:
@@ -85,11 +84,9 @@ def _upload_parts(
     }
     if root_artifact_id is not None:
         data["root_artifact_id"] = str(root_artifact_id)
-    if summary is not None:
-        data["summary"] = summary
     files = {"html": ("index.html", _html_bytes(html), "text/html")}
     if preview_png is not None:
-        files["preview"] = (
+        files["preview_png"] = (
             "preview.png",
             _preview_png_bytes(preview_png),
             "image/png",
@@ -149,7 +146,6 @@ class VisualsAPI:
         metadata: Mapping[str, JsonValue] | None = None,
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
-        summary: str | None = None,
     ) -> Visual:
         """Publish self-contained HTML produced by a Research run."""
         data, files = _upload_parts(
@@ -160,7 +156,6 @@ class VisualsAPI:
             metadata=metadata,
             root_artifact_id=root_artifact_id,
             preview_png=preview_png,
-            summary=summary,
         )
         data["visibility"] = VisualVisibility.ORGANIZATION.value
         value = self._transport.request_multipart_json(
@@ -184,7 +179,6 @@ class VisualsAPI:
         metadata: Mapping[str, JsonValue] | None = None,
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
-        summary: str | None = None,
     ) -> Visual:
         """Publish a project-owned Visual without requiring a run."""
         data, files = _upload_parts(
@@ -195,7 +189,6 @@ class VisualsAPI:
             metadata=metadata,
             root_artifact_id=root_artifact_id,
             preview_png=preview_png,
-            summary=summary,
         )
         value = self._transport.request_multipart_json(
             _request(
@@ -349,7 +342,6 @@ class AsyncVisualsAPI:
         metadata: Mapping[str, JsonValue] | None = None,
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
-        summary: str | None = None,
     ) -> Visual:
         data, files = _upload_parts(
             title=title,
@@ -359,7 +351,6 @@ class AsyncVisualsAPI:
             metadata=metadata,
             root_artifact_id=root_artifact_id,
             preview_png=preview_png,
-            summary=summary,
         )
         data["visibility"] = VisualVisibility.ORGANIZATION.value
         value = await self._transport.request_multipart_json(
@@ -380,7 +371,6 @@ class AsyncVisualsAPI:
         metadata: Mapping[str, JsonValue] | None = None,
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
-        summary: str | None = None,
     ) -> Visual:
         data, files = _upload_parts(
             title=title,
@@ -390,7 +380,6 @@ class AsyncVisualsAPI:
             metadata=metadata,
             root_artifact_id=root_artifact_id,
             preview_png=preview_png,
-            summary=summary,
         )
         value = await self._transport.request_multipart_json(
             _request(
