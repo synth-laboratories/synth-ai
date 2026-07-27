@@ -7468,6 +7468,817 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions:prepare:
+    post:
+      tags:
+      - smr
+      - dataset-revisions
+      summary: Prepare Dataset Revision Publication
+      operationId: prepareDatasetRevisionPublication
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: data_binding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Data Binding Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetRevisionPrepareRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRevisionPreparationResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/data-bindings/{data_binding_id}/revision-preparations/{preparation_id}:finalize:
+    post:
+      tags:
+      - smr
+      - dataset-revisions
+      summary: Finalize Dataset Revision Publication
+      operationId: finalizeDatasetRevisionPublication
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: data_binding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Data Binding Id
+      - name: preparation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Preparation Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetRevisionFinalizeRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRevisionFinalizeResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Research Intern
+      operationId: get_research_intern
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternResponse'
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Provision Research Intern
+      operationId: provision_research_intern
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternProvisionRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - smr
+      - research-intern
+      summary: Patch Research Intern
+      operationId: patch_research_intern
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchInternPatchRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/factories/{factory_id}:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Attach Research Intern Factory
+      operationId: attach_research_intern_factory
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchInternFactoryMembershipResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/factories:
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Research Intern Factories
+      operationId: list_research_intern_factories
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ResearchInternFactoryMembershipResponse'
+                type: array
+                title: Response List Research Intern Factories Smr Research Intern
+                  Factories Get
+  /smr/research-intern/decisions:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Record Magi Decision
+      operationId: record_magi_decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MagiDecisionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Magi Decisions
+      operationId: list_magi_decisions
+      parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MagiDecisionReceiptResponse'
+                title: Response List Magi Decisions Smr Research Intern Decisions
+                  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Provision Project Computer
+      operationId: provision_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerProvisionRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: Get Project Computer
+      operationId: get_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: factory_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - smr
+      - research-intern
+      summary: Retire Project Computer
+      operationId: retire_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: factory_id
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          title: Factory Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/inspect:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Inspect Project Computer
+      operationId: inspect_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerInspectRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRuntimeOperationReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/execute:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Execute Project Computer
+      operationId: execute_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerExecuteRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRuntimeOperationReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/operations/reconcile:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Reconcile Project Computer Operation
+      operationId: reconcile_project_computer_operation
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerOperationReconcileRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectRuntimeOperationReceipt'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/leases:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Acquire Project Computer Lease
+      operationId: acquire_project_computer_lease
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerLeaseAcquireRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerLeaseResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/leases/{lease_id}/renew:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Renew Project Computer Lease
+      operationId: renew_project_computer_lease
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: lease_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lease Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerLeaseRenewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerLeaseResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/leases/{lease_id}/release:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Release Project Computer Lease
+      operationId: release_project_computer_lease
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: lease_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Lease Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerLeaseReleaseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerLeaseResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/computer/replace:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Replace Project Computer
+      operationId: replace_project_computer
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerReplaceRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/research-intern/factories/{factory_id}/project-computers/cleanup:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Cleanup Factory Project Computers
+      operationId: cleanup_factory_project_computers
+      parameters:
+      - name: factory_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Factory Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectComputerCleanupRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectComputerCleanupReceiptResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/data-bindings:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Data Binding
+      operationId: create_data_binding
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataBindingCreateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataBindingResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Data Bindings
+      operationId: list_data_bindings
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DataBindingResponse'
+                title: Response List Data Bindings Smr Projects  Project Id  Data
+                  Bindings Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Create Dataset Revision
+      operationId: create_dataset_revision
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: data_binding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Data Binding Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRevisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - research-intern
+      summary: List Dataset Revisions
+      operationId: list_dataset_revisions
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: data_binding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Data Binding Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DatasetRevisionResponse'
+                title: Response List Dataset Revisions Smr Projects  Project Id  Data
+                  Bindings  Data Binding Id  Revisions Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/lifecycle:
+    post:
+      tags:
+      - smr
+      - research-intern
+      summary: Transition Dataset Revision Lifecycle
+      operationId: transition_dataset_revision_lifecycle
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: data_binding_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Data Binding Id
+      - name: dataset_revision_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetRevisionLifecycleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRevisionResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/factories/{factory_id}/trace-store:
     get:
       tags:
@@ -15658,7 +16469,7 @@ paths:
       - smr
       - hosted-artifacts
       summary: Publish Run Visual
-      operationId: publish_run_visual_smr_runs__run_id__visuals_post
+      operationId: publish_run_visual
       parameters:
       - name: run_id
         in: path
@@ -15678,9 +16489,123 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Publish Run Visual Smr Runs  Run Id  Visuals Post
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/visuals:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Publish Project Visual
+      operationId: create_project_visual
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_publish_project_visual_smr_projects__project_id__visuals_post'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: List Project Visuals
+      operationId: list_project_visuals
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: visual_kind
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Visual Kind
+      - name: visibility
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            pattern: ^(org|public)$
+          - type: 'null'
+          title: Visibility
+      - name: factory_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+      - name: effort_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Effort Id
+      - name: include_deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Include Deleted
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 250
+          minimum: 1
+          default: 100
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualListResponse'
         '422':
           description: Validation Error
           content:
@@ -15731,7 +16656,7 @@ paths:
       - smr
       - hosted-artifacts
       summary: Get Visual
-      operationId: get_visual_smr_visuals__visual_id__get
+      operationId: retrieve_visual
       parameters:
       - name: visual_id
         in: path
@@ -15745,9 +16670,175 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Get Visual Smr Visuals  Visual Id  Get
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Patch Visual
+      operationId: update_visual
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPatchVisualRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Delete Visual
+      operationId: delete_visual
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/versions:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: List Visual Versions
+      operationId: list_visual_versions
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualVersionListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/restore:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Restore Visual
+      operationId: restore_visual
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/promote:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Promote Visual
+      operationId: promote_visual
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmrPromoteVisualRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/visuals/{visual_id}/unpublish:
+    post:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Unpublish Visual
+      operationId: unpublish_visual
+      parameters:
+      - name: visual_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrVisualResponse'
         '422':
           description: Validation Error
           content:
@@ -15760,7 +16851,7 @@ paths:
       - smr
       - hosted-artifacts
       summary: Get Visual Content
-      operationId: get_visual_content_smr_visuals__visual_id__content_get
+      operationId: retrieve_visual_content
       parameters:
       - name: visual_id
         in: path
@@ -15768,6 +16859,85 @@ paths:
         schema:
           type: string
           title: Visual Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/public/visuals/{slug}:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Public Visual
+      operationId: retrieve_public_visual
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrPublicVisualResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/public/visuals/{slug}/content:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Public Visual Content
+      operationId: retrieve_public_visual_content
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/public/visuals/{slug}/preview:
+    get:
+      tags:
+      - smr
+      - hosted-artifacts
+      summary: Get Public Visual Preview
+      operationId: retrieve_public_visual_preview
+      parameters:
+      - name: slug
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Slug
       responses:
         '200':
           description: Successful Response
@@ -20350,6 +21520,66 @@ paths:
                 - state_version
                 title: SmrRuntimeStreamEventEnvelope
                 type: object
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/traces/{capture_id}/stream:
+    get:
+      tags:
+      - smr
+      summary: Stream Run Trace Capture
+      operationId: stream_run_trace_capture
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: capture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Capture Id
+      - name: after_ordinal
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: -1
+          - type: 'null'
+          title: After Ordinal
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 10000
+          minimum: 1
+          default: 1000
+          title: Limit
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Exact synth.capture.raw.v1 envelopes replayed from the run's
+            durable Trace V5 bundle. Last-Event-ID wins over after_ordinal.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: event-stream
         '422':
           description: Validation Error
           content:
@@ -25941,9 +27171,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-                title: Response Publish Run Visual Post Swarm Alias
+                $ref: '#/components/schemas/SmrVisualResponse'
         '422':
           description: Validation Error
           content:
@@ -28178,6 +29406,67 @@ paths:
                 - state_version
                 title: SmrRuntimeStreamEventEnvelope
                 type: object
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/traces/{capture_id}/stream:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Stream Run Trace Capture
+      operationId: stream_run_trace_capture_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: capture_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Capture Id
+      - name: after_ordinal
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            minimum: -1
+          - type: 'null'
+          title: After Ordinal
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 10000
+          minimum: 1
+          default: 1000
+          title: Limit
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last-Event-Id
+      responses:
+        '200':
+          description: Exact synth.capture.raw.v1 envelopes replayed from the run's
+            durable Trace V5 bundle. Last-Event-ID wins over after_ordinal.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: event-stream
         '422':
           description: Validation Error
           content:
@@ -37238,6 +38527,40 @@ components:
       - code
       - display_name
       title: BillingProfileSnapshot
+    Body_publish_project_visual_smr_projects__project_id__visuals_post:
+      properties:
+        title:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Title
+        html:
+          type: string
+          format: binary
+          title: Html
+        visual_kind:
+          type: string
+          maxLength: 100
+          title: Visual Kind
+          default: research_visual
+        source_run_ids_json:
+          type: string
+          title: Source Run Ids Json
+          default: '[]'
+        metadata_json:
+          type: string
+          title: Metadata Json
+          default: '{}'
+        root_artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Root Artifact Id
+      type: object
+      required:
+      - title
+      - html
+      title: Body_publish_project_visual_smr_projects__project_id__visuals_post
     Body_publish_run_visual_post_swarm_alias:
       properties:
         title:
@@ -37256,7 +38579,7 @@ components:
           default: research_visual
         visibility:
           type: string
-          pattern: ^(private|org|public)$
+          pattern: ^org$
           title: Visibility
           default: org
         source_run_ids_json:
@@ -37267,6 +38590,11 @@ components:
           type: string
           title: Metadata Json
           default: '{}'
+        root_artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Root Artifact Id
       type: object
       required:
       - title
@@ -37290,7 +38618,7 @@ components:
           default: research_visual
         visibility:
           type: string
-          pattern: ^(private|org|public)$
+          pattern: ^org$
           title: Visibility
           default: org
         source_run_ids_json:
@@ -37301,6 +38629,11 @@ components:
           type: string
           title: Metadata Json
           default: '{}'
+        root_artifact_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Root Artifact Id
       type: object
       required:
       - title
@@ -39160,6 +40493,841 @@ components:
       - org_id
       - organization_balance
       title: CreditsBalanceResponse
+    DataBindingCreateRequest:
+      properties:
+        factory_id:
+          type: string
+          title: Factory Id
+        name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Name
+        dataset_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Id
+        data_contract_version:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Data Contract Version
+        binding_kind:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Binding Kind
+        authority_ref:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Authority Ref
+        access_policy:
+          additionalProperties: true
+          type: object
+          title: Access Policy
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - name
+      - dataset_id
+      - data_contract_version
+      - binding_kind
+      - authority_ref
+      title: DataBindingCreateRequest
+    DataBindingResponse:
+      properties:
+        data_binding_id:
+          type: string
+          format: uuid
+          title: Data Binding Id
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        name:
+          type: string
+          title: Name
+        dataset_id:
+          type: string
+          title: Dataset Id
+        data_contract_version:
+          type: string
+          title: Data Contract Version
+        generation:
+          type: integer
+          minimum: 1.0
+          title: Generation
+        binding_kind:
+          type: string
+          title: Binding Kind
+        authority_ref:
+          type: string
+          title: Authority Ref
+        access_policy:
+          additionalProperties: true
+          type: object
+          title: Access Policy
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - data_binding_id
+      - org_id
+      - research_intern_id
+      - factory_id
+      - project_id
+      - name
+      - dataset_id
+      - data_contract_version
+      - generation
+      - binding_kind
+      - authority_ref
+      - access_policy
+      - metadata
+      - created_at
+      title: DataBindingResponse
+    DatasetRevisionContent:
+      properties:
+        logical_path:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Logical Path
+        content_digest:
+          type: string
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Media Type
+        object_schema_version:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Object Schema Version
+      additionalProperties: false
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - media_type
+      title: DatasetRevisionContent
+      description: One immutable logical object in a revision, without a storage locator.
+    DatasetRevisionDraft:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-draft.v1
+          title: Schema Version
+          default: synth.dataset-revision-draft.v1
+        state:
+          type: string
+          const: building
+          title: State
+          default: building
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        revision_number:
+          type: integer
+          minimum: 1.0
+          title: Revision Number
+        binding_id:
+          type: string
+          format: uuid
+          title: Binding Id
+        binding_generation:
+          type: integer
+          minimum: 1.0
+          title: Binding Generation
+        dataset_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        dataset_schema_version:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Schema Version
+        lineage:
+          $ref: '#/components/schemas/DatasetRevisionLineage-Input'
+        contents:
+          items:
+            $ref: '#/components/schemas/DatasetRevisionContent'
+          type: array
+          minItems: 1
+          title: Contents
+      additionalProperties: false
+      type: object
+      required:
+      - dataset_revision_id
+      - revision_number
+      - binding_id
+      - binding_generation
+      - dataset_id
+      - org_id
+      - factory_id
+      - project_id
+      - dataset_schema_version
+      - lineage
+      - contents
+      title: DatasetRevisionDraft
+      description: Building-state input accepted by the pure seal operation.
+    DatasetRevisionFinalizeRequest:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-finalize.v1
+          title: Schema Version
+          default: synth.dataset-revision-finalize.v1
+        idempotency_key:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      title: DatasetRevisionFinalizeRequest
+    DatasetRevisionFinalizeResponse:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-finalize.v1
+          title: Schema Version
+          default: synth.dataset-revision-finalize.v1
+        preparation_id:
+          type: string
+          format: uuid
+          title: Preparation Id
+        state:
+          type: string
+          const: finalized
+          title: State
+          default: finalized
+        sealed_revision:
+          $ref: '#/components/schemas/SealedDatasetRevision'
+        manifest_receipt:
+          $ref: '#/components/schemas/DatasetRevisionManifestReceipt'
+        verification_receipt:
+          $ref: '#/components/schemas/DatasetRevisionVerificationReceipt'
+      additionalProperties: false
+      type: object
+      required:
+      - preparation_id
+      - sealed_revision
+      - manifest_receipt
+      - verification_receipt
+      title: DatasetRevisionFinalizeResponse
+    DatasetRevisionLifecycleRequest:
+      properties:
+        expected_state:
+          $ref: '#/components/schemas/DatasetRevisionState'
+        target_state:
+          $ref: '#/components/schemas/DatasetRevisionState'
+        reason:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Reason
+      additionalProperties: false
+      type: object
+      required:
+      - expected_state
+      - target_state
+      - reason
+      title: DatasetRevisionLifecycleRequest
+    DatasetRevisionLineage-Input:
+      properties:
+        parent:
+          anyOf:
+          - $ref: '#/components/schemas/DatasetRevisionParentRef'
+          - type: 'null'
+        sources:
+          items:
+            $ref: '#/components/schemas/DatasetRevisionSourceRef'
+          type: array
+          minItems: 1
+          title: Sources
+      additionalProperties: false
+      type: object
+      required:
+      - sources
+      title: DatasetRevisionLineage
+      description: Complete typed provenance for one revision.
+    DatasetRevisionLineage-Output:
+      properties:
+        parent:
+          anyOf:
+          - $ref: '#/components/schemas/DatasetRevisionParentRef'
+          - type: 'null'
+        sources:
+          items:
+            $ref: '#/components/schemas/DatasetRevisionSourceRef'
+          type: array
+          minItems: 1
+          title: Sources
+      additionalProperties: false
+      type: object
+      required:
+      - sources
+      title: DatasetRevisionLineage
+      description: Complete typed provenance for one revision.
+    DatasetRevisionManifestReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-manifest-receipt.v1
+          title: Schema Version
+          default: synth.dataset-revision-manifest-receipt.v1
+        authority:
+          type: string
+          const: factory_immutable_object_store
+          title: Authority
+          default: factory_immutable_object_store
+        receipt_id:
+          type: string
+          format: uuid
+          title: Receipt Id
+        authority_generation:
+          type: integer
+          minimum: 1.0
+          title: Authority Generation
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        manifest_uri:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Manifest Uri
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        content_digest:
+          type: string
+          title: Content Digest
+        object_count:
+          type: integer
+          minimum: 1.0
+          title: Object Count
+        total_size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Total Size Bytes
+        issued_at:
+          type: string
+          format: date-time
+          title: Issued At
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - authority_generation
+      - org_id
+      - factory_id
+      - project_id
+      - manifest_uri
+      - manifest_digest
+      - content_digest
+      - object_count
+      - total_size_bytes
+      - issued_at
+      - receipt_digest
+      title: DatasetRevisionManifestReceipt
+      description: Immutable-object authority proof for the exact declared dataset
+        manifest.
+    DatasetRevisionObjectUploadTarget:
+      properties:
+        logical_path:
+          type: string
+          title: Logical Path
+        content_digest:
+          type: string
+          title: Content Digest
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        media_type:
+          type: string
+          title: Media Type
+        object_uri:
+          type: string
+          title: Object Uri
+        upload_url:
+          type: string
+          title: Upload Url
+        required_headers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Required Headers
+      additionalProperties: false
+      type: object
+      required:
+      - logical_path
+      - content_digest
+      - size_bytes
+      - media_type
+      - object_uri
+      - upload_url
+      - required_headers
+      title: DatasetRevisionObjectUploadTarget
+    DatasetRevisionParentRef:
+      properties:
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        binding_id:
+          type: string
+          format: uuid
+          title: Binding Id
+        binding_generation:
+          type: integer
+          minimum: 1.0
+          title: Binding Generation
+        revision_number:
+          type: integer
+          minimum: 1.0
+          title: Revision Number
+        dataset_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        content_digest:
+          type: string
+          title: Content Digest
+        revision_digest:
+          type: string
+          title: Revision Digest
+      additionalProperties: false
+      type: object
+      required:
+      - dataset_revision_id
+      - binding_id
+      - binding_generation
+      - revision_number
+      - dataset_id
+      - org_id
+      - factory_id
+      - project_id
+      - content_digest
+      - revision_digest
+      title: DatasetRevisionParentRef
+      description: Exact immutable parent when a revision derives from another revision.
+    DatasetRevisionPreparationResponse:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-preparation.v1
+          title: Schema Version
+          default: synth.dataset-revision-preparation.v1
+        preparation_id:
+          type: string
+          format: uuid
+          title: Preparation Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        request_digest:
+          type: string
+          title: Request Digest
+        state:
+          $ref: '#/components/schemas/DatasetRevisionPreparationState'
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        data_binding_id:
+          type: string
+          format: uuid
+          title: Data Binding Id
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        object_uploads:
+          items:
+            $ref: '#/components/schemas/DatasetRevisionObjectUploadTarget'
+          type: array
+          title: Object Uploads
+      additionalProperties: false
+      type: object
+      required:
+      - preparation_id
+      - idempotency_key
+      - request_digest
+      - state
+      - org_id
+      - factory_id
+      - project_id
+      - data_binding_id
+      - dataset_revision_id
+      - object_uploads
+      title: DatasetRevisionPreparationResponse
+    DatasetRevisionPreparationState:
+      type: string
+      enum:
+      - prepared
+      - finalized
+      - failed
+      title: DatasetRevisionPreparationState
+    DatasetRevisionPrepareRequest:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-prepare.v1
+          title: Schema Version
+          default: synth.dataset-revision-prepare.v1
+        idempotency_key:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Idempotency Key
+        draft:
+          $ref: '#/components/schemas/DatasetRevisionDraft'
+        upload_expires_in_seconds:
+          type: integer
+          maximum: 3600.0
+          minimum: 60.0
+          title: Upload Expires In Seconds
+          default: 900
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      - draft
+      title: DatasetRevisionPrepareRequest
+    DatasetRevisionResponse:
+      properties:
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        data_binding_id:
+          type: string
+          format: uuid
+          title: Data Binding Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        binding_generation:
+          type: integer
+          minimum: 1.0
+          title: Binding Generation
+        revision_number:
+          type: integer
+          minimum: 1.0
+          title: Revision Number
+        dataset_id:
+          type: string
+          title: Dataset Id
+        content_digest:
+          type: string
+          title: Content Digest
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        storage_receipt_id:
+          type: string
+          format: uuid
+          title: Storage Receipt Id
+        storage_receipt_digest:
+          type: string
+          title: Storage Receipt Digest
+        revision_digest:
+          type: string
+          title: Revision Digest
+        manifest_uri:
+          type: string
+          title: Manifest Uri
+        schema_version:
+          type: string
+          title: Schema Version
+        parent_revision_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Parent Revision Id
+        state:
+          $ref: '#/components/schemas/DatasetRevisionState'
+        lifecycle_generation:
+          type: integer
+          minimum: 1.0
+          title: Lifecycle Generation
+        lifecycle_updated_at:
+          type: string
+          format: date-time
+          title: Lifecycle Updated At
+        revoked_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Revoked At
+        tombstoned_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Tombstoned At
+        sealed_revision:
+          $ref: '#/components/schemas/SealedDatasetRevision'
+        manifest_receipt:
+          $ref: '#/components/schemas/DatasetRevisionManifestReceipt'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - dataset_revision_id
+      - data_binding_id
+      - org_id
+      - factory_id
+      - project_id
+      - binding_generation
+      - revision_number
+      - dataset_id
+      - content_digest
+      - manifest_digest
+      - storage_receipt_id
+      - storage_receipt_digest
+      - revision_digest
+      - manifest_uri
+      - schema_version
+      - state
+      - lifecycle_generation
+      - lifecycle_updated_at
+      - sealed_revision
+      - manifest_receipt
+      - metadata
+      - created_at
+      title: DatasetRevisionResponse
+    DatasetRevisionSourceKind:
+      type: string
+      enum:
+      - artifact
+      - dataset_revision
+      - internal_git_revision
+      - upload
+      title: DatasetRevisionSourceKind
+    DatasetRevisionSourceRef:
+      properties:
+        kind:
+          $ref: '#/components/schemas/DatasetRevisionSourceKind'
+        authority_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Authority Id
+        authority_version:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Authority Version
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        content_digest:
+          type: string
+          title: Content Digest
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - authority_id
+      - authority_version
+      - org_id
+      - factory_id
+      - project_id
+      - content_digest
+      title: DatasetRevisionSourceRef
+      description: Immutable input authority cited by a DatasetRevision.
+    DatasetRevisionState:
+      type: string
+      enum:
+      - building
+      - sealed
+      - revoked
+      - abandoned
+      - tombstoned
+      title: DatasetRevisionState
+    DatasetRevisionVerificationReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision-verification-receipt.v1
+          title: Schema Version
+          default: synth.dataset-revision-verification-receipt.v1
+        verified:
+          type: boolean
+          const: true
+          title: Verified
+          default: true
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        binding_id:
+          type: string
+          format: uuid
+          title: Binding Id
+        binding_generation:
+          type: integer
+          minimum: 1.0
+          title: Binding Generation
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        content_digest:
+          type: string
+          title: Content Digest
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        storage_receipt_id:
+          type: string
+          format: uuid
+          title: Storage Receipt Id
+        storage_receipt_digest:
+          type: string
+          title: Storage Receipt Digest
+        revision_digest:
+          type: string
+          title: Revision Digest
+      additionalProperties: false
+      type: object
+      required:
+      - dataset_revision_id
+      - binding_id
+      - binding_generation
+      - org_id
+      - factory_id
+      - project_id
+      - content_digest
+      - manifest_digest
+      - storage_receipt_id
+      - storage_receipt_digest
+      - revision_digest
+      title: DatasetRevisionVerificationReceipt
+      description: Receipt proving a sealed revision's binding, scope, and digests.
     DeleteKeyResponse:
       properties:
         deleted:
@@ -40124,6 +42292,63 @@ components:
       required:
       - destination
       title: ExportTrainedModelBody
+    FactoryProjectMembershipReceiptRef:
+      properties:
+        authority:
+          type: string
+          const: factory_project_control_plane
+          title: Authority
+          default: factory_project_control_plane
+        factory_project_membership_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Project Membership Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        role:
+          type: string
+          enum:
+          - canonical
+          - auxiliary
+          title: Role
+        status:
+          type: string
+          const: active
+          title: Status
+          default: active
+        generation:
+          type: integer
+          minimum: 1.0
+          title: Generation
+        authority_receipt_digest:
+          type: string
+          title: Authority Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - factory_project_membership_id
+      - org_id
+      - factory_id
+      - project_id
+      - role
+      - generation
+      - authority_receipt_digest
+      title: FactoryProjectMembershipReceiptRef
+      description: Control-plane proof that one active Factory owns the Project.
     FlushSSEStreamsResponse:
       properties:
         flushed_keys:
@@ -41686,6 +43911,177 @@ components:
       required:
       - port
       title: LocalTarget
+    MagiCanonicalUser:
+      type: string
+      enum:
+      - Casper
+      - Melchior
+      - Balthasar
+      title: MagiCanonicalUser
+    MagiDecisionKind:
+      type: string
+      enum:
+      - delegate
+      - inspect
+      - pause
+      - intervene
+      - resume
+      - verdict
+      - revise
+      title: MagiDecisionKind
+    MagiDecisionReceiptResponse:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        mode:
+          $ref: '#/components/schemas/MagiMode'
+        canonical_user:
+          $ref: '#/components/schemas/MagiCanonicalUser'
+        decision_kind:
+          $ref: '#/components/schemas/MagiDecisionKind'
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        state_generation:
+          type: integer
+          title: State Generation
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        state_patch:
+          additionalProperties: true
+          type: object
+          title: State Patch
+        rationale:
+          type: string
+          title: Rationale
+        verdict:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verdict
+        uncertainty:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Uncertainty
+        decided_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decided By User Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - research_intern_id
+      - org_id
+      - mode
+      - canonical_user
+      - decision_kind
+      - idempotency_key
+      - state_generation
+      - evidence_refs
+      - state_patch
+      - rationale
+      - created_at
+      title: MagiDecisionReceiptResponse
+    MagiDecisionRequest:
+      properties:
+        mode:
+          $ref: '#/components/schemas/MagiMode'
+        decision_kind:
+          $ref: '#/components/schemas/MagiDecisionKind'
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        factory_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Factory Id
+        project_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Project Id
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        evidence_refs:
+          items:
+            type: string
+          type: array
+          title: Evidence Refs
+        state_patch:
+          additionalProperties: true
+          type: object
+          title: State Patch
+        rationale:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Rationale
+        verdict:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Verdict
+        uncertainty:
+          anyOf:
+          - type: number
+            maximum: 1.0
+            minimum: 0.0
+          - type: 'null'
+          title: Uncertainty
+      additionalProperties: false
+      type: object
+      required:
+      - mode
+      - decision_kind
+      - idempotency_key
+      - rationale
+      title: MagiDecisionRequest
+    MagiMode:
+      type: string
+      enum:
+      - sync
+      - async
+      - seraph
+      title: MagiMode
     ManderqueueAckRequest:
       properties:
         message_id:
@@ -43125,6 +45521,1171 @@ components:
       - created_at
       - updated_at
       title: ProjectChangeSetResponse
+    ProjectComputerCleanupReceiptResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.project-computer-cleanup.v1
+          title: Schema Version
+        service_origin:
+          type: string
+          const: urn:synth:research-intern:project-computer
+          title: Service Origin
+        owner:
+          type: string
+          const: research_intern_control_plane
+          title: Owner
+        receipt_id:
+          type: string
+          title: Receipt Id
+        content_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Content Digest
+        receipt_uri:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Receipt Uri
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        factory_id:
+          type: string
+          title: Factory Id
+        idempotency_key:
+          type: string
+          title: Idempotency Key
+        pre_inventory:
+          items:
+            $ref: '#/components/schemas/ProjectComputerResponse'
+          type: array
+          title: Pre Inventory
+        workspace_materialization_receipts:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/ProjectComputerProvisionReceipt'
+            - $ref: '#/components/schemas/ProjectComputerRestorationReceipt'
+          type: array
+          title: Workspace Materialization Receipts
+        retirement_receipts:
+          items:
+            $ref: '#/components/schemas/ProjectComputerRetirementReceipt'
+          type: array
+          title: Retirement Receipts
+        post_inventory:
+          items:
+            $ref: '#/components/schemas/ProjectComputerResponse'
+          type: array
+          title: Post Inventory
+        cleanup_complete:
+          type: boolean
+          title: Cleanup Complete
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - service_origin
+      - owner
+      - receipt_id
+      - content_digest
+      - receipt_uri
+      - org_id
+      - research_intern_id
+      - factory_id
+      - idempotency_key
+      - pre_inventory
+      - workspace_materialization_receipts
+      - retirement_receipts
+      - post_inventory
+      - cleanup_complete
+      - created_at
+      title: ProjectComputerCleanupReceiptResponse
+    ProjectComputerCleanupRequest:
+      properties:
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+      additionalProperties: false
+      type: object
+      required:
+      - idempotency_key
+      title: ProjectComputerCleanupRequest
+    ProjectComputerExecuteRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        operation_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Operation Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+        lease_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Lease Id
+        fencing_token_digest:
+          type: string
+          title: Fencing Token Digest
+        argv:
+          items:
+            type: string
+          type: array
+          maxItems: 256
+          minItems: 1
+          title: Argv
+        relative_working_directory:
+          anyOf:
+          - type: string
+            maxLength: 1000
+            minLength: 1
+          - type: 'null'
+          title: Relative Working Directory
+        timeout_seconds:
+          type: number
+          maximum: 900.0
+          exclusiveMinimum: 0.0
+          title: Timeout Seconds
+          default: 120.0
+        max_output_bytes:
+          type: integer
+          maximum: 1048576.0
+          minimum: 1.0
+          title: Max Output Bytes
+          default: 262144
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - operation_id
+      - idempotency_key
+      - expected_generation
+      - lease_id
+      - fencing_token_digest
+      - argv
+      title: ProjectComputerExecuteRequest
+    ProjectComputerInspectRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        operation_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Operation Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - operation_id
+      - idempotency_key
+      - expected_generation
+      title: ProjectComputerInspectRequest
+    ProjectComputerLeaseAcquireRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+        duration_seconds:
+          type: integer
+          maximum: 3600.0
+          minimum: 30.0
+          title: Duration Seconds
+          default: 900
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - expected_generation
+      title: ProjectComputerLeaseAcquireRequest
+    ProjectComputerLeaseReleaseRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+        fencing_token_digest:
+          type: string
+          title: Fencing Token Digest
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - expected_generation
+      - fencing_token_digest
+      title: ProjectComputerLeaseReleaseRequest
+    ProjectComputerLeaseRenewRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+        fencing_token_digest:
+          type: string
+          title: Fencing Token Digest
+        duration_seconds:
+          type: integer
+          maximum: 3600.0
+          minimum: 30.0
+          title: Duration Seconds
+          default: 900
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - expected_generation
+      - fencing_token_digest
+      title: ProjectComputerLeaseRenewRequest
+    ProjectComputerLeaseResponse:
+      properties:
+        project_computer_id:
+          type: string
+          title: Project Computer Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        generation:
+          type: integer
+          minimum: 1.0
+          title: Generation
+        lease_id:
+          type: string
+          title: Lease Id
+        fencing_token_digest:
+          type: string
+          title: Fencing Token Digest
+        state:
+          type: string
+          enum:
+          - active
+          - released
+          title: State
+        expires_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Expires At
+      additionalProperties: false
+      type: object
+      required:
+      - project_computer_id
+      - org_id
+      - factory_id
+      - project_id
+      - generation
+      - lease_id
+      - fencing_token_digest
+      - state
+      - expires_at
+      title: ProjectComputerLeaseResponse
+    ProjectComputerOperationReconcileRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        operation_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Operation Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        expected_generation:
+          type: integer
+          minimum: 1.0
+          title: Expected Generation
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - operation_id
+      - idempotency_key
+      - expected_generation
+      title: ProjectComputerOperationReconcileRequest
+      description: Identify one accepted operation whose provider outcome is unknown.
+    ProjectComputerProvisionReceipt:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        generation:
+          type: integer
+          title: Generation
+        cloud_deployment_id:
+          type: string
+          title: Cloud Deployment Id
+        adapter_kind:
+          type: string
+          title: Adapter Kind
+        deployment_state:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Deployment State
+        source_repository_id:
+          type: string
+          title: Source Repository Id
+        source_revision:
+          type: string
+          title: Source Revision
+        snapshot_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snapshot Digest
+        ready:
+          type: boolean
+          const: true
+          title: Ready
+        workspace_head_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Workspace Head Sha
+        workspace_clean:
+          type: boolean
+          const: true
+          title: Workspace Clean
+        workspace_restore_receipt:
+          anyOf:
+          - $ref: '#/components/schemas/ProjectWorkspaceRestoreReceipt'
+          - type: 'null'
+        receipt_ref:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Receipt Ref
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - factory_id
+      - project_id
+      - generation
+      - cloud_deployment_id
+      - adapter_kind
+      - deployment_state
+      - source_repository_id
+      - source_revision
+      - ready
+      - workspace_head_sha
+      - workspace_clean
+      - receipt_ref
+      title: ProjectComputerProvisionReceipt
+    ProjectComputerProvisionRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        cloud_deployment_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Cloud Deployment Id
+        source_repository_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Source Repository Id
+        source_revision:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Revision
+        snapshot_digest:
+          anyOf:
+          - type: string
+            pattern: ^sha256:[0-9a-f]{64}$
+          - type: 'null'
+          title: Snapshot Digest
+        workspace_snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/ProjectComputerWorkspaceSnapshot'
+          - type: 'null'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - cloud_deployment_id
+      - source_repository_id
+      - source_revision
+      title: ProjectComputerProvisionRequest
+    ProjectComputerReplaceRequest:
+      properties:
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        cloud_deployment_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Cloud Deployment Id
+        source_repository_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Source Repository Id
+        source_revision:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Source Revision
+        snapshot_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Snapshot Digest
+        workspace_snapshot:
+          $ref: '#/components/schemas/ProjectComputerWorkspaceSnapshot'
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      required:
+      - factory_id
+      - cloud_deployment_id
+      - source_repository_id
+      - source_revision
+      - snapshot_digest
+      - workspace_snapshot
+      title: ProjectComputerReplaceRequest
+    ProjectComputerResponse:
+      properties:
+        project_computer_id:
+          type: string
+          title: Project Computer Id
+        org_id:
+          type: string
+          title: Org Id
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        cloud_deployment_id:
+          type: string
+          title: Cloud Deployment Id
+        adapter_kind:
+          type: string
+          title: Adapter Kind
+        source_repository_id:
+          type: string
+          title: Source Repository Id
+        source_revision:
+          type: string
+          title: Source Revision
+        snapshot_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Snapshot Digest
+        lifecycle:
+          $ref: '#/components/schemas/ProjectComputerState'
+        generation:
+          type: integer
+          title: Generation
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - project_computer_id
+      - org_id
+      - research_intern_id
+      - factory_id
+      - project_id
+      - cloud_deployment_id
+      - adapter_kind
+      - source_repository_id
+      - source_revision
+      - lifecycle
+      - generation
+      - metadata
+      - created_at
+      - updated_at
+      title: ProjectComputerResponse
+    ProjectComputerRestorationReceipt:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        generation:
+          type: integer
+          title: Generation
+        cloud_deployment_id:
+          type: string
+          title: Cloud Deployment Id
+        adapter_kind:
+          type: string
+          title: Adapter Kind
+        deployment_state:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Deployment State
+        source_repository_id:
+          type: string
+          title: Source Repository Id
+        source_revision:
+          type: string
+          title: Source Revision
+        snapshot_digest:
+          type: string
+          title: Snapshot Digest
+        restored:
+          type: boolean
+          const: true
+          title: Restored
+        workspace_restore_receipt:
+          $ref: '#/components/schemas/ProjectWorkspaceRestoreReceipt'
+        previous_cloud_deployment_retired:
+          type: boolean
+          const: true
+          title: Previous Cloud Deployment Retired
+        previous_retirement_receipt_ref:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Previous Retirement Receipt Ref
+        receipt_ref:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Receipt Ref
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - factory_id
+      - project_id
+      - generation
+      - cloud_deployment_id
+      - adapter_kind
+      - deployment_state
+      - source_repository_id
+      - source_revision
+      - snapshot_digest
+      - restored
+      - workspace_restore_receipt
+      - previous_cloud_deployment_retired
+      - previous_retirement_receipt_ref
+      - receipt_ref
+      title: ProjectComputerRestorationReceipt
+    ProjectComputerRetirementReceipt:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        generation:
+          type: integer
+          title: Generation
+        cloud_deployment_id:
+          type: string
+          title: Cloud Deployment Id
+        adapter_kind:
+          type: string
+          title: Adapter Kind
+        deployment_state:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Deployment State
+        retired:
+          type: boolean
+          title: Retired
+        receipt_ref:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          title: Receipt Ref
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - factory_id
+      - project_id
+      - generation
+      - cloud_deployment_id
+      - adapter_kind
+      - deployment_state
+      - retired
+      - receipt_ref
+      title: ProjectComputerRetirementReceipt
+    ProjectComputerState:
+      type: string
+      enum:
+      - requested
+      - provisioning
+      - ready
+      - leased
+      - running
+      - quiescing
+      - degraded
+      - replacing
+      - rematerializing
+      - suspended
+      - resuming
+      - retiring
+      - retired
+      title: ProjectComputerState
+    ProjectComputerWorkspaceSnapshot:
+      properties:
+        snapshot_ref_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Snapshot Ref Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        run_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Run Id
+        bucket:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Bucket
+        archive_key:
+          type: string
+          maxLength: 2048
+          minLength: 1
+          title: Archive Key
+        uri:
+          type: string
+          maxLength: 4096
+          minLength: 1
+          title: Uri
+        archive_digest:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+          title: Archive Digest
+        archive_size_bytes:
+          type: integer
+          minimum: 1.0
+          title: Archive Size Bytes
+        source:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Source
+        commit_sha:
+          type: string
+          pattern: ^[0-9a-f]{40}$
+          title: Commit Sha
+        manifest:
+          $ref: '#/components/schemas/ProjectWorkspaceSnapshotManifest'
+      additionalProperties: false
+      type: object
+      required:
+      - snapshot_ref_id
+      - org_id
+      - factory_id
+      - project_id
+      - run_id
+      - bucket
+      - archive_key
+      - uri
+      - archive_digest
+      - archive_size_bytes
+      - source
+      - commit_sha
+      - manifest
+      title: ProjectComputerWorkspaceSnapshot
+      description: Typed immutable workspace bytes and manifest used for rematerialization.
+    ProjectGitArchiveManifestReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-git-archive-manifest-receipt.v1
+          title: Schema Version
+          default: synth.project-git-archive-manifest-receipt.v1
+        authority:
+          type: string
+          const: internal_git_server
+          title: Authority
+          default: internal_git_server
+        receipt_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Receipt Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        internal_git_receipt_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Internal Git Receipt Id
+        internal_git_receipt_digest:
+          type: string
+          title: Internal Git Receipt Digest
+        internal_head_sha:
+          type: string
+          title: Internal Head Sha
+        internal_tree_sha:
+          type: string
+          title: Internal Tree Sha
+        tree_listing_digest:
+          type: string
+          title: Tree Listing Digest
+        tree_entry_count:
+          type: integer
+          minimum: 0.0
+          title: Tree Entry Count
+        archive_format:
+          type: string
+          const: git-archive-tar.v1
+          title: Archive Format
+          default: git-archive-tar.v1
+        archive_digest:
+          type: string
+          title: Archive Digest
+        archive_size_bytes:
+          type: integer
+          minimum: 1.0
+          title: Archive Size Bytes
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - org_id
+      - factory_id
+      - project_id
+      - internal_git_receipt_id
+      - internal_git_receipt_digest
+      - internal_head_sha
+      - internal_tree_sha
+      - tree_listing_digest
+      - tree_entry_count
+      - archive_digest
+      - archive_size_bytes
+      - receipt_digest
+      title: ProjectGitArchiveManifestReceipt
+      description: Internal-git-server proof of deterministic bytes for an exact Git
+        tree.
+    ProjectInternalGitReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-internal-git-receipt.v1
+          title: Schema Version
+          default: synth.project-internal-git-receipt.v1
+        receipt_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Receipt Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        factory_project_membership:
+          $ref: '#/components/schemas/FactoryProjectMembershipReceiptRef'
+        repository_registration_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Repository Registration Id
+        revision_admission_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Revision Admission Id
+        internal_repo_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Internal Repo Id
+        internal_branch:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Internal Branch
+        external_base_sha:
+          type: string
+          title: External Base Sha
+        external_base_reachable:
+          type: boolean
+          const: true
+          title: External Base Reachable
+          default: true
+        internal_head_sha:
+          type: string
+          title: Internal Head Sha
+        internal_tree_sha:
+          type: string
+          title: Internal Tree Sha
+        tree_listing_digest:
+          type: string
+          title: Tree Listing Digest
+        tree_entry_count:
+          type: integer
+          minimum: 0.0
+          title: Tree Entry Count
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - org_id
+      - factory_id
+      - project_id
+      - factory_project_membership
+      - repository_registration_id
+      - revision_admission_id
+      - internal_repo_id
+      - internal_branch
+      - external_base_sha
+      - internal_head_sha
+      - internal_tree_sha
+      - tree_listing_digest
+      - tree_entry_count
+      - receipt_digest
+      title: ProjectInternalGitReceipt
+      description: Exact internal Git state descended from one admitted external base.
+    ProjectRuntimeExecutionEvidence:
+      properties:
+        exit_code:
+          type: integer
+          title: Exit Code
+        stdout_digest:
+          type: string
+          title: Stdout Digest
+        stderr_digest:
+          type: string
+          title: Stderr Digest
+        stdout_bytes:
+          type: integer
+          minimum: 0.0
+          title: Stdout Bytes
+        stderr_bytes:
+          type: integer
+          minimum: 0.0
+          title: Stderr Bytes
+        stdout_truncated:
+          type: boolean
+          title: Stdout Truncated
+        stderr_truncated:
+          type: boolean
+          title: Stderr Truncated
+      additionalProperties: false
+      type: object
+      required:
+      - exit_code
+      - stdout_digest
+      - stderr_digest
+      - stdout_bytes
+      - stderr_bytes
+      - stdout_truncated
+      - stderr_truncated
+      title: ProjectRuntimeExecutionEvidence
+      description: Bounded, provider-neutral evidence for one command execution.
+    ProjectRuntimeFailureClass:
+      type: string
+      enum:
+      - validation
+      - policy
+      - auth
+      - unavailable
+      - conflict_fenced
+      - interrupted
+      - unknown_external_outcome
+      - integrity
+      - provider_terminal
+      title: ProjectRuntimeFailureClass
+    ProjectRuntimeLifecycleFailure:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-runtime-lifecycle-failure.v1
+          title: Schema Version
+          default: synth.project-runtime-lifecycle-failure.v1
+        failure_class:
+          $ref: '#/components/schemas/ProjectRuntimeFailureClass'
+        code:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Code
+        message:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Message
+        retryable:
+          type: boolean
+          title: Retryable
+      additionalProperties: false
+      type: object
+      required:
+      - failure_class
+      - code
+      - message
+      - retryable
+      title: ProjectRuntimeLifecycleFailure
+    ProjectRuntimeLifecycleTransitionAuthority:
+      type: string
+      enum:
+      - control_plane
+      - runtime
+      - research_control
+      - reconciler
+      - operator
+      title: ProjectRuntimeLifecycleTransitionAuthority
+    ProjectRuntimeOperation:
+      type: string
+      enum:
+      - provision
+      - inspect
+      - execute
+      - suspend
+      - resume
+      - snapshot
+      - restore
+      - replace
+      - retire
+      - retry
+      - cancel
+      - adopt
+      - tombstone
+      - export
+      - rotate_credential
+      - revoke_credential
+      - reconcile_delivery
+      title: ProjectRuntimeOperation
+    ProjectRuntimeOperationOutcome:
+      type: string
+      enum:
+      - accepted
+      - completed
+      - reconciled
+      - unsupported
+      - failed
+      title: ProjectRuntimeOperationOutcome
+    ProjectRuntimeOperationReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-runtime-operation-receipt.v1
+          title: Schema Version
+          default: synth.project-runtime-operation-receipt.v1
+        receipt_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Receipt Id
+        operation_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Operation Id
+        idempotency_key:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Idempotency Key
+        operation:
+          $ref: '#/components/schemas/ProjectRuntimeOperation'
+        authority:
+          $ref: '#/components/schemas/ProjectRuntimeLifecycleTransitionAuthority'
+        resource_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Resource Id
+        resource_generation:
+          type: integer
+          minimum: 1.0
+          title: Resource Generation
+        outcome:
+          $ref: '#/components/schemas/ProjectRuntimeOperationOutcome'
+        input_digest:
+          type: string
+          title: Input Digest
+        output_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Output Digest
+        execution_evidence:
+          anyOf:
+          - $ref: '#/components/schemas/ProjectRuntimeExecutionEvidence'
+          - type: 'null'
+        failure:
+          anyOf:
+          - $ref: '#/components/schemas/ProjectRuntimeLifecycleFailure'
+          - type: 'null'
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        completed_at:
+          type: string
+          format: date-time
+          title: Completed At
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      - operation_id
+      - idempotency_key
+      - operation
+      - authority
+      - resource_id
+      - resource_generation
+      - outcome
+      - input_digest
+      - started_at
+      - completed_at
+      - receipt_digest
+      title: ProjectRuntimeOperationReceipt
     ProjectSetupStatus:
       type: string
       enum:
@@ -43813,6 +47374,70 @@ components:
       - run_id
       - created_at
       title: ProjectWorkspaceReport
+    ProjectWorkspaceRestoreReceipt:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-workspace-restore-receipt.v1
+          title: Schema Version
+          default: synth.project-workspace-restore-receipt.v1
+        verified:
+          type: boolean
+          const: true
+          title: Verified
+          default: true
+        snapshot_manifest_id:
+          type: string
+          title: Snapshot Manifest Id
+        snapshot_ref_id:
+          type: string
+          title: Snapshot Ref Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        project_id:
+          type: string
+          title: Project Id
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        archive_digest:
+          type: string
+          title: Archive Digest
+        git_archive_receipt_digest:
+          type: string
+          title: Git Archive Receipt Digest
+        restored_head_sha:
+          type: string
+          title: Restored Head Sha
+        restored_tree_sha:
+          type: string
+          title: Restored Tree Sha
+        restored_tree_listing_digest:
+          type: string
+          title: Restored Tree Listing Digest
+        receipt_digest:
+          type: string
+          title: Receipt Digest
+      additionalProperties: false
+      type: object
+      required:
+      - snapshot_manifest_id
+      - snapshot_ref_id
+      - org_id
+      - factory_id
+      - project_id
+      - manifest_digest
+      - archive_digest
+      - git_archive_receipt_digest
+      - restored_head_sha
+      - restored_tree_sha
+      - restored_tree_listing_digest
+      - receipt_digest
+      title: ProjectWorkspaceRestoreReceipt
     ProjectWorkspaceReviewItem:
       properties:
         review_id:
@@ -43903,6 +47528,74 @@ components:
       - updated_at
       - href
       title: ProjectWorkspaceRun
+    ProjectWorkspaceSnapshotManifest:
+      properties:
+        schema_version:
+          type: string
+          const: synth.project-workspace-snapshot.v1
+          title: Schema Version
+          default: synth.project-workspace-snapshot.v1
+        snapshot_manifest_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Snapshot Manifest Id
+        snapshot_ref_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Snapshot Ref Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        internal_git_receipt:
+          $ref: '#/components/schemas/ProjectInternalGitReceipt'
+        git_archive_manifest:
+          $ref: '#/components/schemas/ProjectGitArchiveManifestReceipt'
+        archive_digest:
+          type: string
+          title: Archive Digest
+        archive_size_bytes:
+          type: integer
+          minimum: 1.0
+          title: Archive Size Bytes
+        snapshot_source:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Snapshot Source
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+      additionalProperties: false
+      type: object
+      required:
+      - snapshot_manifest_id
+      - snapshot_ref_id
+      - org_id
+      - factory_id
+      - project_id
+      - internal_git_receipt
+      - git_archive_manifest
+      - archive_digest
+      - archive_size_bytes
+      - snapshot_source
+      - manifest_digest
+      title: ProjectWorkspaceSnapshotManifest
+      description: Provider-neutral immutable ref to the archive for one exact Git
+        tree.
     ProjectWorkspaceSummary:
       properties:
         project_id:
@@ -44214,6 +47907,191 @@ components:
       - released_at
       title: ReleaseResponse
       description: Response for lease release.
+    ResearchInternFactoryMembershipResponse:
+      properties:
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        factory_id:
+          type: string
+          title: Factory Id
+        role:
+          type: string
+          title: Role
+        attached_by_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attached By User Id
+        attached_at:
+          type: string
+          format: date-time
+          title: Attached At
+      additionalProperties: false
+      type: object
+      required:
+      - research_intern_id
+      - org_id
+      - factory_id
+      - role
+      - attached_at
+      title: ResearchInternFactoryMembershipResponse
+    ResearchInternPatchRequest:
+      properties:
+        display_name:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Display Name
+        status:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternStatus'
+          - type: 'null'
+        policies:
+          anyOf:
+          - $ref: '#/components/schemas/ResearchInternPolicySet'
+          - type: 'null'
+        attribution_team_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Attribution Team Id
+        metadata:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: ResearchInternPatchRequest
+    ResearchInternPolicySet:
+      properties:
+        organization:
+          additionalProperties: true
+          type: object
+          title: Organization
+        team:
+          additionalProperties: true
+          type: object
+          title: Team
+        user:
+          additionalProperties: true
+          type: object
+          title: User
+        organization_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Organization Policy Ref
+        team_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Team Policy Ref
+        user_policy_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: User Policy Ref
+      additionalProperties: false
+      type: object
+      title: ResearchInternPolicySet
+      description: Policy scopes remain attributable instead of being merged implicitly.
+    ResearchInternProvisionRequest:
+      properties:
+        display_name:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Display Name
+          default: Research Intern
+        policies:
+          $ref: '#/components/schemas/ResearchInternPolicySet'
+        attribution_team_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+          - type: 'null'
+          title: Attribution Team Id
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+      additionalProperties: false
+      type: object
+      title: ResearchInternProvisionRequest
+    ResearchInternResponse:
+      properties:
+        research_intern_id:
+          type: string
+          title: Research Intern Id
+        org_id:
+          type: string
+          title: Org Id
+        display_name:
+          type: string
+          title: Display Name
+        status:
+          $ref: '#/components/schemas/ResearchInternStatus'
+        policies:
+          $ref: '#/components/schemas/ResearchInternPolicySet'
+        attribution_user_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attribution User Id
+        attribution_team_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Attribution Team Id
+        state_generation:
+          type: integer
+          title: State Generation
+        durable_state:
+          additionalProperties: true
+          type: object
+          title: Durable State
+        metadata:
+          additionalProperties: true
+          type: object
+          title: Metadata
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+      additionalProperties: false
+      type: object
+      required:
+      - research_intern_id
+      - org_id
+      - display_name
+      - status
+      - policies
+      - state_generation
+      - durable_state
+      - metadata
+      - created_at
+      - updated_at
+      title: ResearchInternResponse
+    ResearchInternStatus:
+      type: string
+      enum:
+      - active
+      - paused
+      - archived
+      title: ResearchInternStatus
     ResolveCredentialRequest:
       properties:
         org_id:
@@ -44877,6 +48755,115 @@ components:
       - steer
       - control
       title: RuntimeMessageMode
+    SealedDatasetRevision:
+      properties:
+        schema_version:
+          type: string
+          const: synth.dataset-revision.v1
+          title: Schema Version
+          default: synth.dataset-revision.v1
+        state:
+          type: string
+          const: sealed
+          title: State
+          default: sealed
+        dataset_revision_id:
+          type: string
+          format: uuid
+          title: Dataset Revision Id
+        revision_number:
+          type: integer
+          minimum: 1.0
+          title: Revision Number
+        binding_id:
+          type: string
+          format: uuid
+          title: Binding Id
+        binding_generation:
+          type: integer
+          minimum: 1.0
+          title: Binding Generation
+        dataset_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Id
+        org_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Org Id
+        factory_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Factory Id
+        project_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Project Id
+        dataset_schema_version:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Dataset Schema Version
+        lineage:
+          $ref: '#/components/schemas/DatasetRevisionLineage-Output'
+        contents:
+          items:
+            $ref: '#/components/schemas/DatasetRevisionContent'
+          type: array
+          minItems: 1
+          title: Contents
+        content_digest:
+          type: string
+          title: Content Digest
+        manifest_digest:
+          type: string
+          title: Manifest Digest
+        storage_receipt_id:
+          type: string
+          format: uuid
+          title: Storage Receipt Id
+        storage_receipt_digest:
+          type: string
+          title: Storage Receipt Digest
+        revision_digest:
+          type: string
+          title: Revision Digest
+        sealed_at:
+          type: string
+          format: date-time
+          title: Sealed At
+        sealed_by_principal_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Sealed By Principal Id
+      additionalProperties: false
+      type: object
+      required:
+      - dataset_revision_id
+      - revision_number
+      - binding_id
+      - binding_generation
+      - dataset_id
+      - org_id
+      - factory_id
+      - project_id
+      - dataset_schema_version
+      - lineage
+      - contents
+      - content_digest
+      - manifest_digest
+      - storage_receipt_id
+      - storage_receipt_digest
+      - revision_digest
+      - sealed_at
+      - sealed_by_principal_id
+      title: SealedDatasetRevision
+      description: Immutable, content-addressed DatasetRevision.
     SessionLimitResponse:
       properties:
         limit_id:
@@ -54374,6 +58361,30 @@ components:
           title: Visibility
       type: object
       title: SmrPatchHostedArtifactRequest
+    SmrPatchVisualRequest:
+      properties:
+        title:
+          anyOf:
+          - type: string
+            maxLength: 500
+            minLength: 1
+          - type: 'null'
+          title: Title
+        summary:
+          anyOf:
+          - type: string
+            maxLength: 4000
+          - type: 'null'
+          title: Summary
+        visual_kind:
+          anyOf:
+          - type: string
+            maxLength: 100
+            minLength: 1
+          - type: 'null'
+          title: Visual Kind
+      type: object
+      title: SmrPatchVisualRequest
     SmrPauseResourceResponse:
       properties:
         resource:
@@ -56608,6 +60619,17 @@ components:
           title: Migration Only Fields
       type: object
       title: SmrProjectionInputResponse
+    SmrPromoteVisualRequest:
+      properties:
+        slug:
+          type: string
+          maxLength: 120
+          minLength: 1
+          title: Slug
+      type: object
+      required:
+      - slug
+      title: SmrPromoteVisualRequest
     SmrPromotionBenefitSummaryResponse:
       properties:
         credit_grant_cents:
@@ -57047,6 +61069,117 @@ components:
       - funding_source
       - configured
       title: SmrProviderKeyStatusResponse
+    SmrPublicVisualResponse:
+      properties:
+        hosted_artifact_id:
+          type: string
+          title: Hosted Artifact Id
+        root_artifact_id:
+          type: string
+          title: Root Artifact Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        built_by_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Built By Run Id
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        title:
+          type: string
+          title: Title
+        visual_kind:
+          type: string
+          title: Visual Kind
+        artifact_version:
+          type: integer
+          title: Artifact Version
+        visibility:
+          type: string
+          title: Visibility
+        status:
+          type: string
+          title: Status
+        public_slug:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Public Slug
+        public_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Public Url
+        preview_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Url
+        hosted_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hosted Url
+        canonical_url:
+          type: string
+          title: Canonical Url
+        content_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Digest
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+        blob_state:
+          type: string
+          title: Blob State
+        source_run_ids:
+          items:
+            type: string
+          type: array
+          title: Source Run Ids
+        superseded_by_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Superseded By Id
+        deleted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Deleted At
+        published_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Published At
+      type: object
+      required:
+      - hosted_artifact_id
+      - root_artifact_id
+      - project_id
+      - title
+      - visual_kind
+      - artifact_version
+      - visibility
+      - status
+      - canonical_url
+      - size_bytes
+      - blob_state
+      title: SmrPublicVisualResponse
     SmrQuestionRespondRequest:
       properties:
         response_text:
@@ -59054,6 +63187,19 @@ components:
           title: Internal Cost Usd
           description: Precise internal cost in USD.
           default: 0.0
+        recording_status:
+          type: string
+          enum:
+          - complete
+          - pending
+          - incomplete
+          - partially_attributed
+          - unevaluated
+          title: Recording Status
+          description: Whether this money total may be read as final. Mirrors token_accounting.status;
+            only a settled rollup reads 'complete'. Defaults to 'unevaluated' so an
+            unset field never reads as done.
+          default: unevaluated
       type: object
       required:
       - total_cents
@@ -62667,6 +66813,62 @@ components:
       required:
       - tick_mode
       title: SmrRunTickingUpdateRequest
+    SmrRunTokenAccountingResponse:
+      properties:
+        schema_version:
+          type: string
+          title: Schema Version
+        status:
+          type: string
+          enum:
+          - settled
+          - pending
+          - incomplete
+          - partially_attributed
+          - unevaluated
+          title: Status
+        run_terminal:
+          type: boolean
+          title: Run Terminal
+        expected_sessions:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Expected Sessions
+          description: Participant sessions the control plane knows about, or null
+            when the expectation could not be read.
+        accounted_sessions:
+          type: integer
+          minimum: 0.0
+          title: Accounted Sessions
+        missing_session_ids:
+          items:
+            type: string
+          type: array
+          title: Missing Session Ids
+        unattributed_sessions:
+          type: integer
+          minimum: 0.0
+          title: Unattributed Sessions
+          description: Accounted sessions whose token rows carry no resolved model.
+          default: 0
+      additionalProperties: false
+      type: object
+      required:
+      - schema_version
+      - status
+      - run_terminal
+      - accounted_sessions
+      title: SmrRunTokenAccountingResponse
+      description: 'Typed completeness verdict for a run''s token rollup.
+
+
+        Participant token rows land after the owning session terminalizes, so a
+
+        terminal run can still be missing sessions. ``status`` names that state
+
+        instead of letting a short rollup read as the real total.'
     SmrRunToolConfigRequest:
       properties:
         github:
@@ -62709,6 +66911,21 @@ components:
           - type: string
           - type: 'null'
           title: Artifact Content Path
+        capture_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Capture Id
+        trace_schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trace Schema
+        stream_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stream Path
         task_id:
           anyOf:
           - type: string
@@ -62810,6 +67027,8 @@ components:
           title: Tokens
           description: Token rollup from the spend ledger (sessions_seen, totals,
             by_model).
+        token_accounting:
+          $ref: '#/components/schemas/SmrRunTokenAccountingResponse'
         breakdown:
           additionalProperties: true
           type: object
@@ -62881,6 +67100,7 @@ components:
       - run_id
       - project_id
       - cost
+      - token_accounting
       - total_cost_cents
       - total_charged_cents
       title: SmrRunUsageResponse
@@ -65587,6 +69807,12 @@ components:
           type: integer
           minimum: 0.0
           title: Session Snapshots Count
+        unattributed_sessions:
+          type: integer
+          minimum: 0.0
+          title: Unattributed Sessions
+          description: Sessions whose token rows carry no resolved model.
+          default: 0
         totals:
           $ref: '#/components/schemas/SmrSwarmTokenCountsResponse'
         by_model:
@@ -66169,6 +70395,148 @@ components:
       - per_run
       - stored_rollup_count
       title: SmrUsageRollupsResponse
+    SmrVisualListResponse:
+      properties:
+        visuals:
+          items:
+            $ref: '#/components/schemas/SmrVisualResponse'
+          type: array
+          title: Visuals
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      type: object
+      required:
+      - visuals
+      title: SmrVisualListResponse
+    SmrVisualResponse:
+      properties:
+        hosted_artifact_id:
+          type: string
+          title: Hosted Artifact Id
+        root_artifact_id:
+          type: string
+          title: Root Artifact Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Run Id
+        built_by_run_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Built By Run Id
+        work_product_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Work Product Id
+        title:
+          type: string
+          title: Title
+        visual_kind:
+          type: string
+          title: Visual Kind
+        artifact_version:
+          type: integer
+          title: Artifact Version
+        visibility:
+          type: string
+          title: Visibility
+        status:
+          type: string
+          title: Status
+        public_slug:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Public Slug
+        public_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Public Url
+        preview_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Preview Url
+        hosted_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hosted Url
+        canonical_url:
+          type: string
+          title: Canonical Url
+        content_digest:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Digest
+        size_bytes:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Size Bytes
+        blob_state:
+          type: string
+          title: Blob State
+        source_run_ids:
+          items:
+            type: string
+          type: array
+          title: Source Run Ids
+        superseded_by_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Superseded By Id
+        deleted_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Deleted At
+        published_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Published At
+      type: object
+      required:
+      - hosted_artifact_id
+      - root_artifact_id
+      - project_id
+      - title
+      - visual_kind
+      - artifact_version
+      - visibility
+      - status
+      - canonical_url
+      - size_bytes
+      - blob_state
+      title: SmrVisualResponse
+    SmrVisualVersionListResponse:
+      properties:
+        root_artifact_id:
+          type: string
+          title: Root Artifact Id
+        versions:
+          items:
+            $ref: '#/components/schemas/SmrVisualResponse'
+          type: array
+          title: Versions
+      type: object
+      required:
+      - root_artifact_id
+      - versions
+      title: SmrVisualVersionListResponse
     SmrWikiChangeSetCreateRequest:
       properties:
         title:
@@ -69120,6 +73488,15 @@ components:
           - type: string
           - type: 'null'
           title: Effort Id
+        lineage:
+          anyOf:
+          - $ref: '#/components/schemas/TraceBundlePublicationLineage'
+          - type: 'null'
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
         metadata:
           additionalProperties: true
           type: object
@@ -69131,6 +73508,76 @@ components:
       - manifest_digest
       - manifest
       title: TraceBundlePrepareRequest
+    TraceBundlePublicationLineage:
+      properties:
+        source_artifact:
+          $ref: '#/components/schemas/TraceBundleSourceArtifactRef'
+        task_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Task Id
+        task_key:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Task Key
+        capture_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Capture Id
+        trace_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Trace Id
+        actor_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Actor Id
+        actor_session_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Actor Session Id
+        turn_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Turn Id
+        thread_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Thread Id
+        experiment_revisions:
+          items:
+            $ref: '#/components/schemas/TraceExperimentRevisionRef'
+          type: array
+          title: Experiment Revisions
+        evidence_authorities:
+          items:
+            $ref: '#/components/schemas/TraceEvidenceAuthorityRef'
+          type: array
+          title: Evidence Authorities
+      additionalProperties: false
+      type: object
+      required:
+      - source_artifact
+      - task_id
+      - task_key
+      - capture_id
+      - trace_id
+      - actor_id
+      - actor_session_id
+      title: TraceBundlePublicationLineage
+      description: Typed evidence joins carried by an automatic terminal promotion.
     TraceBundlePublicationResponse:
       properties:
         publication_id:
@@ -69207,9 +73654,37 @@ components:
       type: string
       enum:
       - pending
+      - applying
       - committed
       - failed
       title: TraceBundlePublicationStatus
+    TraceBundleSourceArtifactRef:
+      properties:
+        artifact_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Artifact Id
+        locator_ref:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Locator Ref
+        archive_digest:
+          type: string
+          title: Archive Digest
+        size_bytes:
+          type: integer
+          minimum: 1.0
+          title: Size Bytes
+      additionalProperties: false
+      type: object
+      required:
+      - artifact_id
+      - locator_ref
+      - archive_digest
+      - size_bytes
+      title: TraceBundleSourceArtifactRef
     TraceCatalogProvider:
       type: string
       enum:
@@ -69256,6 +73731,71 @@ components:
       - expires_at
       - receipt
       title: TraceDownloadResponse
+    TraceEvidenceAuthorityRef:
+      properties:
+        authority_kind:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Authority Kind
+        authority_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Authority Id
+        authority_version:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Authority Version
+        locator_ref:
+          type: string
+          maxLength: 1024
+          minLength: 1
+          title: Locator Ref
+        content_digest:
+          type: string
+          title: Content Digest
+      additionalProperties: false
+      type: object
+      required:
+      - authority_kind
+      - authority_id
+      - locator_ref
+      - content_digest
+      title: TraceEvidenceAuthorityRef
+    TraceExperimentRevisionRef:
+      properties:
+        experiment_id:
+          type: string
+          maxLength: 255
+          minLength: 1
+          title: Experiment Id
+        revision:
+          type: integer
+          minimum: 1.0
+          title: Revision
+        experiment_run_id:
+          anyOf:
+          - type: string
+            maxLength: 255
+            minLength: 1
+          - type: 'null'
+          title: Experiment Run Id
+        role:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Role
+      additionalProperties: false
+      type: object
+      required:
+      - experiment_id
+      - revision
+      - role
+      title: TraceExperimentRevisionRef
     TraceObjectUploadResponse:
       properties:
         digest:
@@ -69320,6 +73860,15 @@ components:
             type: string
           type: array
           title: Evidence Digests
+        experiment_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Experiment Id
+        experiment_revision:
+          anyOf:
+          - $ref: '#/components/schemas/TraceExperimentRevisionRef'
+          - type: 'null'
         catalog_provider:
           $ref: '#/components/schemas/TraceCatalogProvider'
         catalog_generation:

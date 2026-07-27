@@ -128,24 +128,24 @@ class ImageReleasesAPI:
         self,
         runtime_image_release_id: RuntimeImageReleaseId,
     ) -> ActorRuntimeImageReleaseArchive:
-        release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
         value = self._transport.execute(
             _request(
                 "archive_customer_actor_image",
-                f"/smr/v1/image-releases/{release_id}/archive",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/archive",
             )
         )
-        return _archive(value, runtime_image_release_id=release_id)
+        return _archive(value, runtime_image_release_id=runtime_image_release_id)
 
     def retrieve(self, release_id: ImageReleaseId) -> ImageRelease:
-        normalized_id = ImageReleaseId(release_id)
+        release_id = ImageReleaseId(release_id)
         value = self._transport.execute(
             _request(
                 "retrieve_image_release",
-                f"/smr/v1/image-releases/{normalized_id}",
+                f"/smr/v1/image-releases/{release_id}",
             )
         )
-        return _retrieve(value, release_id=normalized_id)
+        return _retrieve(value, release_id=release_id)
 
 
 class AsyncImageReleasesAPI:
@@ -197,24 +197,24 @@ class AsyncImageReleasesAPI:
         self,
         runtime_image_release_id: RuntimeImageReleaseId,
     ) -> ActorRuntimeImageReleaseArchive:
-        release_id = RuntimeImageReleaseId(runtime_image_release_id)
+        runtime_image_release_id = RuntimeImageReleaseId(runtime_image_release_id)
         value = await self._transport.execute(
             _request(
                 "archive_customer_actor_image",
-                f"/smr/v1/image-releases/{release_id}/archive",
+                f"/smr/v1/image-releases/{runtime_image_release_id}/archive",
             )
         )
-        return _archive(value, runtime_image_release_id=release_id)
+        return _archive(value, runtime_image_release_id=runtime_image_release_id)
 
     async def retrieve(self, release_id: ImageReleaseId) -> ImageRelease:
-        normalized_id = ImageReleaseId(release_id)
+        release_id = ImageReleaseId(release_id)
         value = await self._transport.execute(
             _request(
                 "retrieve_image_release",
-                f"/smr/v1/image-releases/{normalized_id}",
+                f"/smr/v1/image-releases/{release_id}",
             )
         )
-        return _retrieve(value, release_id=normalized_id)
+        return _retrieve(value, release_id=release_id)
 
 
 __all__ = ["AsyncImageReleasesAPI", "ImageReleasesAPI"]
