@@ -121,6 +121,45 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "execute_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/execute",
+            mutation=True,
+        ),
+        _operation(
+            "inspect_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/inspect",
+            idempotent=True,
+        ),
+        _operation(
+            "acquire_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases",
+            mutation=True,
+        ),
+        _operation(
+            "release_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases/{lease_id}/release",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "renew_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases/{lease_id}/renew",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "reconcile_project_computer_operation",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/operations/reconcile",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "cleanup_factory_project_computers",
             HttpMethod.POST,
             (
@@ -158,6 +197,16 @@ RESEARCH_OPERATIONS = {
                 "/smr/projects/{project_id}/data-bindings/"
                 "{data_binding_id}/revisions"
             ),
+            idempotent=True,
+        ),
+        _operation(
+            "transition_dataset_revision_lifecycle",
+            HttpMethod.POST,
+            (
+                "/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                "revisions/{dataset_revision_id}/lifecycle"
+            ),
+            mutation=True,
             idempotent=True,
         ),
         _operation(
@@ -578,6 +627,12 @@ RESEARCH_OPERATIONS = {
             "retrieve_visual_content",
             HttpMethod.GET,
             "/smr/visuals/{visual_id}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual_preview",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/preview",
             idempotent=True,
         ),
         _operation(

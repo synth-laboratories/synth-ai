@@ -587,6 +587,18 @@
             "title": "Metadata Json",
             "type": "string"
           },
+          "preview_png": {
+            "anyOf": [
+              {
+                "format": "binary",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Png"
+          },
           "root_artifact_id": {
             "anyOf": [
               {
@@ -634,6 +646,18 @@
             "default": "{}",
             "title": "Metadata Json",
             "type": "string"
+          },
+          "preview_png": {
+            "anyOf": [
+              {
+                "format": "binary",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Png"
           },
           "root_artifact_id": {
             "anyOf": [
@@ -944,6 +968,18 @@
             "title": "Binding Kind",
             "type": "string"
           },
+          "data_contract_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Data Contract Version",
+            "type": "string"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Dataset Id",
+            "type": "string"
+          },
           "factory_id": {
             "title": "Factory Id",
             "type": "string"
@@ -963,6 +999,8 @@
         "required": [
           "factory_id",
           "name",
+          "dataset_id",
+          "data_contract_version",
           "binding_kind",
           "authority_ref"
         ],
@@ -991,12 +1029,26 @@
             "type": "string"
           },
           "data_binding_id": {
+            "format": "uuid",
             "title": "Data Binding Id",
+            "type": "string"
+          },
+          "data_contract_version": {
+            "title": "Data Contract Version",
+            "type": "string"
+          },
+          "dataset_id": {
+            "title": "Dataset Id",
             "type": "string"
           },
           "factory_id": {
             "title": "Factory Id",
             "type": "string"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
           },
           "metadata": {
             "additionalProperties": true,
@@ -1027,6 +1079,9 @@
           "factory_id",
           "project_id",
           "name",
+          "dataset_id",
+          "data_contract_version",
+          "generation",
           "binding_kind",
           "authority_ref",
           "access_policy",
@@ -1036,70 +1091,325 @@
         "title": "DataBindingResponse",
         "type": "object"
       },
-      "DatasetRevisionCreateRequest": {
+      "DatasetRevisionContent": {
         "additionalProperties": false,
+        "description": "One immutable logical object in a revision, without a storage locator.",
         "properties": {
-          "manifest_uri": {
-            "maxLength": 2000,
-            "minLength": 1,
-            "title": "Manifest Uri",
+          "content_digest": {
+            "title": "Content Digest",
             "type": "string"
           },
-          "metadata": {
-            "additionalProperties": true,
-            "title": "Metadata",
-            "type": "object"
+          "logical_path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Logical Path",
+            "type": "string"
           },
-          "parent_revision_id": {
+          "media_type": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          },
+          "object_schema_version": {
             "anyOf": [
               {
+                "maxLength": 255,
+                "minLength": 1,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Parent Revision Id"
+            "title": "Object Schema Version"
           },
-          "revision_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Revision Digest",
-            "type": "string"
-          },
-          "schema_version": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Schema Version",
-            "type": "string"
+          "size_bytes": {
+            "minimum": 0.0,
+            "title": "Size Bytes",
+            "type": "integer"
           }
         },
         "required": [
-          "revision_digest",
-          "manifest_uri",
-          "schema_version"
+          "logical_path",
+          "content_digest",
+          "size_bytes",
+          "media_type"
         ],
-        "title": "DatasetRevisionCreateRequest",
+        "title": "DatasetRevisionContent",
+        "type": "object"
+      },
+      "DatasetRevisionLifecycleRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_state": {
+            "$ref": "#/components/schemas/DatasetRevisionState"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target_state": {
+            "$ref": "#/components/schemas/DatasetRevisionState"
+          }
+        },
+        "required": [
+          "expected_state",
+          "target_state",
+          "reason"
+        ],
+        "title": "DatasetRevisionLifecycleRequest",
+        "type": "object"
+      },
+      "DatasetRevisionLineage-Output": {
+        "additionalProperties": false,
+        "description": "Complete typed provenance for one revision.",
+        "properties": {
+          "parent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DatasetRevisionParentRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetRevisionSourceRef"
+            },
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sources"
+        ],
+        "title": "DatasetRevisionLineage",
+        "type": "object"
+      },
+      "DatasetRevisionManifestReceipt": {
+        "additionalProperties": false,
+        "description": "Immutable-object authority proof for the exact declared dataset manifest.",
+        "properties": {
+          "authority": {
+            "const": "factory_immutable_object_store",
+            "default": "factory_immutable_object_store",
+            "title": "Authority",
+            "type": "string"
+          },
+          "authority_generation": {
+            "minimum": 1.0,
+            "title": "Authority Generation",
+            "type": "integer"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "manifest_uri": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Manifest Uri",
+            "type": "string"
+          },
+          "object_count": {
+            "minimum": 1.0,
+            "title": "Object Count",
+            "type": "integer"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "format": "uuid",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.dataset-revision-manifest-receipt.v1",
+            "default": "synth.dataset-revision-manifest-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "total_size_bytes": {
+            "minimum": 0.0,
+            "title": "Total Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "authority_generation",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "manifest_uri",
+          "manifest_digest",
+          "content_digest",
+          "object_count",
+          "total_size_bytes",
+          "issued_at",
+          "receipt_digest"
+        ],
+        "title": "DatasetRevisionManifestReceipt",
+        "type": "object"
+      },
+      "DatasetRevisionParentRef": {
+        "additionalProperties": false,
+        "description": "Exact immutable parent when a revision derives from another revision.",
+        "properties": {
+          "binding_generation": {
+            "minimum": 1.0,
+            "title": "Binding Generation",
+            "type": "integer"
+          },
+          "binding_id": {
+            "format": "uuid",
+            "title": "Binding Id",
+            "type": "string"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "format": "uuid",
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_digest": {
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "revision_number": {
+            "minimum": 1.0,
+            "title": "Revision Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dataset_revision_id",
+          "binding_id",
+          "binding_generation",
+          "revision_number",
+          "dataset_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "content_digest",
+          "revision_digest"
+        ],
+        "title": "DatasetRevisionParentRef",
         "type": "object"
       },
       "DatasetRevisionResponse": {
         "additionalProperties": false,
         "properties": {
+          "binding_generation": {
+            "minimum": 1.0,
+            "title": "Binding Generation",
+            "type": "integer"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
           },
           "data_binding_id": {
+            "format": "uuid",
             "title": "Data Binding Id",
             "type": "string"
           },
+          "dataset_id": {
+            "title": "Dataset Id",
+            "type": "string"
+          },
           "dataset_revision_id": {
+            "format": "uuid",
             "title": "Dataset Revision Id",
             "type": "string"
           },
           "factory_id": {
             "title": "Factory Id",
             "type": "string"
+          },
+          "lifecycle_generation": {
+            "minimum": 1.0,
+            "title": "Lifecycle Generation",
+            "type": "integer"
+          },
+          "lifecycle_updated_at": {
+            "format": "date-time",
+            "title": "Lifecycle Updated At",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "manifest_receipt": {
+            "$ref": "#/components/schemas/DatasetRevisionManifestReceipt"
           },
           "manifest_uri": {
             "title": "Manifest Uri",
@@ -1117,6 +1427,7 @@
           "parent_revision_id": {
             "anyOf": [
               {
+                "format": "uuid",
                 "type": "string"
               },
               {
@@ -1133,9 +1444,53 @@
             "title": "Revision Digest",
             "type": "string"
           },
+          "revision_number": {
+            "minimum": 1.0,
+            "title": "Revision Number",
+            "type": "integer"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
           "schema_version": {
             "title": "Schema Version",
             "type": "string"
+          },
+          "sealed_revision": {
+            "$ref": "#/components/schemas/SealedDatasetRevision"
+          },
+          "state": {
+            "$ref": "#/components/schemas/DatasetRevisionState"
+          },
+          "storage_receipt_digest": {
+            "title": "Storage Receipt Digest",
+            "type": "string"
+          },
+          "storage_receipt_id": {
+            "format": "uuid",
+            "title": "Storage Receipt Id",
+            "type": "string"
+          },
+          "tombstoned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tombstoned At"
           }
         },
         "required": [
@@ -1144,14 +1499,101 @@
           "org_id",
           "factory_id",
           "project_id",
+          "binding_generation",
+          "revision_number",
+          "dataset_id",
+          "content_digest",
+          "manifest_digest",
+          "storage_receipt_id",
+          "storage_receipt_digest",
           "revision_digest",
           "manifest_uri",
           "schema_version",
+          "state",
+          "lifecycle_generation",
+          "lifecycle_updated_at",
+          "sealed_revision",
+          "manifest_receipt",
           "metadata",
           "created_at"
         ],
         "title": "DatasetRevisionResponse",
         "type": "object"
+      },
+      "DatasetRevisionSourceKind": {
+        "enum": [
+          "artifact",
+          "dataset_revision",
+          "internal_git_revision",
+          "upload"
+        ],
+        "title": "DatasetRevisionSourceKind",
+        "type": "string"
+      },
+      "DatasetRevisionSourceRef": {
+        "additionalProperties": false,
+        "description": "Immutable input authority cited by a DatasetRevision.",
+        "properties": {
+          "authority_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Authority Id",
+            "type": "string"
+          },
+          "authority_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Authority Version",
+            "type": "string"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DatasetRevisionSourceKind"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "authority_id",
+          "authority_version",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "content_digest"
+        ],
+        "title": "DatasetRevisionSourceRef",
+        "type": "object"
+      },
+      "DatasetRevisionState": {
+        "enum": [
+          "building",
+          "sealed",
+          "revoked",
+          "abandoned",
+          "tombstoned"
+        ],
+        "title": "DatasetRevisionState",
+        "type": "string"
       },
       "EntitlementAssetId": {
         "enum": [
@@ -1434,6 +1876,76 @@
           "label"
         ],
         "title": "EnvironmentSecretSpec",
+        "type": "object"
+      },
+      "FactoryProjectMembershipReceiptRef": {
+        "additionalProperties": false,
+        "description": "Control-plane proof that one active Factory owns the Project.",
+        "properties": {
+          "authority": {
+            "const": "factory_project_control_plane",
+            "default": "factory_project_control_plane",
+            "title": "Authority",
+            "type": "string"
+          },
+          "authority_receipt_digest": {
+            "title": "Authority Receipt Digest",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "factory_project_membership_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Project Membership Id",
+            "type": "string"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "canonical",
+              "auxiliary"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "status": {
+            "const": "active",
+            "default": "active",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_project_membership_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "role",
+          "generation",
+          "authority_receipt_digest"
+        ],
+        "title": "FactoryProjectMembershipReceiptRef",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2089,13 +2601,6 @@
             "title": "Idempotency Key",
             "type": "string"
           },
-          "materialization_receipts": {
-            "items": {
-              "$ref": "#/components/schemas/ProjectComputerMaterializationReceipt"
-            },
-            "title": "Materialization Receipts",
-            "type": "array"
-          },
           "org_id": {
             "title": "Org Id",
             "type": "string"
@@ -2149,6 +2654,20 @@
             "const": "urn:synth:research-intern:project-computer",
             "title": "Service Origin",
             "type": "string"
+          },
+          "workspace_materialization_receipts": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ProjectComputerProvisionReceipt"
+                },
+                {
+                  "$ref": "#/components/schemas/ProjectComputerRestorationReceipt"
+                }
+              ]
+            },
+            "title": "Workspace Materialization Receipts",
+            "type": "array"
           }
         },
         "required": [
@@ -2163,7 +2682,7 @@
           "factory_id",
           "idempotency_key",
           "pre_inventory",
-          "materialization_receipts",
+          "workspace_materialization_receipts",
           "retirement_receipts",
           "post_inventory",
           "cleanup_complete",
@@ -2188,36 +2707,358 @@
         "title": "ProjectComputerCleanupRequest",
         "type": "object"
       },
-      "ProjectComputerLifecycle": {
-        "enum": [
-          "provisioning",
-          "ready",
-          "replacing",
-          "retired",
-          "error"
-        ],
-        "title": "ProjectComputerLifecycle",
-        "type": "string"
-      },
-      "ProjectComputerMaterializationReceipt": {
+      "ProjectComputerExecuteRequest": {
         "additionalProperties": false,
-        "description": "Adapter-authored proof of the code and snapshot present on a computer.",
         "properties": {
-          "materialized": {
-            "title": "Materialized",
-            "type": "boolean"
+          "argv": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Argv",
+            "type": "array"
           },
-          "owner": {
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
             "maxLength": 255,
             "minLength": 1,
-            "title": "Owner",
+            "title": "Factory Id",
             "type": "string"
           },
-          "provider_resource_ref": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Provider Resource Ref",
+          "fencing_token_digest": {
+            "title": "Fencing Token Digest",
             "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "lease_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Lease Id",
+            "type": "string"
+          },
+          "max_output_bytes": {
+            "default": 262144,
+            "maximum": 1048576.0,
+            "minimum": 1.0,
+            "title": "Max Output Bytes",
+            "type": "integer"
+          },
+          "operation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "relative_working_directory": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relative Working Directory"
+          },
+          "timeout_seconds": {
+            "default": 120.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 900.0,
+            "title": "Timeout Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "factory_id",
+          "operation_id",
+          "idempotency_key",
+          "expected_generation",
+          "lease_id",
+          "fencing_token_digest",
+          "argv"
+        ],
+        "title": "ProjectComputerExecuteRequest",
+        "type": "object"
+      },
+      "ProjectComputerInspectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Operation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "operation_id",
+          "idempotency_key",
+          "expected_generation"
+        ],
+        "title": "ProjectComputerInspectRequest",
+        "type": "object"
+      },
+      "ProjectComputerLeaseAcquireRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_seconds": {
+            "default": 900,
+            "maximum": 3600.0,
+            "minimum": 30.0,
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "expected_generation"
+        ],
+        "title": "ProjectComputerLeaseAcquireRequest",
+        "type": "object"
+      },
+      "ProjectComputerLeaseReleaseRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "fencing_token_digest": {
+            "title": "Fencing Token Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "expected_generation",
+          "fencing_token_digest"
+        ],
+        "title": "ProjectComputerLeaseReleaseRequest",
+        "type": "object"
+      },
+      "ProjectComputerLeaseRenewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "duration_seconds": {
+            "default": 900,
+            "maximum": 3600.0,
+            "minimum": 30.0,
+            "title": "Duration Seconds",
+            "type": "integer"
+          },
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "fencing_token_digest": {
+            "title": "Fencing Token Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "expected_generation",
+          "fencing_token_digest"
+        ],
+        "title": "ProjectComputerLeaseRenewRequest",
+        "type": "object"
+      },
+      "ProjectComputerLeaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "fencing_token_digest": {
+            "title": "Fencing Token Digest",
+            "type": "string"
+          },
+          "generation": {
+            "minimum": 1.0,
+            "title": "Generation",
+            "type": "integer"
+          },
+          "lease_id": {
+            "title": "Lease Id",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_computer_id": {
+            "title": "Project Computer Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "active",
+              "released"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_computer_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "generation",
+          "lease_id",
+          "fencing_token_digest",
+          "state",
+          "expires_at"
+        ],
+        "title": "ProjectComputerLeaseResponse",
+        "type": "object"
+      },
+      "ProjectComputerOperationReconcileRequest": {
+        "additionalProperties": false,
+        "description": "Identify one accepted operation whose provider outcome is unknown.",
+        "properties": {
+          "expected_generation": {
+            "minimum": 1.0,
+            "title": "Expected Generation",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "operation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Operation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "factory_id",
+          "operation_id",
+          "idempotency_key",
+          "expected_generation"
+        ],
+        "title": "ProjectComputerOperationReconcileRequest",
+        "type": "object"
+      },
+      "ProjectComputerProvisionReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "cloud_deployment_id": {
+            "title": "Cloud Deployment Id",
+            "type": "string"
+          },
+          "deployment_state": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Deployment State",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "ready": {
+            "const": true,
+            "title": "Ready",
+            "type": "boolean"
           },
           "receipt_ref": {
             "maxLength": 1000,
@@ -2225,15 +3066,9 @@
             "title": "Receipt Ref",
             "type": "string"
           },
-          "schema_version": {
-            "const": "smr.project-computer-materialization.v1",
-            "title": "Schema Version",
-            "type": "string"
-          },
           "snapshot_digest": {
             "anyOf": [
               {
-                "pattern": "^sha256:[0-9a-f]{64}$",
                 "type": "string"
               },
               {
@@ -2242,50 +3077,60 @@
             ],
             "title": "Snapshot Digest"
           },
-          "source_archive_digest": {
-            "pattern": "^sha256:[0-9a-f]{64}$",
-            "title": "Source Archive Digest",
-            "type": "string"
-          },
           "source_repository_id": {
-            "maxLength": 255,
-            "minLength": 1,
             "title": "Source Repository Id",
             "type": "string"
           },
           "source_revision": {
-            "pattern": "^[0-9a-f]{40}$",
             "title": "Source Revision",
             "type": "string"
           },
-          "workspace_path": {
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Workspace Path",
+          "workspace_clean": {
+            "const": true,
+            "title": "Workspace Clean",
+            "type": "boolean"
+          },
+          "workspace_head_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Workspace Head Sha",
             "type": "string"
+          },
+          "workspace_restore_receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectWorkspaceRestoreReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
-          "schema_version",
-          "owner",
-          "provider_resource_ref",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "generation",
+          "cloud_deployment_id",
+          "adapter_kind",
+          "deployment_state",
           "source_repository_id",
           "source_revision",
-          "source_archive_digest",
-          "workspace_path",
-          "materialized",
+          "ready",
+          "workspace_head_sha",
+          "workspace_clean",
           "receipt_ref"
         ],
-        "title": "ProjectComputerMaterializationReceipt",
+        "title": "ProjectComputerProvisionReceipt",
         "type": "object"
       },
       "ProjectComputerProvisionRequest": {
         "additionalProperties": false,
         "properties": {
-          "adapter_kind": {
-            "maxLength": 100,
+          "cloud_deployment_id": {
+            "maxLength": 255,
             "minLength": 1,
-            "title": "Adapter Kind",
+            "title": "Cloud Deployment Id",
             "type": "string"
           },
           "factory_id": {
@@ -2299,12 +3144,6 @@
             "title": "Metadata",
             "type": "object"
           },
-          "provider_kind": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Provider Kind",
-            "type": "string"
-          },
           "snapshot_digest": {
             "anyOf": [
               {
@@ -2327,12 +3166,21 @@
             "pattern": "^[0-9a-f]{40}$",
             "title": "Source Revision",
             "type": "string"
+          },
+          "workspace_snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectComputerWorkspaceSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "factory_id",
-          "provider_kind",
-          "adapter_kind",
+          "cloud_deployment_id",
           "source_repository_id",
           "source_revision"
         ],
@@ -2342,10 +3190,10 @@
       "ProjectComputerReplaceRequest": {
         "additionalProperties": false,
         "properties": {
-          "adapter_kind": {
-            "maxLength": 100,
+          "cloud_deployment_id": {
+            "maxLength": 255,
             "minLength": 1,
-            "title": "Adapter Kind",
+            "title": "Cloud Deployment Id",
             "type": "string"
           },
           "factory_id": {
@@ -2358,12 +3206,6 @@
             "additionalProperties": true,
             "title": "Metadata",
             "type": "object"
-          },
-          "provider_kind": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Provider Kind",
-            "type": "string"
           },
           "snapshot_digest": {
             "pattern": "^sha256:[0-9a-f]{64}$",
@@ -2380,15 +3222,18 @@
             "pattern": "^[0-9a-f]{40}$",
             "title": "Source Revision",
             "type": "string"
+          },
+          "workspace_snapshot": {
+            "$ref": "#/components/schemas/ProjectComputerWorkspaceSnapshot"
           }
         },
         "required": [
           "factory_id",
-          "provider_kind",
-          "adapter_kind",
+          "cloud_deployment_id",
           "source_repository_id",
           "source_revision",
-          "snapshot_digest"
+          "snapshot_digest",
+          "workspace_snapshot"
         ],
         "title": "ProjectComputerReplaceRequest",
         "type": "object"
@@ -2398,6 +3243,10 @@
         "properties": {
           "adapter_kind": {
             "title": "Adapter Kind",
+            "type": "string"
+          },
+          "cloud_deployment_id": {
+            "title": "Cloud Deployment Id",
             "type": "string"
           },
           "created_at": {
@@ -2414,7 +3263,7 @@
             "type": "integer"
           },
           "lifecycle": {
-            "$ref": "#/components/schemas/ProjectComputerLifecycle"
+            "$ref": "#/components/schemas/ProjectComputerState"
           },
           "metadata": {
             "additionalProperties": true,
@@ -2432,21 +3281,6 @@
           "project_id": {
             "title": "Project Id",
             "type": "string"
-          },
-          "provider_kind": {
-            "title": "Provider Kind",
-            "type": "string"
-          },
-          "provider_resource_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Resource Ref"
           },
           "research_intern_id": {
             "title": "Research Intern Id",
@@ -2483,7 +3317,7 @@
           "research_intern_id",
           "factory_id",
           "project_id",
-          "provider_kind",
+          "cloud_deployment_id",
           "adapter_kind",
           "source_repository_id",
           "source_revision",
@@ -2496,16 +3330,21 @@
         "title": "ProjectComputerResponse",
         "type": "object"
       },
-      "ProjectComputerRetirementReceipt": {
+      "ProjectComputerRestorationReceipt": {
         "additionalProperties": false,
         "properties": {
           "adapter_kind": {
             "title": "Adapter Kind",
             "type": "string"
           },
-          "disposition": {
-            "pattern": "^(retired|already_absent)$",
-            "title": "Disposition",
+          "cloud_deployment_id": {
+            "title": "Cloud Deployment Id",
+            "type": "string"
+          },
+          "deployment_state": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Deployment State",
             "type": "string"
           },
           "factory_id": {
@@ -2520,32 +3359,99 @@
             "title": "Org Id",
             "type": "string"
           },
-          "owner": {
-            "maxLength": 255,
+          "previous_cloud_deployment_retired": {
+            "const": true,
+            "title": "Previous Cloud Deployment Retired",
+            "type": "boolean"
+          },
+          "previous_retirement_receipt_ref": {
+            "maxLength": 1000,
             "minLength": 1,
-            "title": "Owner",
+            "title": "Previous Retirement Receipt Ref",
             "type": "string"
-          },
-          "post_inventory": {
-            "additionalProperties": true,
-            "title": "Post Inventory",
-            "type": "object"
-          },
-          "pre_inventory": {
-            "additionalProperties": true,
-            "title": "Pre Inventory",
-            "type": "object"
           },
           "project_id": {
             "title": "Project Id",
             "type": "string"
           },
-          "provider_kind": {
-            "title": "Provider Kind",
+          "receipt_ref": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Receipt Ref",
             "type": "string"
           },
-          "provider_resource_ref": {
-            "title": "Provider Resource Ref",
+          "restored": {
+            "const": true,
+            "title": "Restored",
+            "type": "boolean"
+          },
+          "snapshot_digest": {
+            "title": "Snapshot Digest",
+            "type": "string"
+          },
+          "source_repository_id": {
+            "title": "Source Repository Id",
+            "type": "string"
+          },
+          "source_revision": {
+            "title": "Source Revision",
+            "type": "string"
+          },
+          "workspace_restore_receipt": {
+            "$ref": "#/components/schemas/ProjectWorkspaceRestoreReceipt"
+          }
+        },
+        "required": [
+          "org_id",
+          "factory_id",
+          "project_id",
+          "generation",
+          "cloud_deployment_id",
+          "adapter_kind",
+          "deployment_state",
+          "source_repository_id",
+          "source_revision",
+          "snapshot_digest",
+          "restored",
+          "workspace_restore_receipt",
+          "previous_cloud_deployment_retired",
+          "previous_retirement_receipt_ref",
+          "receipt_ref"
+        ],
+        "title": "ProjectComputerRestorationReceipt",
+        "type": "object"
+      },
+      "ProjectComputerRetirementReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_kind": {
+            "title": "Adapter Kind",
+            "type": "string"
+          },
+          "cloud_deployment_id": {
+            "title": "Cloud Deployment Id",
+            "type": "string"
+          },
+          "deployment_state": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Deployment State",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "generation": {
+            "title": "Generation",
+            "type": "integer"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
             "type": "string"
           },
           "receipt_ref": {
@@ -2557,30 +3463,611 @@
           "retired": {
             "title": "Retired",
             "type": "boolean"
+          }
+        },
+        "required": [
+          "org_id",
+          "factory_id",
+          "project_id",
+          "generation",
+          "cloud_deployment_id",
+          "adapter_kind",
+          "deployment_state",
+          "retired",
+          "receipt_ref"
+        ],
+        "title": "ProjectComputerRetirementReceipt",
+        "type": "object"
+      },
+      "ProjectComputerState": {
+        "enum": [
+          "requested",
+          "provisioning",
+          "ready",
+          "leased",
+          "running",
+          "quiescing",
+          "degraded",
+          "replacing",
+          "rematerializing",
+          "suspended",
+          "resuming",
+          "retiring",
+          "retired"
+        ],
+        "title": "ProjectComputerState",
+        "type": "string"
+      },
+      "ProjectComputerWorkspaceSnapshot": {
+        "additionalProperties": false,
+        "description": "Typed immutable workspace bytes and manifest used for rematerialization.",
+        "properties": {
+          "archive_digest": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "archive_key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Archive Key",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "minimum": 1.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "bucket": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Bucket",
+            "type": "string"
+          },
+          "commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ProjectWorkspaceSnapshotManifest"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "run_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Run Id",
+            "type": "string"
+          },
+          "snapshot_ref_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Snapshot Ref Id",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "uri": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_ref_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "run_id",
+          "bucket",
+          "archive_key",
+          "uri",
+          "archive_digest",
+          "archive_size_bytes",
+          "source",
+          "commit_sha",
+          "manifest"
+        ],
+        "title": "ProjectComputerWorkspaceSnapshot",
+        "type": "object"
+      },
+      "ProjectGitArchiveManifestReceipt": {
+        "additionalProperties": false,
+        "description": "Internal-git-server proof of deterministic bytes for an exact Git tree.",
+        "properties": {
+          "archive_digest": {
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "archive_format": {
+            "const": "git-archive-tar.v1",
+            "default": "git-archive-tar.v1",
+            "title": "Archive Format",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "minimum": 1.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "authority": {
+            "const": "internal_git_server",
+            "default": "internal_git_server",
+            "title": "Authority",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "internal_git_receipt_digest": {
+            "title": "Internal Git Receipt Digest",
+            "type": "string"
+          },
+          "internal_git_receipt_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Internal Git Receipt Id",
+            "type": "string"
+          },
+          "internal_head_sha": {
+            "title": "Internal Head Sha",
+            "type": "string"
+          },
+          "internal_tree_sha": {
+            "title": "Internal Tree Sha",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
           },
           "schema_version": {
-            "const": "smr.project-computer-retirement.v1",
+            "const": "synth.project-git-archive-manifest-receipt.v1",
+            "default": "synth.project-git-archive-manifest-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tree_entry_count": {
+            "minimum": 0.0,
+            "title": "Tree Entry Count",
+            "type": "integer"
+          },
+          "tree_listing_digest": {
+            "title": "Tree Listing Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "internal_git_receipt_id",
+          "internal_git_receipt_digest",
+          "internal_head_sha",
+          "internal_tree_sha",
+          "tree_listing_digest",
+          "tree_entry_count",
+          "archive_digest",
+          "archive_size_bytes",
+          "receipt_digest"
+        ],
+        "title": "ProjectGitArchiveManifestReceipt",
+        "type": "object"
+      },
+      "ProjectInternalGitReceipt": {
+        "additionalProperties": false,
+        "description": "Exact internal Git state descended from one admitted external base.",
+        "properties": {
+          "external_base_reachable": {
+            "const": true,
+            "default": true,
+            "title": "External Base Reachable",
+            "type": "boolean"
+          },
+          "external_base_sha": {
+            "title": "External Base Sha",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "factory_project_membership": {
+            "$ref": "#/components/schemas/FactoryProjectMembershipReceiptRef"
+          },
+          "internal_branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Internal Branch",
+            "type": "string"
+          },
+          "internal_head_sha": {
+            "title": "Internal Head Sha",
+            "type": "string"
+          },
+          "internal_repo_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Internal Repo Id",
+            "type": "string"
+          },
+          "internal_tree_sha": {
+            "title": "Internal Tree Sha",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "repository_registration_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Repository Registration Id",
+            "type": "string"
+          },
+          "revision_admission_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Revision Admission Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.project-internal-git-receipt.v1",
+            "default": "synth.project-internal-git-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "tree_entry_count": {
+            "minimum": 0.0,
+            "title": "Tree Entry Count",
+            "type": "integer"
+          },
+          "tree_listing_digest": {
+            "title": "Tree Listing Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "factory_project_membership",
+          "repository_registration_id",
+          "revision_admission_id",
+          "internal_repo_id",
+          "internal_branch",
+          "external_base_sha",
+          "internal_head_sha",
+          "internal_tree_sha",
+          "tree_listing_digest",
+          "tree_entry_count",
+          "receipt_digest"
+        ],
+        "title": "ProjectInternalGitReceipt",
+        "type": "object"
+      },
+      "ProjectRuntimeExecutionEvidence": {
+        "additionalProperties": false,
+        "description": "Bounded, provider-neutral evidence for one command execution.",
+        "properties": {
+          "exit_code": {
+            "title": "Exit Code",
+            "type": "integer"
+          },
+          "stderr_bytes": {
+            "minimum": 0.0,
+            "title": "Stderr Bytes",
+            "type": "integer"
+          },
+          "stderr_digest": {
+            "title": "Stderr Digest",
+            "type": "string"
+          },
+          "stderr_truncated": {
+            "title": "Stderr Truncated",
+            "type": "boolean"
+          },
+          "stdout_bytes": {
+            "minimum": 0.0,
+            "title": "Stdout Bytes",
+            "type": "integer"
+          },
+          "stdout_digest": {
+            "title": "Stdout Digest",
+            "type": "string"
+          },
+          "stdout_truncated": {
+            "title": "Stdout Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "exit_code",
+          "stdout_digest",
+          "stderr_digest",
+          "stdout_bytes",
+          "stderr_bytes",
+          "stdout_truncated",
+          "stderr_truncated"
+        ],
+        "title": "ProjectRuntimeExecutionEvidence",
+        "type": "object"
+      },
+      "ProjectRuntimeFailureClass": {
+        "enum": [
+          "validation",
+          "policy",
+          "auth",
+          "unavailable",
+          "conflict_fenced",
+          "interrupted",
+          "unknown_external_outcome",
+          "integrity",
+          "provider_terminal"
+        ],
+        "title": "ProjectRuntimeFailureClass",
+        "type": "string"
+      },
+      "ProjectRuntimeLifecycleFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "failure_class": {
+            "$ref": "#/components/schemas/ProjectRuntimeFailureClass"
+          },
+          "message": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": "synth.project-runtime-lifecycle-failure.v1",
+            "default": "synth.project-runtime-lifecycle-failure.v1",
             "title": "Schema Version",
             "type": "string"
           }
         },
         "required": [
-          "schema_version",
-          "owner",
-          "org_id",
-          "factory_id",
-          "project_id",
-          "generation",
-          "provider_kind",
-          "adapter_kind",
-          "provider_resource_ref",
-          "disposition",
-          "pre_inventory",
-          "post_inventory",
-          "retired",
-          "receipt_ref"
+          "failure_class",
+          "code",
+          "message",
+          "retryable"
         ],
-        "title": "ProjectComputerRetirementReceipt",
+        "title": "ProjectRuntimeLifecycleFailure",
+        "type": "object"
+      },
+      "ProjectRuntimeLifecycleTransitionAuthority": {
+        "enum": [
+          "control_plane",
+          "runtime",
+          "research_control",
+          "reconciler",
+          "operator"
+        ],
+        "title": "ProjectRuntimeLifecycleTransitionAuthority",
+        "type": "string"
+      },
+      "ProjectRuntimeOperation": {
+        "enum": [
+          "provision",
+          "inspect",
+          "execute",
+          "suspend",
+          "resume",
+          "snapshot",
+          "restore",
+          "replace",
+          "retire",
+          "retry",
+          "cancel",
+          "adopt",
+          "tombstone",
+          "export",
+          "rotate_credential",
+          "revoke_credential",
+          "reconcile_delivery"
+        ],
+        "title": "ProjectRuntimeOperation",
+        "type": "string"
+      },
+      "ProjectRuntimeOperationOutcome": {
+        "enum": [
+          "accepted",
+          "completed",
+          "reconciled",
+          "unsupported",
+          "failed"
+        ],
+        "title": "ProjectRuntimeOperationOutcome",
+        "type": "string"
+      },
+      "ProjectRuntimeOperationReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "authority": {
+            "$ref": "#/components/schemas/ProjectRuntimeLifecycleTransitionAuthority"
+          },
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "execution_evidence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectRuntimeExecutionEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectRuntimeLifecycleFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "idempotency_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_digest": {
+            "title": "Input Digest",
+            "type": "string"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/ProjectRuntimeOperation"
+          },
+          "operation_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Operation Id",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/ProjectRuntimeOperationOutcome"
+          },
+          "output_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Digest"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "resource_generation": {
+            "minimum": 1.0,
+            "title": "Resource Generation",
+            "type": "integer"
+          },
+          "resource_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.project-runtime-operation-receipt.v1",
+            "default": "synth.project-runtime-operation-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "operation_id",
+          "idempotency_key",
+          "operation",
+          "authority",
+          "resource_id",
+          "resource_generation",
+          "outcome",
+          "input_digest",
+          "started_at",
+          "completed_at",
+          "receipt_digest"
+        ],
+        "title": "ProjectRuntimeOperationReceipt",
         "type": "object"
       },
       "ProjectSetupStatus": {
@@ -2592,6 +4079,169 @@
         ],
         "title": "ProjectSetupStatus",
         "type": "string"
+      },
+      "ProjectWorkspaceRestoreReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_digest": {
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "factory_id": {
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "git_archive_receipt_digest": {
+            "title": "Git Archive Receipt Digest",
+            "type": "string"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "org_id": {
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_digest": {
+            "title": "Receipt Digest",
+            "type": "string"
+          },
+          "restored_head_sha": {
+            "title": "Restored Head Sha",
+            "type": "string"
+          },
+          "restored_tree_listing_digest": {
+            "title": "Restored Tree Listing Digest",
+            "type": "string"
+          },
+          "restored_tree_sha": {
+            "title": "Restored Tree Sha",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.project-workspace-restore-receipt.v1",
+            "default": "synth.project-workspace-restore-receipt.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "snapshot_ref_id": {
+            "title": "Snapshot Ref Id",
+            "type": "string"
+          },
+          "verified": {
+            "const": true,
+            "default": true,
+            "title": "Verified",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "snapshot_ref_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "manifest_digest",
+          "archive_digest",
+          "git_archive_receipt_digest",
+          "restored_head_sha",
+          "restored_tree_sha",
+          "restored_tree_listing_digest",
+          "receipt_digest"
+        ],
+        "title": "ProjectWorkspaceRestoreReceipt",
+        "type": "object"
+      },
+      "ProjectWorkspaceSnapshotManifest": {
+        "additionalProperties": false,
+        "description": "Provider-neutral immutable ref to the archive for one exact Git tree.",
+        "properties": {
+          "archive_digest": {
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "archive_size_bytes": {
+            "minimum": 1.0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "git_archive_manifest": {
+            "$ref": "#/components/schemas/ProjectGitArchiveManifestReceipt"
+          },
+          "internal_git_receipt": {
+            "$ref": "#/components/schemas/ProjectInternalGitReceipt"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": "synth.project-workspace-snapshot.v1",
+            "default": "synth.project-workspace-snapshot.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "snapshot_ref_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Snapshot Ref Id",
+            "type": "string"
+          },
+          "snapshot_source": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Snapshot Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "snapshot_ref_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "internal_git_receipt",
+          "git_archive_manifest",
+          "archive_digest",
+          "archive_size_bytes",
+          "snapshot_source",
+          "manifest_digest"
+        ],
+        "title": "ProjectWorkspaceSnapshotManifest",
+        "type": "object"
       },
       "ResearchInternFactoryMembershipResponse": {
         "additionalProperties": false,
@@ -3171,6 +4821,139 @@
           "releases"
         ],
         "title": "RuntimeImageReleaseListResponse",
+        "type": "object"
+      },
+      "SealedDatasetRevision": {
+        "additionalProperties": false,
+        "description": "Immutable, content-addressed DatasetRevision.",
+        "properties": {
+          "binding_generation": {
+            "minimum": 1.0,
+            "title": "Binding Generation",
+            "type": "integer"
+          },
+          "binding_id": {
+            "format": "uuid",
+            "title": "Binding Id",
+            "type": "string"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "contents": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetRevisionContent"
+            },
+            "minItems": 1,
+            "title": "Contents",
+            "type": "array"
+          },
+          "dataset_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Dataset Id",
+            "type": "string"
+          },
+          "dataset_revision_id": {
+            "format": "uuid",
+            "title": "Dataset Revision Id",
+            "type": "string"
+          },
+          "dataset_schema_version": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Dataset Schema Version",
+            "type": "string"
+          },
+          "factory_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Factory Id",
+            "type": "string"
+          },
+          "lineage": {
+            "$ref": "#/components/schemas/DatasetRevisionLineage-Output"
+          },
+          "manifest_digest": {
+            "title": "Manifest Digest",
+            "type": "string"
+          },
+          "org_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Org Id",
+            "type": "string"
+          },
+          "project_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Project Id",
+            "type": "string"
+          },
+          "revision_digest": {
+            "title": "Revision Digest",
+            "type": "string"
+          },
+          "revision_number": {
+            "minimum": 1.0,
+            "title": "Revision Number",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "synth.dataset-revision.v1",
+            "default": "synth.dataset-revision.v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "sealed_at": {
+            "format": "date-time",
+            "title": "Sealed At",
+            "type": "string"
+          },
+          "sealed_by_principal_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sealed By Principal Id",
+            "type": "string"
+          },
+          "state": {
+            "const": "sealed",
+            "default": "sealed",
+            "title": "State",
+            "type": "string"
+          },
+          "storage_receipt_digest": {
+            "title": "Storage Receipt Digest",
+            "type": "string"
+          },
+          "storage_receipt_id": {
+            "format": "uuid",
+            "title": "Storage Receipt Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset_revision_id",
+          "revision_number",
+          "binding_id",
+          "binding_generation",
+          "dataset_id",
+          "org_id",
+          "factory_id",
+          "project_id",
+          "dataset_schema_version",
+          "lineage",
+          "contents",
+          "content_digest",
+          "manifest_digest",
+          "storage_receipt_id",
+          "storage_receipt_digest",
+          "revision_digest",
+          "sealed_at",
+          "sealed_by_principal_id"
+        ],
+        "title": "SealedDatasetRevision",
         "type": "object"
       },
       "SmrActorImageBindingRequest": {
@@ -9663,6 +11446,26 @@
         "title": "SmrProviderCredentialRefRequest",
         "type": "object"
       },
+      "SmrPublicVisualPreviewUnavailableResponse": {
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureDetail"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrPublicVisualPreviewUnavailableResponse",
+        "type": "object"
+      },
       "SmrPublicVisualResponse": {
         "properties": {
           "artifact_version": {
@@ -9698,6 +11501,10 @@
               }
             ],
             "title": "Content Digest"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
           },
           "deleted_at": {
             "anyOf": [
@@ -9810,6 +11617,17 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "superseded_by_id": {
             "anyOf": [
               {
@@ -9823,6 +11641,10 @@
           },
           "title": {
             "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
             "type": "string"
           },
           "visibility": {
@@ -9856,7 +11678,9 @@
           "status",
           "canonical_url",
           "size_bytes",
-          "blob_state"
+          "blob_state",
+          "created_at",
+          "updated_at"
         ],
         "title": "SmrPublicVisualResponse",
         "type": "object"
@@ -15768,6 +17592,81 @@
         "title": "SmrVisualListResponse",
         "type": "object"
       },
+      "SmrVisualPreviewIntegrityFailureDetail": {
+        "properties": {
+          "error_code": {
+            "const": "visual_preview_integrity_failed",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "SmrVisualPreviewIntegrityFailureDetail",
+        "type": "object"
+      },
+      "SmrVisualPreviewIntegrityFailureResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewIntegrityFailureResponse",
+        "type": "object"
+      },
+      "SmrVisualPreviewMessageResponse": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewMessageResponse",
+        "type": "object"
+      },
+      "SmrVisualPreviewProviderFailureDetail": {
+        "properties": {
+          "error_code": {
+            "const": "visual_preview_provider_unavailable",
+            "title": "Error Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "error_code",
+          "message"
+        ],
+        "title": "SmrVisualPreviewProviderFailureDetail",
+        "type": "object"
+      },
+      "SmrVisualPreviewProviderFailureResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "SmrVisualPreviewProviderFailureResponse",
+        "type": "object"
+      },
       "SmrVisualResponse": {
         "properties": {
           "artifact_version": {
@@ -15803,6 +17702,10 @@
               }
             ],
             "title": "Content Digest"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
           },
           "deleted_at": {
             "anyOf": [
@@ -15915,6 +17818,17 @@
             "title": "Status",
             "type": "string"
           },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
           "superseded_by_id": {
             "anyOf": [
               {
@@ -15928,6 +17842,10 @@
           },
           "title": {
             "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
             "type": "string"
           },
           "visibility": {
@@ -15961,7 +17879,9 @@
           "status",
           "canonical_url",
           "size_bytes",
-          "blob_state"
+          "blob_state",
+          "created_at",
+          "updated_at"
         ],
         "title": "SmrVisualResponse",
         "type": "object"
@@ -16952,6 +18872,16 @@
             ],
             "title": "Experiment Id"
           },
+          "lineage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TraceBundlePublicationLineage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "manifest": {
             "additionalProperties": true,
             "title": "Manifest",
@@ -17002,6 +18932,102 @@
           "manifest"
         ],
         "title": "TraceBundlePrepareRequest",
+        "type": "object"
+      },
+      "TraceBundlePublicationLineage": {
+        "additionalProperties": false,
+        "description": "Typed evidence joins carried by an automatic terminal promotion.",
+        "properties": {
+          "actor_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_session_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Actor Session Id",
+            "type": "string"
+          },
+          "capture_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Capture Id",
+            "type": "string"
+          },
+          "evidence_authorities": {
+            "items": {
+              "$ref": "#/components/schemas/TraceEvidenceAuthorityRef"
+            },
+            "title": "Evidence Authorities",
+            "type": "array"
+          },
+          "experiment_revisions": {
+            "items": {
+              "$ref": "#/components/schemas/TraceExperimentRevisionRef"
+            },
+            "title": "Experiment Revisions",
+            "type": "array"
+          },
+          "source_artifact": {
+            "$ref": "#/components/schemas/TraceBundleSourceArtifactRef"
+          },
+          "task_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Task Id",
+            "type": "string"
+          },
+          "task_key": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Task Key",
+            "type": "string"
+          },
+          "thread_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thread Id"
+          },
+          "trace_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Trace Id",
+            "type": "string"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turn Id"
+          }
+        },
+        "required": [
+          "source_artifact",
+          "task_id",
+          "task_key",
+          "capture_id",
+          "trace_id",
+          "actor_id",
+          "actor_session_id"
+        ],
+        "title": "TraceBundlePublicationLineage",
         "type": "object"
       },
       "TraceBundlePublicationResponse": {
@@ -17118,11 +19144,46 @@
       "TraceBundlePublicationStatus": {
         "enum": [
           "pending",
+          "applying",
           "committed",
           "failed"
         ],
         "title": "TraceBundlePublicationStatus",
         "type": "string"
+      },
+      "TraceBundleSourceArtifactRef": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_digest": {
+            "title": "Archive Digest",
+            "type": "string"
+          },
+          "artifact_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Artifact Id",
+            "type": "string"
+          },
+          "locator_ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Locator Ref",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 1.0,
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "locator_ref",
+          "archive_digest",
+          "size_bytes"
+        ],
+        "title": "TraceBundleSourceArtifactRef",
+        "type": "object"
       },
       "TraceCatalogProvider": {
         "enum": [
@@ -17181,6 +19242,96 @@
           "receipt"
         ],
         "title": "TraceDownloadResponse",
+        "type": "object"
+      },
+      "TraceEvidenceAuthorityRef": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Authority Id",
+            "type": "string"
+          },
+          "authority_kind": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Authority Kind",
+            "type": "string"
+          },
+          "authority_version": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Version"
+          },
+          "content_digest": {
+            "title": "Content Digest",
+            "type": "string"
+          },
+          "locator_ref": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Locator Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authority_kind",
+          "authority_id",
+          "locator_ref",
+          "content_digest"
+        ],
+        "title": "TraceEvidenceAuthorityRef",
+        "type": "object"
+      },
+      "TraceExperimentRevisionRef": {
+        "additionalProperties": false,
+        "properties": {
+          "experiment_id": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Experiment Id",
+            "type": "string"
+          },
+          "experiment_run_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Run Id"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "role": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiment_id",
+          "revision",
+          "role"
+        ],
+        "title": "TraceExperimentRevisionRef",
         "type": "object"
       },
       "TraceObjectUploadResponse": {
@@ -17250,6 +19401,27 @@
             },
             "title": "Evidence Digests",
             "type": "array"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "experiment_revision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TraceExperimentRevisionRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "factory_id": {
             "title": "Factory Id",
@@ -21055,6 +23227,342 @@
         ]
       }
     },
+    "/smr/projects/{project_id}/computer/execute": {
+      "post": {
+        "operationId": "execute_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRuntimeOperationReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Execute Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/inspect": {
+      "post": {
+        "operationId": "inspect_project_computer",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerInspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRuntimeOperationReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Project Computer",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/leases": {
+      "post": {
+        "operationId": "acquire_project_computer_lease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerLeaseAcquireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerLeaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Acquire Project Computer Lease",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/leases/{lease_id}/release": {
+      "post": {
+        "operationId": "release_project_computer_lease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lease_id",
+            "required": true,
+            "schema": {
+              "title": "Lease Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerLeaseReleaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerLeaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Release Project Computer Lease",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/leases/{lease_id}/renew": {
+      "post": {
+        "operationId": "renew_project_computer_lease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "lease_id",
+            "required": true,
+            "schema": {
+              "title": "Lease Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerLeaseRenewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectComputerLeaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Project Computer Lease",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/computer/operations/reconcile": {
+      "post": {
+        "operationId": "reconcile_project_computer_operation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectComputerOperationReconcileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectRuntimeOperationReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reconcile Project Computer Operation",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
     "/smr/projects/{project_id}/computer/replace": {
       "post": {
         "operationId": "replace_project_computer",
@@ -21224,6 +23732,7 @@
             "name": "data_binding_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Data Binding Id",
               "type": "string"
             }
@@ -21278,7 +23787,71 @@
             "name": "data_binding_id",
             "required": true,
             "schema": {
+              "format": "uuid",
               "title": "Data Binding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetRevisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Dataset Revision",
+        "tags": [
+          "smr",
+          "research-intern"
+        ]
+      }
+    },
+    "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions/{dataset_revision_id}/lifecycle": {
+      "post": {
+        "operationId": "transition_dataset_revision_lifecycle",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "data_binding_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Data Binding Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dataset_revision_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Revision Id",
               "type": "string"
             }
           }
@@ -21287,7 +23860,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DatasetRevisionCreateRequest"
+                "$ref": "#/components/schemas/DatasetRevisionLifecycleRequest"
               }
             }
           },
@@ -21315,7 +23888,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Create Dataset Revision",
+        "summary": "Transition Dataset Revision Lifecycle",
         "tags": [
           "smr",
           "research-intern"
@@ -22724,11 +25297,24 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Immutable Visual preview PNG."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The Visual or preview does not exist."
           },
           "422": {
             "content": {
@@ -22739,6 +25325,36 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The public Visual request limit was exceeded."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureResponse"
+                }
+              }
+            },
+            "description": "The immutable preview failed integrity verification."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrPublicVisualPreviewUnavailableResponse"
+                }
+              }
+            },
+            "description": "Public admission or the preview storage provider is unavailable."
           }
         },
         "summary": "Get Public Visual Preview",
@@ -25181,6 +27797,80 @@
           }
         },
         "summary": "Get Visual Content",
+        "tags": [
+          "smr",
+          "hosted-artifacts"
+        ]
+      }
+    },
+    "/smr/visuals/{visual_id}/preview": {
+      "get": {
+        "operationId": "retrieve_visual_preview",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "visual_id",
+            "required": true,
+            "schema": {
+              "title": "Visual Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Immutable Visual preview PNG."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewMessageResponse"
+                }
+              }
+            },
+            "description": "The Visual or preview does not exist."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewIntegrityFailureResponse"
+                }
+              }
+            },
+            "description": "The immutable preview failed integrity verification."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmrVisualPreviewProviderFailureResponse"
+                }
+              }
+            },
+            "description": "The preview storage provider is unavailable."
+          }
+        },
+        "summary": "Get Visual Preview",
         "tags": [
           "smr",
           "hosted-artifacts"
