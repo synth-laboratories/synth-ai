@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 import re
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -207,6 +207,86 @@ class ProjectComputerResponse(_StrictContract):
     updated_at: datetime
 
 
+class ProjectComputerMaterializationReceipt(_StrictContract):
+    """Adapter-authored proof of the code and snapshot present on a computer."""
+
+    schema_version: Literal["smr.project-computer-materialization.v1"]
+    owner: str = Field(min_length=1, max_length=255)
+    provider_resource_ref: str = Field(min_length=1, max_length=1000)
+    source_repository_id: str = Field(min_length=1, max_length=255)
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    source_archive_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    snapshot_digest: str | None = Field(
+        default=None,
+        pattern=r"^sha256:[0-9a-f]{64}$",
+    )
+    workspace_path: str = Field(min_length=1, max_length=1000)
+    materialized: bool
+    receipt_ref: str = Field(min_length=1, max_length=1000)
+
+
+class ProjectComputerRetirementReceipt(_StrictContract):
+    schema_version: Literal["smr.project-computer-retirement.v1"]
+    owner: str = Field(min_length=1, max_length=255)
+    org_id: str
+    factory_id: str
+    project_id: str
+    generation: int
+    provider_kind: str
+    adapter_kind: str
+    provider_resource_ref: str
+    disposition: Literal["retired", "already_absent"]
+    pre_inventory: dict[str, Any]
+    post_inventory: dict[str, Any]
+    retired: bool
+    receipt_ref: str = Field(min_length=1, max_length=1000)
+
+
+class ProjectComputerCleanupRequest(_StrictContract):
+    idempotency_key: str = Field(min_length=1, max_length=512)
+
+
+class ProjectComputerCleanupReceiptResponse(_StrictContract):
+    schema_version: Literal["smr.project-computer-cleanup.v1"]
+    service_origin: Literal["urn:synth:research-intern:project-computer"]
+    owner: Literal["research_intern_control_plane"]
+    receipt_id: str
+    content_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    receipt_uri: str = Field(min_length=1, max_length=2000)
+    org_id: str
+    research_intern_id: str
+    factory_id: str
+    idempotency_key: str
+    pre_inventory: list[ProjectComputerResponse]
+    materialization_receipts: list[ProjectComputerMaterializationReceipt]
+    retirement_receipts: list[ProjectComputerRetirementReceipt]
+    post_inventory: list[ProjectComputerResponse]
+    cleanup_complete: bool
+    created_at: datetime
+
+    @model_validator(mode="after")
+    def validate_owner_receipt(self) -> ProjectComputerCleanupReceiptResponse:
+        if self.receipt_id != self.content_digest:
+            raise ValueError("cleanup receipt_id must equal its content_digest")
+        if self.content_digest.removeprefix("sha256:") not in self.receipt_uri:
+            raise ValueError("cleanup receipt URI must contain its content digest")
+        if self.cleanup_complete != (not self.post_inventory):
+            raise ValueError("cleanup_complete must match the post-cleanup inventory")
+        if any(
+            computer.factory_id != self.factory_id
+            for computer in (*self.pre_inventory, *self.post_inventory)
+        ):
+            raise ValueError("cleanup inventory crossed its Factory boundary")
+        if any(
+            receipt.factory_id != self.factory_id
+            for receipt in self.retirement_receipts
+        ):
+            raise ValueError("retirement receipt crossed its Factory boundary")
+        if not all(receipt.materialized for receipt in self.materialization_receipts):
+            raise ValueError("cleanup receipt contains unmaterialized computer evidence")
+        return self
+
+
 class ProjectComputerReplaceRequest(_StrictContract):
     factory_id: str
     provider_kind: str = Field(min_length=1, max_length=100)
@@ -279,10 +359,14 @@ __all__ = [
     "MagiDecisionReceiptResponse",
     "MagiDecisionRequest",
     "MagiMode",
+    "ProjectComputerCleanupReceiptResponse",
+    "ProjectComputerCleanupRequest",
     "ProjectComputerLifecycle",
+    "ProjectComputerMaterializationReceipt",
     "ProjectComputerProvisionRequest",
     "ProjectComputerReplaceRequest",
     "ProjectComputerResponse",
+    "ProjectComputerRetirementReceipt",
     "ResearchInternFactoryMembershipResponse",
     "ResearchInternPatchRequest",
     "ResearchInternPolicySet",

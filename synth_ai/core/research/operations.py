@@ -121,6 +121,16 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "cleanup_factory_project_computers",
+            HttpMethod.POST,
+            (
+                "/smr/research-intern/factories/"
+                "{factory_id}/project-computers/cleanup"
+            ),
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
             "create_data_binding",
             HttpMethod.POST,
             "/smr/projects/{project_id}/data-bindings",

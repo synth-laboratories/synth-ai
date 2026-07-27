@@ -17,6 +17,8 @@ from synth_ai.core.research.contracts.research_intern import (
     DatasetRevisionResponse,
     MagiDecisionReceiptResponse,
     MagiDecisionRequest,
+    ProjectComputerCleanupReceiptResponse,
+    ProjectComputerCleanupRequest,
     ProjectComputerProvisionRequest,
     ProjectComputerReplaceRequest,
     ProjectComputerResponse,
@@ -286,6 +288,31 @@ class ProjectComputerAPI:
         ):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
+
+    def cleanup(
+        self,
+        factory_id: FactoryId,
+        request: ProjectComputerCleanupRequest,
+    ) -> ProjectComputerCleanupReceiptResponse:
+        """Retire every Project Computer in one Factory with owner-authored proof."""
+        receipt = ProjectComputerCleanupReceiptResponse.from_wire(
+            self._transport.execute(
+                _request(
+                    "cleanup_factory_project_computers",
+                    (
+                        "/smr/research-intern/factories/"
+                        f"{factory_id}/project-computers/cleanup"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            receipt.factory_id != str(factory_id)
+            or receipt.idempotency_key != request.idempotency_key
+        ):
+            raise ValueError("Project Computer cleanup receipt identity drifted")
+        return receipt
 
 
 class ProjectDataBindingsAPI:
@@ -598,6 +625,31 @@ class AsyncProjectComputerAPI:
         ):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
+
+    async def cleanup(
+        self,
+        factory_id: FactoryId,
+        request: ProjectComputerCleanupRequest,
+    ) -> ProjectComputerCleanupReceiptResponse:
+        """Retire every Project Computer in one Factory with owner-authored proof."""
+        receipt = ProjectComputerCleanupReceiptResponse.from_wire(
+            await self._transport.execute(
+                _request(
+                    "cleanup_factory_project_computers",
+                    (
+                        "/smr/research-intern/factories/"
+                        f"{factory_id}/project-computers/cleanup"
+                    ),
+                    body=cast(JsonObject, request.to_wire()),
+                )
+            )
+        )
+        if (
+            receipt.factory_id != str(factory_id)
+            or receipt.idempotency_key != request.idempotency_key
+        ):
+            raise ValueError("Project Computer cleanup receipt identity drifted")
+        return receipt
 
 
 class AsyncProjectDataBindingsAPI:
