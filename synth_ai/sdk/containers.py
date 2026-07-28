@@ -2,8 +2,9 @@
 
 Access this API through ``SynthClient().containers``. The client reads
 ``SYNTH_API_KEY`` when ``api_key`` is omitted and uses the environment-selected
-backend when ``backend_base`` is omitted. An unconfigured development shell
-defaults to ``http://localhost:8000``.
+backend when ``backend_base`` is omitted. An unconfigured shell resolves to
+production; name ``SYNTH_BACKEND_URL`` or ``SYNTH_BACKEND_URL_OVERRIDE=local``
+to reach a local backend.
 
 Availability:
     This is a compatibility client for deployments that expose

@@ -5,7 +5,11 @@ from __future__ import annotations
 import os
 
 from synth_ai.core.auth.credentials import resolve_api_credential
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import (
+    REQUIRE_EXPLICIT_BACKEND_ENV,
+    default_backend_base,
+    normalize_backend_base,
+)
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_WORKSPACE_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 600.0
@@ -16,24 +20,6 @@ OPENAI_TRANSPORT_MODE_AUTO = "auto"
 OPENAI_VALID_TRANSPORT_MODES = {
     OPENAI_TRANSPORT_MODE_DIRECT_HP,
 }
-
-
-REQUIRE_EXPLICIT_BACKEND_ENV = "SYNTH_REQUIRE_EXPLICIT_BACKEND"
-
-
-def _require_explicit_backend() -> bool:
-    """Opt-in strictness for internal tooling.
-
-    Customer code wants the prod default: pip install, call, reach production.
-    Internal tooling (evals, dock, operator scripts) wants the opposite — an
-    unnamed backend should be an error, not a silent prod call. Such callers
-    set SYNTH_REQUIRE_EXPLICIT_BACKEND=1 and pass backend_base explicitly.
-    """
-    return str(os.getenv(REQUIRE_EXPLICIT_BACKEND_ENV) or "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-    }
 
 
 def resolve_backend_base(backend_base: str | None) -> str:
@@ -53,18 +39,9 @@ def resolve_backend_base(backend_base: str | None) -> str:
     if from_env:
         return normalize_backend_base(from_env).rstrip("/")
 
-    if _require_explicit_backend():
-        raise ValueError(
-            "synth_backend_base_unspecified: no backend_base argument and no "
-            "SYNTH_BACKEND_URL, and " + REQUIRE_EXPLICIT_BACKEND_ENV + " is set. "
-            "Refusing to fall back to the package default, which resolves to "
-            f"{BACKEND_URL_BASE!r}. Pass backend_base explicitly."
-        )
-
-    # Single default path. Previously a third fallback hardcoded the prod URL
-    # here, which bypassed BACKEND_URL_BASE entirely and could target prod even
-    # when the package was configured for another environment.
-    return normalize_backend_base(BACKEND_URL_BASE).rstrip("/")
+    # Single default path, and the only one: `default_backend_base` raises under
+    # SYNTH_REQUIRE_EXPLICIT_BACKEND rather than silently targeting production.
+    return normalize_backend_base(default_backend_base()).rstrip("/")
 
 
 def resolve_api_key(api_key: str | None) -> str:
@@ -103,6 +80,7 @@ __all__ = [
     "DEFAULT_MISC_PROJECT_ALIAS",
     "DEFAULT_TIMEOUT_SECONDS",
     "DEFAULT_WORKSPACE_ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS",
+    "REQUIRE_EXPLICIT_BACKEND_ENV",
     "OPENAI_TRANSPORT_MODE_AUTO",
     "OPENAI_TRANSPORT_MODE_BACKEND_BFF",
     "OPENAI_TRANSPORT_MODE_DIRECT_HP",

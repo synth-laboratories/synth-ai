@@ -14,7 +14,11 @@ from typing import Any
 from synth_ai.core.errors import AuthenticationError
 from synth_ai.core.utils.paths import SYNTH_HOME_DIR
 from synth_ai.core.utils.secure_files import write_private_json
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, is_local_backend_base_url
+from synth_ai.core.utils.urls import (
+    BACKEND_URL_BASE,
+    default_backend_base,
+    is_local_backend_base_url,
+)
 
 # Backward-compatible alias for older callers.
 PROD_BASE_URL = BACKEND_URL_BASE
@@ -60,7 +64,7 @@ def mask_value(value: str, visible_chars: int = 4) -> str:
 
 def get_backend_url() -> str:
     """Return the configured backend URL base."""
-    return BACKEND_URL_BASE
+    return default_backend_base()
 
 
 def mask_str(input: str, position: int = 3) -> str:
@@ -178,7 +182,7 @@ def mint_demo_api_key(
     """
     import httpx
 
-    base = backend_url or BACKEND_URL_BASE
+    base = backend_url or default_backend_base()
     url = f"{base.rstrip('/')}/api/demo/keys"
     resp = httpx.post(url, json={"ttl_hours": ttl_hours}, timeout=timeout)
     if resp.status_code != 200:
@@ -217,7 +221,7 @@ def ensure_synth_api_key(
     resolved_backend = (
         (backend_url or "").strip()
         or (os.environ.get("SYNTH_BACKEND_URL") or "").strip()
-        or BACKEND_URL_BASE
+        or default_backend_base()
     )
     if _is_local_backend_url(resolved_backend):
         os.environ["SYNTH_API_KEY"] = LOCAL_DEV_SYNTH_API_KEY

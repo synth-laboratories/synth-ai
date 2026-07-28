@@ -11,13 +11,12 @@ from synth_ai.cli.research_environments import environments
 from synth_ai.cli.research_image_releases import image_releases
 from synth_ai.cli.research_projects import projects
 from synth_ai.core.utils.env import get_api_key
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import default_backend_base, normalize_backend_base
 
 
 def _resolve_backend_url(backend_url: str | None) -> str:
-    return normalize_backend_base(
-        backend_url or os.environ.get("SYNTH_BACKEND_URL") or BACKEND_URL_BASE
-    )
+    named = (backend_url or os.environ.get("SYNTH_BACKEND_URL") or "").strip()
+    return normalize_backend_base(named or default_backend_base())
 
 
 def _resolve_api_key(api_key: str | None) -> str:

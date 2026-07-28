@@ -6,7 +6,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 from synth_ai.core.auth.credentials import resolve_api_credential
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import default_backend_base, normalize_backend_base
 from synth_ai.sdk import (
     AsyncContainerPoolsClient,
     AsyncContainersClient,
@@ -34,7 +34,9 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 
 def _resolve_base_url(base_url: str | None) -> str:
-    return normalize_backend_base(base_url or BACKEND_URL_BASE)
+    if base_url and base_url.strip():
+        return normalize_backend_base(base_url)
+    return normalize_backend_base(default_backend_base())
 
 
 class SynthClient:

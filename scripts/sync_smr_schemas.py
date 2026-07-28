@@ -1,38 +1,24 @@
-"""Schema and enum sync helpers for the synth-ai Managed Research surface."""
+"""Regenerate the Managed Research enums synth-ai mirrors from backend.
+
+Backend owns these values; synth-ai carries a narrow copy so a customer can name them
+without a backend checkout.  Keeping the generator honest means running it here, in repo
+tooling, rather than shipping it in the wheel — it reads a sibling `backend/` checkout,
+which no customer has.
+
+Usage: `uv run python scripts/sync_smr_schemas.py`
+"""
 
 from __future__ import annotations
 
 import ast
 import json
 import re
-import shutil
 from pathlib import Path
 
-
-def sync_public_schemas(
-    *,
-    source_dir: Path | None = None,
-    destination_dir: Path | None = None,
-) -> list[Path]:
-    """Copy quarantined legacy schemas into the new generated schema folder."""
-
-    package_root = Path(__file__).resolve().parent
-    repo_root = package_root.parents[1]
-    source = source_dir or (repo_root / "old" / "schemas" / "generated")
-    destination = destination_dir or (package_root / "models" / "generated")
-    copied: list[Path] = []
-    if not source.exists():
-        return copied
-    destination.mkdir(parents=True, exist_ok=True)
-    for path in sorted(source.rglob("*")):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(source)
-        target = destination / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(path, target)
-        copied.append(target)
-    return copied
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE_ROOT = REPO_ROOT.parent
+CONTRACTS_DIR = REPO_ROOT / "synth_ai" / "core" / "research" / "contracts"
+SCHEMAS_DIR = REPO_ROOT / "synth_ai" / "core" / "research" / "schemas"
 
 
 def _enum_member_name(model_id: str) -> str:
@@ -45,20 +31,17 @@ def _enum_member_name(model_id: str) -> str:
 
 
 def _default_backend_manifest_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_supported_models.json"
+    return WORKSPACE_ROOT / "backend" / "config" / "smr_supported_models.json"
 
 
 def _default_backend_supported_models_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
+        WORKSPACE_ROOT / "backend" / "packages" / "smr" / "config" / "supported_models_catalog.py"
     )
 
 
 def _default_backend_public_models_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_public_models.json"
+    return WORKSPACE_ROOT / "backend" / "config" / "smr_public_models.json"
 
 
 def _default_backend_actor_policy_path() -> Path:
@@ -68,14 +51,12 @@ def _default_backend_actor_policy_path() -> Path:
     only as an explicit override for offline sync when a exported manifest is provided.
     """
 
-    workspace_root = Path(__file__).resolve().parents[3]
-    return workspace_root / "backend" / "config" / "smr_actor_model_policy.json"
+    return WORKSPACE_ROOT / "backend" / "config" / "smr_actor_model_policy.json"
 
 
 def _default_backend_actor_role_gates_path() -> Path:
-    workspace_root = Path(__file__).resolve().parents[3]
     return (
-        workspace_root
+        WORKSPACE_ROOT
         / "backend"
         / "packages"
         / "smr"
@@ -86,8 +67,7 @@ def _default_backend_actor_role_gates_path() -> Path:
 
 
 def _backend_python_import_paths() -> tuple[Path, ...]:
-    workspace_root = Path(__file__).resolve().parents[3]
-    backend_root = workspace_root / "backend"
+    backend_root = WORKSPACE_ROOT / "backend"
     return (backend_root / "packages", backend_root)
 
 
@@ -272,12 +252,6 @@ _STATIC_ENUM_SPECS: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         ("general", "open_ended_discovery", "directed_effort"),
     ),
     (
-        "smr_resource_providers.py",
-        "SmrResourceProvider",
-        "resource_provider",
-        ("modal",),
-    ),
-    (
         "smr_resource_kinds.py",
         "SmrResourceKind",
         "resource_kind",
@@ -353,24 +327,9 @@ def sync_smr_layered_enums(
     *,
     destination_dir: Path | None = None,
 ) -> list[Path]:
-    legacy_models_dir = Path(__file__).resolve().parent / "models"
-    contracts_dir = Path(__file__).resolve().parents[1] / "contracts"
-    contracts_enum_files = {
-        "smr_agent_kinds.py",
-        "smr_funding_sources.py",
-        "smr_credential_providers.py",
-        "smr_inference_providers.py",
-        "smr_tool_providers.py",
-        "smr_work_modes.py",
-    }
+    target_dir = destination_dir or CONTRACTS_DIR
     generated: list[Path] = []
     for filename, class_name, field_name, values in _STATIC_ENUM_SPECS:
-        if destination_dir is not None:
-            target_dir = destination_dir
-        elif filename in contracts_enum_files:
-            target_dir = contracts_dir
-        else:
-            target_dir = legacy_models_dir
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / filename
         target.write_text(
@@ -394,9 +353,7 @@ def sync_smr_agent_models(
     """Generate the Managed Research model enum from the backend-supported catalog."""
 
     source = source_manifest or _default_backend_supported_models_path()
-    destination = destination_file or (
-        Path(__file__).resolve().parents[1] / "contracts" / "smr_agent_models.py"
-    )
+    destination = destination_file or (CONTRACTS_DIR / "smr_agent_models.py")
     if source.suffix == ".py":
         module = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
         models = None
@@ -492,9 +449,7 @@ def sync_smr_actor_model_policy(
     `backend/config/smr_actor_model_policy.json` path is no longer authoritative.
     """
 
-    destination = destination_file or (
-        Path(__file__).resolve().parents[1] / "contracts" / "smr_actor_policy_data.py"
-    )
+    destination = destination_file or (CONTRACTS_DIR / "smr_actor_policy_data.py")
     raw = _load_actor_policy_manifest(source_manifest)
     policies = raw.get("policies")
     if not isinstance(policies, list) or not policies:
@@ -522,7 +477,7 @@ def sync_smr_actor_model_policy(
         "",
         f"Source of truth: {source_label}",
         "",
-        "Regenerate: python -m synth_ai.core.research.schema_sync",
+        "Regenerate: uv run python scripts/sync_smr_schemas.py",
         '"""',
         "",
         "from __future__ import annotations",
@@ -572,9 +527,7 @@ def sync_smr_public_models_snapshot(
     """Sync the vendored public-model snapshot from the backend public-model export."""
 
     source = source_manifest or _default_backend_public_models_path()
-    destination = destination_file or (
-        Path(__file__).resolve().parent / "schemas" / "public_models.json"
-    )
+    destination = destination_file or (SCHEMAS_DIR / "public_models.json")
     raw = json.loads(source.read_text(encoding="utf-8"))
     models = raw.get("models")
     if not isinstance(models, list) or not models:
@@ -592,26 +545,21 @@ def sync_smr_public_models_snapshot(
 
 
 def main() -> None:
-    """CLI entrypoint: sync tracked generated artifacts."""
-    copied = sync_public_schemas()
-    static_enums = sync_smr_layered_enums()
-    generated = sync_smr_agent_models()
-    actor_policy = sync_smr_actor_model_policy()
-    public_models = sync_smr_public_models_snapshot()
-    for path in copied:
+    """CLI entrypoint: regenerate every mirrored artifact from a sibling backend checkout."""
+    for path in sync_smr_layered_enums():
         print(path)
-    for path in static_enums:
-        print(path)
-    print(generated)
-    print(actor_policy)
-    print(public_models)
+    print(sync_smr_agent_models())
+    print(sync_smr_actor_model_policy())
+    print(sync_smr_public_models_snapshot())
 
 
 __all__ = [
     "main",
-    "sync_public_schemas",
     "sync_smr_actor_model_policy",
     "sync_smr_agent_models",
     "sync_smr_layered_enums",
     "sync_smr_public_models_snapshot",
 ]
+
+if __name__ == "__main__":
+    main()

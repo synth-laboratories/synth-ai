@@ -12,7 +12,7 @@ from synth_ai.core.auth.credentials import resolve_api_credential
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.errors import AuthenticationError
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, join_url, normalize_backend_base
+from synth_ai.core.utils.urls import default_backend_base, join_url, normalize_backend_base
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -27,7 +27,7 @@ def resolve_api_key(api_key: str | None) -> str:
 def resolve_backend_base(base_url: str | None) -> str:
     if base_url and base_url.strip():
         return normalize_backend_base(base_url)
-    return normalize_backend_base(BACKEND_URL_BASE)
+    return normalize_backend_base(default_backend_base())
 
 
 class SynthBaseClient:

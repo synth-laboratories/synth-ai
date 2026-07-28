@@ -2,31 +2,31 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib as _importlib
+import warnings as _warnings
 from importlib import metadata as _metadata
-from importlib.metadata import PackageNotFoundError
-from pathlib import Path
-from typing import Any
+from pathlib import Path as _Path
+from typing import Any as _Any
 
 try:
-    from synth_ai.core.utils.log_filter import install_log_filter
+    from synth_ai.core.utils.log_filter import install_log_filter as _install_log_filter
 
-    install_log_filter()
+    _install_log_filter()
 except Exception:
     pass
 
 try:
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:
+except _metadata.PackageNotFoundError:
     try:
         import tomllib as _toml
     except ModuleNotFoundError:  # pragma: no cover
         import tomli as _toml  # type: ignore[no-redef]  # ty: ignore[unresolved-import]
 
     try:
-        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
-        with pyproject_path.open("rb") as fh:
-            _pyproject = _toml.load(fh)
+        _pyproject_path = _Path(__file__).resolve().parents[1] / "pyproject.toml"
+        with _pyproject_path.open("rb") as _fh:
+            _pyproject = _toml.load(_fh)
         __version__ = str(_pyproject["project"]["version"])
     except Exception:
         __version__ = "0.0.0.dev0"
@@ -73,16 +73,6 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "ResearchInsufficientCreditsError",
     ),
     "ResearchLimitExceededError": ("synth_ai.core.research.errors", "ResearchLimitExceededError"),
-    "SmrApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
-    "SmrConcurrentRunLimitExceededError": (
-        "synth_ai.core.research.errors",
-        "ResearchConcurrentRunLimitExceededError",
-    ),
-    "SmrInsufficientCreditsError": (
-        "synth_ai.core.research.errors",
-        "ResearchInsufficientCreditsError",
-    ),
-    "SmrLimitExceededError": ("synth_ai.core.research.errors", "ResearchLimitExceededError"),
     "ResearchClient": ("synth_ai.core.research.facade", "ResearchClient"),
     "ResearchProjectCreateRequest": (
         "synth_ai.core.research.contracts",
@@ -142,10 +132,34 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 
-def __getattr__(name: str) -> Any:
+# Renamed when the SDK dropped the `Smr` prefix.  Reachable, so they get a window rather
+# than a deletion; they are deliberately absent from `__all__`.
+_DEPRECATED_ALIASES: dict[str, str] = {
+    "SmrApiError": "ResearchApiError",
+    "SmrConcurrentRunLimitExceededError": "ResearchConcurrentRunLimitExceededError",
+    "SmrInsufficientCreditsError": "ResearchInsufficientCreditsError",
+    "SmrLimitExceededError": "ResearchLimitExceededError",
+}
+
+
+def __getattr__(name: str) -> _Any:
+    canonical = _DEPRECATED_ALIASES.get(name)
+    if canonical is not None:
+        _warnings.warn(
+            f"synth_ai.{name} is deprecated since synth-ai 0.18.0 and will be removed in "
+            f"0.20.0 no earlier than 2026-10-01; use synth_ai.{canonical}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        name = canonical
+
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, attr_name = target
-    module = importlib.import_module(module_name)
+    module = _importlib.import_module(module_name)
     return getattr(module, attr_name)
+
+
+def __dir__() -> list[str]:
+    return sorted(__all__)

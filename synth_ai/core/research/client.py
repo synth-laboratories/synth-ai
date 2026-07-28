@@ -16,7 +16,7 @@ from synth_ai.core.research.image_releases import (
 from synth_ai.core.research.projects import AsyncProjectsAPI, ProjectsAPI
 from synth_ai.core.research.swarms import AsyncSwarmsAPI, SwarmsAPI
 from synth_ai.core.research.traces import AsyncResearchTracesAPI, ResearchTracesAPI
-from synth_ai.core.utils.urls import BACKEND_URL_BASE, normalize_backend_base
+from synth_ai.core.utils.urls import default_backend_base, normalize_backend_base
 
 if TYPE_CHECKING:
     from synth_ai.core.research.economics import (
@@ -39,7 +39,7 @@ class Client:
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = HttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=normalize_backend_base(base_url or default_backend_base()),
             headers=self._credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )
@@ -102,7 +102,7 @@ class AsyncClient:
     ) -> None:
         self._credential = resolve_api_credential(api_key)
         self._transport = AsyncHttpTransport(
-            base_url=normalize_backend_base(base_url or BACKEND_URL_BASE),
+            base_url=normalize_backend_base(base_url or default_backend_base()),
             headers=self._credential.authorization_headers(),
             timeout_seconds=timeout_seconds,
         )

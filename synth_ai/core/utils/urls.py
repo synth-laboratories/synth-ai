@@ -34,7 +34,7 @@ def _coerce_backend_override(value: str) -> str | None:
     lowered = raw.lower()
     if lowered in {"local", "localhost"}:
         return (os.getenv("LOCAL_BACKEND_URL") or "http://localhost:8000").strip()
-    if lowered in {"dev", "development", "staging", "railway"}:
+    if lowered in {"dev", "development", "staging"}:
         return (
             os.getenv("DEV_SYNTH_BACKEND_URL")
             or os.getenv("DEV_BACKEND_URL")
@@ -59,15 +59,9 @@ def _resolve_backend_url_override() -> str | None:
 
 
 def _current_env() -> str:
+    """The environment the process names, or ``""`` when nothing names one."""
     explicit = (
-        (
-            os.getenv("ENVIRONMENT")
-            or os.getenv("APP_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT_NAME")
-            or os.getenv("ENV")
-            or ""
-        )
+        (os.getenv("ENVIRONMENT") or os.getenv("APP_ENVIRONMENT") or os.getenv("ENV") or "")
         .strip()
         .lower()
     )
@@ -77,7 +71,7 @@ def _current_env() -> str:
         return "prod"
     if os.getenv("DEV_SYNTH_BACKEND_URL") or os.getenv("DEV_BACKEND_URL"):
         return "dev"
-    return "dev"
+    return ""
 
 
 def _is_prod_environment(value: str) -> bool:
@@ -88,7 +82,11 @@ def _resolve_backend_url() -> str:
     override = _resolve_backend_url_override()
     if override:
         return override
-    if _is_prod_environment(_current_env()):
+    # An unconfigured process is a customer who pip-installed the SDK, and they mean prod.
+    # Reaching a local backend is something you ask for — SYNTH_BACKEND_URL,
+    # SYNTH_BACKEND_URL_OVERRIDE=local, or ENVIRONMENT=dev — never something you fall into.
+    environment = _current_env()
+    if not environment or _is_prod_environment(environment):
         return (
             os.getenv("PROD_SYNTH_BACKEND_URL")
             or os.getenv("SYNTH_BACKEND_URL")
@@ -146,7 +144,7 @@ def resolve_synth_backend_url(override: str | None = None) -> str:
             return normalize_backend_base(coerced)
         if _looks_like_url(override):
             return normalize_backend_base(override)
-    return BACKEND_URL_BASE
+    return default_backend_base()
 
 
 def resolve_synth_interceptor_base_url(override: str | None = None) -> str:
@@ -276,6 +274,41 @@ BACKEND_URL_SYNTH_RESEARCH_ANTHROPIC = BACKEND_URL_SYNTH_RESEARCH_BASE
 FRONTEND_URL_BASE = _env_or_default("SYNTH_FRONTEND_URL", "https://usesynth.ai")
 
 
+REQUIRE_EXPLICIT_BACKEND_ENV = "SYNTH_REQUIRE_EXPLICIT_BACKEND"
+
+
+def require_explicit_backend() -> bool:
+    """Whether this process has opted out of the package default.
+
+    Customer code wants that default: pip install, call, reach production. Internal tooling
+    wants the opposite — an unnamed backend is a mistake, not a production call — and says so
+    by setting ``SYNTH_REQUIRE_EXPLICIT_BACKEND=1``.
+    """
+    return str(os.getenv(REQUIRE_EXPLICIT_BACKEND_ENV) or "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
+def default_backend_base() -> str:
+    """The backend a caller reaches when nothing named one.
+
+    Every fallback to the package default goes through here, so
+    ``SYNTH_REQUIRE_EXPLICIT_BACKEND=1`` covers all of them. Reading ``BACKEND_URL_BASE``
+    directly and passing it on as an argument routes around the guard: downstream sees a
+    caller who named a backend, because by then one did.
+    """
+    if require_explicit_backend():
+        raise ValueError(
+            "synth_backend_base_unspecified: nothing named a backend — no explicit argument, "
+            f"no SYNTH_BACKEND_URL, no SYNTH_BACKEND_URL_OVERRIDE — and "
+            f"{REQUIRE_EXPLICIT_BACKEND_ENV} is set. Refusing to fall back to the package "
+            f"default, which resolves to {BACKEND_URL_BASE!r}. Name the backend explicitly."
+        )
+    return BACKEND_URL_BASE
+
+
 __all__ = [
     "BACKEND_URL_API",
     "BACKEND_URL_BASE",
@@ -284,9 +317,11 @@ __all__ = [
     "BACKEND_URL_SYNTH_RESEARCH_OPENAI",
     "FRONTEND_URL_BASE",
     "LOCAL_HTTP_HOSTS",
+    "REQUIRE_EXPLICIT_BACKEND_ENV",
     "backend_demo_keys_url",
     "backend_health_url",
     "backend_me_url",
+    "default_backend_base",
     "is_cloudflare_tunnel_url",
     "is_free_ngrok_url",
     "is_local_backend_base_url",
@@ -299,6 +334,7 @@ __all__ = [
     "normalize_backend_base",
     "normalize_base_url",
     "normalize_inference_base",
+    "require_explicit_backend",
     "resolve_synth_backend_url",
     "resolve_synth_interceptor_base_url",
 ]

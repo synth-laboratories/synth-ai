@@ -15,7 +15,6 @@ TITLE_MAPPINGS: dict[str, str] = {
     "synth_ai-research-limits.mdx": "Limits",
     "synth_ai-research-secrets.mdx": "Secrets",
     "synth_ai-research-projects.mdx": "Projects",
-    "synth_ai-research-project_namespaces.mdx": "Project namespaces",
     "synth_ai-research-runs.mdx": "Runs",
     "synth_ai-research-run_readouts.mdx": "Run readouts",
     "synth_ai-research-models.mdx": "Models",

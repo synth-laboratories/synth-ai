@@ -143,7 +143,6 @@ Entrypoint: **`client.research`**
 | Namespace | Description | Reference |
 | --- | --- | --- |
 | `research.projects` | Project CRUD | [Projects](/reference/sdk/research/synth_ai-research-projects) |
-| `research.projects.*` | Setup, workspace, git, objectives | [Project namespaces](/reference/sdk/research/synth_ai-research-project_namespaces) |
 
 ### Runs
 

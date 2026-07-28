@@ -1,7 +1,7 @@
 """Public Managed Research actor-type/subtype model policy helpers.
 
 Source of truth: backend/packages/smr/config/actor_configurations/actor_role_gates.py
-(synced into smr_actor_policy_data.py via python -m synth_ai.core.research.schema_sync).
+(synced into smr_actor_policy_data.py by scripts/sync_smr_schemas.py).
 """
 
 from __future__ import annotations
@@ -228,7 +228,7 @@ def coerce_smr_actor_model_assignment(
             f"allowed values are: {', '.join(permitted)}. "
             "If the backend /smr/capabilities allowlist includes this model, regenerate "
             "synth_ai.core.research.contracts.smr_actor_policy_data via "
-            "`python -m synth_ai.core.research.schema_sync` against a sibling backend checkout."
+            "`uv run python scripts/sync_smr_schemas.py` against a sibling backend checkout."
         )
     return assignment
 

@@ -1,24 +1,15 @@
-"""Backend URL helpers."""
+"""Backend URL helpers.
 
-import os
-from urllib.parse import urlparse, urlunparse
+Re-exports rather than reimplements. This module used to carry its own `BACKEND_URL_BASE`
+built from `SYNTH_BACKEND_URL` and a hardcoded `https://api.usesynth.ai` — a second answer to
+"which backend", blind to `SYNTH_BACKEND_URL_OVERRIDE`, `ENVIRONMENT`, and the guard in
+`default_backend_base`. One resolver, one answer.
+"""
 
-BACKEND_URL_BASE = (os.getenv("SYNTH_BACKEND_URL") or "https://api.usesynth.ai").strip()
+from synth_ai.core.utils.urls import (
+    BACKEND_URL_BASE,
+    default_backend_base,
+    normalize_backend_base,
+)
 
-
-def _strip_terminal_segment(path: str, segment: str) -> str:
-    trimmed = path.rstrip("/")
-    if trimmed.endswith(segment):
-        return trimmed[: -len(segment)].rstrip("/")
-    return trimmed
-
-
-def normalize_backend_base(url: str) -> str:
-    parsed = urlparse(str(url or "").strip())
-    path = _strip_terminal_segment(parsed.path, "/v1")
-    path = _strip_terminal_segment(path, "/api")
-    normalized = parsed._replace(path=path.rstrip("/"), query="", fragment="")
-    return urlunparse(normalized)
-
-
-__all__ = ["BACKEND_URL_BASE", "normalize_backend_base"]
+__all__ = ["BACKEND_URL_BASE", "default_backend_base", "normalize_backend_base"]
