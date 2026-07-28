@@ -6042,7 +6042,7 @@
         "properties": {
           "actor_subtype": {
             "$ref": "#/components/schemas/SmrActorSubtype",
-            "description": "Actor subtype. Supported values are main, engineer, researcher, artifact_builder, artifact_reviewer, task_completion, run_completion, safety, objective, seraph, gardener; valid combinations depend on actor_type."
+            "description": "Actor subtype. Supported values are main, engineer, researcher, artifact_builder, artifact_reviewer, task_completion, run_completion, safety, objective, adjudicator, gardener; valid combinations depend on actor_type."
           },
           "actor_type": {
             "$ref": "#/components/schemas/SmrActorType",
@@ -6132,7 +6132,7 @@
           "run_completion",
           "safety",
           "objective",
-          "seraph",
+          "adjudicator",
           "gardener"
         ],
         "title": "SmrActorSubtype",
@@ -12905,7 +12905,7 @@
           "run_completion",
           "safety",
           "objective",
-          "seraph",
+          "adjudicator",
           "gardener",
           "artifact_reviewer"
         ],
