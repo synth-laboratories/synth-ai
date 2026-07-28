@@ -85,7 +85,21 @@ def _structured_body_fields(response: httpx.Response) -> dict[str, Any]:
             out[key] = value
     detail = payload.get("detail")
     if isinstance(detail, dict):
-        for key in ("error_code", "error", "message", "remediation"):
+        for key in (
+            "error_code",
+            "error",
+            "message",
+            "remediation",
+            "reason",
+            "budget_scope",
+            "budget_id",
+            "work_class",
+            "pressure_sources",
+            "retry_after",
+            "max_concurrent",
+            "current_concurrent",
+            "concurrent_limit",
+        ):
             value = detail.get(key)
             if value is not None and key not in out:
                 out[key] = value
@@ -207,6 +221,11 @@ class SmrHttpTransport:
             base_url=self.base_url.rstrip("/"),
             headers=self.headers,
             timeout=self.timeout,
+            # Content routes redirect to the durable store that holds the body.
+            # Without this a 302 reads back as an empty response rather than the
+            # artifact. httpx drops the auth header on the cross-origin hop to
+            # presigned storage, which is what that hop requires.
+            follow_redirects=True,
         )
 
     def close(self) -> None:

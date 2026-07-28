@@ -13,6 +13,7 @@ class SmrAgentModel(StrEnum):
     GPT_5_3_CODEX_SPARK = "gpt-5.3-codex-spark"
     GPT_5_5 = "gpt-5.5"
     GPT_5_4_MINI = "gpt-5.4-mini"
+    GPT_5_6_LUNA = "gpt-5.6-luna"
     X_AI_GROK_4_3 = "x-ai/grok-4.3"
     X_AI_GROK_BUILD = "x-ai/grok-build"
     MOONSHOTAI_KIMI_K2_6 = "moonshotai/kimi-k2.6"

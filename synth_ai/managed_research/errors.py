@@ -49,6 +49,8 @@ class SmrApiError(RuntimeError):
             parts.append(f"cause[0]={top.get('type')}({top.get('module')}): {top.get('message')!r}")
             if len(self.cause_chain) > 1:
                 parts.append(f"cause_chain_depth={len(self.cause_chain)}")
+        detail = self.body.get("detail")
+        detail_map = detail if isinstance(detail, dict) else {}
         for key in (
             "missing_object_name",
             "missing_object_kind",
@@ -56,10 +58,26 @@ class SmrApiError(RuntimeError):
             "constraint_kind",
             "table",
             "column",
+            "reason",
+            "budget_scope",
+            "budget_id",
+            "work_class",
+            "pressure_sources",
+            "retry_after",
+            "max_concurrent",
+            "current_concurrent",
+            "concurrent_limit",
         ):
             value = self.body.get(key)
-            if value:
-                parts.append(f"{key}={value}")
+            if value in (None, ""):
+                value = detail_map.get(key)
+            if value in (None, ""):
+                continue
+            if isinstance(value, (list, tuple)):
+                rendered = ",".join(str(item) for item in value)
+            else:
+                rendered = str(value)
+            parts.append(f"{key}={rendered}")
         if self.remediation:
             parts.append(f"remediation={self.remediation}")
         return " | ".join(parts)
