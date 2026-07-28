@@ -36,7 +36,12 @@ def resolve_api_key(api_key: str | None) -> str:
 
 
 def auth_headers(api_key: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # Auth only. These become client-wide defaults, and a pinned Content-Type
+    # there overrides the per-request one httpx derives — a multipart upload
+    # would go out labelled application/json and lose its boundary, so the
+    # server parses no form fields. httpx sets application/json itself for
+    # json= bodies, so pinning it here buys nothing.
+    return {"Authorization": f"Bearer {api_key}"}
 
 
 def optional_str(value: str | None) -> str | None:
