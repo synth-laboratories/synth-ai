@@ -161,7 +161,7 @@ SMR_ACTOR_MODEL_POLICY: tuple[dict[str, Any], ...] = (
     },
     {
         "actor_type": "reviewer",
-        "actor_subtype": "seraph",
+        "actor_subtype": "adjudicator",
         "permitted_models": [
             "baseten/moonshotai/Kimi-K3",
             "baseten/zai-org/GLM-5.2",

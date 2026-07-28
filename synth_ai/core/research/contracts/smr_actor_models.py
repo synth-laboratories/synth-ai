@@ -37,7 +37,7 @@ class SmrActorSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
 
 
@@ -51,7 +51,7 @@ class SmrReviewerSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
     ARTIFACT_REVIEWER = "artifact_reviewer"
 

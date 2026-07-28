@@ -83,7 +83,7 @@ class FactoryIdeaStatus(StrEnum):
 
 class FactoryIdeaSource(StrEnum):
     HUMAN = "human"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
     ARCHITECT = "architect"
     WORKER = "worker"
@@ -93,7 +93,7 @@ class FactoryIdeaSource(StrEnum):
 
 class FactoryActorRole(StrEnum):
     ORCHESTRATOR = "orchestrator"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
     ARCHITECT = "architect"
     WORKER = "worker"
@@ -101,7 +101,7 @@ class FactoryActorRole(StrEnum):
 
 
 class FactoryActorOutputKind(StrEnum):
-    SERAPH_BRIEF = "seraph_brief"
+    ADJUDICATOR_BRIEF = "adjudicator_brief"
     GARDENER_DIGEST = "gardener_digest"
     ARCHITECT_FEED_HEALTH = "architect_feed_health"
     FAILURE_TAXONOMY = "failure_taxonomy"
