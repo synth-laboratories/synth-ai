@@ -1134,11 +1134,11 @@ class ResearchMcpServer:
                 metadata=_optional_object_arg(args, "metadata"),
             ).raw
 
-    def _tool_record_seraph_brief(self, args: JSONDict) -> Any:
+    def _tool_record_adjudicator_brief(self, args: JSONDict) -> Any:
         return self._record_named_factory_actor_output(
             args,
-            actor_role="seraph",
-            kind="seraph_brief",
+            actor_role="adjudicator",
+            kind="adjudicator_brief",
         )
 
     def _tool_record_gardener_digest(self, args: JSONDict) -> Any:

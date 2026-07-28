@@ -278,11 +278,11 @@ class EffortMaintenanceRecurrencePolicy:
             for index, steward in enumerate(self.required_stewards)
         )
         invalid_stewards = sorted(
-            set(normalized_stewards).difference({"gardener", "seraph"})
+            set(normalized_stewards).difference({"gardener", "adjudicator"})
         )
         if invalid_stewards:
             raise ValueError(
-                "required_stewards must contain only gardener or seraph"
+                "required_stewards must contain only gardener or adjudicator"
             )
         object.__setattr__(self, "required_stewards", normalized_stewards)
 

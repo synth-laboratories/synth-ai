@@ -98,7 +98,7 @@ class ActorSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
 
 

@@ -50169,7 +50169,7 @@ components:
           $ref: '#/components/schemas/SmrActorSubtype'
           description: Actor subtype. Supported values are main, engineer, researcher,
             artifact_builder, artifact_reviewer, task_completion, run_completion,
-            safety, objective, seraph, gardener; valid combinations depend on actor_type.
+            safety, objective, adjudicator, gardener; valid combinations depend on actor_type.
         agent_model:
           $ref: '#/components/schemas/SmrAgentModel'
           description: Actor-scoped agent model override. Engineer-only models such
@@ -50479,7 +50479,7 @@ components:
       - run_completion
       - safety
       - objective
-      - seraph
+      - adjudicator
       - gardener
       title: SmrActorSubtype
     SmrActorTraceArtifactRefResponse:
@@ -53992,7 +53992,7 @@ components:
 
         All fields are optional overrides merged onto the stored row before the
 
-        typed contract re-validates. For typed kinds (seraph_brief,
+        typed contract re-validates. For typed kinds (adjudicator_brief,
 
         gardener_digest) the contract-derived status stays authoritative;
 
@@ -54003,7 +54003,7 @@ components:
           type: string
           enum:
           - orchestrator
-          - seraph
+          - adjudicator
           - gardener
           - architect
           - worker
@@ -54012,9 +54012,9 @@ components:
         kind:
           type: string
           enum:
-          - seraph_brief
+          - adjudicator_brief
           - gardener_digest
-          - seraph_calibration
+          - adjudicator_calibration
           - architect_feed_health
           - failure_taxonomy
           - finding_report
@@ -54090,7 +54090,7 @@ components:
           - type: string
             enum:
             - orchestrator
-            - seraph
+            - adjudicator
             - gardener
             - architect
             - worker
@@ -54101,9 +54101,9 @@ components:
           anyOf:
           - type: string
             enum:
-            - seraph_brief
+            - adjudicator_brief
             - gardener_digest
-            - seraph_calibration
+            - adjudicator_calibration
             - architect_feed_health
             - failure_taxonomy
             - finding_report
@@ -54216,7 +54216,7 @@ components:
           type: string
           enum:
           - orchestrator
-          - seraph
+          - adjudicator
           - gardener
           - architect
           - worker
@@ -54225,9 +54225,9 @@ components:
         kind:
           type: string
           enum:
-          - seraph_brief
+          - adjudicator_brief
           - gardener_digest
-          - seraph_calibration
+          - adjudicator_calibration
           - architect_feed_health
           - failure_taxonomy
           - finding_report
@@ -54883,7 +54883,7 @@ components:
           type: string
           enum:
           - human
-          - seraph
+          - adjudicator
           - gardener
           - architect
           - worker
@@ -54961,7 +54961,7 @@ components:
           - type: string
             enum:
             - human
-            - seraph
+            - adjudicator
             - gardener
             - architect
             - worker
@@ -55059,7 +55059,7 @@ components:
           type: string
           enum:
           - human
-          - seraph
+          - adjudicator
           - gardener
           - architect
           - worker
@@ -63397,7 +63397,7 @@ components:
       - run_completion
       - safety
       - objective
-      - seraph
+      - adjudicator
       - gardener
       - artifact_reviewer
       title: SmrReviewerSubtype

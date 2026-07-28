@@ -678,7 +678,7 @@ class FactoriesAPI(_ClientNamespace):
             self._client.patch_factory_actor_output(factory_id, actor_output_id, request)
         )
 
-    def record_seraph_brief(
+    def record_adjudicator_brief(
         self,
         factory_id: str,
         *,
@@ -695,8 +695,8 @@ class FactoriesAPI(_ClientNamespace):
     ) -> FactoryActorOutput:
         return self.create_actor_output(
             factory_id,
-            actor_role=FactoryActorRole.SERAPH,
-            kind=FactoryActorOutputKind.SERAPH_BRIEF,
+            actor_role=FactoryActorRole.ADJUDICATOR,
+            kind=FactoryActorOutputKind.ADJUDICATOR_BRIEF,
             title=title,
             summary=summary,
             status=status,
