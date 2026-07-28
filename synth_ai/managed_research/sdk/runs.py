@@ -279,6 +279,24 @@ class RunHandle:
                 contract = self.contract()
             except httpx.TransportError as exc:
                 raise SmrApiError(f"Network error while polling run {self.run_id}: {exc}") from exc
+            except SmrApiError as exc:
+                detail = exc.body.get("detail")
+                error_code = (
+                    detail.get("error_code")
+                    if isinstance(detail, Mapping)
+                    else exc.body.get("error_code")
+                )
+                if exc.status_code != 503 or error_code not in {
+                    "control_plane_task_missing_kind",
+                    "control_plane_task_missing_execution_owner",
+                }:
+                    raise
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"run {self.run_id} did not complete within {timeout}s"
+                    ) from exc
+                time.sleep(poll_interval)
+                continue
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     msg = self.explain_blocker() or (
