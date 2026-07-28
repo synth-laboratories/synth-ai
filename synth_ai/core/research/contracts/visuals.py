@@ -249,13 +249,18 @@ class VisualPage:
     next_cursor: PageCursor | None = None
 
     @classmethod
-    def from_wire(cls, value: JsonValue) -> VisualPage:
-        payload = object_value(value, operation_id="list_project_visuals")
+    def from_wire(
+        cls,
+        value: JsonValue,
+        *,
+        operation_id: str,
+    ) -> VisualPage:
+        payload = object_value(value, operation_id=operation_id)
         visuals = tuple(
             Visual.from_wire(item)
             for item in array_value(
                 cast(JsonValue, payload.get("visuals")),
-                operation_id="list_project_visuals.visuals",
+                operation_id=f"{operation_id}.visuals",
             )
         )
         return cls(visuals=visuals, next_cursor=extract_next_cursor(payload))

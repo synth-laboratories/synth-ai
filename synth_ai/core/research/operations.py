@@ -415,6 +415,12 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "list_visuals",
+            HttpMethod.GET,
+            "/smr/visuals",
+            idempotent=True,
+        ),
+        _operation(
             "list_visual_versions",
             HttpMethod.GET,
             "/smr/visuals/{visual_id}/versions",

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import Optional
 
 from synth_ai.core.contracts.json_value import JsonObject, JsonValue
 from synth_ai.core.http.async_transport import AsyncHttpTransport
@@ -235,7 +236,40 @@ class VisualsAPI:
                 ),
             )
         )
-        return VisualPage.from_wire(value)
+        return VisualPage.from_wire(value, operation_id="list_project_visuals")
+
+    def list_account(
+        self,
+        *,
+        project_id: Optional[ProjectId] = None,
+        visual_kind: Optional[str] = None,
+        visibility: Optional[VisualVisibility] = None,
+        factory_id: Optional[FactoryId] = None,
+        effort_id: Optional[EffortId] = None,
+        include_deleted: bool = False,
+        cursor: Optional[str] = None,
+        limit: int = 100,
+    ) -> VisualPage:
+        """List one cursor-paginated page from the account Visual library."""
+        query = _list_query(
+            visual_kind=visual_kind,
+            visibility=visibility,
+            factory_id=factory_id,
+            effort_id=effort_id,
+            include_deleted=include_deleted,
+            cursor=cursor,
+            limit=limit,
+        )
+        if project_id is not None:
+            query["project_id"] = str(project_id)
+        value = self._transport.execute(
+            _request(
+                "list_visuals",
+                "/smr/visuals",
+                query=query,
+            )
+        )
+        return VisualPage.from_wire(value, operation_id="list_visuals")
 
     def retrieve(self, visual_id: ArtifactId) -> Visual:
         value = self._transport.execute(
@@ -432,7 +466,40 @@ class AsyncVisualsAPI:
                 ),
             )
         )
-        return VisualPage.from_wire(value)
+        return VisualPage.from_wire(value, operation_id="list_project_visuals")
+
+    async def list_account(
+        self,
+        *,
+        project_id: Optional[ProjectId] = None,
+        visual_kind: Optional[str] = None,
+        visibility: Optional[VisualVisibility] = None,
+        factory_id: Optional[FactoryId] = None,
+        effort_id: Optional[EffortId] = None,
+        include_deleted: bool = False,
+        cursor: Optional[str] = None,
+        limit: int = 100,
+    ) -> VisualPage:
+        """List one cursor-paginated page from the account Visual library."""
+        query = _list_query(
+            visual_kind=visual_kind,
+            visibility=visibility,
+            factory_id=factory_id,
+            effort_id=effort_id,
+            include_deleted=include_deleted,
+            cursor=cursor,
+            limit=limit,
+        )
+        if project_id is not None:
+            query["project_id"] = str(project_id)
+        value = await self._transport.execute(
+            _request(
+                "list_visuals",
+                "/smr/visuals",
+                query=query,
+            )
+        )
+        return VisualPage.from_wire(value, operation_id="list_visuals")
 
     async def retrieve(self, visual_id: ArtifactId) -> Visual:
         return Visual.from_wire(
