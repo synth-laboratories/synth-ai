@@ -10,10 +10,12 @@ Catch these typed exceptions from ``SynthClient().research`` call sites.
 | ``ResearchConcurrentRunLimitExceededError`` | Too many concurrent runs |
 | ``ResearchInsufficientCreditsError`` | Insufficient account credits |
 | ``ResearchProjectMonthlyBudgetExhaustedError`` | Project monthly budget exhausted |
+| ``ResearchInferenceProviderUnavailableError`` | Upstream provider temporarily unavailable |
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from synth_ai.core.errors import (
@@ -30,6 +32,15 @@ from synth_ai.core.errors import (
     SynthFailure,
     TransientServiceError,
 )
+
+
+def _optional_int(value: object) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class ResearchApiError(SynthError, RuntimeError):
@@ -201,8 +212,10 @@ class ResearchProjectMonthlyBudgetExhaustedError(ResearchApiError):
         self.detail = dict(detail) if detail else {}
 
 
-class ResearchManagedInferenceUnavailableError(ResearchApiError):
-    """Raised when managed Nemotron (or similar) is unreachable at run materialization (HTTP 503)."""
+class ResearchInferenceProviderUnavailableError(ResearchApiError):
+    """Raised for a retryable, durable upstream inference-provider failure."""
+
+    error_code = "inference_provider_unavailable"
 
     def __init__(
         self,
@@ -212,8 +225,47 @@ class ResearchManagedInferenceUnavailableError(ResearchApiError):
         response_text: str | None = None,
         detail: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(message, status_code=status_code, response_text=response_text)
+        super().__init__(
+            message,
+            status_code=status_code,
+            response_text=response_text,
+            failure_class=self.error_code,
+            body=detail,
+        )
         self.detail = dict(detail) if detail else {}
+        route = self.detail.get("route")
+        self.route = dict(route) if isinstance(route, Mapping) else {}
+        self.provider = (
+            str(self.detail.get("provider") or self.route.get("provider") or "").strip()
+            or None
+        )
+        self.model = (
+            str(self.detail.get("model") or self.route.get("model") or "").strip()
+            or None
+        )
+        self._provider_retryable = bool(self.detail.get("retryable", True))
+        self.upstream_status = _optional_int(self.detail.get("upstream_status"))
+        self._provider_retry_after_seconds = _optional_int(
+            self.detail.get("retry_after_seconds")
+        )
+
+    @property
+    def retryable(self) -> bool:
+        """Whether the durable provider fact says a fresh attempt may succeed."""
+
+        return self._provider_retryable
+
+    @property
+    def retry_after_seconds(self) -> int | None:
+        """Provider retry delay when the durable fact supplies one."""
+
+        return self._provider_retry_after_seconds
+
+
+class ResearchManagedInferenceUnavailableError(
+    ResearchInferenceProviderUnavailableError
+):
+    """Compatibility name for managed-inference provider unavailability."""
 
 
 class ResearchCheckpointQuotaExceededError(ResearchApiError):
@@ -404,6 +456,7 @@ SmrFundingLaneInvariantError = ResearchFundingLaneInvariantError
 SmrHostedModelOverridesError = ResearchHostedModelOverridesError
 SmrInsufficientCreditsError = ResearchInsufficientCreditsError
 SmrLimitExceededError = ResearchLimitExceededError
+SmrInferenceProviderUnavailableError = ResearchInferenceProviderUnavailableError
 SmrManagedInferenceUnavailableError = ResearchManagedInferenceUnavailableError
 SmrProjectMonthlyBudgetExhaustedError = ResearchProjectMonthlyBudgetExhaustedError
 SmrStructuredDenialError = ResearchStructuredDenialError
@@ -428,6 +481,7 @@ __all__ = [
     "ResearchFundingLaneInvariantError",
     "ResearchHostedModelOverridesError",
     "ResearchInsufficientCreditsError",
+    "ResearchInferenceProviderUnavailableError",
     "ResearchLimitExceededError",
     "ResearchManagedInferenceUnavailableError",
     "ResearchOperationError",
@@ -441,6 +495,7 @@ __all__ = [
     "SmrFundingLaneInvariantError",
     "SmrHostedModelOverridesError",
     "SmrInsufficientCreditsError",
+    "SmrInferenceProviderUnavailableError",
     "SmrLimitExceededError",
     "SmrManagedInferenceUnavailableError",
     "SmrProjectMonthlyBudgetExhaustedError",

@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 import pytest
 from synth_ai.core.research.errors import (
+    ResearchInferenceProviderUnavailableError,
     ResearchInsufficientCreditsError,
     SmrConcurrentRunLimitExceededError,
     SmrInsufficientCreditsError,
@@ -131,3 +132,36 @@ def test_concurrent_run_limit_429_mapping_unchanged() -> None:
         _raise_for_error_response(response)
     assert excinfo.value.status_code == 429
     assert excinfo.value.detail == detail
+
+
+def test_provider_unavailable_503_raises_typed_retryable_error() -> None:
+    detail = {
+        "error_code": "inference_provider_unavailable",
+        "message": "The provider is experiencing high demand.",
+        "provider": "modal",
+        "route": {"model": "kimi-k3", "provider": "modal"},
+        "upstream_status": 503,
+        "retryable": True,
+    }
+
+    with pytest.raises(ResearchInferenceProviderUnavailableError) as excinfo:
+        _raise_for_error_response(_response(503, detail))
+
+    exc = excinfo.value
+    assert exc.status_code == 503
+    assert exc.retryable is True
+    assert exc.provider == "modal"
+    assert exc.model == "kimi-k3"
+    assert exc.upstream_status == 503
+
+
+def test_legacy_managed_inference_unavailable_code_remains_compatible() -> None:
+    detail = {
+        "error_code": "smr_managed_inference_upstream_unavailable",
+        "message": "managed inference is temporarily unavailable",
+    }
+
+    with pytest.raises(ResearchInferenceProviderUnavailableError) as excinfo:
+        _raise_for_error_response(_response(503, detail))
+
+    assert excinfo.value.retryable is True
