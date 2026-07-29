@@ -4,27 +4,33 @@ from __future__ import annotations
 
 import importlib
 from importlib import metadata as _metadata
-from importlib.metadata import PackageNotFoundError
-from pathlib import Path
-from typing import Any
+# Aliased to underscore names so they do not land in the package namespace:
+# `synth_ai.Path` / `synth_ai.Any` are import artifacts, not public API, and
+# anything reachable from `import synth_ai` but absent from __all__ reads as
+# surface a customer may rely on.
+from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+from pathlib import Path as _Path
+from typing import Any as _Any
 
 try:
-    from synth_ai.core.utils.log_filter import install_log_filter
+    from synth_ai.core.utils.log_filter import (
+        install_log_filter as _install_log_filter,
+    )
 
-    install_log_filter()
+    _install_log_filter()
 except Exception:
     pass
 
 try:
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:
+except _PackageNotFoundError:
     try:
         import tomllib as _toml
     except ModuleNotFoundError:  # pragma: no cover
         import tomli as _toml  # type: ignore[no-redef]  # ty: ignore[unresolved-import]
 
     try:
-        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        pyproject_path = _Path(__file__).resolve().parents[1] / "pyproject.toml"
         with pyproject_path.open("rb") as fh:
             _pyproject = _toml.load(fh)
         __version__ = str(_pyproject["project"]["version"])
@@ -303,7 +309,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> _Any:
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -34,7 +34,7 @@ def _coerce_backend_override(value: str) -> str | None:
     lowered = raw.lower()
     if lowered in {"local", "localhost"}:
         return (os.getenv("LOCAL_BACKEND_URL") or "http://localhost:8000").strip()
-    if lowered in {"dev", "development", "staging", "railway"}:
+    if lowered in {"dev", "development", "staging"}:
         return (
             os.getenv("DEV_SYNTH_BACKEND_URL")
             or os.getenv("DEV_BACKEND_URL")
@@ -59,12 +59,15 @@ def _resolve_backend_url_override() -> str | None:
 
 
 def _current_env() -> str:
+    # Deliberately generic. Host-provider environment variables used to be read
+    # here, which put Synth's own deployment platform into a package customers
+    # install -- names they would never set and cannot act on. Services running
+    # on such a platform set ENVIRONMENT explicitly; the backend does its own
+    # provider detection in config.py.
     explicit = (
         (
             os.getenv("ENVIRONMENT")
             or os.getenv("APP_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT_NAME")
             or os.getenv("ENV")
             or ""
         )
