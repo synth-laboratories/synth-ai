@@ -50972,9 +50972,6 @@ components:
         display_name:
           type: string
           title: Display Name
-        display_group:
-          type: string
-          title: Display Group
         public:
           type: boolean
           title: Public
@@ -51082,7 +51079,6 @@ components:
       required:
       - id
       - display_name
-      - display_group
       - public
       - provider
       - provider_model_id

@@ -14,6 +14,9 @@ class SmrAgentModel(StrEnum):
     GPT_5_3_CODEX_SPARK = "gpt-5.3-codex-spark"
     GPT_5_5 = "gpt-5.5"
     GPT_5_6_LUNA = "gpt-5.6-luna"
+    GPT_5_6_SOL = "gpt-5.6-sol"
+    GPT_5_6_TERRA = "gpt-5.6-terra"
+    CURSOR_GROK_4_5 = "cursor/grok-4.5"
     GPT_5_4 = "gpt-5.4"
     GPT_5_4_MINI = "gpt-5.4-mini"
     NEMOTRON_SUPER = "nemotron-super"
@@ -35,9 +38,6 @@ class SmrAgentModel(StrEnum):
     DEEPSEEK_DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
     POOLSIDE_LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
     SYNTH_INTERNAL_LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
-    GPT_5_6_SOL = "gpt-5.6-sol"
-    GPT_5_6_TERRA = "gpt-5.6-terra"
-    CURSOR_GROK_4_5 = "cursor/grok-4.5"
 
 
 SMR_AGENT_MODEL_VALUES: tuple[str, ...] = tuple(model.value for model in SmrAgentModel)
