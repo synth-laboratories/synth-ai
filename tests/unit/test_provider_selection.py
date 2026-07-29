@@ -16,7 +16,8 @@ from synth_ai.core.research.public import (
 
 def test_release_models_expose_exact_laguna_and_modal_k3_routes() -> None:
     assert ActorModel.LAGUNA_S_2_1_NVFP4.value == "synth_internal/laguna-s-2.1-nvfp4"
-    assert ActorModel.KIMI_K3_MODAL.value == "modal/moonshotai/Kimi-K3"
+    assert ActorModel.KIMI_K3.value == "modal/moonshotai/Kimi-K3"
+    assert ActorModel.KIMI_K3_BASETEN.value == "baseten/moonshotai/Kimi-K3"
     assert (
         SwarmSpec(objective="k3", provider=InferenceProvider.MODAL).to_wire()["provider"] == "modal"
     )
