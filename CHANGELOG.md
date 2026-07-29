@@ -4,6 +4,44 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.4 — 2026-07-29
+
+### Changed
+
+- **The public model catalog is now eight models**: `gpt-5.6-luna`,
+  `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-mini`, `cursor/grok-4.5`,
+  `cursor/composer-2.5`, `modal/moonshotai/Kimi-K3`, and
+  `synth_internal/laguna-s-2.1-nvfp4`. `gpt-5.3-codex`, `gpt-5.3-codex-spark`,
+  `gpt-5.4`, `gpt-5.5`, `x-ai/grok-4.3`, `x-ai/grok-build`, and
+  `moonshotai/kimi-k2.6` are no longer listed publicly. They remain in the
+  supported catalog and stay usable; only their public listing changes.
+- **`ActorModel.KIMI_K3` now routes to Modal**, not Baseten. `ActorModel` is
+  split into `ActiveActorModel` (first-class shared selection) and
+  `DeprecatedActorModel` (legacy actor-specific overrides), with `ActorModel`
+  kept as a wire-compatible union of both. The Baseten route is still
+  reachable as `KIMI_K3_BASETEN`. Callers pinned to `ActorModel.KIMI_K3` change
+  inference provider without changing code — check that before upgrading.
+- **`display_group` is gone from the agent-model catalog response** and from the
+  vendored public-model snapshot. It was internal catalog taxonomy that no
+  backend, SDK, or frontend code read. The unrelated `display_group` on project
+  resource files is unaffected.
+- `SYNTH_BACKEND_URL_OVERRIDE=railway` is no longer accepted as an alias for the
+  dev backend, and environment detection no longer reads hosting-provider
+  variables. Use `dev`, `development`, or `staging`, and set `ENVIRONMENT`
+  explicitly where a platform used to be inferred.
+
+### Added
+
+- `SYNTH_INTERNAL` on `CredentialProvider` and `InferenceProvider`, so the
+  `synth_internal` route the Laguna model already used can be named. `swarms.py`
+  shipped a `synth_internal/...` model with no matching provider value.
+
+### Fixed
+
+- `Any`, `Path`, `PackageNotFoundError`, and `install_log_filter` no longer leak
+  into the `synth_ai` namespace. They were reachable as `synth_ai.Path` and
+  friends while absent from `__all__`.
+
 ## 0.17.3 — 2026-07-29
 
 ### Added
