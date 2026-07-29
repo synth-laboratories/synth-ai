@@ -78,6 +78,7 @@ class ActorModel(StrEnum):
     GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3 = "baseten/moonshotai/Kimi-K3"
+    KIMI_K3_MODAL = "modal/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
     MODAL_GLM_5_2_FP8 = "modal/zai-org/GLM-5.2-FP8"
 

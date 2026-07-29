@@ -144,9 +144,10 @@ class MagiDecisionRequest(_StrictContract):
 
     @model_validator(mode="after")
     def require_seraph_verdict(self) -> MagiDecisionRequest:
-        if self.decision_kind is MagiDecisionKind.VERDICT:
-            if self.mode is not MagiMode.SERAPH or not self.verdict:
-                raise ValueError("verdict decisions require Seraph mode and verdict")
+        if self.decision_kind is MagiDecisionKind.VERDICT and (
+            self.mode is not MagiMode.SERAPH or not self.verdict
+        ):
+            raise ValueError("verdict decisions require Seraph mode and verdict")
         return self
 
 
@@ -195,9 +196,7 @@ class ProjectComputerProvisionRequest(_StrictContract):
     @model_validator(mode="after")
     def validate_snapshot_binding(self) -> ProjectComputerProvisionRequest:
         if (self.snapshot_digest is None) != (self.workspace_snapshot is None):
-            raise ValueError(
-                "snapshot_digest and workspace_snapshot must be supplied together"
-            )
+            raise ValueError("snapshot_digest and workspace_snapshot must be supplied together")
         if self.workspace_snapshot is not None and (
             self.snapshot_digest != self.workspace_snapshot.manifest.manifest_digest
             or self.source_revision != self.workspace_snapshot.commit_sha
@@ -312,10 +311,7 @@ class ProjectComputerCleanupReceiptResponse(_StrictContract):
             for computer in (*self.pre_inventory, *self.post_inventory)
         ):
             raise ValueError("cleanup inventory crossed its Factory boundary")
-        if any(
-            receipt.factory_id != self.factory_id
-            for receipt in self.retirement_receipts
-        ):
+        if any(receipt.factory_id != self.factory_id for receipt in self.retirement_receipts):
             raise ValueError("retirement receipt crossed its Factory boundary")
         return self
 

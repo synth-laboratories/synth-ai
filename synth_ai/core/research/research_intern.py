@@ -10,24 +10,6 @@ from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
 from synth_ai.core.research.contracts._wire import array_value
 from synth_ai.core.research.contracts.common import FactoryId, ProjectId
-from synth_ai.core.research.contracts.research_intern import (
-    DataBindingCreateRequest,
-    DataBindingResponse,
-    DatasetRevisionCreateRequest,
-    DatasetRevisionLifecycleRequest,
-    DatasetRevisionResponse,
-    MagiDecisionReceiptResponse,
-    MagiDecisionRequest,
-    ProjectComputerCleanupReceiptResponse,
-    ProjectComputerCleanupRequest,
-    ProjectComputerProvisionRequest,
-    ProjectComputerReplaceRequest,
-    ProjectComputerResponse,
-    ResearchInternFactoryMembershipResponse,
-    ResearchInternPatchRequest,
-    ResearchInternProvisionRequest,
-    ResearchInternResponse,
-)
 from synth_ai.core.research.contracts.dataset_revisions import (
     DatasetRevisionFinalizeRequest,
     DatasetRevisionFinalizeResponse,
@@ -48,6 +30,24 @@ from synth_ai.core.research.contracts.project_runtime import (
     ProjectComputerOperationReconcileRequest,
     ProjectRuntimeOperation,
     ProjectRuntimeOperationReceipt,
+)
+from synth_ai.core.research.contracts.research_intern import (
+    DataBindingCreateRequest,
+    DataBindingResponse,
+    DatasetRevisionCreateRequest,
+    DatasetRevisionLifecycleRequest,
+    DatasetRevisionResponse,
+    MagiDecisionReceiptResponse,
+    MagiDecisionRequest,
+    ProjectComputerCleanupReceiptResponse,
+    ProjectComputerCleanupRequest,
+    ProjectComputerProvisionRequest,
+    ProjectComputerReplaceRequest,
+    ProjectComputerResponse,
+    ResearchInternFactoryMembershipResponse,
+    ResearchInternPatchRequest,
+    ResearchInternProvisionRequest,
+    ResearchInternResponse,
 )
 from synth_ai.core.research.operations import (
     dataset_revision_publication_operation,
@@ -297,9 +297,7 @@ class ResearchInternAPI:
     def retrieve(self) -> ResearchInternResponse:
         """Retrieve the authenticated organization's Research Intern."""
         return ResearchInternResponse.from_wire(
-            self._transport.execute(
-                _request("get_research_intern", "/smr/research-intern")
-            )
+            self._transport.execute(_request("get_research_intern", "/smr/research-intern"))
         )
 
     def update(self, request: ResearchInternPatchRequest) -> ResearchInternResponse:
@@ -336,10 +334,7 @@ class ProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != request.factory_id
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != request.factory_id:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -358,10 +353,7 @@ class ProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != str(factory_id)
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != str(factory_id):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -380,10 +372,7 @@ class ProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != request.factory_id
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != request.factory_id:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -402,10 +391,7 @@ class ProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != str(factory_id)
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != str(factory_id):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -556,10 +542,7 @@ class ProjectComputerAPI:
             self._transport.execute(
                 _request(
                     "cleanup_factory_project_computers",
-                    (
-                        "/smr/research-intern/factories/"
-                        f"{factory_id}/project-computers/cleanup"
-                    ),
+                    (f"/smr/research-intern/factories/{factory_id}/project-computers/cleanup"),
                     body=cast(JsonObject, request.to_wire()),
                 )
             )
@@ -593,10 +576,7 @@ class ProjectDataBindingsAPI:
                 )
             )
         )
-        if (
-            binding.project_id != str(project_id)
-            or binding.factory_id != request.factory_id
-        ):
+        if binding.project_id != str(project_id) or binding.factory_id != request.factory_id:
             raise ValueError("Data Binding response crossed its requested boundary")
         return binding
 
@@ -625,10 +605,7 @@ class ProjectDataBindingsAPI:
             self._transport.execute(
                 _request(
                     "create_dataset_revision",
-                    (
-                        f"/smr/projects/{project_id}/data-bindings/"
-                        f"{data_binding_id}/revisions"
-                    ),
+                    (f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
                     body=cast(JsonObject, request.to_wire()),
                 )
             )
@@ -650,10 +627,7 @@ class ProjectDataBindingsAPI:
             self._transport.execute(
                 _request(
                     "list_dataset_revisions",
-                    (
-                        f"/smr/projects/{project_id}/data-bindings/"
-                        f"{data_binding_id}/revisions"
-                    ),
+                    (f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
                 )
             )
         )
@@ -908,9 +882,7 @@ class AsyncResearchInternAPI:
     async def retrieve(self) -> ResearchInternResponse:
         """Retrieve the authenticated organization's Research Intern."""
         return ResearchInternResponse.from_wire(
-            await self._transport.execute(
-                _request("get_research_intern", "/smr/research-intern")
-            )
+            await self._transport.execute(_request("get_research_intern", "/smr/research-intern"))
         )
 
     async def update(
@@ -950,10 +922,7 @@ class AsyncProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != request.factory_id
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != request.factory_id:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -972,10 +941,7 @@ class AsyncProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != str(factory_id)
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != str(factory_id):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -994,10 +960,7 @@ class AsyncProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != request.factory_id
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != request.factory_id:
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -1016,10 +979,7 @@ class AsyncProjectComputerAPI:
                 )
             )
         )
-        if (
-            computer.project_id != str(project_id)
-            or computer.factory_id != str(factory_id)
-        ):
+        if computer.project_id != str(project_id) or computer.factory_id != str(factory_id):
             raise ValueError("Project Computer response crossed its requested boundary")
         return computer
 
@@ -1170,10 +1130,7 @@ class AsyncProjectComputerAPI:
             await self._transport.execute(
                 _request(
                     "cleanup_factory_project_computers",
-                    (
-                        "/smr/research-intern/factories/"
-                        f"{factory_id}/project-computers/cleanup"
-                    ),
+                    (f"/smr/research-intern/factories/{factory_id}/project-computers/cleanup"),
                     body=cast(JsonObject, request.to_wire()),
                 )
             )
@@ -1207,10 +1164,7 @@ class AsyncProjectDataBindingsAPI:
                 )
             )
         )
-        if (
-            binding.project_id != str(project_id)
-            or binding.factory_id != request.factory_id
-        ):
+        if binding.project_id != str(project_id) or binding.factory_id != request.factory_id:
             raise ValueError("Data Binding response crossed its requested boundary")
         return binding
 
@@ -1242,10 +1196,7 @@ class AsyncProjectDataBindingsAPI:
             await self._transport.execute(
                 _request(
                     "create_dataset_revision",
-                    (
-                        f"/smr/projects/{project_id}/data-bindings/"
-                        f"{data_binding_id}/revisions"
-                    ),
+                    (f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
                     body=cast(JsonObject, request.to_wire()),
                 )
             )
@@ -1267,10 +1218,7 @@ class AsyncProjectDataBindingsAPI:
             await self._transport.execute(
                 _request(
                     "list_dataset_revisions",
-                    (
-                        f"/smr/projects/{project_id}/data-bindings/"
-                        f"{data_binding_id}/revisions"
-                    ),
+                    (f"/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
                 )
             )
         )

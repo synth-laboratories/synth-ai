@@ -73,8 +73,7 @@ class DatasetRevisionLineage(_FrozenContract):
     @model_validator(mode="after")
     def validate_unique_sources(self) -> DatasetRevisionLineage:
         identities = [
-            (source.kind, source.authority_id, source.authority_version)
-            for source in self.sources
+            (source.kind, source.authority_id, source.authority_version) for source in self.sources
         ]
         if len(identities) != len(set(identities)):
             raise ValueError("DatasetRevision source identities must be unique")
@@ -104,9 +103,7 @@ class DatasetRevisionContent(_FrozenContract):
 
 
 class DatasetRevisionDraft(_FrozenContract):
-    schema_version: Literal["synth.dataset-revision-draft.v1"] = (
-        "synth.dataset-revision-draft.v1"
-    )
+    schema_version: Literal["synth.dataset-revision-draft.v1"] = "synth.dataset-revision-draft.v1"
     state: Literal[DatasetRevisionState.BUILDING] = DatasetRevisionState.BUILDING
     dataset_revision_id: UUID
     revision_number: int = Field(ge=1)
@@ -147,9 +144,7 @@ class DatasetRevisionManifestReceipt(_FrozenContract):
     schema_version: Literal["synth.dataset-revision-manifest-receipt.v1"] = (
         "synth.dataset-revision-manifest-receipt.v1"
     )
-    authority: Literal["factory_immutable_object_store"] = (
-        "factory_immutable_object_store"
-    )
+    authority: Literal["factory_immutable_object_store"] = "factory_immutable_object_store"
     receipt_id: UUID
     authority_generation: int = Field(ge=1)
     org_id: str = Field(min_length=1, max_length=255)
@@ -182,8 +177,7 @@ class DatasetRevisionCreateRequest(_FrozenContract):
             or (receipt.org_id, receipt.factory_id, receipt.project_id)
             != (draft.org_id, draft.factory_id, draft.project_id)
             or receipt.object_count != len(draft.contents)
-            or receipt.total_size_bytes
-            != sum(content.size_bytes for content in draft.contents)
+            or receipt.total_size_bytes != sum(content.size_bytes for content in draft.contents)
         ):
             raise ValueError("manifest receipt does not join the DatasetRevision draft")
         return self
@@ -213,9 +207,7 @@ class SealedDatasetRevision(_FrozenContract):
 
     _content_digest = field_validator("content_digest")(validate_sha256_digest)
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
-    _storage_receipt_digest = field_validator("storage_receipt_digest")(
-        validate_sha256_digest
-    )
+    _storage_receipt_digest = field_validator("storage_receipt_digest")(validate_sha256_digest)
     _revision_digest = field_validator("revision_digest")(validate_sha256_digest)
 
 
@@ -238,9 +230,7 @@ class DatasetRevisionVerificationReceipt(_FrozenContract):
 
     _content_digest = field_validator("content_digest")(validate_sha256_digest)
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
-    _storage_receipt_digest = field_validator("storage_receipt_digest")(
-        validate_sha256_digest
-    )
+    _storage_receipt_digest = field_validator("storage_receipt_digest")(validate_sha256_digest)
     _revision_digest = field_validator("revision_digest")(validate_sha256_digest)
 
 
@@ -288,9 +278,7 @@ class DatasetRevisionResponse(_FrozenContract):
 
     _content_digest = field_validator("content_digest")(validate_sha256_digest)
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
-    _storage_receipt_digest = field_validator("storage_receipt_digest")(
-        validate_sha256_digest
-    )
+    _storage_receipt_digest = field_validator("storage_receipt_digest")(validate_sha256_digest)
     _revision_digest = field_validator("revision_digest")(validate_sha256_digest)
 
     @model_validator(mode="after")

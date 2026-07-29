@@ -8,7 +8,6 @@ from typing import Annotated, Literal
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
 
-
 Identifier = Annotated[
     str,
     Field(
@@ -170,16 +169,14 @@ class DeliveryReceipt(_DeliveryContract):
             or self.decision_id != delivery.decision_id
             or self.actor_id != delivery.actor_id
             or binding.session_id != delivery.delivery_id
-            or binding.repository_registration_id
-            != delivery.repository_registration_id
+            or binding.repository_registration_id != delivery.repository_registration_id
             or binding.delivery_actor_id != delivery.actor_id
         ):
             raise ValueError("Delivery authority identities drifted")
         if not binding.draft or binding.state is not PullRequestState.OPEN:
             raise ValueError("public Delivery must remain an open draft PR")
         revisions = {
-            revision.delivery_revision_id: revision
-            for revision in self.delivery_revisions
+            revision.delivery_revision_id: revision for revision in self.delivery_revisions
         }
         if len(revisions) != len(self.delivery_revisions):
             raise ValueError("Delivery receipt contains duplicate revision IDs")
@@ -189,8 +186,7 @@ class DeliveryReceipt(_DeliveryContract):
         ):
             raise ValueError("Delivery revision crossed its PR binding")
         if any(
-            revision.action
-            in {DeliveryAction.READY, DeliveryAction.MERGED, DeliveryAction.CLOSED}
+            revision.action in {DeliveryAction.READY, DeliveryAction.MERGED, DeliveryAction.CLOSED}
             for revision in self.delivery_revisions
         ):
             raise ValueError("SDK cannot accept ready/merge/close evidence")

@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_lenses import (
     FactoryBestResults,
     FactoryEvaluationLens,
@@ -15,7 +16,6 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
-from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_operations import (
     Effort,
     EffortStatus,

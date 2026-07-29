@@ -379,9 +379,7 @@ class WorkspaceChangesEvidence:
             push_count=int(mapping.get("push_count") or 0),
             measured_push_count=int(mapping.get("measured_push_count") or 0),
             unavailable_reason=_optional_text(mapping.get("unavailable_reason")),
-            commit_shas=_string_tuple(
-                mapping.get("commit_shas") or (), field_name="commit_shas"
-            ),
+            commit_shas=_string_tuple(mapping.get("commit_shas") or (), field_name="commit_shas"),
             changed_file_count=number("changed_file_count"),
             binary_file_count=number("binary_file_count"),
             insertions=number("insertions"),
@@ -390,9 +388,7 @@ class WorkspaceChangesEvidence:
             bytes_removed=number("bytes_removed"),
             bytes_changed=number("bytes_changed"),
             changed_files=(
-                None
-                if raw_files is None
-                else _string_tuple(raw_files, field_name="changed_files")
+                None if raw_files is None else _string_tuple(raw_files, field_name="changed_files")
             ),
             truncated=(
                 None if mapping.get("truncated") is None else bool(mapping.get("truncated"))
@@ -463,9 +459,7 @@ class SmrRunOperatorEvidence:
             reportbench_witness=ReportBenchWitnessEvidence.from_wire(
                 mapping.get("reportbench_witness")
             ),
-            workspace_changes=WorkspaceChangesEvidence.from_wire(
-                mapping.get("workspace_changes")
-            ),
+            workspace_changes=WorkspaceChangesEvidence.from_wire(mapping.get("workspace_changes")),
             reconciliation_report=_mapping(
                 mapping.get("reconciliation_report") or {},
                 field_name="reconciliation_report",

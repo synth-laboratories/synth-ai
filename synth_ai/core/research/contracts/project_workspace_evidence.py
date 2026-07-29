@@ -42,9 +42,7 @@ class FactoryProjectMembershipReceiptRef(_FrozenContract):
     generation: int = Field(ge=1)
     authority_receipt_digest: str
 
-    _authority_receipt_digest = field_validator("authority_receipt_digest")(
-        validate_sha256_digest
-    )
+    _authority_receipt_digest = field_validator("authority_receipt_digest")(validate_sha256_digest)
 
 
 class ProjectInternalGitReceipt(_FrozenContract):
@@ -219,9 +217,7 @@ class WorkspacePushConfirmationReceipt(_FrozenContract):
     schema_version: Literal["synth.workspace-push-confirmation-receipt.v1"] = (
         "synth.workspace-push-confirmation-receipt.v1"
     )
-    authority: Literal["project_workspace_control_plane"] = (
-        "project_workspace_control_plane"
-    )
+    authority: Literal["project_workspace_control_plane"] = "project_workspace_control_plane"
     receipt_id: str = Field(min_length=1, max_length=255)
     org_id: str = Field(min_length=1, max_length=255)
     factory_id: str = Field(min_length=1, max_length=255)
@@ -240,13 +236,9 @@ class WorkspacePushConfirmationReceipt(_FrozenContract):
     receipt_digest: str
 
     _commit_sha = field_validator("commit_sha")(validate_git_sha)
-    _verified_internal_head_sha = field_validator("verified_internal_head_sha")(
-        validate_git_sha
-    )
+    _verified_internal_head_sha = field_validator("verified_internal_head_sha")(validate_git_sha)
     _archive_digest = field_validator("archive_digest")(validate_sha256_digest)
-    _snapshot_manifest_digest = field_validator("snapshot_manifest_digest")(
-        validate_sha256_digest
-    )
+    _snapshot_manifest_digest = field_validator("snapshot_manifest_digest")(validate_sha256_digest)
     _receipt_digest = field_validator("receipt_digest")(validate_sha256_digest)
 
     @model_validator(mode="after")

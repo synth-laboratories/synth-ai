@@ -147,9 +147,7 @@ class FactoryBudgetPolicy:
             value = getattr(self, name)
             if value is not None and value < 0:
                 raise ValueError(f"{name} must be non-negative")
-        if self.period is not None and not isinstance(
-            self.period, FactoryBudgetPeriod
-        ):
+        if self.period is not None and not isinstance(self.period, FactoryBudgetPeriod):
             object.__setattr__(self, "period", FactoryBudgetPeriod(self.period))
         if self.tinker_sft_runs_per_window is not None and self.tinker_sft_runs_per_window < 0:
             raise ValueError("tinker_sft_runs_per_window must be non-negative")
@@ -222,9 +220,7 @@ def _bounded_recurrence_seconds(
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field_name} must be an integer")
     if value < minimum or value > maximum:
-        raise ValueError(
-            f"{field_name} must be between {minimum} and {maximum} seconds"
-        )
+        raise ValueError(f"{field_name} must be between {minimum} and {maximum} seconds")
     return value
 
 
@@ -259,13 +255,10 @@ class EffortMaintenanceRecurrencePolicy:
     def __post_init__(self) -> None:
         if self.enabled is not None and not isinstance(self.enabled, bool):
             raise ValueError("maintenance enabled must be a boolean")
-        if (
-            self.every_n_research_runs is not None
-            and (
-                isinstance(self.every_n_research_runs, bool)
-                or not isinstance(self.every_n_research_runs, int)
-                or self.every_n_research_runs < 1
-            )
+        if self.every_n_research_runs is not None and (
+            isinstance(self.every_n_research_runs, bool)
+            or not isinstance(self.every_n_research_runs, int)
+            or self.every_n_research_runs < 1
         ):
             raise ValueError("every_n_research_runs must be a positive integer")
         if self.launch is not None and not isinstance(self.launch, SwarmSpec):
@@ -277,13 +270,9 @@ class EffortMaintenanceRecurrencePolicy:
             ).lower()
             for index, steward in enumerate(self.required_stewards)
         )
-        invalid_stewards = sorted(
-            set(normalized_stewards).difference({"gardener", "adjudicator"})
-        )
+        invalid_stewards = sorted(set(normalized_stewards).difference({"gardener", "adjudicator"}))
         if invalid_stewards:
-            raise ValueError(
-                "required_stewards must contain only gardener or adjudicator"
-            )
+            raise ValueError("required_stewards must contain only gardener or adjudicator")
         object.__setattr__(self, "required_stewards", normalized_stewards)
 
     def to_wire(self) -> JsonObject:
@@ -397,14 +386,10 @@ class EffortRecurrence:
             raise ValueError("max_active_swarms must be positive")
         if not isinstance(self.enabled, bool):
             raise ValueError("enabled must be a boolean")
-        if self.on_run_complete is not None and not isinstance(
-            self.on_run_complete, bool
-        ):
+        if self.on_run_complete is not None and not isinstance(self.on_run_complete, bool):
             raise ValueError("on_run_complete must be a boolean")
         if self.trigger == "on_run_complete" and self.on_run_complete is False:
-            raise ValueError(
-                "on_run_complete cannot be false when trigger is on_run_complete"
-            )
+            raise ValueError("on_run_complete cannot be false when trigger is on_run_complete")
         if self.on_run_complete is True and self.trigger not in {
             None,
             "on_run_complete",
@@ -417,9 +402,7 @@ class EffortRecurrence:
                     field_name=f"event_triggers[{index}]",
                 )
             elif not isinstance(event_trigger, dict):
-                raise ValueError(
-                    f"event_triggers[{index}] must be a string or JSON object"
-                )
+                raise ValueError(f"event_triggers[{index}] must be a string or JSON object")
         object.__setattr__(
             self,
             "cooldown_seconds",
@@ -476,9 +459,7 @@ class EffortRecurrence:
                 or not isinstance(self.failure_backoff_multiplier, (int, float))
                 or not 1.0 <= float(self.failure_backoff_multiplier) <= 16.0
             ):
-                raise ValueError(
-                    "failure_backoff_multiplier must be between 1 and 16"
-                )
+                raise ValueError("failure_backoff_multiplier must be between 1 and 16")
             object.__setattr__(
                 self,
                 "failure_backoff_multiplier",
@@ -490,16 +471,12 @@ class EffortRecurrence:
             self.research,
             EffortResearchRecurrencePolicy,
         ):
-            raise ValueError(
-                "research must be EffortResearchRecurrencePolicy"
-            )
+            raise ValueError("research must be EffortResearchRecurrencePolicy")
         if self.maintenance is not None and not isinstance(
             self.maintenance,
             EffortMaintenanceRecurrencePolicy,
         ):
-            raise ValueError(
-                "maintenance must be EffortMaintenanceRecurrencePolicy"
-            )
+            raise ValueError("maintenance must be EffortMaintenanceRecurrencePolicy")
 
     @property
     def max_active_runs(self) -> int | None:
@@ -520,8 +497,7 @@ class EffortRecurrence:
             value["on_run_complete"] = self.on_run_complete
         if self.event_triggers:
             value["event_triggers"] = [
-                dict(item) if isinstance(item, dict) else item
-                for item in self.event_triggers
+                dict(item) if isinstance(item, dict) else item for item in self.event_triggers
             ]
         if self.event_scope is not None:
             value["event_scope"] = self.event_scope
@@ -538,9 +514,7 @@ class EffortRecurrence:
             if self.failure_backoff_seconds is not None:
                 failure_policy["backoff_seconds"] = self.failure_backoff_seconds
             if self.failure_backoff_max_seconds is not None:
-                failure_policy["max_backoff_seconds"] = (
-                    self.failure_backoff_max_seconds
-                )
+                failure_policy["max_backoff_seconds"] = self.failure_backoff_max_seconds
             if self.failure_backoff_multiplier is not None:
                 failure_policy["multiplier"] = self.failure_backoff_multiplier
             value["failure_policy"] = failure_policy

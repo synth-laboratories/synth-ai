@@ -33,6 +33,7 @@ from synth_ai.core.research.contracts.swarms import (
     SwarmPreflight,
     SwarmSpec,
 )
+from synth_ai.core.research.contracts.traces import TraceQueryResult
 from synth_ai.core.research.contracts.transcript import (
     SwarmTranscriptPage,
     TranscriptView,
@@ -40,7 +41,6 @@ from synth_ai.core.research.contracts.transcript import (
 from synth_ai.core.research.contracts.usage import SwarmUsage
 from synth_ai.core.research.events import SwarmEvent, decode_swarm_event
 from synth_ai.core.research.operations import research_operation
-from synth_ai.core.research.contracts.traces import TraceQueryResult
 from synth_ai.core.research.traces import (
     AsyncFactoryTraceStoreAPI,
     FactoryTraceStoreAPI,

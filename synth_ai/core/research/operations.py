@@ -175,10 +175,7 @@ RESEARCH_OPERATIONS = {
         _operation(
             "cleanup_factory_project_computers",
             HttpMethod.POST,
-            (
-                "/smr/research-intern/factories/"
-                "{factory_id}/project-computers/cleanup"
-            ),
+            ("/smr/research-intern/factories/{factory_id}/project-computers/cleanup"),
             mutation=True,
             idempotent=True,
         ),
@@ -197,19 +194,13 @@ RESEARCH_OPERATIONS = {
         _operation(
             "create_dataset_revision",
             HttpMethod.POST,
-            (
-                "/smr/projects/{project_id}/data-bindings/"
-                "{data_binding_id}/revisions"
-            ),
+            ("/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
             mutation=True,
         ),
         _operation(
             "list_dataset_revisions",
             HttpMethod.GET,
-            (
-                "/smr/projects/{project_id}/data-bindings/"
-                "{data_binding_id}/revisions"
-            ),
+            ("/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
             idempotent=True,
         ),
         _operation(

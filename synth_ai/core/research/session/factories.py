@@ -7,6 +7,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from datetime import datetime
 from typing import Any, List, cast
 
+from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_lenses import (
     FactoryBestResults,
     FactoryEvaluationLens,
@@ -16,7 +17,6 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
-from synth_ai.core.research.contracts.factories import EffortRecurrence
 from synth_ai.core.research.contracts.factory_operations import (
     AuthorizationPolicy,
     Effort,
@@ -91,11 +91,7 @@ def _effort_recurrence_payload(
     *,
     recurrence: EffortRecurrence | None,
     recurrence_policy: (
-        EffortRecurrence
-        | RecurrencePolicy
-        | Mapping[str, Any]
-        | dict[str, Any]
-        | None
+        EffortRecurrence | RecurrencePolicy | Mapping[str, Any] | dict[str, Any] | None
     ),
 ) -> dict[str, Any]:
     if recurrence is not None and recurrence_policy is not None:
@@ -805,11 +801,7 @@ class FactoriesAPI(_ClientNamespace):
         status: EffortStatus | str = EffortStatus.ACTIVE,
         recurrence: EffortRecurrence | None = None,
         recurrence_policy: (
-            EffortRecurrence
-            | RecurrencePolicy
-            | Mapping[str, Any]
-            | dict[str, Any]
-            | None
+            EffortRecurrence | RecurrencePolicy | Mapping[str, Any] | dict[str, Any] | None
         ) = None,
         next_wake_at: datetime | str | None = None,
         latest_run_id: str | None = None,
@@ -1112,9 +1104,7 @@ class EffortsAPI(_ClientNamespace):
         effort_id: str,
         *,
         next_wake_at: datetime | str,
-        recurrence_policy: (
-            EffortRecurrence | Mapping[str, Any] | dict[str, Any] | None
-        ) = None,
+        recurrence_policy: (EffortRecurrence | Mapping[str, Any] | dict[str, Any] | None) = None,
         launch_request: Mapping[str, Any] | dict[str, Any] | None = None,
     ) -> Effort:
         policy: dict[str, Any] = {}

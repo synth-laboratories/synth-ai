@@ -153,7 +153,10 @@ class ProjectRuntimeOperationReceipt(_StrictContract):
             raise ValueError("failed/unsupported outcomes require exactly one failure")
         if not failed and self.output_digest is None:
             raise ValueError("successful outcomes require output_digest")
-        if self.execution_evidence is not None and self.operation is not ProjectRuntimeOperation.EXECUTE:
+        if (
+            self.execution_evidence is not None
+            and self.operation is not ProjectRuntimeOperation.EXECUTE
+        ):
             raise ValueError("execution_evidence is only valid for execute")
         return self
 
@@ -177,9 +180,7 @@ class ProjectComputerExecuteRequest(ProjectComputerInspectRequest):
     timeout_seconds: float = Field(default=120.0, gt=0, le=900)
     max_output_bytes: int = Field(default=256 * 1024, ge=1, le=1024 * 1024)
 
-    _fencing_token_digest = field_validator("fencing_token_digest")(
-        validate_sha256_digest
-    )
+    _fencing_token_digest = field_validator("fencing_token_digest")(validate_sha256_digest)
 
 
 class ProjectComputerOperationReconcileRequest(_StrictContract):
@@ -201,9 +202,7 @@ class ProjectComputerLeaseRenewRequest(_StrictContract):
     fencing_token_digest: str
     duration_seconds: int = Field(default=900, ge=30, le=3600)
 
-    _fencing_token_digest = field_validator("fencing_token_digest")(
-        validate_sha256_digest
-    )
+    _fencing_token_digest = field_validator("fencing_token_digest")(validate_sha256_digest)
 
 
 class ProjectComputerLeaseReleaseRequest(_StrictContract):
@@ -211,9 +210,7 @@ class ProjectComputerLeaseReleaseRequest(_StrictContract):
     expected_generation: int = Field(ge=1)
     fencing_token_digest: str
 
-    _fencing_token_digest = field_validator("fencing_token_digest")(
-        validate_sha256_digest
-    )
+    _fencing_token_digest = field_validator("fencing_token_digest")(validate_sha256_digest)
 
 
 class ProjectComputerLeaseResponse(_StrictContract):
@@ -227,9 +224,7 @@ class ProjectComputerLeaseResponse(_StrictContract):
     state: Literal["active", "released"]
     expires_at: datetime | None
 
-    _fencing_token_digest = field_validator("fencing_token_digest")(
-        validate_sha256_digest
-    )
+    _fencing_token_digest = field_validator("fencing_token_digest")(validate_sha256_digest)
 
 
 class FactoryStorageAuthorityRole(StrEnum):
@@ -310,9 +305,7 @@ class FactoryStorageAuthorityResponse(_StrictContract):
     descriptor_digest: str
     lifecycle_receipt: TraceStoreLifecycleReceipt
 
-    _descriptor_digest_validator = field_validator("descriptor_digest")(
-        validate_sha256_digest
-    )
+    _descriptor_digest_validator = field_validator("descriptor_digest")(validate_sha256_digest)
 
     @model_validator(mode="after")
     def validate_lifecycle_join(self) -> FactoryStorageAuthorityResponse:
@@ -325,10 +318,8 @@ class FactoryStorageAuthorityResponse(_StrictContract):
             or receipt.org_id != descriptor.org_id
             or receipt.factory_id != descriptor.factory_id
             or receipt.generation != descriptor.generation
-            or receipt.details.get("storage_authority_descriptor_id")
-            != descriptor.descriptor_id
-            or receipt.details.get("storage_authority_descriptor_digest")
-            != self.descriptor_digest
+            or receipt.details.get("storage_authority_descriptor_id") != descriptor.descriptor_id
+            or receipt.details.get("storage_authority_descriptor_digest") != self.descriptor_digest
         ):
             raise ValueError("Factory storage descriptor does not join its owner receipt")
         return self

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from synth_ai.core.research.public import (
+    ActorModel,
     CredentialProvider,
     InferenceProvider,
     ProviderBinding,
@@ -12,6 +13,11 @@ from synth_ai.core.research.public import (
     SwarmSpec,
     ToolProvider,
 )
+
+
+def test_release_models_expose_exact_laguna_and_modal_k3_routes() -> None:
+    assert ActorModel.LAGUNA_S_2_1_NVFP4.value == "synth_internal/laguna-s-2.1-nvfp4"
+    assert ActorModel.KIMI_K3_MODAL.value == "modal/moonshotai/Kimi-K3"
 
 
 def test_swarm_provider_selection_serializes_auto_pin_and_ordered_allowlist() -> None:

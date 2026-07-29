@@ -4,6 +4,26 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.3 — 2026-07-29
+
+### Added
+
+- Typed model contracts for Laguna S 2.1 NVFP4 and Kimi K3, including the
+  Modal Shared API K3 route used by the release acceptance run.
+- Typed recurring Factory budgets, recurrence, Result authority selection,
+  live-acceptance consumers, Visual publication and account-library reads,
+  and Factory adjudicator and cleanup receipts.
+- `ResearchFacade.files`, exposing the existing typed Files API from the
+  stable `SynthClient().research` surface.
+
+### Fixed
+
+- Multipart requests now let their body codec supply the correct content type.
+- Bound runtime attestations accept the declared provider set.
+- Trace capture and local bundle validation are no longer packaged as a
+  `synth-ai` extra. Those implementation surfaces remain owned by
+  `synth-containers`; this SDK retains typed backend transfer/read contracts.
+
 ## 0.17.3.dev1 — 2026-07-26
 
 Prerelease development line following `0.17.2`.

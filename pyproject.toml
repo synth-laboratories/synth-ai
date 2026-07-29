@@ -1,6 +1,6 @@
 [project]
 name = "synth-ai"
-version = "0.17.3.dev1"
+version = "0.17.3"
 description = "Python-only SDK for Synth containers, tunnels, pools, and Research"
 authors = [{name = "Synth AI", email = "josh@usesynth.ai"}]
 license = "MIT"
@@ -46,10 +46,6 @@ analytics = [
 ]
 research = [
     # Compatibility extra retained so `synth-ai[research]` remains valid.
-]
-traces = [
-    # Canonical bundle validation and exact materialization.
-    "synth-containers @ git+https://github.com/synth-laboratories/containers.git@0456dc5ea4900e54714acc26867345d84a07b9ff",
 ]
 
 [project.urls]

@@ -51,9 +51,7 @@ def _content_payload(
     if offset < 0:
         raise ValueError("offset must be a non-negative integer")
     if max_bytes < 1 or max_bytes > _MCP_BINARY_CHUNK_BYTES_MAX:
-        raise ValueError(
-            f"max_bytes must be between 1 and {_MCP_BINARY_CHUNK_BYTES_MAX}"
-        )
+        raise ValueError(f"max_bytes must be between 1 and {_MCP_BINARY_CHUNK_BYTES_MAX}")
     chunk = content[offset : offset + max_bytes]
     next_offset = offset + len(chunk)
     payload: JSONDict = {
