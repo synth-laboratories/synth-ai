@@ -22,6 +22,7 @@ from synth_ai.core.research.errors import (
     SmrCheckpointQuotaExceededError,
     SmrConcurrentRunLimitExceededError,
     SmrFundingLaneInvariantError,
+    SmrInferenceProviderUnavailableError,
     SmrInsufficientCreditsError,
     SmrLimitExceededError,
     SmrManagedInferenceUnavailableError,
@@ -182,7 +183,17 @@ def _raise_for_error_response(
                         response_text=response_text,
                         detail=detail,
                     )
-                if stripped == "smr_managed_inference_unavailable":
+                if stripped == "inference_provider_unavailable":
+                    raise SmrInferenceProviderUnavailableError(
+                        message,
+                        status_code=status_code,
+                        response_text=response_text,
+                        detail=detail,
+                    )
+                if stripped in {
+                    "smr_managed_inference_unavailable",
+                    "smr_managed_inference_upstream_unavailable",
+                }:
                     raise SmrManagedInferenceUnavailableError(
                         message,
                         status_code=status_code,
