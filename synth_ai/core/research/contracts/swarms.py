@@ -146,6 +146,7 @@ class CredentialProvider(StrEnum):
     OPENROUTER = "openrouter"
     XAI = "xai"
     TINKER = "tinker"
+    SYNTH_INTERNAL = "synth_internal"
 
 
 class InferenceProvider(StrEnum):
@@ -159,6 +160,7 @@ class InferenceProvider(StrEnum):
     OPENROUTER = "openrouter"
     SYNTH = "synth"
     XAI = "xai"
+    SYNTH_INTERNAL = "synth_internal"
 
 
 class ToolProvider(StrEnum):
