@@ -236,18 +236,12 @@ class ResearchInferenceProviderUnavailableError(ResearchApiError):
         route = self.detail.get("route")
         self.route = dict(route) if isinstance(route, Mapping) else {}
         self.provider = (
-            str(self.detail.get("provider") or self.route.get("provider") or "").strip()
-            or None
+            str(self.detail.get("provider") or self.route.get("provider") or "").strip() or None
         )
-        self.model = (
-            str(self.detail.get("model") or self.route.get("model") or "").strip()
-            or None
-        )
+        self.model = str(self.detail.get("model") or self.route.get("model") or "").strip() or None
         self._provider_retryable = bool(self.detail.get("retryable", True))
         self.upstream_status = _optional_int(self.detail.get("upstream_status"))
-        self._provider_retry_after_seconds = _optional_int(
-            self.detail.get("retry_after_seconds")
-        )
+        self._provider_retry_after_seconds = _optional_int(self.detail.get("retry_after_seconds"))
 
     @property
     def retryable(self) -> bool:
@@ -262,9 +256,7 @@ class ResearchInferenceProviderUnavailableError(ResearchApiError):
         return self._provider_retry_after_seconds
 
 
-class ResearchManagedInferenceUnavailableError(
-    ResearchInferenceProviderUnavailableError
-):
+class ResearchManagedInferenceUnavailableError(ResearchInferenceProviderUnavailableError):
     """Compatibility name for managed-inference provider unavailability."""
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from importlib import metadata as _metadata
+
 # Aliased to underscore names so they do not land in the package namespace:
 # `synth_ai.Path` / `synth_ai.Any` are import artifacts, not public API, and
 # anything reachable from `import synth_ai` but absent from __all__ reads as

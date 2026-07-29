@@ -65,12 +65,7 @@ def _current_env() -> str:
     # on such a platform set ENVIRONMENT explicitly; the backend does its own
     # provider detection in config.py.
     explicit = (
-        (
-            os.getenv("ENVIRONMENT")
-            or os.getenv("APP_ENVIRONMENT")
-            or os.getenv("ENV")
-            or ""
-        )
+        (os.getenv("ENVIRONMENT") or os.getenv("APP_ENVIRONMENT") or os.getenv("ENV") or "")
         .strip()
         .lower()
     )

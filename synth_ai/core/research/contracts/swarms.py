@@ -126,7 +126,9 @@ class ActorModel(StrEnum):
     MODAL_GLM_5_2_FP8 = DeprecatedActorModel.MODAL_GLM_5_2_FP8.value
 
 
-def coerce_actor_model(value: ActorModel | ActiveActorModel | DeprecatedActorModel | str) -> ActorModel:
+def coerce_actor_model(
+    value: ActorModel | ActiveActorModel | DeprecatedActorModel | str,
+) -> ActorModel:
     if isinstance(value, ActorModel):
         return value
     if isinstance(value, (ActiveActorModel, DeprecatedActorModel)):
