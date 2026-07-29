@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         ResearchAdvancedAPI,
         ResearchSession,
     )
+    from synth_ai.core.research.session.files import FilesAPI
 
 
 class Client:
@@ -125,6 +126,19 @@ class Client:
     def image_releases(self) -> ImageReleasesAPI:
         """Immutable customer image-release receipts and actor runtime images."""
         return self._core.image_releases
+
+    @property
+    def files(self) -> FilesAPI:
+        """Run and project file APIs, including trace-bundle run outputs.
+
+        `FilesAPI` has always existed on the session; it was simply never
+        surfaced here, so `client.research.files` raised `AttributeError: files`
+        while `session.files` worked. Callers reaching for run outputs — the
+        `trace_v5_bundle` collection a `trace_mode = "required"` eval performs
+        after a run completes — hit that gap only once the run had already
+        succeeded, turning a passing benchmark into a reported failure.
+        """
+        return self._open_session().files
 
     @property
     def projects(self) -> ResearchProjectsAPI:
