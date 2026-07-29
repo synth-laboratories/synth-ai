@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
-
 from synth_ai.core.research.public import (
+    ActorModel,
     CredentialProvider,
     InferenceProvider,
     ProviderBinding,
@@ -14,13 +14,22 @@ from synth_ai.core.research.public import (
 )
 
 
+def test_release_models_expose_exact_laguna_and_modal_k3_routes() -> None:
+    assert ActorModel.LAGUNA_S_2_1_NVFP4.value == "synth_internal/laguna-s-2.1-nvfp4"
+    assert ActorModel.KIMI_K3_MODAL.value == "modal/moonshotai/Kimi-K3"
+    assert (
+        SwarmSpec(objective="k3", provider=InferenceProvider.MODAL).to_wire()["provider"] == "modal"
+    )
+
+
 def test_swarm_provider_selection_serializes_auto_pin_and_ordered_allowlist() -> None:
-    assert SwarmSpec(objective="auto", provider=InferenceProvider.AUTO).to_wire()[
-        "provider"
-    ] == "auto"
-    assert SwarmSpec(objective="pin", provider=InferenceProvider.SYNTH).to_wire()[
-        "provider"
-    ] == "synth"
+    assert (
+        SwarmSpec(objective="auto", provider=InferenceProvider.AUTO).to_wire()["provider"] == "auto"
+    )
+    assert (
+        SwarmSpec(objective="pin", provider=InferenceProvider.SYNTH).to_wire()["provider"]
+        == "synth"
+    )
     assert SwarmSpec(
         objective="allowlist",
         provider=[InferenceProvider.SYNTH, "openai"],
@@ -96,6 +105,12 @@ def test_tinker_cannot_be_selected_for_new_launches() -> None:
 
 
 def test_legacy_launch_models_match_provider_contract_and_tinker_ban() -> None:
+    from synth_ai.core.research.contracts.run_launch import (
+        RunLaunchRequest as LegacyRunLaunchRequest,
+    )
+    from synth_ai.core.research.contracts.run_state import (
+        ManagedResearchRun,
+    )
     from synth_ai.core.research.contracts.smr_credential_providers import (
         SmrCredentialProvider,
     )
@@ -103,17 +118,17 @@ def test_legacy_launch_models_match_provider_contract_and_tinker_ban() -> None:
         SmrInferenceProvider,
         coerce_smr_inference_provider,
     )
-    from synth_ai.core.research.contracts.run_state import (
-        ManagedResearchRun,
-    )
     from synth_ai.core.research.contracts.smr_providers import (
         ResourceProvider as LegacyResourceProvider,
-        ResourceProviderBinding as LegacyResourceProviderBinding,
-        ResourceRoutingPolicy as LegacyResourceRoutingPolicy,
-        default_provider_policy,
     )
-    from synth_ai.core.research.contracts.run_launch import (
-        RunLaunchRequest as LegacyRunLaunchRequest,
+    from synth_ai.core.research.contracts.smr_providers import (
+        ResourceProviderBinding as LegacyResourceProviderBinding,
+    )
+    from synth_ai.core.research.contracts.smr_providers import (
+        ResourceRoutingPolicy as LegacyResourceRoutingPolicy,
+    )
+    from synth_ai.core.research.contracts.smr_providers import (
+        default_provider_policy,
     )
     from synth_ai.core.research.contracts.smr_run_policy import (
         SmrRunPolicy,

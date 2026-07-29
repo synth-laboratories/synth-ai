@@ -110,8 +110,7 @@ class ProjectDeliveriesAPI:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError(
-                    f"Delivery {delivery_id} did not terminalize within "
-                    f"{timeout_seconds:g}s"
+                    f"Delivery {delivery_id} did not terminalize within {timeout_seconds:g}s"
                 )
             time.sleep(min(poll_interval_seconds, remaining))
 
@@ -186,8 +185,7 @@ class AsyncProjectDeliveriesAPI:
             remaining = deadline - loop.time()
             if remaining <= 0:
                 raise TimeoutError(
-                    f"Delivery {delivery_id} did not terminalize within "
-                    f"{timeout_seconds:g}s"
+                    f"Delivery {delivery_id} did not terminalize within {timeout_seconds:g}s"
                 )
             await asyncio.sleep(min(poll_interval_seconds, remaining))
 

@@ -201,9 +201,7 @@ class TraceBundlePublication(_TraceContract):
     committed_at: datetime | None = None
 
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
-    _receipt_digest = field_validator("receipt_digest")(
-        validate_optional_sha256_digest
-    )
+    _receipt_digest = field_validator("receipt_digest")(validate_optional_sha256_digest)
 
 
 class TracePromotionReceipt(_TraceContract):
@@ -225,13 +223,9 @@ class TracePromotionReceipt(_TraceContract):
     receipt_uri: str
 
     _manifest_digest = field_validator("manifest_digest")(validate_sha256_digest)
-    _object_digests = field_validator("object_digests")(
-        validate_sha256_digest_list
-    )
+    _object_digests = field_validator("object_digests")(validate_sha256_digest_list)
     _trace_digests = field_validator("trace_digests")(validate_sha256_digest_list)
-    _evidence_digests = field_validator("evidence_digests")(
-        validate_sha256_digest_list
-    )
+    _evidence_digests = field_validator("evidence_digests")(validate_sha256_digest_list)
     _receipt_digest = field_validator("receipt_digest")(validate_sha256_digest)
 
     @model_validator(mode="after")
@@ -239,9 +233,7 @@ class TracePromotionReceipt(_TraceContract):
         if self.experiment_id is None and self.experiment_revision is None:
             return self
         if self.experiment_id is None or self.experiment_revision is None:
-            raise ValueError(
-                "experiment_id and experiment_revision must be supplied together"
-            )
+            raise ValueError("experiment_id and experiment_revision must be supplied together")
         if self.experiment_revision.experiment_id != self.experiment_id:
             raise ValueError("experiment_revision does not cite the receipt experiment")
         if self.experiment_revision.experiment_run_id is None:

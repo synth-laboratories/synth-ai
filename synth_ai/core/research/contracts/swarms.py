@@ -78,6 +78,7 @@ class ActorModel(StrEnum):
     GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
     KIMI_K3 = "baseten/moonshotai/Kimi-K3"
+    KIMI_K3_MODAL = "modal/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
     MODAL_GLM_5_2_FP8 = "modal/zai-org/GLM-5.2-FP8"
 
@@ -152,6 +153,7 @@ class InferenceProvider(StrEnum):
     BASETEN = "baseten"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
+    MODAL = "modal"
     OPENAI = "openai"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
@@ -174,6 +176,7 @@ class KickoffMessageMode(StrEnum):
 _PUBLIC_PROVIDER_SELECTIONS = frozenset(
     {
         InferenceProvider.AUTO.value,
+        InferenceProvider.MODAL.value,
         InferenceProvider.OPENAI.value,
         InferenceProvider.SYNTH.value,
         InferenceProvider.XAI.value,
@@ -206,7 +209,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, openai, synth, xai, and cursor; "
+            "provider supports auto, modal, openai, synth, xai, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):

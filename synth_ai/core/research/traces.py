@@ -30,7 +30,6 @@ from synth_ai.core.research.contracts.traces import (
 )
 from synth_ai.core.research.operations import research_operation
 
-
 DEFAULT_TRACE_TRANSFER_TIMEOUT_SECONDS = 600.0
 
 
@@ -76,8 +75,8 @@ def _containers_bundle_api() -> tuple[Any, Any, Any]:
         canonical = importlib.import_module("synth_containers.tracing.canonical")
     except ImportError as error:
         raise RuntimeError(
-            "Local Trace V5 bundle transfer requires the optional "
-            "'synth-ai[traces]' dependency"
+            "Local Trace V5 bundle transfer is owned by synth-containers; "
+            "install a compatible synth-containers release explicitly"
         ) from error
     return (
         interchange.load_bundle_manifest,
@@ -254,11 +253,7 @@ class FactoryTraceStoreAPI:
                 "prepare_factory_trace_bundle",
                 f"{self._base}/trace-bundles:prepare-upload",
                 body=request.to_wire(),
-                headers={
-                    "Idempotency-Key": (
-                        f"trace-bundle-prepare:{request.manifest_digest}"
-                    )
-                },
+                headers={"Idempotency-Key": (f"trace-bundle-prepare:{request.manifest_digest}")},
             )
         )
         return TraceBundlePublication.from_wire(value)
@@ -269,9 +264,7 @@ class FactoryTraceStoreAPI:
                 "finalize_factory_trace_bundle",
                 f"{self._base}/trace-bundles:finalize",
                 body={"publication_id": publication_id},
-                headers={
-                    "Idempotency-Key": f"trace-bundle-finalize:{publication_id}"
-                },
+                headers={"Idempotency-Key": f"trace-bundle-finalize:{publication_id}"},
             )
         )
         return TracePromotionReceipt.from_wire(value)
@@ -325,8 +318,7 @@ class FactoryTraceStoreAPI:
                         upload_error = error
                 else:
                     raise RuntimeError(
-                        "Trace V5 immutable object upload outcome is uncertain "
-                        f"for {upload.digest}"
+                        f"Trace V5 immutable object upload outcome is uncertain for {upload.digest}"
                     ) from upload_error
                 if response.status_code not in {409, 412}:
                     response.raise_for_status()
@@ -429,40 +421,40 @@ class FactoryTraceStoreAPI:
         if manifest.content_digest != descriptor.manifest_digest:
             raise ValueError("downloaded Trace V5 manifest digest differs from publication")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with httpx.Client(
-            timeout=transfer_timeout,
-            follow_redirects=True,
-        ) as client:
-            with tempfile.TemporaryDirectory(
+        with (
+            httpx.Client(
+                timeout=transfer_timeout,
+                follow_redirects=True,
+            ) as client,
+            tempfile.TemporaryDirectory(
                 prefix=f".{destination.name}.",
                 dir=destination.parent,
-            ) as staging_name:
-                staging = Path(staging_name)
-                _write_exact(staging / "manifest.json", manifest_bytes)
-                for item in descriptor.objects:
-                    output = _safe_target(staging, item.path)
-                    output.parent.mkdir(parents=True, exist_ok=True)
-                    digest = hashlib.sha256()
-                    size_bytes = 0
-                    with client.stream("GET", item.download_url) as response:
-                        response.raise_for_status()
-                        with output.open("xb") as sink:
-                            for chunk in response.iter_bytes():
-                                digest.update(chunk)
-                                size_bytes += len(chunk)
-                                sink.write(chunk)
-                    actual = f"sha256:{digest.hexdigest()}"
-                    if actual != item.digest or size_bytes != item.size_bytes:
-                        raise ValueError(
-                            f"Trace V5 object {item.path!r} failed streamed integrity check"
-                        )
-                bundle = local_bundle_type(staging)
-                ok, errors = bundle.verify_self_contained()
-                if not ok:
+            ) as staging_name,
+        ):
+            staging = Path(staging_name)
+            _write_exact(staging / "manifest.json", manifest_bytes)
+            for item in descriptor.objects:
+                output = _safe_target(staging, item.path)
+                output.parent.mkdir(parents=True, exist_ok=True)
+                digest = hashlib.sha256()
+                size_bytes = 0
+                with client.stream("GET", item.download_url) as response:
+                    response.raise_for_status()
+                    with output.open("xb") as sink:
+                        for chunk in response.iter_bytes():
+                            digest.update(chunk)
+                            size_bytes += len(chunk)
+                            sink.write(chunk)
+                actual = f"sha256:{digest.hexdigest()}"
+                if actual != item.digest or size_bytes != item.size_bytes:
                     raise ValueError(
-                        f"downloaded Trace V5 bundle failed verification: {errors!r}"
+                        f"Trace V5 object {item.path!r} failed streamed integrity check"
                     )
-                os.replace(staging, destination)
+            bundle = local_bundle_type(staging)
+            ok, errors = bundle.verify_self_contained()
+            if not ok:
+                raise ValueError(f"downloaded Trace V5 bundle failed verification: {errors!r}")
+            os.replace(staging, destination)
         return destination
 
 
@@ -541,11 +533,7 @@ class AsyncFactoryTraceStoreAPI:
                 "prepare_factory_trace_bundle",
                 f"{self._base}/trace-bundles:prepare-upload",
                 body=request.to_wire(),
-                headers={
-                    "Idempotency-Key": (
-                        f"trace-bundle-prepare:{request.manifest_digest}"
-                    )
-                },
+                headers={"Idempotency-Key": (f"trace-bundle-prepare:{request.manifest_digest}")},
             )
         )
         return TraceBundlePublication.from_wire(value)
@@ -556,9 +544,7 @@ class AsyncFactoryTraceStoreAPI:
                 "finalize_factory_trace_bundle",
                 f"{self._base}/trace-bundles:finalize",
                 body={"publication_id": publication_id},
-                headers={
-                    "Idempotency-Key": f"trace-bundle-finalize:{publication_id}"
-                },
+                headers={"Idempotency-Key": f"trace-bundle-finalize:{publication_id}"},
             )
         )
         return TracePromotionReceipt.from_wire(value)
@@ -611,8 +597,7 @@ class AsyncFactoryTraceStoreAPI:
                         upload_error = error
                 else:
                     raise RuntimeError(
-                        "Trace V5 immutable object upload outcome is uncertain "
-                        f"for {upload.digest}"
+                        f"Trace V5 immutable object upload outcome is uncertain for {upload.digest}"
                     ) from upload_error
                 if response.status_code not in {409, 412}:
                     response.raise_for_status()
@@ -745,9 +730,7 @@ class AsyncFactoryTraceStoreAPI:
                 bundle = local_bundle_type(staging)
                 ok, errors = bundle.verify_self_contained()
                 if not ok:
-                    raise ValueError(
-                        f"downloaded Trace V5 bundle failed verification: {errors!r}"
-                    )
+                    raise ValueError(f"downloaded Trace V5 bundle failed verification: {errors!r}")
                 os.replace(staging, destination)
         return destination
 

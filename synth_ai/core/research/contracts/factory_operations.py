@@ -394,9 +394,7 @@ class RecurrencePolicy:
             "trigger",
         }
         legacy_root = {
-            key: value
-            for key, value in normalized_metadata.items()
-            if key in strict_root_fields
+            key: value for key, value in normalized_metadata.items() if key in strict_root_fields
         }
         opaque_metadata = {
             key: value
@@ -704,9 +702,7 @@ class EffortPatchRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str | None = None
     effort_type: EffortType | str | None = None
-    recurrence_policy: (
-        EffortRecurrence | RecurrencePolicy | dict[str, Any] | None
-    ) = None
+    recurrence_policy: EffortRecurrence | RecurrencePolicy | dict[str, Any] | None = None
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -3107,6 +3103,7 @@ __all__ = [
     "factory_project_patch_payload",
     "factory_wake_due_payload",
 ]
+
 
 @dataclass(frozen=True)
 class FactoryCostsLimits:

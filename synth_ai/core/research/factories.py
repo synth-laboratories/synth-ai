@@ -37,11 +37,11 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
-from synth_ai.core.research.operations import research_operation
 from synth_ai.core.research.factory_storage import (
     AsyncFactoryStorageAPI,
     FactoryStorageAPI,
 )
+from synth_ai.core.research.operations import research_operation
 from synth_ai.core.research.traces import (
     AsyncFactoryTraceStoreAPI,
     FactoryTraceStoreAPI,

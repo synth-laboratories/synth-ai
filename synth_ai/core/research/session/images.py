@@ -90,6 +90,7 @@ class ActorImage:
 
     daytona_pullable: bool = False
 
+
 def _text(payload: Mapping[str, Any], key: str, *, label: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -241,10 +242,6 @@ def _normalized_source(source: Mapping[str, Any]) -> tuple[str, str]:
     return repository, commit_sha
 
 
-
-
-
-
 def _normalized_python_packages(values: Sequence[str]) -> list[str]:
     if len(values) > 32:
         raise ValueError("python_packages must list at most 32 exact-pinned packages")
@@ -381,6 +378,7 @@ class ImagesAPI(_ClientNamespace):
             platform=actual_platform,
             archive_sha256=archive_sha256,
         )
+
     def _put_archive(
         self,
         upload_url: str,

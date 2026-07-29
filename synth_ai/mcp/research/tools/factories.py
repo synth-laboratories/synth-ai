@@ -636,8 +636,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_record_adjudicator_brief",
             description=(
-                "Record an Adjudicator brief: priority, scope, escalation, or "
-                "decision guidance."
+                "Record an Adjudicator brief: priority, scope, escalation, or decision guidance."
             ),
             input_schema=tool_schema(
                 {

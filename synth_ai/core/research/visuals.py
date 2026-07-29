@@ -26,8 +26,8 @@ from synth_ai.core.research.contracts.visuals import (
     VisualPage,
     VisualPatch,
     VisualPromotion,
-    VisualVisibility,
     VisualVersions,
+    VisualVisibility,
 )
 from synth_ai.core.research.operations import research_operation
 
@@ -272,12 +272,12 @@ class VisualsAPI:
         return VisualPage.from_wire(value, operation_id="list_visuals")
 
     def retrieve(self, visual_id: ArtifactId) -> Visual:
-        value = self._transport.execute(
-            _request("retrieve_visual", f"/smr/visuals/{visual_id}")
-        )
+        """Retrieve a Visual by artifact identifier."""
+        value = self._transport.execute(_request("retrieve_visual", f"/smr/visuals/{visual_id}"))
         return Visual.from_wire(value)
 
     def list_versions(self, visual_id: ArtifactId) -> VisualVersions:
+        """List the immutable versions recorded for a Visual."""
         value = self._transport.execute(
             _request(
                 "list_visual_versions",
@@ -287,6 +287,7 @@ class VisualsAPI:
         return VisualVersions.from_wire(value)
 
     def update(self, visual_id: ArtifactId, request: VisualPatch) -> Visual:
+        """Update the mutable metadata for a Visual."""
         value = self._transport.execute(
             _request(
                 "update_visual",
@@ -297,11 +298,11 @@ class VisualsAPI:
         return Visual.from_wire(value)
 
     def delete(self, visual_id: ArtifactId) -> None:
-        self._transport.execute(
-            _request("delete_visual", f"/smr/visuals/{visual_id}")
-        )
+        """Soft-delete a Visual."""
+        self._transport.execute(_request("delete_visual", f"/smr/visuals/{visual_id}"))
 
     def restore(self, visual_id: ArtifactId) -> Visual:
+        """Restore a soft-deleted Visual."""
         value = self._transport.execute(
             _request("restore_visual", f"/smr/visuals/{visual_id}/restore")
         )
@@ -319,12 +320,14 @@ class VisualsAPI:
         return Visual.from_wire(value)
 
     def unpublish(self, visual_id: ArtifactId) -> Visual:
+        """Remove a Visual from its published surface."""
         value = self._transport.execute(
             _request("unpublish_visual", f"/smr/visuals/{visual_id}/unpublish")
         )
         return Visual.from_wire(value)
 
     def retrieve_content(self, visual_id: ArtifactId) -> bytes:
+        """Download the HTML content for a Visual."""
         operation_id = "retrieve_visual_content"
         return self._transport.request_bytes(
             "GET",
@@ -333,6 +336,7 @@ class VisualsAPI:
         )
 
     def retrieve_preview(self, visual_id: ArtifactId) -> bytes:
+        """Download the preview image for a Visual."""
         return self._transport.request_bytes(
             "GET",
             f"/smr/visuals/{visual_id}/preview",
@@ -340,6 +344,7 @@ class VisualsAPI:
         )
 
     def retrieve_public(self, slug: str) -> Visual:
+        """Retrieve public metadata for a Visual by slug."""
         normalized_slug = _slug(slug)
         value = self._transport.execute(
             _request(
@@ -353,6 +358,7 @@ class VisualsAPI:
         return visual
 
     def retrieve_public_content(self, slug: str) -> bytes:
+        """Download public Visual HTML by slug."""
         normalized_slug = _slug(slug)
         return self._transport.request_bytes(
             "GET",
@@ -361,6 +367,7 @@ class VisualsAPI:
         )
 
     def retrieve_public_preview(self, slug: str) -> bytes:
+        """Download a public Visual preview by slug."""
         normalized_slug = _slug(slug)
         return self._transport.request_bytes(
             "GET",
@@ -388,6 +395,7 @@ class AsyncVisualsAPI:
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
     ) -> Visual:
+        """Publish run-owned HTML as a Visual asynchronously."""
         data, files = _upload_parts(
             title=title,
             summary=summary,
@@ -419,6 +427,7 @@ class AsyncVisualsAPI:
         root_artifact_id: ArtifactId | None = None,
         preview_png: bytes | Path | None = None,
     ) -> Visual:
+        """Publish a project-owned Visual asynchronously."""
         data, files = _upload_parts(
             title=title,
             summary=summary,
@@ -451,6 +460,7 @@ class AsyncVisualsAPI:
         cursor: str | None = None,
         limit: int = 100,
     ) -> VisualPage:
+        """List one cursor-paginated page of project Visuals asynchronously."""
         value = await self._transport.execute(
             _request(
                 "list_project_visuals",
@@ -502,13 +512,13 @@ class AsyncVisualsAPI:
         return VisualPage.from_wire(value, operation_id="list_visuals")
 
     async def retrieve(self, visual_id: ArtifactId) -> Visual:
+        """Retrieve a Visual by artifact identifier asynchronously."""
         return Visual.from_wire(
-            await self._transport.execute(
-                _request("retrieve_visual", f"/smr/visuals/{visual_id}")
-            )
+            await self._transport.execute(_request("retrieve_visual", f"/smr/visuals/{visual_id}"))
         )
 
     async def list_versions(self, visual_id: ArtifactId) -> VisualVersions:
+        """List the immutable versions recorded for a Visual asynchronously."""
         return VisualVersions.from_wire(
             await self._transport.execute(
                 _request(
@@ -519,6 +529,7 @@ class AsyncVisualsAPI:
         )
 
     async def update(self, visual_id: ArtifactId, request: VisualPatch) -> Visual:
+        """Update the mutable metadata for a Visual asynchronously."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request(
@@ -530,11 +541,11 @@ class AsyncVisualsAPI:
         )
 
     async def delete(self, visual_id: ArtifactId) -> None:
-        await self._transport.execute(
-            _request("delete_visual", f"/smr/visuals/{visual_id}")
-        )
+        """Soft-delete a Visual asynchronously."""
+        await self._transport.execute(_request("delete_visual", f"/smr/visuals/{visual_id}"))
 
     async def restore(self, visual_id: ArtifactId) -> Visual:
+        """Restore a soft-deleted Visual asynchronously."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request("restore_visual", f"/smr/visuals/{visual_id}/restore")
@@ -546,6 +557,7 @@ class AsyncVisualsAPI:
         visual_id: ArtifactId,
         request: VisualPromotion,
     ) -> Visual:
+        """Promote a Visual through ADMIN/OWNER authority asynchronously."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request(
@@ -557,6 +569,7 @@ class AsyncVisualsAPI:
         )
 
     async def unpublish(self, visual_id: ArtifactId) -> Visual:
+        """Remove a Visual from its published surface asynchronously."""
         return Visual.from_wire(
             await self._transport.execute(
                 _request("unpublish_visual", f"/smr/visuals/{visual_id}/unpublish")
@@ -564,6 +577,7 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_content(self, visual_id: ArtifactId) -> bytes:
+        """Download the HTML content for a Visual asynchronously."""
         return await self._transport.request_bytes(
             "GET",
             f"/smr/visuals/{visual_id}/content",
@@ -571,6 +585,7 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_preview(self, visual_id: ArtifactId) -> bytes:
+        """Download the preview image for a Visual asynchronously."""
         return await self._transport.request_bytes(
             "GET",
             f"/smr/visuals/{visual_id}/preview",
@@ -578,6 +593,7 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_public(self, slug: str) -> Visual:
+        """Retrieve public metadata for a Visual by slug asynchronously."""
         normalized_slug = _slug(slug)
         visual = Visual.from_wire(
             await self._transport.execute(
@@ -592,6 +608,7 @@ class AsyncVisualsAPI:
         return visual
 
     async def retrieve_public_content(self, slug: str) -> bytes:
+        """Download public Visual HTML by slug asynchronously."""
         normalized_slug = _slug(slug)
         return await self._transport.request_bytes(
             "GET",
@@ -600,6 +617,7 @@ class AsyncVisualsAPI:
         )
 
     async def retrieve_public_preview(self, slug: str) -> bytes:
+        """Download a public Visual preview by slug asynchronously."""
         normalized_slug = _slug(slug)
         return await self._transport.request_bytes(
             "GET",
