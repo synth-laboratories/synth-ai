@@ -18,6 +18,8 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Fixed
 
+- Swarm provider selection now admits the typed `modal` provider used by the
+  Kimi K3 release route.
 - Multipart requests now let their body codec supply the correct content type.
 - Bound runtime attestations accept the declared provider set.
 - Trace capture and local bundle validation are no longer packaged as a
