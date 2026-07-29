@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build-distributions:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,7 +37,7 @@ jobs:
           path: dist/*
 
   release:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     needs: [build-distributions]
     steps:
       - uses: actions/download-artifact@v4
