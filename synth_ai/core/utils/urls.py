@@ -75,7 +75,12 @@ def _current_env() -> str:
         return "prod"
     if os.getenv("DEV_SYNTH_BACKEND_URL") or os.getenv("DEV_BACKEND_URL"):
         return "dev"
-    return "dev"
+    # Unconfigured means production. `SynthClient()` with no base_url is the
+    # pip-install path: someone set SYNTH_API_KEY and called it, and resolving
+    # that to localhost fails against a machine running no backend. Local
+    # development is the case that says so -- via base_url, ENVIRONMENT,
+    # SYNTH_BACKEND_URL_OVERRIDE, or the DEV_*/LOCAL_* variables.
+    return "prod"
 
 
 def _is_prod_environment(value: str) -> bool:

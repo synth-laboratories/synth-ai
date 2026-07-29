@@ -8,6 +8,19 @@ All notable changes to the `synth-ai` package are documented here.
 
 ### Changed
 
+- **An unconfigured client resolves to production again.** `SynthClient()` with
+  no `base_url` and no backend environment variables had been resolving to
+  `http://localhost:8000` since 2026-02-13, so the pip-install path failed
+  against a port nobody was serving. The documented default is production, and
+  local development is the case that says so — via `base_url`, `ENVIRONMENT`,
+  `SYNTH_BACKEND_URL_OVERRIDE`, or the `DEV_*`/`LOCAL_*` variables, all
+  unchanged. If you relied on the bare default reaching localhost, set
+  `SYNTH_BACKEND_URL_OVERRIDE=local` or `ENVIRONMENT=dev`.
+- `synth_ai.core.research._internal.urls` no longer resolves separately. It
+  hardcoded `https://api.usesynth.ai` and read only `SYNTH_BACKEND_URL`, so it
+  ignored `SYNTH_BACKEND_URL_OVERRIDE`, `ENVIRONMENT`, and the dev chain —
+  anything reaching `core.research.auth` could target a different backend than
+  the rest of the SDK. It now delegates to `core.utils.urls`.
 - **The public model catalog is now eight models**: `gpt-5.6-luna`,
   `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-mini`, `cursor/grok-4.5`,
   `cursor/composer-2.5`, `modal/moonshotai/Kimi-K3`, and
