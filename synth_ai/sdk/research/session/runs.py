@@ -313,10 +313,7 @@ class RunHandle:
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
                     failure = contract.diagnostics.failure_classification
-                    if (
-                        failure is not None
-                        and failure.code == "inference_provider_unavailable"
-                    ):
+                    if failure is not None and failure.code == "inference_provider_unavailable":
                         message = str(failure.detail or "").strip() or (
                             f"run {self.run_id} ended because its inference provider "
                             "was temporarily unavailable"

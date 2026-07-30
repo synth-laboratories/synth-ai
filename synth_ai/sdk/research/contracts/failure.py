@@ -37,7 +37,9 @@ class ActorFailureReason(StrEnum):
     OPENCODE_EVENT_STREAM_ENDPOINT_REFUSED = "opencode_event_stream_endpoint_refused"
     OPENCODE_EVENT_STREAM_READ_TIMEOUT = "opencode_event_stream_read_timeout"
     OPENCODE_EVENT_STREAM_URL_ERROR = "opencode_event_stream_url_error"
-    OPENCODE_EVENT_STREAM_RECONNECT_GRACE_EXHAUSTED = "opencode_event_stream_reconnect_grace_exhausted"
+    OPENCODE_EVENT_STREAM_RECONNECT_GRACE_EXHAUSTED = (
+        "opencode_event_stream_reconnect_grace_exhausted"
+    )
     PARTICIPANT_SESSION_MISSING = "participant_session_missing"
     PARTICIPANT_SESSION_START_FAILED = "participant_session_start_failed"
     PARTICIPANT_LIVE_UNBOUND = "participant_live_unbound"
@@ -122,15 +124,21 @@ class ManagedResearchFailureClassification:
                 if isinstance(payload.get("scope"), str)
                 else None
             ),
-            operator_action=payload.get("operator_action") if isinstance(payload.get("operator_action"), str) else None,
+            operator_action=payload.get("operator_action")
+            if isinstance(payload.get("operator_action"), str)
+            else None,
             detail=payload.get("detail") if isinstance(payload.get("detail"), str) else None,
             actor_id=payload.get("actor_id") if isinstance(payload.get("actor_id"), str) else None,
-            actor_key=payload.get("actor_key") if isinstance(payload.get("actor_key"), str) else None,
+            actor_key=payload.get("actor_key")
+            if isinstance(payload.get("actor_key"), str)
+            else None,
             task_id=payload.get("task_id") if isinstance(payload.get("task_id"), str) else None,
             task_key=payload.get("task_key") if isinstance(payload.get("task_key"), str) else None,
-            recorded_at=payload.get("recorded_at") if isinstance(payload.get("recorded_at"), str) else None,
+            recorded_at=payload.get("recorded_at")
+            if isinstance(payload.get("recorded_at"), str)
+            else None,
             family_raw=family if parsed_family is ManagedResearchFailureFamily.UNKNOWN else None,
-            raw=dict(payload),
+            raw={str(key): value for key, value in payload.items()},
         )
 
     def to_wire(self) -> dict[str, Any]:
