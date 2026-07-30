@@ -1365,9 +1365,13 @@ class ResearchMcpServer:
             )
         limit_value = self._optional_float_arg(args, "limit_value")
         additional_value = self._optional_float_arg(args, "additional_value")
-        resolve_blockers = optional_bool(args, "resolve_blockers", default=True)
-        resume = optional_bool(args, "resume", default=True)
+        expected_revision = optional_int(args, "expected_revision")
+        if expected_revision is None or expected_revision < 1:
+            raise ValueError("expected_revision must be an integer greater than or equal to 1")
+        resolve_blockers = optional_bool(args, "resolve_blockers", default=False)
+        resume = optional_bool(args, "resume", default=False)
         kwargs = {
+            "expected_revision": expected_revision,
             "limit_value": limit_value,
             "additional_value": additional_value,
             "reason": optional_string(args, "reason"),

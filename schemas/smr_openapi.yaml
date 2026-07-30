@@ -15350,6 +15350,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      summary: Get Run Limit Evidence
+      description: Return allow-listed durable warning, enforcement, and extension
+        evidence.
+      operationId: list_run_limit_evidence
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -15381,7 +15426,7 @@ paths:
       tags:
       - smr
       summary: Extend Run Resource Limit
-      operationId: extend_run_resource_limit_smr_runs__run_id__resource_limit_extensions_post
+      operationId: extend_run_resource_limit
       parameters:
       - name: run_id
         in: path
@@ -15440,6 +15485,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/runs/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      summary: Get Project Run Limit Evidence
+      description: Return durable limit evidence constrained to one tenant project.
+      operationId: list_project_run_limit_evidence
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/projects/{project_id}/runs/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -15477,7 +15572,7 @@ paths:
       tags:
       - smr
       summary: Extend Project Run Resource Limit
-      operationId: extend_project_run_resource_limit_smr_projects__project_id__runs__run_id__resource_limit_extensions_post
+      operationId: extend_project_run_resource_limit
       parameters:
       - name: project_id
         in: path
@@ -24006,6 +24101,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/metered-inference/actors/{actor_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      summary: Metered Responses For Actor
+      operationId: metered_responses_for_actor_smr_runs__run_id__metered_inference_actors__actor_id__v1_responses_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Actor Smr Runs  Run Id  Metered
+                  Inference Actors  Actor Id  V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/runs/{run_id}/metered-inference/actors/{actor_id}/tasks/{task_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      summary: Metered Responses For Task Actor
+      operationId: metered_responses_for_task_actor_smr_runs__run_id__metered_inference_actors__actor_id__tasks__task_id__v1_responses_post
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Task Actor Smr Runs  Run Id  Metered
+                  Inference Actors  Actor Id  Tasks  Task Id  V1 Responses Post
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/runs/{run_id}/metered-inference/actors/{actor_id}/v1/models:
     get:
       tags:
@@ -26275,6 +26458,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Run Limit Evidence
+      description: Return allow-listed durable warning, enforcement, and extension
+        evidence.
+      operationId: get_run_limit_evidence_get_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /smr/swarms/{run_id}/progress-toward-resource-limits:
     get:
       tags:
@@ -26362,6 +26591,57 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SmrResourceLimitsResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/projects/{project_id}/swarms/{run_id}/limit-evidence:
+    get:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Get Project Run Limit Evidence
+      description: Return durable limit evidence constrained to one tenant project.
+      operationId: get_project_run_limit_evidence_get_swarm_alias
+      parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Project Id
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 200
+          minimum: 1
+          default: 50
+          title: Limit
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cursor
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmrRunLimitEvidencePageResponse'
         '422':
           description: Validation Error
           content:
@@ -31572,6 +31852,94 @@ paths:
               schema:
                 title: Response Metered Chat Completions For Task Actor Post Swarm
                   Alias
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/metered-inference/actors/{actor_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Metered Responses For Actor
+      operationId: metered_responses_for_actor_post_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Actor Post Swarm Alias
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /smr/swarms/{run_id}/metered-inference/actors/{actor_id}/tasks/{task_id}/v1/responses:
+    post:
+      tags:
+      - smr
+      - swarm-alias
+      summary: Metered Responses For Task Actor
+      operationId: metered_responses_for_task_actor_post_swarm_alias
+      parameters:
+      - name: run_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Run Id
+      - name: actor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Actor Id
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Task Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Payload
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                title: Response Metered Responses For Task Actor Post Swarm Alias
         '422':
           description: Validation Error
           content:
@@ -41672,13 +42040,15 @@ components:
           $ref: '#/components/schemas/LimitDimension'
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         policy:
-          additionalProperties: true
-          type: object
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
           title: Policy
       type: object
       required:
@@ -46005,20 +46375,20 @@ components:
           title: Dimension
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         used_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           title: Used Amount
           default: 0
         remaining_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Remaining Amount
         fraction_used:
@@ -46029,6 +46399,25 @@ components:
         unit:
           type: string
           title: Unit
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        alert_at_fraction:
+          type: number
+          title: Alert At Fraction
+        enforce_at_fraction:
+          type: number
+          title: Enforce At Fraction
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         policy:
           additionalProperties: true
           type: object
@@ -46050,6 +46439,11 @@ components:
       - scope_id
       - dimension
       - unit
+      - cap_source
+      - alert_at_fraction
+      - enforce_at_fraction
+      - exhaustion_action
+      - notify_audience
       title: LimitResponse
     ListKeysResponse:
       properties:
@@ -65072,14 +65466,20 @@ components:
           type: string
           title: Metric
           default: spend_usd
+        expected_revision:
+          type: integer
+          minimum: 1.0
+          title: Expected Revision
         limit_value:
           anyOf:
+          - type: integer
           - type: number
           - type: 'null'
           title: Limit Value
           description: New absolute limit value in the request unit.
         additional_value:
           anyOf:
+          - type: integer
           - type: number
           - type: 'null'
           title: Additional Value
@@ -65096,17 +65496,20 @@ components:
         resolve_blockers:
           type: boolean
           title: Resolve Blockers
-          default: true
+          default: false
         resume:
           type: boolean
           title: Resume
-          default: true
+          default: false
         idempotency_key:
           anyOf:
           - type: string
           - type: 'null'
           title: Idempotency Key
+      additionalProperties: false
       type: object
+      required:
+      - expected_revision
       title: SmrResourceLimitExtensionRequest
     SmrResourceLimitExtensionResponse:
       properties:
@@ -65144,17 +65547,48 @@ components:
         new_limit_value:
           type: number
           title: New Limit Value
+        expected_revision:
+          type: integer
+          title: Expected Revision
+        previous_revision:
+          type: integer
+          title: Previous Revision
+        new_revision:
+          type: integer
+          title: New Revision
         unit:
           type: string
           title: Unit
         source:
           type: string
           title: Source
+        request_fingerprint:
+          type: string
+          title: Request Fingerprint
+        idempotent_replay:
+          type: boolean
+          title: Idempotent Replay
+          default: false
+        safe_to_release:
+          type: boolean
+          title: Safe To Release
+          default: false
+        extension_error:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Extension Error
         resolved_blocker_ids:
           items:
             type: string
           type: array
           title: Resolved Blocker Ids
+        released_pause_gate_ids:
+          items:
+            type: string
+          type: array
+          title: Released Pause Gate Ids
         resumed:
           type: boolean
           title: Resumed
@@ -65176,8 +65610,12 @@ components:
       - selector
       - metric
       - new_limit_value
+      - expected_revision
+      - previous_revision
+      - new_revision
       - unit
       - source
+      - request_fingerprint
       title: SmrResourceLimitExtensionResponse
     SmrResourceLimitProgressItemResponse:
       properties:
@@ -65246,7 +65684,28 @@ components:
           - type: number
           - type: 'null'
           title: Warning Threshold Percent
-          default: 80.0
+        enforcement_threshold_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Enforcement Threshold Percent
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         source:
           type: string
           title: Source
@@ -65258,6 +65717,9 @@ components:
       - metric
       - unit
       - state
+      - cap_source
+      - exhaustion_action
+      - notify_audience
       - source
       title: SmrResourceLimitProgressItemResponse
     SmrResourceLimitProgressResponse:
@@ -65345,7 +65807,28 @@ components:
           - type: number
           - type: 'null'
           title: Warning Threshold Percent
-          default: 80.0
+        enforcement_threshold_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Enforcement Threshold Percent
+        cap_revision:
+          type: integer
+          title: Cap Revision
+          default: 1
+        cap_source:
+          type: string
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+        exhaustion_action:
+          type: string
+          title: Exhaustion Action
+        notify_audience:
+          type: string
+          title: Notify Audience
         source:
           type: string
           title: Source
@@ -65356,6 +65839,9 @@ components:
       - selector
       - metric
       - unit
+      - cap_source
+      - exhaustion_action
+      - notify_audience
       - source
       title: SmrResourceLimitResponse
     SmrResourceLimitSelectorResponse:
@@ -65393,6 +65879,7 @@ components:
           - type: string
           - type: 'null'
           title: Resource Id
+      additionalProperties: false
       type: object
       required:
       - kind
@@ -67961,6 +68448,488 @@ components:
       - terminal_phase
       - dispatch
       title: SmrRunLifecycleResponse
+    SmrRunLimitDecisionEvidenceResponse:
+      properties:
+        decision_id:
+          type: string
+          title: Decision Id
+        dimension:
+          type: string
+          title: Dimension
+        action:
+          type: string
+          title: Action
+        binding:
+          type: boolean
+          title: Binding
+        reason:
+          type: string
+          title: Reason
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        used_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Used Amount
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        remaining_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Remaining Amount
+        accounting_completeness:
+          type: string
+          enum:
+          - complete
+          - incomplete
+          - unknown
+          title: Accounting Completeness
+        usage_sources:
+          items:
+            type: string
+          type: array
+          title: Usage Sources
+        missing_accounting_sources:
+          items:
+            type: string
+          type: array
+          title: Missing Accounting Sources
+        trigger_source:
+          type: string
+          title: Trigger Source
+        enforcement_granularity:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Enforcement Granularity
+        possible_overshoot:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Possible Overshoot
+      additionalProperties: false
+      type: object
+      required:
+      - decision_id
+      - dimension
+      - action
+      - binding
+      - reason
+      - accounting_completeness
+      - trigger_source
+      title: SmrRunLimitDecisionEvidenceResponse
+    SmrRunLimitEvidenceItemResponse:
+      properties:
+        evidence_id:
+          type: string
+          title: Evidence Id
+        kind:
+          type: string
+          enum:
+          - decision
+          - warning
+          - interrupt
+          - extension
+          title: Kind
+        occurred_at:
+          type: string
+          format: date-time
+          title: Occurred At
+        decision:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitDecisionEvidenceResponse'
+          - type: 'null'
+        warning:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitWarningEvidenceResponse'
+          - type: 'null'
+        interrupt:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitInterruptEvidenceResponse'
+          - type: 'null'
+        extension:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitExtensionEvidenceResponse'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - evidence_id
+      - kind
+      - occurred_at
+      title: SmrRunLimitEvidenceItemResponse
+    SmrRunLimitEvidencePageResponse:
+      properties:
+        schema_version:
+          type: string
+          const: smr.run_limit_evidence.v1
+          title: Schema Version
+          default: smr.run_limit_evidence.v1
+        org_id:
+          type: string
+          title: Org Id
+        project_id:
+          type: string
+          title: Project Id
+        run_id:
+          type: string
+          title: Run Id
+        launch:
+          anyOf:
+          - $ref: '#/components/schemas/SmrRunLimitLaunchEvidenceResponse'
+          - type: 'null'
+        items:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitEvidenceItemResponse'
+          type: array
+          title: Items
+        next_cursor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Next Cursor
+      additionalProperties: false
+      type: object
+      required:
+      - org_id
+      - project_id
+      - run_id
+      title: SmrRunLimitEvidencePageResponse
+    SmrRunLimitExtensionEvidenceResponse:
+      properties:
+        receipt_id:
+          type: string
+          title: Receipt Id
+        extension_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Extension Id
+        dimension:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dimension
+        previous_cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Previous Cap Amount
+        new_cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: New Cap Amount
+        previous_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Previous Revision
+        new_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: New Revision
+        requested_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Requested By
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
+        safe_to_release:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Safe To Release
+        resolved_blocker_ids:
+          items:
+            type: string
+          type: array
+          title: Resolved Blocker Ids
+        released_pause_gate_ids:
+          items:
+            type: string
+          type: array
+          title: Released Pause Gate Ids
+        resumed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Resumed
+      additionalProperties: false
+      type: object
+      required:
+      - receipt_id
+      title: SmrRunLimitExtensionEvidenceResponse
+    SmrRunLimitInterruptEvidenceResponse:
+      properties:
+        operation_id:
+          type: string
+          title: Operation Id
+        control_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Control Id
+        control_seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Control Seq
+        signal:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Signal
+        issued_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Issued By
+        status:
+          type: string
+          title: Status
+        attempt_count:
+          type: integer
+          title: Attempt Count
+        max_attempts:
+          type: integer
+          title: Max Attempts
+        external_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: External Ref
+        failure_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Failure Code
+        next_retry_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Next Retry At
+      additionalProperties: false
+      type: object
+      required:
+      - operation_id
+      - status
+      - attempt_count
+      - max_attempts
+      title: SmrRunLimitInterruptEvidenceResponse
+    SmrRunLimitLaunchCapEvidenceResponse:
+      properties:
+        dimension:
+          type: string
+          title: Dimension
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        cap_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Cap Source
+        policy:
+          additionalProperties: true
+          type: object
+          title: Policy
+      additionalProperties: false
+      type: object
+      required:
+      - dimension
+      title: SmrRunLimitLaunchCapEvidenceResponse
+    SmrRunLimitLaunchEvidenceResponse:
+      properties:
+        schema_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Schema Version
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        rollout_mode:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Rollout Mode
+        enforcement_enabled:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Enforcement Enabled
+        refusal_disposition:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Refusal Disposition
+        funding_lane:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Funding Lane
+        owner_slot_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Slot Id
+        backend_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Backend Url
+        enforcement_granularity:
+          additionalProperties:
+            type: string
+          type: object
+          title: Enforcement Granularity
+        strict_inference_admission:
+          additionalProperties: true
+          type: object
+          title: Strict Inference Admission
+        limits:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitLaunchCapEvidenceResponse'
+          type: array
+          title: Limits
+      additionalProperties: false
+      type: object
+      title: SmrRunLimitLaunchEvidenceResponse
+    SmrRunLimitWarningDeliveryResponse:
+      properties:
+        delivery_job_id:
+          type: string
+          title: Delivery Job Id
+        status:
+          type: string
+          title: Status
+        attempt_count:
+          type: integer
+          title: Attempt Count
+        max_attempts:
+          type: integer
+          title: Max Attempts
+        deliver_after:
+          type: string
+          format: date-time
+          title: Deliver After
+        last_error_code:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Error Code
+      additionalProperties: false
+      type: object
+      required:
+      - delivery_job_id
+      - status
+      - attempt_count
+      - max_attempts
+      - deliver_after
+      title: SmrRunLimitWarningDeliveryResponse
+    SmrRunLimitWarningEvidenceResponse:
+      properties:
+        message_id:
+          type: string
+          title: Message Id
+        decision_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Decision Id
+        dimension:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dimension
+        cap_revision:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Cap Revision
+        threshold:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Threshold
+        cap_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Cap Amount
+        used_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Used Amount
+        remaining_amount:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Remaining Amount
+        unit:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Unit
+        exhaustion_action:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Exhaustion Action
+        audience:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Audience
+        status:
+          type: string
+          title: Status
+        deliveries:
+          items:
+            $ref: '#/components/schemas/SmrRunLimitWarningDeliveryResponse'
+          type: array
+          title: Deliveries
+      additionalProperties: false
+      type: object
+      required:
+      - message_id
+      - status
+      title: SmrRunLimitWarningEvidenceResponse
     SmrRunLineageResponse:
       properties:
         parent_run_id:
@@ -69113,6 +70082,12 @@ components:
             type: object
           type: array
           title: Limits
+        limit_launch_receipt:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Limit Launch Receipt
         execution_metadata:
           additionalProperties: true
           type: object
@@ -78399,8 +79374,8 @@ components:
       properties:
         cap_amount:
           anyOf:
-          - type: number
           - type: integer
+          - type: number
           - type: 'null'
           title: Cap Amount
         policy:
