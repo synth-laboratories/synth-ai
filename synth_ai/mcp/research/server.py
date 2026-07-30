@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import asdict, is_dataclass
+from datetime import date, datetime, time
+from enum import Enum
 from typing import Any
 
 from synth_ai.core.errors import SynthError
@@ -286,13 +288,26 @@ def _optional_string_tuple_arg(args: JSONDict, key: str) -> tuple[str, ...]:
 
 def _mcp_jsonable(value: Any) -> Any:
     if is_dataclass(value):
-        return asdict(value)
-    if isinstance(value, list):
-        return [_mcp_jsonable(item) for item in value]
-    if isinstance(value, tuple):
+        return _mcp_jsonable(asdict(value))
+    if isinstance(value, Enum):
+        return _mcp_jsonable(value.value)
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
         return [_mcp_jsonable(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _mcp_jsonable(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        normalized = [_mcp_jsonable(item) for item in value]
+        return sorted(
+            normalized,
+            key=lambda item: json.dumps(
+                item,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
     return value
 
 
@@ -3475,7 +3490,7 @@ class ResearchMcpServer:
                 arguments = params.get("arguments")
                 if arguments is not None and not isinstance(arguments, dict):
                     raise RpcError(-32602, "tools/call arguments must be an object")
-                result = self.call_tool(tool_name, arguments)
+                result = _mcp_jsonable(self.call_tool(tool_name, arguments))
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
