@@ -52,7 +52,7 @@ def _actor_model_assignment_schema(*, field_label: str) -> dict[str, Any]:
 def build_project_tools(server: Any) -> list[ToolDefinition]:
     tools = [
         ToolDefinition(
-            name="smr_health_check",
+            name="research_health_check",
             description="Return a connectivity and setup report for the managed-research MCP server.",
             input_schema=tool_schema(
                 {
@@ -74,7 +74,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_health_check,
         ),
         ToolDefinition(
-            name="smr_create_runnable_project",
+            name="research_create_runnable_project",
             description=(
                 "Create a managed research project with the full runnable launch "
                 "contract required for SDK, MCP, and eval flows."
@@ -176,7 +176,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_runnable_project,
         ),
         ToolDefinition(
-            name="smr_list_projects",
+            name="research_list_projects",
             description="List managed research projects.",
             input_schema=tool_schema(
                 {
@@ -191,7 +191,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_projects,
         ),
         ToolDefinition(
-            name="smr_get_project",
+            name="research_get_project",
             description="Fetch a managed research project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -200,7 +200,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project,
         ),
         ToolDefinition(
-            name="smr_get_default_project",
+            name="research_get_default_project",
             description=(
                 "Fetch the authenticated user's default Miscellaneous managed research project."
             ),
@@ -208,7 +208,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_default_project,
         ),
         ToolDefinition(
-            name="smr_rename_project",
+            name="research_rename_project",
             description="Rename a managed research project without changing runs, repos, tasks, or artifacts.",
             input_schema=tool_schema(
                 {
@@ -220,7 +220,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_rename_project,
         ),
         ToolDefinition(
-            name="smr_patch_project",
+            name="research_patch_project",
             description="Patch a managed research project.",
             input_schema=tool_schema(
                 {
@@ -241,7 +241,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_patch_project,
         ),
         ToolDefinition(
-            name="smr_get_project_status",
+            name="research_get_project_status",
             description="Fetch a polling-friendly status snapshot for a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -250,7 +250,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_status,
         ),
         ToolDefinition(
-            name="smr_get_project_workspace",
+            name="research_get_project_workspace",
             description=(
                 "Fetch the backend-owned project workspace projection: objectives, "
                 "runs, experiments, curated knowledge, review queue, reports, and "
@@ -264,7 +264,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_workspace,
         ),
         ToolDefinition(
-            name="smr_list_project_changesets",
+            name="research_list_project_changesets",
             description="List review-gated project ChangeSets.",
             input_schema=tool_schema(
                 {
@@ -286,7 +286,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_project_changesets,
         ),
         ToolDefinition(
-            name="smr_create_project_changeset",
+            name="research_create_project_changeset",
             description=(
                 "Create a proposed project ChangeSet. This stages project "
                 "mutations for review and does not directly mutate canon."
@@ -328,7 +328,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_project_changeset,
         ),
         ToolDefinition(
-            name="smr_get_project_changeset",
+            name="research_get_project_changeset",
             description="Fetch one review-gated project ChangeSet.",
             input_schema=tool_schema(
                 {
@@ -343,7 +343,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_changeset,
         ),
         ToolDefinition(
-            name="smr_decide_project_changeset",
+            name="research_decide_project_changeset",
             description="Accept, promote, reject, supersede, or invalidate a proposed project ChangeSet.",
             input_schema=tool_schema(
                 {
@@ -370,7 +370,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_decide_project_changeset,
         ),
         ToolDefinition(
-            name="smr_get_project_entitlement",
+            name="research_get_project_entitlement",
             description="Fetch the managed-research entitlement status for a project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -379,7 +379,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_entitlement,
         ),
         ToolDefinition(
-            name="smr_get_project_notes",
+            name="research_get_project_notes",
             description="Fetch the durable notebook text for a managed research project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -388,7 +388,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_notes,
         ),
         ToolDefinition(
-            name="smr_set_project_notes",
+            name="research_set_project_notes",
             description="Replace the durable notebook text for a managed research project.",
             input_schema=tool_schema(
                 {
@@ -400,7 +400,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_set_project_notes,
         ),
         ToolDefinition(
-            name="smr_append_project_notes",
+            name="research_append_project_notes",
             description="Append text to the durable notebook for a managed research project.",
             input_schema=tool_schema(
                 {
@@ -412,13 +412,13 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_append_project_notes,
         ),
         ToolDefinition(
-            name="smr_get_org_knowledge",
+            name="research_get_org_knowledge",
             description="Fetch curated org-wide knowledge for the authenticated organization. This is distinct from project notes.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_get_org_knowledge,
         ),
         ToolDefinition(
-            name="smr_set_org_knowledge",
+            name="research_set_org_knowledge",
             description="Replace curated org-wide knowledge for the authenticated organization. This is distinct from project notes.",
             input_schema=tool_schema(
                 {
@@ -432,7 +432,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_set_org_knowledge,
         ),
         ToolDefinition(
-            name="smr_get_project_knowledge",
+            name="research_get_project_knowledge",
             description="Fetch curated knowledge for a managed research project. This is distinct from the project notebook notes surface.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -441,7 +441,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_knowledge,
         ),
         ToolDefinition(
-            name="smr_set_project_knowledge",
+            name="research_set_project_knowledge",
             description="Replace curated knowledge for a managed research project. This is distinct from the project notebook notes surface.",
             input_schema=tool_schema(
                 {
@@ -456,7 +456,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_set_project_knowledge,
         ),
         ToolDefinition(
-            name="smr_curated_knowledge",
+            name="research_curated_knowledge",
             description=(
                 "Get or set curated knowledge for the authenticated org or for one project. "
                 "Use scope=org|project, and provide content when operation=set."
@@ -487,7 +487,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_curated_knowledge,
         ),
         ToolDefinition(
-            name="smr_pause_project",
+            name="research_pause_project",
             description="Pause a managed research project so new runs cannot start.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -496,7 +496,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_pause_project,
         ),
         ToolDefinition(
-            name="smr_resume_project",
+            name="research_resume_project",
             description="Resume a paused managed research project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -505,7 +505,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_resume_project,
         ),
         ToolDefinition(
-            name="smr_archive_project",
+            name="research_archive_project",
             description="Archive a managed research project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -514,7 +514,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_archive_project,
         ),
         ToolDefinition(
-            name="smr_unarchive_project",
+            name="research_unarchive_project",
             description="Unarchive a managed research project.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string", "description": "Managed research project id."}},
@@ -523,7 +523,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_unarchive_project,
         ),
         ToolDefinition(
-            name="smr_get_capabilities",
+            name="research_get_capabilities",
             description=(
                 "Fetch server capabilities for parity-safe client behavior. "
                 "Run trigger maps backend ``error_code`` payloads (limits, routing, "
@@ -533,16 +533,16 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_capabilities,
         ),
         ToolDefinition(
-            name="smr_get_limits",
+            name="research_get_limits",
             description="Fetch resource limits for the authenticated org's plan. This is informative only; setup authority and launch preflight remain authoritative.",
             input_schema=tool_schema({}, required=[]),
             handler=server._tool_get_limits,
         ),
         ToolDefinition(
-            name="smr_get_capacity_lane_preview",
+            name="research_get_capacity_lane_preview",
             description=(
                 "Preview the preferred/resolved capacity lane before launch. "
-                "Call this before smr_get_launch_preflight or smr_trigger_run "
+                "Call this before research_get_launch_preflight or research_trigger_run "
                 "when you need a user-facing launch check."
             ),
             input_schema=tool_schema(
@@ -562,7 +562,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_capacity_lane_preview,
         ),
         ToolDefinition(
-            name="smr_set_provider_key",
+            name="research_set_provider_key",
             description="Store or rotate a project-scoped provider key for a supported credential provider.",
             input_schema=tool_schema(
                 {
@@ -591,7 +591,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_set_provider_key,
         ),
         ToolDefinition(
-            name="smr_get_provider_key_status",
+            name="research_get_provider_key_status",
             description="Check whether a project-scoped provider key is configured.",
             input_schema=tool_schema(
                 {
@@ -612,10 +612,10 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_provider_key_status,
         ),
         ToolDefinition(
-            name="smr_get_workspace_download_url",
+            name="research_get_workspace_download_url",
             description=(
                 "Return a short-lived presigned URL to download the project workspace as a tarball "
-                "(git snapshot archived by the backend). Use smr_download_workspace_archive to save "
+                "(git snapshot archived by the backend). Use research_download_workspace_archive to save "
                 "the file locally in one step, or fetch download_url with curl yourself."
             ),
             input_schema=tool_schema(
@@ -635,10 +635,10 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_workspace_download_url,
         ),
         ToolDefinition(
-            name="smr_get_project_git",
+            name="research_get_project_git",
             description=(
                 "Read-only git metadata for the project workspace (commit, branch, remote-related fields). "
-                "Pair with smr_get_workspace_download_url or smr_download_workspace_archive to retrieve files."
+                "Pair with research_get_workspace_download_url or research_download_workspace_archive to retrieve files."
             ),
             input_schema=tool_schema(
                 {
@@ -657,7 +657,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_project_git,
         ),
         ToolDefinition(
-            name="smr_download_workspace_archive",
+            name="research_download_workspace_archive",
             description=(
                 "Download the project or run workspace tarball to a path on the machine running this MCP server. "
                 "When run_id is provided, this resolves the run-specific archive. Parent directories are created. Large repos may take minutes; "
@@ -672,7 +672,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Absolute or home-relative path for the .tar.gz file (e.g. ~/smr-workspace.tar.gz).",
+                        "description": "Absolute or home-relative path for the .tar.gz file (e.g. ~/research-workspace.tar.gz).",
                     },
                     "timeout_seconds": {
                         "type": "integer",
@@ -692,7 +692,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_download_workspace_archive,
         ),
         ToolDefinition(
-            name="smr_download_code",
+            name="research_download_code",
             description=(
                 "Download project code, or a run-scoped immutable code snapshot when run_id is provided, "
                 "to a tarball on the machine running this MCP server. This is the user-facing alias for "
@@ -707,7 +707,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
                     },
                     "output_path": {
                         "type": "string",
-                        "description": "Absolute or home-relative path for the .tar.gz file (e.g. ~/smr-code.tar.gz).",
+                        "description": "Absolute or home-relative path for the .tar.gz file (e.g. ~/research-code.tar.gz).",
                     },
                     "timeout_seconds": {
                         "type": "integer",
@@ -727,7 +727,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_download_code,
         ),
         ToolDefinition(
-            name="smr_objectives",
+            name="research_objectives",
             description=(
                 "List runtime-managed project objectives and record task-linked "
                 "objective progress claims."
@@ -772,7 +772,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_objectives,
         ),
         ToolDefinition(
-            name="smr_get_objective_status",
+            name="research_get_objective_status",
             description=(
                 "Fetch the composed product status bundle for an objective: "
                 "objective, progress, related tasks, milestones, claims, blockers, "
@@ -800,7 +800,7 @@ def build_project_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_objective_status,
         ),
         ToolDefinition(
-            name="smr_milestones",
+            name="research_milestones",
             description=(
                 "List, create, fetch, patch, or transition objective-scoped project "
                 "milestones. To align a milestone with a repo task, use the same "

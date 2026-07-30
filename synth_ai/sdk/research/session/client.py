@@ -6,7 +6,6 @@ import base64
 import mimetypes
 import os
 import re
-import warnings
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -160,7 +159,7 @@ from synth_ai.sdk.research.contracts.wire_models import (
     SmrRunUsage,
 )
 from synth_ai.sdk.research.errors import (
-    SmrApiError,
+    ResearchApiError,
     raise_cloud_deployment_claim_error,
 )
 from synth_ai.sdk.research.session._client_helpers import (
@@ -204,7 +203,6 @@ from synth_ai.sdk.research.session.config import (
     resolve_backend_base as _resolve_backend_base,
 )
 from synth_ai.sdk.research.session.cost import RunCostAPI
-from synth_ai.sdk.research.session.credentials import CredentialsAPI
 from synth_ai.sdk.research.session.datasets import DatasetsAPI
 from synth_ai.sdk.research.session.dev_environments import DevEnvironmentsAPI
 from synth_ai.sdk.research.session.environments import EnvironmentsAPI
@@ -245,7 +243,7 @@ from synth_ai.sdk.research.session.usage import UsageAPI
 from synth_ai.sdk.research.session.work_products import WorkProductsAPI
 from synth_ai.sdk.research.session.workspace_inputs import WorkspaceInputsAPI
 from synth_ai.sdk.research.transport.http import (
-    SmrHttpTransport,
+    ResearchHttpTransport,
     _raise_for_error_response,
 )
 from synth_ai.sdk.research.transport.pagination import build_query_params
@@ -1107,7 +1105,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     api_key: str | None = field(default=None, repr=False)
     backend_base: str | None = None
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS
-    _transport: SmrHttpTransport = field(init=False, repr=False)
+    _transport: ResearchHttpTransport = field(init=False, repr=False)
     _projects_api: ProjectsAPI | None = field(init=False, default=None, repr=False)
     _factories_api: FactoriesAPI | None = field(init=False, default=None, repr=False)
     _factory_evidence_api: FactoryEvidenceAPI | None = field(init=False, default=None, repr=False)
@@ -1126,7 +1124,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
     _datasets_api: DatasetsAPI | None = field(init=False, default=None, repr=False)
     _models_api: ModelsAPI | None = field(init=False, default=None, repr=False)
     _repositories_api: RepositoriesAPI | None = field(init=False, default=None, repr=False)
-    _credentials_api: CredentialsAPI | None = field(init=False, default=None, repr=False)
     _github_api: GithubAPI | None = field(init=False, default=None, repr=False)
     _secrets_api: SecretsAPI | None = field(init=False, default=None, repr=False)
     _cloud_deployments_api: CloudDeploymentsAPI | None = field(
@@ -1300,17 +1297,6 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         if self._repositories_api is None:
             self._repositories_api = RepositoriesAPI(self)
         return self._repositories_api
-
-    @property
-    def credentials(self) -> CredentialsAPI:
-        warnings.warn(
-            "client.credentials is deprecated; use client.secrets instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if self._credentials_api is None:
-            self._credentials_api = CredentialsAPI(self)
-        return self._credentials_api
 
     @property
     def github(self) -> GithubAPI:
@@ -1662,7 +1648,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 allow_not_found=allow_not_found,
                 timeout_seconds=timeout_seconds,
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             if not getattr(exc, "request_context", None):
                 exc.request_context = f"{method.upper()} {path}"
             raise
@@ -2734,7 +2720,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         info = self.get_workspace_download_url(project_id)
         url = info.get("download_url")
         if not isinstance(url, str) or not url.strip():
-            raise SmrApiError(
+            raise ResearchApiError(
                 "Workspace download response missing download_url",
                 status_code=None,
                 response_text=None,
@@ -2751,7 +2737,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 for chunk in response.iter_bytes():
                     file_handle.write(chunk)
         except httpx.HTTPError as exc:
-            raise SmrApiError(
+            raise ResearchApiError(
                 f"Failed to download workspace archive: {exc}",
                 status_code=getattr(getattr(exc, "response", None), "status_code", None),
                 response_text=getattr(getattr(exc, "response", None), "text", None),
@@ -2808,7 +2794,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 commit_sha = response.headers.get("x-workspace-commit")
                 archive_key = response.headers.get("x-workspace-archive-key")
         except httpx.HTTPError as exc:
-            raise SmrApiError(
+            raise ResearchApiError(
                 f"Failed to download run workspace archive: {exc}",
                 status_code=getattr(getattr(exc, "response", None), "status_code", None),
                 response_text=getattr(getattr(exc, "response", None), "text", None),
@@ -4323,7 +4309,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="observe_cloud_deployment",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -4396,7 +4382,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 expected_schema="cloud-deployment-workspace-materialization-v1",
                 label="materialize_cloud_deployment_workspace",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
         return cast(CloudDeploymentWorkspaceMaterialization, payload)
@@ -4437,7 +4423,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 expected_schema="cloud-deployment-image-materialization-v1",
                 label="materialize_cloud_deployment_image_release",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
         if payload.get("deployment_id") != deployment_id or payload.get("release_id") != release_id:
@@ -4556,7 +4542,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 expected_schema="cloud-deployment-exec-v1",
                 label="exec_cloud_deployment",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
         return cast(CloudDeploymentExecResult, payload)
@@ -4686,7 +4672,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="deploy_cloud_deployment",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -4717,7 +4703,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="retire_cloud_deployment",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -4751,7 +4737,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="acquire_cloud_deployment_claim",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -4779,7 +4765,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="heartbeat_cloud_deployment_claim",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -4803,7 +4789,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
                 ),
                 label="release_cloud_deployment_claim",
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             raise_cloud_deployment_claim_error(exc)
             raise
 
@@ -5617,19 +5603,19 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         )
         raw_presets = payload.get("runbook_presets", [])
         if not isinstance(raw_presets, list):
-            raise SmrApiError(
+            raise ResearchApiError(
                 "Invalid runbook preset catalog payload: runbook_presets must be a list"
             )
         presets: list[SmrRunbookPreset] = []
         for item in raw_presets:
             if not isinstance(item, Mapping):
-                raise SmrApiError(
+                raise ResearchApiError(
                     "Invalid runbook preset catalog payload: preset entries must be objects"
                 )
             try:
                 presets.append(SmrRunbookPreset.from_wire(item))
             except ValueError as exc:
-                raise SmrApiError(f"Invalid runbook preset catalog payload: {exc}") from exc
+                raise ResearchApiError(f"Invalid runbook preset catalog payload: {exc}") from exc
         return tuple(presets)
 
     def trigger_run(
@@ -5898,7 +5884,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         try:
             return RunObservabilitySnapshot.from_wire(payload)
         except ValueError as exc:
-            raise SmrApiError(f"Invalid run observability snapshot payload: {exc}") from exc
+            raise ResearchApiError(f"Invalid run observability snapshot payload: {exc}") from exc
 
     def get_run_observability_snapshot_control(
         self,
@@ -5976,7 +5962,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         try:
             return RunTickingStatus.from_wire(payload)
         except ValueError as exc:
-            raise SmrApiError(f"Invalid run ticking payload: {exc}") from exc
+            raise ResearchApiError(f"Invalid run ticking payload: {exc}") from exc
 
     def set_run_ticking(
         self,
@@ -6004,7 +5990,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         try:
             return RunTickingStatus.from_wire(payload)
         except ValueError as exc:
-            raise SmrApiError(f"Invalid run ticking payload: {exc}") from exc
+            raise ResearchApiError(f"Invalid run ticking payload: {exc}") from exc
 
     def get_run_contract(
         self,
@@ -6052,7 +6038,7 @@ class ResearchSession(ManagedResearchRunAuthorityMixin):
         try:
             return RunExecutionProjection.from_wire(payload)
         except ValueError as exc:
-            raise SmrApiError(f"Invalid run execution projection payload: {exc}") from exc
+            raise ResearchApiError(f"Invalid run execution projection payload: {exc}") from exc
 
 
 def first_id(items: Iterable[dict[str, Any]], key: str) -> str | None:

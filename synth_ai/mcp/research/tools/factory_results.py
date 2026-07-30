@@ -162,7 +162,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
 
     return [
         ToolDefinition(
-            name="smr_define_factory_evaluation_lens",
+            name="research_define_factory_evaluation_lens",
             description=(
                 "Declare how a Factory compares its Results, for the minority of "
                 "Factories that optimize something. Re-declaring an existing "
@@ -210,7 +210,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_evaluation_lenses",
+            name="research_list_factory_evaluation_lenses",
             description=(
                 "List a Factory's evaluation lens versions. An empty list means "
                 "the Factory optimizes nothing, which is the ordinary case."
@@ -233,7 +233,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_best_results",
+            name="research_get_factory_best_results",
             description=(
                 "Derived best-so-far for every lens a Factory declares. Read "
                 "outcome before result_id: 'no_eligible_results' means the lens "
@@ -249,7 +249,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_factory_result_evaluation",
+            name="research_record_factory_result_evaluation",
             description=(
                 "Store one externally owned verdict for a Result under a lens. "
                 "The backend never grades. Idempotent under attempt_key; a "
@@ -288,7 +288,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_factory_result_preference",
+            name="research_record_factory_result_preference",
             description=(
                 "Record a human preference for a Result. Preference sits BESIDE "
                 "the derived best and never overwrites it: a reviewer disagreeing "
@@ -325,7 +325,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_results",
+            name="research_list_factory_results",
             description=(
                 "List Results a Research Factory has produced (reports, prompts, "
                 "policies, datasets, models, artifacts, code changes). Filter by "
@@ -358,7 +358,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_factory_result",
+            name="research_get_factory_result",
             description="Fetch one Factory Result by its result id (WorkProduct id).",
             input_schema=tool_schema(
                 {
@@ -371,7 +371,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_evaluate_factory_result",
+            name="research_evaluate_factory_result",
             description=(
                 "Attach a benchmark-owned grading record to a Result. Only "
                 "candidate-backed Results accept evaluation; the backend stores "
@@ -392,7 +392,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_select_factory_result_current_best",
+            name="research_select_factory_result_current_best",
             description=(
                 "Select a passing Result as current best for a named objective/scope. "
                 "Idempotent and historical: it appends a selection event and never "
@@ -415,7 +415,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_restore_factory_result_current_best",
+            name="research_restore_factory_result_current_best",
             description=(
                 "Restore a prior Result as current best for a named objective/scope. "
                 "Idempotent and historical; appends a selection event."
@@ -437,7 +437,7 @@ def build_factory_result_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_list_factory_result_selection_events",
+            name="research_list_factory_result_selection_events",
             description=("List the append-only current-best selection history for a Factory."),
             input_schema=tool_schema(
                 {

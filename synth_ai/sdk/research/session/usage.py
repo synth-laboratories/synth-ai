@@ -14,7 +14,7 @@ from synth_ai.sdk.research.contracts.wire_models import (
     SmrResourceLimitSelector,
     SmrRunUsage,
 )
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session._base import _ClientNamespace
 
 
@@ -28,8 +28,8 @@ def _raise_on_error_payload(payload: object) -> object:
     if isinstance(first, Mapping):
         message = first.get("message")
         if isinstance(message, str) and message.strip():
-            raise SmrApiError(message.strip())
-    raise SmrApiError("Managed Research usage request failed")
+            raise ResearchApiError(message.strip())
+    raise ResearchApiError("Managed Research usage request failed")
 
 
 def _selector_to_wire(

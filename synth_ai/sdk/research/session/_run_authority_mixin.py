@@ -44,7 +44,7 @@ from synth_ai.sdk.research.contracts.runtime_intent import (
     RuntimeIntentView,
 )
 from synth_ai.sdk.research.contracts.wire_models import Checkpoint
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session._client_helpers import (
     _coerce_branch_request,
     _coerce_dict,
@@ -497,7 +497,7 @@ class ManagedResearchRunAuthorityMixin:
 
         if not run_id:
             if objective_id:
-                raise SmrApiError(
+                raise ResearchApiError(
                     "Objective-scoped task listing is not available in the current "
                     "Managed Research backend contract; use run-scoped tasks or "
                     "run objective events instead.",
@@ -515,7 +515,7 @@ class ManagedResearchRunAuthorityMixin:
         ]
         for task in tasks:
             if task.project_id != project_id or task.run_id != run_id:
-                raise SmrApiError(
+                raise ResearchApiError(
                     "Task owner-route identity does not match the requested project/run",
                     failure_class="backend_contract_mismatch",
                 )
@@ -559,10 +559,10 @@ class ManagedResearchRunAuthorityMixin:
         elif isinstance(payload, Mapping):
             raw_items = payload.get("tasks") or payload.get("items") or []
             if not isinstance(raw_items, list):
-                raise SmrApiError("list_task_summaries response missing tasks list")
+                raise ResearchApiError("list_task_summaries response missing tasks list")
             items = raw_items
         else:
-            raise SmrApiError("list_task_summaries expected an object or list response")
+            raise ResearchApiError("list_task_summaries expected an object or list response")
         summaries = [dict(item) for item in items if isinstance(item, Mapping)]
         if run_id:
             summaries = [
@@ -678,7 +678,7 @@ class ManagedResearchRunAuthorityMixin:
                 self._request_json(method, path),
                 label=label,
             )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             if exc.status_code != 409:
                 raise
             response_text = exc.response_text
@@ -979,7 +979,7 @@ class ManagedResearchRunAuthorityMixin:
                 break
             time.sleep(min(poll_interval, deadline - now))
         last_state_suffix = f" (last_state={last_state})" if last_state else ""
-        raise SmrApiError(
+        raise ResearchApiError(
             f"Timed out waiting for checkpoint '{checkpoint_id_text}' to materialize{last_state_suffix}"
         )
 
@@ -1272,7 +1272,7 @@ class ManagedResearchRunAuthorityMixin:
         )
         actors = payload.get("actors")
         if not isinstance(actors, list):
-            raise SmrApiError("get_project_run_actors response missing actors list")
+            raise ResearchApiError("get_project_run_actors response missing actors list")
         return [dict(item) for item in actors if isinstance(item, Mapping)]
 
     def get_project_run_actor_raw_traces(

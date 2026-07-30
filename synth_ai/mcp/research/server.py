@@ -74,7 +74,7 @@ from synth_ai.sdk.research.contracts.promotions import (
     SmrPromotionDiscountPreviewRequest,
 )
 from synth_ai.sdk.research.contracts.transcript import TranscriptView
-from synth_ai.sdk.research.errors import SmrApiError
+from synth_ai.sdk.research.errors import ResearchApiError
 from synth_ai.sdk.research.session.client import ResearchSession
 from synth_ai.sdk.research.version import __version__
 
@@ -164,8 +164,8 @@ _STABLE_TOOL_NAMES = frozenset(
 )
 
 
-def _mcp_structured_trigger_error_payload(exc: SmrApiError) -> dict[str, Any]:
-    """Shape every ``SmrApiError`` as structured MCP error data."""
+def _mcp_structured_trigger_error_payload(exc: ResearchApiError) -> dict[str, Any]:
+    """Shape every ``ResearchApiError`` as structured MCP error data."""
     detail = getattr(exc, "detail", None)
     detail_dict: dict[str, Any] = dict(detail) if isinstance(detail, dict) else {}
     code_raw = detail_dict.get("error_code")
@@ -208,7 +208,7 @@ def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
     return out
 
 
-def _raise_mcp_tool_denial(exc: SmrApiError) -> None:
+def _raise_mcp_tool_denial(exc: ResearchApiError) -> None:
     payload = _mcp_structured_trigger_error_payload(exc)
     raise RpcError(
         -32010,
@@ -358,9 +358,8 @@ class ResearchMcpServer:
     def available_tool_names(self) -> list[str]:
         names = sorted(self._advertised_tools())
         research_names = [name for name in names if name.startswith("research_")]
-        smr_names = [name for name in names if name.startswith("smr_")]
-        other_names = [name for name in names if not name.startswith(("research_", "smr_"))]
-        return research_names + other_names + smr_names
+        other_names = [name for name in names if not name.startswith("research_")]
+        return research_names + other_names
 
     def tool_definitions(self) -> list[ToolDefinition]:
         return list(self._advertised_tools().values())
@@ -391,7 +390,7 @@ class ResearchMcpServer:
 
     @staticmethod
     def _removed_backend_contract(surface: str) -> None:
-        raise SmrApiError(
+        raise ResearchApiError(
             f"{surface} is not available in the current Managed Research backend contract.",
             failure_class="unsupported_backend_contract",
             remediation=(
@@ -2219,7 +2218,7 @@ class ResearchMcpServer:
                 if request.project_id is None:
                     return client.trigger_one_off_run(**request.client_kwargs())
                 return client.trigger_run(request.project_id, **request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_start_run(self, args: JSONDict) -> Any:
@@ -2229,7 +2228,7 @@ class ResearchMcpServer:
                 if request.project_id is None:
                     return client.trigger_one_off_run(**request.client_kwargs())
                 return client.start_run(request.project_id, **request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_get_launch_preflight_in_dev_environment(self, args: JSONDict) -> Any:
@@ -2270,7 +2269,7 @@ class ResearchMcpServer:
                     dev_environment_id=dev_environment_id,
                     **client_kwargs,
                 )
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_start_one_off_run(self, args: JSONDict) -> Any:
@@ -2278,7 +2277,7 @@ class ResearchMcpServer:
         try:
             with self._client_from_args(args) as client:
                 return client.trigger_one_off_run(**request.client_kwargs())
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             _raise_mcp_tool_denial(exc)
 
     def _tool_list_runs(self, args: JSONDict) -> Any:
@@ -3114,7 +3113,7 @@ class ResearchMcpServer:
                     payload=payload,
                 )
         raise ValueError(
-            "smr_milestones.operation must be one of: list, create, get, patch, transition"
+            "research_milestones.operation must be one of: list, create, get, patch, transition"
         )
 
     def serve_stdio(self) -> None:
@@ -3181,9 +3180,9 @@ class ResearchMcpServer:
                 "id": request_id,
                 "error": {"code": exc.code, "message": exc.message, "data": exc.data},
             }
-        except SmrApiError as exc:
+        except ResearchApiError as exc:
             # Central denial mapping: any tool (not just the run-launch handlers)
-            # that raises a typed SmrApiError must surface the structured
+            # that raises a typed ResearchApiError must surface the structured
             # error_code / http_status / detail so SDK↔MCP denial parity holds.
             # Without this, non-launch tools flatten to a generic -32000 text
             # error and drop plan/cap/current-count fields.

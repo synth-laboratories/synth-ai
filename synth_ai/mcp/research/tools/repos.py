@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_repo_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_work_repos_list",
+            name="research_work_repos_list",
             description="List project repo bindings.",
             input_schema=tool_schema(
                 {"project_id": {"type": "string"}},
@@ -19,7 +19,7 @@ def build_repo_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_work_repos_list,
         ),
         ToolDefinition(
-            name="smr_work_repos_attach",
+            name="research_work_repos_attach",
             description="Attach a GitHub repo to a project.",
             input_schema=tool_schema(
                 {
@@ -32,7 +32,7 @@ def build_repo_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_work_repos_attach,
         ),
         ToolDefinition(
-            name="smr_work_repos_detach",
+            name="research_work_repos_detach",
             description="Detach a GitHub repo from a project.",
             input_schema=tool_schema(
                 {

@@ -346,7 +346,6 @@ from synth_ai.sdk.research.session.cloud_deployments import (
     CloudDeploymentWorkspaceMaterialization,
     CloudDeploymentWorkspaceRepository,
 )
-from synth_ai.sdk.research.session.credentials import CredentialsAPI
 from synth_ai.sdk.research.session.datasets import DatasetsAPI
 from synth_ai.sdk.research.session.dev_environments import DevEnvironmentsAPI
 from synth_ai.sdk.research.session.environments import EnvironmentsAPI
@@ -433,7 +432,6 @@ __all__ = [
     "CloudDeploymentsAPI",
     "ConfirmedProjectGitPushReceipt",
     "CreateRunnableResult",
-    "CredentialsAPI",
     "DEFAULT_TIMEOUT_SECONDS",
     "DatasetsAPI",
     "DevEnvironment",

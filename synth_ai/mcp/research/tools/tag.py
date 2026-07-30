@@ -29,7 +29,7 @@ def build_tag_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
             name="tag_create_session",
-            description="Create a Synth Tag v1 research session and launch its bound SMR run.",
+            description="Create a Synth Tag v1 research session and launch its bound Managed Research run.",
             input_schema=tool_schema(
                 {
                     "request": {"type": "string", "description": "Delegated task text."},

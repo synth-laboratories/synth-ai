@@ -10,7 +10,7 @@ from synth_ai.mcp.research.registry import ToolDefinition, tool_schema
 def build_output_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_run_work_products",
+            name="research_list_run_work_products",
             description=(
                 "List durable WorkProducts for a run: Models, Containers / Evals, "
                 "and Reports. Prefer this over raw artifact/output tools."
@@ -22,7 +22,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_run_work_products,
         ),
         ToolDefinition(
-            name="smr_get_run_work_product",
+            name="research_get_run_work_product",
             description="Fetch a WorkProduct by id.",
             input_schema=tool_schema(
                 {"work_product_id": {"type": "string"}},
@@ -31,7 +31,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_work_product,
         ),
         ToolDefinition(
-            name="smr_get_run_work_product_content",
+            name="research_get_run_work_product_content",
             description="Fetch readable content for a report or artifact-backed WorkProduct.",
             input_schema=tool_schema(
                 {"work_product_id": {"type": "string"}},
@@ -40,7 +40,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_run_work_product_content,
         ),
         ToolDefinition(
-            name="smr_export_run_work_product",
+            name="research_export_run_work_product",
             description=(
                 "Export a downloadable/importable WorkProduct to a backend-mediated "
                 "destination. Destination secrets are redacted in responses."
@@ -56,7 +56,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_export_run_work_product,
         ),
         ToolDefinition(
-            name="smr_explain_work_product_blocker",
+            name="research_explain_work_product_blocker",
             description="Explain why a WorkProduct is blocked or unavailable.",
             input_schema=tool_schema(
                 {"work_product_id": {"type": "string"}},
@@ -65,7 +65,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_explain_work_product_blocker,
         ),
         ToolDefinition(
-            name="smr_upload_container_eval_package",
+            name="research_upload_container_eval_package",
             description=(
                 "Register a container/eval package WorkProduct for a run. The "
                 "package should include dataset, evaluator, runtime contract, and "
@@ -96,7 +96,7 @@ def build_output_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_upload_container_eval_package,
         ),
         ToolDefinition(
-            name="smr_validate_container_eval_package",
+            name="research_validate_container_eval_package",
             description="Validate a registered container/eval package.",
             input_schema=tool_schema(
                 {"package_id": {"type": "string"}},

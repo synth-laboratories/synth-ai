@@ -33,10 +33,12 @@ Boundary rule:
 
 ## Tool names
 
-Tool builders in `tools/` still spell names `smr_*`, but nothing is advertised
-under that prefix: `build_tool_registry` rewrites every `smr_` to `research_`
-before discovery. `resolve_tool` keeps accepting the `smr_` spelling from
-callers, so both work on the wire and only `research_*` appears in `tools/list`.
+Tool builders in `tools/` declare names as `research_*` directly, and that is
+what discovery advertises. For backward compatibility, every `research_*` tool
+also answers to the legacy `smr_*` spelling: `resolve_tool` treats `smr_<x>` as
+a generated wire alias for `research_<x>`, so both work on the wire and only
+`research_*` appears in `tools/list`. Declaring a new tool under the `smr_`
+prefix is a registry build error.
 
 Every tool must declare required scopes, either on the `ToolDefinition` or in
 `registry._DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME`, keyed on the advertised

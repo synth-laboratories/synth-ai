@@ -84,9 +84,9 @@ from synth_ai.sdk.research.contracts.smr_work_modes import SmrWorkMode
 from synth_ai.sdk.research.contracts.types import RunArtifact, RunArtifactManifest
 from synth_ai.sdk.research.contracts.work_products import ManagedResearchRunWorkProduct
 from synth_ai.sdk.research.errors import (
-    SmrApiError,
-    SmrInferenceProviderUnavailableError,
-    SmrStructuredDenialError,
+    ResearchApiError,
+    ResearchInferenceProviderUnavailableError,
+    ResearchStructuredDenialError,
 )
 from synth_ai.sdk.research.session._base import _ClientNamespace
 from synth_ai.sdk.research.session.config import DEFAULT_MISC_PROJECT_ALIAS
@@ -231,7 +231,7 @@ class RunResultsAPI:
         )
 
 
-def _is_transient_control_plane_projection(error: SmrApiError) -> bool:
+def _is_transient_control_plane_projection(error: ResearchApiError) -> bool:
     """True for the backend's fail-closed 503 while a run projection is mid-write.
 
     The control plane deliberately refuses to serve a poll summary whose task
@@ -239,7 +239,7 @@ def _is_transient_control_plane_projection(error: SmrApiError) -> bool:
     resolves on its own once the projection write lands, so an idempotent GET
     poll must retry it within its deadline instead of treating it as terminal.
     """
-    if not isinstance(error, SmrStructuredDenialError):
+    if not isinstance(error, ResearchStructuredDenialError):
         return False
     if error.status_code != 503:
         return False
@@ -297,8 +297,10 @@ class RunHandle:
             try:
                 contract = self.contract()
             except httpx.TransportError as exc:
-                raise SmrApiError(f"Network error while polling run {self.run_id}: {exc}") from exc
-            except SmrStructuredDenialError as exc:
+                raise ResearchApiError(
+                    f"Network error while polling run {self.run_id}: {exc}"
+                ) from exc
+            except ResearchStructuredDenialError as exc:
                 if not _is_transient_control_plane_projection(exc):
                     raise
                 if deadline is not None and time.monotonic() >= deadline:
@@ -321,7 +323,7 @@ class RunHandle:
                             f"run {self.run_id} ended because its inference provider "
                             "was temporarily unavailable"
                         )
-                        raise SmrInferenceProviderUnavailableError(
+                        raise ResearchInferenceProviderUnavailableError(
                             message,
                             status_code=None,
                             detail=detail,
@@ -329,7 +331,7 @@ class RunHandle:
                     msg = self.explain_blocker() or (
                         f"run {self.run_id} ended in state {contract.public_state.value}"
                     )
-                    raise SmrApiError(msg, status_code=None)
+                    raise ResearchApiError(msg, status_code=None)
                 return self.get()
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError(f"run {self.run_id} did not complete within {timeout}s")
@@ -1739,7 +1741,7 @@ class RunsAPI(_ClientNamespace):
         while True:
             try:
                 contract = self.get_run_contract(project_id, run_id)
-            except SmrStructuredDenialError as exc:
+            except ResearchStructuredDenialError as exc:
                 if not _is_transient_control_plane_projection(exc):
                     raise
                 if deadline is not None and time.monotonic() >= deadline:

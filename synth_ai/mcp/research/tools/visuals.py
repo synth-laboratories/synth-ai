@@ -156,7 +156,7 @@ def build_visual_tools(
     }
     return [
         ToolDefinition(
-            name="smr_list_visuals",
+            name="research_list_visuals",
             description="List one cursor-paginated page of project Visuals.",
             input_schema=tool_schema(
                 {
@@ -178,7 +178,7 @@ def build_visual_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_visual",
+            name="research_get_visual",
             description="Retrieve authenticated metadata for one Visual version.",
             input_schema=tool_schema(
                 {"visual_id": visual_id_schema},
@@ -188,7 +188,7 @@ def build_visual_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_visual_content",
+            name="research_get_visual_content",
             description="Read one bounded base64 chunk of authenticated Visual HTML.",
             input_schema=tool_schema(
                 {"visual_id": visual_id_schema, **chunk_schema},
@@ -198,7 +198,7 @@ def build_visual_tools(
             required_scopes=READ_SCOPES,
         ),
         ToolDefinition(
-            name="smr_get_visual_preview",
+            name="research_get_visual_preview",
             description="Read one bounded base64 chunk of an authenticated Visual PNG preview.",
             input_schema=tool_schema(
                 {"visual_id": visual_id_schema, **chunk_schema},

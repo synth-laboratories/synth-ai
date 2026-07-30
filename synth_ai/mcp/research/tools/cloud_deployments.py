@@ -43,7 +43,7 @@ def _cloud_deployment_action_schema() -> dict[str, Any]:
 def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
     return [
         ToolDefinition(
-            name="smr_list_cloud_deployments",
+            name="research_list_cloud_deployments",
             description="List durable CloudDeployments visible to the authenticated org.",
             input_schema=tool_schema(
                 {
@@ -61,7 +61,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_list_cloud_deployments,
         ),
         ToolDefinition(
-            name="smr_create_cloud_deployment",
+            name="research_create_cloud_deployment",
             description="Create a durable product service CloudDeployment request.",
             input_schema=tool_schema(
                 {
@@ -135,25 +135,25 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_create_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment",
+            name="research_get_cloud_deployment",
             description="Fetch one durable CloudDeployment.",
             input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
             handler=server._tool_get_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_services",
+            name="research_get_cloud_deployment_services",
             description="Discover topology-declared services, health checks, and routed endpoints.",
             input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
             handler=server._tool_get_cloud_deployment_services,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_workspace",
+            name="research_get_cloud_deployment_workspace",
             description="Inspect declared repositories and live Git/source materialization proof.",
             input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
             handler=server._tool_get_cloud_deployment_workspace,
         ),
         ToolDefinition(
-            name="smr_materialize_cloud_deployment_workspace",
+            name="research_materialize_cloud_deployment_workspace",
             description=(
                 "Materialize an exact commit for a topology-declared repository; "
                 "requires the active claim fencing token."
@@ -189,7 +189,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_materialize_cloud_deployment_workspace,
         ),
         ToolDefinition(
-            name="smr_exec_cloud_deployment",
+            name="research_exec_cloud_deployment",
             description=(
                 "Execute argv inside a CloudDeployment workspace with bounded output; "
                 "requires the active claim fencing token."
@@ -228,7 +228,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_exec_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_logs",
+            name="research_get_cloud_deployment_logs",
             description="Read bounded logs for one topology-declared service.",
             input_schema=tool_schema(
                 {
@@ -250,7 +250,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_cloud_deployment_logs,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_artifacts",
+            name="research_get_cloud_deployment_artifacts",
             description=(
                 "List topology-declared artifact roots or a bounded, paginated file "
                 "inventory under one declared root."
@@ -290,7 +290,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_cloud_deployment_artifacts,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_artifact_content",
+            name="research_get_cloud_deployment_artifact_content",
             description=(
                 "Read one bounded base64 chunk from a file under a topology-declared artifact root."
             ),
@@ -331,7 +331,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_get_cloud_deployment_artifact_content,
         ),
         ToolDefinition(
-            name="smr_observe_cloud_deployment",
+            name="research_observe_cloud_deployment",
             description="Observe one CloudDeployment against its substrate and update lifecycle state.",
             input_schema=tool_schema(
                 {**_CLOUD_DEPLOYMENT_ID, **_FENCING_TOKEN},
@@ -340,7 +340,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_observe_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_deploy_cloud_deployment",
+            name="research_deploy_cloud_deployment",
             description=(
                 "Request deployment steps for a VM-ready CloudDeployment or retry "
                 "a failed CloudDeployment after fixing the reported cause."
@@ -349,7 +349,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_deploy_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_retire_cloud_deployment",
+            name="research_retire_cloud_deployment",
             description="Retire a CloudDeployment, retaining the VM unless delete_vm is explicitly true.",
             input_schema=tool_schema(
                 {
@@ -370,7 +370,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_retire_cloud_deployment,
         ),
         ToolDefinition(
-            name="smr_acquire_cloud_deployment_claim",
+            name="research_acquire_cloud_deployment_claim",
             description="Acquire the TTL-bounded claim and mint a fencing token.",
             input_schema=tool_schema(
                 {
@@ -394,7 +394,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_acquire_cloud_deployment_claim,
         ),
         ToolDefinition(
-            name="smr_heartbeat_cloud_deployment_claim",
+            name="research_heartbeat_cloud_deployment_claim",
             description="Renew the active cloud-deployment claim TTL.",
             input_schema=tool_schema(
                 {
@@ -409,7 +409,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_heartbeat_cloud_deployment_claim,
         ),
         ToolDefinition(
-            name="smr_release_cloud_deployment_claim",
+            name="research_release_cloud_deployment_claim",
             description="Release a cloud-deployment claim idempotently.",
             input_schema=tool_schema(
                 {
@@ -424,7 +424,7 @@ def build_cloud_deployment_tools(server: Any) -> list[ToolDefinition]:
             handler=server._tool_release_cloud_deployment_claim,
         ),
         ToolDefinition(
-            name="smr_get_cloud_deployment_claims",
+            name="research_get_cloud_deployment_claims",
             description="Read active claim and last-issued fencing-token truth.",
             input_schema=tool_schema(_CLOUD_DEPLOYMENT_ID, required=["deployment_id"]),
             handler=server._tool_get_cloud_deployment_claims,

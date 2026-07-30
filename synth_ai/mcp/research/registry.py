@@ -14,9 +14,9 @@ WRITE_SCOPE = "smr:write"
 READ_SCOPES: tuple[str, ...] = (READ_SCOPE,)
 WRITE_SCOPES: tuple[str, ...] = (WRITE_SCOPE,)
 
-# Keyed on the *advertised* name, i.e. after `smr_` has been rewritten to
-# `research_`. A tool absent from this table is a build-time error, not an
-# unauthenticated tool -- see `_required_scopes_for`.
+# Keyed on the advertised `research_*` tool name as declared in `tools/`. A
+# tool absent from this table is a build-time error, not an unauthenticated
+# tool -- see `_scoped_tool_definition`.
 _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME: dict[str, tuple[str, ...]] = {
     "research_health_check": READ_SCOPES,
     "research_create_runnable_project": WRITE_SCOPES,
@@ -244,27 +244,22 @@ class ToolDefinition:
     required_scopes: tuple[str, ...] = ()
 
 
-def _advertised_name(name: str) -> str:
-    return f"research_{name[4:]}" if name.startswith("smr_") else name
-
-
 def _scoped_tool_definition(tool: ToolDefinition) -> ToolDefinition:
-    """Give a tool its advertised name and its required scopes, or refuse it.
+    """Give a tool its required scopes, or refuse it.
 
     An unscoped tool is a tool anyone can call, so a missing table entry is a
     build-time failure rather than a silent grant. Adding a tool means deciding
     whether it reads or writes.
     """
-    name = _advertised_name(tool.name)
     if tool.required_scopes:
-        return tool if name == tool.name else replace(tool, name=name)
-    scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(name)
+        return tool
+    scopes = _DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME.get(tool.name)
     if not scopes:
         raise ValueError(
-            f"MCP tool {name!r} declares no required scopes and is missing from "
+            f"MCP tool {tool.name!r} declares no required scopes and is missing from "
             "_DEFAULT_REQUIRED_SCOPES_BY_TOOL_NAME; add it as READ_SCOPES or WRITE_SCOPES."
         )
-    return replace(tool, name=name, required_scopes=scopes)
+    return replace(tool, required_scopes=scopes)
 
 
 def tool_schema(properties: JSONDict, *, required: list[str]) -> JSONDict:
@@ -277,15 +272,22 @@ def tool_schema(properties: JSONDict, *, required: list[str]) -> JSONDict:
 
 
 def build_tool_registry(tools: list[ToolDefinition]) -> dict[str, ToolDefinition]:
-    """Build the advertised noun-first registry without duplicate legacy names.
+    """Build the advertised noun-first registry, keyed on declared names.
 
-    Legacy ``smr_*`` names remain callable through :func:`resolve_tool` but are
-    intentionally absent from discovery. This preserves compatibility without
-    doubling the public tool surface.
+    Tool definitions declare their advertised ``research_*`` names directly.
+    For every ``research_*`` tool the legacy ``smr_*`` spelling is registered as
+    a generated wire alias in :func:`resolve_tool`, so it stays callable while
+    remaining intentionally absent from discovery. This preserves compatibility
+    without doubling the public tool surface.
     """
     registry: dict[str, ToolDefinition] = {}
     for raw_tool in tools:
         tool = _scoped_tool_definition(raw_tool)
+        if tool.name.startswith("smr_"):
+            raise ValueError(
+                f"MCP tool {tool.name!r} uses the legacy smr_ prefix; declare it as "
+                f"'research_{tool.name[4:]}' -- the smr_ spelling is a generated alias."
+            )
         if tool.name in registry:
             raise ValueError(f"duplicate MCP tool definition: {tool.name}")
         registry[tool.name] = tool
@@ -296,6 +298,12 @@ def resolve_tool(
     tools: dict[str, ToolDefinition],
     name: str,
 ) -> ToolDefinition | None:
+    """Resolve an advertised name or its legacy ``smr_*`` wire alias.
+
+    Every ``research_*`` tool answers to its ``smr_*`` spelling for backward
+    compatibility; the alias is generated from the advertised name rather than
+    stored, so it never appears in discovery.
+    """
     tool = tools.get(name)
     if tool is not None:
         return tool
