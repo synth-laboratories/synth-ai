@@ -90,6 +90,7 @@ class ActorImage:
 
     daytona_pullable: bool = False
 
+
 def _text(payload: Mapping[str, Any], key: str, *, label: str) -> str:
     value = payload.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -241,10 +242,6 @@ def _normalized_source(source: Mapping[str, Any]) -> tuple[str, str]:
     return repository, commit_sha
 
 
-
-
-
-
 def _normalized_python_packages(values: Sequence[str]) -> list[str]:
     if len(values) > 32:
         raise ValueError("python_packages must list at most 32 exact-pinned packages")
@@ -381,6 +378,7 @@ class ImagesAPI(_ClientNamespace):
             platform=actual_platform,
             archive_sha256=archive_sha256,
         )
+
     def _put_archive(
         self,
         upload_url: str,
@@ -468,12 +466,12 @@ class ImagesAPI(_ClientNamespace):
 
     def get(self, *, image_release_id: str) -> ActorImage:
         """Read one uploaded actor image by its immutable artifact identity."""
-        normalized = str(image_release_id or "").strip()
-        if not _RELEASE_ID.fullmatch(normalized):
+        release_id = str(image_release_id or "").strip()
+        if not _RELEASE_ID.fullmatch(release_id):
             raise ValueError("image_release_id must look like imgrel_<sha256>")
         receipt = self._client._request_json(
             "GET",
-            f"/smr/v1/image-releases/{normalized}",
+            f"/smr/v1/image-releases/{release_id}",
         )
         if not isinstance(receipt, Mapping):
             raise ValueError("image release response must be an object")
@@ -509,12 +507,12 @@ class ImagesAPI(_ClientNamespace):
 
     def archive(self, *, release_id: str) -> dict[str, Any]:
         """Archive an org-owned actor runtime image release (blocks new runs)."""
-        normalized = str(release_id or "").strip()
-        if not normalized:
+        runtime_image_release_id = str(release_id or "").strip()
+        if not runtime_image_release_id:
             raise ValueError("release_id must be a nonempty string")
         payload = self._client._request_json(
             "POST",
-            f"/smr/v1/image-releases/{normalized}/archive",
+            f"/smr/v1/image-releases/{runtime_image_release_id}/archive",
         )
         if not isinstance(payload, Mapping) or not isinstance(
             payload.get("runtime_image_release"), Mapping

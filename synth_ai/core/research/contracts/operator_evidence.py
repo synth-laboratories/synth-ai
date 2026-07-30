@@ -331,6 +331,80 @@ class ReportBenchWitnessEvidence:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkspaceChangesEvidence:
+    """Run-scoped diffstat over confirmed workspace pushes.
+
+    `changed_files` stays None when the platform could not measure — an empty
+    tuple would claim the run changed nothing, which is a different fact from
+    "nobody measured it".
+    """
+
+    status: str
+    push_count: int = 0
+    measured_push_count: int = 0
+    unavailable_reason: str | None = None
+    commit_shas: tuple[str, ...] = ()
+    changed_file_count: int | None = None
+    binary_file_count: int | None = None
+    insertions: int | None = None
+    deletions: int | None = None
+    bytes_added: int | None = None
+    bytes_removed: int | None = None
+    bytes_changed: int | None = None
+    changed_files: tuple[str, ...] | None = None
+    truncated: bool | None = None
+    file_limit: int | None = None
+    pushes: tuple[dict[str, Any], ...] = ()
+    diagnostics: tuple[OperatorEvidenceDiagnostic, ...] = ()
+
+    @property
+    def measured(self) -> bool:
+        """True only when the platform actually computed a diffstat."""
+
+        return self.changed_files is not None
+
+    @classmethod
+    def from_wire(cls, payload: object) -> WorkspaceChangesEvidence:
+        mapping = _mapping(payload, field_name="workspace changes")
+
+        def number(name: str) -> int | None:
+            value = mapping.get(name)
+            if value is None or isinstance(value, bool):
+                return None
+            return int(value)
+
+        raw_files = mapping.get("changed_files")
+        return cls(
+            status=_text(mapping.get("status"), field_name="workspace_changes.status"),
+            push_count=int(mapping.get("push_count") or 0),
+            measured_push_count=int(mapping.get("measured_push_count") or 0),
+            unavailable_reason=_optional_text(mapping.get("unavailable_reason")),
+            commit_shas=_string_tuple(mapping.get("commit_shas") or (), field_name="commit_shas"),
+            changed_file_count=number("changed_file_count"),
+            binary_file_count=number("binary_file_count"),
+            insertions=number("insertions"),
+            deletions=number("deletions"),
+            bytes_added=number("bytes_added"),
+            bytes_removed=number("bytes_removed"),
+            bytes_changed=number("bytes_changed"),
+            changed_files=(
+                None if raw_files is None else _string_tuple(raw_files, field_name="changed_files")
+            ),
+            truncated=(
+                None if mapping.get("truncated") is None else bool(mapping.get("truncated"))
+            ),
+            file_limit=number("file_limit"),
+            pushes=tuple(_mapping_list(mapping.get("pushes"), field_name="pushes")),
+            diagnostics=tuple(
+                OperatorEvidenceDiagnostic.from_wire(item)
+                for item in _mapping_list(
+                    mapping.get("diagnostics"), field_name="workspace_changes.diagnostics"
+                )
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class SmrRunOperatorEvidence:
     schema_version: str
     project_id: str
@@ -344,6 +418,7 @@ class SmrRunOperatorEvidence:
     trace_coverage: TraceCoverageEvidence
     transcript_coverage: TranscriptCoverageEvidence
     reportbench_witness: ReportBenchWitnessEvidence
+    workspace_changes: WorkspaceChangesEvidence
     reconciliation_report: dict[str, Any]
     receipts: tuple[ProjectionEvidenceReceipt, ...]
     diagnostics: tuple[OperatorEvidenceDiagnostic, ...]
@@ -384,6 +459,7 @@ class SmrRunOperatorEvidence:
             reportbench_witness=ReportBenchWitnessEvidence.from_wire(
                 mapping.get("reportbench_witness")
             ),
+            workspace_changes=WorkspaceChangesEvidence.from_wire(mapping.get("workspace_changes")),
             reconciliation_report=_mapping(
                 mapping.get("reconciliation_report") or {},
                 field_name="reconciliation_report",

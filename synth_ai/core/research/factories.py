@@ -1,6 +1,6 @@
 """Stable synchronous and asynchronous Factory operations.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations
@@ -37,7 +37,15 @@ from synth_ai.core.research.contracts.factory_lenses import (
     FactoryResultEvaluation,
     FactoryResultEvaluationRequest,
 )
+from synth_ai.core.research.factory_storage import (
+    AsyncFactoryStorageAPI,
+    FactoryStorageAPI,
+)
 from synth_ai.core.research.operations import research_operation
+from synth_ai.core.research.traces import (
+    AsyncFactoryTraceStoreAPI,
+    FactoryTraceStoreAPI,
+)
 
 
 def _request(
@@ -510,10 +518,15 @@ class FactoriesAPI:
 
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
+        self.storage = FactoryStorageAPI(transport)
         self.efforts = FactoryEffortsAPI(transport)
         self.candidates = FactoryCandidatesAPI(transport)
         self.champions = FactoryChampionsAPI(transport)
         self.lenses = FactoryLensesAPI(transport)
+
+    def trace_store(self, factory_id: FactoryId) -> FactoryTraceStoreAPI:
+        """Open the Factory's managed Trace V5 store (no network call)."""
+        return FactoryTraceStoreAPI(self._transport, str(factory_id))
 
     def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.
@@ -1037,10 +1050,15 @@ class AsyncFactoriesAPI:
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
+        self.storage = AsyncFactoryStorageAPI(transport)
         self.efforts = AsyncFactoryEffortsAPI(transport)
         self.candidates = AsyncFactoryCandidatesAPI(transport)
         self.champions = AsyncFactoryChampionsAPI(transport)
         self.lenses = AsyncFactoryLensesAPI(transport)
+
+    def trace_store(self, factory_id: FactoryId) -> AsyncFactoryTraceStoreAPI:
+        """Open the Factory's async managed Trace V5 store (no network call)."""
+        return AsyncFactoryTraceStoreAPI(self._transport, str(factory_id))
 
     async def create(self, request: FactorySpec) -> Factory:
         """Create a Factory from a typed Factory specification.

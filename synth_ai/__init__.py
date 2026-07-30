@@ -4,27 +4,34 @@ from __future__ import annotations
 
 import importlib
 from importlib import metadata as _metadata
-from importlib.metadata import PackageNotFoundError
-from pathlib import Path
-from typing import Any
+
+# Aliased to underscore names so they do not land in the package namespace:
+# `synth_ai.Path` / `synth_ai.Any` are import artifacts, not public API, and
+# anything reachable from `import synth_ai` but absent from __all__ reads as
+# surface a customer may rely on.
+from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+from pathlib import Path as _Path
+from typing import Any as _Any
 
 try:
-    from synth_ai.core.utils.log_filter import install_log_filter
+    from synth_ai.core.utils.log_filter import (
+        install_log_filter as _install_log_filter,
+    )
 
-    install_log_filter()
+    _install_log_filter()
 except Exception:
     pass
 
 try:
     __version__ = _metadata.version("synth-ai")
-except PackageNotFoundError:
+except _PackageNotFoundError:
     try:
         import tomllib as _toml
     except ModuleNotFoundError:  # pragma: no cover
         import tomli as _toml  # type: ignore[no-redef]  # ty: ignore[unresolved-import]
 
     try:
-        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        pyproject_path = _Path(__file__).resolve().parents[1] / "pyproject.toml"
         with pyproject_path.open("rb") as fh:
             _pyproject = _toml.load(fh)
         __version__ = str(_pyproject["project"]["version"])
@@ -43,18 +50,52 @@ __all__ = [
     "AsyncTunnelsClient",
     "ContainerPoolsClient",
     "ContainersClient",
+    "DataBindingCreateRequest",
+    "DatasetRevisionCreateRequest",
+    "DatasetRevisionFinalizeRequest",
+    "DatasetRevisionLifecycleRequest",
+    "DatasetRevisionPrepareRequest",
+    "DraftDeliveryAuthorityResponse",
+    "EnsureDraftDeliveryRequest",
+    "FactoryLunaRole",
+    "FactoryRoleReceiptMintRequest",
+    "FactoryRoleReceiptProvenance",
+    "FactoryRoleReceiptResponse",
+    "FactoryRoleReceiptRuntimeEvidence",
+    "FactoryStorageAuthorityResponse",
     "HorizonsPrivateClient",
     "ResearchApiError",
     "ManagedAgentsAnthropicClient",
     "ManagedAgentRun",
     "OpenAIAgentsSdkClient",
+    "MagiDecisionRequest",
+    "MagiMode",
+    "ProjectComputerCleanupReceiptResponse",
+    "ProjectComputerCleanupRequest",
+    "ProjectComputerExecuteRequest",
+    "ProjectComputerInspectRequest",
+    "ProjectComputerLeaseAcquireRequest",
+    "ProjectComputerLeaseReleaseRequest",
+    "ProjectComputerLeaseRenewRequest",
+    "ProjectComputerOperationReconcileRequest",
+    "ProjectComputerProvisionRequest",
+    "ProjectComputerReplaceRequest",
+    "WorkspacePushConfirmationReceipt",
     "ResearchClient",
     "ResearchConcurrentRunLimitExceededError",
     "ResearchInsufficientCreditsError",
     "ResearchLimitExceededError",
     "ResearchProjectCreateRequest",
+    "ResearchInternProvisionRequest",
+    "ResearchInternResponse",
+    "ResearchInternStatus",
     "ResearchSwarmLaunchRequest",
     "ResearchSwarmState",
+    "ResearchVisual",
+    "ResearchVisualPage",
+    "ResearchVisualPatchRequest",
+    "ResearchVisualPromotionRequest",
+    "ResearchVisualVersions",
     "SynthClient",
     "SynthManagedAgents",
     "TunnelsClient",
@@ -63,6 +104,107 @@ __all__ = [
 ]
 
 _EXPORTS: dict[str, tuple[str, str]] = {
+    "DataBindingCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DataBindingCreateRequest",
+    ),
+    "DatasetRevisionCreateRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionCreateRequest",
+    ),
+    "DatasetRevisionFinalizeRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionFinalizeRequest",
+    ),
+    "DatasetRevisionLifecycleRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionLifecycleRequest",
+    ),
+    "DatasetRevisionPrepareRequest": (
+        "synth_ai.core.research.contracts",
+        "DatasetRevisionPrepareRequest",
+    ),
+    "DraftDeliveryAuthorityResponse": (
+        "synth_ai.core.research.contracts",
+        "DraftDeliveryAuthorityResponse",
+    ),
+    "EnsureDraftDeliveryRequest": (
+        "synth_ai.core.research.contracts",
+        "EnsureDraftDeliveryRequest",
+    ),
+    "FactoryLunaRole": (
+        "synth_ai.core.research.contracts",
+        "FactoryLunaRole",
+    ),
+    "FactoryRoleReceiptMintRequest": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptMintRequest",
+    ),
+    "FactoryRoleReceiptProvenance": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptProvenance",
+    ),
+    "FactoryRoleReceiptResponse": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptResponse",
+    ),
+    "FactoryRoleReceiptRuntimeEvidence": (
+        "synth_ai.core.research.contracts",
+        "FactoryRoleReceiptRuntimeEvidence",
+    ),
+    "FactoryStorageAuthorityResponse": (
+        "synth_ai.core.research.contracts",
+        "FactoryStorageAuthorityResponse",
+    ),
+    "MagiDecisionRequest": (
+        "synth_ai.core.research.contracts",
+        "MagiDecisionRequest",
+    ),
+    "MagiMode": ("synth_ai.core.research.contracts", "MagiMode"),
+    "ProjectComputerCleanupReceiptResponse": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerCleanupReceiptResponse",
+    ),
+    "ProjectComputerCleanupRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerCleanupRequest",
+    ),
+    "ProjectComputerExecuteRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerExecuteRequest",
+    ),
+    "ProjectComputerInspectRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerInspectRequest",
+    ),
+    "ProjectComputerLeaseAcquireRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseAcquireRequest",
+    ),
+    "ProjectComputerLeaseReleaseRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseReleaseRequest",
+    ),
+    "ProjectComputerLeaseRenewRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerLeaseRenewRequest",
+    ),
+    "ProjectComputerOperationReconcileRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerOperationReconcileRequest",
+    ),
+    "ProjectComputerProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerProvisionRequest",
+    ),
+    "ProjectComputerReplaceRequest": (
+        "synth_ai.core.research.contracts",
+        "ProjectComputerReplaceRequest",
+    ),
+    "WorkspacePushConfirmationReceipt": (
+        "synth_ai.core.research.contracts",
+        "WorkspacePushConfirmationReceipt",
+    ),
     "ResearchApiError": ("synth_ai.core.research.errors", "ResearchApiError"),
     "ResearchConcurrentRunLimitExceededError": (
         "synth_ai.core.research.errors",
@@ -88,6 +230,18 @@ _EXPORTS: dict[str, tuple[str, str]] = {
         "synth_ai.core.research.contracts",
         "ResearchProjectCreateRequest",
     ),
+    "ResearchInternProvisionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternProvisionRequest",
+    ),
+    "ResearchInternResponse": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternResponse",
+    ),
+    "ResearchInternStatus": (
+        "synth_ai.core.research.contracts",
+        "ResearchInternStatus",
+    ),
     "ResearchSwarmLaunchRequest": (
         "synth_ai.core.research.contracts",
         "ResearchSwarmLaunchRequest",
@@ -95,6 +249,20 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "ResearchSwarmState": (
         "synth_ai.core.research.contracts",
         "ResearchSwarmState",
+    ),
+    "ResearchVisual": ("synth_ai.core.research.contracts", "ResearchVisual"),
+    "ResearchVisualPage": ("synth_ai.core.research.contracts", "ResearchVisualPage"),
+    "ResearchVisualPatchRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPatchRequest",
+    ),
+    "ResearchVisualPromotionRequest": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualPromotionRequest",
+    ),
+    "ResearchVisualVersions": (
+        "synth_ai.core.research.contracts",
+        "ResearchVisualVersions",
     ),
     "SynthClient": ("synth_ai.client", "SynthClient"),
     "AsyncSynthClient": ("synth_ai.client", "AsyncSynthClient"),
@@ -142,7 +310,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 
-def __getattr__(name: str) -> Any:
+def __getattr__(name: str) -> _Any:
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

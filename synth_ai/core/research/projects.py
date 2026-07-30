@@ -23,9 +23,19 @@ from synth_ai.core.research.project_data import (
     ProjectDatasetsAPI,
     ProjectRepositoriesAPI,
 )
+from synth_ai.core.research.project_deliveries import (
+    AsyncProjectDeliveriesAPI,
+    ProjectDeliveriesAPI,
+)
 from synth_ai.core.research.project_workspaces import (
     AsyncProjectWorkspaceAPI,
     ProjectWorkspaceAPI,
+)
+from synth_ai.core.research.research_intern import (
+    AsyncProjectComputerAPI,
+    AsyncProjectDataBindingsAPI,
+    ProjectComputerAPI,
+    ProjectDataBindingsAPI,
 )
 
 
@@ -100,6 +110,9 @@ class ProjectsAPI:
     def __init__(self, transport: HttpTransport) -> None:
         self._transport = transport
         self.datasets = ProjectDatasetsAPI(transport)
+        self.computer = ProjectComputerAPI(transport)
+        self.data_bindings = ProjectDataBindingsAPI(transport)
+        self.deliveries = ProjectDeliveriesAPI(transport)
         self.repositories = ProjectRepositoriesAPI(transport)
         self.setup = ProjectSetupAPI(transport)
         self.workspace = ProjectWorkspaceAPI(transport)
@@ -249,6 +262,9 @@ class AsyncProjectsAPI:
 
     def __init__(self, transport: AsyncHttpTransport) -> None:
         self._transport = transport
+        self.computer = AsyncProjectComputerAPI(transport)
+        self.data_bindings = AsyncProjectDataBindingsAPI(transport)
+        self.deliveries = AsyncProjectDeliveriesAPI(transport)
         self.datasets = AsyncProjectDatasetsAPI(transport)
         self.repositories = AsyncProjectRepositoriesAPI(transport)
         self.setup = AsyncProjectSetupAPI(transport)

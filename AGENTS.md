@@ -93,9 +93,29 @@ If you see `SYNTH_TUNNEL_ERROR: Invalid worker token`, you're sending the wrong 
 - If you touch payload builders, request schemas, or job creation paths, preserve this rule and add
   tests that assert these fields are rejected/stripped.
 
-## SDK tests (pytest)
+## SDK tests, gates, and docs (all in sibling repos)
 
-All pytest coverage lives in sibling repos — **`../testing`** (SDK/backend integration) and **`../evals`** (eval harnesses). From this checkout, run `make test-unit` after `uv sync --group dev` and a `../testing` clone.
+This repo is the published package and nothing else — there is no `scripts/`,
+`tests/`, `docs/`, `specifications/` or `guardrails/` tree here. As of
+2026-07-29:
+
+| What | Where |
+| --- | --- |
+| pytest suites | `../testing` (SDK/backend), `../evals` (eval harnesses) |
+| SDK gates (architecture, no-rust, OpenAPI contract, migration boundaries) | `../testing/scripts/` |
+| `specifications/`, guardrail suite manifest | `../testing` |
+| Mintlify reference build | `../docs/scripts/` |
+
+Run them from here — the Makefile delegates and passes `SYNTH_AI_DIR=$(CURDIR)`
+so a worktree is checked rather than whatever sits beside the sibling repo:
+
+```bash
+make test-unit   # gates + SDK pytest suite, needs ../testing
+make docs-check  # reference build + docstring gate, needs ../docs and ../testing
+```
+
+Both take `TESTING=` / `DOCS=` when the checkouts are not siblings — always
+required from a worktree outside `~/Documents/GitHub`.
 
 ## Incident Log Requirement
 

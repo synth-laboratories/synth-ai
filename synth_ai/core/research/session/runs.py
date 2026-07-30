@@ -83,7 +83,11 @@ from synth_ai.core.research.contracts.smr_runbooks import SmrRunbookPreset
 from synth_ai.core.research.contracts.smr_work_modes import SmrWorkMode
 from synth_ai.core.research.contracts.types import RunArtifact, RunArtifactManifest
 from synth_ai.core.research.contracts.work_products import ManagedResearchRunWorkProduct
-from synth_ai.core.research.errors import SmrApiError, SmrStructuredDenialError
+from synth_ai.core.research.errors import (
+    SmrApiError,
+    SmrInferenceProviderUnavailableError,
+    SmrStructuredDenialError,
+)
 from synth_ai.core.research.session._base import _ClientNamespace
 from synth_ai.core.research.session.config import DEFAULT_MISC_PROJECT_ALIAS
 
@@ -306,6 +310,22 @@ class RunHandle:
                 continue
             if contract.terminal:
                 if raise_if_failed and contract.public_state.value in {"failed", "blocked"}:
+                    failure = contract.diagnostics.failure_classification
+                    if (
+                        isinstance(failure, Mapping)
+                        and str(failure.get("code") or "").strip()
+                        == "inference_provider_unavailable"
+                    ):
+                        detail = dict(failure)
+                        message = str(detail.get("detail") or "").strip() or (
+                            f"run {self.run_id} ended because its inference provider "
+                            "was temporarily unavailable"
+                        )
+                        raise SmrInferenceProviderUnavailableError(
+                            message,
+                            status_code=None,
+                            detail=detail,
+                        )
                     msg = self.explain_blocker() or (
                         f"run {self.run_id} ended in state {contract.public_state.value}"
                     )

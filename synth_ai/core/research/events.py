@@ -1,6 +1,6 @@
 """Strict decoder for versioned Research swarm SSE events.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations

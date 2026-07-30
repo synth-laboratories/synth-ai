@@ -5,7 +5,9 @@ Factory, Effort, Idea, Result, and Champion projections used by the advanced
 Research namespaces. The stable, id-typed Factory contract lives in
 ``synth_ai.core.research.contracts.factories``; the overlapping ``Factory``
 and ``Effort`` shapes in the two modules still need one reconciliation pass
-before the advanced namespaces can fold into the stable contract.
+before the advanced namespaces can fold into the stable contract. The legacy
+recurrence wrapper below preserves its historical constructor and root metadata
+wire behavior while delegating typed fields to the stable contract.
 """
 
 from __future__ import annotations
@@ -16,6 +18,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
+from synth_ai.core.research.contracts.factories import (
+    EffortMaintenanceRecurrencePolicy,
+    EffortRecurrence,
+    EffortResearchRecurrencePolicy,
+)
 from synth_ai.core.research.contracts.run_state import (
     _int_value,
     _optional_bool,
@@ -29,6 +36,7 @@ from synth_ai.core.research.contracts.scientific_integrity import (
     SmrEvaluationMode,
     grading_record_evaluation_mode,
 )
+from synth_ai.core.research.contracts.swarms import SwarmSpec
 
 if TYPE_CHECKING:
     from .factory_evidence import ConfirmedProjectGitPushReceipt
@@ -75,7 +83,7 @@ class FactoryIdeaStatus(StrEnum):
 
 class FactoryIdeaSource(StrEnum):
     HUMAN = "human"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
     ARCHITECT = "architect"
     WORKER = "worker"
@@ -85,7 +93,7 @@ class FactoryIdeaSource(StrEnum):
 
 class FactoryActorRole(StrEnum):
     ORCHESTRATOR = "orchestrator"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
     ARCHITECT = "architect"
     WORKER = "worker"
@@ -93,7 +101,7 @@ class FactoryActorRole(StrEnum):
 
 
 class FactoryActorOutputKind(StrEnum):
-    SERAPH_BRIEF = "seraph_brief"
+    ADJUDICATOR_BRIEF = "adjudicator_brief"
     GARDENER_DIGEST = "gardener_digest"
     ARCHITECT_FEED_HEALTH = "architect_feed_health"
     FAILURE_TAXONOMY = "failure_taxonomy"
@@ -328,33 +336,97 @@ class FactoryTransitionResponse:
 
 @dataclass(frozen=True)
 class RecurrencePolicy:
+    """Legacy recurrence constructor with strict-root metadata compatibility."""
+
     cadence: str | None = None
     timezone: str | None = None
     max_active_runs: int | None = None
     trigger: str | None = None
-    event_triggers: tuple[str | dict[str, Any], ...] = ()
+    event_triggers: tuple[str | Mapping[str, Any], ...] = ()
     event_scope: str | None = None
     cooldown_seconds: int | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    on_run_complete: bool | None = None
+    success_delay_seconds: int | None = None
+    failure_backoff_seconds: int | None = None
+    enabled: bool | None = None
+    launch: SwarmSpec | None = None
+    research: EffortResearchRecurrencePolicy | None = None
+    maintenance: EffortMaintenanceRecurrencePolicy | None = None
+    failure_backoff_max_seconds: int | None = None
+    failure_backoff_multiplier: float | None = None
 
     def to_wire(self) -> dict[str, Any]:
-        payload = dict(self.metadata)
-        for key, value in (
-            ("cadence", self.cadence),
-            ("timezone", self.timezone),
-            ("max_active_runs", self.max_active_runs),
-            ("trigger", self.trigger),
-            ("event_scope", self.event_scope),
-            ("cooldown_seconds", self.cooldown_seconds),
+        normalized_metadata = dict(self.metadata)
+        if "delay_seconds" not in normalized_metadata:
+            for alias in (
+                "success_delay_seconds",
+                "on_run_complete_delay_seconds",
+            ):
+                if normalized_metadata.get(alias) is not None:
+                    normalized_metadata["delay_seconds"] = normalized_metadata[alias]
+                    break
+        if (
+            "failure_policy" not in normalized_metadata
+            and normalized_metadata.get("on_failure") is not None
         ):
-            if value is not None:
-                payload[key] = value
-        if self.event_triggers:
-            payload["event_triggers"] = [
+            normalized_metadata["failure_policy"] = normalized_metadata["on_failure"]
+        for alias in (
+            "success_delay_seconds",
+            "on_run_complete_delay_seconds",
+            "on_failure",
+        ):
+            normalized_metadata.pop(alias, None)
+        strict_root_fields = {
+            "cadence",
+            "cooldown_seconds",
+            "delay_seconds",
+            "enabled",
+            "event_scope",
+            "event_triggers",
+            "failure_policy",
+            "launch_request",
+            "maintenance",
+            "max_active_runs",
+            "on_run_complete",
+            "research",
+            "timezone",
+            "trigger",
+        }
+        legacy_root = {
+            key: value for key, value in normalized_metadata.items() if key in strict_root_fields
+        }
+        opaque_metadata = {
+            key: value
+            for key, value in normalized_metadata.items()
+            if key not in strict_root_fields
+        }
+        typed = EffortRecurrence(
+            cadence=self.cadence,
+            timezone=self.timezone,
+            max_active_runs=self.max_active_runs,
+            launch=self.launch,
+            trigger=self.trigger,
+            on_run_complete=self.on_run_complete,
+            event_triggers=tuple(
                 dict(item) if isinstance(item, Mapping) else str(item)
                 for item in self.event_triggers
-            ]
-        return payload
+            ),
+            event_scope=self.event_scope,
+            cooldown_seconds=self.cooldown_seconds,
+            success_delay_seconds=self.success_delay_seconds,
+            failure_backoff_seconds=self.failure_backoff_seconds,
+            failure_backoff_max_seconds=self.failure_backoff_max_seconds,
+            failure_backoff_multiplier=self.failure_backoff_multiplier,
+            enabled=self.enabled if self.enabled is not None else True,
+            metadata=opaque_metadata,
+            research=self.research,
+            maintenance=self.maintenance,
+        ).to_wire()
+        if self.enabled is None:
+            typed.pop("enabled", None)
+        legacy_root.update(typed)
+        return legacy_root
 
 
 @dataclass(frozen=True)
@@ -575,7 +647,9 @@ class EffortCreateRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str = EffortStatus.ACTIVE
     effort_type: EffortType | str = EffortType.RESEARCH
-    recurrence_policy: RecurrencePolicy | dict[str, Any] = field(default_factory=dict)
+    recurrence_policy: EffortRecurrence | RecurrencePolicy | dict[str, Any] = field(
+        default_factory=dict
+    )
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -628,7 +702,7 @@ class EffortPatchRequest:
     hypothesis_or_topic: str | None = None
     status: EffortStatus | str | None = None
     effort_type: EffortType | str | None = None
-    recurrence_policy: RecurrencePolicy | dict[str, Any] | None = None
+    recurrence_policy: EffortRecurrence | RecurrencePolicy | dict[str, Any] | None = None
     next_wake_at: datetime | str | None = None
     latest_run_id: str | None = None
     latest_report_id: str | None = None
@@ -3029,6 +3103,7 @@ __all__ = [
     "factory_project_patch_payload",
     "factory_wake_due_payload",
 ]
+
 
 @dataclass(frozen=True)
 class FactoryCostsLimits:

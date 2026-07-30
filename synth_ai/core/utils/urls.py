@@ -34,7 +34,7 @@ def _coerce_backend_override(value: str) -> str | None:
     lowered = raw.lower()
     if lowered in {"local", "localhost"}:
         return (os.getenv("LOCAL_BACKEND_URL") or "http://localhost:8000").strip()
-    if lowered in {"dev", "development", "staging", "railway"}:
+    if lowered in {"dev", "development", "staging"}:
         return (
             os.getenv("DEV_SYNTH_BACKEND_URL")
             or os.getenv("DEV_BACKEND_URL")
@@ -59,15 +59,13 @@ def _resolve_backend_url_override() -> str | None:
 
 
 def _current_env() -> str:
+    # Deliberately generic. Host-provider environment variables used to be read
+    # here, which put Synth's own deployment platform into a package customers
+    # install -- names they would never set and cannot act on. Services running
+    # on such a platform set ENVIRONMENT explicitly; the backend does its own
+    # provider detection in config.py.
     explicit = (
-        (
-            os.getenv("ENVIRONMENT")
-            or os.getenv("APP_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT")
-            or os.getenv("RAILWAY_ENVIRONMENT_NAME")
-            or os.getenv("ENV")
-            or ""
-        )
+        (os.getenv("ENVIRONMENT") or os.getenv("APP_ENVIRONMENT") or os.getenv("ENV") or "")
         .strip()
         .lower()
     )
@@ -77,7 +75,12 @@ def _current_env() -> str:
         return "prod"
     if os.getenv("DEV_SYNTH_BACKEND_URL") or os.getenv("DEV_BACKEND_URL"):
         return "dev"
-    return "dev"
+    # Unconfigured means production. `SynthClient()` with no base_url is the
+    # pip-install path: someone set SYNTH_API_KEY and called it, and resolving
+    # that to localhost fails against a machine running no backend. Local
+    # development is the case that says so -- via base_url, ENVIRONMENT,
+    # SYNTH_BACKEND_URL_OVERRIDE, or the DEV_*/LOCAL_* variables.
+    return "prod"
 
 
 def _is_prod_environment(value: str) -> bool:

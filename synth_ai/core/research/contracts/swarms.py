@@ -55,14 +55,24 @@ class ActorHarness(StrEnum):
     OPENCODE_SDK = "opencode_sdk"
 
 
-class ActorModel(StrEnum):
+class ActiveActorModel(StrEnum):
+    """First-class models allowed for shared top-level agent selection."""
+
+    GPT_5_4_MINI = "gpt-5.4-mini"
+    GPT_5_6_LUNA = "gpt-5.6-luna"
+    CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
+    KIMI_K3 = "modal/moonshotai/Kimi-K3"
+    LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
+
+
+class DeprecatedActorModel(StrEnum):
+    """Legacy models retained for actor-specific overrides, not shared selection."""
+
+    GPT_5_4 = "gpt-5.4"
+    GPT_5_5 = "gpt-5.5"
     GPT_5_CODEX = "gpt-5-codex"
     GPT_5_3_CODEX = "gpt-5.3-codex"
     GPT_5_3_CODEX_SPARK = "gpt-5.3-codex-spark"
-    GPT_5_4 = "gpt-5.4"
-    GPT_5_4_MINI = "gpt-5.4-mini"
-    GPT_5_5 = "gpt-5.5"
-    GPT_5_6_LUNA = "gpt-5.6-luna"
     NEMOTRON_SUPER = "nemotron-super"
     DEEPSEEK_V4_FLASH = "deepseek/deepseek-v4-flash"
     DEEPSEEK_V4_FLASH_DIRECT = "deepseek/deepseek-v4-flash-direct"
@@ -70,15 +80,70 @@ class ActorModel(StrEnum):
     DEEPSEEK_V4_PRO_DIRECT = "deepseek/deepseek-v4-pro-direct"
     DEEPSEEK_CHAT = "deepseek/deepseek-chat"
     DEEPSEEK_REASONER = "deepseek/deepseek-reasoner"
-    LAGUNA_S_2_1_NVFP4 = "synth_internal/laguna-s-2.1-nvfp4"
-    CURSOR_COMPOSER_2_5 = "cursor/composer-2.5"
     CURSOR_GPT_5 = "cursor/gpt-5"
     CURSOR_SONNET_4 = "cursor/sonnet-4"
     GROK_4_3 = "x-ai/grok-4.3"
     GROK_BUILD = "x-ai/grok-build"
     KIMI_K2_6 = "moonshotai/kimi-k2.6"
+    KIMI_K3_BASETEN = "baseten/moonshotai/Kimi-K3"
     GLM_5_2 = "baseten/zai-org/GLM-5.2"
+    LAGUNA_S_2_1 = "poolside/laguna-s-2.1"
     MODAL_GLM_5_2_FP8 = "modal/zai-org/GLM-5.2-FP8"
+
+
+class ActorModel(StrEnum):
+    """Wire-compatible union of :class:`ActiveActorModel` and :class:`DeprecatedActorModel`.
+
+    Prefer :class:`ActiveActorModel` for first-class shared selection. Use
+    :class:`DeprecatedActorModel` only for legacy actor-specific overrides.
+    """
+
+    GPT_5_4_MINI = ActiveActorModel.GPT_5_4_MINI.value
+    GPT_5_6_LUNA = ActiveActorModel.GPT_5_6_LUNA.value
+    CURSOR_COMPOSER_2_5 = ActiveActorModel.CURSOR_COMPOSER_2_5.value
+    KIMI_K3 = ActiveActorModel.KIMI_K3.value
+    LAGUNA_S_2_1_NVFP4 = ActiveActorModel.LAGUNA_S_2_1_NVFP4.value
+    GPT_5_4 = DeprecatedActorModel.GPT_5_4.value
+    GPT_5_5 = DeprecatedActorModel.GPT_5_5.value
+    GPT_5_CODEX = DeprecatedActorModel.GPT_5_CODEX.value
+    GPT_5_3_CODEX = DeprecatedActorModel.GPT_5_3_CODEX.value
+    GPT_5_3_CODEX_SPARK = DeprecatedActorModel.GPT_5_3_CODEX_SPARK.value
+    NEMOTRON_SUPER = DeprecatedActorModel.NEMOTRON_SUPER.value
+    DEEPSEEK_V4_FLASH = DeprecatedActorModel.DEEPSEEK_V4_FLASH.value
+    DEEPSEEK_V4_FLASH_DIRECT = DeprecatedActorModel.DEEPSEEK_V4_FLASH_DIRECT.value
+    DEEPSEEK_V4_PRO = DeprecatedActorModel.DEEPSEEK_V4_PRO.value
+    DEEPSEEK_V4_PRO_DIRECT = DeprecatedActorModel.DEEPSEEK_V4_PRO_DIRECT.value
+    DEEPSEEK_CHAT = DeprecatedActorModel.DEEPSEEK_CHAT.value
+    DEEPSEEK_REASONER = DeprecatedActorModel.DEEPSEEK_REASONER.value
+    CURSOR_GPT_5 = DeprecatedActorModel.CURSOR_GPT_5.value
+    CURSOR_SONNET_4 = DeprecatedActorModel.CURSOR_SONNET_4.value
+    GROK_4_3 = DeprecatedActorModel.GROK_4_3.value
+    GROK_BUILD = DeprecatedActorModel.GROK_BUILD.value
+    KIMI_K2_6 = DeprecatedActorModel.KIMI_K2_6.value
+    KIMI_K3_BASETEN = DeprecatedActorModel.KIMI_K3_BASETEN.value
+    GLM_5_2 = DeprecatedActorModel.GLM_5_2.value
+    LAGUNA_S_2_1 = DeprecatedActorModel.LAGUNA_S_2_1.value
+    MODAL_GLM_5_2_FP8 = DeprecatedActorModel.MODAL_GLM_5_2_FP8.value
+
+
+def coerce_actor_model(
+    value: ActorModel | ActiveActorModel | DeprecatedActorModel | str,
+) -> ActorModel:
+    if isinstance(value, ActorModel):
+        return value
+    if isinstance(value, (ActiveActorModel, DeprecatedActorModel)):
+        return ActorModel(value.value)
+    return ActorModel(str(value))
+
+
+def coerce_active_actor_model(
+    value: ActiveActorModel | ActorModel | str,
+) -> ActiveActorModel:
+    if isinstance(value, ActiveActorModel):
+        return value
+    if isinstance(value, ActorModel):
+        return ActiveActorModel(value.value)
+    return ActiveActorModel(str(value))
 
 
 class ActorType(StrEnum):
@@ -97,7 +162,7 @@ class ActorSubtype(StrEnum):
     RUN_COMPLETION = "run_completion"
     SAFETY = "safety"
     OBJECTIVE = "objective"
-    SERAPH = "seraph"
+    ADJUDICATOR = "adjudicator"
     GARDENER = "gardener"
 
 
@@ -144,6 +209,7 @@ class CredentialProvider(StrEnum):
     OPENROUTER = "openrouter"
     XAI = "xai"
     TINKER = "tinker"
+    SYNTH_INTERNAL = "synth_internal"
 
 
 class InferenceProvider(StrEnum):
@@ -151,11 +217,13 @@ class InferenceProvider(StrEnum):
     BASETEN = "baseten"
     CURSOR = "cursor"
     DEEPSEEK = "deepseek"
+    MODAL = "modal"
     OPENAI = "openai"
     GOOGLE = "google"
     OPENROUTER = "openrouter"
     SYNTH = "synth"
     XAI = "xai"
+    SYNTH_INTERNAL = "synth_internal"
 
 
 class ToolProvider(StrEnum):
@@ -173,7 +241,9 @@ class KickoffMessageMode(StrEnum):
 _PUBLIC_PROVIDER_SELECTIONS = frozenset(
     {
         InferenceProvider.AUTO.value,
+        InferenceProvider.MODAL.value,
         InferenceProvider.OPENAI.value,
+        InferenceProvider.MODAL.value,
         InferenceProvider.SYNTH.value,
         InferenceProvider.XAI.value,
         InferenceProvider.CURSOR.value,
@@ -205,7 +275,7 @@ def normalize_provider_selection(
     unsupported = tuple(item for item in normalized if item not in _PUBLIC_PROVIDER_SELECTIONS)
     if unsupported:
         raise ValueError(
-            "provider supports auto, openai, synth, xai, and cursor; "
+            "provider supports auto, modal, openai, synth, xai, and cursor; "
             f"unsupported: {', '.join(unsupported)}"
         )
     if len(set(normalized)) != len(normalized):
@@ -257,6 +327,11 @@ class ActorModelAssignment:
     actor_subtype: ActorSubtype
     model: ActorModel
     harness: ActorHarness | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "model", coerce_actor_model(self.model))
+        if self.harness is not None and not isinstance(self.harness, ActorHarness):
+            raise ValueError("actor model assignment harness must be ActorHarness")
 
     def to_wire(self) -> JsonObject:
         payload: JsonObject = {
@@ -590,8 +665,7 @@ class RoleBinding:
     agent_harness: ActorHarness | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.model, ActorModel):
-            raise ValueError("role binding model must be ActorModel")
+        object.__setattr__(self, "model", coerce_actor_model(self.model))
         if self.agent_harness is not None and not isinstance(self.agent_harness, ActorHarness):
             raise ValueError("role binding agent_harness must be ActorHarness")
         frozen = _freeze_json(dict(self.params) if self.params is not None else {})
@@ -624,9 +698,11 @@ class WorkerRolePalette:
     def __post_init__(self) -> None:
         if not self.permitted_models:
             raise ValueError("worker permitted_models must be non-empty")
-        if any(not isinstance(model, ActorModel) for model in self.permitted_models):
-            raise ValueError("worker permitted_models must be ActorModel values")
-        if self.default_model not in self.permitted_models:
+        permitted = tuple(coerce_actor_model(model) for model in self.permitted_models)
+        object.__setattr__(self, "permitted_models", permitted)
+        default_model = coerce_actor_model(self.default_model)
+        object.__setattr__(self, "default_model", default_model)
+        if default_model not in permitted:
             raise ValueError("worker default_model must be in permitted_models")
         if self.agent_harness is not None and not isinstance(self.agent_harness, ActorHarness):
             raise ValueError("worker agent_harness must be ActorHarness")
@@ -705,9 +781,19 @@ class PlatformResolvedExecutionTarget:
         return {"kind": "platform_resolved"}
 
 
+# Providers whose runtime bindings this contract accepts. exe_dev is the cloud
+# slot provider; local_slot_manager attests a local docker slot.
+_BOUND_RUNTIME_PROVIDERS = frozenset({"exe_dev", "local_slot_manager"})
+
+
 @dataclass(frozen=True, slots=True)
 class BoundRuntimeExecutionTarget:
-    """Signed CloudDev runtime binding authored by the execution authority."""
+    """Signed runtime binding authored by the execution authority.
+
+    Covers any runtime the caller owns and can attest, cloud or local. The
+    providers differ only in who signs: ``exe_dev`` for a CloudDev slot,
+    ``local_slot_manager`` for a local docker slot.
+    """
 
     attestation: Mapping[str, JsonValue]
     kind: str = "bound_runtime"
@@ -718,7 +804,6 @@ class BoundRuntimeExecutionTarget:
         payload = dict(self.attestation)
         constants = {
             "schema_version": "smr.execution-target.v1",
-            "provider": "exe_dev",
             "actor_host": "docker",
             "capacity_authority": "bound_runtime",
             "audience": "synth-smr-run-start",
@@ -726,6 +811,16 @@ class BoundRuntimeExecutionTarget:
         for name, expected in constants.items():
             if payload.get(name) != expected:
                 raise ValueError(f"bound execution_target.attestation.{name} must be {expected}")
+        # `provider` is a SET, not a constant. Pinning it to "exe_dev" made a
+        # caller-bound runtime synonymous with a cloud one, which left a local
+        # docker slot with no expressible execution_target: the platform kind
+        # forbids caller placement fields, so the local dock lane could only
+        # send `execution_target=None` and be refused `execution_target_required`.
+        if payload.get("provider") not in _BOUND_RUNTIME_PROVIDERS:
+            raise ValueError(
+                "bound execution_target.attestation.provider must be one of "
+                + ", ".join(sorted(_BOUND_RUNTIME_PROVIDERS))
+            )
         for name in (
             "attestation_id",
             "provider_resource_id",
@@ -951,7 +1046,7 @@ class SwarmSpec:
     intended_horizon_hours: int | None = None
     timebox_seconds: int | None = None
     host_kind: HostKind | None = None
-    agent_model: ActorModel | None = None
+    agent_model: ActiveActorModel | ActorModel | None = None
     agent_harness: ActorHarness | None = None
     agent_profile_id: str | None = None
     actor_model_assignments: tuple[ActorModelAssignment, ...] = ()
@@ -1033,6 +1128,8 @@ class SwarmSpec:
             raise ValueError("primary_parent must be a typed objective specification")
         if self.primary_parent_ref is not None and self.primary_parent is not None:
             raise ValueError("primary_parent_ref cannot be combined with primary_parent")
+        if self.agent_model is not None:
+            object.__setattr__(self, "agent_model", coerce_active_actor_model(self.agent_model))
         if self.actor_model_assignments and self.roles is not None:
             raise ValueError("roles cannot be combined with actor_model_assignments")
         if self.execution_target is not None and any(
@@ -1340,12 +1437,14 @@ ResearchSwarmState = SwarmState
 
 
 __all__ = [
+    "ActiveActorModel",
     "ActorHarness",
     "ActorImageBinding",
     "ActorModel",
     "ActorModelAssignment",
     "ActorSubtype",
     "ActorType",
+    "DeprecatedActorModel",
     "BranchMode",
     "BoundRuntimeExecutionTarget",
     "CredentialProvider",
@@ -1392,5 +1491,7 @@ __all__ = [
     "ToolProvider",
     "WorkMode",
     "WorkerRolePalette",
+    "coerce_active_actor_model",
+    "coerce_actor_model",
     "normalize_provider_selection",
 ]

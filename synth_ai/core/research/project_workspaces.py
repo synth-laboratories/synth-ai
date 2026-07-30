@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Optional, cast
+from typing import Optional
 
-from synth_ai.core.contracts.json_value import JsonObject, JsonValue
+from synth_ai.core.contracts.json_value import JsonObject
 from synth_ai.core.errors import (
     RetryDirective,
     SynthError,
@@ -17,8 +17,10 @@ from synth_ai.core.errors import (
 from synth_ai.core.http.async_transport import AsyncHttpTransport
 from synth_ai.core.http.request import HttpRequest
 from synth_ai.core.http.transport import HttpTransport
-from synth_ai.core.research.contracts._wire import object_value
 from synth_ai.core.research.contracts.common import ProjectId
+from synth_ai.core.research.contracts.project_workspace_evidence import (
+    WorkspacePushConfirmationReceipt,
+)
 from synth_ai.core.research.contracts.workspaces import (
     ProjectWorkspaceInputs,
     WorkspaceFilesBatchUploadProgress,
@@ -75,24 +77,21 @@ def _idempotent_upload_body(
 def _confirm_push_body(
     *,
     commit_sha: str,
-    archive_key: str | None,
-    run_id: str | None,
+    archive_key: str,
+    run_id: str,
 ) -> JsonObject:
     normalized_commit_sha = commit_sha.strip()
     if not normalized_commit_sha:
         raise ValueError("commit_sha must be non-empty")
-    payload: JsonObject = {"commit_sha": normalized_commit_sha}
-    if archive_key is not None:
-        normalized_archive_key = archive_key.strip()
-        if not normalized_archive_key:
-            raise ValueError("archive_key must be non-empty when provided")
-        payload["archive_key"] = normalized_archive_key
-    if run_id is not None:
-        normalized_run_id = run_id.strip()
-        if not normalized_run_id:
-            raise ValueError("run_id must be non-empty when provided")
-        payload["run_id"] = normalized_run_id
-    return payload
+    normalized_archive_key = archive_key.strip()
+    normalized_run_id = run_id.strip()
+    if not normalized_archive_key or not normalized_run_id:
+        raise ValueError("archive_key and run_id must be non-empty")
+    return {
+        "commit_sha": normalized_commit_sha,
+        "archive_key": normalized_archive_key,
+        "run_id": normalized_run_id,
+    }
 
 
 class WorkspaceBatchUploadError(SynthError):
@@ -165,9 +164,9 @@ class ProjectWorkspaceAPI:
         project_id: ProjectId,
         *,
         commit_sha: str,
-        archive_key: str | None = None,
-        run_id: str | None = None,
-    ) -> JsonObject:
+        archive_key: str,
+        run_id: str,
+    ) -> WorkspacePushConfirmationReceipt:
         """Confirm an already-pushed workspace commit through project authority."""
         value = self._transport.execute(
             _request(
@@ -180,10 +179,14 @@ class ProjectWorkspaceAPI:
                 ),
             )
         )
-        return object_value(
-            cast(JsonValue, value),
-            operation_id="confirm_project_workspace_push",
-        )
+        receipt = WorkspacePushConfirmationReceipt.from_wire(value)
+        if (
+            receipt.project_id != str(project_id)
+            or receipt.commit_sha != commit_sha
+            or receipt.run_id != run_id
+        ):
+            raise ValueError("workspace confirmation response identity drifted")
+        return receipt
 
     def set_source_repository(
         self,
@@ -260,9 +263,9 @@ class AsyncProjectWorkspaceAPI:
         project_id: ProjectId,
         *,
         commit_sha: str,
-        archive_key: str | None = None,
-        run_id: str | None = None,
-    ) -> JsonObject:
+        archive_key: str,
+        run_id: str,
+    ) -> WorkspacePushConfirmationReceipt:
         """Confirm an already-pushed workspace commit through project authority."""
         value = await self._transport.execute(
             _request(
@@ -275,10 +278,14 @@ class AsyncProjectWorkspaceAPI:
                 ),
             )
         )
-        return object_value(
-            cast(JsonValue, value),
-            operation_id="confirm_project_workspace_push",
-        )
+        receipt = WorkspacePushConfirmationReceipt.from_wire(value)
+        if (
+            receipt.project_id != str(project_id)
+            or receipt.commit_sha != commit_sha
+            or receipt.run_id != run_id
+        ):
+            raise ValueError("workspace confirmation response identity drifted")
+        return receipt
 
     async def set_source_repository(
         self,

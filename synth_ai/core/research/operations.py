@@ -51,11 +51,178 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation("create_factory", HttpMethod.POST, "/smr/factories", mutation=True),
+        _operation(
+            "provision_research_intern",
+            HttpMethod.POST,
+            "/smr/research-intern",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_research_intern",
+            HttpMethod.GET,
+            "/smr/research-intern",
+            idempotent=True,
+        ),
+        _operation(
+            "patch_research_intern",
+            HttpMethod.PATCH,
+            "/smr/research-intern",
+            mutation=True,
+        ),
+        _operation(
+            "attach_research_intern_factory",
+            HttpMethod.POST,
+            "/smr/research-intern/factories/{factory_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_research_intern_factories",
+            HttpMethod.GET,
+            "/smr/research-intern/factories",
+            idempotent=True,
+        ),
+        _operation(
+            "record_magi_decision",
+            HttpMethod.POST,
+            "/smr/research-intern/decisions",
+            mutation=True,
+        ),
+        _operation(
+            "list_magi_decisions",
+            HttpMethod.GET,
+            "/smr/research-intern/decisions",
+            idempotent=True,
+        ),
+        _operation(
+            "mint_factory_role_receipt",
+            HttpMethod.POST,
+            "/smr/research-intern/factories/{factory_id}/role-receipts",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_factory_role_receipts",
+            HttpMethod.GET,
+            "/smr/research-intern/factories/{factory_id}/role-receipts",
+            idempotent=True,
+        ),
         _operation("create_project", HttpMethod.POST, "/smr/projects:runnable", mutation=True),
+        _operation(
+            "provision_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer",
+            mutation=True,
+        ),
+        _operation(
+            "get_project_computer",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/computer",
+            idempotent=True,
+        ),
+        _operation(
+            "replace_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/replace",
+            mutation=True,
+        ),
+        _operation(
+            "retire_project_computer",
+            HttpMethod.DELETE,
+            "/smr/projects/{project_id}/computer",
+            mutation=True,
+        ),
+        _operation(
+            "execute_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/execute",
+            mutation=True,
+        ),
+        _operation(
+            "inspect_project_computer",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/inspect",
+            idempotent=True,
+        ),
+        _operation(
+            "acquire_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases",
+            mutation=True,
+        ),
+        _operation(
+            "release_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases/{lease_id}/release",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "renew_project_computer_lease",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/leases/{lease_id}/renew",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "reconcile_project_computer_operation",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/computer/operations/reconcile",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "cleanup_factory_project_computers",
+            HttpMethod.POST,
+            ("/smr/research-intern/factories/{factory_id}/project-computers/cleanup"),
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "create_data_binding",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/data-bindings",
+            mutation=True,
+        ),
+        _operation(
+            "list_data_bindings",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/data-bindings",
+            idempotent=True,
+        ),
+        _operation(
+            "create_dataset_revision",
+            HttpMethod.POST,
+            ("/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
+            mutation=True,
+        ),
+        _operation(
+            "list_dataset_revisions",
+            HttpMethod.GET,
+            ("/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions"),
+            idempotent=True,
+        ),
+        _operation(
+            "transition_dataset_revision_lifecycle",
+            HttpMethod.POST,
+            (
+                "/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+                "revisions/{dataset_revision_id}/lifecycle"
+            ),
+            mutation=True,
+            idempotent=True,
+        ),
         _operation(
             "create_project_dataset",
             HttpMethod.POST,
             "/smr/projects/{project_id}/datasets",
+            mutation=True,
+        ),
+        _operation(
+            "create_project_visual",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/visuals",
             mutation=True,
         ),
         _operation(
@@ -69,6 +236,88 @@ RESEARCH_OPERATIONS = {
             HttpMethod.DELETE,
             "/smr/projects/{project_id}/external-repositories/{repository_id}",
             mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "delete_visual",
+            HttpMethod.DELETE,
+            "/smr/visuals/{visual_id}",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_factory_trace_store",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/trace-store",
+            idempotent=True,
+        ),
+        _operation(
+            "provision_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:provision",
+            mutation=True,
+        ),
+        _operation(
+            "rotate_factory_trace_store_credential",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:rotate-credential",
+            mutation=True,
+        ),
+        _operation(
+            "invalidate_factory_trace_store_credential",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:invalidate-credential",
+            mutation=True,
+        ),
+        _operation(
+            "tombstone_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:tombstone",
+            mutation=True,
+        ),
+        _operation(
+            "verify_factory_trace_store_cross_factory_denial",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:verify-cross-factory-denial",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "rebuild_factory_trace_store",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-store:rebuild",
+            mutation=True,
+        ),
+        _operation(
+            "prepare_factory_trace_bundle",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-bundles:prepare-upload",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "finalize_factory_trace_bundle",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/trace-bundles:finalize",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "list_factory_traces",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/traces",
+            idempotent=True,
+        ),
+        _operation(
+            "create_factory_trace_download",
+            HttpMethod.POST,
+            "/smr/factories/{factory_id}/traces/{trace_digest}:download-url",
+            mutation=True,
+        ),
+        _operation(
+            "download_factory_trace_bundle",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/trace-bundles/{publication_id}:download",
             idempotent=True,
         ),
         _operation("list_factories", HttpMethod.GET, "/smr/factories", idempotent=True),
@@ -150,6 +399,24 @@ RESEARCH_OPERATIONS = {
         _operation(
             "list_project_runs", HttpMethod.GET, "/smr/projects/{project_id}/runs", idempotent=True
         ),
+        _operation(
+            "list_project_visuals",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/visuals",
+            idempotent=True,
+        ),
+        _operation(
+            "list_visuals",
+            HttpMethod.GET,
+            "/smr/visuals",
+            idempotent=True,
+        ),
+        _operation(
+            "list_visual_versions",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/versions",
+            idempotent=True,
+        ),
         _operation("list_projects", HttpMethod.GET, "/smr/projects", idempotent=True),
         _operation(
             "list_run_transcript",
@@ -163,6 +430,18 @@ RESEARCH_OPERATIONS = {
             "pause_factory", HttpMethod.POST, "/smr/factories/{factory_id}/pause", mutation=True
         ),
         _operation("pause_run", HttpMethod.POST, "/smr/runs/{run_id}/pause", mutation=True),
+        _operation(
+            "promote_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/promote",
+            mutation=True,
+        ),
+        _operation(
+            "publish_run_visual",
+            HttpMethod.POST,
+            "/smr/runs/{run_id}/visuals",
+            mutation=True,
+        ),
         _operation("preflight_one_off_run", HttpMethod.POST, "/smr/runs:one-off/launch-preflight"),
         _operation(
             "preflight_project_run", HttpMethod.POST, "/smr/projects/{project_id}/launch-preflight"
@@ -197,6 +476,25 @@ RESEARCH_OPERATIONS = {
             HttpMethod.POST,
             "/smr/v1/image-releases/finalize",
             mutation=True,
+        ),
+        _operation(
+            "ensure_project_draft_delivery",
+            HttpMethod.POST,
+            "/smr/projects/{project_id}/deliveries:ensure-draft",
+            mutation=True,
+            idempotent=True,
+        ),
+        _operation(
+            "get_factory_storage_authority",
+            HttpMethod.GET,
+            "/smr/factories/{factory_id}/storage-authority",
+            idempotent=True,
+        ),
+        _operation(
+            "get_project_draft_delivery",
+            HttpMethod.GET,
+            "/smr/projects/{project_id}/deliveries/{delivery_id}",
+            idempotent=True,
         ),
         _operation(
             "archive_customer_actor_image",
@@ -272,6 +570,12 @@ RESEARCH_OPERATIONS = {
         _operation("retrieve_research_limits", HttpMethod.GET, "/smr/limits", idempotent=True),
         _operation("retrieve_run", HttpMethod.GET, "/smr/runs/{run_id}", idempotent=True),
         _operation(
+            "stream_run_trace_capture",
+            HttpMethod.GET,
+            "/smr/runs/{run_id}/traces/{capture_id}/stream",
+            idempotent=True,
+        ),
+        _operation(
             "retrieve_swarm_artifact_content",
             HttpMethod.GET,
             "/smr/artifacts/{artifact_id}/content",
@@ -326,6 +630,48 @@ RESEARCH_OPERATIONS = {
             idempotent=True,
         ),
         _operation(
+            "restore_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/restore",
+            mutation=True,
+        ),
+        _operation(
+            "retrieve_public_visual",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_public_visual_content",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_public_visual_preview",
+            HttpMethod.GET,
+            "/smr/public/visuals/{slug}/preview",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual_content",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/content",
+            idempotent=True,
+        ),
+        _operation(
+            "retrieve_visual_preview",
+            HttpMethod.GET,
+            "/smr/visuals/{visual_id}/preview",
+            idempotent=True,
+        ),
+        _operation(
             "start_factory", HttpMethod.POST, "/smr/factories/{factory_id}/start", mutation=True
         ),
         _operation(
@@ -361,6 +707,12 @@ RESEARCH_OPERATIONS = {
             mutation=True,
         ),
         _operation(
+            "unpublish_visual",
+            HttpMethod.POST,
+            "/smr/visuals/{visual_id}/unpublish",
+            mutation=True,
+        ),
+        _operation(
             "upload_project_workspace_files",
             HttpMethod.POST,
             "/smr/projects/{project_id}/workspace-inputs/files:upload",
@@ -373,12 +725,41 @@ RESEARCH_OPERATIONS = {
         ),
         _operation("update_project", HttpMethod.PATCH, "/smr/projects/{project_id}", mutation=True),
         _operation(
+            "update_visual",
+            HttpMethod.PATCH,
+            "/smr/visuals/{visual_id}",
+            mutation=True,
+        ),
+        _operation(
             "update_project_external_repository",
             HttpMethod.PATCH,
             "/smr/projects/{project_id}/external-repositories/{repository_id}",
             mutation=True,
         ),
     )
+}
+
+
+# These operation IDs are authored by the full backend SMR contract. They are
+# intentionally separate from the smaller Research OpenAPI operation registry.
+DATASET_REVISION_PUBLICATION_OPERATIONS = {
+    OperationId("prepareDatasetRevisionPublication"): OperationMetadata(
+        OperationId("prepareDatasetRevisionPublication"),
+        HttpMethod.POST,
+        "/smr/projects/{project_id}/data-bindings/{data_binding_id}/revisions:prepare",
+        mutation=True,
+        idempotent=True,
+    ),
+    OperationId("finalizeDatasetRevisionPublication"): OperationMetadata(
+        OperationId("finalizeDatasetRevisionPublication"),
+        HttpMethod.POST,
+        (
+            "/smr/projects/{project_id}/data-bindings/{data_binding_id}/"
+            "revision-preparations/{preparation_id}:finalize"
+        ),
+        mutation=True,
+        idempotent=True,
+    ),
 }
 
 
@@ -389,4 +770,18 @@ def research_operation(operation_id: str) -> OperationMetadata:
         raise ValueError(f"unknown Research operation_id {operation_id!r}") from error
 
 
-__all__ = ["RESEARCH_OPERATIONS", "research_operation"]
+def dataset_revision_publication_operation(operation_id: str) -> OperationMetadata:
+    try:
+        return DATASET_REVISION_PUBLICATION_OPERATIONS[OperationId(operation_id)]
+    except KeyError as error:
+        raise ValueError(
+            f"unknown DatasetRevision publication operation_id {operation_id!r}"
+        ) from error
+
+
+__all__ = [
+    "DATASET_REVISION_PUBLICATION_OPERATIONS",
+    "RESEARCH_OPERATIONS",
+    "dataset_revision_publication_operation",
+    "research_operation",
+]

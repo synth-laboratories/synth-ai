@@ -1,6 +1,6 @@
 """Dependency-clean synchronous HTTP transport.
 
-# See: specifications/sdk/core_research_migration.md
+# See: testing/specifications/sdk/core_research_migration.md
 """
 
 from __future__ import annotations
@@ -372,6 +372,44 @@ class HttpTransport:
         if response.is_error:
             self.error_handler(response, operation_id)
         return bytes(response.content)
+
+    def request_multipart_json(
+        self,
+        request: HttpRequest,
+        *,
+        data: Mapping[str, str],
+        files: Mapping[str, tuple[str, bytes, str]],
+    ) -> JsonValue:
+        """Execute one typed multipart operation and decode its JSON response."""
+        method = request.operation.method.value
+        operation_id = str(request.operation.operation_id)
+        try:
+            response = self.client.request(
+                method,
+                request.path,
+                params=cast(Any, request.query),
+                data=data,
+                files=files,
+                headers=request.headers,
+                timeout=(
+                    self.timeout_seconds
+                    if request.timeout_seconds is None
+                    else request.timeout_seconds
+                ),
+            )
+        except httpx.TimeoutException as exc:
+            self.exception_handler(method, request.path, exc, operation_id)
+        except httpx.TransportError as exc:
+            self.exception_handler(method, request.path, exc, operation_id)
+        if response.is_error:
+            self.error_handler(response, operation_id)
+        try:
+            return _decode_json_value(
+                response.json(),
+                context=f"{method} {request.path} response",
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            self.decode_error_handler(method, request.path, response, exc, operation_id)
 
     def stream_sse(
         self,

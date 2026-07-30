@@ -4,6 +4,103 @@ All notable changes to the `synth-ai` package are documented here.
 
 ## Unreleased
 
+## 0.17.4 — 2026-07-29
+
+### Changed
+
+- **An unconfigured client resolves to production again.** `SynthClient()` with
+  no `base_url` and no backend environment variables had been resolving to
+  `http://localhost:8000` since 2026-02-13, so the pip-install path failed
+  against a port nobody was serving. The documented default is production, and
+  local development is the case that says so — via `base_url`, `ENVIRONMENT`,
+  `SYNTH_BACKEND_URL_OVERRIDE`, or the `DEV_*`/`LOCAL_*` variables, all
+  unchanged. If you relied on the bare default reaching localhost, set
+  `SYNTH_BACKEND_URL_OVERRIDE=local` or `ENVIRONMENT=dev`.
+- `synth_ai.core.research._internal.urls` no longer resolves separately. It
+  hardcoded `https://api.usesynth.ai` and read only `SYNTH_BACKEND_URL`, so it
+  ignored `SYNTH_BACKEND_URL_OVERRIDE`, `ENVIRONMENT`, and the dev chain —
+  anything reaching `core.research.auth` could target a different backend than
+  the rest of the SDK. It now delegates to `core.utils.urls`.
+- **The public model catalog is now eight models**: `gpt-5.6-luna`,
+  `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.4-mini`, `cursor/grok-4.5`,
+  `cursor/composer-2.5`, `modal/moonshotai/Kimi-K3`, and
+  `synth_internal/laguna-s-2.1-nvfp4`. `gpt-5.3-codex`, `gpt-5.3-codex-spark`,
+  `gpt-5.4`, `gpt-5.5`, `x-ai/grok-4.3`, `x-ai/grok-build`, and
+  `moonshotai/kimi-k2.6` are no longer listed publicly. They remain in the
+  supported catalog and stay usable; only their public listing changes.
+- **`ActorModel.KIMI_K3` now routes to Modal**, not Baseten. `ActorModel` is
+  split into `ActiveActorModel` (first-class shared selection) and
+  `DeprecatedActorModel` (legacy actor-specific overrides), with `ActorModel`
+  kept as a wire-compatible union of both. The Baseten route is still
+  reachable as `KIMI_K3_BASETEN`. Callers pinned to `ActorModel.KIMI_K3` change
+  inference provider without changing code — check that before upgrading.
+- **`display_group` is gone from the agent-model catalog response** and from the
+  vendored public-model snapshot. It was internal catalog taxonomy that no
+  backend, SDK, or frontend code read. The unrelated `display_group` on project
+  resource files is unaffected.
+- `SYNTH_BACKEND_URL_OVERRIDE=railway` is no longer accepted as an alias for the
+  dev backend, and environment detection no longer reads hosting-provider
+  variables. Use `dev`, `development`, or `staging`, and set `ENVIRONMENT`
+  explicitly where a platform used to be inferred.
+
+### Added
+
+- `SYNTH_INTERNAL` on `CredentialProvider` and `InferenceProvider`, so the
+  `synth_internal` route the Laguna model already used can be named. `swarms.py`
+  shipped a `synth_internal/...` model with no matching provider value.
+
+### Fixed
+
+- `Any`, `Path`, `PackageNotFoundError`, and `install_log_filter` no longer leak
+  into the `synth_ai` namespace. They were reachable as `synth_ai.Path` and
+  friends while absent from `__all__`.
+
+## 0.17.3 — 2026-07-29
+
+### Added
+
+- Typed model contracts for Laguna S 2.1 NVFP4 and Kimi K3, including the
+  Modal Shared API K3 route used by the release acceptance run.
+- Typed recurring Factory budgets, recurrence, Result authority selection,
+  live-acceptance consumers, Visual publication and account-library reads,
+  and Factory adjudicator and cleanup receipts.
+- `ResearchFacade.files`, exposing the existing typed Files API from the
+  stable `SynthClient().research` surface.
+
+### Fixed
+
+- Swarm provider selection now admits the typed `modal` provider used by the
+  Kimi K3 release route.
+- Multipart requests now let their body codec supply the correct content type.
+- Bound runtime attestations accept the declared provider set.
+- Trace capture and local bundle validation are no longer packaged as a
+  `synth-ai` extra. Those implementation surfaces remain owned by
+  `synth-containers`; this SDK retains typed backend transfer/read contracts.
+
+## 0.17.3.dev1 — 2026-07-26
+
+Prerelease development line following `0.17.2`.
+
+### Added
+
+- A canonical typed Effort recurrence contract now covers cadence, timezone,
+  concurrency, completion-triggered launches, success delay, bounded failure
+  backoff, metadata, and an exact typed `SwarmSpec` launch request.
+- `ResearchFactoriesAPI.create_effort` and the lower Research session Factory
+  facade accept the typed recurrence without changing its provider, profile,
+  model, or role selections.
+- `FactoryBudgetPolicy` exposes a typed recurring accounting period so
+  always-on internal Factories can use a resettable code-owned spend envelope
+  instead of an eventual all-time stop.
+- `FactorySpec` can select the native Result authority at creation, allowing a
+  new optimization Factory to define evaluation lenses without an operator
+  backfill or compatibility cutover.
+
+### Changed
+
+- The advanced/session `RecurrencePolicy` name is now a compatibility re-export
+  of the stable `EffortRecurrence` contract instead of a second wire model.
+
 ## 0.17.2 — 2026-07-25
 
 ### Removed

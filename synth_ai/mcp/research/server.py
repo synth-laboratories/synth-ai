@@ -7,6 +7,7 @@ import sys
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+from synth_ai.core.errors import SynthError
 from synth_ai.core.research.auth import get_api_key
 from synth_ai.core.research.client import Client as CoreResearchClient
 from synth_ai.core.research.contracts.activity import ActivityWindow
@@ -77,6 +78,7 @@ from synth_ai.mcp.research.tools.runs import build_run_tools
 from synth_ai.mcp.research.tools.tag import build_tag_tools
 from synth_ai.mcp.research.tools.trained_models import build_trained_model_tools
 from synth_ai.mcp.research.tools.usage import build_usage_tools
+from synth_ai.mcp.research.tools.visuals import build_visual_tools
 from synth_ai.mcp.research.tools.workspace_inputs import build_workspace_input_tools
 
 SUPPORTED_PROTOCOL_VERSIONS = ("2025-06-18", "2024-11-05")
@@ -113,6 +115,9 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_get_project_dataset_content",
         "research_get_project_setup",
         "research_get_workspace_inputs",
+        "research_get_visual",
+        "research_get_visual_content",
+        "research_get_visual_preview",
         "research_get_run",
         "research_get_run_transcript",
         "research_get_swarm_activity",
@@ -130,6 +135,7 @@ _STABLE_TOOL_NAMES = frozenset(
         "research_list_project_datasets",
         "research_list_project_repositories",
         "research_list_runs",
+        "research_list_visuals",
         "research_patch_effort",
         "research_patch_factory",
         "research_patch_project",
@@ -169,6 +175,33 @@ def _mcp_structured_trigger_error_payload(exc: SmrApiError) -> dict[str, Any]:
     status = getattr(exc, "status_code", None)
     if isinstance(status, int):
         out["http_status"] = status
+    return out
+
+
+def _mcp_structured_core_error_payload(exc: SynthError) -> dict[str, Any]:
+    """Preserve the shared typed transport failure at the MCP boundary."""
+    failure = exc.failure
+    detail = getattr(exc, "detail", None)
+    detail_dict: dict[str, Any] = dict(detail) if isinstance(detail, dict) else {}
+    code = str(failure.code) if failure is not None else "synth_error"
+    out: dict[str, Any] = {
+        "error": code,
+        "detail": detail_dict,
+        "message": str(exc),
+    }
+    if failure is not None:
+        out.update(
+            {
+                "category": failure.category.value,
+                "operation": failure.operation,
+                "request_id": failure.request_id,
+                "correlation_id": failure.correlation_id,
+                "retryable": failure.retry.retryable,
+                "retry_after_seconds": failure.retry.retry_after_seconds,
+            }
+        )
+        if failure.status is not None:
+            out["http_status"] = failure.status
     return out
 
 
@@ -387,6 +420,7 @@ class ResearchMcpServer:
             *build_project_data_tools(self._core_client_from_args),
             *build_environment_tools(self._core_client_from_args),
             *build_image_release_tools(self._core_client_from_args),
+            *build_visual_tools(self._core_client_from_args),
             *build_log_tools(self),
             *build_approval_tools(self),
             *build_artifact_tools(self),
@@ -1100,11 +1134,11 @@ class ResearchMcpServer:
                 metadata=_optional_object_arg(args, "metadata"),
             ).raw
 
-    def _tool_record_seraph_brief(self, args: JSONDict) -> Any:
+    def _tool_record_adjudicator_brief(self, args: JSONDict) -> Any:
         return self._record_named_factory_actor_output(
             args,
-            actor_role="seraph",
-            kind="seraph_brief",
+            actor_role="adjudicator",
+            kind="adjudicator_brief",
         )
 
     def _tool_record_gardener_digest(self, args: JSONDict) -> Any:
@@ -3468,6 +3502,17 @@ class ResearchMcpServer:
             # Without this, non-launch tools flatten to a generic -32000 text
             # error and drop plan/cap/current-count fields.
             payload = _mcp_structured_trigger_error_payload(exc)
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32010,
+                    "message": payload.get("message", str(exc)),
+                    "data": payload,
+                },
+            }
+        except SynthError as exc:
+            payload = _mcp_structured_core_error_payload(exc)
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,

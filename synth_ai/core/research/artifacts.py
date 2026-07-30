@@ -153,4 +153,5 @@ class ResearchHostedArtifactsAPI:
         """
         return self._session.delete_hosted_artifact(hosted_artifact_id)
 
+
 __all__ = ["ResearchHostedArtifactsAPI"]

@@ -2,128 +2,8 @@
   "version": 1,
   "models": [
     {
-      "id": "gpt-5.3-codex",
-      "display_name": "GPT-5.3 Codex",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.3-codex",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": 128000,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.0000025",
-        "cached_input_usd": "0.00000125",
-        "output_usd": "0.00001",
-        "reasoning_output_usd": "0.00001",
-        "source": "synth_contract_estimate",
-        "observed_at": "2026-04-21"
-      }
-    },
-    {
-      "id": "gpt-5.3-codex-spark",
-      "display_name": "GPT-5.3 Codex Spark",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.3-codex-spark",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": null,
-      "route_regions": [],
-      "zdr_supported": null,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": 128000,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "4E-7",
-        "cached_input_usd": "2E-7",
-        "output_usd": "0.0000016",
-        "reasoning_output_usd": "0.0000016",
-        "source": "synth_contract_estimate",
-        "observed_at": "2026-04-21"
-      }
-    },
-    {
-      "id": "gpt-5.5",
-      "display_name": "GPT-5.5",
-      "display_group": "standard_codex",
-      "public": true,
-      "provider": "openai",
-      "provider_model_id": "gpt-5.5",
-      "compute_pool_kind": "auth_pool",
-      "compute_pool_id": "openai_chatgpt_pool",
-      "route_kind": "codex_pool",
-      "provider_domicile": null,
-      "route_regions": [],
-      "zdr_supported": null,
-      "harnesses": [
-        "codex"
-      ],
-      "aliases": [],
-      "supported_reasoning_efforts": [
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ],
-      "default_reasoning_effort": "medium",
-      "context_window_tokens": null,
-      "max_output_tokens": 128000,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.0000025",
-        "cached_input_usd": "0.00000125",
-        "output_usd": "0.00001",
-        "reasoning_output_usd": "0.00001",
-        "source": "synth_contract_estimate",
-        "observed_at": "2026-04-24"
-      }
-    },
-    {
       "id": "gpt-5.6-luna",
       "display_name": "GPT-5.6 Luna",
-      "display_group": "standard_codex",
       "public": true,
       "provider": "openai",
       "provider_model_id": "gpt-5.6-luna",
@@ -161,18 +41,19 @@
       }
     },
     {
-      "id": "gpt-5.4",
-      "display_name": "GPT-5.4",
-      "display_group": "standard_codex",
+      "id": "gpt-5.6-sol",
+      "display_name": "GPT-5.6 Sol",
       "public": true,
       "provider": "openai",
-      "provider_model_id": "gpt-5.4",
+      "provider_model_id": "gpt-5.6-sol",
       "compute_pool_kind": "auth_pool",
       "compute_pool_id": "openai_chatgpt_pool",
       "route_kind": "codex_pool",
-      "provider_domicile": null,
-      "route_regions": [],
-      "zdr_supported": null,
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
       "harnesses": [
         "codex"
       ],
@@ -181,28 +62,104 @@
         "low",
         "medium",
         "high",
-        "xhigh"
+        "max"
       ],
       "default_reasoning_effort": "medium",
       "context_window_tokens": null,
-      "max_output_tokens": 128000,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000005",
+        "cached_input_usd": "5E-7",
+        "output_usd": "0.00003",
+        "reasoning_output_usd": "0.00003",
+        "source": "openai_gpt_5_6_preview",
+        "observed_at": "2026-07-09"
+      }
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "display_name": "GPT-5.6 Terra",
+      "public": true,
+      "provider": "openai",
+      "provider_model_id": "gpt-5.6-terra",
+      "compute_pool_kind": "auth_pool",
+      "compute_pool_id": "openai_chatgpt_pool",
+      "route_kind": "codex_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "codex"
+      ],
+      "aliases": [],
+      "supported_reasoning_efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default_reasoning_effort": "medium",
+      "context_window_tokens": null,
+      "max_output_tokens": null,
       "usage_required": true,
       "pricing_present": true,
       "pricing": {
         "currency": "USD",
         "unit": "token",
         "input_usd": "0.0000025",
-        "cached_input_usd": "0.00000125",
-        "output_usd": "0.00001",
-        "reasoning_output_usd": "0.00001",
-        "source": "synth_contract_estimate",
-        "observed_at": "2026-04-24"
+        "cached_input_usd": "2.5E-7",
+        "output_usd": "0.000015",
+        "reasoning_output_usd": "0.000015",
+        "source": "openai_gpt_5_6_preview",
+        "observed_at": "2026-07-09"
+      }
+    },
+    {
+      "id": "cursor/grok-4.5",
+      "display_name": "Cursor Grok 4.5",
+      "public": true,
+      "provider": "cursor",
+      "provider_model_id": "grok-4.5",
+      "compute_pool_kind": "api_proxy_pool",
+      "compute_pool_id": "cursor_pool",
+      "route_kind": "api_proxy_pool",
+      "provider_domicile": "us",
+      "route_regions": [
+        "us"
+      ],
+      "zdr_supported": true,
+      "harnesses": [
+        "cursor"
+      ],
+      "aliases": [
+        "cursor-grok-4.5",
+        "grok-4.5"
+      ],
+      "supported_reasoning_efforts": [],
+      "default_reasoning_effort": null,
+      "context_window_tokens": null,
+      "max_output_tokens": null,
+      "usage_required": true,
+      "pricing_present": true,
+      "pricing": {
+        "currency": "USD",
+        "unit": "token",
+        "input_usd": "0.000002",
+        "cached_input_usd": "2E-7",
+        "output_usd": "0.000006",
+        "reasoning_output_usd": "0.000006",
+        "source": "cursor_grok_4_5_launch",
+        "observed_at": "2026-07-09"
       }
     },
     {
       "id": "gpt-5.4-mini",
       "display_name": "GPT-5.4 Mini",
-      "display_group": "standard_codex",
       "public": true,
       "provider": "openai",
       "provider_model_id": "gpt-5.4-mini",
@@ -243,7 +200,6 @@
     {
       "id": "cursor/composer-2.5",
       "display_name": "Cursor Composer 2.5",
-      "display_group": "additional_first_launch",
       "public": true,
       "provider": "cursor",
       "provider_model_id": "composer-2.5",
@@ -282,56 +238,13 @@
       }
     },
     {
-      "id": "x-ai/grok-4.3",
-      "display_name": "Grok 4.3",
-      "display_group": "additional_first_launch",
+      "id": "modal/moonshotai/Kimi-K3",
+      "display_name": "Kimi K3 (Modal Shared API)",
       "public": true,
-      "provider": "xai",
-      "provider_model_id": "grok-4.3",
+      "provider": "modal",
+      "provider_model_id": "moonshotai/Kimi-K3",
       "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "xai",
-      "route_kind": "api_proxy_pool",
-      "provider_domicile": "us",
-      "route_regions": [
-        "us"
-      ],
-      "zdr_supported": true,
-      "harnesses": [
-        "opencode_sdk",
-        "codex"
-      ],
-      "aliases": [
-        "xai/grok-4-3",
-        "x-ai/grok-4-3",
-        "grok-4.3",
-        "grok-4-3"
-      ],
-      "supported_reasoning_efforts": [],
-      "default_reasoning_effort": null,
-      "context_window_tokens": null,
-      "max_output_tokens": null,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "0.00000125",
-        "cached_input_usd": "2E-7",
-        "output_usd": "0.0000025",
-        "reasoning_output_usd": "0.0000025",
-        "source": "xai_model_api_pricing",
-        "observed_at": "2026-06-25"
-      }
-    },
-    {
-      "id": "x-ai/grok-build",
-      "display_name": "Grok Build",
-      "display_group": "additional_first_launch",
-      "public": true,
-      "provider": "xai",
-      "provider_model_id": "grok-build-0.1",
-      "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "xai",
+      "compute_pool_id": "modal_api_pool",
       "route_kind": "api_proxy_pool",
       "provider_domicile": "us",
       "route_regions": [
@@ -342,68 +255,61 @@
         "codex"
       ],
       "aliases": [
-        "x-ai/grok-build-0.1",
-        "xai/grok-build",
-        "xai/grok-build-0.1",
-        "grok-build",
-        "grok-build-0.1"
+        "kimi-k3",
+        "modal-kimi-k3",
+        "moonshotai/Kimi-K3"
       ],
-      "supported_reasoning_efforts": [],
-      "default_reasoning_effort": null,
-      "context_window_tokens": null,
-      "max_output_tokens": null,
+      "supported_reasoning_efforts": [
+        "low"
+      ],
+      "default_reasoning_effort": "low",
+      "context_window_tokens": 1048576,
+      "max_output_tokens": 8192,
       "usage_required": true,
       "pricing_present": true,
       "pricing": {
         "currency": "USD",
         "unit": "token",
-        "input_usd": "0.000001",
-        "cached_input_usd": "2E-7",
-        "output_usd": "0.000002",
-        "reasoning_output_usd": "0.000002",
-        "source": "xai_pricing_docs",
-        "observed_at": "2026-06-24"
-      }
+        "input_usd": "0.000003",
+        "cached_input_usd": "3E-7",
+        "output_usd": "0.000015",
+        "reasoning_output_usd": "0.000015",
+        "source": "modal_managed_shared_api_catalog",
+        "observed_at": "2026-07-27"
+      },
+      "source_model_id": "moonshotai/Kimi-K3",
+      "source_model_revision": "9f62e4e9fffbd0a83ddd60e1c209d828994b3569",
+      "source_model_license": "Kimi K3 License",
+      "provider_catalog_entry_sha256": "a22f5b6d1a743123c2f49191dc9517abe2e265c60f4ae1b619b1a320e48595b0",
+      "provider_revision_attested": false
     },
     {
-      "id": "moonshotai/kimi-k2.6",
-      "display_name": "Kimi K2.6",
-      "display_group": "additional_first_launch",
+      "id": "synth_internal/laguna-s-2.1-nvfp4",
+      "display_name": "Laguna S 2.1 NVFP4 (Synth Internal \u00b7 Modal)",
       "public": true,
-      "provider": "openrouter",
-      "provider_model_id": "moonshotai/kimi-k2.6",
+      "provider": "synth_internal",
+      "provider_model_id": "synth_internal/laguna-s-2.1-nvfp4",
       "compute_pool_kind": "api_proxy_pool",
-      "compute_pool_id": "openrouter_pool",
-      "route_kind": "api_proxy_pool",
+      "compute_pool_id": "synth_internal_api_pool",
+      "route_kind": "direct_api",
       "provider_domicile": "us",
       "route_regions": [
         "us"
       ],
       "zdr_supported": true,
       "harnesses": [
-        "opencode_sdk"
+        "codex"
       ],
       "aliases": [
-        "moonshotai/kimi-k2-6",
-        "kimi-k2.6",
-        "kimi-k2-6"
+        "laguna-s-2.1-internal"
       ],
       "supported_reasoning_efforts": [],
       "default_reasoning_effort": null,
-      "context_window_tokens": null,
-      "max_output_tokens": 32768,
-      "usage_required": true,
-      "pricing_present": true,
-      "pricing": {
-        "currency": "USD",
-        "unit": "token",
-        "input_usd": "7.448E-7",
-        "cached_input_usd": "1.463E-7",
-        "output_usd": "0.000004655",
-        "reasoning_output_usd": "0.000004655",
-        "source": "openrouter_catalog",
-        "observed_at": "2026-04-23"
-      }
+      "context_window_tokens": 262144,
+      "max_output_tokens": 16384,
+      "usage_required": false,
+      "pricing_present": false,
+      "pricing": null
     }
   ]
 }

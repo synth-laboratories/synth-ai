@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   check-version:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       needs_publish: ${{ steps.check.outputs.needs_publish }}
       version: ${{ steps.local.outputs.version }}
@@ -63,6 +63,11 @@ jobs:
             echo "::error::PyPI metadata unavailable after 3 attempts; refusing to decide publish"
             exit 1
           fi
+          if ! printf '%s' "$META" | jq -e \
+               'type == "object" and (.releases | type == "object")' >/dev/null; then
+            echo "::error::PyPI metadata is malformed; refusing to decide publish"
+            exit 1
+          fi
           # Check the EXACT release, not .info.version (latest stable): exact
           # lookup is correct for both stable and .dev versions.
           if printf '%s' "$META" | jq -e --arg v "$LOCAL" '.releases | has($v)' >/dev/null; then
@@ -76,7 +81,7 @@ jobs:
   build-distributions:
     needs: check-version
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -100,7 +105,7 @@ jobs:
   publish:
     needs: [check-version, build-distributions]
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment:
       name: pypi
       url: https://pypi.org/project/synth-ai/
@@ -118,7 +123,7 @@ jobs:
   create-release:
     needs: [check-version, publish]
     if: needs.check-version.outputs.needs_publish == 'true'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:

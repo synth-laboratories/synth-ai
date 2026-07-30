@@ -619,7 +619,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
         ToolDefinition(
             name="smr_record_factory_actor_output",
             description=(
-                "Record a typed Research Factory actor output such as a Seraph brief, "
+                "Record a typed Research Factory actor output such as an Adjudicator brief, "
                 "Gardener digest, Architect feed-health note, finding report, or "
                 "success-measurement card."
             ),
@@ -634,8 +634,10 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
-            name="smr_record_seraph_brief",
-            description="Record a Seraph brief: priority, scope, escalation, or decision guidance.",
+            name="smr_record_adjudicator_brief",
+            description=(
+                "Record an Adjudicator brief: priority, scope, escalation, or decision guidance."
+            ),
             input_schema=tool_schema(
                 {
                     "factory_id": {"type": "string", "description": "Factory ID."},
@@ -644,7 +646,7 @@ def build_factory_tools(server: Any) -> list[ToolDefinition]:
                 },
                 required=["factory_id", "title"],
             ),
-            handler=server._tool_record_seraph_brief,
+            handler=server._tool_record_adjudicator_brief,
             required_scopes=WRITE_SCOPES,
         ),
         ToolDefinition(
