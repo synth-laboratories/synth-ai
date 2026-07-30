@@ -359,6 +359,7 @@ class KickoffContract:
     task_briefs: list[str] = field(default_factory=list)
     required_work_products: list[RequiredWorkProductSpec] = field(default_factory=list)
     model_visible_contract_files: list[KickoffContractFile] = field(default_factory=list)
+    trace_capture: dict[str, object] = field(default_factory=dict)
     kickoff_contract_file: str | None = None
     kickoff_contract_ref: str | None = None
 
@@ -402,6 +403,7 @@ class KickoffContract:
             model_visible_contract_files=[
                 KickoffContractFile.from_wire(item) for item in file_payload
             ],
+            trace_capture=_optional_object_dict(mapping.get("trace_capture")),
             kickoff_contract_file=_optional_string(mapping, "kickoff_contract_file"),
             kickoff_contract_ref=_optional_string(mapping, "kickoff_contract_ref"),
         )
@@ -435,6 +437,8 @@ class KickoffContract:
             payload["worker_pool_id"] = self.worker_pool_id
         if self.project_notes_framing is not None:
             payload["project_notes_framing"] = self.project_notes_framing
+        if self.trace_capture:
+            payload["trace_capture"] = dict(self.trace_capture)
         if self.kickoff_contract_file is not None:
             payload["kickoff_contract_file"] = self.kickoff_contract_file
         if self.kickoff_contract_ref is not None:
